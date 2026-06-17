@@ -53,13 +53,30 @@ Mechanism recall comparison:
 | 10 | 6 | 24 | 20.0 | 0.934 | 0.122 | 0.682 | 1.000 | 1.000 |
 | 8 | 10 | 20 | 16.0 | 0.887 | 0.046 | 0.626 | 1.000 | 1.000 |
 
-State-update-only result, with identical boundaries for both states:
+State-update-only comparison, with identical boundaries for both states:
 
-```text
-RWKV-7 state wins: 11
-linear/DLA state wins: 0
-ties: 4
-```
+| boundary policy | needles | filler/seg | K | states | linear/DLA state | RWKV-7 state | RWKV - linear |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| oracle | 8 | 12 | 16 | 16.0 | 1.000 | 1.000 | +0.000 |
+| dla | 8 | 12 | 16 | 16.0 | 1.000 | 1.000 | +0.000 |
+| fixed | 8 | 12 | 16 | 16.0 | 0.848 | 0.980 | +0.133 |
+| noisy_dla | 8 | 12 | 16 | 16.0 | 0.874 | 0.987 | +0.112 |
+| low_k_dla | 8 | 12 | 16 | 8.0 | 0.640 | 0.952 | +0.313 |
+| oracle | 12 | 10 | 16 | 24.0 | 1.000 | 1.000 | +0.000 |
+| dla | 12 | 10 | 16 | 16.0 | 0.792 | 0.982 | +0.190 |
+| fixed | 12 | 10 | 16 | 16.0 | 0.763 | 0.991 | +0.228 |
+| noisy_dla | 12 | 10 | 16 | 16.0 | 0.691 | 0.973 | +0.282 |
+| low_k_dla | 12 | 10 | 16 | 8.0 | 0.516 | 0.889 | +0.373 |
+| oracle | 16 | 8 | 12 | 32.0 | 1.000 | 1.000 | +0.000 |
+| dla | 16 | 8 | 12 | 12.0 | 0.556 | 0.827 | +0.272 |
+| fixed | 16 | 8 | 12 | 12.0 | 0.649 | 0.972 | +0.324 |
+| noisy_dla | 16 | 8 | 12 | 12.0 | 0.509 | 0.819 | +0.311 |
+| low_k_dla | 16 | 8 | 12 | 6.0 | 0.371 | 0.669 | +0.299 |
+
+This table fixes the exact same token blocks for both methods. `linear/DLA state`
+uses the standard block sum `sum k_t v_t^T`; `RWKV-7 state` uses the RWKV-7
+recurrence inside each same block. Therefore each row compares state
+update/readout only, not boundary quality.
 
 Interpretation:
 
