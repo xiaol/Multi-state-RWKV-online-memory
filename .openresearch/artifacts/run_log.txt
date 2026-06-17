@@ -1,0 +1,86 @@
+========================================================================
+[1] Codebase smoke test: repo Log-Linear attention (fixed cascade)
+========================================================================
+  ran hattention_materialized: output (1, 32, 2, 16), hierarchical levels=6, H shape=(1, 2, 32, 32)
+  ran recurrent HState.step_state: states (1, 2, 16, 16, 6)
+  SMOKE TEST: PASS
+
+========================================================================
+[2] Theorem 3.1 / Corollary 3.2: deviation bound at matched budget K
+========================================================================
+
+  config: K>=segments  (Alg 1 active)  (segments=6, K=8, avg DLA states=6.0)
+    deviation bound   fixed=  45.898  DLA=  23.839  ->  48.1% lower
+
+  config: K>=segments  (Alg 1 active)  (segments=10, K=12, avg DLA states=10.0)
+    deviation bound   fixed=  58.908  DLA=  26.054  ->  55.8% lower
+
+  config: K< segments  (Alg 2 active)  (segments=16, K=8, avg DLA states=8.0)
+    deviation bound   fixed= 143.390  DLA= 118.131  ->  17.6% lower
+
+  config: K< segments  (Alg 2 active)  (segments=24, K=10, avg DLA states=10.0)
+    deviation bound   fixed= 193.717  DLA= 169.493  ->  12.5% lower
+
+========================================================================
+[3] Associative recall (needle): retrieval at matched budget K
+========================================================================
+
+  config: needles=6, filler/seg=8, K=16, avg DLA states=12.0
+    recall cos(o, v*)   fixed= 0.920  HRM-delta= 0.229  HRM-rwkv7= 0.797  HRM-rwkv7-ms= 1.000  DLA= 1.000
+
+  config: needles=10, filler/seg=6, K=24, avg DLA states=20.0
+    recall cos(o, v*)   fixed= 0.934  HRM-delta= 0.122  HRM-rwkv7= 0.682  HRM-rwkv7-ms= 1.000  DLA= 1.000
+
+  config: needles=8, filler/seg=10, K=20, avg DLA states=16.0
+    recall cos(o, v*)   fixed= 0.887  HRM-delta= 0.046  HRM-rwkv7= 0.626  HRM-rwkv7-ms= 1.000  DLA= 1.000
+
+========================================================================
+[4] State-update-only ablation: same boundaries, different states
+========================================================================
+
+  policy=oracle    needles=8, filler/seg=12, K=16, avg states=16.0
+    linear/DLA-state= 1.000  RWKV7-state= 1.000  delta=+0.000
+
+  policy=dla       needles=8, filler/seg=12, K=16, avg states=16.0
+    linear/DLA-state= 1.000  RWKV7-state= 1.000  delta=+0.000
+
+  policy=fixed     needles=8, filler/seg=12, K=16, avg states=16.0
+    linear/DLA-state= 0.848  RWKV7-state= 0.980  delta=+0.133
+
+  policy=noisy_dla needles=8, filler/seg=12, K=16, avg states=16.0
+    linear/DLA-state= 0.874  RWKV7-state= 0.987  delta=+0.112
+
+  policy=low_k_dla needles=8, filler/seg=12, K=16, avg states=8.0
+    linear/DLA-state= 0.640  RWKV7-state= 0.952  delta=+0.313
+
+  policy=oracle    needles=12, filler/seg=10, K=16, avg states=24.0
+    linear/DLA-state= 1.000  RWKV7-state= 1.000  delta=+0.000
+
+  policy=dla       needles=12, filler/seg=10, K=16, avg states=16.0
+    linear/DLA-state= 0.792  RWKV7-state= 0.982  delta=+0.190
+
+  policy=fixed     needles=12, filler/seg=10, K=16, avg states=16.0
+    linear/DLA-state= 0.763  RWKV7-state= 0.991  delta=+0.228
+
+  policy=noisy_dla needles=12, filler/seg=10, K=16, avg states=16.0
+    linear/DLA-state= 0.691  RWKV7-state= 0.973  delta=+0.282
+
+  policy=low_k_dla needles=12, filler/seg=10, K=16, avg states=8.0
+    linear/DLA-state= 0.516  RWKV7-state= 0.889  delta=+0.373
+
+  policy=oracle    needles=16, filler/seg=8, K=12, avg states=32.0
+    linear/DLA-state= 1.000  RWKV7-state= 1.000  delta=+0.000
+
+  policy=dla       needles=16, filler/seg=8, K=12, avg states=12.0
+    linear/DLA-state= 0.556  RWKV7-state= 0.827  delta=+0.272
+
+  policy=fixed     needles=16, filler/seg=8, K=12, avg states=12.0
+    linear/DLA-state= 0.649  RWKV7-state= 0.972  delta=+0.324
+
+  policy=noisy_dla needles=16, filler/seg=8, K=12, avg states=12.0
+    linear/DLA-state= 0.509  RWKV7-state= 0.819  delta=+0.311
+
+  policy=low_k_dla needles=16, filler/seg=8, K=12, avg states=6.0
+    linear/DLA-state= 0.371  RWKV7-state= 0.669  delta=+0.299
+
+  figure written: /home/xiaol/X/Multi-state-RWKV-online-memory/.openresearch/artifacts/dla_comparison.png

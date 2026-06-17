@@ -1,0 +1,8 @@
+[build-system]
+requires = [
+    "setuptools",
+    "torch",
+    "einops",
+    "jaxtyping",
+]
+build-backend = "setuptools.build_meta"
