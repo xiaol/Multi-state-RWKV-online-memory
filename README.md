@@ -136,7 +136,15 @@ EVAL.md                            # Generated report from latest run
 .openresearch/artifacts/           # JSONL, JSON, figure, run log
 hattention/                        # Log-Linear Attention implementation used for smoke test
 figs/                              # Original figure asset
+integrations/delta_mem_rwkv_ms/    # delta-Mem RWKV-MS adapter patch and launcher
 ```
+
+## Delta-Mem Adapter
+
+The practical RWKV-MS memory adapter for delta-Mem is packaged in
+`integrations/delta_mem_rwkv_ms/`. It includes the patch, the minimal
+HRM-Text-derived RWKV-7 core, a matched delta-rule/RWKV-MS training launcher, and
+a temporary-clone checker for applying the patch safely.
 
 ## Acknowledgement
 

@@ -1,0 +1,908 @@
+diff --git a/README.md b/README.md
+index ac633ca..980294e 100644
+--- a/README.md
++++ b/README.md
+@@ -255,0 +256,43 @@ bash scripts/run_qasper_multimodel_write8192_train_and_benchmark_suite_smollm3_3
++### RWKV-MS Memory Adapter Comparison
++
++This fork also supports an experimental RWKV multi-state backend inside the same
++δ-mem adapter interface. The public readout contract stays
++`--memory-readout-mode delta`: both backends write online memory and emit q/k/v/o
++deltas into the frozen attention layer. The controlled variable is only the
++online state update.
++
++| Variant | Flag | Online state | Boundary/write routing | Readout |
++| --- | --- | --- | --- | --- |
++| Delta-rule Mem | `--memory-backend delta_rule` | One associative delta-rule matrix per state head | Existing token / message / sentence writes | Shared q/k/v/o delta projections |
++| RWKV-MS Mem | `--memory-backend rwkv_ms` | `rwkv_ms_num_states` HRM-Text-derived RWKV-7 matrices per state head | Fixed chunk slots, controlled by `--rwkv-ms-chunk-size` | Same q/k/v/o delta projections |
++
++The RWKV-MS backend vendors the minimal HRM-Text RWKV-7 projection/readout core
++into `deltamem.core.hrm_rwkv7`, then adds delta-Mem-compatible multi-state
++routing, online state save/load, and q/k/v/o delta injection around it.
++
++Train a matched pair:
++
++```bash
++BASE_MODEL_PATH=/path/to/Qwen3-4B-Instruct-2507 \
++TRAIN_FILE=/path/to/agent_memory_qasper_ctx8192_episode_safe_seed42.jsonl \
++OUTPUT_ROOT=/path/to/rwkv_ms_delta_rule_comparison \
++NPROC_PER_NODE=8 \
++bash scripts/run_rwkv_ms_delta_rule_comparison.sh
++```
++
++For a fair comparison, keep these fields identical across both runs:
++
++| Controlled field | Recommended value |
++| --- | --- |
++| Base model | Same checkpoint |
++| Train/eval data | Same files and seeds |
++| Adapter budget | Same `rank`, `alpha`, `delta_heads`, target layers |
++| Write policy | Same `memory_write_granularity` and max write length |
++| Training budget | Same steps, batch size, LR, scheduler |
++| Evaluation | Same LoCoMo / HotpotQA / GPQA / IFEval / MemoryAgentBench scripts |
++
++Use the existing benchmark suite on each trained checkpoint. Prefer the backend
++with better task accuracy at comparable generated-token throughput and GPU
++memory. If scores are close, inspect LoCoMo and MemoryAgentBench first because
++they stress online memory more directly than static QA.
++
+diff --git a/deltamem/core/delta.py b/deltamem/core/delta.py
+index 69f1a69..ec8c5ca 100644
+--- a/deltamem/core/delta.py
++++ b/deltamem/core/delta.py
+@@ -9,0 +10 @@ from deltamem.core.delta_impl import (
++    VALID_MEMORY_BACKENDS,
+@@ -25,0 +27 @@ from deltamem.core.delta_impl import (
++    normalize_memory_backend,
+@@ -108,0 +111 @@ __all__ = [
++    "VALID_MEMORY_BACKENDS",
+@@ -128,0 +132 @@ __all__ = [
++    "normalize_memory_backend",
+diff --git a/deltamem/core/delta_impl.py b/deltamem/core/delta_impl.py
+index e8e8845..a921f29 100644
+--- a/deltamem/core/delta_impl.py
++++ b/deltamem/core/delta_impl.py
+@@ -26,0 +27 @@ from deltamem.core.backbone_compat import (
++from deltamem.core.hrm_rwkv7 import HRMRWKV7LowRankCore
+@@ -34,0 +36 @@ VALID_DELTA_HEADS = ("q", "k", "v", "o")
++VALID_MEMORY_BACKENDS = ("delta_rule", "rwkv_ms")
+@@ -35,0 +38 @@ VALID_STATE_UPDATE_MODES = ("standard", "lambda_outside", "no_lambda")
++VALID_RWKV_MS_BOUNDARY_MODES = ("fixed_chunk",)
+@@ -77,0 +81,23 @@ def normalize_state_update_mode(mode: str) -> str:
++def normalize_memory_backend(mode: str) -> str:
++    normalized = str(mode).strip().lower().replace("-", "_")
++    if normalized == "delta":
++        normalized = "delta_rule"
++    if normalized not in VALID_MEMORY_BACKENDS:
++        raise ValueError(
++            f"Unsupported memory backend: {mode}; expected one of {VALID_MEMORY_BACKENDS}"
++        )
++    return normalized
++
++
++def normalize_rwkv_ms_boundary_mode(mode: str) -> str:
++    normalized = str(mode).strip().lower().replace("-", "_")
++    if normalized == "fixed":
++        normalized = "fixed_chunk"
++    if normalized not in VALID_RWKV_MS_BOUNDARY_MODES:
++        raise ValueError(
++            "Unsupported RWKV-MS boundary mode: "
++            f"{mode}; expected one of {VALID_RWKV_MS_BOUNDARY_MODES}"
++        )
++    return normalized
++
++
+@@ -188,0 +215 @@ class HFDeltaMemConfig:
++    memory_backend: str = "delta_rule"
+@@ -235,0 +263,5 @@ class HFDeltaMemConfig:
++    rwkv_ms_num_states: int = 4
++    rwkv_ms_chunk_size: int = 1024
++    rwkv_ms_boundary_mode: str = "fixed_chunk"
++    rwkv_ms_erase_gate: float = 1.0
++    rwkv_ms_read_top_k: int = 0
+@@ -238,0 +271 @@ class HFDeltaMemConfig:
++        object.__setattr__(self, "memory_backend", normalize_memory_backend(self.memory_backend))
+@@ -243,0 +277,17 @@ class HFDeltaMemConfig:
++        if int(self.rwkv_ms_num_states) < 1:
++            raise ValueError("rwkv_ms_num_states must be >= 1")
++        if int(self.rwkv_ms_chunk_size) < 1:
++            raise ValueError("rwkv_ms_chunk_size must be >= 1")
++        if float(self.rwkv_ms_erase_gate) < 0.0:
++            raise ValueError("rwkv_ms_erase_gate must be >= 0")
++        if int(self.rwkv_ms_read_top_k) < 0:
++            raise ValueError("rwkv_ms_read_top_k must be >= 0")
++        object.__setattr__(self, "rwkv_ms_num_states", int(self.rwkv_ms_num_states))
++        object.__setattr__(self, "rwkv_ms_chunk_size", int(self.rwkv_ms_chunk_size))
++        object.__setattr__(
++            self,
++            "rwkv_ms_boundary_mode",
++            normalize_rwkv_ms_boundary_mode(self.rwkv_ms_boundary_mode),
++        )
++        object.__setattr__(self, "rwkv_ms_erase_gate", float(self.rwkv_ms_erase_gate))
++        object.__setattr__(self, "rwkv_ms_read_top_k", int(self.rwkv_ms_read_top_k))
+@@ -529,0 +580,6 @@ class DeltaMemAttention(nn.Module):
++        self.memory_backend = config.memory_backend
++        self.rwkv_ms_num_states = config.rwkv_ms_num_states
++        self.rwkv_ms_chunk_size = config.rwkv_ms_chunk_size
++        self.rwkv_ms_boundary_mode = config.rwkv_ms_boundary_mode
++        self.rwkv_ms_erase_gate = config.rwkv_ms_erase_gate
++        self.rwkv_ms_read_top_k = config.rwkv_ms_read_top_k
+@@ -575,0 +632,4 @@ class DeltaMemAttention(nn.Module):
++        self.hrm_rwkv7_core = HRMRWKV7LowRankCore(
++            dim=self.state_read_dim,
++            head_size=self.rank,
++        ) if self.memory_backend == "rwkv_ms" else None
+@@ -596,0 +657 @@ class DeltaMemAttention(nn.Module):
++        self.rwkv_ms_positions: torch.Tensor | None = None
+@@ -690,0 +752 @@ class DeltaMemAttention(nn.Module):
++        self.rwkv_ms_positions = None
+@@ -745 +807,11 @@ class DeltaMemAttention(nn.Module):
+-            if self.multi_head_state:
++            if self.memory_backend == "rwkv_ms":
++                self.delta_state = torch.zeros(
++                    batch_size,
++                    self.num_state_heads,
++                    self.rwkv_ms_num_states,
++                    self.rank,
++                    self.rank,
++                    device=device,
++                    dtype=dtype,
++                )
++            elif self.multi_head_state:
+@@ -1730,0 +1803,237 @@ class DeltaMemAttention(nn.Module):
++    def _ensure_rwkv_ms_positions(
++        self,
++        batch_size: int,
++        device: torch.device,
++    ) -> torch.Tensor:
++        if (
++            self.rwkv_ms_positions is None
++            or self.rwkv_ms_positions.size(0) != batch_size
++            or self.rwkv_ms_positions.device != device
++        ):
++            self.rwkv_ms_positions = torch.zeros(
++                batch_size,
++                dtype=torch.long,
++                device=device,
++            )
++        return self.rwkv_ms_positions
++
++    def _rwkv_ms_project_heads(self, projected: torch.Tensor) -> torch.Tensor:
++        return projected.view(
++            projected.size(0),
++            projected.size(1),
++            self.num_state_heads,
++            self.rank,
++        )
++
++    def _rwkv_ms_update_coefficients(
++        self,
++        beta_seq: torch.Tensor,
++        lambda_seq: torch.Tensor,
++    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
++        keep_seq, erase_seq, write_seq = self._memory_update_coefficients(beta_seq, lambda_seq)
++        if self.num_state_heads == 1:
++            keep_seq = keep_seq.unsqueeze(2)
++            erase_seq = erase_seq.unsqueeze(2)
++            write_seq = write_seq.unsqueeze(2)
++        return keep_seq, erase_seq, write_seq
++
++    def _rwkv_ms_slot_indices(
++        self,
++        positions: torch.Tensor,
++    ) -> torch.Tensor:
++        if self.rwkv_ms_boundary_mode != "fixed_chunk":  # pragma: no cover
++            raise ValueError(f"Unsupported RWKV-MS boundary mode: {self.rwkv_ms_boundary_mode}")
++        return torch.div(
++            positions,
++            self.rwkv_ms_chunk_size,
++            rounding_mode="floor",
++        ).remainder(self.rwkv_ms_num_states)
++
++    def _rwkv_ms_read_routes(
++        self,
++        slot_reads: torch.Tensor,
++        q_t: torch.Tensor,
++        valid_t: torch.Tensor | None,
++    ) -> torch.Tensor:
++        scores = (slot_reads * q_t.unsqueeze(2)).sum(dim=-1) / math.sqrt(float(self.rank))
++        if 0 < self.rwkv_ms_read_top_k < scores.size(-1):
++            top_scores, top_indices = torch.topk(scores, k=self.rwkv_ms_read_top_k, dim=-1)
++            masked_scores = torch.full_like(scores, torch.finfo(scores.dtype).min)
++            scores = masked_scores.scatter_(-1, top_indices, top_scores)
++        routes = F.softmax(scores, dim=-1)
++        if valid_t is not None:
++            routes = routes * valid_t.view(valid_t.size(0), 1, 1).to(dtype=routes.dtype)
++        return routes
++
++    def _rwkv_ms_scan(
++        self,
++        state: torch.Tensor,
++        memory_source_seq: torch.Tensor,
++        beta_seq: torch.Tensor,
++        lambda_seq: torch.Tensor,
++        token_mask: Optional[torch.Tensor] = None,
++        *,
++        update_positions: bool = True,
++    ) -> tuple[torch.Tensor, torch.Tensor]:
++        batch_size, seq_len, _ = memory_source_seq.shape
++        if seq_len == 0:
++            self.last_read_routes = memory_source_seq.new_zeros(
++                batch_size,
++                0,
++                self.rwkv_ms_num_states,
++            )
++            self.last_write_routes = memory_source_seq.new_zeros(
++                batch_size,
++                0,
++                self.rwkv_ms_num_states,
++            )
++            return state, memory_source_seq.new_zeros(batch_size, 0, self.state_read_dim)
++        if self.hrm_rwkv7_core is None:  # pragma: no cover
++            raise RuntimeError("RWKV-MS backend requires HRM RWKV-7 core")
++        features = self.hrm_rwkv7_core.project(memory_source_seq)
++        r_seq = self._rwkv_ms_project_heads(features.r)
++        w_seq = self._rwkv_ms_project_heads(features.w)
++        k_seq = self._rwkv_ms_project_heads(features.k)
++        v_seq = self._rwkv_ms_project_heads(features.v)
++        a_seq = self._rwkv_ms_project_heads(features.a)
++        b_seq = self._rwkv_ms_project_heads(features.b)
++        keep_seq, erase_seq, write_seq = self._rwkv_ms_update_coefficients(beta_seq, lambda_seq)
++
++        current_state = state
++        positions = self._ensure_rwkv_ms_positions(batch_size, memory_source_seq.device).clone()
++        read_steps: list[torch.Tensor] = []
++        read_routes: list[torch.Tensor] = []
++        write_routes: list[torch.Tensor] = []
++
++        for token_idx in range(seq_len):
++            r_t = r_seq[:, token_idx]
++            w_t = torch.exp(-torch.exp(w_seq[:, token_idx].float())).to(dtype=memory_source_seq.dtype)
++            k_t = k_seq[:, token_idx]
++            v_t = v_seq[:, token_idx]
++            a_t = a_seq[:, token_idx]
++            b_t = b_seq[:, token_idx]
++            keep_t = keep_seq[:, token_idx]
++            erase_t = erase_seq[:, token_idx]
++            write_t = write_seq[:, token_idx]
++            valid_t = None if token_mask is None else token_mask[:, token_idx]
++
++            slot_reads = torch.einsum("bhsij,bhj->bhsi", current_state, r_t)
++            routes = self._rwkv_ms_read_routes(slot_reads, r_t, valid_t)
++            read_t = torch.einsum("bhs,bhsi->bhi", routes, slot_reads)
++            read_steps.append(read_t.reshape(batch_size, self.state_read_dim))
++            read_routes.append(routes.mean(dim=1))
++
++            slot_idx = self._rwkv_ms_slot_indices(positions)
++            slot_mask = F.one_hot(slot_idx, num_classes=self.rwkv_ms_num_states).to(
++                dtype=current_state.dtype,
++            )
++            if valid_t is not None:
++                slot_mask = slot_mask * valid_t.to(dtype=current_state.dtype).unsqueeze(-1)
++            write_routes.append(slot_mask)
++
++            correction_read = torch.einsum("bhsij,bhj->bhsi", current_state, a_t)
++            write_outer = v_t.unsqueeze(2).unsqueeze(-1) * k_t.unsqueeze(2).unsqueeze(-2)
++            correction_outer = correction_read.unsqueeze(-1) * b_t.unsqueeze(2).unsqueeze(-2)
++            candidate_state = (
++                keep_t.unsqueeze(2).unsqueeze(-1)
++                * w_t.unsqueeze(2).unsqueeze(-2)
++                * current_state
++                + write_t.unsqueeze(2).unsqueeze(-1) * write_outer
++                + self.rwkv_ms_erase_gate
++                * erase_t.unsqueeze(2).unsqueeze(-1)
++                * correction_outer
++            )
++            state_mask = slot_mask.view(batch_size, 1, self.rwkv_ms_num_states, 1, 1)
++            current_state = candidate_state * state_mask + current_state * (1.0 - state_mask)
++            if valid_t is None:
++                positions = positions + 1
++            else:
++                positions = positions + valid_t.to(dtype=torch.long)
++
++        reads = torch.stack(read_steps, dim=1)
++        reads = self.hrm_rwkv7_core.readout(reads, features.g)
++        self.last_read_routes = torch.stack(read_routes, dim=1)
++        self.last_write_routes = torch.stack(write_routes, dim=1)
++        if update_positions:
++            self.rwkv_ms_positions = positions.detach()
++        return current_state, reads
++
++    def _rwkv_ms_token_state_reads(
++        self,
++        state: torch.Tensor,
++        memory_source_seq: torch.Tensor,
++        token_mask: Optional[torch.Tensor],
++    ) -> torch.Tensor:
++        batch_size, seq_len, _ = memory_source_seq.shape
++        if seq_len == 0:
++            self.last_read_routes = memory_source_seq.new_zeros(
++                batch_size,
++                0,
++                self.rwkv_ms_num_states,
++            )
++            return memory_source_seq.new_zeros(batch_size, 0, self.state_read_dim)
++        if self.hrm_rwkv7_core is None:  # pragma: no cover
++            raise RuntimeError("RWKV-MS backend requires HRM RWKV-7 core")
++        features = self.hrm_rwkv7_core.project(memory_source_seq)
++        r_seq = self._rwkv_ms_project_heads(features.r)
++        read_steps: list[torch.Tensor] = []
++        read_routes: list[torch.Tensor] = []
++        for token_idx in range(seq_len):
++            r_t = r_seq[:, token_idx]
++            valid_t = None if token_mask is None else token_mask[:, token_idx]
++            slot_reads = torch.einsum("bhsij,bhj->bhsi", state, r_t)
++            routes = self._rwkv_ms_read_routes(slot_reads, r_t, valid_t)
++            read_t = torch.einsum("bhs,bhsi->bhi", routes, slot_reads)
++            read_steps.append(read_t.reshape(batch_size, self.state_read_dim))
++            read_routes.append(routes.mean(dim=1))
++        self.last_read_routes = torch.stack(read_routes, dim=1)
++        return self.hrm_rwkv7_core.readout(torch.stack(read_steps, dim=1), features.g)
++
++    def _memory_backend_scan(
++        self,
++        state: torch.Tensor,
++        memory_q_seq: torch.Tensor,
++        memory_k_seq: torch.Tensor,
++        memory_v_seq: torch.Tensor,
++        beta_seq: torch.Tensor,
++        lambda_seq: torch.Tensor,
++        write_route_seq: torch.Tensor | None = None,
++        read_route_seq: torch.Tensor | None = None,
++        token_mask: Optional[torch.Tensor] = None,
++    ) -> tuple[torch.Tensor, torch.Tensor]:
++        if self.memory_backend == "rwkv_ms":
++            return self._rwkv_ms_scan(
++                state,
++                memory_v_seq,
++                beta_seq,
++                lambda_seq,
++                token_mask,
++            )
++        return self._memory_affine_scan(
++            state,
++            memory_q_seq,
++            memory_k_seq,
++            memory_v_seq,
++            beta_seq,
++            lambda_seq,
++            write_route_seq=write_route_seq,
++            read_route_seq=read_route_seq,
++            token_mask=token_mask,
++        )
++
++    def _memory_backend_token_reads(
++        self,
++        state: torch.Tensor,
++        memory_read_seq: torch.Tensor,
++        read_route_seq: torch.Tensor | None,
++        token_mask: Optional[torch.Tensor],
++    ) -> torch.Tensor:
++        if self.memory_backend == "rwkv_ms":
++            return self._rwkv_ms_token_state_reads(state, memory_read_seq, token_mask)
++        return self._token_state_reads(
++            state,
++            memory_read_seq,
++            read_route_seq,
++            token_mask,
++        )
++
+@@ -1803 +2112 @@ class DeltaMemAttention(nn.Module):
+-                state, _ = self._memory_affine_scan(
++                state, _ = self._memory_backend_scan(
+@@ -1814 +2123 @@ class DeltaMemAttention(nn.Module):
+-                reads = self._token_state_reads(
++                reads = self._memory_backend_token_reads(
+@@ -1816 +2125 @@ class DeltaMemAttention(nn.Module):
+-                    token_memory_q_seq,
++                    token_memory_v_seq if self.memory_backend == "rwkv_ms" else token_memory_q_seq,
+@@ -1822 +2131 @@ class DeltaMemAttention(nn.Module):
+-                state, reads = self._memory_affine_scan(
++                state, reads = self._memory_backend_scan(
+@@ -1834 +2143 @@ class DeltaMemAttention(nn.Module):
+-            reads = self._token_state_reads(
++            reads = self._memory_backend_token_reads(
+@@ -1836 +2145 @@ class DeltaMemAttention(nn.Module):
+-                token_memory_q_seq,
++                token_memory_v_seq if self.memory_backend == "rwkv_ms" else token_memory_q_seq,
+@@ -2042,0 +2352 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
++        "hrm_rwkv7_core_norm_sum": 0.0,
+@@ -2059,0 +2370,5 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
++        if module.hrm_rwkv7_core is not None:
++            stats["hrm_rwkv7_core_norm_sum"] += sum(
++                param.detach().float().norm().item()
++                for param in module.hrm_rwkv7_core.parameters()
++            )
+@@ -2066,12 +2381,4 @@ def snapshot_delta_mem_weights(model: nn.Module) -> dict[str, torch.Tensor]:
+-        snapshot[f"{name}.memory_q_proj"] = module.memory_q_proj.detach().float().cpu().clone()
+-        snapshot[f"{name}.memory_k_proj"] = module.memory_k_proj.detach().float().cpu().clone()
+-        snapshot[f"{name}.memory_v_proj"] = module.memory_v_proj.detach().float().cpu().clone()
+-        snapshot[f"{name}.delta_q_proj"] = module.delta_q_proj.detach().float().cpu().clone()
+-        snapshot[f"{name}.delta_k_proj"] = module.delta_k_proj.detach().float().cpu().clone()
+-        snapshot[f"{name}.delta_v_proj"] = module.delta_v_proj.detach().float().cpu().clone()
+-        snapshot[f"{name}.delta_o_proj"] = module.delta_o_proj.detach().float().cpu().clone()
+-        snapshot[f"{name}.beta_proj"] = module.beta_proj.detach().float().cpu().clone()
+-        snapshot[f"{name}.beta_bias"] = module.beta_bias.detach().float().cpu().clone()
+-        if not module.couple_lambda:
+-            snapshot[f"{name}.lambda_proj"] = module.lambda_proj.detach().float().cpu().clone()
+-            snapshot[f"{name}.lambda_bias"] = module.lambda_bias.detach().float().cpu().clone()
++        for sub_name, param in module.named_parameters():
++            if sub_name.startswith("base."):
++                continue
++            snapshot[f"{name}.{sub_name}"] = param.detach().float().cpu().clone()
+@@ -2260,0 +2568,2 @@ def get_delta_mem_online_state(model: nn.Module) -> dict[str, torch.Tensor]:
++        if module.memory_backend == "rwkv_ms" and module.rwkv_ms_positions is not None:
++            state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions.detach().cpu().clone()
+@@ -2266,0 +2576,10 @@ def load_delta_mem_online_state(model: nn.Module, state: dict[str, torch.Tensor]
++        if name.endswith(".__rwkv_ms_positions"):
++            module_name = name[: -len(".__rwkv_ms_positions")]
++            module = module_map[module_name]
++            if not isinstance(module, DeltaMemAttention):
++                raise TypeError(f"{module_name} is not a DeltaMemAttention")
++            module.rwkv_ms_positions = tensor.to(
++                device=module.base.q_proj.weight.device,
++                dtype=torch.long,
++            )
++            continue
+diff --git a/deltamem/tests/test_delta_mem_regressions.py b/deltamem/tests/test_delta_mem_regressions.py
+index fd80501..ed0a31a 100644
+--- a/deltamem/tests/test_delta_mem_regressions.py
++++ b/deltamem/tests/test_delta_mem_regressions.py
+@@ -456,0 +457,3 @@ def make_delta_module(
++    memory_backend: str = "delta_rule",
++    rwkv_ms_num_states: int = 4,
++    rwkv_ms_chunk_size: int = 2,
+@@ -470,0 +474,3 @@ def make_delta_module(
++            memory_backend=memory_backend,
++            rwkv_ms_num_states=rwkv_ms_num_states,
++            rwkv_ms_chunk_size=rwkv_ms_chunk_size,
+@@ -742,0 +749,35 @@ def test_zero_init_attention_wrapper_matches_base_attention() -> None:
++def test_zero_init_rwkv_ms_attention_wrapper_matches_base_attention() -> None:
++    torch.manual_seed(0)
++    base = make_qwen3_attention()
++    wrapped_base = make_qwen3_attention()
++    wrapped_base.load_state_dict(copy.deepcopy(base.state_dict()))
++    wrapped = DeltaMemAttention(
++        wrapped_base,
++        HFDeltaMemConfig(
++            rank=2,
++            output_init="zero",
++            rankwise_gates=True,
++            memory_backend="rwkv_ms",
++            rwkv_ms_num_states=3,
++            rwkv_ms_chunk_size=2,
++        ),
++    )
++    x = torch.randn(2, 4, 8)
++    position_embeddings = make_position_embeddings(
++        batch_size=x.size(0),
++        seq_len=x.size(1),
++        head_dim=base.head_dim,
++        device=x.device,
++        dtype=x.dtype,
++    )
++
++    base_out, base_weights = base(x, position_embeddings, None)
++    wrapped_out, wrapped_weights = wrapped(x, position_embeddings, None)
++
++    assert torch.allclose(base_out, wrapped_out, atol=1e-6, rtol=1e-6)
++    assert torch.allclose(base_weights, wrapped_weights, atol=1e-6, rtol=1e-6)
++    assert wrapped.delta_state is not None
++    assert wrapped.delta_state.shape == (2, 1, 3, 2, 2)
++    assert wrapped.hrm_rwkv7_core is not None
++
++
+@@ -943,0 +985,27 @@ def test_disable_writes_preserves_delta_state_during_read_phase() -> None:
++def test_disable_writes_preserves_rwkv_ms_state_during_read_phase() -> None:
++    module = make_delta_module(
++        output_init="random",
++        memory_backend="rwkv_ms",
++        rwkv_ms_num_states=3,
++        rwkv_ms_chunk_size=2,
++    )
++    x = torch.randn(1, 5, 8)
++    position_embeddings = make_position_embeddings(
++        batch_size=x.size(0),
++        seq_len=x.size(1),
++        head_dim=module.base.head_dim,
++        device=x.device,
++        dtype=x.dtype,
++    )
++    _ = module(x, position_embeddings, None)
++    state_before = module.delta_state.clone()
++    positions_before = module.rwkv_ms_positions.clone()
++
++    set_delta_mem_write_enabled(module, False)
++    _ = module(x, position_embeddings, None)
++    set_delta_mem_write_enabled(module, True)
++
++    assert torch.allclose(module.delta_state, state_before)
++    assert torch.equal(module.rwkv_ms_positions, positions_before)
++
++
+@@ -1610,0 +1679,38 @@ def test_multi_head_state_forward_runs() -> None:
++def test_rwkv_ms_backend_forward_runs_with_routes() -> None:
++    module = make_delta_module(
++        rank=2,
++        num_state_heads=2,
++        memory_backend="rwkv_ms",
++        rwkv_ms_num_states=3,
++        rwkv_ms_chunk_size=2,
++        delta_heads=("q", "o"),
++    )
++    x = torch.randn(1, 5, 8)
++    position_embeddings = make_position_embeddings(
++        batch_size=1,
++        seq_len=5,
++        head_dim=module.base.head_dim,
++        device=x.device,
++        dtype=x.dtype,
++    )
++    attention_mask = make_causal_attention_mask(torch.ones(1, 5, dtype=torch.long))
++
++    output, _ = module(x, position_embeddings, attention_mask)
++
++    assert output.shape == x.shape
++    assert module.delta_state is not None
++    assert module.delta_state.shape == (1, 2, 3, 2, 2)
++    assert module.rwkv_ms_positions is not None
++    assert module.rwkv_ms_positions.tolist() == [5]
++    assert module.last_write_routes is not None
++    assert module.last_write_routes.shape == (1, 5, 3)
++    expected_write_routes = torch.tensor(
++        [[[1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]]
++    )
++    assert torch.allclose(module.last_write_routes.cpu(), expected_write_routes)
++    assert module.last_read_routes is not None
++    assert module.last_read_routes.shape == (1, 5, 3)
++    assert module.hrm_rwkv7_core is not None
++    assert any(name.startswith("hrm_rwkv7_core.") for name, _ in module.named_parameters())
++
++
+diff --git a/deltamem/train/delta_sft_experimental.py b/deltamem/train/delta_sft_experimental.py
+index 0e18fd0..23cd559 100644
+--- a/deltamem/train/delta_sft_experimental.py
++++ b/deltamem/train/delta_sft_experimental.py
+@@ -34,0 +35 @@ from deltamem.core.delta import (
++    normalize_memory_backend,
+@@ -218,0 +220,5 @@ class DeltaMemTrainer(Trainer):
++            if module.rwkv_ms_positions is not None:
++                active_positions = module.rwkv_ms_positions
++                full_positions = active_positions.new_zeros((batch_size,))
++                full_positions[active_rows.to(device=active_positions.device)] = active_positions
++                module.rwkv_ms_positions = full_positions
+@@ -242,0 +249,11 @@ class DeltaMemTrainer(Trainer):
++            elif corrupt.ndim == 5:
++                num_states = corrupt.size(2)
++                size = corrupt.size(-1)
++                state_perm = torch.roll(torch.arange(num_states, device=corrupt.device), shifts=1)
++                row_perm = torch.roll(torch.arange(size, device=corrupt.device), shifts=1)
++                col_perm = torch.arange(size - 1, -1, -1, device=corrupt.device)
++                corrupt = (
++                    corrupt.index_select(2, state_perm)
++                    .index_select(-2, row_perm)
++                    .index_select(-1, col_perm)
++                )
+@@ -349,0 +367,2 @@ class DeltaMemTrainer(Trainer):
++            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_positions is not None:
++                state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions
+@@ -1487,0 +1507,15 @@ def parse_args() -> argparse.Namespace:
++    parser.add_argument(
++        "--memory-backend",
++        default="delta_rule",
++        choices=["delta_rule", "rwkv_ms"],
++        help="Online memory state update backend. Both backends still emit q/k/v/o deltas.",
++    )
++    parser.add_argument("--rwkv-ms-num-states", type=int, default=4)
++    parser.add_argument("--rwkv-ms-chunk-size", type=int, default=1024)
++    parser.add_argument(
++        "--rwkv-ms-boundary-mode",
++        default="fixed_chunk",
++        choices=["fixed_chunk"],
++    )
++    parser.add_argument("--rwkv-ms-erase-gate", type=float, default=1.0)
++    parser.add_argument("--rwkv-ms-read-top-k", type=int, default=0)
+@@ -2536,0 +2571,6 @@ def main() -> None:
++        memory_backend=normalize_memory_backend(args.memory_backend),
++        rwkv_ms_num_states=args.rwkv_ms_num_states,
++        rwkv_ms_chunk_size=args.rwkv_ms_chunk_size,
++        rwkv_ms_boundary_mode=args.rwkv_ms_boundary_mode,
++        rwkv_ms_erase_gate=args.rwkv_ms_erase_gate,
++        rwkv_ms_read_top_k=args.rwkv_ms_read_top_k,
+diff --git a/deltamem/core/hrm_rwkv7.py b/deltamem/core/hrm_rwkv7.py
+new file mode 100644
+index 0000000..251cd2e
+--- /dev/null
++++ b/deltamem/core/hrm_rwkv7.py
+@@ -0,0 +1,167 @@
++from __future__ import annotations
++
++import math
++from typing import NamedTuple
++
++import torch
++from torch import Tensor, nn
++import torch.nn.functional as F
++
++
++class HRMRWKV7Features(NamedTuple):
++    r: Tensor
++    w: Tensor
++    k: Tensor
++    v: Tensor
++    a: Tensor
++    b: Tensor
++    g: Tensor
++
++
++def _ortho_init_(x: Tensor, scale: float = 1.0) -> Tensor:
++    with torch.no_grad():
++        shape = x.shape
++        if len(shape) == 2:
++            gain = math.sqrt(shape[0] / shape[1]) if shape[0] > shape[1] else 1.0
++            nn.init.orthogonal_(x, gain=gain * scale)
++        else:
++            raise ValueError(f"Unsupported tensor shape for RWKV-7 orthogonal init: {shape}")
++    return x
++
++
++def _time_shift_delta(x: Tensor) -> Tensor:
++    xx = torch.empty_like(x)
++    xx[:, 0] = -x[:, 0]
++    if x.size(1) > 1:
++        xx[:, 1:] = x[:, :-1] - x[:, 1:]
++    return xx
++
++
++class HRMRWKV7LowRankCore(nn.Module):
++    """HRM-Text-derived RWKV-7 memory core.
++
++    This is a minimal, local port of HRM-Text's `RWKV7TimeMix` projection stack
++    and `RWKVStateMemory` read normalization/output path. Delta-Mem owns the
++    persistent multi-state routing around it.
++    """
++
++    def __init__(self, *, dim: int, head_size: int) -> None:
++        super().__init__()
++        if dim < 1:
++            raise ValueError("dim must be >= 1")
++        if head_size < 1:
++            raise ValueError("head_size must be >= 1")
++        if dim % head_size != 0:
++            raise ValueError(f"dim ({dim}) must be divisible by head_size ({head_size})")
++        self.dim = int(dim)
++        self.head_size = int(head_size)
++        self.n_head = self.dim // self.head_size
++
++        decay_lora_dim = max(32, int(round((2.5 * (dim**0.5)) / 32) * 32))
++        aaa_lora_dim = max(32, int(round((2.5 * (dim**0.5)) / 32) * 32))
++        gate_lora_dim = max(32, int(round((5.0 * (dim**0.5)) / 32) * 32))
++
++        self.x_r = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_w = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_k = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_v = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_a = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_g = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++
++        self.w1 = nn.Parameter(torch.empty(dim, decay_lora_dim, dtype=torch.float32))
++        self.w2 = nn.Parameter(torch.empty(decay_lora_dim, dim, dtype=torch.float32))
++        self.w0 = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.a1 = nn.Parameter(torch.empty(dim, aaa_lora_dim, dtype=torch.float32))
++        self.a2 = nn.Parameter(torch.empty(aaa_lora_dim, dim, dtype=torch.float32))
++        self.a0 = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.g1 = nn.Parameter(torch.empty(dim, gate_lora_dim, dtype=torch.float32))
++        self.g2 = nn.Parameter(torch.empty(gate_lora_dim, dim, dtype=torch.float32))
++        self.k_k = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.k_a = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++
++        self.receptance = nn.Linear(dim, dim, bias=False)
++        self.key = nn.Linear(dim, dim, bias=False)
++        self.value = nn.Linear(dim, dim, bias=False)
++        self.output = nn.Linear(dim, dim, bias=False)
++        self.ln_x = nn.GroupNorm(self.n_head, dim, eps=64e-5)
++        self.reset_parameters(dim**-0.5)
++
++    def reset_parameters(self, init_std: float) -> None:
++        device = self.x_r.device
++        dim = self.dim
++        ddd = torch.arange(dim, device=device, dtype=torch.float32) / dim
++        linear = torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1) - 0.5
++        zigzag = torch.arange(dim, device=device, dtype=torch.float32) % self.head_size
++        zigzag = (zigzag - ((self.head_size - 1) / 2)) / max((self.head_size - 1) / 2, 1.0)
++        zigzag = zigzag * zigzag.abs()
++        decay = -6 + 6 * (torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1))
++        with torch.no_grad():
++            self.x_r.copy_(1.0 - torch.pow(ddd, 0.2))
++            self.x_w.copy_(1.0 - torch.pow(ddd, 0.9))
++            self.x_k.copy_(1.0 - torch.pow(ddd, 0.7))
++            self.x_v.copy_(1.0 - torch.pow(ddd, 0.7))
++            self.x_a.copy_(1.0 - torch.pow(ddd, 0.9))
++            self.x_g.copy_(1.0 - torch.pow(ddd, 0.2))
++            self.w0.copy_(decay + 0.5 + zigzag * 2.5)
++            self.a0.copy_(torch.zeros_like(linear) - 0.19 + zigzag * 0.3 + linear * 0.4)
++            self.k_k.copy_(torch.zeros_like(linear) + 0.71 - linear * 0.1)
++            self.k_a.fill_(1.02)
++            self.w1.zero_()
++            _ortho_init_(self.w2, 0.1)
++            self.a1.zero_()
++            _ortho_init_(self.a2, 0.1)
++            self.g1.zero_()
++            _ortho_init_(self.g2, 0.1)
++        for proj in (self.receptance, self.key, self.value):
++            nn.init.trunc_normal_(proj.weight, mean=0.0, std=init_std, a=-3 * init_std, b=3 * init_std)
++        nn.init.zeros_(self.output.weight)
++        self.ln_x.reset_parameters()
++
++    def project(self, x: Tensor) -> HRMRWKV7Features:
++        batch_size, seq_len, dim = x.shape
++        xx = _time_shift_delta(x)
++        xr = x + xx * self.x_r.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xw = x + xx * self.x_w.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xk = x + xx * self.x_k.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xv = x + xx * self.x_v.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xa = x + xx * self.x_a.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xg = x + xx * self.x_g.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++
++        r = self.receptance(xr)
++        w = self.w0.to(dtype=x.dtype, device=x.device).view(1, 1, -1) + (
++            torch.tanh(xw @ self.w1.to(dtype=x.dtype, device=x.device))
++            @ self.w2.to(dtype=x.dtype, device=x.device)
++        )
++        k = self.key(xk)
++        v = self.value(xv)
++        w = -F.softplus(-w.float()).to(dtype=x.dtype) - 0.5
++        a_gate = torch.sigmoid(
++            self.a0.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++            + (xa @ self.a1.to(dtype=x.dtype, device=x.device))
++            @ self.a2.to(dtype=x.dtype, device=x.device)
++        )
++        g = torch.sigmoid(xg @ self.g1.to(dtype=x.dtype, device=x.device)) @ self.g2.to(
++            dtype=x.dtype,
++            device=x.device,
++        )
++        kk = k * self.k_k.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        kk = F.normalize(
++            kk.reshape(batch_size, seq_len, self.n_head, self.head_size),
++            dim=-1,
++            p=2.0,
++        ).reshape(batch_size, seq_len, dim)
++        k = k * (1 + (a_gate - 1) * self.k_a.to(dtype=x.dtype, device=x.device).view(1, 1, -1))
++        return HRMRWKV7Features(r=r, w=w, k=k, v=v, a=-kk, b=kk * a_gate, g=g)
++
++    def readout(self, reads: Tensor, g: Tensor) -> Tensor:
++        batch_size, seq_len, dim = reads.shape
++        if seq_len == 0:
++            return reads
++        normalized = F.group_norm(
++            reads.reshape(batch_size * seq_len, dim),
++            num_groups=self.n_head,
++            weight=self.ln_x.weight.to(device=reads.device, dtype=reads.dtype),
++            bias=None,
++            eps=self.ln_x.eps,
++        ).reshape(batch_size, seq_len, dim)
++        return self.output(normalized * g)
+diff --git a/scripts/run_rwkv_ms_delta_rule_comparison.sh b/scripts/run_rwkv_ms_delta_rule_comparison.sh
+new file mode 100755
+index 0000000..5e62f97
+--- /dev/null
++++ b/scripts/run_rwkv_ms_delta_rule_comparison.sh
+@@ -0,0 +1,118 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++# Train two matched adapters that differ only in the online memory backend:
++#   1. delta_rule: original delta-Mem associative update
++#   2. rwkv_ms: multi-state RWKV-style update with fixed chunk routing
++#
++# This script intentionally reuses the repo trainer/evaluator entry points.
++# Override paths from the shell before running.
++
++PYTHON_BIN="${PYTHON_BIN:-python}"
++NPROC_PER_NODE="${NPROC_PER_NODE:-1}"
++MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
++BASE_MASTER_PORT="${BASE_MASTER_PORT:-29571}"
++
++BASE_MODEL_PATH="${BASE_MODEL_PATH:-/root/models/Qwen3-4B-Instruct-2507}"
++TRAIN_FILE="${TRAIN_FILE:-/root/data/agent_memory_qasper_ctx8192_episode_safe_seed42.jsonl}"
++OUTPUT_ROOT="${OUTPUT_ROOT:-/root/models/rwkv_ms_delta_rule_comparison}"
++RESULTS_ROOT="${RESULTS_ROOT:-/root/outputs/rwkv_ms_delta_rule_comparison}"
++
++ADAPTER_RANK="${ADAPTER_RANK:-8}"
++ALPHA="${ALPHA:-16.0}"
++DELTA_HEADS="${DELTA_HEADS:-q,o}"
++NUM_STATE_HEADS="${NUM_STATE_HEADS:-1}"
++MEMORY_WRITE_GRANULARITY="${MEMORY_WRITE_GRANULARITY:-token}"
++RWKV_MS_NUM_STATES="${RWKV_MS_NUM_STATES:-4}"
++RWKV_MS_CHUNK_SIZE="${RWKV_MS_CHUNK_SIZE:-1024}"
++
++COMMON_TRAIN_ARGS=(
++  --model-path "${BASE_MODEL_PATH}"
++  --train-file "${TRAIN_FILE}"
++  --training-mode episode
++  --assistant-loss-mode final_assistant_only
++  --episode-recent-messages 1
++  --max-length 512
++  --max-write-length 8192
++  --per-device-train-batch-size 1
++  --gradient-accumulation-steps 4
++  --learning-rate 2e-4
++  --lr-scheduler-type cosine
++  --warmup-ratio 0.10
++  --weight-decay 0.0
++  --num-train-epochs 1.0
++  --logging-steps 1
++  --save-steps 200
++  --rank "${ADAPTER_RANK}"
++  --alpha "${ALPHA}"
++  --num-state-heads "${NUM_STATE_HEADS}"
++  --beta-bias-init -1.5
++  --couple-lambda
++  --state-update-mode standard
++  --output-init base_slice_fixed
++  --base-slice-ref-width 8
++  --delta-heads "${DELTA_HEADS}"
++  --online-gain 0.05
++  --rankwise-gates
++  --target-layers off
++  --memory-readout-mode delta
++  --memory-write-source learned_hidden
++  --memory-write-granularity "${MEMORY_WRITE_GRANULARITY}"
++  --memory-contrast-weight 1.0
++  --memory-kl-weight 0.02
++  --memory-margin 0.01
++  --memory-causal-weight 1.0
++  --memory-anchor-weight 1.0
++  --memory-anchor-margin 0.005
++  --memory-recover-weight 0.25
++  --memory-need-floor 0.15
++  --memory-dropout-state-only-prob 0.2
++)
++
++train_backend() {
++  local backend="$1"
++  local port="$2"
++  local output_dir="${OUTPUT_ROOT}/${backend}"
++  local extra_args=()
++  if [[ "${backend}" == "rwkv_ms" ]]; then
++    extra_args=(
++      --rwkv-ms-num-states "${RWKV_MS_NUM_STATES}"
++      --rwkv-ms-chunk-size "${RWKV_MS_CHUNK_SIZE}"
++      --rwkv-ms-boundary-mode fixed_chunk
++      --rwkv-ms-erase-gate 1.0
++      --rwkv-ms-read-top-k 0
++    )
++  fi
++
++  "${PYTHON_BIN}" -m torch.distributed.run \
++    --nproc_per_node "${NPROC_PER_NODE}" \
++    --master_addr "${MASTER_ADDR}" \
++    --master_port "${port}" \
++    -m deltamem.train.delta_sft_experimental \
++    "${COMMON_TRAIN_ARGS[@]}" \
++    --output-dir "${output_dir}" \
++    --memory-backend "${backend}" \
++    "${extra_args[@]}"
++}
++
++mkdir -p "${OUTPUT_ROOT}" "${RESULTS_ROOT}"
++train_backend delta_rule "${BASE_MASTER_PORT}"
++train_backend rwkv_ms "$((BASE_MASTER_PORT + 1))"
++
++cat <<EOF
++Matched adapters trained under: ${OUTPUT_ROOT}
++
++Run the existing benchmark suite against each checkpoint, for example:
++
++BASE_MODEL_PATH=${BASE_MODEL_PATH} \\
++TSW_ADAPTER_DIR=${OUTPUT_ROOT}/delta_rule/trainer/checkpoint-<step> \\
++SUITE_ROOT=${RESULTS_ROOT}/delta_rule \\
++BENCHMARK_VARIANTS_STRING=TSW_rank8_qasper_write8192 \\
++bash scripts/run_qasper_multimodel_write8192_benchmark_suite.sh
++
++BASE_MODEL_PATH=${BASE_MODEL_PATH} \\
++TSW_ADAPTER_DIR=${OUTPUT_ROOT}/rwkv_ms/trainer/checkpoint-<step> \\
++SUITE_ROOT=${RESULTS_ROOT}/rwkv_ms \\
++BENCHMARK_VARIANTS_STRING=TSW_rank8_qasper_write8192 \\
++bash scripts/run_qasper_multimodel_write8192_benchmark_suite.sh
++EOF
