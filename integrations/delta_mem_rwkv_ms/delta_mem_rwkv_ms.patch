@@ -46,29 +46,67 @@ index ac633ca..980294e 100644
 +memory. If scores are close, inspect LoCoMo and MemoryAgentBench first because
 +they stress online memory more directly than static QA.
 +
+diff --git a/deltamem/core/backbone_compat.py b/deltamem/core/backbone_compat.py
+index f86802f..113f7a0 100644
+--- a/deltamem/core/backbone_compat.py
++++ b/deltamem/core/backbone_compat.py
+@@ -8,0 +9,11 @@ from transformers.models.smollm3.modeling_smollm3 import (
++try:
++    from transformers.models.gemma4.modeling_gemma4 import (
++        Gemma4TextAttention,
++        apply_rotary_pos_emb as gemma4_apply_rotary_pos_emb,
++        eager_attention_forward as gemma4_eager_attention_forward,
++    )
++except Exception:  # pragma: no cover - optional Transformers version support
++    Gemma4TextAttention = None
++    gemma4_apply_rotary_pos_emb = None
++    gemma4_eager_attention_forward = None
++
 diff --git a/deltamem/core/delta.py b/deltamem/core/delta.py
-index 69f1a69..ec8c5ca 100644
+index 69f1a69..89c8f67 100644
 --- a/deltamem/core/delta.py
 +++ b/deltamem/core/delta.py
+@@ -7 +7 @@ from transformers.models.qwen3.modeling_qwen3 import Qwen3Attention
+-from deltamem.core.backbone_compat import SmolLM3Attention, ensure_attention_compat_views
++from deltamem.core.backbone_compat import Gemma4TextAttention, SmolLM3Attention, ensure_attention_compat_views
 @@ -9,0 +10 @@ from deltamem.core.delta_impl import (
 +    VALID_MEMORY_BACKENDS,
 @@ -25,0 +27 @@ from deltamem.core.delta_impl import (
 +    normalize_memory_backend,
-@@ -108,0 +111 @@ __all__ = [
+@@ -86,0 +89,3 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
++    supported_types = (Qwen3Attention, SmolLM3Attention)
++    if Gemma4TextAttention is not None:
++        supported_types = supported_types + (Gemma4TextAttention,)
+@@ -88 +93 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
+-        if not isinstance(module, (Qwen3Attention, SmolLM3Attention)):
++        if not isinstance(module, supported_types):
+@@ -89,0 +95,3 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
++        if Gemma4TextAttention is not None and isinstance(module, Gemma4TextAttention):
++            if getattr(module, "is_kv_shared_layer", False):
++                continue
+@@ -108,0 +117 @@ __all__ = [
 +    "VALID_MEMORY_BACKENDS",
-@@ -128,0 +132 @@ __all__ = [
+@@ -128,0 +138 @@ __all__ = [
 +    "normalize_memory_backend",
 diff --git a/deltamem/core/delta_impl.py b/deltamem/core/delta_impl.py
-index e8e8845..a921f29 100644
+index e8e8845..746b7a5 100644
 --- a/deltamem/core/delta_impl.py
 +++ b/deltamem/core/delta_impl.py
-@@ -26,0 +27 @@ from deltamem.core.backbone_compat import (
+@@ -20,0 +21 @@ from deltamem.core.backbone_compat import (
++    Gemma4TextAttention,
+@@ -23,0 +25,2 @@ from deltamem.core.backbone_compat import (
++    gemma4_apply_rotary_pos_emb,
++    gemma4_eager_attention_forward,
+@@ -26,0 +30 @@ from deltamem.core.backbone_compat import (
 +from deltamem.core.hrm_rwkv7 import HRMRWKV7LowRankCore
-@@ -34,0 +36 @@ VALID_DELTA_HEADS = ("q", "k", "v", "o")
+@@ -31,0 +36,2 @@ if HAS_SMOLLM3:
++if Gemma4TextAttention is not None:
++    SUPPORTED_BASE_ATTENTION_TYPES += (Gemma4TextAttention,)
+@@ -34,0 +41 @@ VALID_DELTA_HEADS = ("q", "k", "v", "o")
 +VALID_MEMORY_BACKENDS = ("delta_rule", "rwkv_ms")
-@@ -35,0 +38 @@ VALID_STATE_UPDATE_MODES = ("standard", "lambda_outside", "no_lambda")
+@@ -35,0 +43 @@ VALID_STATE_UPDATE_MODES = ("standard", "lambda_outside", "no_lambda")
 +VALID_RWKV_MS_BOUNDARY_MODES = ("fixed_chunk",)
-@@ -77,0 +81,23 @@ def normalize_state_update_mode(mode: str) -> str:
+@@ -77,0 +86,23 @@ def normalize_state_update_mode(mode: str) -> str:
 +def normalize_memory_backend(mode: str) -> str:
 +    normalized = str(mode).strip().lower().replace("-", "_")
 +    if normalized == "delta":
@@ -92,17 +130,17 @@ index e8e8845..a921f29 100644
 +    return normalized
 +
 +
-@@ -188,0 +215 @@ class HFDeltaMemConfig:
+@@ -188,0 +220 @@ class HFDeltaMemConfig:
 +    memory_backend: str = "delta_rule"
-@@ -235,0 +263,5 @@ class HFDeltaMemConfig:
+@@ -235,0 +268,5 @@ class HFDeltaMemConfig:
 +    rwkv_ms_num_states: int = 4
 +    rwkv_ms_chunk_size: int = 1024
 +    rwkv_ms_boundary_mode: str = "fixed_chunk"
 +    rwkv_ms_erase_gate: float = 1.0
 +    rwkv_ms_read_top_k: int = 0
-@@ -238,0 +271 @@ class HFDeltaMemConfig:
+@@ -238,0 +276 @@ class HFDeltaMemConfig:
 +        object.__setattr__(self, "memory_backend", normalize_memory_backend(self.memory_backend))
-@@ -243,0 +277,17 @@ class HFDeltaMemConfig:
+@@ -243,0 +282,17 @@ class HFDeltaMemConfig:
 +        if int(self.rwkv_ms_num_states) < 1:
 +            raise ValueError("rwkv_ms_num_states must be >= 1")
 +        if int(self.rwkv_ms_chunk_size) < 1:
@@ -120,23 +158,42 @@ index e8e8845..a921f29 100644
 +        )
 +        object.__setattr__(self, "rwkv_ms_erase_gate", float(self.rwkv_ms_erase_gate))
 +        object.__setattr__(self, "rwkv_ms_read_top_k", int(self.rwkv_ms_read_top_k))
-@@ -529,0 +580,6 @@ class DeltaMemAttention(nn.Module):
+@@ -514,0 +570 @@ class DeltaMemAttention(nn.Module):
++        self.is_gemma4_attention = Gemma4TextAttention is not None and isinstance(base, Gemma4TextAttention)
+@@ -516,0 +573,2 @@ class DeltaMemAttention(nn.Module):
++        elif self.is_gemma4_attention:
++            self.eager_attention_forward = gemma4_eager_attention_forward
+@@ -529,0 +588,6 @@ class DeltaMemAttention(nn.Module):
 +        self.memory_backend = config.memory_backend
 +        self.rwkv_ms_num_states = config.rwkv_ms_num_states
 +        self.rwkv_ms_chunk_size = config.rwkv_ms_chunk_size
 +        self.rwkv_ms_boundary_mode = config.rwkv_ms_boundary_mode
 +        self.rwkv_ms_erase_gate = config.rwkv_ms_erase_gate
 +        self.rwkv_ms_read_top_k = config.rwkv_ms_read_top_k
-@@ -575,0 +632,4 @@ class DeltaMemAttention(nn.Module):
+@@ -563,0 +628,6 @@ class DeltaMemAttention(nn.Module):
++        if self.is_gemma4_attention and self.is_kv_shared_layer:
++            raise ValueError(
++                "Delta-Mem does not wrap Gemma4 KV-shared attention layers because they do not own k/v projections. "
++                "Select non-shared target layers."
++            )
++
+@@ -575,0 +646,4 @@ class DeltaMemAttention(nn.Module):
 +        self.hrm_rwkv7_core = HRMRWKV7LowRankCore(
 +            dim=self.state_read_dim,
 +            head_size=self.rank,
 +        ) if self.memory_backend == "rwkv_ms" else None
-@@ -596,0 +657 @@ class DeltaMemAttention(nn.Module):
+@@ -596,0 +671 @@ class DeltaMemAttention(nn.Module):
 +        self.rwkv_ms_positions: torch.Tensor | None = None
-@@ -690,0 +752 @@ class DeltaMemAttention(nn.Module):
+@@ -638,0 +714,6 @@ class DeltaMemAttention(nn.Module):
++        if self.is_gemma4_attention:
++            if gemma4_apply_rotary_pos_emb is None:  # pragma: no cover
++                raise RuntimeError("Gemma4 rotary function is unavailable")
++            query_states = gemma4_apply_rotary_pos_emb(query_states, cos, sin, unsqueeze_dim=1)
++            key_states = gemma4_apply_rotary_pos_emb(key_states, cos, sin, unsqueeze_dim=1)
++            return query_states, key_states
+@@ -690,0 +772 @@ class DeltaMemAttention(nn.Module):
 +        self.rwkv_ms_positions = None
-@@ -745 +807,11 @@ class DeltaMemAttention(nn.Module):
+@@ -745 +827,11 @@ class DeltaMemAttention(nn.Module):
 -            if self.multi_head_state:
 +            if self.memory_backend == "rwkv_ms":
 +                self.delta_state = torch.zeros(
@@ -149,7 +206,7 @@ index e8e8845..a921f29 100644
 +                    dtype=dtype,
 +                )
 +            elif self.multi_head_state:
-@@ -1730,0 +1803,237 @@ class DeltaMemAttention(nn.Module):
+@@ -1730,0 +1823,237 @@ class DeltaMemAttention(nn.Module):
 +    def _ensure_rwkv_ms_positions(
 +        self,
 +        batch_size: int,
@@ -387,33 +444,78 @@ index e8e8845..a921f29 100644
 +            token_mask,
 +        )
 +
-@@ -1803 +2112 @@ class DeltaMemAttention(nn.Module):
+@@ -1735,0 +2065 @@ class DeltaMemAttention(nn.Module):
++        shared_kv_states: dict[str, tuple[torch.Tensor, torch.Tensor]] | None = None,
+@@ -1803 +2133 @@ class DeltaMemAttention(nn.Module):
 -                state, _ = self._memory_affine_scan(
 +                state, _ = self._memory_backend_scan(
-@@ -1814 +2123 @@ class DeltaMemAttention(nn.Module):
+@@ -1814 +2144 @@ class DeltaMemAttention(nn.Module):
 -                reads = self._token_state_reads(
 +                reads = self._memory_backend_token_reads(
-@@ -1816 +2125 @@ class DeltaMemAttention(nn.Module):
+@@ -1816 +2146 @@ class DeltaMemAttention(nn.Module):
 -                    token_memory_q_seq,
 +                    token_memory_v_seq if self.memory_backend == "rwkv_ms" else token_memory_q_seq,
-@@ -1822 +2131 @@ class DeltaMemAttention(nn.Module):
+@@ -1822 +2152 @@ class DeltaMemAttention(nn.Module):
 -                state, reads = self._memory_affine_scan(
 +                state, reads = self._memory_backend_scan(
-@@ -1834 +2143 @@ class DeltaMemAttention(nn.Module):
+@@ -1834 +2164 @@ class DeltaMemAttention(nn.Module):
 -            reads = self._token_state_reads(
 +            reads = self._memory_backend_token_reads(
-@@ -1836 +2145 @@ class DeltaMemAttention(nn.Module):
+@@ -1836 +2166 @@ class DeltaMemAttention(nn.Module):
 -                token_memory_q_seq,
 +                token_memory_v_seq if self.memory_backend == "rwkv_ms" else token_memory_q_seq,
-@@ -2042,0 +2352 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
+@@ -1872,7 +2202,18 @@ class DeltaMemAttention(nn.Module):
+-            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+-            key_states, value_states = past_key_values.update(
+-                key_states,
+-                value_states,
+-                self.base.layer_idx,
+-                cache_kwargs,
+-            )
++            if self.is_gemma4_attention:
++                key_states, value_states = past_key_values.update(
++                    key_states,
++                    value_states,
++                    self.base.layer_idx,
++                )
++            else:
++                cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
++                key_states, value_states = past_key_values.update(
++                    key_states,
++                    value_states,
++                    self.base.layer_idx,
++                    cache_kwargs,
++                )
++        if self.is_gemma4_attention and self.store_full_length_kv:
++            if shared_kv_states is None:
++                shared_kv_states = {}
++            shared_kv_states[self.layer_type] = key_states, value_states
+@@ -1882,3 +2223,9 @@ class DeltaMemAttention(nn.Module):
+-            attention_interface = ALL_ATTENTION_FUNCTIONS[
+-                self.base.config._attn_implementation
+-            ]
++            if hasattr(ALL_ATTENTION_FUNCTIONS, "get_interface"):
++                attention_interface = ALL_ATTENTION_FUNCTIONS.get_interface(
++                    self.base.config._attn_implementation,
++                    self.eager_attention_forward,
++                )
++            else:
++                attention_interface = ALL_ATTENTION_FUNCTIONS[
++                    self.base.config._attn_implementation
++                ]
+@@ -1930,0 +2278,3 @@ def attach_delta_mem(model: nn.Module, config: HFDeltaMemConfig) -> list[str]:
++        if Gemma4TextAttention is not None and isinstance(module, Gemma4TextAttention):
++            if getattr(module, "is_kv_shared_layer", False):
++                continue
+@@ -2042,0 +2393 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
 +        "hrm_rwkv7_core_norm_sum": 0.0,
-@@ -2059,0 +2370,5 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
+@@ -2059,0 +2411,5 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
 +        if module.hrm_rwkv7_core is not None:
 +            stats["hrm_rwkv7_core_norm_sum"] += sum(
 +                param.detach().float().norm().item()
 +                for param in module.hrm_rwkv7_core.parameters()
 +            )
-@@ -2066,12 +2381,4 @@ def snapshot_delta_mem_weights(model: nn.Module) -> dict[str, torch.Tensor]:
+@@ -2066,12 +2422,4 @@ def snapshot_delta_mem_weights(model: nn.Module) -> dict[str, torch.Tensor]:
 -        snapshot[f"{name}.memory_q_proj"] = module.memory_q_proj.detach().float().cpu().clone()
 -        snapshot[f"{name}.memory_k_proj"] = module.memory_k_proj.detach().float().cpu().clone()
 -        snapshot[f"{name}.memory_v_proj"] = module.memory_v_proj.detach().float().cpu().clone()
@@ -430,10 +532,10 @@ index e8e8845..a921f29 100644
 +            if sub_name.startswith("base."):
 +                continue
 +            snapshot[f"{name}.{sub_name}"] = param.detach().float().cpu().clone()
-@@ -2260,0 +2568,2 @@ def get_delta_mem_online_state(model: nn.Module) -> dict[str, torch.Tensor]:
+@@ -2260,0 +2609,2 @@ def get_delta_mem_online_state(model: nn.Module) -> dict[str, torch.Tensor]:
 +        if module.memory_backend == "rwkv_ms" and module.rwkv_ms_positions is not None:
 +            state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions.detach().cpu().clone()
-@@ -2266,0 +2576,10 @@ def load_delta_mem_online_state(model: nn.Module, state: dict[str, torch.Tensor]
+@@ -2266,0 +2617,10 @@ def load_delta_mem_online_state(model: nn.Module, state: dict[str, torch.Tensor]
 +        if name.endswith(".__rwkv_ms_positions"):
 +            module_name = name[: -len(".__rwkv_ms_positions")]
 +            module = module_map[module_name]
@@ -445,18 +547,58 @@ index e8e8845..a921f29 100644
 +            )
 +            continue
 diff --git a/deltamem/tests/test_delta_mem_regressions.py b/deltamem/tests/test_delta_mem_regressions.py
-index fd80501..ed0a31a 100644
+index fd80501..21129d2 100644
 --- a/deltamem/tests/test_delta_mem_regressions.py
 +++ b/deltamem/tests/test_delta_mem_regressions.py
-@@ -456,0 +457,3 @@ def make_delta_module(
+@@ -49,0 +50,8 @@ from transformers.models.smollm3.modeling_smollm3 import SmolLM3Attention
++try:
++    from transformers.models.gemma4 import Gemma4TextConfig
++    from transformers.models.gemma4.modeling_gemma4 import Gemma4TextAttention, Gemma4TextModel
++except Exception:  # pragma: no cover - optional Transformers version support
++    Gemma4TextConfig = None
++    Gemma4TextAttention = None
++    Gemma4TextModel = None
++
+@@ -404,0 +413,30 @@ def make_smollm3_attention(
++def make_gemma4_attention(
++    layer_idx: int = 0,
++    *,
++    hidden_size: int = 16,
++    intermediate_size: int = 32,
++    num_attention_heads: int = 2,
++    num_key_value_heads: int = 1,
++    head_dim: int = 8,
++    global_head_dim: int = 8,
++) -> Gemma4TextAttention:
++    if Gemma4TextConfig is None or Gemma4TextAttention is None:
++        pytest.skip("Gemma4 is not available in this Transformers version")
++    config = Gemma4TextConfig(
++        hidden_size=hidden_size,
++        intermediate_size=intermediate_size,
++        num_hidden_layers=max(layer_idx + 1, 1),
++        num_attention_heads=num_attention_heads,
++        num_key_value_heads=num_key_value_heads,
++        head_dim=head_dim,
++        global_head_dim=global_head_dim,
++        num_global_key_value_heads=1,
++        attention_dropout=0.0,
++        attention_bias=False,
++        layer_types=["full_attention"] * max(layer_idx + 1, 1),
++        sliding_window=4,
++    )
++    config._attn_implementation = "eager"
++    return Gemma4TextAttention(config, layer_idx)
++
++
+@@ -456,0 +495,3 @@ def make_delta_module(
 +    memory_backend: str = "delta_rule",
 +    rwkv_ms_num_states: int = 4,
 +    rwkv_ms_chunk_size: int = 2,
-@@ -470,0 +474,3 @@ def make_delta_module(
+@@ -470,0 +512,3 @@ def make_delta_module(
 +            memory_backend=memory_backend,
 +            rwkv_ms_num_states=rwkv_ms_num_states,
 +            rwkv_ms_chunk_size=rwkv_ms_chunk_size,
-@@ -742,0 +749,35 @@ def test_zero_init_attention_wrapper_matches_base_attention() -> None:
+@@ -742,0 +787,71 @@ def test_zero_init_attention_wrapper_matches_base_attention() -> None:
 +def test_zero_init_rwkv_ms_attention_wrapper_matches_base_attention() -> None:
 +    torch.manual_seed(0)
 +    base = make_qwen3_attention()
@@ -492,7 +634,89 @@ index fd80501..ed0a31a 100644
 +    assert wrapped.hrm_rwkv7_core is not None
 +
 +
-@@ -943,0 +985,27 @@ def test_disable_writes_preserves_delta_state_during_read_phase() -> None:
++def test_zero_init_rwkv_ms_gemma4_attention_wrapper_matches_base_attention() -> None:
++    torch.manual_seed(0)
++    base = make_gemma4_attention()
++    wrapped_base = make_gemma4_attention()
++    wrapped_base.load_state_dict(copy.deepcopy(base.state_dict()))
++    wrapped = DeltaMemAttention(
++        wrapped_base,
++        HFDeltaMemConfig(
++            rank=2,
++            num_state_heads=2,
++            output_init="zero",
++            rankwise_gates=True,
++            memory_backend="rwkv_ms",
++            rwkv_ms_num_states=3,
++            rwkv_ms_chunk_size=2,
++        ),
++    )
++    x = torch.randn(1, 5, 16)
++    position_embeddings = make_position_embeddings(
++        batch_size=x.size(0),
++        seq_len=x.size(1),
++        head_dim=base.head_dim,
++        device=x.device,
++        dtype=x.dtype,
++    )
++    attention_mask = make_causal_attention_mask(torch.ones(1, 5, dtype=torch.long))
++
++    base_out, base_weights = base(x, position_embeddings, attention_mask, shared_kv_states={})
++    wrapped_out, wrapped_weights = wrapped(x, position_embeddings, attention_mask, shared_kv_states={})
++
++    assert torch.allclose(base_out, wrapped_out, atol=1e-6, rtol=1e-6)
++    assert torch.allclose(base_weights, wrapped_weights, atol=1e-6, rtol=1e-6)
++    assert wrapped.delta_state is not None
++    assert wrapped.delta_state.shape == (1, 2, 3, 2, 2)
++
++
+@@ -856,0 +972,45 @@ def test_attach_delta_mem_wraps_smollm3_attention_modules() -> None:
++def test_attach_delta_mem_wraps_gemma4_and_skips_kv_shared_layers() -> None:
++    if Gemma4TextConfig is None or Gemma4TextModel is None:
++        pytest.skip("Gemma4 is not available in this Transformers version")
++    config = Gemma4TextConfig(
++        vocab_size=64,
++        hidden_size=16,
++        intermediate_size=32,
++        num_hidden_layers=4,
++        num_attention_heads=2,
++        num_key_value_heads=1,
++        head_dim=8,
++        global_head_dim=8,
++        num_global_key_value_heads=1,
++        attention_dropout=0.0,
++        attention_bias=False,
++        layer_types=["sliding_attention", "full_attention", "sliding_attention", "full_attention"],
++        num_kv_shared_layers=2,
++        hidden_size_per_layer_input=0,
++        sliding_window=4,
++    )
++    config._attn_implementation = "eager"
++    model = Gemma4TextModel(config)
++
++    replaced = attach_delta_mem(
++        model,
++        HFDeltaMemConfig(
++            rank=2,
++            output_init="zero",
++            memory_backend="rwkv_ms",
++            rwkv_ms_num_states=2,
++            rwkv_ms_chunk_size=2,
++            target_modules=("self_attn",),
++        ),
++    )
++
++    assert replaced == ["layers.0.self_attn", "layers.1.self_attn"]
++    assert isinstance(model.layers[0].self_attn, DeltaMemAttention)
++    assert isinstance(model.layers[1].self_attn, DeltaMemAttention)
++    assert not isinstance(model.layers[2].self_attn, DeltaMemAttention)
++    assert not isinstance(model.layers[3].self_attn, DeltaMemAttention)
++    output = model(input_ids=torch.randint(0, 64, (1, 5)), use_cache=False)
++    assert output.last_hidden_state.shape == (1, 5, 16)
++    assert torch.isfinite(output.last_hidden_state).all()
++
++
+@@ -943,0 +1104,27 @@ def test_disable_writes_preserves_delta_state_during_read_phase() -> None:
 +def test_disable_writes_preserves_rwkv_ms_state_during_read_phase() -> None:
 +    module = make_delta_module(
 +        output_init="random",
@@ -520,7 +744,7 @@ index fd80501..ed0a31a 100644
 +    assert torch.equal(module.rwkv_ms_positions, positions_before)
 +
 +
-@@ -1610,0 +1679,38 @@ def test_multi_head_state_forward_runs() -> None:
+@@ -1610,0 +1798,38 @@ def test_multi_head_state_forward_runs() -> None:
 +def test_rwkv_ms_backend_forward_runs_with_routes() -> None:
 +    module = make_delta_module(
 +        rank=2,

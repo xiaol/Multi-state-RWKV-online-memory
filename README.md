@@ -144,7 +144,9 @@ integrations/delta_mem_rwkv_ms/    # delta-Mem RWKV-MS adapter patch and launche
 The practical RWKV-MS memory adapter for delta-Mem is packaged in
 `integrations/delta_mem_rwkv_ms/`. It includes the patch, the minimal
 HRM-Text-derived RWKV-7 core, a matched delta-rule/RWKV-MS training launcher, and
-a temporary-clone checker for applying the patch safely.
+a temporary-clone checker for applying the patch safely. The patch supports
+Qwen3, SmolLM3, and Gemma4 text attention; for `google/gemma-4-E4B-it` it wraps
+the non-KV-shared attention layers and skips the KV-shared tail layers.
 
 ## Acknowledgement
 
