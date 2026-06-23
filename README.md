@@ -148,6 +148,36 @@ a temporary-clone checker for applying the patch safely. The patch supports
 Qwen3, SmolLM3, and Gemma4 text attention; for `google/gemma-4-E4B-it` it wraps
 the non-KV-shared attention layers and skips the KV-shared tail layers.
 
+### Gemma tau2 status
+
+The current Gemma + RWKV-MS tau2 investigation is documented in
+`GEMMA_RWKV_MS_TAU2_PLAN.md`. The matching local delta-Mem integration commit is:
+
+```text
+bec8330 Add RWKV-MS memory backend for Gemma tau2
+```
+
+Local tau2 telecom findings so far:
+
+- The best useful adapter is the 2-layer `q,o` run:
+  `manual_telecom_success20_rank4_layers0_1`.
+- A `q,k,v,o` ablation did not improve the held-out `refuel_data` call.
+- Training `q,o` on every eligible Gemma4 layer wrapped 24 non-KV-shared layers
+  and skipped 18 KV-shared tail layers, but did not fix the first-turn missing
+  arguments.
+- The failure is not a wrong line ID: the model selects `L1002` correctly but
+  often omits `customer_id` and `gb_amount`.
+- Data inspection points to sparse schema supervision and prompt schema mismatch:
+  the 20-row successful telecom train split has only one complete assistant
+  `refuel_data(...)` action.
+- A multi-turn validation retry works when the tool-error turn explicitly names
+  the required signature and known values, producing:
+  `refuel_data(customer_id="C1001", line_id="L1002", gb_amount=1.0)`.
+
+Practical next step for tau2 evaluation is to run the agent with a tool-call
+validator that stops/parses at `[/ACTION]` and retries malformed calls with an
+explicit `[TOOL_ERROR]` message.
+
 ## Acknowledgement
 
 This work builds on the Log-Linear Attention repository and uses local
