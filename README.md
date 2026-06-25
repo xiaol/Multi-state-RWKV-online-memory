@@ -150,33 +150,54 @@ the non-KV-shared attention layers and skips the KV-shared tail layers.
 
 ### Gemma tau2 status
 
-The current Gemma + RWKV-MS tau2 investigation is documented in
-`GEMMA_RWKV_MS_TAU2_PLAN.md`. The matching local delta-Mem integration commit is:
+The active Gemma + RWKV-MS tau2 recipe is documented in
+`GEMMA_RWKV_MS_TAU2_TRAINING_PLAN_V2.md`. The matching local delta-Mem
+integration commit used by the benchmark artifacts is:
 
 ```text
 bec8330 Add RWKV-MS memory backend for Gemma tau2
 ```
 
-Local tau2 telecom findings so far:
+Current best learned no-rule adapter:
 
-- The best useful adapter is the 2-layer `q,o` run:
-  `manual_telecom_success20_rank4_layers0_1`.
-- A `q,k,v,o` ablation did not improve the held-out `refuel_data` call.
-- Training `q,o` on every eligible Gemma4 layer wrapped 24 non-KV-shared layers
-  and skipped 18 KV-shared tail layers, but did not fix the first-turn missing
-  arguments.
-- The failure is not a wrong line ID: the model selects `L1002` correctly but
-  often omits `customer_id` and `gb_amount`.
-- Data inspection points to sparse schema supervision and prompt schema mismatch:
-  the 20-row successful telecom train split has only one complete assistant
-  `refuel_data(...)` action.
-- A multi-turn validation retry works when the tool-error turn explicitly names
-  the required signature and known values, producing:
-  `refuel_data(customer_id="C1001", line_id="L1002", gb_amount=1.0)`.
+```text
+/run/media/xiaol/B214449214445C0B/delta_mem_outputs/gemma_rwkv_ms_tau2/v2ruleplanner_mobile_focusedtools_turns_formatrefresh_continue200_len192_layers0_5_qo_r8/checkpoints/step-100
+```
 
-Practical next step for tau2 evaluation is to run the agent with a tool-call
-validator that stops/parses at `[/ACTION]` and retries malformed calls with an
-explicit `[TOOL_ERROR]` message.
+The table below keeps learned adapters separate from rule-assisted diagnostic
+runs. "No-rule" means no eval-time `--mobile-data-rule-planner` and no parser
+format-repair patch.
+
+| Run / condition | Layers / rank / length | pass^1 | Takeaway |
+| --- | --- | ---: | --- |
+| Base Gemma, focused tools + line verify + autostop | none | 4/20 (0.20) | Current low baseline |
+| Base Gemma, checklist prompt | none | 7/20 (0.35) | Prompt-only improvement, below learned best |
+| Original 82-row Phase 1 | `0,1` / r8 / len256 | 1/20 (0.05) | Dataset/format mismatch; reject |
+| Generated action SFT | `0,1` / r8 / len256 | 9/20 (0.45) | 2 layers help but are not enough |
+| Generated action SFT | `0-5` / r8 / len256 | 10/20 (0.50) | Shallow 6-layer band is better |
+| Generated action SFT | all eligible / r4 / len256 | 1/20 (0.05) | All-layer adapter over-perturbs |
+| Format-refresh continuation, final | `0-5` / r8 / len192 | 12/20 (0.60) | Good final checkpoint |
+| Format-refresh continuation, `step-100` | `0-5` / r8 / len192 | **14/20 (0.70)** | Best learned no-rule checkpoint |
+| Eval-time rule planner + float formatting fix | base and RWKV-MS | 20/20 (1.00) | Diagnostic ceiling, not a learned-model result |
+
+Adapter size from saved checkpoints:
+
+| Adapter shape | Trainable adapter params |
+| --- | ---: |
+| 2 layers, r8 `q,o` | 257,744 |
+| 6 layers, r8 `q,o` | 797,808 |
+| 24 eligible layers, r4 `q,o` | 1,594,080 |
+
+Status interpretation:
+
+- The original tau2 data was the problem: the 82-row run trained for 656
+  optimizer steps and its loss moved, but the benchmark collapsed to 1/20.
+- Generated mobile-data action SFT transfers better, and the 6-layer shallow
+  adapter is the current useful capacity point.
+- The 200-step format-refresh continuation overtrains relative to its
+  `step-100` checkpoint, so checkpoint selection matters.
+- The next benchmark should run the `step-100` checkpoint on at least 50 tasks,
+  preferably the full telecom split, before treating 14/20 as robust.
 
 ## Acknowledgement
 
