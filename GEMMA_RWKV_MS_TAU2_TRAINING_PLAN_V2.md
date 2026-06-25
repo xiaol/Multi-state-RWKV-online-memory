@@ -163,8 +163,10 @@ is not the default path.
 | Len128 continuation from 12/20 adapter | `0-5` / r8 / len128 | shorter-context continuation | 10/20 (0.50) | No improvement |
 | Corrective/oracle balanced continuation | `0-5` / r8 / len192 | corrective final-speed data | 10/20 (0.50) | Reject as default |
 | Checklist eval on format-refresh adapter | `0-5` / r8 / len192 | checklist prompt at eval | 5/20 (0.25) | Reject; checklist hurts learned adapter |
-| Base checkpoint + rule-planner/float-fix ceiling | none | eval-time hand rule planner + float formatting fix | 20/20 (1.00) | Diagnostic ceiling for task mechanics, not a learned baseline |
-| RWKV-MS + rule-planner/float-fix ceiling | adapter + rules | eval-time hand rule planner + float formatting fix | 20/20 (1.00) | Diagnostic ceiling only, not a learned-model result |
+
+The eval-time mobile-data rule planner / float-format fix is excluded from the
+comparison table because it is benchmark-specific control logic, not model
+behavior. It is useful only as an internal diagnostic ceiling for task mechanics.
 
 Parameter counts from the saved adapters:
 

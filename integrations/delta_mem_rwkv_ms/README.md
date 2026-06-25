@@ -1,7 +1,7 @@
-# Delta-Mem RWKV-MS Adapter
+# Delta-Mem RWKV-MS Online Memory
 
 This folder contains the practical delta-Mem integration for the RWKV multi-state
-memory adapter used by the mechanism comparison in this repo.
+online-memory module used by the mechanism comparison in this repo.
 
 The implementation was built against the local `delta-Mem` repo and uses the
 verified HRM-Text RWKV-7 read-before-write memory core as the source reference.
@@ -30,7 +30,7 @@ skips those layers and wraps the non-shared sliding/full attention layers.
 | --- | --- |
 | `delta_mem_rwkv_ms.patch` | Patch for a delta-Mem checkout. |
 | `hrm_rwkv7.py` | Minimal HRM-Text-derived RWKV-7 projection/readout core included in the patch. |
-| `inference.py` | HF adapter inference entry point for the Gemma4 E4B RWKV-MS checkpoint. |
+| `inference.py` | HF online-memory inference entry point for the Gemma4 E4B RWKV-MS checkpoint. |
 | `run_rwkv_ms_delta_rule_comparison.sh` | Matched delta-rule vs RWKV-MS training launcher. |
 | `check_delta_mem_patch.sh` | Applies the patch to a temporary copy and runs syntax checks. |
 
@@ -54,7 +54,7 @@ surface and make adapter compatibility harder to track. The intended layout is:
 ```text
 Multi-state-RWKV-online-memory/      # this repo: patch, docs, inference entry point
 delta-Mem/                           # patched runtime dependency
-HF adapter repo/                      # weights + config only
+HF memory checkpoint repo/             # weights + config only
 ```
 
 ## Apply To Delta-Mem
@@ -100,7 +100,7 @@ Recommended entry point:
 cd Multi-state-RWKV-online-memory
 ../delta-Mem/.venv/bin/python integrations/delta_mem_rwkv_ms/inference.py \
   --delta-mem-root ../delta-Mem \
-  --adapter-repo xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1 \
+  --memory-repo xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1 \
   --base-model google/gemma-4-E4B-it \
   --device cuda:0 \
   --dtype bfloat16 \
@@ -108,8 +108,9 @@ cd Multi-state-RWKV-online-memory
   --prompt "Help me troubleshoot a mobile data issue where the customer has no usable data."
 ```
 
-The same script also accepts `--adapter-dir /path/to/local/adapter` if the HF
-model repo has already been cloned. It uses
+The same script also accepts `--memory-dir /path/to/local/model-repo` if the HF
+model repo has already been cloned. For backward compatibility, `--adapter-repo`
+and `--adapter-dir` are accepted as aliases. It uses
 `DeltaMemChatSession.generate_reply(...)` from the patched delta-Mem runtime.
 
 Then train a matched pair:

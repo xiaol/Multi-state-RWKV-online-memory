@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inference entry point for the Gemma4 E4B RWKV-MS delta-Mem HF adapter.
+"""Inference entry point for the Gemma4 E4B RWKV-MS online-memory checkpoint.
 
 This repository owns the RWKV-MS integration and experiment docs. The actual
 model wrapper/session runtime comes from a delta-Mem checkout patched with
@@ -15,16 +15,16 @@ from pathlib import Path
 from huggingface_hub import snapshot_download
 
 
-DEFAULT_ADAPTER_REPO = "xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1"
+DEFAULT_MEMORY_REPO = "xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1"
 DEFAULT_BASE_MODEL = "google/gemma-4-E4B-it"
 DEFAULT_PROMPT = "Help me troubleshoot a mobile data issue where the customer has no usable data."
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run Gemma4 E4B with RWKV-MS delta-Mem adapter.")
+    parser = argparse.ArgumentParser(description="Run Gemma4 E4B with the RWKV-MS online-memory checkpoint.")
     parser.add_argument("--delta-mem-root", default=None, help="Patched delta-Mem checkout to add to sys.path.")
-    parser.add_argument("--adapter-repo", default=DEFAULT_ADAPTER_REPO)
-    parser.add_argument("--adapter-dir", default=None, help="Local adapter folder; skips Hub download.")
+    parser.add_argument("--memory-repo", "--adapter-repo", dest="memory_repo", default=DEFAULT_MEMORY_REPO)
+    parser.add_argument("--memory-dir", "--adapter-dir", dest="memory_dir", default=None, help="Local memory checkpoint folder; skips Hub download.")
     parser.add_argument("--base-model", default=DEFAULT_BASE_MODEL)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--dtype", default="bfloat16", choices=("bfloat16", "float16", "float32"))
@@ -38,15 +38,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def resolve_adapter_dir(adapter_repo: str, adapter_dir: str | None) -> str:
-    if adapter_dir:
-        path = Path(adapter_dir).expanduser().resolve()
+def resolve_memory_dir(memory_repo: str, memory_dir: str | None) -> str:
+    if memory_dir:
+        path = Path(memory_dir).expanduser().resolve()
         if not (path / "delta_mem_config.json").is_file():
             raise FileNotFoundError(f"Missing delta_mem_config.json in {path}")
         if not (path / "delta_mem_adapter.pt").is_file():
             raise FileNotFoundError(f"Missing delta_mem_adapter.pt in {path}")
         return str(path)
-    return snapshot_download(repo_id=adapter_repo)
+    return snapshot_download(repo_id=memory_repo)
 
 
 def main() -> None:
@@ -61,10 +61,10 @@ def main() -> None:
 
     from deltamem.runtime.session import DeltaMemChatSession, load_delta_mem_chat_model
 
-    adapter_dir = resolve_adapter_dir(args.adapter_repo, args.adapter_dir)
+    memory_dir = resolve_memory_dir(args.memory_repo, args.memory_dir)
     model, tokenizer = load_delta_mem_chat_model(
         model_path=args.base_model,
-        adapter_dir=adapter_dir,
+        adapter_dir=memory_dir,
         device=args.device,
         dtype=args.dtype,
         attn_implementation=args.attn_implementation,
