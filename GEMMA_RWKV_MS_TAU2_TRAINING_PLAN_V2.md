@@ -101,7 +101,7 @@ did reach 656 optimizer steps and its loss moved, but it did not transfer to the
 tau2 mobile-data benchmark. The useful path is the later generated
 mobile-data/action SFT data, especially the format-refresh continuation.
 
-Accepted learned-adapter comparisons below mean **no eval-time
+Accepted learned online-memory comparisons below mean **no eval-time
 `--mobile-data-rule-planner` and no parser format-repair patch**. The benchmark
 is still only a 20-task screen, so treat it as model selection, not a final
 claim.
@@ -112,7 +112,7 @@ Best learned checkpoint:
 /run/media/xiaol/B214449214445C0B/delta_mem_outputs/gemma_rwkv_ms_tau2/v2ruleplanner_mobile_focusedtools_turns_formatrefresh_continue200_len192_layers0_5_qo_r8/checkpoints/step-100
 ```
 
-HF adapter repo:
+HF online-memory repo:
 
 ```text
 xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1
@@ -149,28 +149,28 @@ The corrective balanced dataset
 was generated and load-checked, but continuation on it regressed to 10/20, so it
 is not the default path.
 
-| Run / adapter | Layers / rank / length | Data or eval condition | pass^1 | Status |
+| Run / online-memory path | Layers / rank / length | Data or eval condition | pass^1 | Status |
 | --- | --- | --- | ---: | --- |
-| Base checkpoint `google/gemma-4-E4B-it`, focused tools + line verify + autostop | none | no adapter baseline for accepted setup | 4/20 (0.20) | Lower current base checkpoint benchmark |
+| Base checkpoint `google/gemma-4-E4B-it`, focused tools + line verify + autostop | none | base-only baseline for accepted setup | 4/20 (0.20) | Lower current base checkpoint benchmark |
 | Base checkpoint `google/gemma-4-E4B-it`, checklist prompt | none | prompt-only checklist baseline | 7/20 (0.35) | Prompt helps, still below learned best |
-| Phase 1 `all_valid` adapter | `0,1` / r8 / len256 | 82 original tau2 valid rows, 656 steps | 1/20 (0.05) | Reject; loss moved but data/format did not transfer |
+| Phase 1 `all_valid` memory path | `0,1` / r8 / len256 | 82 original tau2 valid rows, 656 steps | 1/20 (0.05) | Reject; loss moved but data/format did not transfer |
 | Generated action SFT | `0,1` / r8 / len256 | 3,519 turn rows, 656 steps | 9/20 (0.45) | 2 layers are useful but not best |
 | Generated action SFT | `0-5` / r8 / len256 | same data, 656 steps | 10/20 (0.50) | Shallow 6-layer band beats 2 layers |
 | Generated action SFT | all eligible / r4 / len256 | 24 non-KV-shared layers, 656 steps | 1/20 (0.05) | Reject; overfits/over-perturbs despite low train loss |
 | Format-refresh continuation, final | `0-5` / r8 / len192 | 5,027 turn rows, 200 more steps | 12/20 (0.60) | Good but not best checkpoint |
-| Format-refresh continuation, checkpoint `step-100` | `0-5` / r8 / len192 | same run, early checkpoint | **14/20 (0.70)** | Current best learned no-rule adapter |
-| Len96 continuation from 12/20 adapter | `0-5` / r8 / len96 | shorter-context continuation | 11/20 (0.55) | No improvement |
-| Len128 continuation from 12/20 adapter | `0-5` / r8 / len128 | shorter-context continuation | 10/20 (0.50) | No improvement |
+| Format-refresh continuation, checkpoint `step-100` | `0-5` / r8 / len192 | same run, early checkpoint | **14/20 (0.70)** | Current best learned no-rule online memory |
+| Len96 continuation from 12/20 memory path | `0-5` / r8 / len96 | shorter-context continuation | 11/20 (0.55) | No improvement |
+| Len128 continuation from 12/20 memory path | `0-5` / r8 / len128 | shorter-context continuation | 10/20 (0.50) | No improvement |
 | Corrective/oracle balanced continuation | `0-5` / r8 / len192 | corrective final-speed data | 10/20 (0.50) | Reject as default |
-| Checklist eval on format-refresh adapter | `0-5` / r8 / len192 | checklist prompt at eval | 5/20 (0.25) | Reject; checklist hurts learned adapter |
+| Checklist eval on format-refresh memory path | `0-5` / r8 / len192 | checklist prompt at eval | 5/20 (0.25) | Reject; checklist hurts learned memory behavior |
 
 The eval-time mobile-data rule planner / float-format fix is excluded from the
 comparison table because it is benchmark-specific control logic, not model
 behavior. It is useful only as an internal diagnostic ceiling for task mechanics.
 
-Parameter counts from the saved adapters:
+Parameter counts from the saved online-memory checkpoints:
 
-| Adapter shape | Trainable adapter params |
+| Memory-path shape | Trainable memory params |
 | --- | ---: |
 | 2 layers, r8 `q,o` | 257,744 |
 | 6 layers, r8 `q,o` | 797,808 |
@@ -183,13 +183,33 @@ Interpretation:
 - The generated mobile-data action data is better aligned. The 6-layer shallow
   band is currently the best capacity point.
 - Two layers are smaller and cheaper, but not enough for the current best
-  result. More layers mean more per-layer adapters and more total online state;
+  result. More layers mean more per-layer memory modules and more total online state;
   the per-layer RWKV-MS state shape is unchanged.
 - All eligible layers are still bad in this task even after the init fix. The
-  adapter can drive training loss very low but damages task behavior.
+  online-memory path can drive training loss very low but damages task behavior.
 - Next required step is a larger confirmation benchmark (`--num-tasks >= 50`,
   ideally full telecom) for the `step-100` checkpoint before calling the result
   robust.
+
+### HF release framing and local cost notes
+
+First-line model-card quote:
+
+```text
+"One can have both the fish and the bear's paw."
+```
+
+Release message: keep the original Gemma capability by freezing the base model,
+then add a tiny learned RWKV-MS online-memory path for stateful local agent
+behavior. The current 6-layer path has `797,808` trainable memory parameters,
+so the learned checkpoint is small; the base model still dominates VRAM.
+
+All costs are local and variable. The accepted path used CUDA bf16 on an RTX
+4090 24 GB setup, 3,519 turn rows for the generated-action SFT stage, then
+5,027 rows for the 200-step format-refresh continuation. Wall time and memory
+depend on local model storage, attention backend, sequence length, wrapped
+layers, rank, cache state, and allocator fragmentation. The intended recipe is
+to keep the base frozen and adapt the online memory to each user's own data.
 
 ## Phase 0 — Init-fix controls (cheap, do first)
 

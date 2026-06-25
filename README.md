@@ -146,7 +146,7 @@ integrations/delta_mem_rwkv_ms/    # delta-Mem RWKV-MS patch, inference script, 
 
 The practical RWKV-MS online-memory integration for delta-Mem is packaged in
 `integrations/delta_mem_rwkv_ms/`. It includes the patch, the minimal
-HRM-Text-derived RWKV-7 core, an HF adapter inference entry point, a matched
+HRM-Text-derived RWKV-7 core, an HF online-memory inference entry point, a matched
 delta-rule/RWKV-MS training launcher, and a temporary-clone checker for applying
 the patch safely. The patch supports Qwen3, SmolLM3, and Gemma4 text attention;
 for `google/gemma-4-E4B-it` it wraps the non-KV-shared attention layers and
@@ -180,35 +180,49 @@ Local source checkpoint:
 /run/media/xiaol/B214449214445C0B/delta_mem_outputs/gemma_rwkv_ms_tau2/v2ruleplanner_mobile_focusedtools_turns_formatrefresh_continue200_len192_layers0_5_qo_r8/checkpoints/step-100
 ```
 
-The table below keeps learned adapters separate from rule-assisted diagnostic
+The table below keeps learned online-memory runs separate from rule-assisted diagnostic
 runs. "No-rule" means no eval-time `--mobile-data-rule-planner` and no parser
 format-repair patch.
 
+Release framing: "One can have both the fish and the bear's paw." The base
+Gemma checkpoint remains frozen to preserve original behavior, while the learned
+RWKV-MS path adds a small recurrent memory surface that can be adapted to local
+domain data.
+
 | Run / condition | Layers / rank / length | pass^1 | Takeaway |
 | --- | --- | ---: | --- |
-| Base checkpoint `google/gemma-4-E4B-it`, focused tools + line verify + autostop | none | 4/20 (0.20) | Current no-adapter baseline for the accepted setup |
+| Base checkpoint `google/gemma-4-E4B-it`, focused tools + line verify + autostop | none | 4/20 (0.20) | Current base-only baseline for the accepted setup |
 | Base checkpoint `google/gemma-4-E4B-it`, checklist prompt | none | 7/20 (0.35) | Prompt-only baseline, still below learned best |
 | Original 82-row Phase 1 | `0,1` / r8 / len256 | 1/20 (0.05) | Dataset/format mismatch; reject |
 | Generated action SFT | `0,1` / r8 / len256 | 9/20 (0.45) | 2 layers help but are not enough |
 | Generated action SFT | `0-5` / r8 / len256 | 10/20 (0.50) | Shallow 6-layer band is better |
-| Generated action SFT | all eligible / r4 / len256 | 1/20 (0.05) | All-layer adapter over-perturbs |
+| Generated action SFT | all eligible / r4 / len256 | 1/20 (0.05) | All-layer memory path over-perturbs |
 | Format-refresh continuation, final | `0-5` / r8 / len192 | 12/20 (0.60) | Good final checkpoint |
 | Format-refresh continuation, `step-100` | `0-5` / r8 / len192 | **14/20 (0.70)** | Best learned no-rule checkpoint |
 
-Adapter size from saved checkpoints:
+Memory-path size from saved checkpoints:
 
-| Adapter shape | Trainable adapter params |
+| Memory-path shape | Trainable memory params |
 | --- | ---: |
 | 2 layers, r8 `q,o` | 257,744 |
 | 6 layers, r8 `q,o` | 797,808 |
 | 24 eligible layers, r4 `q,o` | 1,594,080 |
+
+Local training-cost notes:
+
+- Experiments were local CUDA bf16 runs on an RTX 4090 24 GB setup.
+- Generated mobile-data action SFT used 3,519 turn rows for 656 optimizer steps.
+- Format-refresh continuation used 5,027 turn rows for 200 optimizer steps.
+- Exact wall time and VRAM vary with local hardware, sequence length, layer
+  count, rank, cache location, and fragmentation; adapt the frozen-base
+  online-memory recipe to your own data.
 
 Status interpretation:
 
 - The original tau2 data was the problem: the 82-row run trained for 656
   optimizer steps and its loss moved, but the benchmark collapsed to 1/20.
 - Generated mobile-data action SFT transfers better, and the 6-layer shallow
-  adapter is the current useful capacity point.
+  online-memory path is the current useful capacity point.
 - The 200-step format-refresh continuation overtrains relative to its
   `step-100` checkpoint, so checkpoint selection matters.
 - The eval-time rule planner / float-format fix is excluded from the comparison

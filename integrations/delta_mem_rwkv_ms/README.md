@@ -36,12 +36,13 @@ skips those layers and wraps the non-shared sliding/full attention layers.
 
 ## What delta-Mem Provides
 
-The HF checkpoint is only the adapter weights and `delta_mem_config.json`.
+The HF checkpoint is only the learned online-memory weights and
+`delta_mem_config.json`.
 Inference still needs the delta-Mem runtime because delta-Mem provides:
 
 - the attention wrapper that attaches online-memory read/write modules to Gemma4
   text attention layers;
-- `HFDeltaMemConfig`, adapter state loading, and state reset/save/load helpers;
+- `HFDeltaMemConfig`, checkpoint loading, and state reset/save/load helpers;
 - the chat/session runtime that keeps `past_key_values` and RWKV-MS online
   memory state synchronized across turns;
 - tokenizer/chat-template handling and message/span IDs used by write routing.
@@ -49,12 +50,13 @@ Inference still needs the delta-Mem runtime because delta-Mem provides:
 This repository owns the RWKV-MS mechanism, patch, training notes, benchmark
 comparison, and inference entry point. It does not vendor the full delta-Mem
 runtime as a forked package, because that would duplicate the upstream runtime
-surface and make adapter compatibility harder to track. The intended layout is:
+surface and make memory-checkpoint compatibility harder to track. The intended
+layout is:
 
 ```text
 Multi-state-RWKV-online-memory/      # this repo: patch, docs, inference entry point
 delta-Mem/                           # patched runtime dependency
-HF memory checkpoint repo/             # weights + config only
+HF memory checkpoint repo/           # weights + config only
 ```
 
 ## Apply To Delta-Mem
@@ -92,7 +94,7 @@ git apply --unidiff-zero --whitespace=nowarn \
 If the patch reports that hunks are already applied, use a clean delta-Mem
 checkout or a delta-Mem revision that already contains the RWKV-MS integration.
 
-## Run The HF Adapter
+## Run The HF Online Memory
 
 Recommended entry point:
 
@@ -110,7 +112,7 @@ cd Multi-state-RWKV-online-memory
 
 The same script also accepts `--memory-dir /path/to/local/model-repo` if the HF
 model repo has already been cloned. For backward compatibility, `--adapter-repo`
-and `--adapter-dir` are accepted as aliases. It uses
+and `--adapter-dir` are accepted as delta-Mem API aliases. It uses
 `DeltaMemChatSession.generate_reply(...)` from the patched delta-Mem runtime.
 
 Then train a matched pair:

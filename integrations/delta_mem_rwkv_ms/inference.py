@@ -17,7 +17,20 @@ from huggingface_hub import snapshot_download
 
 DEFAULT_MEMORY_REPO = "xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1"
 DEFAULT_BASE_MODEL = "google/gemma-4-E4B-it"
-DEFAULT_PROMPT = "Help me troubleshoot a mobile data issue where the customer has no usable data."
+DEFAULT_PROMPT = """You are a telecom solo-mode tool agent. Return exactly one tool call in this format:
+[ACTION]
+tool_name(arg_name="value")
+[/ACTION]
+
+Available tools:
+- get_customer_by_phone(phone_number: str)
+- check_network_status(line_id: str)
+- toggle_data(line_id: str, enabled: bool)
+- run_speed_test(line_id: str)
+- done()
+
+Ticket: Customer phone number 555-123-2002 reports no usable mobile data.
+First step: identify the customer account from the phone number. Return only the next tool call."""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -29,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--dtype", default="bfloat16", choices=("bfloat16", "float16", "float32"))
     parser.add_argument("--attn-implementation", default="sdpa")
-    parser.add_argument("--max-new-tokens", type=int, default=128)
+    parser.add_argument("--max-new-tokens", type=int, default=64)
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
     parser.add_argument("--sample", action="store_true", help="Enable sampling instead of greedy decoding.")
     parser.add_argument("--temperature", type=float, default=1.0)
