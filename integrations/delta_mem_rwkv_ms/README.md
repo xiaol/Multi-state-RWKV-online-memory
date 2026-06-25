@@ -30,8 +30,32 @@ skips those layers and wraps the non-shared sliding/full attention layers.
 | --- | --- |
 | `delta_mem_rwkv_ms.patch` | Patch for a delta-Mem checkout. |
 | `hrm_rwkv7.py` | Minimal HRM-Text-derived RWKV-7 projection/readout core included in the patch. |
+| `inference.py` | HF adapter inference entry point for the Gemma4 E4B RWKV-MS checkpoint. |
 | `run_rwkv_ms_delta_rule_comparison.sh` | Matched delta-rule vs RWKV-MS training launcher. |
 | `check_delta_mem_patch.sh` | Applies the patch to a temporary copy and runs syntax checks. |
+
+## What delta-Mem Provides
+
+The HF checkpoint is only the adapter weights and `delta_mem_config.json`.
+Inference still needs the delta-Mem runtime because delta-Mem provides:
+
+- the attention wrapper that attaches online-memory read/write modules to Gemma4
+  text attention layers;
+- `HFDeltaMemConfig`, adapter state loading, and state reset/save/load helpers;
+- the chat/session runtime that keeps `past_key_values` and RWKV-MS online
+  memory state synchronized across turns;
+- tokenizer/chat-template handling and message/span IDs used by write routing.
+
+This repository owns the RWKV-MS mechanism, patch, training notes, benchmark
+comparison, and inference entry point. It does not vendor the full delta-Mem
+runtime as a forked package, because that would duplicate the upstream runtime
+surface and make adapter compatibility harder to track. The intended layout is:
+
+```text
+Multi-state-RWKV-online-memory/      # this repo: patch, docs, inference entry point
+delta-Mem/                           # patched runtime dependency
+HF adapter repo/                      # weights + config only
+```
 
 ## Apply To Delta-Mem
 
@@ -47,6 +71,46 @@ python -m py_compile \
   deltamem/train/delta_sft_experimental.py
 bash -n scripts/run_rwkv_ms_delta_rule_comparison.sh
 ```
+
+For a fresh local inference setup:
+
+```bash
+git clone https://github.com/xiaol/Multi-state-RWKV-online-memory.git
+git clone https://github.com/declare-lab/delta-Mem.git
+
+cd delta-Mem
+python -m venv .venv
+source .venv/bin/activate
+pip install -U pip setuptools wheel
+pip install -r requirements.txt
+pip install -U "huggingface_hub>=1.0.0"
+
+git apply --unidiff-zero --whitespace=nowarn \
+  ../Multi-state-RWKV-online-memory/integrations/delta_mem_rwkv_ms/delta_mem_rwkv_ms.patch
+```
+
+If the patch reports that hunks are already applied, use a clean delta-Mem
+checkout or a delta-Mem revision that already contains the RWKV-MS integration.
+
+## Run The HF Adapter
+
+Recommended entry point:
+
+```bash
+cd Multi-state-RWKV-online-memory
+../delta-Mem/.venv/bin/python integrations/delta_mem_rwkv_ms/inference.py \
+  --delta-mem-root ../delta-Mem \
+  --adapter-repo xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1 \
+  --base-model google/gemma-4-E4B-it \
+  --device cuda:0 \
+  --dtype bfloat16 \
+  --attn-implementation sdpa \
+  --prompt "Help me troubleshoot a mobile data issue where the customer has no usable data."
+```
+
+The same script also accepts `--adapter-dir /path/to/local/adapter` if the HF
+model repo has already been cloned. It uses
+`DeltaMemChatSession.generate_reply(...)` from the patched delta-Mem runtime.
 
 Then train a matched pair:
 

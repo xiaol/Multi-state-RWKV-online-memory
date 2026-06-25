@@ -112,6 +112,12 @@ Best learned checkpoint:
 /run/media/xiaol/B214449214445C0B/delta_mem_outputs/gemma_rwkv_ms_tau2/v2ruleplanner_mobile_focusedtools_turns_formatrefresh_continue200_len192_layers0_5_qo_r8/checkpoints/step-100
 ```
 
+HF adapter repo:
+
+```text
+xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1
+```
+
 Benchmark summary:
 
 ```text
@@ -145,8 +151,8 @@ is not the default path.
 
 | Run / adapter | Layers / rank / length | Data or eval condition | pass^1 | Status |
 | --- | --- | --- | ---: | --- |
-| Base Gemma, focused tools + line verify + autostop | none | no adapter baseline | 4/20 (0.20) | Lower current baseline |
-| Base Gemma, checklist prompt | none | prompt-only checklist baseline | 7/20 (0.35) | Prompt helps, still below learned best |
+| Base checkpoint `google/gemma-4-E4B-it`, focused tools + line verify + autostop | none | no adapter baseline for accepted setup | 4/20 (0.20) | Lower current base checkpoint benchmark |
+| Base checkpoint `google/gemma-4-E4B-it`, checklist prompt | none | prompt-only checklist baseline | 7/20 (0.35) | Prompt helps, still below learned best |
 | Phase 1 `all_valid` adapter | `0,1` / r8 / len256 | 82 original tau2 valid rows, 656 steps | 1/20 (0.05) | Reject; loss moved but data/format did not transfer |
 | Generated action SFT | `0,1` / r8 / len256 | 3,519 turn rows, 656 steps | 9/20 (0.45) | 2 layers are useful but not best |
 | Generated action SFT | `0-5` / r8 / len256 | same data, 656 steps | 10/20 (0.50) | Shallow 6-layer band beats 2 layers |
@@ -157,7 +163,8 @@ is not the default path.
 | Len128 continuation from 12/20 adapter | `0-5` / r8 / len128 | shorter-context continuation | 10/20 (0.50) | No improvement |
 | Corrective/oracle balanced continuation | `0-5` / r8 / len192 | corrective final-speed data | 10/20 (0.50) | Reject as default |
 | Checklist eval on format-refresh adapter | `0-5` / r8 / len192 | checklist prompt at eval | 5/20 (0.25) | Reject; checklist hurts learned adapter |
-| Rule-planner/float-fix ceiling | base and RWKV-MS | eval-time hand rule planner + float formatting fix | 20/20 (1.00) | Diagnostic ceiling only, not a learned-model result |
+| Base checkpoint + rule-planner/float-fix ceiling | none | eval-time hand rule planner + float formatting fix | 20/20 (1.00) | Diagnostic ceiling for task mechanics, not a learned baseline |
+| RWKV-MS + rule-planner/float-fix ceiling | adapter + rules | eval-time hand rule planner + float formatting fix | 20/20 (1.00) | Diagnostic ceiling only, not a learned-model result |
 
 Parameter counts from the saved adapters:
 

@@ -136,17 +136,24 @@ EVAL.md                            # Generated report from latest run
 .openresearch/artifacts/           # JSONL, JSON, figure, run log
 hattention/                        # Log-Linear Attention implementation used for smoke test
 figs/                              # Original figure asset
-integrations/delta_mem_rwkv_ms/    # delta-Mem RWKV-MS adapter patch and launcher
+integrations/delta_mem_rwkv_ms/    # delta-Mem RWKV-MS patch, inference script, launcher
 ```
 
 ## Delta-Mem Adapter
 
 The practical RWKV-MS memory adapter for delta-Mem is packaged in
 `integrations/delta_mem_rwkv_ms/`. It includes the patch, the minimal
-HRM-Text-derived RWKV-7 core, a matched delta-rule/RWKV-MS training launcher, and
-a temporary-clone checker for applying the patch safely. The patch supports
-Qwen3, SmolLM3, and Gemma4 text attention; for `google/gemma-4-E4B-it` it wraps
-the non-KV-shared attention layers and skips the KV-shared tail layers.
+HRM-Text-derived RWKV-7 core, an HF adapter inference entry point, a matched
+delta-rule/RWKV-MS training launcher, and a temporary-clone checker for applying
+the patch safely. The patch supports Qwen3, SmolLM3, and Gemma4 text attention;
+for `google/gemma-4-E4B-it` it wraps the non-KV-shared attention layers and
+skips the KV-shared tail layers.
+
+delta-Mem provides the runtime wrapper/session machinery: attaching online
+memory modules to a Transformers model, loading `delta_mem_adapter.pt`, keeping
+the RWKV-MS online state synchronized with the KV cache, and applying the chat
+template. This repo provides the RWKV-MS integration patch, docs, benchmark
+status, and the recommended inference script.
 
 ### Gemma tau2 status
 
@@ -161,6 +168,12 @@ bec8330 Add RWKV-MS memory backend for Gemma tau2
 Current best learned no-rule adapter:
 
 ```text
+xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1
+```
+
+Local source checkpoint:
+
+```text
 /run/media/xiaol/B214449214445C0B/delta_mem_outputs/gemma_rwkv_ms_tau2/v2ruleplanner_mobile_focusedtools_turns_formatrefresh_continue200_len192_layers0_5_qo_r8/checkpoints/step-100
 ```
 
@@ -170,15 +183,16 @@ format-repair patch.
 
 | Run / condition | Layers / rank / length | pass^1 | Takeaway |
 | --- | --- | ---: | --- |
-| Base Gemma, focused tools + line verify + autostop | none | 4/20 (0.20) | Current low baseline |
-| Base Gemma, checklist prompt | none | 7/20 (0.35) | Prompt-only improvement, below learned best |
+| Base checkpoint `google/gemma-4-E4B-it`, focused tools + line verify + autostop | none | 4/20 (0.20) | Current no-adapter baseline for the accepted setup |
+| Base checkpoint `google/gemma-4-E4B-it`, checklist prompt | none | 7/20 (0.35) | Prompt-only baseline, still below learned best |
 | Original 82-row Phase 1 | `0,1` / r8 / len256 | 1/20 (0.05) | Dataset/format mismatch; reject |
 | Generated action SFT | `0,1` / r8 / len256 | 9/20 (0.45) | 2 layers help but are not enough |
 | Generated action SFT | `0-5` / r8 / len256 | 10/20 (0.50) | Shallow 6-layer band is better |
 | Generated action SFT | all eligible / r4 / len256 | 1/20 (0.05) | All-layer adapter over-perturbs |
 | Format-refresh continuation, final | `0-5` / r8 / len192 | 12/20 (0.60) | Good final checkpoint |
 | Format-refresh continuation, `step-100` | `0-5` / r8 / len192 | **14/20 (0.70)** | Best learned no-rule checkpoint |
-| Eval-time rule planner + float formatting fix | base and RWKV-MS | 20/20 (1.00) | Diagnostic ceiling, not a learned-model result |
+| Base checkpoint + eval-time rule planner + float formatting fix | none | 20/20 (1.00) | Diagnostic ceiling for task mechanics, not a learned baseline |
+| RWKV-MS + eval-time rule planner + float formatting fix | adapter + rules | 20/20 (1.00) | Diagnostic ceiling, not a learned-model result |
 
 Adapter size from saved checkpoints:
 
@@ -198,6 +212,18 @@ Status interpretation:
   `step-100` checkpoint, so checkpoint selection matters.
 - The next benchmark should run the `step-100` checkpoint on at least 50 tasks,
   preferably the full telecom split, before treating 14/20 as robust.
+
+Recommended HF adapter inference command:
+
+```bash
+python integrations/delta_mem_rwkv_ms/inference.py \
+  --delta-mem-root /path/to/patched/delta-Mem \
+  --adapter-repo xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1 \
+  --base-model google/gemma-4-E4B-it \
+  --device cuda:0 \
+  --dtype bfloat16 \
+  --attn-implementation sdpa
+```
 
 ## Acknowledgement
 
