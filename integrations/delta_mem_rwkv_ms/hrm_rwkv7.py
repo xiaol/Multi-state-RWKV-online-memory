@@ -45,7 +45,14 @@ class HRMRWKV7LowRankCore(nn.Module):
     persistent multi-state routing around it.
     """
 
-    def __init__(self, *, dim: int, head_size: int) -> None:
+    def __init__(
+        self,
+        *,
+        dim: int,
+        head_size: int,
+        layer_id: int = 0,
+        n_layer: int = 1,
+    ) -> None:
         super().__init__()
         if dim < 1:
             raise ValueError("dim must be >= 1")
@@ -53,9 +60,18 @@ class HRMRWKV7LowRankCore(nn.Module):
             raise ValueError("head_size must be >= 1")
         if dim % head_size != 0:
             raise ValueError(f"dim ({dim}) must be divisible by head_size ({head_size})")
+        if n_layer < 1:
+            raise ValueError("n_layer must be >= 1")
+        if layer_id < 0:
+            raise ValueError("layer_id must be >= 0")
         self.dim = int(dim)
         self.head_size = int(head_size)
         self.n_head = self.dim // self.head_size
+        # Layer-depth position drives the official RWKV-7 init schedules below.
+        # Defaults (layer_id=0, n_layer=1) reproduce the shallowest-layer init,
+        # which matches the pre-fix behavior for backward compatibility.
+        self.layer_id = int(layer_id)
+        self.n_layer = int(n_layer)
 
         decay_lora_dim = max(32, int(round((2.5 * (dim**0.5)) / 32) * 32))
         aaa_lora_dim = max(32, int(round((2.5 * (dim**0.5)) / 32) * 32))
@@ -89,19 +105,25 @@ class HRMRWKV7LowRankCore(nn.Module):
     def reset_parameters(self, init_std: float) -> None:
         device = self.x_r.device
         dim = self.dim
+        # Official RWKV-7 layer-depth schedules (RWKV-LM v7 train_temp/src/model.py).
+        # ratio_0_to_1 ramps 0->1 with depth; ratio_1_to_almost0 ramps 1->~0.
+        ratio_0_to_1 = self.layer_id / max(self.n_layer - 1, 1)
+        ratio_1_to_almost0 = 1.0 - (self.layer_id / max(self.n_layer, 1))
         ddd = torch.arange(dim, device=device, dtype=torch.float32) / dim
         linear = torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1) - 0.5
         zigzag = torch.arange(dim, device=device, dtype=torch.float32) % self.head_size
         zigzag = (zigzag - ((self.head_size - 1) / 2)) / max((self.head_size - 1) / 2, 1.0)
         zigzag = zigzag * zigzag.abs()
-        decay = -6 + 6 * (torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1))
+        # Depth-dependent decay exponent: deeper layers get longer memory horizons.
+        decay_base = torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1)
+        decay = -6 + 6 * torch.pow(decay_base, 1.0 + ratio_0_to_1**0.3)
         with torch.no_grad():
-            self.x_r.copy_(1.0 - torch.pow(ddd, 0.2))
-            self.x_w.copy_(1.0 - torch.pow(ddd, 0.9))
-            self.x_k.copy_(1.0 - torch.pow(ddd, 0.7))
-            self.x_v.copy_(1.0 - torch.pow(ddd, 0.7))
-            self.x_a.copy_(1.0 - torch.pow(ddd, 0.9))
-            self.x_g.copy_(1.0 - torch.pow(ddd, 0.2))
+            self.x_r.copy_(1.0 - torch.pow(ddd, 0.2 * ratio_1_to_almost0))
+            self.x_w.copy_(1.0 - torch.pow(ddd, 0.9 * ratio_1_to_almost0))
+            self.x_k.copy_(1.0 - torch.pow(ddd, 0.7 * ratio_1_to_almost0))
+            self.x_v.copy_(1.0 - torch.pow(ddd, 0.7 * ratio_1_to_almost0))
+            self.x_a.copy_(1.0 - torch.pow(ddd, 0.9 * ratio_1_to_almost0))
+            self.x_g.copy_(1.0 - torch.pow(ddd, 0.2 * ratio_1_to_almost0))
             self.w0.copy_(decay + 0.5 + zigzag * 2.5)
             self.a0.copy_(torch.zeros_like(linear) - 0.19 + zigzag * 0.3 + linear * 0.4)
             self.k_k.copy_(torch.zeros_like(linear) + 0.71 - linear * 0.1)
@@ -112,8 +134,11 @@ class HRMRWKV7LowRankCore(nn.Module):
             _ortho_init_(self.a2, 0.1)
             self.g1.zero_()
             _ortho_init_(self.g2, 0.1)
-        for proj in (self.receptance, self.key, self.value):
-            nn.init.trunc_normal_(proj.weight, mean=0.0, std=init_std, a=-3 * init_std, b=3 * init_std)
+        # Official r/k/v scale: receptance/value ~uniform(+-0.5/sqrt(dim)),
+        # key 10x smaller (+-0.05/sqrt(dim)); init_std is passed as dim**-0.5.
+        nn.init.uniform_(self.receptance.weight, -0.5 * init_std, 0.5 * init_std)
+        nn.init.uniform_(self.key.weight, -0.05 * init_std, 0.05 * init_std)
+        nn.init.uniform_(self.value.weight, -0.5 * init_std, 0.5 * init_std)
         nn.init.zeros_(self.output.weight)
         self.ln_x.reset_parameters()
 

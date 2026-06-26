@@ -1,0 +1,1984 @@
+{
+  "schema": "delta_mem_rwkv_ms_memory_manifest.v1",
+  "memory_dir": "/run/media/xiaol/B214449214445C0B/models/delta_mem/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1",
+  "files": {
+    "delta_mem_config.json": true,
+    "adapter_metadata.json": true,
+    "delta_mem_adapter.pt": true
+  },
+  "config": {
+    "rank": 8,
+    "alpha": 16.0,
+    "memory_backend": "rwkv_ms",
+    "beta_bias_init": 0.0,
+    "normalize_qk": true,
+    "couple_lambda": true,
+    "state_update_mode": "standard",
+    "rankwise_gates": true,
+    "output_init": "base_slice_fixed",
+    "base_slice_ref_width": 8,
+    "online_gain": 0.2,
+    "num_state_heads": 1,
+    "num_memory_partitions": 1,
+    "num_global_memory_partitions": 0,
+    "memory_partition_routing": "soft",
+    "memory_partition_basis": "shared",
+    "tie_memory_partition_read_write": false,
+    "memory_partition_read_mode": "softmax",
+    "memory_partition_sigmoid_gate_bias_init": -2.0,
+    "slot_read_top_k": 0,
+    "global_memory_mode": "shared_rw",
+    "global_memory_read_top_k": 0,
+    "global_memory_merge_mode": "gated_residual",
+    "global_memory_gate_bias_init": -2.0,
+    "global_memory_read_logit_bias": 0.0,
+    "memory_reader_layers": [],
+    "memory_reader_hidden_size": 1024,
+    "memory_reader_residual_scale": 0.1,
+    "memory_reader_read_only": true,
+    "memory_readout_mode": "delta",
+    "memory_write_source": "learned_hidden",
+    "memory_write_granularity": "token",
+    "memory_write_proposals_per_message": 2,
+    "synthetic_memory_slots": 1,
+    "latent_memory_layers": [],
+    "latent_memory_hidden_size": 1024,
+    "latent_memory_residual_scale": 0.1,
+    "latent_memory_slots": 4,
+    "latent_memory_init_std": 0.002,
+    "latent_gate_init": 0.01,
+    "target_modules": [
+      "self_attn"
+    ],
+    "target_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "delta_heads": [
+      "q",
+      "o"
+    ],
+    "delta_o_rmsnorm": false,
+    "delta_o_rmsnorm_eps": 1e-06,
+    "trainable_delta_scale": false,
+    "delta_scale_init": 1.0,
+    "delta_scale_max": 2.0,
+    "delta_scale_granularity": "layer",
+    "delta_scale_parameterization": "alpha_over_rank",
+    "rwkv_ms_num_states": 4,
+    "rwkv_ms_chunk_size": 1024,
+    "rwkv_ms_boundary_mode": "fixed_chunk",
+    "rwkv_ms_erase_gate": 1.0,
+    "rwkv_ms_read_top_k": 0
+  },
+  "adapter_metadata": {
+    "memory_type": "delta-mem-rwkv-ms",
+    "base_model": "google/gemma-4-E4B-it",
+    "source_repo": "https://github.com/xiaol/Multi-state-RWKV-online-memory",
+    "selected_checkpoint": "step-100",
+    "wrapped_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "delta_heads": [
+      "q",
+      "o"
+    ],
+    "rank": 8,
+    "alpha": 16.0,
+    "memory_backend": "rwkv_ms",
+    "rwkv_ms_num_states": 4,
+    "rwkv_ms_chunk_size": 1024,
+    "trainable_memory_params": 797808,
+    "local_training": {
+      "hardware": "local RTX 4090 24GB",
+      "base_weights": "frozen",
+      "dtype": "bfloat16",
+      "attention_implementation": "sdpa",
+      "data_provenance": "The accepted checkpoint was trained on deterministic tau2 telecom mobile-data rule-planner traces replayed against tau2 and turn-sliced locally; despite the repo name, it was not trained on GPT-5.5-generated data.",
+      "leakage_note": "The generated training set excluded the reported 20-task benchmark screen, so the checkpoint was not trained on those exact benchmark task IDs. The result is still an in-domain tau2 telecom/mobile-data held-out screen, not a broad out-of-domain generalization claim.",
+      "stages": [
+        {
+          "name": "generated mobile-data action SFT",
+          "train_file": "tau2_telecom_mobile_data_rule_planner_train_focusedtools_nopolicy_turns.jsonl",
+          "train_rows": 3519,
+          "optimizer_steps": 656,
+          "max_length": 256
+        },
+        {
+          "name": "format-refresh continuation",
+          "train_file": "tau2_telecom_mobile_data_rule_planner_train_focusedtools_nopolicy_turns_formatrefresh_balanced.jsonl",
+          "train_rows": 5027,
+          "optimizer_steps": 200,
+          "max_length": 192
+        }
+      ],
+      "rejected_data": {
+        "name": "tau2_telecom_all_valid.jsonl",
+        "rows": 82,
+        "reason": "loss moved but did not transfer to the mobile-data benchmark"
+      },
+      "selected_reason": "step-100 scored 14/20 on the tau2 telecom screen; final step-200 scored 12/20",
+      "note": "Wall-clock cost varies by local hardware, cache, sequence length, layer count, and rank. Adapt the online-memory data recipe to the target domain."
+    },
+    "planned_upgrades": {
+      "fable5_gpt55_data": "planned upgrade data for broader generalization; not used for the accepted checkpoint",
+      "layer_sweeps": "compare 2-layer, 6-layer, and deeper selective memory bands",
+      "rank_state_sweeps": "measure capacity, VRAM, and benchmark behavior across ranks/state counts",
+      "selective_memory_repo": "https://github.com/xiaol/SelectingMemory",
+      "selective_memory_direction": "Raven-style top-k routing so each token updates a subset of recurrent memory states while preserving unselected states"
+    },
+    "smoke_test": {
+      "prompt_type": "tau2-style telecom tool-action prompt",
+      "generation": "greedy",
+      "max_new_tokens": 64,
+      "observed_response": "[ACTION]\nget_customer_by_phone(phone_number=\"555-123-2002\")\n[/ACTION]",
+      "prompt_tokens": 160,
+      "generated_tokens": 37,
+      "nonzero_memory_modules": 6,
+      "decode_elapsed_ms_after_load": 980
+    },
+    "benchmark": {
+      "name": "tau2 telecom 20-task screen",
+      "mode": "solo/dummy-user",
+      "accepted_condition": "no eval-time mobile-data rule planner; no parser format-repair patch",
+      "pass_hat_1": 0.7,
+      "avg_reward": 0.7,
+      "solved": "14/20",
+      "infra_error_count": 0,
+      "seed": 300,
+      "max_new_tokens": 96,
+      "max_steps": 40,
+      "max_errors": 4,
+      "base_checkpoint_comparisons": [
+        {
+          "name": "google/gemma-4-E4B-it focused tools + line verify + autostop",
+          "pass_hat_1": 0.2,
+          "solved": "4/20"
+        },
+        {
+          "name": "google/gemma-4-E4B-it checklist prompt",
+          "pass_hat_1": 0.35,
+          "solved": "7/20"
+        }
+      ],
+      "excluded_diagnostics": "The eval-time mobile-data rule planner / float-format fix is benchmark-specific control logic and is not included as a model comparison."
+    }
+  },
+  "tensor_summary": {
+    "tensor_count": 186,
+    "total_numel": 797808,
+    "total_bytes": 1595616,
+    "by_dtype": {
+      "bfloat16": {
+        "tensors": 186,
+        "numel": 797808,
+        "bytes": 1595616
+      }
+    },
+    "inferred_layer_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "tensors": [
+    {
+      "name": "model.language_model.layers.0.self_attn.memory_q_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.memory_k_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.memory_v_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.delta_q_proj",
+      "shape": [
+        2048,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 16384,
+      "bytes": 32768
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.delta_k_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.delta_v_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.delta_o_proj",
+      "shape": [
+        2560,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.beta_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.beta_bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.x_r",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.x_w",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.x_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.x_v",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.x_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.x_g",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.w1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.w2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.w0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.a1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.a2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.a0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.g1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.g2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.k_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.k_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.receptance.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.key.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.value.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.output.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.ln_x.weight",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.ln_x.bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.memory_q_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.memory_k_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.memory_v_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.delta_q_proj",
+      "shape": [
+        2048,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 16384,
+      "bytes": 32768
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.delta_k_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.delta_v_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.delta_o_proj",
+      "shape": [
+        2560,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.beta_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.beta_bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.x_r",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.x_w",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.x_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.x_v",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.x_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.x_g",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.w1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.w2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.w0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.a1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.a2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.a0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.g1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.g2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.k_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.k_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.receptance.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.key.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.value.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.output.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.ln_x.weight",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.ln_x.bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.memory_q_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.memory_k_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.memory_v_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.delta_q_proj",
+      "shape": [
+        2048,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 16384,
+      "bytes": 32768
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.delta_k_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.delta_v_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.delta_o_proj",
+      "shape": [
+        2560,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.beta_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.beta_bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.x_r",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.x_w",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.x_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.x_v",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.x_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.x_g",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.w1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.w2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.w0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.a1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.a2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.a0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.g1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.g2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.k_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.k_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.receptance.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.key.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.value.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.output.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.ln_x.weight",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.ln_x.bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.memory_q_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.memory_k_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.memory_v_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.delta_q_proj",
+      "shape": [
+        2048,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 16384,
+      "bytes": 32768
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.delta_k_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.delta_v_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.delta_o_proj",
+      "shape": [
+        2560,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.beta_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.beta_bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.x_r",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.x_w",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.x_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.x_v",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.x_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.x_g",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.w1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.w2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.w0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.a1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.a2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.a0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.g1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.g2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.k_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.k_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.receptance.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.key.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.value.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.output.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.ln_x.weight",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.ln_x.bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.memory_q_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.memory_k_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.memory_v_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.delta_q_proj",
+      "shape": [
+        2048,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 16384,
+      "bytes": 32768
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.delta_k_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.delta_v_proj",
+      "shape": [
+        512,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 4096,
+      "bytes": 8192
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.delta_o_proj",
+      "shape": [
+        2560,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.beta_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.beta_bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.x_r",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.x_w",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.x_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.x_v",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.x_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.x_g",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.w1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.w2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.w0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.a1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.a2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.a0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.g1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.g2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.k_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.k_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.receptance.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.key.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.value.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.output.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.ln_x.weight",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.ln_x.bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.memory_q_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.memory_k_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.memory_v_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.delta_q_proj",
+      "shape": [
+        4096,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 32768,
+      "bytes": 65536
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.delta_k_proj",
+      "shape": [
+        1024,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8192,
+      "bytes": 16384
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.delta_v_proj",
+      "shape": [
+        1024,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8192,
+      "bytes": 16384
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.delta_o_proj",
+      "shape": [
+        2560,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.beta_proj",
+      "shape": [
+        8,
+        2560
+      ],
+      "dtype": "bfloat16",
+      "numel": 20480,
+      "bytes": 40960
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.beta_bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.x_r",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.x_w",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.x_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.x_v",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.x_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.x_g",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.w1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.w2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.w0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.a1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.a2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.a0",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.g1",
+      "shape": [
+        8,
+        32
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.g2",
+      "shape": [
+        32,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 256,
+      "bytes": 512
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.k_k",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.k_a",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.receptance.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.key.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.value.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.output.weight",
+      "shape": [
+        8,
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 64,
+      "bytes": 128
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.ln_x.weight",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    },
+    {
+      "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.ln_x.bias",
+      "shape": [
+        8
+      ],
+      "dtype": "bfloat16",
+      "numel": 8,
+      "bytes": 16
+    }
+  ],
+  "gguf_port_notes": [
+    "This manifest is an inventory only; llama.cpp cannot consume it yet.",
+    "A real port must implement RWKV-MS state, Gemma4 layer hooks, q/o delta injection, and session-state sync in GGML."
+  ]
+}

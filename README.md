@@ -140,6 +140,7 @@ EVAL.md                            # Generated report from latest run
 hattention/                        # Log-Linear Attention implementation used for smoke test
 figs/                              # Original figure asset
 integrations/delta_mem_rwkv_ms/    # delta-Mem RWKV-MS patch, inference script, launcher
+integrations/delta_mem_rwkv_ms/gguf/ # GGUF sidecar, fixture, and parity helpers
 ```
 
 ## Delta-Mem RWKV-MS Online Memory
@@ -241,6 +242,254 @@ python integrations/delta_mem_rwkv_ms/inference.py \
   --dtype bfloat16 \
   --attn-implementation sdpa
 ```
+
+## Gemma4 GGUF First Step
+
+A base Gemma4 E4B GGUF has been downloaded for llama.cpp testing on the 2 TB SSD:
+
+```text
+/run/media/xiaol/B214449214445C0B/models/gguf/gemma-4-E4B-it/gemma-4-E4B-it-Q8_0.gguf
+/run/media/xiaol/B214449214445C0B/models/gguf/gemma-4-E4B-it/mmproj-gemma-4-E4B-it-Q8_0.gguf
+/run/media/xiaol/B214449214445C0B/models/gguf/gemma-4-E4B-it/gemma-4-E4B-it-rwkv-ms-memory.gguf
+```
+
+The first two files are normal base-model inference artifacts. The RWKV-MS
+memory file is a GGUF sidecar containing the adapter tensors and metadata. The
+local llama.cpp branch can now consume that sidecar in an experimental Gemma4
+runtime path: model load owns the sidecar tensors in CPU buffers, the Gemma4
+graph applies RWKV-MS `q,o` deltas on target layers `0-5`, and a mutable
+RWKV-MS state buffer is updated during prompt/generation scans. The current
+runtime is intentionally constrained to one sequence. The server/UI path keeps
+physical microbatches serial (`-ub 1`) for the best-tested state behavior; the
+CLI graph can build experimental graph-unrolled multi-token prompt scans, but
+that path still needs stronger state-level parity coverage before it should be
+treated as production-ready. See
+`GGUF_EXTERNAL_MEMORY_FEASIBILITY.md` and
+`integrations/delta_mem_rwkv_ms/GGUF_PORT_PLAN.md`.
+At llama.cpp model load time, the sidecar path now performs semantic validation
+before runtime use: it verifies `delta_mem.base_gguf_sha256` against the exact
+loaded base GGUF file, then rejects unsupported `num_state_heads != 1`,
+duplicate compact tensor names, missing required tensors, and wrong ggml-order
+tensor shapes.
+
+Patched llama.cpp fork:
+
+```text
+https://github.com/xiaol/llama.cpp-online-memory
+branch: main
+commit: 85da0c63b Add Gemma4 RWKV-MS GGUF sidecar runtime
+base upstream: ggml-org/llama.cpp 1ec44d1
+```
+
+Current sidecar identity:
+
+```text
+sha256: 0c646a776b5b12c9d3657ffd2e5e581be1eb46e858f1f404afeaa7077c02974e
+bound base GGUF sha256: fb8f0c032de00b18c710824af3c7e5777c71e5fb60b13f13575f0a9e92ddecd0
+size: 1,663,840 bytes
+tensor name format: compact_with_source_name_manifest
+tensors: 186 BF16
+```
+
+Start a recent llama.cpp server:
+
+```bash
+LLAMA_SERVER_BIN=/run/media/xiaol/B214449214445C0B/tools/llama.cpp/build-cuda/bin/llama-server \
+LLAMA_REASONING=off \
+bash tools/llama_server_gemma4.sh
+```
+
+For the experimental RWKV-MS sidecar runtime through `llama-server`, use the
+patched llama.cpp build and the constrained sidecar mode:
+
+```bash
+mkdir -p .openresearch/artifacts/gguf_ui
+LLAMA_SERVER_BIN=/run/media/xiaol/B214449214445C0B/tools/llama.cpp/build-cuda/bin/llama-server \
+LLAMA_PORT=18083 \
+LLAMA_RWKV_MS=1 \
+LLAMA_REASONING=off \
+bash tools/llama_server_gemma4.sh 2>&1 | tee .openresearch/artifacts/gguf_ui/llama_server_rwkv_ms.log
+```
+
+The helper sets `--rwkv-ms-sidecar`, `--batch-size 2`, `--ubatch-size 1`,
+`--parallel 1`, disables continuous batching/context shift/prompt-cache reuse,
+disables server prompt-cache RAM and context checkpoints, enables a slot-save
+directory for manual slot 0 save/restore, and uses text-only mode for the
+current one-sequence runtime.
+The patched llama.cpp context rejects sidecar runs with more than one sequence.
+The server/helper keep `--ubatch-size 1`, reject speculative decoding, and
+preflight unsafe slot/cache/batch overrides before starting `llama-server`;
+model load also rejects malformed or unsupported sidecars before any RWKV-MS
+graph consumes their tensors. A sidecar exported for a different base GGUF now
+fails model load with a hash mismatch instead of running against the wrong
+weights.
+
+For the best-tested experimental runtime path, pass the sidecar and use serial
+physical microbatches:
+
+```bash
+/run/media/xiaol/B214449214445C0B/tools/llama.cpp/build-cuda/bin/llama-completion \
+  -m /run/media/xiaol/B214449214445C0B/models/gguf/gemma-4-E4B-it/gemma-4-E4B-it-Q8_0.gguf \
+  --rwkv-ms-sidecar /run/media/xiaol/B214449214445C0B/models/gguf/gemma-4-E4B-it/gemma-4-E4B-it-rwkv-ms-memory.gguf \
+  -p "Hi" -n 32 -c 96 -b 2 -ub 1 -ngl 99 --no-warmup --no-display-prompt \
+  --no-perf -no-cnv -s 123 --temp 0 --top-k 1
+```
+
+With the same seed and greedy sampling, the base and sidecar paths now diverge.
+The sidecar path produced `! I'm excited to chat with you. What's on your mind
+today? ...`, while the base path continued `! I'm excited to chat with you. I'm
+here to help ...`. Treat this as a smoke signal consistent with the sidecar path;
+confirm runtime use with server logs and the reference-trace health check.
+
+The local CUDA build is from the online-memory fork commit `85da0c63b`, based
+on upstream llama.cpp `1ec44d1`, and detects the RTX 4090 as `CUDA0`. CUDA 13.1
+plus GCC 15 needed a local header shim during build; the resulting binary is
+under the SSD tool directory above.
+
+Then launch the local testing UI:
+
+```bash
+python3.12 -m venv .venv-ui
+.venv-ui/bin/pip install -r requirements-ui.txt
+LLAMA_BASE_URL=http://127.0.0.1:18083/v1 \
+LLAMA_RWKV_MS=1 \
+LLAMA_MODEL=gemma-4-e4b-it-rwkv-ms-q8 \
+GGUF_RWKV_MS_SIDECAR_PATH=/run/media/xiaol/B214449214445C0B/models/gguf/gemma-4-E4B-it/gemma-4-E4B-it-rwkv-ms-memory.gguf \
+LLAMA_SERVER_LOG=.openresearch/artifacts/gguf_ui/llama_server_rwkv_ms.log \
+GGUF_RWKV_MS_HEALTH_OUTPUT=.openresearch/artifacts/gguf_ui/rwkv_ms_runtime_health.json \
+GGUF_UI_REQUIRE_RWKV_MS_HEALTH=1 \
+GGUF_UI_PORT=7861 \
+.venv-ui/bin/python tools/gemma_gguf_ui.py
+```
+
+Before comparing prompts, verify that the endpoint is really the patched
+sidecar runtime. The UI exposes the same check through its RWKV-MS runtime
+button, writes the health file, and blocks sidecar chat/trace comparison while
+the selected endpoint/model/sidecar/log do not match a recent successful check.
+
+```bash
+.venv-ui/bin/python tools/check_rwkv_ms_gguf_runtime.py \
+  --base-url http://127.0.0.1:18083/v1 \
+  --server-log .openresearch/artifacts/gguf_ui/llama_server_rwkv_ms.log \
+  --output .openresearch/artifacts/gguf_ui/rwkv_ms_runtime_health.json
+```
+
+The check requires the server log because API output alone cannot prove that
+llama.cpp loaded the RWKV-MS sidecar. It verifies model listing, a chat smoke
+request, the saved reference trace, slot 0 save/restore with exact-prefix
+continuation, corrupted slot restore rejection, and log evidence for RWKV-MS
+activation, one server slot, disabled prompt cache, disabled context
+checkpoints, and exact-prefix slot reuse. The sidecar server also rejects
+speculative decoding options.
+
+For repeatable prompt checks against the same server:
+
+```bash
+.venv-ui/bin/python tools/eval_gguf_prompts.py configs/gguf_rwkv_ms_prompt_suite.jsonl \
+  --base-url http://127.0.0.1:18083/v1 \
+  --model gemma-4-e4b-it-rwkv-ms-q8 \
+  --rwkv-ms \
+  --temperature 0 \
+  --seed 42
+```
+
+For the RWKV-MS side of the future port, inspect the PyTorch memory checkpoint
+into a tensor/config manifest:
+
+```bash
+.venv/bin/python integrations/delta_mem_rwkv_ms/gguf/inspect_memory_checkpoint.py \
+  --memory-dir /run/media/xiaol/B214449214445C0B/models/delta_mem/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1 \
+  --output .openresearch/artifacts/gguf_memory_manifest.json
+```
+
+To regenerate and validate the GGUF memory sidecar:
+
+```bash
+.venv/bin/python integrations/delta_mem_rwkv_ms/gguf/export_memory_gguf.py \
+  --manifest-output .openresearch/artifacts/rwkv_ms_memory_sidecar_manifest.json
+.venv/bin/python integrations/delta_mem_rwkv_ms/gguf/inspect_memory_gguf.py \
+  --memory-dir /run/media/xiaol/B214449214445C0B/models/delta_mem/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1
+.venv/bin/python integrations/delta_mem_rwkv_ms/gguf/materialize_memory_gguf.py --force
+.venv/bin/python integrations/delta_mem_rwkv_ms/gguf/compare_memory_checkpoints.py
+```
+
+To generate and validate the isolated RWKV-MS math fixture from the
+sidecar-rebuilt checkpoint:
+
+```bash
+.venv/bin/python integrations/delta_mem_rwkv_ms/gguf/generate_rwkv_ms_math_fixture.py \
+  --output .openresearch/artifacts/rwkv_ms_math_fixture.json
+.venv/bin/python integrations/delta_mem_rwkv_ms/gguf/validate_rwkv_ms_math_fixture.py \
+  --fixture .openresearch/artifacts/rwkv_ms_math_fixture.json \
+  --json
+```
+
+The current fixture uses real layer-0 adapter tensors, covers projection,
+read-before-write state update, readout, and active `q,o` delta heads, and
+validates with `max_abs_diff: 0.0`. It is a PyTorch golden math fixture for a
+future GGML port, not stock llama.cpp memory execution.
+
+The local llama.cpp checkout has an isolated C++ fixture for the compact
+sidecar:
+
+```bash
+/run/media/xiaol/B214449214445C0B/tools/cmake-4.3.3/bin/cmake \
+  --build /run/media/xiaol/B214449214445C0B/tools/llama.cpp/build-cuda \
+  --target test-rwkv-ms-fixture -j 8
+
+/run/media/xiaol/B214449214445C0B/tools/llama.cpp/build-cuda/bin/test-rwkv-ms-fixture \
+  .openresearch/artifacts/rwkv_ms_math_fixture.json \
+  /run/media/xiaol/B214449214445C0B/models/gguf/gemma-4-E4B-it/gemma-4-E4B-it-rwkv-ms-memory.gguf \
+  1e-5 1e-5
+```
+
+Current strict sidecar result: `{"ok":true,"compared":51,"sidecar":true,"max_abs_diff":1.37090683e-06}`.
+The no-sidecar run also passes with `compared=11` and `max_abs_diff=5.96046448e-08`.
+This covers `tests/test-rwkv-ms-fixture.cpp` in llama.cpp parsing the compact
+sidecar, computing memory projections, `HRMRWKV7LowRankCore` feature
+projections, driving a second C++ read-before-write scan from those
+sidecar/GGML tensors, graph readout from the scan `raw_reads` plus graph
+`feature_g`, and `delta_q`/`delta_o` from the graph-produced readout. This
+fixture remains the isolated math parity check; the separate `llama-completion`
+smoke above is the Gemma4 generation runtime check.
+
+The local llama.cpp checkout also has `tests/test-rwkv-ms-state.cpp` for the
+RWKV-MS recurrent state payload. It checks v2 state metadata, deterministic
+sidecar fingerprint validation, staged sidecar-local restore, and rejection for
+metadata/fingerprint/length mismatches. The fingerprint now includes the bound
+base GGUF hash, so slot files created before that binding should be regenerated.
+Full and sequence state restore now snapshot the current context before
+RWKV-MS-enabled loads and roll back that snapshot if the normal memory portion
+loads but the RWKV-MS sub-state fails. Failed server slot restore still clears
+the affected slot/context state after the library rollback and returns the
+exact state-load error.
+Context-owned memory mutation now uses llama.cpp `llama_context_memory_*`
+wrappers in the patched paths: clear and supported full-sequence removal keep
+RWKV-MS state synchronized, while unsupported sequence copy, keep, shift, and
+division fail explicitly under RWKV-MS instead of mutating only KV cache.
+
+To generate the first PyTorch golden trace from the sidecar-rebuilt checkpoint:
+
+```bash
+/home/xiaol/X/delta-Mem/.venv/bin/python \
+  integrations/delta_mem_rwkv_ms/gguf/generate_reference_trace.py \
+  --max-new-tokens 64 \
+  --output .openresearch/artifacts/gguf_reference_trace_from_sidecar_64.json \
+  --save-snapshot-dir .openresearch/artifacts/gguf_reference_snapshot_from_sidecar_64
+```
+
+To compare the running GGUF backend against that reference trace:
+
+```bash
+LLAMA_RWKV_MS=1 \
+LLAMA_MODEL=gemma-4-e4b-it-rwkv-ms-q8 \
+.venv-ui/bin/python tools/compare_gguf_to_reference_trace.py \
+  --output .openresearch/artifacts/gguf_ui/trace_compare_reasoning_off.jsonl
+```
+
+With `LLAMA_REASONING=off`, the comparison harness can log either base-GGUF or
+RWKV-MS-sidecar runs. Stock llama.cpp still does not execute RWKV-MS memory; the
+sidecar mode requires the local patched branch.
 
 ## Acknowledgement
 

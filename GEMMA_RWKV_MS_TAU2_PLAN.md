@@ -1,5 +1,10 @@
 # Gemma + RWKV-MS Tau2 Training Plan
 
+> **Active recipe:** training and benchmarking are now driven by
+> `GEMMA_RWKV_MS_TAU2_TRAINING_PLAN_V2.md` (written after the first 20-task
+> benchmark and the RWKV-7 layer-depth init fix). This file remains the
+> reference for objective, dataset, environment, and V1 results.
+
 ## Objective
 
 Train a Gemma model with the delta-Mem RWKV-MS backend and benchmark it only on
@@ -353,8 +358,28 @@ Primary table:
 
 | Model | tau2 telecom pass^1 | pass^2 | avg turns | tool errors |
 | --- | ---: | ---: | ---: | ---: |
-| Base Gemma | TBD | TBD | TBD | TBD |
-| Gemma + RWKV-MS | TBD | TBD | TBD | TBD |
+| Base Gemma | 0.30 | TBD | TBD | TBD |
+| Gemma + RWKV-MS (2-layer q,o) | 0.35 | TBD | TBD | TBD |
+| Gemma + RWKV-MS (all-eligible q,o) | 0.15 | TBD | TBD | TBD |
+
+Source: 20-task telecom solo-mode run, greedy decode (`do_sample=false`,
+`max_new_tokens=384`, seed 300). Base + 2-layer in
+`tau2_solo_benchmark_small20`; all-eligible q,o in
+`tau2_solo_benchmark_small20_full_qo` (base not re-run there — base is
+deterministic at 0.30 under identical settings). pass^2 / avg turns / tool
+errors not yet extracted from the per-simulation results.
+
+Adapters:
+
+- 2-layer: `manual_telecom_success20_rank4_layers0_1` (layers 0,1).
+- all-eligible: `manual_telecom_success20_rank4_all_eligible_qo` (24 non-KV-shared
+  layers 0-23 wrapped, KV-shared tail 24-41 skipped).
+
+Key finding: wrapping all eligible layers **hurts** tau2 telecom (0.15, half of
+base), while the narrow 2-layer adapter slightly helps (0.35 vs 0.30 base). This
+is consistent with the earlier qualitative result that the all-eligible adapter
+emitted incomplete / malformed tool calls. Recommend keeping RWKV-MS narrow
+(few early layers) and treating the all-eligible config as a negative result.
 
 Optional later table:
 
