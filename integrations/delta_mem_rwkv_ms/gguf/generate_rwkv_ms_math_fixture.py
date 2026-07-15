@@ -115,6 +115,10 @@ def generate_fixture(args: argparse.Namespace) -> dict[str, Any]:
         "initial_state": tensor_record(inputs["initial_state"]),  # type: ignore[arg-type]
         "initial_positions": tensor_record(inputs["initial_positions"]),  # type: ignore[arg-type]
     }
+    if inputs["initial_previous_source"] is not None:
+        input_records["initial_previous_source"] = tensor_record(  # type: ignore[arg-type]
+            inputs["initial_previous_source"]
+        )
     if inputs["token_mask"] is not None:
         input_records["token_mask"] = tensor_record(inputs["token_mask"])  # type: ignore[arg-type]
     expected_records = records_from_tensors(expected)

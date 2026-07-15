@@ -71,6 +71,11 @@ def load_inputs(records: dict[str, Any]) -> dict[str, torch.Tensor | None]:
         "hidden_states": tensor_from_record(records["hidden_states"]),
         "initial_state": tensor_from_record(records["initial_state"]),
         "initial_positions": tensor_from_record(records["initial_positions"]),
+        "initial_previous_source": (
+            tensor_from_record(records["initial_previous_source"])
+            if "initial_previous_source" in records
+            else None
+        ),
         "token_mask": tensor_from_record(records["token_mask"]) if "token_mask" in records else None,
     }
 

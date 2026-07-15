@@ -29,12 +29,63 @@ def _ortho_init_(x: Tensor, scale: float = 1.0) -> Tensor:
     return x
 
 
-def _time_shift_delta(x: Tensor) -> Tensor:
-    xx = torch.empty_like(x)
-    xx[:, 0] = -x[:, 0]
-    if x.size(1) > 1:
-        xx[:, 1:] = x[:, :-1] - x[:, 1:]
-    return xx
+def _time_shift_delta(
+    x: Tensor,
+    previous_x: Tensor | None = None,
+    token_mask: Tensor | None = None,
+    *,
+    advance_within_sequence: bool = True,
+) -> tuple[Tensor, Tensor]:
+    batch_size, seq_len, dim = x.shape
+    if previous_x is None:
+        previous_x = x.new_zeros(batch_size, dim)
+    if previous_x.shape != (batch_size, dim):
+        raise ValueError(
+            f"previous_x must have shape {(batch_size, dim)}, got {tuple(previous_x.shape)}"
+        )
+    if seq_len == 0:
+        return x.new_empty(batch_size, 0, dim), previous_x
+    previous_x = previous_x.to(device=x.device, dtype=x.dtype)
+    if not advance_within_sequence:
+        if token_mask is not None and token_mask.shape != (batch_size, seq_len):
+            raise ValueError(
+                f"token_mask must have shape {(batch_size, seq_len)}, got {tuple(token_mask.shape)}"
+            )
+        return previous_x.unsqueeze(1) - x, previous_x
+    if token_mask is None:
+        xx = torch.empty_like(x)
+        xx[:, 0] = previous_x - x[:, 0]
+        if seq_len > 1:
+            xx[:, 1:] = x[:, :-1] - x[:, 1:]
+        return xx, x[:, -1]
+    if token_mask.shape != (batch_size, seq_len):
+        raise ValueError(
+            f"token_mask must have shape {(batch_size, seq_len)}, got {tuple(token_mask.shape)}"
+        )
+    token_mask = token_mask.to(device=x.device, dtype=torch.bool)
+    token_indices = torch.arange(seq_len, device=x.device).view(1, seq_len).expand(batch_size, -1)
+    valid_indices = torch.where(token_mask, token_indices, token_indices.new_full((), -1))
+    last_valid_indices = valid_indices.cummax(dim=1).values
+    previous_indices = torch.cat(
+        [last_valid_indices.new_full((batch_size, 1), -1), last_valid_indices[:, :-1]],
+        dim=1,
+    )
+    gathered_previous = x.gather(
+        1,
+        previous_indices.clamp_min(0).unsqueeze(-1).expand(-1, -1, dim),
+    )
+    previous_values = torch.where(
+        previous_indices.unsqueeze(-1).ge(0),
+        gathered_previous,
+        previous_x.unsqueeze(1),
+    )
+    final_indices = last_valid_indices[:, -1]
+    gathered_final = x.gather(
+        1,
+        final_indices.clamp_min(0).view(batch_size, 1, 1).expand(-1, 1, dim),
+    ).squeeze(1)
+    next_previous_x = torch.where(final_indices.unsqueeze(-1).ge(0), gathered_final, previous_x)
+    return previous_values - x, next_previous_x
 
 
 class HRMRWKV7LowRankCore(nn.Module):
@@ -67,9 +118,6 @@ class HRMRWKV7LowRankCore(nn.Module):
         self.dim = int(dim)
         self.head_size = int(head_size)
         self.n_head = self.dim // self.head_size
-        # Layer-depth position drives the official RWKV-7 init schedules below.
-        # Defaults (layer_id=0, n_layer=1) reproduce the shallowest-layer init,
-        # which matches the pre-fix behavior for backward compatibility.
         self.layer_id = int(layer_id)
         self.n_layer = int(n_layer)
 
@@ -105,8 +153,6 @@ class HRMRWKV7LowRankCore(nn.Module):
     def reset_parameters(self, init_std: float) -> None:
         device = self.x_r.device
         dim = self.dim
-        # Official RWKV-7 layer-depth schedules (RWKV-LM v7 train_temp/src/model.py).
-        # ratio_0_to_1 ramps 0->1 with depth; ratio_1_to_almost0 ramps 1->~0.
         ratio_0_to_1 = self.layer_id / max(self.n_layer - 1, 1)
         ratio_1_to_almost0 = 1.0 - (self.layer_id / max(self.n_layer, 1))
         ddd = torch.arange(dim, device=device, dtype=torch.float32) / dim
@@ -114,7 +160,6 @@ class HRMRWKV7LowRankCore(nn.Module):
         zigzag = torch.arange(dim, device=device, dtype=torch.float32) % self.head_size
         zigzag = (zigzag - ((self.head_size - 1) / 2)) / max((self.head_size - 1) / 2, 1.0)
         zigzag = zigzag * zigzag.abs()
-        # Depth-dependent decay exponent: deeper layers get longer memory horizons.
         decay_base = torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1)
         decay = -6 + 6 * torch.pow(decay_base, 1.0 + ratio_0_to_1**0.3)
         with torch.no_grad():
@@ -134,17 +179,28 @@ class HRMRWKV7LowRankCore(nn.Module):
             _ortho_init_(self.a2, 0.1)
             self.g1.zero_()
             _ortho_init_(self.g2, 0.1)
-        # Official r/k/v scale: receptance/value ~uniform(+-0.5/sqrt(dim)),
-        # key 10x smaller (+-0.05/sqrt(dim)); init_std is passed as dim**-0.5.
         nn.init.uniform_(self.receptance.weight, -0.5 * init_std, 0.5 * init_std)
         nn.init.uniform_(self.key.weight, -0.05 * init_std, 0.05 * init_std)
         nn.init.uniform_(self.value.weight, -0.5 * init_std, 0.5 * init_std)
         nn.init.zeros_(self.output.weight)
         self.ln_x.reset_parameters()
 
-    def project(self, x: Tensor) -> HRMRWKV7Features:
+    def project(
+        self,
+        x: Tensor,
+        *,
+        previous_x: Tensor | None = None,
+        token_mask: Tensor | None = None,
+        return_previous: bool = False,
+        advance_within_sequence: bool = True,
+    ) -> HRMRWKV7Features | tuple[HRMRWKV7Features, Tensor]:
         batch_size, seq_len, dim = x.shape
-        xx = _time_shift_delta(x)
+        xx, next_previous_x = _time_shift_delta(
+            x,
+            previous_x,
+            token_mask,
+            advance_within_sequence=advance_within_sequence,
+        )
         xr = x + xx * self.x_r.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
         xw = x + xx * self.x_w.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
         xk = x + xx * self.x_k.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
@@ -176,7 +232,10 @@ class HRMRWKV7LowRankCore(nn.Module):
             p=2.0,
         ).reshape(batch_size, seq_len, dim)
         k = k * (1 + (a_gate - 1) * self.k_a.to(dtype=x.dtype, device=x.device).view(1, 1, -1))
-        return HRMRWKV7Features(r=r, w=w, k=k, v=v, a=-kk, b=kk * a_gate, g=g)
+        features = HRMRWKV7Features(r=r, w=w, k=k, v=v, a=-kk, b=kk * a_gate, g=g)
+        if return_previous:
+            return features, next_previous_x
+        return features
 
     def readout(self, reads: Tensor, g: Tensor) -> Tensor:
         batch_size, seq_len, dim = reads.shape
@@ -186,7 +245,7 @@ class HRMRWKV7LowRankCore(nn.Module):
             reads.reshape(batch_size * seq_len, dim),
             num_groups=self.n_head,
             weight=self.ln_x.weight.to(device=reads.device, dtype=reads.dtype),
-            bias=None,
+            bias=self.ln_x.bias.to(device=reads.device, dtype=reads.dtype),
             eps=self.ln_x.eps,
         ).reshape(batch_size, seq_len, dim)
         return self.output(normalized * g)

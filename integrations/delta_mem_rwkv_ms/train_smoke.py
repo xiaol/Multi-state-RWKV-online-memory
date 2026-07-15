@@ -16,15 +16,19 @@ DEFAULT_OUTPUT_DIR = ROOT / ".openresearch" / "artifacts" / "rwkv_ms_train_smoke
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a verified two-step Gemma4 RWKV-MS adapter training smoke test."
+        description="Run a verified two-step RWKV-MS adapter training smoke test."
     )
     parser.add_argument("--delta-mem-root", type=Path, default=DEFAULT_DELTA_MEM_ROOT)
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--train-file", type=Path, default=DEFAULT_TRAIN_FILE)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--dtype", choices=("bfloat16", "float32"), default="bfloat16")
-    parser.add_argument("--attn-implementation", default="sdpa")
-    parser.add_argument("--target-layers", default="0")
+    parser.add_argument("--attn-implementation", default="auto")
+    parser.add_argument(
+        "--target-layers",
+        default="3",
+        help="Comma-separated physical model layer indices (Qwen3.6 smoke default: 3).",
+    )
     parser.add_argument("--delta-heads", default="q,o")
     parser.add_argument("--rank", type=int, default=2)
     parser.add_argument("--alpha", type=float, default=4.0)
@@ -97,6 +101,7 @@ def main() -> None:
         load_delta_mem_adapter,
         save_delta_mem_adapter,
     )
+    from deltamem.model_loading import resolve_attn_implementation
     from deltamem.train.delta_sft_experimental import (
         DeltaMemTrainer,
         EpisodeCausalLMCollator,
@@ -104,7 +109,7 @@ def main() -> None:
     )
 
     if not torch.cuda.is_available():
-        raise RuntimeError("The Gemma4 smoke train requires a CUDA GPU")
+        raise RuntimeError("The RWKV-MS smoke train requires a CUDA GPU")
     if args.max_steps < 1:
         raise ValueError("max-steps must be >= 1")
 
@@ -138,10 +143,14 @@ def main() -> None:
     if not episodes:
         raise ValueError("Training data did not produce any episode examples")
 
+    resolved_attn_implementation = resolve_attn_implementation(
+        args.model_path,
+        args.attn_implementation,
+    )
     model = AutoModelForCausalLM.from_pretrained(
         args.model_path,
-        torch_dtype=model_dtype,
-        attn_implementation=args.attn_implementation,
+        dtype=model_dtype,
+        attn_implementation=resolved_attn_implementation,
         local_files_only=True,
         low_cpu_mem_usage=True,
     )
@@ -324,6 +333,9 @@ def main() -> None:
         "output_dir": str(args.output_dir.resolve()),
         "device": str(device),
         "base_dtype": str(model_dtype),
+        "requested_attn_implementation": args.attn_implementation,
+        "attn_implementation": resolved_attn_implementation,
+        "target_layers": list(delta_config.target_layers),
         "trainable_dtype": "torch.float32",
         "seed": args.seed,
         "replaced_modules": replaced,

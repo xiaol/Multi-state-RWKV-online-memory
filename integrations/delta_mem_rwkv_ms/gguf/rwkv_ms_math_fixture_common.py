@@ -247,6 +247,7 @@ def make_deterministic_inputs(
     dtype: torch.dtype,
     token_mask: torch.Tensor | None,
     initial_position: int,
+    include_previous_source: bool = True,
 ) -> dict[str, torch.Tensor | None]:
     generator = torch.Generator(device="cpu")
     generator.manual_seed(int(seed))
@@ -267,10 +268,22 @@ def make_deterministic_inputs(
         * 0.03125
     )
     positions = torch.arange(batch_size, dtype=torch.long) + int(initial_position)
+    initial_previous_source = None
+    if include_previous_source:
+        initial_previous_source = (
+            torch.randn(
+                batch_size,
+                rank * num_state_heads,
+                generator=generator,
+                dtype=torch.float32,
+            )
+            * 0.0625
+        ).to(dtype=dtype)
     return {
         "hidden_states": hidden.to(dtype=dtype),
         "initial_state": initial_state.to(dtype=dtype),
         "initial_positions": positions,
+        "initial_previous_source": initial_previous_source,
         "token_mask": token_mask,
     }
 
@@ -434,6 +447,7 @@ def rwkv_ms_scan(
     config: dict[str, Any],
     scan_config: dict[str, Any],
     token_mask: torch.Tensor | None,
+    previous_source: torch.Tensor | None,
     include_step_trace: bool,
 ) -> dict[str, torch.Tensor]:
     rank = int(config["rank"])
@@ -445,7 +459,18 @@ def rwkv_ms_scan(
     batch_size, seq_len, _ = memory_source_seq.shape
 
     with torch.no_grad():
-        features = core.project(memory_source_seq)
+        next_previous_source = None
+        if previous_source is None:
+            # Keep legacy v1 fixtures byte-for-byte reproducible. They predate
+            # streaming predecessor state and projected through masked tokens.
+            features = core.project(memory_source_seq)
+        else:
+            features, next_previous_source = core.project(
+                memory_source_seq,
+                previous_x=previous_source,
+                token_mask=token_mask,
+                return_previous=True,
+            )
         r_seq = project_heads(features.r, num_state_heads=num_state_heads, rank=rank)
         w_seq = project_heads(features.w, num_state_heads=num_state_heads, rank=rank)
         k_seq = project_heads(features.k, num_state_heads=num_state_heads, rank=rank)
@@ -571,6 +596,8 @@ def rwkv_ms_scan(
             "final_state": current_state,
             "final_positions": current_positions,
         }
+        if next_previous_source is not None:
+            result["final_previous_source"] = next_previous_source
         if include_step_trace:
             result.update({name: torch.stack(values, dim=1) for name, values in trace.items()})
         return result
@@ -617,6 +644,7 @@ def compute_expected_tensors(
         config=config,
         scan_config=scan_config,
         token_mask=inputs["token_mask"],  # type: ignore[arg-type]
+        previous_source=inputs.get("initial_previous_source"),  # type: ignore[arg-type]
         include_step_trace=include_step_trace,
     )
     delta = project_delta_heads(scan["reads"], params, config)

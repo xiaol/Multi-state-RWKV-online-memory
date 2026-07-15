@@ -251,6 +251,15 @@ slot rollover while keeping `rwkv_ms_chunk_size=1024`. It covers:
 - readout normalization/output;
 - active `delta_q` and `delta_o` heads.
 
+The checked-in 37-record fixture is the original v1 artifact and has no
+streaming-predecessor input. The validator keeps that representation
+backward-compatible. Newly generated v1 fixtures also record a deterministic
+nonzero `initial_previous_source` and the resulting `final_previous_source`;
+the patch checker runs an artifact-independent test proving that state,
+positions, predecessor, and reads match between one full scan and two chunks.
+This Python fixture extension does not change the Gemma-only scope of the GGUF
+sidecar runtime or claim C++ coverage for the new optional records.
+
 This is the golden input for the isolated GGML/C++ math test. Passing this
 fixture validates the sidecar math kernel, not the full llama.cpp/Gemma runtime.
 

@@ -149,10 +149,16 @@ The practical RWKV-MS online-memory integration for delta-Mem is packaged in
 `integrations/delta_mem_rwkv_ms/`. It includes the patch, the minimal
 HRM-Text-derived RWKV-7 core, HF inference and verified manual training-smoke
 entry points, a matched delta-rule/RWKV-MS training launcher, and a temporary-
-clone checker for applying the patch safely. The patch supports Qwen3, SmolLM3,
-and Gemma4 text attention;
+clone checker for applying the patch safely. The patch supports Qwen3,
+Qwen3.5/Qwen3.6, SmolLM3, and Gemma4 text attention;
 for `google/gemma-4-E4B-it` it wraps the non-KV-shared attention layers and
 skips the KV-shared tail layers.
+
+Transformers exposes Qwen3.6 as `qwen3_5`. Its 64-layer hybrid stack has 16
+full-attention layers at physical indices `3,7,11,...,63`; the other 48 Gated
+DeltaNet layers are not wrapped. Use layer `3` for a smoke run or
+`3,7,11,15,19,23` for the six early eligible layers. This Qwen path is the HF
+integration and is separate from the Gemma-only GGUF sidecar runtime.
 
 delta-Mem provides the runtime wrapper/session machinery: attaching online
 memory modules to a Transformers model, loading `delta_mem_adapter.pt`, keeping

@@ -13,10 +13,12 @@ NPROC_PER_NODE="${NPROC_PER_NODE:-1}"
 MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 BASE_MASTER_PORT="${BASE_MASTER_PORT:-29571}"
 
-BASE_MODEL_PATH="${BASE_MODEL_PATH:-/root/models/Qwen3-4B-Instruct-2507}"
+BASE_MODEL_PATH="${BASE_MODEL_PATH:-/home/aiuser/X/models/Qwen3.6-27B}"
 TRAIN_FILE="${TRAIN_FILE:-/root/data/agent_memory_qasper_ctx8192_episode_safe_seed42.jsonl}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-/root/models/rwkv_ms_delta_rule_comparison}"
 RESULTS_ROOT="${RESULTS_ROOT:-/root/outputs/rwkv_ms_delta_rule_comparison}"
+ATTN_IMPLEMENTATION="${ATTN_IMPLEMENTATION:-auto}"
+TARGET_LAYERS="${TARGET_LAYERS:-3,7,11,15,19,23}"
 
 ADAPTER_RANK="${ADAPTER_RANK:-8}"
 ALPHA="${ALPHA:-16.0}"
@@ -28,6 +30,7 @@ RWKV_MS_CHUNK_SIZE="${RWKV_MS_CHUNK_SIZE:-1024}"
 
 COMMON_TRAIN_ARGS=(
   --model-path "${BASE_MODEL_PATH}"
+  --attn-implementation "${ATTN_IMPLEMENTATION}"
   --train-file "${TRAIN_FILE}"
   --training-mode episode
   --assistant-loss-mode final_assistant_only
@@ -54,7 +57,7 @@ COMMON_TRAIN_ARGS=(
   --delta-heads "${DELTA_HEADS}"
   --online-gain 0.05
   --rankwise-gates
-  --target-layers off
+  --target-layers "${TARGET_LAYERS}"
   --memory-readout-mode delta
   --memory-write-source learned_hidden
   --memory-write-granularity "${MEMORY_WRITE_GRANULARITY}"

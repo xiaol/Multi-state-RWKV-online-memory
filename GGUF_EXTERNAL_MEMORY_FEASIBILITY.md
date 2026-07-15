@@ -197,6 +197,12 @@ read-before-write scan, slot update, readout, and active `q,o` delta heads. It
 is a PyTorch golden math fixture for a future GGML implementation; it is not
 stock llama.cpp execution.
 
+The tracked 37-record v1 fixture predates streaming predecessor persistence and
+remains valid for compatibility. The current generator can additionally carry
+a nonzero `initial_previous_source` and record `final_previous_source`; an
+artifact-independent Python regression compares one full scan with two chunks.
+The optional records do not broaden this experimental GGUF path beyond Gemma4.
+
 The local llama.cpp checkout also has an isolated C++ fixture target:
 
 ```bash
