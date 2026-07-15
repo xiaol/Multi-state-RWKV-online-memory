@@ -430,6 +430,7 @@ class FakeModel:
         self.config = SimpleNamespace(max_position_embeddings=8192, use_cache=False)
         self.generation_config = SimpleNamespace(eos_token_id=99)
         self.calls = 0
+        self.logits_to_keep: list[int] = []
 
     def eval(self):
         return self
@@ -437,9 +438,28 @@ class FakeModel:
     def parameters(self):
         return iter((SimpleNamespace(device="cpu"),))
 
-    def __call__(self, **kwargs):
+    def forward(self, logits_to_keep: int = 0, **kwargs):
         self.calls += 1
+        self.logits_to_keep.append(logits_to_keep)
         return SimpleNamespace(logits=FakeLogits(), past_key_values=object())
+
+    __call__ = forward
+
+
+def test_predictor_limits_logits_only_for_supported_model_signatures() -> None:
+    class LegacyModel:
+        def forward(self, num_logits_to_keep: int = 0):
+            raise AssertionError("signature inspection must not run the model")
+
+    class UnsupportedModel:
+        def forward(self, input_ids):
+            raise AssertionError("signature inspection must not run the model")
+
+    assert predictor.logits_to_keep_kwargs(FakeModel(), 1) == {"logits_to_keep": 1}
+    assert predictor.logits_to_keep_kwargs(LegacyModel(), 1) == {
+        "num_logits_to_keep": 1
+    }
+    assert predictor.logits_to_keep_kwargs(UnsupportedModel(), 1) == {}
 
 
 class FakeTokenizer:
@@ -550,4 +570,5 @@ def test_hybrid_predictor_resets_state_before_every_selected_row(
 
     assert reset_calls == [model, model, model]
     assert model.calls == 3
+    assert model.logits_to_keep == [1, 1, 1]
     assert len(predictor.load_jsonl(output_file)) == 3

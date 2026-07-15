@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import inspect
 import json
 from pathlib import Path
 import sys
@@ -110,6 +111,17 @@ def model_context_window(model) -> int:
     raise ValueError("Could not determine the model context window")
 
 
+def logits_to_keep_kwargs(model, value: int) -> dict[str, int]:
+    try:
+        parameters = inspect.signature(model.forward).parameters
+    except (AttributeError, TypeError, ValueError):
+        return {}
+    for name in ("logits_to_keep", "num_logits_to_keep"):
+        if name in parameters:
+            return {name: value}
+    return {}
+
+
 def synchronize(device: str) -> None:
     import torch
 
@@ -201,6 +213,7 @@ def main() -> None:
     context_window = model_context_window(model)
     stop_ids = eos_token_ids(model, tokenizer)
     model_device = next(model.parameters()).device
+    prefill_logits_kwargs = logits_to_keep_kwargs(model, 1)
 
     manifest = {
         "status": "running" if pending else "complete",
@@ -217,6 +230,7 @@ def main() -> None:
         "device": args.device,
         "dtype": args.dtype,
         "attn_implementation": args.attn_implementation,
+        "prefill_logits_to_keep": 1 if prefill_logits_kwargs else 0,
         "max_new_tokens": max_new_tokens,
         "chunk_index": args.chunk_index,
         "chunk_count": args.chunk_count,
@@ -261,6 +275,7 @@ def main() -> None:
                         attention_mask=attention_mask,
                         use_cache=True,
                         return_dict=True,
+                        **prefill_logits_kwargs,
                     )
                 if args.variant == "hybrid":
                     set_delta_mem_write_message_ids(model, None)
