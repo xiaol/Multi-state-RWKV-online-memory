@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Inference entry point for the Gemma4 E4B RWKV-MS online-memory checkpoint.
-
-This repository owns the RWKV-MS integration and experiment docs. The actual
-model wrapper/session runtime comes from a delta-Mem checkout patched with
-`delta_mem_rwkv_ms.patch`.
-"""
+"""Inference entry point for a bundled RWKV-MS online-memory checkpoint."""
 
 from __future__ import annotations
 
@@ -15,6 +10,7 @@ from pathlib import Path
 from huggingface_hub import snapshot_download
 
 
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MEMORY_REPO = "xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1"
 DEFAULT_BASE_MODEL = "google/gemma-4-E4B-it"
 DEFAULT_PROMPT = """You are a telecom solo-mode tool agent. Return exactly one tool call in this format:
@@ -35,7 +31,13 @@ First step: identify the customer account from the phone number. Return only the
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run Gemma4 E4B with the RWKV-MS online-memory checkpoint.")
-    parser.add_argument("--delta-mem-root", default=None, help="Patched delta-Mem checkout to add to sys.path.")
+    parser.add_argument(
+        "--runtime-root",
+        "--delta-mem-root",
+        dest="runtime_root",
+        default=str(ROOT),
+        help="Root containing the bundled deltamem package (defaults to this repository).",
+    )
     parser.add_argument("--memory-repo", "--adapter-repo", dest="memory_repo", default=DEFAULT_MEMORY_REPO)
     parser.add_argument("--memory-dir", "--adapter-dir", dest="memory_dir", default=None, help="Local memory checkpoint folder; skips Hub download.")
     parser.add_argument("--base-model", default=DEFAULT_BASE_MODEL)
@@ -66,11 +68,10 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    if args.delta_mem_root:
-        delta_mem_root = Path(args.delta_mem_root).expanduser().resolve()
-        if not (delta_mem_root / "deltamem").is_dir():
-            raise FileNotFoundError(f"{delta_mem_root} does not look like a delta-Mem checkout")
-        sys.path.insert(0, str(delta_mem_root))
+    runtime_root = Path(args.runtime_root).expanduser().resolve()
+    if not (runtime_root / "deltamem").is_dir():
+        raise FileNotFoundError(f"Bundled deltamem package not found under {runtime_root}")
+    sys.path.insert(0, str(runtime_root))
 
     from deltamem.runtime.session import DeltaMemChatSession, load_delta_mem_chat_model
 

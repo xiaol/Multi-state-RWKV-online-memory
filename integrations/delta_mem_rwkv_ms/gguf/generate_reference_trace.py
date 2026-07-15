@@ -14,7 +14,8 @@ from typing import Any
 import torch
 
 
-DEFAULT_DELTA_MEM_ROOT = Path("/home/xiaol/X/delta-Mem")
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_RUNTIME_ROOT = REPO_ROOT
 DEFAULT_BASE_MODEL = Path("/run/media/xiaol/B214449214445C0B/models/gemma/gemma-4-E4B-it")
 DEFAULT_MEMORY_DIR = Path(
     "/run/media/xiaol/B214449214445C0B/models/delta_mem/from_gguf/"
@@ -43,7 +44,13 @@ First step: identify the customer account from the phone number. Return only the
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the PyTorch delta-Mem reference and write a trace JSON.")
-    parser.add_argument("--delta-mem-root", type=Path, default=DEFAULT_DELTA_MEM_ROOT)
+    parser.add_argument(
+        "--runtime-root",
+        "--delta-mem-root",
+        dest="runtime_root",
+        type=Path,
+        default=DEFAULT_RUNTIME_ROOT,
+    )
     parser.add_argument("--base-model", default=str(DEFAULT_BASE_MODEL))
     parser.add_argument("--memory-dir", type=Path, default=DEFAULT_MEMORY_DIR)
     parser.add_argument("--memory-gguf", type=Path, default=DEFAULT_MEMORY_GGUF)
@@ -67,9 +74,9 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def require_delta_mem_root(path: Path) -> None:
+def require_runtime_root(path: Path) -> None:
     if not (path / "deltamem").is_dir():
-        raise FileNotFoundError(f"{path} does not look like a delta-Mem checkout")
+        raise FileNotFoundError(f"Bundled deltamem package not found under {path}")
     sys.path.insert(0, str(path.resolve()))
 
 
@@ -105,9 +112,9 @@ def tensor_state_summary(snapshot_state: dict[str, torch.Tensor]) -> dict[str, A
 
 def main() -> None:
     args = parse_args()
-    delta_mem_root = args.delta_mem_root.expanduser().resolve()
+    runtime_root = args.runtime_root.expanduser().resolve()
     memory_dir = args.memory_dir.expanduser().resolve()
-    require_delta_mem_root(delta_mem_root)
+    require_runtime_root(runtime_root)
     require_memory_dir(memory_dir)
 
     from deltamem.runtime.session import DeltaMemChatSession, load_delta_mem_chat_model
@@ -141,7 +148,8 @@ def main() -> None:
         "created_at": utc_now(),
         "elapsed_ms": round((time.perf_counter() - started) * 1000.0, 3),
         "source": {
-            "delta_mem_root": str(delta_mem_root),
+            "runtime_root": str(runtime_root),
+            "delta_mem_root": str(runtime_root),
             "base_model": args.base_model,
             "memory_dir": str(memory_dir),
             "memory_gguf": str(args.memory_gguf.expanduser().resolve()),

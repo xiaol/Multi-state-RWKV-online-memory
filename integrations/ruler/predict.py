@@ -9,6 +9,7 @@ import sys
 import time
 
 
+ROOT = Path(__file__).resolve().parents[2]
 TASK_TOKEN_BUDGETS = {
     "niah_single_1": 128,
     "niah_single_2": 128,
@@ -36,7 +37,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--variant", choices=("base", "hybrid"), required=True)
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--adapter-dir", type=Path)
-    parser.add_argument("--delta-mem-root", type=Path)
+    parser.add_argument(
+        "--runtime-root",
+        "--delta-mem-root",
+        dest="runtime_root",
+        type=Path,
+        default=ROOT,
+    )
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument(
         "--dtype",
@@ -119,13 +126,13 @@ def main() -> None:
     if args.max_new_tokens < 0 or args.max_samples < 0:
         raise ValueError("max-new-tokens and max-samples must be >= 0")
     if args.variant == "hybrid":
-        if args.adapter_dir is None or args.delta_mem_root is None:
-            raise ValueError("hybrid prediction requires --adapter-dir and --delta-mem-root")
+        if args.adapter_dir is None:
+            raise ValueError("hybrid prediction requires --adapter-dir")
         if not (args.adapter_dir / "delta_mem_adapter.pt").is_file():
             raise FileNotFoundError(f"Missing adapter weights in {args.adapter_dir}")
-        if not (args.delta_mem_root / "deltamem").is_dir():
-            raise FileNotFoundError(f"Not a delta-Mem checkout: {args.delta_mem_root}")
-        sys.path.insert(0, str(args.delta_mem_root.resolve()))
+        if not (args.runtime_root / "deltamem").is_dir():
+            raise FileNotFoundError(f"Bundled deltamem package not found under {args.runtime_root}")
+        sys.path.insert(0, str(args.runtime_root.resolve()))
 
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer

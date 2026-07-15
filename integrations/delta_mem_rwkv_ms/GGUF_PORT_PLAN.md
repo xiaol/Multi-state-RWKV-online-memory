@@ -5,13 +5,16 @@ RWKV-MS checkpoint into a real llama.cpp/GGML runtime. The base Gemma4 E4B GGUF
 is already useful for normal inference tests, but it is not the external-memory
 runtime.
 
+The authoritative PyTorch runtime is bundled at repository top-level
+`deltamem/`; the commands below assume the repository was installed with
+`pip install -e .` and do not require a separate delta-Mem checkout.
+
 ## Current Working Baselines
 
 PyTorch online-memory reference:
 
 ```bash
 python integrations/delta_mem_rwkv_ms/inference.py \
-  --delta-mem-root /path/to/patched/delta-Mem \
   --memory-repo xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1 \
   --base-model google/gemma-4-E4B-it \
   --device cuda:0 \
@@ -346,7 +349,7 @@ Generate a PyTorch delta-Mem reference trace using the checkpoint rebuilt from
 the GGUF sidecar:
 
 ```bash
-/home/xiaol/X/delta-Mem/.venv/bin/python \
+.venv/bin/python \
   integrations/delta_mem_rwkv_ms/gguf/generate_reference_trace.py \
   --max-new-tokens 64 \
   --output .openresearch/artifacts/gguf_reference_trace_from_sidecar_64.json \

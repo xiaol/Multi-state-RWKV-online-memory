@@ -9,7 +9,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DELTA_MEM_ROOT = ROOT.parent / "delta-Mem"
+DEFAULT_RUNTIME_ROOT = ROOT
 DEFAULT_TRAIN_FILE = ROOT / "configs" / "rwkv_ms_smoke_train.jsonl"
 DEFAULT_OUTPUT_DIR = ROOT / ".openresearch" / "artifacts" / "rwkv_ms_train_smoke"
 
@@ -18,7 +18,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a verified two-step RWKV-MS adapter training smoke test."
     )
-    parser.add_argument("--delta-mem-root", type=Path, default=DEFAULT_DELTA_MEM_ROOT)
+    parser.add_argument(
+        "--runtime-root",
+        "--delta-mem-root",
+        dest="runtime_root",
+        type=Path,
+        default=DEFAULT_RUNTIME_ROOT,
+        help="Root containing the bundled deltamem package.",
+    )
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--train-file", type=Path, default=DEFAULT_TRAIN_FILE)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
@@ -70,9 +77,9 @@ def parse_csv_ints(value: str) -> tuple[int, ...]:
 
 def main() -> None:
     args = parse_args()
-    delta_mem_root = args.delta_mem_root.resolve()
-    if not (delta_mem_root / "deltamem").is_dir():
-        raise FileNotFoundError(f"Not a delta-Mem checkout: {delta_mem_root}")
+    runtime_root = args.runtime_root.resolve()
+    if not (runtime_root / "deltamem").is_dir():
+        raise FileNotFoundError(f"Bundled deltamem package not found under {runtime_root}")
     args.output_dir = args.output_dir.resolve()
     if args.output_dir.exists() and not args.output_dir.is_dir():
         raise NotADirectoryError(f"Output path is not a directory: {args.output_dir}")
@@ -85,7 +92,7 @@ def main() -> None:
             f"Output directory is not empty: {args.output_dir}. "
             "Choose another path or pass --overwrite-output."
         )
-    sys.path.insert(0, str(delta_mem_root))
+    sys.path.insert(0, str(runtime_root))
 
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments

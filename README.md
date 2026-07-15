@@ -139,17 +139,19 @@ EVAL.md                            # Generated report from latest run
 .openresearch/artifacts/           # JSONL, JSON, figure, run log
 hattention/                        # Log-Linear Attention implementation used for smoke test
 figs/                              # Original figure asset
-integrations/delta_mem_rwkv_ms/    # delta-Mem RWKV-MS patch, inference script, launcher
+deltamem/                          # bundled patched HF online-memory runtime
+integrations/delta_mem_rwkv_ms/    # launchers, docs, GGUF tools, optional upstream patch
 integrations/delta_mem_rwkv_ms/gguf/ # GGUF sidecar, fixture, and parity helpers
 ```
 
 ## Delta-Mem RWKV-MS Online Memory
 
-The practical RWKV-MS online-memory integration for delta-Mem is packaged in
-`integrations/delta_mem_rwkv_ms/`. It includes the patch, the minimal
-HRM-Text-derived RWKV-7 core, HF inference and verified manual training-smoke
-entry points, a matched delta-rule/RWKV-MS training launcher, and a temporary-
-clone checker for applying the patch safely. The patch supports Qwen3,
+The practical RWKV-MS online-memory integration is self-contained in this
+repository. The patched Python runtime is bundled at top-level `deltamem/`, so
+normal Qwen/Gemma HF training and inference do not require another delta-Mem
+checkout. `integrations/delta_mem_rwkv_ms/` contains HF inference and verified
+manual training-smoke entry points, a matched delta-rule/RWKV-MS launcher, GGUF
+tools, and an optional upstream patch export. The runtime supports Qwen3,
 Qwen3.5/Qwen3.6, SmolLM3, and Gemma4 text attention;
 for `google/gemma-4-E4B-it` it wraps the non-KV-shared attention layers and
 skips the KV-shared tail layers.
@@ -160,17 +162,30 @@ DeltaNet layers are not wrapped. Use layer `3` for a smoke run or
 `3,7,11,15,19,23` for the six early eligible layers. This Qwen path is the HF
 integration and is separate from the Gemma-only GGUF sidecar runtime.
 
-delta-Mem provides the runtime wrapper/session machinery: attaching online
-memory modules to a Transformers model, loading `delta_mem_adapter.pt`, keeping
-the RWKV-MS online state synchronized with the KV cache, and applying the chat
-template. This repo provides the RWKV-MS integration patch, docs, benchmark
-status, and the recommended inference script.
+The bundled `deltamem/` package provides the wrapper/session machinery:
+attaching online-memory modules to a Transformers model, loading
+`delta_mem_adapter.pt`, keeping RWKV-MS state synchronized with the KV cache,
+and applying the chat template. The optional
+`integrations/delta_mem_rwkv_ms/delta_mem_rwkv_ms.patch` exports these changes
+for upstream delta-Mem revision `5cd5d9153c7f408764728d953565201e198c39e2`;
+it is not needed for normal use of this repository.
+See [bundled runtime provenance](integrations/delta_mem_rwkv_ms/BUNDLED_RUNTIME.md)
+for the source snapshot and local integration revision.
+
+For HF workflows, install the bundled package from the repository root before
+running the commands below:
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
 
 ### Gemma tau2 status
 
 The active Gemma + RWKV-MS tau2 recipe is documented in
-`GEMMA_RWKV_MS_TAU2_TRAINING_PLAN_V2.md`. The matching local delta-Mem
-integration commit used by the benchmark artifacts is:
+`GEMMA_RWKV_MS_TAU2_TRAINING_PLAN_V2.md`. For reproducibility, the benchmark
+artifacts record this historical source integration commit (it is not a current
+external runtime dependency):
 
 ```text
 bec8330 Add RWKV-MS memory backend for Gemma tau2
@@ -242,7 +257,6 @@ Recommended HF online-memory inference command:
 
 ```bash
 python integrations/delta_mem_rwkv_ms/inference.py \
-  --delta-mem-root /path/to/patched/delta-Mem \
   --memory-repo xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1 \
   --base-model google/gemma-4-E4B-it \
   --device cuda:0 \
@@ -478,7 +492,7 @@ division fail explicitly under RWKV-MS instead of mutating only KV cache.
 To generate the first PyTorch golden trace from the sidecar-rebuilt checkpoint:
 
 ```bash
-/home/xiaol/X/delta-Mem/.venv/bin/python \
+.venv/bin/python \
   integrations/delta_mem_rwkv_ms/gguf/generate_reference_trace.py \
   --max-new-tokens 64 \
   --output .openresearch/artifacts/gguf_reference_trace_from_sidecar_64.json \

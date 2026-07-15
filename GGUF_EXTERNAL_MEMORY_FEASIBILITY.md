@@ -307,10 +307,11 @@ successful health file.
   --output .openresearch/artifacts/gguf_ui/rwkv_ms_runtime_health.json
 ```
 
-Golden PyTorch trace from the sidecar-rebuilt checkpoint:
+Golden PyTorch trace from the sidecar-rebuilt checkpoint, using the bundled
+top-level `deltamem/` runtime:
 
 ```bash
-/home/xiaol/X/delta-Mem/.venv/bin/python \
+.venv/bin/python \
   integrations/delta_mem_rwkv_ms/gguf/generate_reference_trace.py \
   --max-new-tokens 64 \
   --output .openresearch/artifacts/gguf_reference_trace_from_sidecar_64.json \
@@ -356,8 +357,8 @@ tensor file. In the current PyTorch runtime it needs to:
 - keep RWKV-MS online state synchronized with KV cache/session state;
 - preserve/reset/save/load memory state across chat turns.
 
-The current implementation depends on the patched delta-Mem runtime for those
-operations. GGUF stores model tensors and metadata for GGML executors, but a
+The current implementation depends on the bundled patched `deltamem/` runtime
+for those operations. GGUF stores model tensors and metadata for GGML executors, but a
 standard GGUF engine does not automatically expose arbitrary per-layer read/write
 hooks or delta-Mem session state.
 
@@ -441,7 +442,7 @@ Still required before calling this "RWKV-MS GGUF":
 
 ## Practical Recommendation
 
-Use the current PyTorch + patched delta-Mem runtime as the reference
+Use the current PyTorch + bundled patched `deltamem/` runtime as the reference
 implementation.
 
 Treat GGUF as a next engineering milestone:

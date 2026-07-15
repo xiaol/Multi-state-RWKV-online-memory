@@ -1,5 +1,10 @@
 # Gemma + RWKV-MS Tau2 Training Plan — V2
 
+> Historical environment note: absolute `delta-Mem` paths below record the
+> original training setup. The maintained HF runtime is now bundled at
+> top-level `deltamem/`; use `README.md` for current installation and entry
+> points.
+
 Supersedes the training/benchmark sections of `GEMMA_RWKV_MS_TAU2_PLAN.md`.
 Keep that file for the original objective, dataset, and environment notes; this
 file is the active recipe after the first benchmark round and the RWKV-7 init

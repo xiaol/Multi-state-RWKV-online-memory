@@ -1,19 +1,21 @@
 # Delta-Mem RWKV-MS Online Memory
 
-This folder contains the practical delta-Mem integration for the RWKV multi-state
-online-memory module used by the mechanism comparison in this repo.
+This repository contains a self-contained delta-Mem integration for the RWKV
+multi-state online-memory module used by the mechanism comparison. The patched
+Python runtime is bundled at top-level `deltamem/`; normal Qwen/Gemma HF
+training and inference do not require a separate delta-Mem checkout.
 
-The implementation was built against the local `delta-Mem` repo and uses the
-verified HRM-Text RWKV-7 read-before-write memory core as the source reference.
-It adds a second online memory backend and supports both the Qwen3.6 HF model
-and the current practical Gemma target, `google/gemma-4-E4B-it`.
+The implementation uses the verified HRM-Text RWKV-7 read-before-write memory
+core as the source reference. It adds a second online memory backend and
+supports both the Qwen3.6 HF model and the current practical Gemma target,
+`google/gemma-4-E4B-it`.
 
 | Backend | Flag | State | Readout contract |
 | --- | --- | --- | --- |
 | Delta rule | `--memory-backend delta_rule` | one associative matrix per state head | existing q/k/v/o delta heads |
 | RWKV-MS | `--memory-backend rwkv_ms` | `rwkv_ms_num_states` RWKV-7 matrices per state head | same q/k/v/o delta heads |
 
-Supported attention backbones in this patch:
+Supported attention backbones in the bundled runtime:
 
 | Backbone | Status |
 | --- | --- |
@@ -22,25 +24,28 @@ Supported attention backbones in this patch:
 | SmolLM3 | supported |
 | Gemma4 text attention | supported for non-KV-shared layers |
 
-Gemma4 E4B has KV-shared tail layers that do not own k/v projections. The patch
-skips those layers and wraps the non-shared sliding/full attention layers.
+Gemma4 E4B has KV-shared tail layers that do not own k/v projections. The
+runtime skips those layers and wraps the non-shared sliding/full attention
+layers.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `delta_mem_rwkv_ms.patch` | Patch for a delta-Mem checkout. |
-| `hrm_rwkv7.py` | Minimal HRM-Text-derived RWKV-7 projection/readout core included in the patch. |
+| `../../deltamem/` | Bundled HF online-memory runtime used for normal training and inference. |
+| `delta_mem_rwkv_ms.patch` | Optional export of the integration for the pinned upstream delta-Mem revision. |
+| `hrm_rwkv7.py` | Minimal HRM-Text-derived RWKV-7 projection/readout core mirrored by the bundled runtime and patch. |
 | `inference.py` | HF online-memory inference entry point for a compatible RWKV-MS checkpoint. |
 | `train_smoke.py` | Manual two-step adapter train with gradient, tensor-delta, and reload checks. |
 | `run_rwkv_ms_delta_rule_comparison.sh` | Matched delta-rule vs RWKV-MS training launcher. |
-| `check_delta_mem_patch.sh` | Applies the patch to a temporary copy and runs focused regressions. |
+| `check_delta_mem_patch.sh` | Validates the bundled runtime; optionally verifies the patch against an upstream copy. |
 
-## What delta-Mem Provides
+## Bundled HF Runtime
 
 The HF checkpoint is only the learned online-memory weights and
 `delta_mem_config.json`.
-Inference still needs the delta-Mem runtime because delta-Mem provides:
+Inference also needs runtime code, which this repository now provides in
+`deltamem/`:
 
 - the attention wrapper that attaches online-memory read/write modules to Gemma4
   text attention layers;
@@ -49,19 +54,35 @@ Inference still needs the delta-Mem runtime because delta-Mem provides:
   memory state synchronized across turns;
 - tokenizer/chat-template handling and message/span IDs used by write routing.
 
-This repository owns the RWKV-MS mechanism, patch, training notes, benchmark
-comparison, and inference entry point. It does not vendor the full delta-Mem
-runtime as a forked package, because that would duplicate the upstream runtime
-surface and make memory-checkpoint compatibility harder to track. The intended
-layout is:
+The normal layout is therefore self-contained:
 
 ```text
-Multi-state-RWKV-online-memory/      # this repo: patch, docs, inference entry point
-delta-Mem/                           # patched runtime dependency
-HF memory checkpoint repo/           # weights + config only
+Multi-state-RWKV-online-memory/
+├── deltamem/                         # bundled patched Python runtime
+├── integrations/delta_mem_rwkv_ms/  # launchers, docs, GGUF tools, optional patch export
+└── HF memory checkpoint/             # downloaded weights + config, local or Hub cache
 ```
 
-## Apply To Delta-Mem
+Install from the repository root and run the commands below from that root:
+
+```bash
+git clone https://github.com/xiaol/Multi-state-RWKV-online-memory.git
+cd Multi-state-RWKV-online-memory
+python -m venv .venv
+source .venv/bin/activate
+pip install -U pip setuptools wheel
+pip install -r requirements.txt
+pip install -e .
+```
+
+## Optional Upstream Patch Export
+
+`delta_mem_rwkv_ms.patch` is retained for review, provenance, and exporting the
+same integration to upstream delta-Mem. It is not required when using this
+repository's bundled `deltamem/` package. The export is pinned to upstream
+delta-Mem revision `5cd5d9153c7f408764728d953565201e198c39e2`.
+See [`BUNDLED_RUNTIME.md`](BUNDLED_RUNTIME.md) for the exact source and local
+integration provenance.
 
 From a clean or reviewable `delta-Mem` checkout:
 
@@ -76,34 +97,19 @@ python -m py_compile \
 bash -n scripts/run_rwkv_ms_delta_rule_comparison.sh
 ```
 
-For a fresh local inference setup:
-
-```bash
-git clone https://github.com/xiaol/Multi-state-RWKV-online-memory.git
-git clone https://github.com/declare-lab/delta-Mem.git
-
-cd delta-Mem
-python -m venv .venv
-source .venv/bin/activate
-pip install -U pip setuptools wheel
-pip install -r requirements.txt
-pip install -U "huggingface_hub>=1.0.0"
-
-git apply \
-  ../Multi-state-RWKV-online-memory/integrations/delta_mem_rwkv_ms/delta_mem_rwkv_ms.patch
-```
-
-If the patch reports that hunks are already applied, use a clean delta-Mem
-checkout or a delta-Mem revision that already contains the RWKV-MS integration.
-
-The patch targets delta-Mem revision `5cd5d9153c7f408764728d953565201e198c39e2`.
-The bundled checker verifies that revision, applies the patch in a temporary
-clone, compares the bundled core and launcher byte-for-byte, and runs the Qwen,
+With no arguments, the checker validates the bundled runtime and runs the Qwen,
 Gemma, RWKV-MS, and artifact-independent GGUF streaming-math regressions:
 
 ```bash
 PYTHON_BIN=/path/to/python \
-  integrations/delta_mem_rwkv_ms/check_delta_mem_patch.sh ../delta-Mem
+  integrations/delta_mem_rwkv_ms/check_delta_mem_patch.sh
+```
+
+Passing a clean upstream checkout additionally applies the optional patch and
+proves that its patched `deltamem/` tree is byte-identical to the bundled one:
+
+```bash
+integrations/delta_mem_rwkv_ms/check_delta_mem_patch.sh /path/to/delta-Mem
 ```
 
 ## Qwen3.6 HF Path
@@ -117,9 +123,8 @@ refers to these physical model indices.
 Use layer `3` for a small attachment/training smoke:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 ../delta-Mem/.venv/bin/python \
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   integrations/delta_mem_rwkv_ms/train_smoke.py \
-  --delta-mem-root ../delta-Mem \
   --model-path /home/aiuser/X/models/Qwen3.6-27B \
   --target-layers 3 \
   --attn-implementation auto \
@@ -129,15 +134,12 @@ CUDA_VISIBLE_DEVICES=0 ../delta-Mem/.venv/bin/python \
 For a matched backend comparison over the first six eligible layers:
 
 ```bash
-(
-  cd ../delta-Mem
-  BASE_MODEL_PATH=/home/aiuser/X/models/Qwen3.6-27B \
-  TARGET_LAYERS=3,7,11,15,19,23 \
-  TRAIN_FILE=/path/to/agent_memory_qasper_ctx8192_episode_safe_seed42.jsonl \
-  OUTPUT_ROOT=/path/to/qwen36_rwkv_ms_delta_rule_comparison \
-  NPROC_PER_NODE=8 \
-  bash scripts/run_rwkv_ms_delta_rule_comparison.sh
-)
+BASE_MODEL_PATH=/home/aiuser/X/models/Qwen3.6-27B \
+TARGET_LAYERS=3,7,11,15,19,23 \
+TRAIN_FILE=/path/to/agent_memory_qasper_ctx8192_episode_safe_seed42.jsonl \
+OUTPUT_ROOT=/path/to/qwen36_rwkv_ms_delta_rule_comparison \
+NPROC_PER_NODE=8 \
+bash integrations/delta_mem_rwkv_ms/run_rwkv_ms_delta_rule_comparison.sh
 ```
 
 The wrapper handles Qwen3.6's gated query projection and output gate without
@@ -153,8 +155,7 @@ Recommended entry point:
 
 ```bash
 cd Multi-state-RWKV-online-memory
-../delta-Mem/.venv/bin/python integrations/delta_mem_rwkv_ms/inference.py \
-  --delta-mem-root ../delta-Mem \
+.venv/bin/python integrations/delta_mem_rwkv_ms/inference.py \
   --memory-repo xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1 \
   --base-model google/gemma-4-E4B-it \
   --device cuda:0 \
@@ -166,20 +167,17 @@ cd Multi-state-RWKV-online-memory
 The same script also accepts `--memory-dir /path/to/local/model-repo` if the HF
 model repo has already been cloned. For backward compatibility, `--adapter-repo`
 and `--adapter-dir` are accepted as delta-Mem API aliases. It uses
-`DeltaMemChatSession.generate_reply(...)` from the patched delta-Mem runtime.
+`DeltaMemChatSession.generate_reply(...)` from the bundled runtime.
 
 Then train a matched pair:
 
 ```bash
-(
-  cd ../delta-Mem
-  BASE_MODEL_PATH=google/gemma-4-E4B-it \
-  TARGET_LAYERS=0,1,2,3,4,5 \
-  TRAIN_FILE=/path/to/agent_memory_qasper_ctx8192_episode_safe_seed42.jsonl \
-  OUTPUT_ROOT=/path/to/rwkv_ms_delta_rule_comparison \
-  NPROC_PER_NODE=8 \
-  bash scripts/run_rwkv_ms_delta_rule_comparison.sh
-)
+BASE_MODEL_PATH=google/gemma-4-E4B-it \
+TARGET_LAYERS=0,1,2,3,4,5 \
+TRAIN_FILE=/path/to/agent_memory_qasper_ctx8192_episode_safe_seed42.jsonl \
+OUTPUT_ROOT=/path/to/rwkv_ms_delta_rule_comparison \
+NPROC_PER_NODE=8 \
+bash integrations/delta_mem_rwkv_ms/run_rwkv_ms_delta_rule_comparison.sh
 ```
 
 Keep base model, data, rank, alpha, delta heads, target layers, write policy,
@@ -191,9 +189,8 @@ two-example fixture. Override the Qwen-oriented smoke default with a Gemma
 physical layer:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 ../delta-Mem/.venv/bin/python \
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   integrations/delta_mem_rwkv_ms/train_smoke.py \
-  --delta-mem-root ../delta-Mem \
   --model-path /path/to/gemma-4-E4B-it \
   --target-layers 0 \
   --output-dir .openresearch/artifacts/rwkv_ms_train_smoke
