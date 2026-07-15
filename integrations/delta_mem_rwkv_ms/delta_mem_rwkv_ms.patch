@@ -1030,6 +1030,263 @@ index e8e8845f9db260a25be0357368b170b351fd9893..b891e4037e011a1d9735bc1ac7c287e8
          module = module_map[name]
          if not isinstance(module, DeltaMemAttention):
              raise TypeError(f"{name} is not a DeltaMemAttention")
+diff --git a/deltamem/core/hrm_rwkv7.py b/deltamem/core/hrm_rwkv7.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e590c9cc2ecfe2f71490833414c0b6776c08f9ee
+--- /dev/null
++++ b/deltamem/core/hrm_rwkv7.py
+@@ -0,0 +1,251 @@
++from __future__ import annotations
++
++import math
++from typing import NamedTuple
++
++import torch
++from torch import Tensor, nn
++import torch.nn.functional as F
++
++
++class HRMRWKV7Features(NamedTuple):
++    r: Tensor
++    w: Tensor
++    k: Tensor
++    v: Tensor
++    a: Tensor
++    b: Tensor
++    g: Tensor
++
++
++def _ortho_init_(x: Tensor, scale: float = 1.0) -> Tensor:
++    with torch.no_grad():
++        shape = x.shape
++        if len(shape) == 2:
++            gain = math.sqrt(shape[0] / shape[1]) if shape[0] > shape[1] else 1.0
++            nn.init.orthogonal_(x, gain=gain * scale)
++        else:
++            raise ValueError(f"Unsupported tensor shape for RWKV-7 orthogonal init: {shape}")
++    return x
++
++
++def _time_shift_delta(
++    x: Tensor,
++    previous_x: Tensor | None = None,
++    token_mask: Tensor | None = None,
++    *,
++    advance_within_sequence: bool = True,
++) -> tuple[Tensor, Tensor]:
++    batch_size, seq_len, dim = x.shape
++    if previous_x is None:
++        previous_x = x.new_zeros(batch_size, dim)
++    if previous_x.shape != (batch_size, dim):
++        raise ValueError(
++            f"previous_x must have shape {(batch_size, dim)}, got {tuple(previous_x.shape)}"
++        )
++    if seq_len == 0:
++        return x.new_empty(batch_size, 0, dim), previous_x
++    previous_x = previous_x.to(device=x.device, dtype=x.dtype)
++    if not advance_within_sequence:
++        if token_mask is not None and token_mask.shape != (batch_size, seq_len):
++            raise ValueError(
++                f"token_mask must have shape {(batch_size, seq_len)}, got {tuple(token_mask.shape)}"
++            )
++        return previous_x.unsqueeze(1) - x, previous_x
++    if token_mask is None:
++        xx = torch.empty_like(x)
++        xx[:, 0] = previous_x - x[:, 0]
++        if seq_len > 1:
++            xx[:, 1:] = x[:, :-1] - x[:, 1:]
++        return xx, x[:, -1]
++    if token_mask.shape != (batch_size, seq_len):
++        raise ValueError(
++            f"token_mask must have shape {(batch_size, seq_len)}, got {tuple(token_mask.shape)}"
++        )
++    token_mask = token_mask.to(device=x.device, dtype=torch.bool)
++    token_indices = torch.arange(seq_len, device=x.device).view(1, seq_len).expand(batch_size, -1)
++    valid_indices = torch.where(token_mask, token_indices, token_indices.new_full((), -1))
++    last_valid_indices = valid_indices.cummax(dim=1).values
++    previous_indices = torch.cat(
++        [last_valid_indices.new_full((batch_size, 1), -1), last_valid_indices[:, :-1]],
++        dim=1,
++    )
++    gathered_previous = x.gather(
++        1,
++        previous_indices.clamp_min(0).unsqueeze(-1).expand(-1, -1, dim),
++    )
++    previous_values = torch.where(
++        previous_indices.unsqueeze(-1).ge(0),
++        gathered_previous,
++        previous_x.unsqueeze(1),
++    )
++    final_indices = last_valid_indices[:, -1]
++    gathered_final = x.gather(
++        1,
++        final_indices.clamp_min(0).view(batch_size, 1, 1).expand(-1, 1, dim),
++    ).squeeze(1)
++    next_previous_x = torch.where(final_indices.unsqueeze(-1).ge(0), gathered_final, previous_x)
++    return previous_values - x, next_previous_x
++
++
++class HRMRWKV7LowRankCore(nn.Module):
++    """HRM-Text-derived RWKV-7 memory core.
++
++    This is a minimal, local port of HRM-Text's `RWKV7TimeMix` projection stack
++    and `RWKVStateMemory` read normalization/output path. Delta-Mem owns the
++    persistent multi-state routing around it.
++    """
++
++    def __init__(
++        self,
++        *,
++        dim: int,
++        head_size: int,
++        layer_id: int = 0,
++        n_layer: int = 1,
++    ) -> None:
++        super().__init__()
++        if dim < 1:
++            raise ValueError("dim must be >= 1")
++        if head_size < 1:
++            raise ValueError("head_size must be >= 1")
++        if dim % head_size != 0:
++            raise ValueError(f"dim ({dim}) must be divisible by head_size ({head_size})")
++        if n_layer < 1:
++            raise ValueError("n_layer must be >= 1")
++        if layer_id < 0:
++            raise ValueError("layer_id must be >= 0")
++        self.dim = int(dim)
++        self.head_size = int(head_size)
++        self.n_head = self.dim // self.head_size
++        self.layer_id = int(layer_id)
++        self.n_layer = int(n_layer)
++
++        decay_lora_dim = max(32, int(round((2.5 * (dim**0.5)) / 32) * 32))
++        aaa_lora_dim = max(32, int(round((2.5 * (dim**0.5)) / 32) * 32))
++        gate_lora_dim = max(32, int(round((5.0 * (dim**0.5)) / 32) * 32))
++
++        self.x_r = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_w = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_k = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_v = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_a = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.x_g = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++
++        self.w1 = nn.Parameter(torch.empty(dim, decay_lora_dim, dtype=torch.float32))
++        self.w2 = nn.Parameter(torch.empty(decay_lora_dim, dim, dtype=torch.float32))
++        self.w0 = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.a1 = nn.Parameter(torch.empty(dim, aaa_lora_dim, dtype=torch.float32))
++        self.a2 = nn.Parameter(torch.empty(aaa_lora_dim, dim, dtype=torch.float32))
++        self.a0 = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.g1 = nn.Parameter(torch.empty(dim, gate_lora_dim, dtype=torch.float32))
++        self.g2 = nn.Parameter(torch.empty(gate_lora_dim, dim, dtype=torch.float32))
++        self.k_k = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++        self.k_a = nn.Parameter(torch.empty(dim, dtype=torch.float32))
++
++        self.receptance = nn.Linear(dim, dim, bias=False)
++        self.key = nn.Linear(dim, dim, bias=False)
++        self.value = nn.Linear(dim, dim, bias=False)
++        self.output = nn.Linear(dim, dim, bias=False)
++        self.ln_x = nn.GroupNorm(self.n_head, dim, eps=64e-5)
++        self.reset_parameters(dim**-0.5)
++
++    def reset_parameters(self, init_std: float) -> None:
++        device = self.x_r.device
++        dim = self.dim
++        ratio_0_to_1 = self.layer_id / max(self.n_layer - 1, 1)
++        ratio_1_to_almost0 = 1.0 - (self.layer_id / max(self.n_layer, 1))
++        ddd = torch.arange(dim, device=device, dtype=torch.float32) / dim
++        linear = torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1) - 0.5
++        zigzag = torch.arange(dim, device=device, dtype=torch.float32) % self.head_size
++        zigzag = (zigzag - ((self.head_size - 1) / 2)) / max((self.head_size - 1) / 2, 1.0)
++        zigzag = zigzag * zigzag.abs()
++        decay_base = torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1)
++        decay = -6 + 6 * torch.pow(decay_base, 1.0 + ratio_0_to_1**0.3)
++        with torch.no_grad():
++            self.x_r.copy_(1.0 - torch.pow(ddd, 0.2 * ratio_1_to_almost0))
++            self.x_w.copy_(1.0 - torch.pow(ddd, 0.9 * ratio_1_to_almost0))
++            self.x_k.copy_(1.0 - torch.pow(ddd, 0.7 * ratio_1_to_almost0))
++            self.x_v.copy_(1.0 - torch.pow(ddd, 0.7 * ratio_1_to_almost0))
++            self.x_a.copy_(1.0 - torch.pow(ddd, 0.9 * ratio_1_to_almost0))
++            self.x_g.copy_(1.0 - torch.pow(ddd, 0.2 * ratio_1_to_almost0))
++            self.w0.copy_(decay + 0.5 + zigzag * 2.5)
++            self.a0.copy_(torch.zeros_like(linear) - 0.19 + zigzag * 0.3 + linear * 0.4)
++            self.k_k.copy_(torch.zeros_like(linear) + 0.71 - linear * 0.1)
++            self.k_a.fill_(1.02)
++            self.w1.zero_()
++            _ortho_init_(self.w2, 0.1)
++            self.a1.zero_()
++            _ortho_init_(self.a2, 0.1)
++            self.g1.zero_()
++            _ortho_init_(self.g2, 0.1)
++        nn.init.uniform_(self.receptance.weight, -0.5 * init_std, 0.5 * init_std)
++        nn.init.uniform_(self.key.weight, -0.05 * init_std, 0.05 * init_std)
++        nn.init.uniform_(self.value.weight, -0.5 * init_std, 0.5 * init_std)
++        nn.init.zeros_(self.output.weight)
++        self.ln_x.reset_parameters()
++
++    def project(
++        self,
++        x: Tensor,
++        *,
++        previous_x: Tensor | None = None,
++        token_mask: Tensor | None = None,
++        return_previous: bool = False,
++        advance_within_sequence: bool = True,
++    ) -> HRMRWKV7Features | tuple[HRMRWKV7Features, Tensor]:
++        batch_size, seq_len, dim = x.shape
++        xx, next_previous_x = _time_shift_delta(
++            x,
++            previous_x,
++            token_mask,
++            advance_within_sequence=advance_within_sequence,
++        )
++        xr = x + xx * self.x_r.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xw = x + xx * self.x_w.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xk = x + xx * self.x_k.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xv = x + xx * self.x_v.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xa = x + xx * self.x_a.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        xg = x + xx * self.x_g.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++
++        r = self.receptance(xr)
++        w = self.w0.to(dtype=x.dtype, device=x.device).view(1, 1, -1) + (
++            torch.tanh(xw @ self.w1.to(dtype=x.dtype, device=x.device))
++            @ self.w2.to(dtype=x.dtype, device=x.device)
++        )
++        k = self.key(xk)
++        v = self.value(xv)
++        w = -F.softplus(-w.float()).to(dtype=x.dtype) - 0.5
++        a_gate = torch.sigmoid(
++            self.a0.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++            + (xa @ self.a1.to(dtype=x.dtype, device=x.device))
++            @ self.a2.to(dtype=x.dtype, device=x.device)
++        )
++        g = torch.sigmoid(xg @ self.g1.to(dtype=x.dtype, device=x.device)) @ self.g2.to(
++            dtype=x.dtype,
++            device=x.device,
++        )
++        kk = k * self.k_k.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
++        kk = F.normalize(
++            kk.reshape(batch_size, seq_len, self.n_head, self.head_size),
++            dim=-1,
++            p=2.0,
++        ).reshape(batch_size, seq_len, dim)
++        k = k * (1 + (a_gate - 1) * self.k_a.to(dtype=x.dtype, device=x.device).view(1, 1, -1))
++        features = HRMRWKV7Features(r=r, w=w, k=k, v=v, a=-kk, b=kk * a_gate, g=g)
++        if return_previous:
++            return features, next_previous_x
++        return features
++
++    def readout(self, reads: Tensor, g: Tensor) -> Tensor:
++        batch_size, seq_len, dim = reads.shape
++        if seq_len == 0:
++            return reads
++        normalized = F.group_norm(
++            reads.reshape(batch_size * seq_len, dim),
++            num_groups=self.n_head,
++            weight=self.ln_x.weight.to(device=reads.device, dtype=reads.dtype),
++            bias=self.ln_x.bias.to(device=reads.device, dtype=reads.dtype),
++            eps=self.ln_x.eps,
++        ).reshape(batch_size, seq_len, dim)
++        return self.output(normalized * g)
 diff --git a/deltamem/model_loading.py b/deltamem/model_loading.py
 index 65a3708ef18e6fa4365a0f97b0245e1911c54579..b0824ffe580e3e05c164b456f27848739c8d711c 100644
 --- a/deltamem/model_loading.py
@@ -1140,7 +1397,7 @@ index 2aa213e8f5cdd3ec063968866fb65caac60d78ff..990948d8cbefdbad288934f641eb46e8
      ).eval()
      config = HFDeltaMemConfig.from_pretrained(adapter_dir)
 diff --git a/deltamem/tests/test_delta_mem_regressions.py b/deltamem/tests/test_delta_mem_regressions.py
-index fd8050156da83c4e35dac8f572d0ed5ca2e069e7..b47845804e9665eca347eb02d6baff62c4f083e4 100644
+index fd8050156da83c4e35dac8f572d0ed5ca2e069e7..f2e5895bb099fb46bfca4e08af939ea9c6fedbc3 100644
 --- a/deltamem/tests/test_delta_mem_regressions.py
 +++ b/deltamem/tests/test_delta_mem_regressions.py
 @@ -19,7 +19,9 @@ from deltamem.core.delta import (
@@ -1375,7 +1632,7 @@ index fd8050156da83c4e35dac8f572d0ed5ca2e069e7..b47845804e9665eca347eb02d6baff62
  def test_high_rank_scan_supports_large_rank() -> None:
      module = make_delta_module(rank=64)
      module.scan_impl = "auto"
-@@ -854,6 +1043,178 @@ def test_attach_delta_mem_wraps_smollm3_attention_modules() -> None:
+@@ -854,6 +1043,250 @@ def test_attach_delta_mem_wraps_smollm3_attention_modules() -> None:
      assert isinstance(model.self_attn.base, SmolLM3Attention)
  
  
@@ -1506,6 +1763,78 @@ index fd8050156da83c4e35dac8f572d0ed5ca2e069e7..b47845804e9665eca347eb02d6baff62
 +    assert torch.isfinite(output.last_hidden_state).all()
 +
 +
++def test_qwen3_5_hybrid_cached_decode_matches_zero_init_rwkv_ms_wrapper() -> None:
++    if Qwen3_5TextConfig is None or Qwen3_5TextModel is None:
++        pytest.skip("Qwen3.5 is not available in this Transformers version")
++    config = Qwen3_5TextConfig(
++        vocab_size=64,
++        hidden_size=16,
++        intermediate_size=32,
++        num_hidden_layers=4,
++        num_attention_heads=2,
++        num_key_value_heads=1,
++        head_dim=8,
++        attention_dropout=0.0,
++        attention_bias=False,
++        layer_types=["linear_attention", "linear_attention", "linear_attention", "full_attention"],
++        linear_num_key_heads=2,
++        linear_num_value_heads=2,
++        linear_key_head_dim=4,
++        linear_value_head_dim=4,
++        partial_rotary_factor=0.5,
++    )
++    config._attn_implementation = "eager"
++    base_model = Qwen3_5TextModel(config).eval()
++    wrapped_model = copy.deepcopy(base_model).eval()
++    replaced = attach_delta_mem(
++        wrapped_model,
++        HFDeltaMemConfig(
++            rank=2,
++            output_init="zero",
++            memory_backend="rwkv_ms",
++            rwkv_ms_num_states=2,
++            rwkv_ms_chunk_size=2,
++            target_layers=(3,),
++            target_modules=("self_attn",),
++        ),
++    )
++
++    prefill_ids = torch.tensor([[1, 2, 3]])
++    decode_ids = torch.tensor([[4]])
++    with torch.inference_mode():
++        base_prefill = base_model(input_ids=prefill_ids, use_cache=True)
++        wrapped_prefill = wrapped_model(input_ids=prefill_ids, use_cache=True)
++        base_prefill_cache_length = base_prefill.past_key_values.get_seq_length()
++        wrapped_prefill_cache_length = wrapped_prefill.past_key_values.get_seq_length()
++        base_decode = base_model(
++            input_ids=decode_ids,
++            past_key_values=base_prefill.past_key_values,
++            use_cache=True,
++        )
++        wrapped_decode = wrapped_model(
++            input_ids=decode_ids,
++            past_key_values=wrapped_prefill.past_key_values,
++            use_cache=True,
++        )
++
++    assert replaced == ["layers.3.self_attn"]
++    torch.testing.assert_close(
++        wrapped_prefill.last_hidden_state,
++        base_prefill.last_hidden_state,
++        atol=1e-6,
++        rtol=1e-6,
++    )
++    torch.testing.assert_close(
++        wrapped_decode.last_hidden_state,
++        base_decode.last_hidden_state,
++        atol=1e-6,
++        rtol=1e-6,
++    )
++    assert base_prefill_cache_length == wrapped_prefill_cache_length == 3
++    assert base_decode.past_key_values.get_seq_length() == 4
++    assert wrapped_decode.past_key_values.get_seq_length() == 4
++
++
 +def test_attach_delta_mem_wraps_gemma4_and_skips_kv_shared_layers() -> None:
 +    if Gemma4TextConfig is None or Gemma4TextModel is None:
 +        pytest.skip("Gemma4 is not available in this Transformers version")
@@ -1554,7 +1883,7 @@ index fd8050156da83c4e35dac8f572d0ed5ca2e069e7..b47845804e9665eca347eb02d6baff62
  def test_reset_state_restores_independent_sample_behavior() -> None:
      module = make_delta_module(output_init="random")
      fresh = make_delta_module(output_init="random")
-@@ -941,6 +1302,321 @@ def test_disable_writes_preserves_delta_state_during_read_phase() -> None:
+@@ -941,6 +1374,321 @@ def test_disable_writes_preserves_delta_state_during_read_phase() -> None:
      assert torch.allclose(module.delta_state, state_before)
  
  
@@ -1876,7 +2205,7 @@ index fd8050156da83c4e35dac8f572d0ed5ca2e069e7..b47845804e9665eca347eb02d6baff62
  def test_base_slice_initialization_gives_controller_gradients() -> None:
      module = make_delta_module(output_init="base_slice")
      x = torch.randn(1, 3, 8)
-@@ -1608,6 +2284,44 @@ def test_multi_head_state_forward_runs() -> None:
+@@ -1608,6 +2356,44 @@ def test_multi_head_state_forward_runs() -> None:
      assert module.delta_o_proj.shape[-1] == 8
  
  
@@ -1921,374 +2250,9 @@ index fd8050156da83c4e35dac8f572d0ed5ca2e069e7..b47845804e9665eca347eb02d6baff62
  def test_msw_state_with_ssw_writer_forward_runs() -> None:
      module = DeltaMemAttention(
          make_qwen3_attention(),
-diff --git a/deltamem/train/delta_sft_experimental.py b/deltamem/train/delta_sft_experimental.py
-index 0e18fd0a28e826651a8dbac2b4959c59f1e4bc80..5834f06ebc24d055a518aa6555199f2f3b73e128 100644
---- a/deltamem/train/delta_sft_experimental.py
-+++ b/deltamem/train/delta_sft_experimental.py
-@@ -32,6 +32,7 @@ from deltamem.core.delta import (
-     iter_delta_mem_modules,
-     load_delta_mem_online_state,
-     normalize_delta_heads,
-+    normalize_memory_backend,
-     normalize_memory_readout_mode,
-     normalize_state_update_mode,
-     reset_delta_mem_states,
-@@ -216,6 +217,20 @@ class DeltaMemTrainer(Trainer):
-             full_state = active_state.new_zeros((batch_size, *active_state.shape[1:]))
-             full_state[active_rows.to(device=active_state.device)] = active_state
-             module.delta_state = full_state
-+            if module.rwkv_ms_positions is not None:
-+                active_positions = module.rwkv_ms_positions
-+                full_positions = active_positions.new_zeros((batch_size,))
-+                full_positions[active_rows.to(device=active_positions.device)] = active_positions
-+                module.rwkv_ms_positions = full_positions
-+            if module.rwkv_ms_previous_source is not None:
-+                active_previous_source = module.rwkv_ms_previous_source
-+                full_previous_source = active_previous_source.new_zeros(
-+                    (batch_size, *active_previous_source.shape[1:])
-+                )
-+                full_previous_source[
-+                    active_rows.to(device=active_previous_source.device)
-+                ] = active_previous_source
-+                module.rwkv_ms_previous_source = full_previous_source
- 
-     def _corrupt_online_state(
-         self,
-@@ -240,6 +255,17 @@ class DeltaMemTrainer(Trainer):
-                     .index_select(-2, row_perm)
-                     .index_select(-1, col_perm)
-                 )
-+            elif corrupt.ndim == 5:
-+                num_states = corrupt.size(2)
-+                size = corrupt.size(-1)
-+                state_perm = torch.roll(torch.arange(num_states, device=corrupt.device), shifts=1)
-+                row_perm = torch.roll(torch.arange(size, device=corrupt.device), shifts=1)
-+                col_perm = torch.arange(size - 1, -1, -1, device=corrupt.device)
-+                corrupt = (
-+                    corrupt.index_select(2, state_perm)
-+                    .index_select(-2, row_perm)
-+                    .index_select(-1, col_perm)
-+                )
-             corrupted[name] = corrupt
-         return corrupted
- 
-@@ -347,6 +373,10 @@ class DeltaMemTrainer(Trainer):
-             if module.delta_state is None:
-                 continue
-             state[name] = module.delta_state
-+            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_positions is not None:
-+                state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions
-+            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_previous_source is not None:
-+                state[f"{name}.__rwkv_ms_previous_source"] = module.rwkv_ms_previous_source
-         return state
- 
-     def _stack_batch_tensor(self, tensor: torch.Tensor, repeats: int) -> torch.Tensor:
-@@ -1485,6 +1515,21 @@ def parse_args() -> argparse.Namespace:
-     parser.add_argument("--attn-implementation", default=None)
-     parser.add_argument("--rank", type=int, default=8)
-     parser.add_argument("--alpha", type=float, default=16.0)
-+    parser.add_argument(
-+        "--memory-backend",
-+        default="delta_rule",
-+        choices=["delta_rule", "rwkv_ms"],
-+        help="Online memory state update backend. Both backends still emit q/k/v/o deltas.",
-+    )
-+    parser.add_argument("--rwkv-ms-num-states", type=int, default=4)
-+    parser.add_argument("--rwkv-ms-chunk-size", type=int, default=1024)
-+    parser.add_argument(
-+        "--rwkv-ms-boundary-mode",
-+        default="fixed_chunk",
-+        choices=["fixed_chunk"],
-+    )
-+    parser.add_argument("--rwkv-ms-erase-gate", type=float, default=1.0)
-+    parser.add_argument("--rwkv-ms-read-top-k", type=int, default=0)
-     parser.add_argument("--num-state-heads", type=int, default=1)
-     parser.add_argument("--beta-bias-init", type=float, default=-1.5)
-     parser.add_argument(
-@@ -2534,6 +2579,12 @@ def main() -> None:
-     delta_config = HFDeltaMemConfig(
-         rank=args.rank,
-         alpha=args.alpha,
-+        memory_backend=normalize_memory_backend(args.memory_backend),
-+        rwkv_ms_num_states=args.rwkv_ms_num_states,
-+        rwkv_ms_chunk_size=args.rwkv_ms_chunk_size,
-+        rwkv_ms_boundary_mode=args.rwkv_ms_boundary_mode,
-+        rwkv_ms_erase_gate=args.rwkv_ms_erase_gate,
-+        rwkv_ms_read_top_k=args.rwkv_ms_read_top_k,
-         num_state_heads=args.num_state_heads,
-         num_memory_partitions=args.num_memory_partitions,
-         num_global_memory_partitions=args.num_global_memory_partitions,
-diff --git a/requirements.txt b/requirements.txt
-index 96bcc54862a312b717da15b38d0846ac794dea1a..6c687a0b379d99c8efeab2a9e90ed1b68af193a0 100644
---- a/requirements.txt
-+++ b/requirements.txt
-@@ -1,5 +1,5 @@
- torch
--transformers
-+transformers>=5.12.0
- datasets
- accelerate
- wandb
-diff --git a/deltamem/core/hrm_rwkv7.py b/deltamem/core/hrm_rwkv7.py
-new file mode 100644
-index 0000000..e590c9c
---- /dev/null
-+++ b/deltamem/core/hrm_rwkv7.py
-@@ -0,0 +1,251 @@
-+from __future__ import annotations
-+
-+import math
-+from typing import NamedTuple
-+
-+import torch
-+from torch import Tensor, nn
-+import torch.nn.functional as F
-+
-+
-+class HRMRWKV7Features(NamedTuple):
-+    r: Tensor
-+    w: Tensor
-+    k: Tensor
-+    v: Tensor
-+    a: Tensor
-+    b: Tensor
-+    g: Tensor
-+
-+
-+def _ortho_init_(x: Tensor, scale: float = 1.0) -> Tensor:
-+    with torch.no_grad():
-+        shape = x.shape
-+        if len(shape) == 2:
-+            gain = math.sqrt(shape[0] / shape[1]) if shape[0] > shape[1] else 1.0
-+            nn.init.orthogonal_(x, gain=gain * scale)
-+        else:
-+            raise ValueError(f"Unsupported tensor shape for RWKV-7 orthogonal init: {shape}")
-+    return x
-+
-+
-+def _time_shift_delta(
-+    x: Tensor,
-+    previous_x: Tensor | None = None,
-+    token_mask: Tensor | None = None,
-+    *,
-+    advance_within_sequence: bool = True,
-+) -> tuple[Tensor, Tensor]:
-+    batch_size, seq_len, dim = x.shape
-+    if previous_x is None:
-+        previous_x = x.new_zeros(batch_size, dim)
-+    if previous_x.shape != (batch_size, dim):
-+        raise ValueError(
-+            f"previous_x must have shape {(batch_size, dim)}, got {tuple(previous_x.shape)}"
-+        )
-+    if seq_len == 0:
-+        return x.new_empty(batch_size, 0, dim), previous_x
-+    previous_x = previous_x.to(device=x.device, dtype=x.dtype)
-+    if not advance_within_sequence:
-+        if token_mask is not None and token_mask.shape != (batch_size, seq_len):
-+            raise ValueError(
-+                f"token_mask must have shape {(batch_size, seq_len)}, got {tuple(token_mask.shape)}"
-+            )
-+        return previous_x.unsqueeze(1) - x, previous_x
-+    if token_mask is None:
-+        xx = torch.empty_like(x)
-+        xx[:, 0] = previous_x - x[:, 0]
-+        if seq_len > 1:
-+            xx[:, 1:] = x[:, :-1] - x[:, 1:]
-+        return xx, x[:, -1]
-+    if token_mask.shape != (batch_size, seq_len):
-+        raise ValueError(
-+            f"token_mask must have shape {(batch_size, seq_len)}, got {tuple(token_mask.shape)}"
-+        )
-+    token_mask = token_mask.to(device=x.device, dtype=torch.bool)
-+    token_indices = torch.arange(seq_len, device=x.device).view(1, seq_len).expand(batch_size, -1)
-+    valid_indices = torch.where(token_mask, token_indices, token_indices.new_full((), -1))
-+    last_valid_indices = valid_indices.cummax(dim=1).values
-+    previous_indices = torch.cat(
-+        [last_valid_indices.new_full((batch_size, 1), -1), last_valid_indices[:, :-1]],
-+        dim=1,
-+    )
-+    gathered_previous = x.gather(
-+        1,
-+        previous_indices.clamp_min(0).unsqueeze(-1).expand(-1, -1, dim),
-+    )
-+    previous_values = torch.where(
-+        previous_indices.unsqueeze(-1).ge(0),
-+        gathered_previous,
-+        previous_x.unsqueeze(1),
-+    )
-+    final_indices = last_valid_indices[:, -1]
-+    gathered_final = x.gather(
-+        1,
-+        final_indices.clamp_min(0).view(batch_size, 1, 1).expand(-1, 1, dim),
-+    ).squeeze(1)
-+    next_previous_x = torch.where(final_indices.unsqueeze(-1).ge(0), gathered_final, previous_x)
-+    return previous_values - x, next_previous_x
-+
-+
-+class HRMRWKV7LowRankCore(nn.Module):
-+    """HRM-Text-derived RWKV-7 memory core.
-+
-+    This is a minimal, local port of HRM-Text's `RWKV7TimeMix` projection stack
-+    and `RWKVStateMemory` read normalization/output path. Delta-Mem owns the
-+    persistent multi-state routing around it.
-+    """
-+
-+    def __init__(
-+        self,
-+        *,
-+        dim: int,
-+        head_size: int,
-+        layer_id: int = 0,
-+        n_layer: int = 1,
-+    ) -> None:
-+        super().__init__()
-+        if dim < 1:
-+            raise ValueError("dim must be >= 1")
-+        if head_size < 1:
-+            raise ValueError("head_size must be >= 1")
-+        if dim % head_size != 0:
-+            raise ValueError(f"dim ({dim}) must be divisible by head_size ({head_size})")
-+        if n_layer < 1:
-+            raise ValueError("n_layer must be >= 1")
-+        if layer_id < 0:
-+            raise ValueError("layer_id must be >= 0")
-+        self.dim = int(dim)
-+        self.head_size = int(head_size)
-+        self.n_head = self.dim // self.head_size
-+        self.layer_id = int(layer_id)
-+        self.n_layer = int(n_layer)
-+
-+        decay_lora_dim = max(32, int(round((2.5 * (dim**0.5)) / 32) * 32))
-+        aaa_lora_dim = max(32, int(round((2.5 * (dim**0.5)) / 32) * 32))
-+        gate_lora_dim = max(32, int(round((5.0 * (dim**0.5)) / 32) * 32))
-+
-+        self.x_r = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+        self.x_w = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+        self.x_k = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+        self.x_v = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+        self.x_a = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+        self.x_g = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+
-+        self.w1 = nn.Parameter(torch.empty(dim, decay_lora_dim, dtype=torch.float32))
-+        self.w2 = nn.Parameter(torch.empty(decay_lora_dim, dim, dtype=torch.float32))
-+        self.w0 = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+        self.a1 = nn.Parameter(torch.empty(dim, aaa_lora_dim, dtype=torch.float32))
-+        self.a2 = nn.Parameter(torch.empty(aaa_lora_dim, dim, dtype=torch.float32))
-+        self.a0 = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+        self.g1 = nn.Parameter(torch.empty(dim, gate_lora_dim, dtype=torch.float32))
-+        self.g2 = nn.Parameter(torch.empty(gate_lora_dim, dim, dtype=torch.float32))
-+        self.k_k = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+        self.k_a = nn.Parameter(torch.empty(dim, dtype=torch.float32))
-+
-+        self.receptance = nn.Linear(dim, dim, bias=False)
-+        self.key = nn.Linear(dim, dim, bias=False)
-+        self.value = nn.Linear(dim, dim, bias=False)
-+        self.output = nn.Linear(dim, dim, bias=False)
-+        self.ln_x = nn.GroupNorm(self.n_head, dim, eps=64e-5)
-+        self.reset_parameters(dim**-0.5)
-+
-+    def reset_parameters(self, init_std: float) -> None:
-+        device = self.x_r.device
-+        dim = self.dim
-+        ratio_0_to_1 = self.layer_id / max(self.n_layer - 1, 1)
-+        ratio_1_to_almost0 = 1.0 - (self.layer_id / max(self.n_layer, 1))
-+        ddd = torch.arange(dim, device=device, dtype=torch.float32) / dim
-+        linear = torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1) - 0.5
-+        zigzag = torch.arange(dim, device=device, dtype=torch.float32) % self.head_size
-+        zigzag = (zigzag - ((self.head_size - 1) / 2)) / max((self.head_size - 1) / 2, 1.0)
-+        zigzag = zigzag * zigzag.abs()
-+        decay_base = torch.arange(dim, device=device, dtype=torch.float32) / max(dim - 1, 1)
-+        decay = -6 + 6 * torch.pow(decay_base, 1.0 + ratio_0_to_1**0.3)
-+        with torch.no_grad():
-+            self.x_r.copy_(1.0 - torch.pow(ddd, 0.2 * ratio_1_to_almost0))
-+            self.x_w.copy_(1.0 - torch.pow(ddd, 0.9 * ratio_1_to_almost0))
-+            self.x_k.copy_(1.0 - torch.pow(ddd, 0.7 * ratio_1_to_almost0))
-+            self.x_v.copy_(1.0 - torch.pow(ddd, 0.7 * ratio_1_to_almost0))
-+            self.x_a.copy_(1.0 - torch.pow(ddd, 0.9 * ratio_1_to_almost0))
-+            self.x_g.copy_(1.0 - torch.pow(ddd, 0.2 * ratio_1_to_almost0))
-+            self.w0.copy_(decay + 0.5 + zigzag * 2.5)
-+            self.a0.copy_(torch.zeros_like(linear) - 0.19 + zigzag * 0.3 + linear * 0.4)
-+            self.k_k.copy_(torch.zeros_like(linear) + 0.71 - linear * 0.1)
-+            self.k_a.fill_(1.02)
-+            self.w1.zero_()
-+            _ortho_init_(self.w2, 0.1)
-+            self.a1.zero_()
-+            _ortho_init_(self.a2, 0.1)
-+            self.g1.zero_()
-+            _ortho_init_(self.g2, 0.1)
-+        nn.init.uniform_(self.receptance.weight, -0.5 * init_std, 0.5 * init_std)
-+        nn.init.uniform_(self.key.weight, -0.05 * init_std, 0.05 * init_std)
-+        nn.init.uniform_(self.value.weight, -0.5 * init_std, 0.5 * init_std)
-+        nn.init.zeros_(self.output.weight)
-+        self.ln_x.reset_parameters()
-+
-+    def project(
-+        self,
-+        x: Tensor,
-+        *,
-+        previous_x: Tensor | None = None,
-+        token_mask: Tensor | None = None,
-+        return_previous: bool = False,
-+        advance_within_sequence: bool = True,
-+    ) -> HRMRWKV7Features | tuple[HRMRWKV7Features, Tensor]:
-+        batch_size, seq_len, dim = x.shape
-+        xx, next_previous_x = _time_shift_delta(
-+            x,
-+            previous_x,
-+            token_mask,
-+            advance_within_sequence=advance_within_sequence,
-+        )
-+        xr = x + xx * self.x_r.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
-+        xw = x + xx * self.x_w.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
-+        xk = x + xx * self.x_k.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
-+        xv = x + xx * self.x_v.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
-+        xa = x + xx * self.x_a.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
-+        xg = x + xx * self.x_g.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
-+
-+        r = self.receptance(xr)
-+        w = self.w0.to(dtype=x.dtype, device=x.device).view(1, 1, -1) + (
-+            torch.tanh(xw @ self.w1.to(dtype=x.dtype, device=x.device))
-+            @ self.w2.to(dtype=x.dtype, device=x.device)
-+        )
-+        k = self.key(xk)
-+        v = self.value(xv)
-+        w = -F.softplus(-w.float()).to(dtype=x.dtype) - 0.5
-+        a_gate = torch.sigmoid(
-+            self.a0.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
-+            + (xa @ self.a1.to(dtype=x.dtype, device=x.device))
-+            @ self.a2.to(dtype=x.dtype, device=x.device)
-+        )
-+        g = torch.sigmoid(xg @ self.g1.to(dtype=x.dtype, device=x.device)) @ self.g2.to(
-+            dtype=x.dtype,
-+            device=x.device,
-+        )
-+        kk = k * self.k_k.to(dtype=x.dtype, device=x.device).view(1, 1, -1)
-+        kk = F.normalize(
-+            kk.reshape(batch_size, seq_len, self.n_head, self.head_size),
-+            dim=-1,
-+            p=2.0,
-+        ).reshape(batch_size, seq_len, dim)
-+        k = k * (1 + (a_gate - 1) * self.k_a.to(dtype=x.dtype, device=x.device).view(1, 1, -1))
-+        features = HRMRWKV7Features(r=r, w=w, k=k, v=v, a=-kk, b=kk * a_gate, g=g)
-+        if return_previous:
-+            return features, next_previous_x
-+        return features
-+
-+    def readout(self, reads: Tensor, g: Tensor) -> Tensor:
-+        batch_size, seq_len, dim = reads.shape
-+        if seq_len == 0:
-+            return reads
-+        normalized = F.group_norm(
-+            reads.reshape(batch_size * seq_len, dim),
-+            num_groups=self.n_head,
-+            weight=self.ln_x.weight.to(device=reads.device, dtype=reads.dtype),
-+            bias=self.ln_x.bias.to(device=reads.device, dtype=reads.dtype),
-+            eps=self.ln_x.eps,
-+        ).reshape(batch_size, seq_len, dim)
-+        return self.output(normalized * g)
 diff --git a/deltamem/tests/test_qwen36_runtime_regressions.py b/deltamem/tests/test_qwen36_runtime_regressions.py
 new file mode 100644
-index 0000000..cd6a4e9
+index 0000000000000000000000000000000000000000..cd6a4e980e2dd256e7658b69412f36d2c3f6a19e
 --- /dev/null
 +++ b/deltamem/tests/test_qwen36_runtime_regressions.py
 @@ -0,0 +1,173 @@
@@ -2465,9 +2429,117 @@ index 0000000..cd6a4e9
 +        torch.tensor([[1, 2, 3]], dtype=torch.long),
 +    )
 +    assert model.calls == 0
+diff --git a/deltamem/train/delta_sft_experimental.py b/deltamem/train/delta_sft_experimental.py
+index 0e18fd0a28e826651a8dbac2b4959c59f1e4bc80..5834f06ebc24d055a518aa6555199f2f3b73e128 100644
+--- a/deltamem/train/delta_sft_experimental.py
++++ b/deltamem/train/delta_sft_experimental.py
+@@ -32,6 +32,7 @@ from deltamem.core.delta import (
+     iter_delta_mem_modules,
+     load_delta_mem_online_state,
+     normalize_delta_heads,
++    normalize_memory_backend,
+     normalize_memory_readout_mode,
+     normalize_state_update_mode,
+     reset_delta_mem_states,
+@@ -216,6 +217,20 @@ class DeltaMemTrainer(Trainer):
+             full_state = active_state.new_zeros((batch_size, *active_state.shape[1:]))
+             full_state[active_rows.to(device=active_state.device)] = active_state
+             module.delta_state = full_state
++            if module.rwkv_ms_positions is not None:
++                active_positions = module.rwkv_ms_positions
++                full_positions = active_positions.new_zeros((batch_size,))
++                full_positions[active_rows.to(device=active_positions.device)] = active_positions
++                module.rwkv_ms_positions = full_positions
++            if module.rwkv_ms_previous_source is not None:
++                active_previous_source = module.rwkv_ms_previous_source
++                full_previous_source = active_previous_source.new_zeros(
++                    (batch_size, *active_previous_source.shape[1:])
++                )
++                full_previous_source[
++                    active_rows.to(device=active_previous_source.device)
++                ] = active_previous_source
++                module.rwkv_ms_previous_source = full_previous_source
+ 
+     def _corrupt_online_state(
+         self,
+@@ -240,6 +255,17 @@ class DeltaMemTrainer(Trainer):
+                     .index_select(-2, row_perm)
+                     .index_select(-1, col_perm)
+                 )
++            elif corrupt.ndim == 5:
++                num_states = corrupt.size(2)
++                size = corrupt.size(-1)
++                state_perm = torch.roll(torch.arange(num_states, device=corrupt.device), shifts=1)
++                row_perm = torch.roll(torch.arange(size, device=corrupt.device), shifts=1)
++                col_perm = torch.arange(size - 1, -1, -1, device=corrupt.device)
++                corrupt = (
++                    corrupt.index_select(2, state_perm)
++                    .index_select(-2, row_perm)
++                    .index_select(-1, col_perm)
++                )
+             corrupted[name] = corrupt
+         return corrupted
+ 
+@@ -347,6 +373,10 @@ class DeltaMemTrainer(Trainer):
+             if module.delta_state is None:
+                 continue
+             state[name] = module.delta_state
++            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_positions is not None:
++                state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions
++            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_previous_source is not None:
++                state[f"{name}.__rwkv_ms_previous_source"] = module.rwkv_ms_previous_source
+         return state
+ 
+     def _stack_batch_tensor(self, tensor: torch.Tensor, repeats: int) -> torch.Tensor:
+@@ -1485,6 +1515,21 @@ def parse_args() -> argparse.Namespace:
+     parser.add_argument("--attn-implementation", default=None)
+     parser.add_argument("--rank", type=int, default=8)
+     parser.add_argument("--alpha", type=float, default=16.0)
++    parser.add_argument(
++        "--memory-backend",
++        default="delta_rule",
++        choices=["delta_rule", "rwkv_ms"],
++        help="Online memory state update backend. Both backends still emit q/k/v/o deltas.",
++    )
++    parser.add_argument("--rwkv-ms-num-states", type=int, default=4)
++    parser.add_argument("--rwkv-ms-chunk-size", type=int, default=1024)
++    parser.add_argument(
++        "--rwkv-ms-boundary-mode",
++        default="fixed_chunk",
++        choices=["fixed_chunk"],
++    )
++    parser.add_argument("--rwkv-ms-erase-gate", type=float, default=1.0)
++    parser.add_argument("--rwkv-ms-read-top-k", type=int, default=0)
+     parser.add_argument("--num-state-heads", type=int, default=1)
+     parser.add_argument("--beta-bias-init", type=float, default=-1.5)
+     parser.add_argument(
+@@ -2534,6 +2579,12 @@ def main() -> None:
+     delta_config = HFDeltaMemConfig(
+         rank=args.rank,
+         alpha=args.alpha,
++        memory_backend=normalize_memory_backend(args.memory_backend),
++        rwkv_ms_num_states=args.rwkv_ms_num_states,
++        rwkv_ms_chunk_size=args.rwkv_ms_chunk_size,
++        rwkv_ms_boundary_mode=args.rwkv_ms_boundary_mode,
++        rwkv_ms_erase_gate=args.rwkv_ms_erase_gate,
++        rwkv_ms_read_top_k=args.rwkv_ms_read_top_k,
+         num_state_heads=args.num_state_heads,
+         num_memory_partitions=args.num_memory_partitions,
+         num_global_memory_partitions=args.num_global_memory_partitions,
+diff --git a/requirements.txt b/requirements.txt
+index 96bcc54862a312b717da15b38d0846ac794dea1a..6c687a0b379d99c8efeab2a9e90ed1b68af193a0 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,5 +1,5 @@
+ torch
+-transformers
++transformers>=5.12.0
+ datasets
+ accelerate
+ wandb
 diff --git a/scripts/run_rwkv_ms_delta_rule_comparison.sh b/scripts/run_rwkv_ms_delta_rule_comparison.sh
 new file mode 100755
-index 0000000..02e24cd
+index 0000000000000000000000000000000000000000..02e24cd8bd4d01c1da04acd2b46f3d76e51efc6b
 --- /dev/null
 +++ b/scripts/run_rwkv_ms_delta_rule_comparison.sh
 @@ -0,0 +1,121 @@

@@ -227,7 +227,7 @@ use `--overwrite-output` only when replacing its contents is intentional.
   with SDPA, adapter save/load, and online-state snapshot restore.
 - All 29 Qwen3.6 checkpoint files match mirror revision `6a9e13bd...`; all 15
   safetensor shard hashes and headers validate.
-- Changed-area Qwen/Gemma/RWKV delta-Mem regressions: 77 passed.
+- Changed-area Qwen/Gemma/RWKV delta-Mem regressions: 78 passed.
 - The GGUF math helper preserves legacy v1 fixtures and proves that a nonzero
   streaming predecessor produces identical state, position, predecessor, and
   read results in one full scan or two successive chunks.
