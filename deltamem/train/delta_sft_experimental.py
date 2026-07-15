@@ -30,6 +30,7 @@ from deltamem.core.delta import (
     get_delta_mem_partition_regularization,
     get_delta_mem_write_regularization,
     iter_delta_mem_modules,
+    load_delta_mem_adapter,
     load_delta_mem_online_state,
     normalize_delta_heads,
     normalize_memory_backend,
@@ -78,6 +79,74 @@ def _promote_trainable_parameters_to_fp32(model) -> None:
         if not parameter.is_floating_point():
             raise TypeError(f"Trainable parameter {name} must be floating point")
         parameter.data = parameter.data.to(dtype=torch.float32)
+
+
+_RESUME_LATEST_VALUES = frozenset({"auto", "latest"})
+_REQUIRED_RESUME_CHECKPOINT_FILES = (
+    "delta_mem_adapter.pt",
+    "delta_mem_config.json",
+    "optimizer.pt",
+    "scheduler.pt",
+    "trainer_state.json",
+)
+
+
+def _missing_resume_checkpoint_files(checkpoint: Path) -> tuple[str, ...]:
+    return tuple(
+        filename
+        for filename in _REQUIRED_RESUME_CHECKPOINT_FILES
+        if not (checkpoint / filename).is_file()
+    )
+
+
+def _validate_resume_checkpoint(checkpoint: Path) -> Path:
+    if not checkpoint.is_dir():
+        raise FileNotFoundError(f"Resume checkpoint directory does not exist: {checkpoint}")
+    missing = _missing_resume_checkpoint_files(checkpoint)
+    if missing:
+        raise FileNotFoundError(
+            f"Resume checkpoint is incomplete: {checkpoint}; missing {', '.join(missing)}"
+        )
+    return checkpoint.resolve()
+
+
+def resolve_resume_checkpoint(
+    resume_from_checkpoint: str | Path | None,
+    trainer_output_dir: str | Path,
+) -> str | None:
+    if resume_from_checkpoint is None:
+        return None
+    raw_checkpoint = str(resume_from_checkpoint).strip()
+    if not raw_checkpoint:
+        raise ValueError("--resume-from-checkpoint must not be empty")
+    if raw_checkpoint.lower() not in _RESUME_LATEST_VALUES:
+        return str(_validate_resume_checkpoint(Path(raw_checkpoint).expanduser()))
+
+    output_path = Path(trainer_output_dir).expanduser()
+    if not output_path.is_dir():
+        raise FileNotFoundError(
+            f"Cannot resolve latest checkpoint because the trainer output directory does not exist: {output_path}"
+        )
+    candidates: list[tuple[int, Path]] = []
+    for candidate in output_path.iterdir():
+        prefix = "checkpoint-"
+        if not candidate.is_dir() or not candidate.name.startswith(prefix):
+            continue
+        step = candidate.name[len(prefix) :]
+        if step.isdigit():
+            candidates.append((int(step), candidate))
+    if not candidates:
+        raise FileNotFoundError(f"No checkpoints found in trainer output directory: {output_path}")
+    candidates.sort(reverse=True)
+    for _, candidate in candidates:
+        if not _missing_resume_checkpoint_files(candidate):
+            return str(candidate.resolve())
+    newest = candidates[0][1]
+    missing = _missing_resume_checkpoint_files(newest)
+    raise FileNotFoundError(
+        f"No complete checkpoints found in trainer output directory: {output_path}; "
+        f"newest checkpoint {newest} is missing {', '.join(missing)}"
+    )
 
 
 def compute_warmup_steps(
@@ -1510,6 +1579,25 @@ class DeltaMemTrainer(Trainer):
         model = self.accelerator.unwrap_model(self.model)
         save_delta_mem_adapter(model, output_path, self.delta_config)
 
+    def _load_from_checkpoint(self, resume_from_checkpoint: str, model=None) -> None:
+        checkpoint = _validate_resume_checkpoint(Path(resume_from_checkpoint))
+        if self.delta_config is None:
+            raise ValueError("DeltaMemTrainer checkpoint loading requires delta_config")
+        checkpoint_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+        if checkpoint_config != self.delta_config:
+            expected_config = self.delta_config.to_dict()
+            checkpoint_config_dict = checkpoint_config.to_dict()
+            mismatches = [
+                field_name
+                for field_name, expected_value in expected_config.items()
+                if checkpoint_config_dict[field_name] != expected_value
+            ]
+            raise ValueError(
+                "Delta-Mem checkpoint config does not match the current training config for: "
+                + ", ".join(mismatches)
+            )
+        load_delta_mem_adapter(self.model if model is None else model, checkpoint)
+
 
 def parse_args() -> argparse.Namespace:
     default_optim = "adamw_torch_fused" if torch.cuda.is_available() else "adamw_torch"
@@ -1523,6 +1611,11 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         required=True,
+    )
+    parser.add_argument(
+        "--resume-from-checkpoint",
+        default=None,
+        help="Checkpoint path to resume, or 'latest'/'auto' for the newest complete checkpoint.",
     )
     parser.add_argument("--hf-cache-dir", type=Path, default=None)
     parser.add_argument("--tokenized-dataset-root", type=Path, default=None)
@@ -2562,6 +2655,10 @@ def main() -> None:
             "Gradient checkpointing is currently incompatible with Delta-Mem's stateful token updates. "
             "Disable --gradient-checkpointing before training."
         )
+    resume_from_checkpoint = resolve_resume_checkpoint(
+        args.resume_from_checkpoint,
+        args.output_dir / "trainer",
+    )
     dtype = get_dtype(args.dtype)
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     distributed = world_size > 1
@@ -2739,7 +2836,7 @@ def main() -> None:
         context_ablation_state_only_prob=args.context_ablation_state_only_prob,
     )
     trainer.log_delta_debug_stats = args.log_delta_debug_stats
-    trainer.train()
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
     trainer.accelerator.wait_for_everyone()
 
     base_model = trainer.accelerator.unwrap_model(trainer.model)
@@ -2747,6 +2844,7 @@ def main() -> None:
         save_delta_mem_adapter(base_model, args.output_dir, delta_config)
         summary = {
             "output_dir": str(args.output_dir),
+            "resume_from_checkpoint": resume_from_checkpoint,
             "num_replaced_modules": len(replaced),
             "num_trainable_tensors": len(trainable_names),
             "first_replaced_modules": replaced[:8],

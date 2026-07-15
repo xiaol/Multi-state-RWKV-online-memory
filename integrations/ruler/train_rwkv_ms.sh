@@ -7,6 +7,7 @@ DEPENDENCY_ROOT="${DEPENDENCY_ROOT:-/home/aiuser/X/.rwkv-memory-deps}"
 MODEL_PATH="${MODEL_PATH:-/home/aiuser/X/models/gemma-4-E4B-it}"
 TRAIN_FILE="${TRAIN_FILE:-/home/aiuser/X/results/ruler-gemma4/train/episodes-v1.jsonl}"
 OUTPUT_DIR="${OUTPUT_DIR:-/home/aiuser/X/results/ruler-gemma4/train/rwkv-ms-v1}"
+RESUME_FROM_CHECKPOINT="${RESUME_FROM_CHECKPOINT:-}"
 TOKENIZED_DATASET_ROOT="${TOKENIZED_DATASET_ROOT:-/home/aiuser/X/results/ruler-gemma4/tokenized-cache}"
 NPROC_PER_NODE="${NPROC_PER_NODE:-8}"
 MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
@@ -18,6 +19,12 @@ LEARNING_RATE="${LEARNING_RATE:-2e-4}"
 NUM_TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-2}"
 SAVE_STEPS="${SAVE_STEPS:-100}"
 SEED="${SEED:-3407}"
+
+IFS=',' read -r -a CUDA_DEVICE_LIST <<< "${CUDA_VISIBLE_DEVICES}"
+if [[ "${#CUDA_DEVICE_LIST[@]}" -ne "${NPROC_PER_NODE}" ]]; then
+  echo "NPROC_PER_NODE=${NPROC_PER_NODE} does not match CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}" >&2
+  exit 2
+fi
 
 if [[ ! -x "${PYTHON_BIN}" ]]; then
   echo "Python interpreter is not executable: ${PYTHON_BIN}" >&2
@@ -31,8 +38,10 @@ if [[ ! -d "${MODEL_PATH}" ]]; then
   echo "Base model is missing: ${MODEL_PATH}" >&2
   exit 2
 fi
-if [[ -e "${OUTPUT_DIR}" ]] && [[ -n "$(find "${OUTPUT_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
-  echo "Output directory must be absent or empty: ${OUTPUT_DIR}" >&2
+if [[ -e "${OUTPUT_DIR}" ]] \
+  && [[ -n "$(find "${OUTPUT_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]] \
+  && [[ -z "${RESUME_FROM_CHECKPOINT}" ]]; then
+  echo "Output directory must be absent or empty unless RESUME_FROM_CHECKPOINT is set: ${OUTPUT_DIR}" >&2
   exit 2
 fi
 
@@ -110,9 +119,15 @@ TRAIN_ARGS=(
   --log-delta-debug-stats
 )
 
+TEE_ARGS=()
+if [[ -n "${RESUME_FROM_CHECKPOINT}" ]]; then
+  TRAIN_ARGS+=(--resume-from-checkpoint "${RESUME_FROM_CHECKPOINT}")
+  TEE_ARGS=(-a)
+fi
+
 "${PYTHON_BIN}" -m torch.distributed.run \
   --nproc_per_node "${NPROC_PER_NODE}" \
   --master_addr "${MASTER_ADDR}" \
   --master_port "${MASTER_PORT}" \
   -m deltamem.train.delta_sft_experimental \
-  "${TRAIN_ARGS[@]}" 2>&1 | tee "${OUTPUT_DIR}/train.log"
+  "${TRAIN_ARGS[@]}" 2>&1 | tee "${TEE_ARGS[@]}" "${OUTPUT_DIR}/train.log"

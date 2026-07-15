@@ -41,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--memory-ack", default="Memory loaded.")
     parser.add_argument("--shuffle-seed", type=int, default=742)
     parser.add_argument("--eval-root", type=Path)
+    parser.add_argument("--eval-subset", default="validation")
     parser.add_argument("--overwrite", action="store_true")
     return parser.parse_args()
 
@@ -178,7 +179,9 @@ def main() -> None:
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path, local_files_only=True)
     eval_hashes = (
-        prompt_hashes(args.eval_root, lengths, tasks, args.subset) if args.eval_root is not None else set()
+        prompt_hashes(args.eval_root, lengths, tasks, args.eval_subset)
+        if args.eval_root is not None
+        else set()
     )
     episodes = []
     source_files = []
@@ -310,6 +313,9 @@ def main() -> None:
         "max_read_tokens": args.max_read_tokens,
         "observed_read_tokens": {"min": min(read_counts), "max": max(read_counts)},
         "eval_overlap_checked": args.eval_root is not None,
+        "eval_root": None if args.eval_root is None else str(args.eval_root.resolve()),
+        "eval_subset": args.eval_subset if args.eval_root is not None else None,
+        "eval_prompt_hashes": len(eval_hashes),
         "source_files": source_files,
     }
     manifest_path = args.output_file.with_suffix(args.output_file.suffix + ".manifest.json")

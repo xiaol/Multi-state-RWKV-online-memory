@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from prepare_training_data import canonical_prompt, format_answer, split_document_query
+import hashlib
+import json
+
+from prepare_training_data import (
+    canonical_prompt,
+    format_answer,
+    prompt_hashes,
+    split_document_query,
+)
 from task_config import GEMMA4_PROMPT_PREFIX, GEMMA4_PROMPT_SUFFIX
 
 
@@ -28,3 +36,17 @@ def test_cwe_uses_last_question_delimiter() -> None:
         "cwe",
         {"answer_prefix": "Answer:", "outputs": ["alpha", "beta"]},
     ) == "alpha, beta"
+
+
+def test_prompt_hashes_reads_requested_eval_subset(tmp_path) -> None:
+    prompt = GEMMA4_PROMPT_PREFIX + "Document.\nWhat is hidden?" + GEMMA4_PROMPT_SUFFIX
+    task_dir = tmp_path / "4096" / "niah_single_1"
+    task_dir.mkdir(parents=True)
+    (task_dir / "validation.jsonl").write_text(
+        json.dumps({"input": prompt}) + "\n",
+        encoding="utf-8",
+    )
+
+    assert prompt_hashes(tmp_path, (4096,), ("niah_single_1",), "validation") == {
+        hashlib.sha256("Document.\nWhat is hidden?".encode("utf-8")).hexdigest()
+    }
