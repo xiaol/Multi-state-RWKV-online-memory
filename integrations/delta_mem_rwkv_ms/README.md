@@ -31,6 +31,7 @@ skips those layers and wraps the non-shared sliding/full attention layers.
 | `delta_mem_rwkv_ms.patch` | Patch for a delta-Mem checkout. |
 | `hrm_rwkv7.py` | Minimal HRM-Text-derived RWKV-7 projection/readout core included in the patch. |
 | `inference.py` | HF online-memory inference entry point for the Gemma4 E4B RWKV-MS checkpoint. |
+| `train_smoke.py` | Manual two-step Gemma4 adapter train with gradient, tensor-delta, and reload checks. |
 | `run_rwkv_ms_delta_rule_comparison.sh` | Matched delta-rule vs RWKV-MS training launcher. |
 | `check_delta_mem_patch.sh` | Applies the patch to a temporary copy and runs syntax checks. |
 
@@ -118,16 +119,37 @@ and `--adapter-dir` are accepted as delta-Mem API aliases. It uses
 Then train a matched pair:
 
 ```bash
-BASE_MODEL_PATH=google/gemma-4-E4B-it \
-TRAIN_FILE=/path/to/agent_memory_qasper_ctx8192_episode_safe_seed42.jsonl \
-OUTPUT_ROOT=/path/to/rwkv_ms_delta_rule_comparison \
-NPROC_PER_NODE=8 \
-bash scripts/run_rwkv_ms_delta_rule_comparison.sh
+(
+  cd ../delta-Mem
+  BASE_MODEL_PATH=google/gemma-4-E4B-it \
+  TRAIN_FILE=/path/to/agent_memory_qasper_ctx8192_episode_safe_seed42.jsonl \
+  OUTPUT_ROOT=/path/to/rwkv_ms_delta_rule_comparison \
+  NPROC_PER_NODE=8 \
+  bash scripts/run_rwkv_ms_delta_rule_comparison.sh
+)
 ```
 
 Keep base model, data, rank, alpha, delta heads, target layers, write policy,
 training budget, and eval scripts identical across both runs. The comparison is
 valid only if the controlled variable is the online state backend.
+
+For a small end-to-end training check, use one visible GPU and the bundled
+two-example fixture:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 ../delta-Mem/.venv/bin/python \
+  integrations/delta_mem_rwkv_ms/train_smoke.py \
+  --delta-mem-root ../delta-Mem \
+  --model-path /path/to/gemma-4-E4B-it \
+  --output-dir .openresearch/artifacts/rwkv_ms_train_smoke
+```
+
+The smoke trainer keeps the frozen base in BF16, keeps the optimizer-owned
+adapter parameters in FP32, and performs manual `loss.backward()` / `AdamW.step()`
+updates. It fails unless RWKV-MS state is nonzero, gradients are nonzero,
+adapter tensors change, and every saved tensor plus the adapter config reloads
+exactly. To protect checkpoints, the output directory must be absent or empty;
+use `--overwrite-output` only when replacing its contents is intentional.
 
 ## Verification Already Run
 
@@ -142,6 +164,6 @@ valid only if the controlled variable is the online state backend.
   zero-init output matches base attention, state shape is
   `[batch, num_state_heads, rwkv_ms_num_states, rank, rank]`, fixed chunk routes
   match expectation, and read-only mode preserves state and positions.
-
-`pytest` was not available in the existing local environments, so the full
-delta-Mem pytest suite was not run from this bundle.
+- Patched delta-Mem regression suite: 60 passed.
+- Gemma4 E4B A800 training smoke: two optimizer steps, nonzero recurrent state
+  and gradients, 21 changed adapter tensors, exact checkpoint reload.

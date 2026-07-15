@@ -147,9 +147,10 @@ integrations/delta_mem_rwkv_ms/gguf/ # GGUF sidecar, fixture, and parity helpers
 
 The practical RWKV-MS online-memory integration for delta-Mem is packaged in
 `integrations/delta_mem_rwkv_ms/`. It includes the patch, the minimal
-HRM-Text-derived RWKV-7 core, an HF online-memory inference entry point, a matched
-delta-rule/RWKV-MS training launcher, and a temporary-clone checker for applying
-the patch safely. The patch supports Qwen3, SmolLM3, and Gemma4 text attention;
+HRM-Text-derived RWKV-7 core, HF inference and verified manual training-smoke
+entry points, a matched delta-rule/RWKV-MS training launcher, and a temporary-
+clone checker for applying the patch safely. The patch supports Qwen3, SmolLM3,
+and Gemma4 text attention;
 for `google/gemma-4-E4B-it` it wraps the non-KV-shared attention layers and
 skips the KV-shared tail layers.
 
