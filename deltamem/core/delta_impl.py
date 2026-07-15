@@ -1151,6 +1151,8 @@ class DeltaMemAttention(nn.Module):
                 raise ValueError("attention_mask is shorter than the current sequence length")
             query_mask = attention_mask[:, 0, -seq_len:, -seq_len:]
             diagonal = query_mask.diagonal(dim1=-2, dim2=-1)
+            if diagonal.dtype == torch.bool:
+                return diagonal
             return diagonal.eq(0)
         raise ValueError(
             f"Unsupported attention_mask shape for Delta-Mem state updates: {tuple(attention_mask.shape)}"

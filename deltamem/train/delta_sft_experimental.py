@@ -57,6 +57,29 @@ def suppress_non_actionable_accelerate_warnings() -> None:
         logger.addFilter(_AccelerateKernelWarningFilter())
 
 
+def _disable_training_cache(model) -> None:
+    config = model.config
+    config.use_cache = False
+    get_text_config = getattr(config, "get_text_config", None)
+    if not callable(get_text_config):
+        return
+    try:
+        text_config = get_text_config(decoder=True)
+    except TypeError:
+        text_config = get_text_config()
+    if text_config is not None:
+        text_config.use_cache = False
+
+
+def _promote_trainable_parameters_to_fp32(model) -> None:
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        if not parameter.is_floating_point():
+            raise TypeError(f"Trainable parameter {name} must be floating point")
+        parameter.data = parameter.data.to(dtype=torch.float32)
+
+
 def compute_warmup_steps(
     *,
     train_samples: int,
@@ -2572,6 +2595,7 @@ def main() -> None:
         local_files_only=True,
         low_cpu_mem_usage=True,
     )
+    _disable_training_cache(model)
     if args.tf32 and torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
@@ -2622,6 +2646,7 @@ def main() -> None:
     )
     replaced = attach_delta_mem(model, delta_config)
     trainable_names = freeze_non_delta_mem_params(model)
+    _promote_trainable_parameters_to_fp32(model)
 
     warmup_steps = compute_warmup_steps(
         train_samples=len(tokenized),

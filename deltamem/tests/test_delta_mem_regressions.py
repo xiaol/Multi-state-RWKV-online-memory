@@ -345,6 +345,37 @@ class FakeModel(torch.nn.Module):
         )()
 
 
+def test_disable_training_cache_updates_composite_and_text_configs() -> None:
+    class TextConfig:
+        use_cache = True
+
+    class CompositeConfig:
+        def __init__(self) -> None:
+            self.text_config = TextConfig()
+
+        def get_text_config(self, decoder: bool | None = None):
+            assert decoder is True
+            return self.text_config
+
+    model = type("Model", (), {"config": CompositeConfig()})()
+    assert not hasattr(model.config, "use_cache")
+
+    experimental_train._disable_training_cache(model)
+
+    assert model.config.use_cache is False
+    assert model.config.text_config.use_cache is False
+
+
+def test_promote_trainable_parameters_to_fp32_preserves_frozen_dtype() -> None:
+    model = torch.nn.Linear(4, 2).to(dtype=torch.bfloat16)
+    model.weight.requires_grad = False
+
+    experimental_train._promote_trainable_parameters_to_fp32(model)
+
+    assert model.weight.dtype == torch.bfloat16
+    assert model.bias.dtype == torch.float32
+
+
 class StubSession(DeltaMemChatSession):
     def _ingest_full_ids(self, full_ids: torch.Tensor) -> torch.Tensor:
         self.processed_input_ids = full_ids.detach().cpu()
@@ -1295,7 +1326,7 @@ def test_gemma4_sdpa_sliding_attention_writes_beyond_window() -> None:
         vocab_size=64,
         hidden_size=16,
         intermediate_size=32,
-        num_hidden_layers=1,
+        num_hidden_layers=2,
         num_attention_heads=2,
         num_key_value_heads=1,
         head_dim=8,
@@ -1303,7 +1334,7 @@ def test_gemma4_sdpa_sliding_attention_writes_beyond_window() -> None:
         num_global_key_value_heads=1,
         attention_dropout=0.0,
         attention_bias=False,
-        layer_types=["sliding_attention"],
+        layer_types=["sliding_attention", "full_attention"],
         num_kv_shared_layers=0,
         hidden_size_per_layer_input=0,
         sliding_window=512,
@@ -1318,14 +1349,17 @@ def test_gemma4_sdpa_sliding_attention_writes_beyond_window() -> None:
             memory_backend="rwkv_ms",
             rwkv_ms_num_states=2,
             rwkv_ms_chunk_size=128,
+            target_layers=(0,),
             target_modules=("self_attn",),
         ),
     )
 
+    input_ids = torch.randint(0, config.vocab_size, (1, sequence_length))
     with torch.inference_mode():
         output = model(
-            input_ids=torch.randint(0, config.vocab_size, (1, sequence_length)),
-            use_cache=False,
+            input_ids=input_ids,
+            attention_mask=torch.ones_like(input_ids),
+            use_cache=True,
         )
 
     wrapped = model.layers[0].self_attn
