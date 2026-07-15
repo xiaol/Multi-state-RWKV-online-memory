@@ -59,9 +59,14 @@ except Exception:  # pragma: no cover - optional Transformers version support
 
 try:
     from transformers.models.gemma4 import Gemma4TextConfig
-    from transformers.models.gemma4.modeling_gemma4 import Gemma4TextAttention, Gemma4TextModel
+    from transformers.models.gemma4.modeling_gemma4 import (
+        Gemma4ForCausalLM,
+        Gemma4TextAttention,
+        Gemma4TextModel,
+    )
 except Exception:  # pragma: no cover - optional Transformers version support
     Gemma4TextConfig = None
+    Gemma4ForCausalLM = None
     Gemma4TextAttention = None
     Gemma4TextModel = None
 
@@ -374,6 +379,110 @@ def test_promote_trainable_parameters_to_fp32_preserves_frozen_dtype() -> None:
 
     assert model.weight.dtype == torch.bfloat16
     assert model.bias.dtype == torch.float32
+
+
+def test_logits_to_keep_kwargs_supports_wrapped_current_and_legacy_models() -> None:
+    class CurrentModel(torch.nn.Module):
+        def forward(self, logits_to_keep=0):
+            raise AssertionError("signature inspection must not run the model")
+
+    class LegacyModel(torch.nn.Module):
+        def forward(self, num_logits_to_keep=0):
+            raise AssertionError("signature inspection must not run the model")
+
+    class ModelWithoutLogitLimit(torch.nn.Module):
+        def forward(self, input_ids):
+            raise AssertionError("signature inspection must not run the model")
+
+    class ModuleWrapper(torch.nn.Module):
+        def __init__(self, module) -> None:
+            super().__init__()
+            self.module = module
+
+        def forward(self, *args, **kwargs):
+            return self.module(*args, **kwargs)
+
+    class CompiledWrapper(torch.nn.Module):
+        def __init__(self, module) -> None:
+            super().__init__()
+            self._orig_mod = module
+
+        def forward(self, *args, **kwargs):
+            return self._orig_mod(*args, **kwargs)
+
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+
+    assert trainer._logits_to_keep_kwargs(ModuleWrapper(CurrentModel()), 1) == {
+        "logits_to_keep": 1
+    }
+    assert trainer._logits_to_keep_kwargs(CompiledWrapper(LegacyModel()), 1) == {
+        "num_logits_to_keep": 1
+    }
+    assert trainer._logits_to_keep_kwargs(ModelWithoutLogitLimit(), 1) == {}
+
+
+def test_gemma4_prime_logit_limit_preserves_rwkv_ms_state() -> None:
+    if Gemma4TextConfig is None or Gemma4ForCausalLM is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    config = Gemma4TextConfig(
+        vocab_size=64,
+        hidden_size=16,
+        intermediate_size=32,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+        num_key_value_heads=1,
+        head_dim=8,
+        global_head_dim=8,
+        num_global_key_value_heads=1,
+        attention_dropout=0.0,
+        attention_bias=False,
+        layer_types=["full_attention"],
+        num_kv_shared_layers=0,
+        hidden_size_per_layer_input=0,
+        sliding_window=4,
+        tie_word_embeddings=False,
+    )
+    config._attn_implementation = "eager"
+    model = Gemma4ForCausalLM(config).eval()
+    attach_delta_mem(
+        model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="zero",
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            target_layers=(0,),
+            target_modules=("self_attn",),
+        ),
+    )
+    input_ids = torch.randint(0, config.vocab_size, (1, 7))
+    attention_mask = torch.ones_like(input_ids)
+    lm_head_output_shapes: list[tuple[int, ...]] = []
+    hook = model.lm_head.register_forward_hook(
+        lambda _module, _inputs, output: lm_head_output_shapes.append(tuple(output.shape))
+    )
+
+    with torch.no_grad():
+        model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False)
+        full_logits_state = get_delta_mem_online_state(model)
+        reset_delta_mem_states(model)
+        trainer = object.__new__(experimental_train.DeltaMemTrainer)
+        trainer._prime_episode_state(
+            model,
+            write_input_ids=input_ids,
+            write_attention_mask=attention_mask,
+            batch_size=1,
+        )
+        limited_logits_state = get_delta_mem_online_state(model)
+    hook.remove()
+
+    assert lm_head_output_shapes == [(1, 7, 64), (1, 1, 64)]
+    assert full_logits_state.keys() == limited_logits_state.keys()
+    assert all(
+        torch.equal(full_logits_state[name], limited_logits_state[name])
+        for name in full_logits_state
+    )
 
 
 class StubSession(DeltaMemChatSession):

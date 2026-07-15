@@ -292,9 +292,41 @@ class DeltaMemTrainer(Trainer):
         return labels.eq(-100) & attention_mask.ne(0)
 
     def _unwrap_base_model(self, model):
-        while hasattr(model, "module"):
-            model = model.module
+        while True:
+            wrapped_model = getattr(model, "module", None)
+            if wrapped_model is not None and wrapped_model is not model:
+                model = wrapped_model
+                continue
+            original_model = getattr(model, "_orig_mod", None)
+            if original_model is not None and original_model is not model:
+                model = original_model
+                continue
+            break
         return model
+
+    def _logits_to_keep_kwargs(
+        self,
+        model,
+        logits_to_keep: int | torch.Tensor,
+    ) -> dict[str, int | torch.Tensor]:
+        base_model = self._unwrap_base_model(model)
+        try:
+            call_parameters = inspect.signature(model.forward).parameters.values()
+            base_parameters = inspect.signature(base_model.forward).parameters
+        except (TypeError, ValueError):
+            return {}
+        call_accepts_kwargs = any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in call_parameters
+        )
+        for name in ("logits_to_keep", "num_logits_to_keep"):
+            if name not in base_parameters:
+                continue
+            if call_accepts_kwargs or any(
+                parameter.name == name for parameter in call_parameters
+            ):
+                return {name: logits_to_keep}
+        return {}
 
     def _scatter_episode_state(
         self,
@@ -396,6 +428,7 @@ class DeltaMemTrainer(Trainer):
             attention_mask=write_attention_mask[active_rows],
             use_cache=False,
             return_dict=True,
+            **self._logits_to_keep_kwargs(model, 1),
         )
         set_delta_mem_write_message_ids(model, None)
         set_delta_mem_write_sentence_ids(model, None)
