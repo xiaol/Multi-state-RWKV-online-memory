@@ -47,6 +47,7 @@ def write_generation_manifest(
     lengths: tuple[int, ...] = (4096,),
     tasks: tuple[str, ...] = ("niah_single_1",),
     rows: int = 5,
+    seed: int = 42,
 ) -> Path:
     jobs = []
     for context_length in lengths:
@@ -57,7 +58,7 @@ def write_generation_manifest(
                 {
                     "context_length": context_length,
                     "task": task,
-                    "seed": 42,
+                    "seed": seed,
                     "rows": rows,
                     "template_name": "gemma4-chat",
                     "subset": "validation",
@@ -74,7 +75,7 @@ def write_generation_manifest(
                 "template_name": "gemma4-chat",
                 "lengths": list(lengths),
                 "tasks": list(tasks),
-                "seeds": [42] * len(jobs),
+                "seeds": [seed] * len(jobs),
                 "num_samples_per_task_length": rows,
                 "total_rows": len(jobs) * rows,
                 "jobs": jobs,
@@ -180,6 +181,19 @@ def test_matrix_rejects_an_input_changed_after_generation(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="Input hash mismatch"):
         load_input_matrix(manifest_file)
+
+
+def test_matrix_requires_official_seed_by_default_and_allows_explicit_heldout_seed(
+    tmp_path: Path,
+) -> None:
+    manifest_file = write_generation_manifest(tmp_path / "data", seed=43)
+
+    with pytest.raises(ValueError, match="expected seed 42"):
+        load_input_matrix(manifest_file)
+
+    matrix = load_input_matrix(manifest_file, expected_seed=43)
+
+    assert matrix.seed == 43
 
 
 def test_resume_requires_output_identity_and_complete_hash(tmp_path: Path) -> None:

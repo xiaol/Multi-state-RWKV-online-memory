@@ -113,6 +113,15 @@ def parse_args() -> argparse.Namespace:
         help="Optional exact sample-count assertion (default: trust the verified manifest)",
     )
     parser.add_argument(
+        "--expected-seed",
+        type=int,
+        default=OFFICIAL_EVAL_SEED,
+        help=(
+            "Required seed for every input job; defaults to the official evaluation seed. "
+            "Use an explicit held-out seed only for checkpoint selection."
+        ),
+    )
+    parser.add_argument(
         "--dtype",
         choices=("bfloat16", "float16", "float32"),
         default="bfloat16",
@@ -281,7 +290,11 @@ def resolve_record_path(raw_path: object, manifest_file: Path) -> Path:
     return path.resolve()
 
 
-def load_input_matrix(manifest_file: Path) -> InputMatrix:
+def load_input_matrix(
+    manifest_file: Path,
+    *,
+    expected_seed: int = OFFICIAL_EVAL_SEED,
+) -> InputMatrix:
     manifest_file = manifest_file.expanduser().resolve()
     if not manifest_file.is_file():
         raise FileNotFoundError(f"Generation manifest not found: {manifest_file}")
@@ -317,8 +330,8 @@ def load_input_matrix(manifest_file: Path) -> InputMatrix:
     seeds = payload.get("seeds")
     if not isinstance(seeds, list) or len(seeds) != len(raw_jobs):
         raise ValueError("Generation manifest has invalid per-job seeds")
-    if {int(seed) for seed in seeds} != {OFFICIAL_EVAL_SEED}:
-        raise ValueError("RULER evaluation matrix must use official seed 42")
+    if {int(seed) for seed in seeds} != {expected_seed}:
+        raise ValueError(f"RULER evaluation matrix must use expected seed {expected_seed}")
     jobs = []
     seen_keys: set[tuple[int, str]] = set()
     seen_paths: set[Path] = set()
@@ -327,8 +340,11 @@ def load_input_matrix(manifest_file: Path) -> InputMatrix:
             raise ValueError("Generation manifest jobs must be objects")
         context_length = int(record.get("context_length", 0))
         task = str(record.get("task", ""))
-        if int(record.get("seed", -1)) != OFFICIAL_EVAL_SEED:
-            raise ValueError(f"RULER evaluation job {context_length}/{task} does not use seed 42")
+        if int(record.get("seed", -1)) != expected_seed:
+            raise ValueError(
+                f"RULER evaluation job {context_length}/{task} does not use "
+                f"expected seed {expected_seed}"
+            )
         if record.get("subset") != subset or record.get("template_name") != template_name:
             raise ValueError(f"RULER job metadata mismatch for {context_length}/{task}")
         key = (context_length, task)
@@ -377,7 +393,7 @@ def load_input_matrix(manifest_file: Path) -> InputMatrix:
         manifest_sha256=sha256_file(manifest_file),
         subset=subset,
         template_name=template_name,
-        seed=OFFICIAL_EVAL_SEED,
+        seed=expected_seed,
         lengths=lengths,
         tasks=tasks,
         rows_per_job=rows_per_job,
@@ -1088,7 +1104,10 @@ def resolve_run_config(args: argparse.Namespace) -> RunConfig:
 def main() -> None:
     args = parse_args()
     devices = parse_devices(args.devices)
-    matrix = load_input_matrix(args.generation_manifest)
+    matrix = load_input_matrix(
+        args.generation_manifest,
+        expected_seed=args.expected_seed,
+    )
     if args.expected_rows_per_job < 0:
         raise ValueError("expected-rows-per-job must be >= 0")
     if args.expected_rows_per_job and matrix.rows_per_job != args.expected_rows_per_job:
