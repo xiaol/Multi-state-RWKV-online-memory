@@ -171,6 +171,22 @@ def compute_warmup_steps(
     return max(1, math.ceil(total_steps * warmup_ratio))
 
 
+def _build_ddp_training_kwargs(
+    *,
+    distributed: bool,
+    ddp_backend: str,
+    local_rank: int,
+) -> dict[str, object]:
+    # Episode loss keeps multiple forward graphs alive; synchronizing buffers
+    # between them invalidates autograd versions for Gemma4's layer scalars.
+    return {
+        "ddp_find_unused_parameters": False,
+        "ddp_broadcast_buffers": False,
+        "ddp_backend": ddp_backend if distributed else None,
+        "local_rank": local_rank if distributed else -1,
+    }
+
+
 @dataclass
 class SFTExample:
     messages: list[dict[str, str]]
@@ -2810,9 +2826,11 @@ def main() -> None:
         torch_compile=args.torch_compile,
         tf32=args.tf32,
         deepspeed=None if args.deepspeed_config is None else str(args.deepspeed_config),
-        ddp_find_unused_parameters=False,
-        ddp_backend=args.ddp_backend if distributed else None,
-        local_rank=local_rank if distributed else -1,
+        **_build_ddp_training_kwargs(
+            distributed=distributed,
+            ddp_backend=args.ddp_backend,
+            local_rank=local_rank,
+        ),
         bf16=args.bf16 or args.dtype == "bfloat16",
         fp16=args.dtype == "float16",
         report_to=["wandb"] if args.wandb else ["none"],
@@ -2932,6 +2950,7 @@ def main() -> None:
             "tokenized_cache_hit": tokenized_meta["tokenized_cache_hit"],
             "tokenized_cache_dir": tokenized_meta["tokenized_cache_dir"],
             "tokenized_dataset_source": tokenized_meta["tokenized_dataset_source"],
+            "ddp_broadcast_buffers": training_args.ddp_broadcast_buffers,
             "ddp_backend": args.ddp_backend if distributed else None,
             "local_rank": local_rank if distributed else -1,
             "world_size": world_size,

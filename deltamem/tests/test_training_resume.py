@@ -9,6 +9,32 @@ import deltamem.train.delta_sft_experimental as experimental_train
 from deltamem.core.delta import HFDeltaMemConfig
 
 
+def test_ddp_training_kwargs_disable_buffer_broadcast(tmp_path: Path) -> None:
+    kwargs = experimental_train._build_ddp_training_kwargs(
+        distributed=True,
+        ddp_backend="nccl",
+        local_rank=3,
+    )
+    assert kwargs == {
+        "ddp_find_unused_parameters": False,
+        "ddp_broadcast_buffers": False,
+        "ddp_backend": "nccl",
+        "local_rank": 3,
+    }
+
+    single_process_kwargs = experimental_train._build_ddp_training_kwargs(
+        distributed=False,
+        ddp_backend="nccl",
+        local_rank=3,
+    )
+    training_args = experimental_train.TrainingArguments(
+        output_dir=str(tmp_path),
+        **single_process_kwargs,
+    )
+
+    assert training_args.ddp_broadcast_buffers is False
+
+
 def _write_complete_checkpoint(path: Path, config: HFDeltaMemConfig) -> None:
     path.mkdir(parents=True)
     config.save_pretrained(path)
