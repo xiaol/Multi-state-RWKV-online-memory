@@ -85,6 +85,7 @@ class RunConfig:
     score_script: Path
     score_script_sha256: str
     overwrite_output: bool
+    prefill_chunk_tokens: int = 0
 
 
 def parse_args() -> argparse.Namespace:
@@ -118,6 +119,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--attn-implementation", default="sdpa")
     parser.add_argument("--max-new-tokens", type=int, default=0)
+    parser.add_argument(
+        "--prefill-chunk-tokens",
+        type=int,
+        default=0,
+        help="Prefill cache chunk size in tokens; 0 keeps monolithic prefill",
+    )
     parser.add_argument("--python-bin", default=sys.executable)
     parser.add_argument("--predict-script", type=Path, default=DEFAULT_PREDICT_SCRIPT)
     parser.add_argument("--score-script", type=Path, default=DEFAULT_SCORE_SCRIPT)
@@ -439,10 +446,13 @@ def expected_output_identity(unit: WorkUnit, config: RunConfig) -> dict[str, obj
         "model_path": str(Path(config.model_path).expanduser().resolve()),
         "adapter_dir": None if config.adapter_dir is None else str(config.adapter_dir),
         "adapter_sha256": config.adapter_sha256,
+        "adapter_config_sha256": config.adapter_config_sha256,
+        "runtime_root": str(config.runtime_root),
         "device": "cuda:0",
         "dtype": config.dtype,
         "attn_implementation": config.attn_implementation,
         "max_new_tokens": effective_max_new_tokens(unit, config),
+        "prefill_chunk_tokens": config.prefill_chunk_tokens,
         "chunk_index": unit.chunk_index,
         "chunk_count": unit.chunk_count,
         "selected_rows": len(unit.selected_ordinals),
@@ -501,6 +511,35 @@ def inspect_output_rows(unit: WorkUnit, config: RunConfig) -> set[int]:
                     )
             elif state_stats is not None:
                 raise ValueError(f"Base prediction row has hybrid state stats: {unit.output_file}")
+            prompt_tokens = row.get("prompt_tokens")
+            if type(prompt_tokens) is not int or prompt_tokens < 1:
+                raise ValueError(
+                    f"Prediction row has invalid prompt token count: "
+                    f"{unit.output_file}:{line_number}"
+                )
+            expected_prefill_chunks = (
+                1
+                if config.prefill_chunk_tokens <= 0
+                else (prompt_tokens + config.prefill_chunk_tokens - 1)
+                // config.prefill_chunk_tokens
+            )
+            if row.get("prefill_chunk_count") != expected_prefill_chunks:
+                raise ValueError(
+                    f"Prediction row has invalid prefill chunk count: "
+                    f"{unit.output_file}:{line_number}"
+                )
+            peak_allocated = row.get("cuda_peak_allocated_bytes")
+            peak_reserved = row.get("cuda_peak_reserved_bytes")
+            if (
+                type(peak_allocated) is not int
+                or peak_allocated < 0
+                or type(peak_reserved) is not int
+                or peak_reserved < peak_allocated
+            ):
+                raise ValueError(
+                    f"Prediction row has invalid CUDA peak memory stats: "
+                    f"{unit.output_file}:{line_number}"
+                )
             ordinals.add(ordinal)
     unexpected = ordinals - set(unit.selected_ordinals)
     if unexpected:
@@ -621,6 +660,8 @@ def build_predict_command(unit: WorkUnit, config: RunConfig) -> list[str]:
         config.attn_implementation,
         "--max-new-tokens",
         str(config.max_new_tokens),
+        "--prefill-chunk-tokens",
+        str(config.prefill_chunk_tokens),
         "--chunk-index",
         str(unit.chunk_index),
         "--chunk-count",
@@ -874,6 +915,7 @@ def run_specification(
         "dtype": config.dtype,
         "attn_implementation": config.attn_implementation,
         "max_new_tokens": config.max_new_tokens,
+        "prefill_chunk_tokens": config.prefill_chunk_tokens,
         "chunks_per_input": units[0].chunk_count,
         "python_bin": config.python_bin,
         "predict_script": str(config.predict_script),
@@ -993,6 +1035,8 @@ def resolve_run_config(args: argparse.Namespace) -> RunConfig:
         raise ValueError("chunks-per-input must be >= 1")
     if args.max_new_tokens < 0:
         raise ValueError("max-new-tokens must be >= 0")
+    if args.prefill_chunk_tokens < 0:
+        raise ValueError("prefill-chunk-tokens must be >= 0")
     predict_script = args.predict_script.expanduser().resolve()
     if not predict_script.is_file():
         raise FileNotFoundError(f"Prediction script not found: {predict_script}")
@@ -1031,6 +1075,7 @@ def resolve_run_config(args: argparse.Namespace) -> RunConfig:
         dtype=args.dtype,
         attn_implementation=args.attn_implementation,
         max_new_tokens=args.max_new_tokens,
+        prefill_chunk_tokens=args.prefill_chunk_tokens,
         python_bin=args.python_bin,
         predict_script=predict_script,
         predict_script_sha256=sha256_file(predict_script),

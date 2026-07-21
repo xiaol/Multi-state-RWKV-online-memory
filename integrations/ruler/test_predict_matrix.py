@@ -126,6 +126,15 @@ def write_completed_output(unit, config: RunConfig) -> None:
             "task": unit.job.task,
             "variant": config.variant,
             "pred": "answer",
+            "prompt_tokens": 3,
+            "prefill_chunk_count": (
+                1
+                if config.prefill_chunk_tokens <= 0
+                else (3 + config.prefill_chunk_tokens - 1)
+                // config.prefill_chunk_tokens
+            ),
+            "cuda_peak_allocated_bytes": 0,
+            "cuda_peak_reserved_bytes": 0,
         }
         for ordinal in unit.selected_ordinals
     ]
@@ -364,7 +373,69 @@ def test_work_unit_isolates_physical_gpu_and_uses_logical_cuda_zero(
     assert command[command.index("--input-file") + 1] == str(unit.job.input_file)
     assert command[command.index("--chunk-index") + 1] == "1"
     assert command[command.index("--chunk-count") + 1] == "2"
+    assert command[command.index("--prefill-chunk-tokens") + 1] == "0"
     assert command[command.index("--adapter-dir") + 1] == str(adapter_dir)
+
+
+def test_prefill_chunk_size_is_part_of_output_identity_and_resume_gate(
+    tmp_path: Path,
+) -> None:
+    matrix = load_input_matrix(write_generation_manifest(tmp_path / "data"))
+    unit = build_work_units(matrix, tmp_path / "predictions", 1)[0]
+    chunked = replace(base_config(tmp_path), prefill_chunk_tokens=4096)
+    write_completed_output(unit, chunked)
+
+    assert expected_output_identity(unit, chunked)["prefill_chunk_tokens"] == 4096
+    command = build_predict_command(unit, chunked)
+    assert command[command.index("--prefill-chunk-tokens") + 1] == "4096"
+    assert output_status(unit, chunked) == "complete"
+
+    with pytest.raises(ValueError, match="prefill_chunk_tokens"):
+        output_status(unit, replace(chunked, prefill_chunk_tokens=2048))
+
+
+def test_top_level_resume_rejects_a_different_prefill_chunk_size(
+    tmp_path: Path,
+) -> None:
+    matrix = load_input_matrix(write_generation_manifest(tmp_path / "data"))
+    output_root = tmp_path / "predictions"
+    units = build_work_units(matrix, output_root, 1)
+    chunked = replace(base_config(tmp_path), prefill_chunk_tokens=4096)
+
+    _, payload = prepare_run(matrix, units, output_root, ("0",), chunked)
+    assert payload["run_specification"]["prefill_chunk_tokens"] == 4096
+
+    with pytest.raises(ValueError, match="belongs to another prediction matrix"):
+        prepare_run(
+            matrix,
+            units,
+            output_root,
+            ("0",),
+            replace(chunked, prefill_chunk_tokens=2048),
+        )
+
+
+def test_completed_output_requires_valid_prefill_and_peak_telemetry(
+    tmp_path: Path,
+) -> None:
+    matrix = load_input_matrix(write_generation_manifest(tmp_path / "data"))
+    unit = build_work_units(matrix, tmp_path / "predictions", 1)[0]
+    config = replace(base_config(tmp_path), prefill_chunk_tokens=2)
+    write_completed_output(unit, config)
+
+    rows = predictor.load_jsonl(unit.output_file)
+    rows[0]["prefill_chunk_count"] = 1
+    unit.output_file.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+    manifest_file = output_manifest_path(unit.output_file)
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    manifest["output_sha256"] = sha256_file(unit.output_file)
+    manifest_file.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="invalid prefill chunk count"):
+        output_status(unit, config)
 
 
 def test_work_queue_never_overlaps_processes_on_one_gpu(
@@ -415,6 +486,97 @@ class FakeTensor:
 
     def item(self) -> int:
         return self.value
+
+
+class SliceTensor:
+    def __init__(self, values) -> None:
+        self.values = tuple(values)
+
+    def size(self, dimension: int) -> int:
+        assert dimension == 1
+        return len(self.values)
+
+    def __getitem__(self, index):
+        batch, token_slice = index
+        assert batch == slice(None)
+        return SliceTensor(self.values[token_slice])
+
+
+def test_chunked_prefill_uses_cumulative_masks_cache_and_write_metadata() -> None:
+    calls = []
+
+    class ChunkModel:
+        def __call__(self, **kwargs):
+            cache = f"cache-{len(calls) + 1}"
+            calls.append({**kwargs, "returned_cache": cache})
+            return SimpleNamespace(logits=FakeLogits(), past_key_values=cache)
+
+    message_ids = []
+    sentence_ids = []
+    outputs, chunk_count = predictor.prefill_with_chunks(
+        ChunkModel(),
+        SliceTensor(range(10)),
+        SliceTensor([1] * 10),
+        prefill_chunk_tokens=4,
+        prefill_logits_kwargs={"logits_to_keep": 1},
+        write_message_ids=SliceTensor(range(10, 20)),
+        write_sentence_ids=SliceTensor(range(20, 30)),
+        set_write_message_ids=lambda model, value: message_ids.append(value.values),
+        set_write_sentence_ids=lambda model, value: sentence_ids.append(value.values),
+    )
+
+    assert chunk_count == 3
+    assert outputs.past_key_values == "cache-3"
+    assert [call["input_ids"].values for call in calls] == [
+        (0, 1, 2, 3),
+        (4, 5, 6, 7),
+        (8, 9),
+    ]
+    assert [call["attention_mask"].values for call in calls] == [
+        (1, 1, 1, 1),
+        (1, 1, 1, 1, 1, 1, 1, 1),
+        (1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+    ]
+    assert [call["past_key_values"] for call in calls] == [
+        None,
+        "cache-1",
+        "cache-2",
+    ]
+    assert all(call["logits_to_keep"] == 1 for call in calls)
+    assert message_ids == [(10, 11, 12, 13), (14, 15, 16, 17), (18, 19)]
+    assert sentence_ids == [(20, 21, 22, 23), (24, 25, 26, 27), (28, 29)]
+
+
+def test_chunked_prefill_rejects_a_model_without_a_returned_cache() -> None:
+    class CachelessModel:
+        def __call__(self, **kwargs):
+            return SimpleNamespace(logits=FakeLogits(), past_key_values=None)
+
+    with pytest.raises(RuntimeError, match="requires the model to return a cache"):
+        predictor.prefill_with_chunks(
+            CachelessModel(),
+            SliceTensor(range(5)),
+            SliceTensor([1] * 5),
+            prefill_chunk_tokens=2,
+            prefill_logits_kwargs={},
+        )
+
+
+def test_chunked_hybrid_prefill_requires_token_write_granularity() -> None:
+    predictor.validate_hybrid_prefill_chunking(
+        4096,
+        SimpleNamespace(memory_write_granularity="token"),
+    )
+    predictor.validate_hybrid_prefill_chunking(
+        0,
+        SimpleNamespace(memory_write_granularity="sentence_mean"),
+    )
+
+    with pytest.raises(ValueError, match="requires memory_write_granularity='token'"):
+        predictor.validate_hybrid_prefill_chunking(
+            4096,
+            SimpleNamespace(memory_write_granularity="message_mean"),
+        )
 
 
 class FakeLogits:
@@ -532,43 +694,57 @@ def test_hybrid_predictor_resets_state_before_every_selected_row(
     adapter_dir = tmp_path / "adapter"
     adapter_dir.mkdir()
     (adapter_dir / "delta_mem_adapter.pt").write_bytes(b"adapter")
+    (adapter_dir / "delta_mem_config.json").write_text("{}\n", encoding="utf-8")
     runtime_root = tmp_path / "runtime"
     (runtime_root / "deltamem").mkdir(parents=True)
     model = FakeModel()
     reset_calls: list[FakeModel] = []
     install_fake_prediction_modules(monkeypatch, model, reset_calls)
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "predict.py",
-            "--input-file",
-            str(input_file),
-            "--output-file",
-            str(output_file),
-            "--task",
-            "niah_single_1",
-            "--variant",
-            "hybrid",
-            "--model-path",
-            str(tmp_path / "model"),
-            "--adapter-dir",
-            str(adapter_dir),
-            "--runtime-root",
-            str(runtime_root),
-            "--device",
-            "cpu",
-            "--dtype",
-            "float32",
-            "--max-new-tokens",
-            "1",
-            "--overwrite-output",
-        ],
-    )
+    argv = [
+        "predict.py",
+        "--input-file",
+        str(input_file),
+        "--output-file",
+        str(output_file),
+        "--task",
+        "niah_single_1",
+        "--variant",
+        "hybrid",
+        "--model-path",
+        str(tmp_path / "model"),
+        "--adapter-dir",
+        str(adapter_dir),
+        "--runtime-root",
+        str(runtime_root),
+        "--device",
+        "cpu",
+        "--dtype",
+        "float32",
+        "--max-new-tokens",
+        "1",
+        "--overwrite-output",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
 
     predictor.main()
 
     assert reset_calls == [model, model, model]
     assert model.calls == 3
     assert model.logits_to_keep == [1, 1, 1]
-    assert len(predictor.load_jsonl(output_file)) == 3
+    output_rows = predictor.load_jsonl(output_file)
+    assert len(output_rows) == 3
+    assert {row["prefill_chunk_count"] for row in output_rows} == {1}
+    assert {row["cuda_peak_allocated_bytes"] for row in output_rows} == {0}
+    assert {row["cuda_peak_reserved_bytes"] for row in output_rows} == {0}
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            *[argument for argument in argv if argument != "--overwrite-output"],
+            "--prefill-chunk-tokens",
+            "2",
+        ],
+    )
+    with pytest.raises(ValueError, match="Resume metadata mismatch.*prefill_chunk_tokens"):
+        predictor.main()
