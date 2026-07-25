@@ -16,6 +16,7 @@ MAX_STEPS="${MAX_STEPS:-128}"
 RESUME_FROM_CHECKPOINT="${RESUME_FROM_CHECKPOINT:-}"
 RESUME_MODE="${RESUME_MODE:-extend}"
 MEMORY_FUSION_PLACEMENT="${MEMORY_FUSION_PLACEMENT:-attention_output}"
+MEMORY_FUSION_RESIDUAL_SCALE="${MEMORY_FUSION_RESIDUAL_SCALE:-1.0}"
 MEMORY_LOSS_MODE="${MEMORY_LOSS_MODE:-context_dropout_ce}"
 MEMORY_CONTRAST_WEIGHT="${MEMORY_CONTRAST_WEIGHT:-0}"
 MEMORY_MARGIN="${MEMORY_MARGIN:-0.1}"
@@ -70,6 +71,7 @@ PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_BIN" \
   --memory-fusion-mode content_gated_add \
   --memory-fusion-gate-init 0.1 \
   --memory-fusion-placement "$MEMORY_FUSION_PLACEMENT" \
+  --memory-fusion-residual-scale "$MEMORY_FUSION_RESIDUAL_SCALE" \
   --trainable-delta-scale \
   --delta-scale-init 0.1 \
   --delta-scale-max 0.5 \

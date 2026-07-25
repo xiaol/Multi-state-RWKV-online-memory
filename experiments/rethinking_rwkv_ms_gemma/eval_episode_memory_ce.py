@@ -30,7 +30,9 @@ from experiments.rethinking_rwkv_ms_gemma.common import (
     write_json,
 )
 from deltamem.core.delta import (
+    collect_delta_mem_output_ratio_stats,
     collect_delta_mem_state_stats,
+    iter_delta_mem_modules,
     reset_delta_mem_states,
     set_delta_mem_read_context_mask,
     set_delta_mem_write_enabled,
@@ -62,6 +64,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--attn-implementation", default="sdpa")
     parser.add_argument("--delta-mem-root", type=Path, default=REPO_ROOT)
+    parser.add_argument(
+        "--memory-fusion-placement",
+        choices=("attention_output", "post_attention_norm", "normalized_residual_correction"),
+        default=None,
+    )
+    parser.add_argument("--memory-fusion-residual-scale", type=float, default=None)
     return parser.parse_args()
 
 
@@ -73,12 +81,23 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def default_output_path(checkpoint: Path) -> Path:
+def default_output_path(
+    checkpoint: Path,
+    *,
+    memory_fusion_placement: str | None = None,
+    memory_fusion_residual_scale: float | None = None,
+) -> Path:
     if checkpoint.parent.name != "trainer":
         raise ValueError(
             "--output is required unless checkpoint is RUN_ROOT/trainer/checkpoint-N"
         )
-    return checkpoint.parent.parent / f"{checkpoint.name}_answer_token_ce_ablation.json"
+    suffix = ""
+    if memory_fusion_placement is not None:
+        suffix += f"_{memory_fusion_placement}"
+    if memory_fusion_residual_scale is not None:
+        scale = format(memory_fusion_residual_scale, ".12g").replace("-", "m").replace(".", "p")
+        suffix += f"_scale{scale}"
+    return checkpoint.parent.parent / f"{checkpoint.name}_answer_token_ce_ablation{suffix}.json"
 
 
 def load_protocol(checkpoint: Path) -> dict[str, Any]:
@@ -341,11 +360,20 @@ def evaluate_condition(
         return_dict=True,
     )
     token_nll = supervised_token_nll(outputs.logits, labels, attention_mask)
+    if not torch.isfinite(token_nll).all():
+        raise RuntimeError("Evaluation produced non-finite supervised token NLL values")
     result = {
         **summarize_token_nll(token_nll),
         "pre_read_state": pre_read_state,
         "post_read_state": collect_delta_mem_state_stats(model),
+        "output_ratio_stats": collect_delta_mem_output_ratio_stats(model),
     }
+    for stats_name in ("pre_read_state", "post_read_state", "output_ratio_stats"):
+        for metric_name, value in result[stats_name].items():
+            if isinstance(value, (int, float)) and not math.isfinite(float(value)):
+                raise RuntimeError(
+                    f"Evaluation produced non-finite {stats_name}.{metric_name}: {value}"
+                )
     del outputs, token_nll
     return result
 
@@ -463,7 +491,11 @@ def main() -> None:
     tokenized_path = args.tokenized_dataset.expanduser().resolve()
     source_path = args.source_jsonl.expanduser().resolve()
     output_path = (
-        default_output_path(checkpoint)
+        default_output_path(
+            checkpoint,
+            memory_fusion_placement=args.memory_fusion_placement,
+            memory_fusion_residual_scale=args.memory_fusion_residual_scale,
+        )
         if args.output is None
         else args.output.expanduser().resolve()
     )
@@ -488,8 +520,22 @@ def main() -> None:
         attn_implementation=args.attn_implementation,
         delta_mem_root=args.delta_mem_root,
         memory_dir=checkpoint,
+        memory_fusion_placement=args.memory_fusion_placement,
+        memory_fusion_residual_scale=args.memory_fusion_residual_scale,
     )
     model.eval()
+    effective_configs = {
+        name: module.delta_config.to_dict()
+        for name, module in iter_delta_mem_modules(model)
+    }
+    if not effective_configs:
+        raise RuntimeError("Loaded model has no attached Delta-Mem modules")
+    unique_effective_configs = {
+        json.dumps(config, sort_keys=True) for config in effective_configs.values()
+    }
+    if len(unique_effective_configs) != 1:
+        raise RuntimeError("Attached Delta-Mem modules have inconsistent effective configs")
+    effective_adapter_config = next(iter(effective_configs.values()))
     started_at = time.time()
     rows: list[dict[str, Any]] = []
     with torch.inference_mode():
@@ -602,6 +648,12 @@ def main() -> None:
             "source_jsonl_sha256": sha256_file(source_path),
             "training_protocol": protocol,
             "target_layers": adapter_config.get("target_layers"),
+            "saved_adapter_config": adapter_config,
+            "effective_adapter_config": effective_adapter_config,
+            "memory_fusion_overrides": {
+                "memory_fusion_placement": args.memory_fusion_placement,
+                "memory_fusion_residual_scale": args.memory_fusion_residual_scale,
+            },
             "shuffle_seed": args.shuffle_seed,
             "shuffled_donor_indices": donors,
             "device": args.device,

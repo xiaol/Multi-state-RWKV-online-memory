@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import torch
@@ -809,6 +809,8 @@ def load_delta_mem_chat_model(
     dtype: str = "bfloat16",
     attn_implementation: str | None = None,
     adapter_dir: str | Path,
+    memory_fusion_placement: str | None = None,
+    memory_fusion_residual_scale: float | None = None,
 ) -> tuple[torch.nn.Module, object]:
     tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
     resolved_attn_implementation = resolve_attn_implementation(
@@ -822,9 +824,19 @@ def load_delta_mem_chat_model(
         attn_implementation=resolved_attn_implementation,
         local_files_only=True,
     ).eval()
-    config = HFDeltaMemConfig.from_pretrained(adapter_dir)
-    attach_delta_mem(model, config)
-    load_delta_mem_adapter(model, adapter_dir)
+    saved_config = HFDeltaMemConfig.from_pretrained(adapter_dir)
+    overrides = {}
+    if memory_fusion_placement is not None:
+        overrides["memory_fusion_placement"] = memory_fusion_placement
+    if memory_fusion_residual_scale is not None:
+        overrides["memory_fusion_residual_scale"] = memory_fusion_residual_scale
+    effective_config = replace(saved_config, **overrides) if overrides else saved_config
+    attach_delta_mem(model, effective_config)
+    load_delta_mem_adapter(
+        model,
+        adapter_dir,
+        allowed_config_mismatches=tuple(overrides),
+    )
     return model, tokenizer
 
 

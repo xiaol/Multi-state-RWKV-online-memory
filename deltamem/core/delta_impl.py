@@ -60,7 +60,14 @@ VALID_MEMORY_PARTITION_READ_MODES = ("softmax",)
 VALID_GLOBAL_MEMORY_MODES = ("shared_rw",)
 VALID_GLOBAL_MEMORY_MERGE_MODES = ("gated_residual",)
 VALID_MEMORY_FUSION_MODES = ("add", "content_gated_add")
-VALID_MEMORY_FUSION_PLACEMENTS = ("attention_output", "post_attention_norm")
+VALID_MEMORY_FUSION_PLACEMENTS = (
+    "attention_output",
+    "post_attention_norm",
+    "normalized_residual_correction",
+)
+MEMORY_FUSION_NORM_HOOK_PLACEMENTS = frozenset(
+    {"post_attention_norm", "normalized_residual_correction"}
+)
 VALID_DELTA_SCALE_GRANULARITIES = ("layer", "head")
 VALID_DELTA_SCALE_PARAMETERIZATIONS = ("alpha_over_rank")
 
@@ -291,6 +298,7 @@ class HFDeltaMemConfig:
     memory_fusion_mode: str = "add"
     memory_fusion_gate_init: float = 0.1
     memory_fusion_placement: str = "attention_output"
+    memory_fusion_residual_scale: float = 1.0
     trainable_delta_scale: bool = False
     delta_scale_init: float = 1.0
     delta_scale_max: float = 2.0
@@ -359,6 +367,13 @@ class HFDeltaMemConfig:
             raise ValueError("delta_o_rmsnorm_eps must be > 0")
         if not 0.0 < float(self.memory_fusion_gate_init) < 1.0:
             raise ValueError("memory_fusion_gate_init must satisfy 0 < value < 1")
+        memory_fusion_residual_scale = float(self.memory_fusion_residual_scale)
+        if not math.isfinite(memory_fusion_residual_scale) or not (
+            0.0 <= memory_fusion_residual_scale <= 1.0
+        ):
+            raise ValueError(
+                "memory_fusion_residual_scale must be finite and satisfy 0 <= value <= 1"
+            )
         if float(self.delta_scale_init) <= 0.0:
             raise ValueError("delta_scale_init must be > 0")
         if float(self.delta_scale_max) <= 0.0:
@@ -389,6 +404,11 @@ class HFDeltaMemConfig:
             self,
             "memory_fusion_placement",
             normalize_memory_fusion_placement(self.memory_fusion_placement),
+        )
+        object.__setattr__(
+            self,
+            "memory_fusion_residual_scale",
+            memory_fusion_residual_scale,
         )
         object.__setattr__(self, "trainable_delta_scale", bool(self.trainable_delta_scale))
         object.__setattr__(self, "delta_scale_init", float(self.delta_scale_init))
@@ -674,6 +694,7 @@ class DeltaMemAttention(nn.Module):
         self.memory_fusion_mode = config.memory_fusion_mode
         self.memory_fusion_gate_init = config.memory_fusion_gate_init
         self.memory_fusion_placement = config.memory_fusion_placement
+        self.memory_fusion_residual_scale = config.memory_fusion_residual_scale
         self.normalize_qk = config.normalize_qk
         self.couple_lambda = config.couple_lambda
         self.state_update_mode = config.state_update_mode
@@ -803,6 +824,8 @@ class DeltaMemAttention(nn.Module):
         self.last_fused_delta_o_ratio: torch.Tensor | None = None
         self.last_delta_o_base_cosine: torch.Tensor | None = None
         self.last_fused_o_ratio: torch.Tensor | None = None
+        self.last_memory_residual_norm: torch.Tensor | None = None
+        self.last_memory_residual_ratio: torch.Tensor | None = None
         self._pending_post_attention_delta: tuple[
             torch.Tensor | None,
             torch.Tensor | None,
@@ -942,6 +965,8 @@ class DeltaMemAttention(nn.Module):
         self.last_fused_delta_o_ratio = None
         self.last_delta_o_base_cosine = None
         self.last_fused_o_ratio = None
+        self.last_memory_residual_norm = None
+        self.last_memory_residual_ratio = None
         self._pending_post_attention_delta = None
         self.write_message_ids = None
         self.write_sentence_ids = None
@@ -2440,6 +2465,8 @@ class DeltaMemAttention(nn.Module):
         self.last_fused_delta_o_ratio = None
         self.last_delta_o_base_cosine = None
         self.last_fused_o_ratio = None
+        self.last_memory_residual_norm = None
+        self.last_memory_residual_ratio = None
         delta_o_typed = None
         fused_delta_o = None
         if delta_o is not None:
@@ -2463,11 +2490,11 @@ class DeltaMemAttention(nn.Module):
             )
             fused_delta_o = delta_o_typed * fusion_gate.to(dtype=delta_o_typed.dtype)
 
-        if self.memory_fusion_placement == "post_attention_norm":
+        if self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS:
             if self._post_attention_norm_hook_handle is None:
                 raise RuntimeError(
-                    "post_attention_norm fusion requires attach_delta_mem to bind Gemma's "
-                    "post_attention_layernorm"
+                    f"{self.memory_fusion_placement} fusion requires attach_delta_mem to bind "
+                    "Gemma's post_attention_layernorm"
                 )
             if self._pending_post_attention_delta is not None:
                 raise RuntimeError(
@@ -2495,9 +2522,32 @@ class DeltaMemAttention(nn.Module):
         fused_delta_o: torch.Tensor | None,
         token_mask: torch.Tensor | None,
     ) -> torch.Tensor:
-        self.last_base_o_norm = self._masked_hidden_norm(reference_output, token_mask)
+        self._record_delta_o_reference_stats(
+            reference_output,
+            delta_o,
+            fused_delta_o,
+            token_mask,
+        )
         if delta_o is None or fused_delta_o is None:
             return reference_output
+        fused_output = reference_output + fused_delta_o.to(reference_output.dtype)
+        self.last_fused_o_ratio = self._masked_ratio_mean(
+            fused_output.norm(dim=-1),
+            reference_output.norm(dim=-1),
+            token_mask,
+        )
+        return fused_output
+
+    def _record_delta_o_reference_stats(
+        self,
+        reference_output: torch.Tensor,
+        delta_o: torch.Tensor | None,
+        fused_delta_o: torch.Tensor | None,
+        token_mask: torch.Tensor | None,
+    ) -> None:
+        self.last_base_o_norm = self._masked_hidden_norm(reference_output, token_mask)
+        if delta_o is None or fused_delta_o is None:
+            return
         self.last_delta_o_norm = self._masked_hidden_norm(delta_o, token_mask)
         self.last_delta_o_ratio = self._masked_ratio_mean(
             delta_o.norm(dim=-1),
@@ -2515,18 +2565,11 @@ class DeltaMemAttention(nn.Module):
             reference_output,
             token_mask,
         )
-        fused_output = reference_output + fused_delta_o.to(reference_output.dtype)
-        self.last_fused_o_ratio = self._masked_ratio_mean(
-            fused_output.norm(dim=-1),
-            reference_output.norm(dim=-1),
-            token_mask,
-        )
-        return fused_output
 
     def _post_attention_norm_fusion_hook(
         self,
-        _module: nn.Module,
-        _inputs: tuple[torch.Tensor, ...],
+        module: nn.Module,
+        inputs: tuple[torch.Tensor, ...],
         output: torch.Tensor,
     ) -> torch.Tensor:
         payload = self._pending_post_attention_delta
@@ -2537,17 +2580,86 @@ class DeltaMemAttention(nn.Module):
             )
         self._pending_post_attention_delta = None
         delta_o, fused_delta_o, token_mask = payload
-        return self._add_delta_o_to_reference(
+        if self.memory_fusion_placement == "post_attention_norm":
+            return self._add_delta_o_to_reference(
+                output,
+                delta_o,
+                fused_delta_o,
+                token_mask,
+            )
+        if self.memory_fusion_placement != "normalized_residual_correction":
+            raise RuntimeError(
+                "A post-attention RMSNorm hook received an unsupported memory fusion "
+                f"placement: {self.memory_fusion_placement}"
+            )
+        if len(inputs) != 1 or not torch.is_tensor(inputs[0]):
+            raise RuntimeError(
+                "normalized_residual_correction requires Gemma's post-attention RMSNorm "
+                "to receive exactly one tensor input"
+            )
+        raw_attention = inputs[0]
+        if raw_attention.shape != output.shape:
+            raise RuntimeError(
+                "normalized_residual_correction RMSNorm input/output shape mismatch: "
+                f"input={tuple(raw_attention.shape)} output={tuple(output.shape)}"
+            )
+        self._record_delta_o_reference_stats(
             output,
             delta_o,
             fused_delta_o,
             token_mask,
         )
+        if delta_o is None or fused_delta_o is None:
+            self.last_memory_residual_norm = output.new_zeros(())
+            self.last_memory_residual_ratio = output.new_zeros(())
+            self.last_fused_o_ratio = self._masked_ratio_mean(
+                output.norm(dim=-1),
+                output.norm(dim=-1),
+                token_mask,
+            )
+            return output
+
+        scale = self.memory_fusion_residual_scale
+        if scale == 0.0:
+            self.last_memory_residual_norm = output.new_zeros(())
+            self.last_memory_residual_ratio = output.new_zeros(())
+            self.last_fused_o_ratio = self._masked_ratio_mean(
+                output.norm(dim=-1),
+                output.norm(dim=-1),
+                token_mask,
+            )
+            return output
+
+        memory_norm = module.forward(
+            raw_attention + fused_delta_o.to(dtype=raw_attention.dtype)
+        )
+        correction = memory_norm - output
+        applied_correction = correction * scale
+        self.last_memory_residual_norm = self._masked_hidden_norm(
+            applied_correction,
+            token_mask,
+        )
+        self.last_memory_residual_ratio = self._masked_ratio_mean(
+            applied_correction.norm(dim=-1),
+            output.norm(dim=-1),
+            token_mask,
+        )
+        if scale == 1.0:
+            fused_output = memory_norm
+        else:
+            fused_output = output + applied_correction
+        self.last_fused_o_ratio = self._masked_ratio_mean(
+            fused_output.norm(dim=-1),
+            output.norm(dim=-1),
+            token_mask,
+        )
+        return fused_output
 
     def bind_post_attention_layernorm(self, layernorm: nn.Module) -> None:
-        if self.memory_fusion_placement != "post_attention_norm":
+        if self.memory_fusion_placement not in MEMORY_FUSION_NORM_HOOK_PLACEMENTS:
             raise ValueError(
-                "A post-attention RMSNorm hook can only be bound for post_attention_norm fusion"
+                "A post-attention RMSNorm hook can only be bound for a norm-hook fusion "
+                f"placement, got {self.memory_fusion_placement}"
             )
         if self._post_attention_norm_hook_handle is not None:
             raise RuntimeError(
@@ -2578,11 +2690,12 @@ class DeltaMemAttention(nn.Module):
             raise ValueError(
                 f"DeltaMemAttention expects [batch, seq, hidden], got {tuple(hidden_states.shape)}"
             )
-        if self.memory_fusion_placement == "post_attention_norm":
+        if self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS:
             if not self.is_gemma4_attention or self._post_attention_norm_hook_handle is None:
                 raise RuntimeError(
-                    "post_attention_norm fusion is only valid for a Gemma attention wrapper "
-                    "bound to its decoder layer's post_attention_layernorm"
+                    f"{self.memory_fusion_placement} fusion is only valid for a Gemma "
+                    "attention wrapper bound to its decoder layer's "
+                    "post_attention_layernorm"
                 )
             if self._pending_post_attention_delta is not None:
                 raise RuntimeError(
@@ -2691,7 +2804,7 @@ class DeltaMemAttention(nn.Module):
         delta_q, delta_k, delta_v = self._compute_delta_qkv_from_reads(reads)
         delta_o = self._project_delta_head(reads, self.delta_o_proj, "o")
 
-        if self.memory_fusion_placement == "post_attention_norm" or (
+        if self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS or (
             self.is_gemma4_attention and self.is_kv_shared_layer
         ):
             base_kwargs = dict(kwargs)
@@ -2841,28 +2954,32 @@ def validate_memory_fusion_placement_target(
         return None
     if Gemma4TextAttention is None or not isinstance(module, Gemma4TextAttention):
         raise ValueError(
-            "memory_fusion_placement='post_attention_norm' is currently Gemma4-only; "
+            f"memory_fusion_placement={config.memory_fusion_placement!r} is currently "
+            "Gemma4-only; "
             f"unsupported target: {module_name} ({type(module).__name__})"
         )
     if attribute != "self_attn":
         raise ValueError(
-            "post_attention_norm fusion requires a Gemma decoder self_attn target; "
+            f"{config.memory_fusion_placement} fusion requires a Gemma decoder self_attn "
+            "target; "
             f"got {module_name}"
         )
     if Gemma4TextDecoderLayer is None or not isinstance(parent, Gemma4TextDecoderLayer):
         raise ValueError(
-            "post_attention_norm fusion requires the attention's parent to be a "
+            f"{config.memory_fusion_placement} fusion requires the attention's parent to be a "
             f"Gemma4TextDecoderLayer; got {type(parent).__name__} for {module_name}"
         )
     if set(config.delta_heads) != {"o"}:
         raise ValueError(
-            "post_attention_norm fusion currently requires O-only Delta-Mem heads; "
+            f"{config.memory_fusion_placement} fusion currently requires O-only Delta-Mem "
+            "heads; "
             f"got {config.delta_heads} for {module_name}"
         )
     layernorm = getattr(parent, "post_attention_layernorm", None)
     if not isinstance(layernorm, nn.Module):
         raise ValueError(
-            "post_attention_norm fusion requires a post_attention_layernorm module; "
+            f"{config.memory_fusion_placement} fusion requires a "
+            "post_attention_layernorm module; "
             f"missing from the parent of {module_name}"
         )
     return layernorm
@@ -3107,6 +3224,7 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
     content_gated_modules = 0
     attention_output_fusion_modules = 0
     post_attention_norm_fusion_modules = 0
+    normalized_residual_correction_fusion_modules = 0
     mean_base_o_norm = 0.0
     mean_delta_o_norm = 0.0
     mean_delta_o_ratio = 0.0
@@ -3121,6 +3239,9 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
     max_fused_delta_o_ratio = 0.0
     mean_delta_o_base_cosine = 0.0
     mean_fused_o_ratio = 0.0
+    mean_memory_residual_norm = 0.0
+    mean_memory_residual_ratio = 0.0
+    max_memory_residual_ratio = 0.0
     for _, module in iter_delta_mem_modules(model):
         num_modules += 1
         if module.memory_fusion_mode == "content_gated_add":
@@ -3129,6 +3250,8 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
             attention_output_fusion_modules += 1
         elif module.memory_fusion_placement == "post_attention_norm":
             post_attention_norm_fusion_modules += 1
+        elif module.memory_fusion_placement == "normalized_residual_correction":
+            normalized_residual_correction_fusion_modules += 1
         if module.last_base_o_norm is not None:
             mean_base_o_norm += float(module.last_base_o_norm.detach().float().item())
         if module.last_delta_o_norm is not None:
@@ -3168,6 +3291,19 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
             )
         if module.last_fused_o_ratio is not None:
             mean_fused_o_ratio += float(module.last_fused_o_ratio.detach().float().item())
+        if module.last_memory_residual_norm is not None:
+            mean_memory_residual_norm += float(
+                module.last_memory_residual_norm.detach().float().item()
+            )
+        if module.last_memory_residual_ratio is not None:
+            memory_residual_ratio = float(
+                module.last_memory_residual_ratio.detach().float().item()
+            )
+            mean_memory_residual_ratio += memory_residual_ratio
+            max_memory_residual_ratio = max(
+                max_memory_residual_ratio,
+                memory_residual_ratio,
+            )
     if num_modules > 0:
         mean_base_o_norm /= num_modules
     if modules_with_delta_o > 0:
@@ -3180,6 +3316,8 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
         mean_fused_delta_o_ratio /= modules_with_delta_o
         mean_delta_o_base_cosine /= modules_with_delta_o
         mean_fused_o_ratio /= modules_with_delta_o
+        mean_memory_residual_norm /= modules_with_delta_o
+        mean_memory_residual_ratio /= modules_with_delta_o
     if modules_with_delta_o == 0:
         min_delta_o_gate = 0.0
         max_delta_o_gate = 0.0
@@ -3189,6 +3327,9 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
         "content_gated_modules": content_gated_modules,
         "attention_output_fusion_modules": attention_output_fusion_modules,
         "post_attention_norm_fusion_modules": post_attention_norm_fusion_modules,
+        "normalized_residual_correction_fusion_modules": (
+            normalized_residual_correction_fusion_modules
+        ),
         "mean_base_o_norm": mean_base_o_norm,
         "mean_delta_o_norm": mean_delta_o_norm,
         "mean_delta_o_ratio": mean_delta_o_ratio,
@@ -3203,6 +3344,9 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
         "max_fused_delta_o_ratio": max_fused_delta_o_ratio,
         "mean_delta_o_base_cosine": mean_delta_o_base_cosine,
         "mean_fused_o_ratio": mean_fused_o_ratio,
+        "mean_memory_residual_norm": mean_memory_residual_norm,
+        "mean_memory_residual_ratio": mean_memory_residual_ratio,
+        "max_memory_residual_ratio": max_memory_residual_ratio,
     }
     modules = [module for _, module in iter_delta_mem_modules(model)]
     for sharing in ("nonshared", "shared"):
@@ -3486,7 +3630,7 @@ def validate_attached_delta_config(
                 + ", ".join(mismatches)
             )
         hook_bound = module._post_attention_norm_hook_handle is not None
-        expects_hook = module.memory_fusion_placement == "post_attention_norm"
+        expects_hook = module.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS
         if hook_bound != expects_hook:
             raise ValueError(
                 f"Attached Delta-Mem fusion topology is invalid at {name}: "

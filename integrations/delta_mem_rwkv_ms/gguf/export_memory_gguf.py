@@ -312,8 +312,8 @@ def export_sidecar(args: argparse.Namespace) -> dict[str, Any]:
     if fusion_placement != "attention_output":
         raise ValueError(
             "GGUF export does not support "
-            f"memory_fusion_placement={fusion_placement!r}; post-attention RMSNorm "
-            "fusion is not implemented by the GGUF runtime"
+            f"memory_fusion_placement={fusion_placement!r}; norm-hook fusion is not "
+            "implemented by the GGUF runtime"
         )
     fusion_mode = str(config.get("memory_fusion_mode", "add"))
     if fusion_mode != "add":

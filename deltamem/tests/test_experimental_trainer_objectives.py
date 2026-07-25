@@ -1205,7 +1205,8 @@ def test_training_protocol_records_canonical_teacher_objective_version() -> None
     args.dtype = "bfloat16"
     args.bf16 = True
     args.tf32 = True
-    args.memory_fusion_placement = "post_attention_norm"
+    args.memory_fusion_placement = "normalized_residual_correction"
+    args.memory_fusion_residual_scale = 0.875
     dataset = Dataset.from_dict({"input_ids": [[1, 2, 3]]})
 
     protocol = experimental_train.build_training_protocol(
@@ -1221,7 +1222,8 @@ def test_training_protocol_records_canonical_teacher_objective_version() -> None
     assert protocol["memory_objective_version"] == experimental_train._MEMORY_OBJECTIVE_VERSION
     assert protocol["teacher_max_length"] == args.max_write_length + args.max_length
     assert protocol["frozen_mlp_activation_checkpointing"] is False
-    assert protocol["memory_fusion_placement"] == "post_attention_norm"
+    assert protocol["memory_fusion_placement"] == "normalized_residual_correction"
+    assert protocol["memory_fusion_residual_scale"] == 0.875
 
     args.frozen_mlp_activation_checkpointing = True
     checkpointed_protocol = experimental_train.build_training_protocol(

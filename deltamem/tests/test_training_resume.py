@@ -764,11 +764,12 @@ def test_delta_mem_trainer_saves_continuation_manifest(
     ) == manifest
 
 
-def test_resume_protocol_normalizes_legacy_fusion_placement() -> None:
+def test_resume_protocol_normalizes_legacy_fusion_placement_and_scale() -> None:
     legacy = _continuation_protocol()
     explicit_legacy = {
         **legacy,
         "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_scale": 1.0,
     }
     experimental_train.validate_resume_training_protocol(
         legacy,
@@ -783,14 +784,22 @@ def test_resume_protocol_normalizes_legacy_fusion_placement() -> None:
             resume_mode="exact",
         )
 
+    with pytest.raises(ValueError, match="memory_fusion_residual_scale"):
+        experimental_train.validate_resume_training_protocol(
+            legacy,
+            {**explicit_legacy, "memory_fusion_residual_scale": 0.875},
+            resume_mode="exact",
+        )
 
-def test_placement_ablation_protocol_allows_only_placement_and_horizon() -> None:
+
+def test_placement_ablation_protocol_allows_only_fusion_fields_and_horizon() -> None:
     source = _continuation_protocol()
     target = {
         **source,
         "max_steps": 160,
         "num_train_epochs": 5.0,
-        "memory_fusion_placement": "post_attention_norm",
+        "memory_fusion_placement": "normalized_residual_correction",
+        "memory_fusion_residual_scale": 0.875,
     }
     experimental_train.validate_resume_training_protocol(
         source,
@@ -798,10 +807,28 @@ def test_placement_ablation_protocol_allows_only_placement_and_horizon() -> None
         resume_mode="placement_ablation",
     )
 
-    with pytest.raises(ValueError, match="requires memory_fusion_placement to change"):
+    experimental_train.validate_resume_training_protocol(
+        source,
+        {
+            **source,
+            "max_steps": 160,
+            "num_train_epochs": 5.0,
+            "memory_fusion_residual_scale": 0.75,
+        },
+        resume_mode="placement_ablation",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="requires memory_fusion_placement or memory_fusion_residual_scale to change",
+    ):
         experimental_train.validate_resume_training_protocol(
             source,
-            {**target, "memory_fusion_placement": "attention_output"},
+            {
+                **target,
+                "memory_fusion_placement": "attention_output",
+                "memory_fusion_residual_scale": 1.0,
+            },
             resume_mode="placement_ablation",
         )
     with pytest.raises(ValueError, match="learning_rate"):
@@ -812,7 +839,7 @@ def test_placement_ablation_protocol_allows_only_placement_and_horizon() -> None
         )
 
 
-def test_placement_ablation_config_allows_only_placement() -> None:
+def test_placement_ablation_config_allows_only_fusion_fields() -> None:
     source = HFDeltaMemConfig(
         rank=2,
         delta_heads=("o",),
@@ -821,7 +848,8 @@ def test_placement_ablation_config_allows_only_placement() -> None:
     target = HFDeltaMemConfig(
         rank=2,
         delta_heads=("o",),
-        memory_fusion_placement="post_attention_norm",
+        memory_fusion_placement="normalized_residual_correction",
+        memory_fusion_residual_scale=0.875,
     )
     experimental_train.validate_resume_delta_config(
         source,
@@ -829,13 +857,34 @@ def test_placement_ablation_config_allows_only_placement() -> None:
         resume_mode="placement_ablation",
     )
 
+    experimental_train.validate_resume_delta_config(
+        source,
+        HFDeltaMemConfig(
+            rank=2,
+            delta_heads=("o",),
+            memory_fusion_residual_scale=0.75,
+        ),
+        resume_mode="placement_ablation",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="requires memory_fusion_placement or memory_fusion_residual_scale to change",
+    ):
+        experimental_train.validate_resume_delta_config(
+            source,
+            HFDeltaMemConfig(rank=2, delta_heads=("o",)),
+            resume_mode="placement_ablation",
+        )
+
     with pytest.raises(ValueError, match="rank"):
         experimental_train.validate_resume_delta_config(
             source,
             HFDeltaMemConfig(
                 rank=4,
                 delta_heads=("o",),
-                memory_fusion_placement="post_attention_norm",
+                memory_fusion_placement="normalized_residual_correction",
+                memory_fusion_residual_scale=0.875,
             ),
             resume_mode="placement_ablation",
         )
@@ -850,7 +899,8 @@ def test_prepare_placement_ablation_records_strict_lineage(tmp_path: Path) -> No
         output_dir=tmp_path / "target",
         max_steps=160,
         num_train_epochs=5.0,
-        memory_fusion_placement="post_attention_norm",
+        memory_fusion_placement="normalized_residual_correction",
+        memory_fusion_residual_scale=0.875,
     )
 
     manifest = experimental_train.prepare_training_continuation(args, str(checkpoint))
@@ -859,7 +909,9 @@ def test_prepare_placement_ablation_records_strict_lineage(tmp_path: Path) -> No
     assert manifest["mode"] == "placement_ablation"
     assert manifest["ablation"] == "memory_fusion_placement"
     assert manifest["source_memory_fusion_placement"] == "attention_output"
-    assert manifest["target_memory_fusion_placement"] == "post_attention_norm"
+    assert manifest["target_memory_fusion_placement"] == "normalized_residual_correction"
+    assert manifest["source_memory_fusion_residual_scale"] == 1.0
+    assert manifest["target_memory_fusion_residual_scale"] == 0.875
     assert manifest["source_global_step"] == 128
     assert manifest["target_max_steps"] == 160
     assert manifest["source_training_protocol_sha256"] == (
@@ -879,7 +931,8 @@ def test_prepare_placement_ablation_requires_fresh_output(tmp_path: Path) -> Non
         output_dir=output_dir,
         max_steps=160,
         num_train_epochs=5.0,
-        memory_fusion_placement="post_attention_norm",
+        memory_fusion_placement="normalized_residual_correction",
+        memory_fusion_residual_scale=0.875,
     )
 
     with pytest.raises(ValueError, match="fresh, empty"):
@@ -896,7 +949,8 @@ def test_delta_mem_trainer_loads_placement_ablation(
         **source_protocol,
         "max_steps": 160,
         "num_train_epochs": 5.0,
-        "memory_fusion_placement": "post_attention_norm",
+        "memory_fusion_placement": "normalized_residual_correction",
+        "memory_fusion_residual_scale": 0.875,
     }
     loaded: list[tuple[Path, tuple[str, ...]]] = []
     monkeypatch.setattr(
@@ -915,7 +969,8 @@ def test_delta_mem_trainer_loads_placement_ablation(
     trainer.model = torch.nn.Linear(2, 2)
     trainer.delta_config = HFDeltaMemConfig(
         rank=2,
-        memory_fusion_placement="post_attention_norm",
+        memory_fusion_placement="normalized_residual_correction",
+        memory_fusion_residual_scale=0.875,
     )
     trainer.training_protocol = target_protocol
     trainer.resume_mode = "placement_ablation"
@@ -923,7 +978,12 @@ def test_delta_mem_trainer_loads_placement_ablation(
 
     trainer._load_from_checkpoint(str(checkpoint))
 
-    assert loaded == [(checkpoint.resolve(), ("memory_fusion_placement",))]
+    assert loaded == [
+        (
+            checkpoint.resolve(),
+            ("memory_fusion_placement", "memory_fusion_residual_scale"),
+        )
+    ]
     assert (
         trainer.continuation_manifest["ordered_adapter_parameter_topology_sha256"]
         == "topology-sha"

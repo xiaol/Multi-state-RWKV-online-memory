@@ -35,14 +35,21 @@ def test_export_rejects_content_gated_fusion_before_writing(tmp_path: Path) -> N
     assert not output.exists()
 
 
-def test_export_rejects_post_attention_norm_before_writing(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "fusion_placement",
+    ["post_attention_norm", "normalized_residual_correction"],
+)
+def test_export_rejects_norm_hook_fusion_before_writing(
+    tmp_path: Path,
+    fusion_placement: str,
+) -> None:
     memory_dir = tmp_path / "memory"
     memory_dir.mkdir()
     (memory_dir / "delta_mem_config.json").write_text(
         json.dumps(
             {
                 "memory_fusion_mode": "add",
-                "memory_fusion_placement": "post_attention_norm",
+                "memory_fusion_placement": fusion_placement,
             }
         ),
         encoding="utf-8",
@@ -54,7 +61,7 @@ def test_export_rejects_post_attention_norm_before_writing(tmp_path: Path) -> No
         gguf_py_root=tmp_path / "missing-gguf-py",
     )
 
-    with pytest.raises(ValueError, match="post_attention_norm.*not implemented"):
+    with pytest.raises(ValueError, match=rf"{fusion_placement}.*not implemented"):
         export_sidecar(args)
 
     assert not output.exists()

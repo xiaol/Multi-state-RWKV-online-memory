@@ -451,6 +451,13 @@ def _normalize_memory_fusion_placement_protocol(
     normalized["memory_fusion_placement"] = normalize_memory_fusion_placement(
         str(normalized.get("memory_fusion_placement", "attention_output"))
     )
+    residual_scale = float(normalized.get("memory_fusion_residual_scale", 1.0))
+    if not math.isfinite(residual_scale) or not 0.0 <= residual_scale <= 1.0:
+        raise ValueError(
+            "Training protocol memory_fusion_residual_scale must be finite and satisfy "
+            "0 <= value <= 1"
+        )
+    normalized["memory_fusion_residual_scale"] = residual_scale
     return normalized
 
 
@@ -627,16 +634,16 @@ def validate_resume_training_protocol(
             key for key in mismatches if key not in {"max_steps", "num_train_epochs"}
         ]
     if resume_mode == "placement_ablation":
-        if (
-            source_protocol["memory_fusion_placement"]
-            == target_protocol["memory_fusion_placement"]
-        ):
+        fusion_keys = {
+            "memory_fusion_placement",
+            "memory_fusion_residual_scale",
+        }
+        if all(source_protocol[key] == target_protocol[key] for key in fusion_keys):
             raise ValueError(
-                "placement_ablation resume requires memory_fusion_placement to change"
+                "placement_ablation resume requires memory_fusion_placement or "
+                "memory_fusion_residual_scale to change"
             )
-        mismatches = [
-            key for key in mismatches if key != "memory_fusion_placement"
-        ]
+        mismatches = [key for key in mismatches if key not in fusion_keys]
     if resume_mode == "objective_ablation":
         _validate_objective_ablation_protocol_transition(
             source_protocol,
@@ -667,13 +674,16 @@ def validate_resume_delta_config(
         key for key in set(source) | set(target) if source.get(key) != target.get(key)
     )
     if resume_mode == "placement_ablation":
-        if source["memory_fusion_placement"] == target["memory_fusion_placement"]:
+        fusion_keys = {
+            "memory_fusion_placement",
+            "memory_fusion_residual_scale",
+        }
+        if all(source[key] == target[key] for key in fusion_keys):
             raise ValueError(
-                "placement_ablation resume requires memory_fusion_placement to change"
+                "placement_ablation resume requires memory_fusion_placement or "
+                "memory_fusion_residual_scale to change"
             )
-        mismatches = [
-            key for key in mismatches if key != "memory_fusion_placement"
-        ]
+        mismatches = [key for key in mismatches if key not in fusion_keys]
     if mismatches:
         raise ValueError(
             "Delta-Mem checkpoint config does not match the current training config for: "
@@ -844,6 +854,11 @@ def prepare_training_continuation(
     target_protocol["num_train_epochs"] = args.num_train_epochs
     if args.resume_mode == "placement_ablation":
         target_protocol["memory_fusion_placement"] = args.memory_fusion_placement
+        target_protocol["memory_fusion_residual_scale"] = getattr(
+            args,
+            "memory_fusion_residual_scale",
+            1.0,
+        )
     elif args.resume_mode == "objective_ablation":
         target_protocol.update(
             {
@@ -903,6 +918,12 @@ def prepare_training_continuation(
                 "source_memory_fusion_placement": source_config.memory_fusion_placement,
                 "target_memory_fusion_placement": normalize_memory_fusion_placement(
                     args.memory_fusion_placement
+                ),
+                "source_memory_fusion_residual_scale": (
+                    source_config.memory_fusion_residual_scale
+                ),
+                "target_memory_fusion_residual_scale": float(
+                    getattr(args, "memory_fusion_residual_scale", 1.0)
                 ),
                 "source_delta_config_sha256": _protocol_sha256(source_config.to_dict()),
             }
@@ -2785,6 +2806,11 @@ class DeltaMemTrainer(Trainer):
                     "delta/post_attention_norm_fusion_modules": output_ratio_stats[
                         "post_attention_norm_fusion_modules"
                     ],
+                    "delta/normalized_residual_correction_fusion_modules": (
+                        output_ratio_stats[
+                            "normalized_residual_correction_fusion_modules"
+                        ]
+                    ),
                     "delta/base_o_norm": output_ratio_stats["mean_base_o_norm"],
                     "delta/raw_delta_o_norm": output_ratio_stats["mean_delta_o_norm"],
                     "delta/raw_delta_o_ratio": output_ratio_stats["mean_delta_o_ratio"],
@@ -2811,6 +2837,15 @@ class DeltaMemTrainer(Trainer):
                         "mean_delta_o_base_cosine"
                     ],
                     "delta/fused_o_ratio": output_ratio_stats["mean_fused_o_ratio"],
+                    "delta/memory_residual_norm": output_ratio_stats[
+                        "mean_memory_residual_norm"
+                    ],
+                    "delta/memory_residual_ratio": output_ratio_stats[
+                        "mean_memory_residual_ratio"
+                    ],
+                    "delta/memory_residual_ratio_max": output_ratio_stats[
+                        "max_memory_residual_ratio"
+                    ],
                     "delta/delta_scale_mean": (
                         weight_stats["delta_scale_mean_sum"]
                         / max(weight_stats["trainable_delta_scale_modules"], 1)
@@ -2982,7 +3017,10 @@ class DeltaMemTrainer(Trainer):
             load_delta_mem_adapter(
                 load_model,
                 checkpoint,
-                allowed_config_mismatches=("memory_fusion_placement",),
+                allowed_config_mismatches=(
+                    "memory_fusion_placement",
+                    "memory_fusion_residual_scale",
+                ),
             )
         else:
             load_delta_mem_adapter(load_model, checkpoint)
@@ -3106,8 +3144,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--memory-fusion-placement",
         default="attention_output",
-        choices=["attention_output", "post_attention_norm"],
-        help="Add delta_o inside attention output or after Gemma's post-attention RMSNorm.",
+        choices=[
+            "attention_output",
+            "post_attention_norm",
+            "normalized_residual_correction",
+        ],
+        help="Choose where the gated memory output enters Gemma's attention residual branch.",
+    )
+    parser.add_argument(
+        "--memory-fusion-residual-scale",
+        type=float,
+        default=1.0,
+        help="Interpolation scale for normalized_residual_correction fusion.",
     )
     parser.add_argument(
         "--trainable-delta-scale",
@@ -4567,6 +4615,11 @@ def build_training_protocol(
             "memory_fusion_placement",
             "attention_output",
         ),
+        "memory_fusion_residual_scale": getattr(
+            args,
+            "memory_fusion_residual_scale",
+            1.0,
+        ),
         "rwkv_ms_output_init_scale": getattr(args, "rwkv_ms_output_init_scale", 0.02),
         "rwkv_ms_semantics_version": getattr(args, "rwkv_ms_semantics_version", 2),
         "memory_loss_mode": args.memory_loss_mode,
@@ -4982,6 +5035,7 @@ def main() -> None:
         memory_fusion_mode=args.memory_fusion_mode,
         memory_fusion_gate_init=args.memory_fusion_gate_init,
         memory_fusion_placement=args.memory_fusion_placement,
+        memory_fusion_residual_scale=args.memory_fusion_residual_scale,
         online_gain=args.online_gain,
         target_layers=requested_target_layers,
         memory_readout_mode=normalize_memory_readout_mode(args.memory_readout_mode),
@@ -5206,6 +5260,7 @@ def main() -> None:
             "memory_fusion_mode": args.memory_fusion_mode,
             "memory_fusion_gate_init": args.memory_fusion_gate_init,
             "memory_fusion_placement": args.memory_fusion_placement,
+            "memory_fusion_residual_scale": args.memory_fusion_residual_scale,
             "target_layers": args.target_layers,
             "memory_contrast_weight": args.memory_contrast_weight,
             "memory_kl_weight": args.memory_kl_weight,

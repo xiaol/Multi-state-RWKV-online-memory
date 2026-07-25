@@ -125,6 +125,71 @@ def test_delta_chat_loader_resolves_auto_before_transformers(monkeypatch) -> Non
     assert captured["attn_implementation"] is None
 
 
+def test_delta_chat_loader_applies_fusion_overrides_before_attachment(
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+    tokenizer = object()
+    saved_config = runtime_session.HFDeltaMemConfig()
+
+    class LoadedModel:
+        def eval(self):
+            return self
+
+    monkeypatch.setattr(
+        runtime_session.AutoTokenizer,
+        "from_pretrained",
+        lambda *args, **kwargs: tokenizer,
+    )
+    monkeypatch.setattr(
+        runtime_session.AutoModelForCausalLM,
+        "from_pretrained",
+        lambda *args, **kwargs: LoadedModel(),
+    )
+    monkeypatch.setattr(
+        runtime_session.HFDeltaMemConfig,
+        "from_pretrained",
+        lambda *args, **kwargs: saved_config,
+    )
+    monkeypatch.setattr(
+        runtime_session,
+        "attach_delta_mem",
+        lambda model, config: captured.update(attached_model=model, config=config),
+    )
+
+    def fake_load_adapter(model, adapter_dir, *, allowed_config_mismatches=()):
+        captured.update(
+            loaded_model=model,
+            adapter_dir=adapter_dir,
+            allowed_config_mismatches=allowed_config_mismatches,
+        )
+
+    monkeypatch.setattr(runtime_session, "load_delta_mem_adapter", fake_load_adapter)
+
+    model, loaded_tokenizer = runtime_session.load_delta_mem_chat_model(
+        model_path="/models/gemma-4-E4B-it",
+        device="cpu",
+        dtype="float32",
+        adapter_dir="/unused/adapter",
+        memory_fusion_placement="normalized_residual_correction",
+        memory_fusion_residual_scale=0.875,
+    )
+
+    effective_config = captured["config"]
+    assert loaded_tokenizer is tokenizer
+    assert captured["attached_model"] is model
+    assert captured["loaded_model"] is model
+    assert captured["adapter_dir"] == "/unused/adapter"
+    assert effective_config.memory_fusion_placement == "normalized_residual_correction"
+    assert effective_config.memory_fusion_residual_scale == 0.875
+    assert saved_config.memory_fusion_placement == "attention_output"
+    assert saved_config.memory_fusion_residual_scale == 1.0
+    assert captured["allowed_config_mismatches"] == (
+        "memory_fusion_placement",
+        "memory_fusion_residual_scale",
+    )
+
+
 def test_qwen36_session_preserves_historical_thinking_prefix() -> None:
     tokenizer = PrefixSensitiveQwenTokenizer()
     session = DeltaMemChatSession(

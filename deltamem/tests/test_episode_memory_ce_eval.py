@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -8,6 +9,60 @@ import torch.nn.functional as F
 from datasets import Dataset
 
 from experiments.rethinking_rwkv_ms_gemma import eval_episode_memory_ce as evaluator
+
+
+def test_parse_args_accepts_memory_fusion_overrides(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "eval_episode_memory_ce.py",
+            "--base-model",
+            "/models/gemma",
+            "--checkpoint",
+            "/runs/trainer/checkpoint-384",
+            "--tokenized-dataset",
+            "/data/tokenized",
+            "--source-jsonl",
+            "/data/source.jsonl",
+            "--memory-fusion-placement",
+            "normalized_residual_correction",
+            "--memory-fusion-residual-scale",
+            "0.875",
+        ],
+    )
+
+    args = evaluator.parse_args()
+
+    assert args.memory_fusion_placement == "normalized_residual_correction"
+    assert args.memory_fusion_residual_scale == 0.875
+
+
+def test_default_output_path_is_unique_across_residual_scale_sweep(tmp_path) -> None:
+    checkpoint = tmp_path / "run" / "trainer" / "checkpoint-384"
+    checkpoint.mkdir(parents=True)
+    scales = (0.0, 0.75, 0.875, 0.95, 1.0)
+
+    outputs = {
+        scale: evaluator.default_output_path(
+            checkpoint,
+            memory_fusion_placement="normalized_residual_correction",
+            memory_fusion_residual_scale=scale,
+        )
+        for scale in scales
+    }
+
+    assert len(set(outputs.values())) == len(scales)
+    assert outputs[0.0].name.endswith(
+        "_normalized_residual_correction_scale0.json"
+    )
+    assert outputs[0.875].name.endswith(
+        "_normalized_residual_correction_scale0p875.json"
+    )
+    assert outputs[1.0].name.endswith(
+        "_normalized_residual_correction_scale1.json"
+    )
+    assert evaluator.default_output_path(checkpoint) not in outputs.values()
 
 
 def test_supervised_token_nll_uses_causal_shift_and_mask_order() -> None:
@@ -163,6 +218,11 @@ def test_read_configures_writes_before_context_mask(
         evaluator,
         "collect_delta_mem_state_stats",
         lambda model: {"nonzero_modules": 1},
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "collect_delta_mem_output_ratio_stats",
+        lambda model: {"normalized_residual_correction_fusion_modules": 1},
     )
     monkeypatch.setattr(evaluator, "logits_to_keep_kwargs", lambda model, value: {})
 
