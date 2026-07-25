@@ -76,6 +76,7 @@ def _write_continuation_checkpoint(
     protocol: dict[str, object] | None = None,
     global_step: int = 128,
     effective_max_steps: int = 128,
+    epoch: float | None = None,
     include_rng: bool = True,
 ) -> dict[str, object]:
     _write_complete_checkpoint(path, HFDeltaMemConfig(rank=2))
@@ -83,9 +84,13 @@ def _write_continuation_checkpoint(
     (path / experimental_train._TRAINING_PROTOCOL_FILENAME).write_text(
         json.dumps(active_protocol)
     )
-    (path / "trainer_state.json").write_text(
-        json.dumps({"global_step": global_step, "max_steps": effective_max_steps})
-    )
+    trainer_state: dict[str, object] = {
+        "global_step": global_step,
+        "max_steps": effective_max_steps,
+    }
+    if epoch is not None:
+        trainer_state["epoch"] = epoch
+    (path / "trainer_state.json").write_text(json.dumps(trainer_state))
     if include_rng:
         (path / "rng_state.pth").touch()
     return active_protocol
@@ -104,6 +109,79 @@ def _continuation_args(
         output_dir=output_dir,
         max_steps=max_steps,
         num_train_epochs=num_train_epochs,
+    )
+
+
+def _objective_source_protocol() -> dict[str, object]:
+    return {
+        **_continuation_protocol(max_steps=384, num_train_epochs=12.0),
+        "memory_loss_mode": "context_dropout_ce",
+        "memory_base_kl_weight": 0.0,
+        "data_seed": 42,
+        "train_samples": 32,
+        "eval_samples": 0,
+    }
+
+
+def _objective_pairing_summary() -> dict[str, object]:
+    return {
+        "pairing_version": experimental_train._CONTENT_CONTRAST_PAIRING_VERSION,
+        "pairing_scope": "within_post_split_partition",
+        "data_seed": 42,
+        "tokenized_fingerprint": "fixed-dataset",
+        "manifest_sha256": "a" * 64,
+        "splits": {
+            "train": {
+                "sample_count": 32,
+                "rotation": 16,
+                "source_fingerprint": "source-fingerprint",
+                "paired_fingerprint": "paired-fingerprint",
+                "pairs_sha256": "b" * 64,
+                "manifest_sha256": "c" * 64,
+            }
+        },
+    }
+
+
+def _objective_target_protocol() -> dict[str, object]:
+    return {
+        **_objective_source_protocol(),
+        "schema_version": (
+            experimental_train._CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION
+        ),
+        "memory_objective_version": (
+            experimental_train._CONTENT_CONTRAST_OBJECTIVE_VERSION
+        ),
+        "memory_loss_mode": "content_contrast_ce",
+        "memory_contrast_weight": 0.25,
+        "memory_margin": 0.5,
+        "memory_kl_weight": 0.0,
+        "write_sparsity_weight": 0.0,
+        "memory_partition_alignment_weight": 0.0,
+        "memory_partition_entropy_weight": 0.0,
+        "memory_partition_balance_weight": 0.0,
+        "content_contrast_negative_priming_grad": False,
+        "content_contrast_pairing": _objective_pairing_summary(),
+        "max_steps": 416,
+        "num_train_epochs": 13.0,
+    }
+
+
+def _objective_args(checkpoint: Path, output_dir: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        resume_mode="objective_ablation",
+        resume_from_checkpoint=str(checkpoint),
+        output_dir=output_dir,
+        max_steps=416,
+        num_train_epochs=13.0,
+        memory_loss_mode="content_contrast_ce",
+        memory_contrast_weight=0.25,
+        memory_margin=0.5,
+        memory_kl_weight=0.0,
+        write_sparsity_weight=0.0,
+        memory_partition_alignment_weight=0.0,
+        memory_partition_entropy_weight=0.0,
+        memory_partition_balance_weight=0.0,
     )
 
 
@@ -882,4 +960,200 @@ def test_delta_mem_trainer_saves_ablation_lineage_manifest(
 
     assert json.loads(
         (output / experimental_train._ABLATION_LINEAGE_FILENAME).read_text()
+    ) == manifest
+
+
+def test_objective_ablation_protocol_allows_only_strict_objective_transition() -> None:
+    source = _objective_source_protocol()
+    target = _objective_target_protocol()
+
+    experimental_train.validate_resume_training_protocol(
+        source,
+        target,
+        resume_mode="objective_ablation",
+    )
+
+    with pytest.raises(ValueError, match="learning_rate"):
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "learning_rate": 2e-3},
+            resume_mode="objective_ablation",
+        )
+    with pytest.raises(ValueError, match="memory_contrast_weight to be positive"):
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "memory_contrast_weight": 0.0},
+            resume_mode="objective_ablation",
+        )
+    with pytest.raises(ValueError, match="tokenized_fingerprint does not match"):
+        invalid_pairing = {
+            **_objective_pairing_summary(),
+            "tokenized_fingerprint": "different-dataset",
+        }
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "content_contrast_pairing": invalid_pairing},
+            resume_mode="objective_ablation",
+        )
+
+
+def test_objective_ablation_config_must_be_exact() -> None:
+    source = HFDeltaMemConfig(rank=2, delta_heads=("o",))
+    experimental_train.validate_resume_delta_config(
+        source,
+        HFDeltaMemConfig(rank=2, delta_heads=("o",)),
+        resume_mode="objective_ablation",
+    )
+
+    with pytest.raises(ValueError, match="rank"):
+        experimental_train.validate_resume_delta_config(
+            source,
+            HFDeltaMemConfig(rank=4, delta_heads=("o",)),
+            resume_mode="objective_ablation",
+        )
+
+
+def test_prepare_objective_ablation_records_strict_lineage(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "source" / "trainer" / "checkpoint-384"
+    source_protocol = _write_continuation_checkpoint(
+        checkpoint,
+        protocol=_objective_source_protocol(),
+        global_step=384,
+        effective_max_steps=384,
+        epoch=12.0,
+    )
+
+    manifest = experimental_train.prepare_training_continuation(
+        _objective_args(checkpoint, tmp_path / "target"),
+        str(checkpoint),
+    )
+
+    assert manifest is not None
+    assert manifest["mode"] == "objective_ablation"
+    assert manifest["ablation"] == "memory_training_objective"
+    assert manifest["source_global_step"] == 384
+    assert manifest["source_epoch"] == 12.0
+    assert manifest["target_max_steps"] == 416
+    assert manifest["source_memory_loss_mode"] == "context_dropout_ce"
+    assert manifest["target_memory_loss_mode"] == "content_contrast_ce"
+    assert manifest["target_memory_contrast_weight"] == 0.25
+    assert manifest["target_memory_margin"] == 0.5
+    assert manifest["source_training_protocol_sha256"] == (
+        experimental_train._protocol_sha256(source_protocol)
+    )
+
+
+def test_prepare_objective_ablation_requires_epoch_boundary_and_fresh_output(
+    tmp_path: Path,
+) -> None:
+    checkpoint = tmp_path / "source" / "trainer" / "checkpoint-384"
+    _write_continuation_checkpoint(
+        checkpoint,
+        protocol=_objective_source_protocol(),
+        global_step=384,
+        effective_max_steps=384,
+        epoch=11.5,
+    )
+    args = _objective_args(checkpoint, tmp_path / "target")
+    with pytest.raises(ValueError, match="epoch boundary"):
+        experimental_train.prepare_training_continuation(args, str(checkpoint))
+
+    (checkpoint / "trainer_state.json").write_text(
+        json.dumps({"global_step": 384, "max_steps": 384, "epoch": 12.0})
+    )
+    args.output_dir.mkdir()
+    (args.output_dir / "existing.txt").touch()
+    with pytest.raises(ValueError, match="fresh, empty"):
+        experimental_train.prepare_training_continuation(args, str(checkpoint))
+
+
+def test_delta_mem_trainer_loads_objective_ablation_without_source_pairing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkpoint = tmp_path / "source" / "trainer" / "checkpoint-384"
+    _write_continuation_checkpoint(
+        checkpoint,
+        protocol=_objective_source_protocol(),
+        global_step=384,
+        effective_max_steps=384,
+        epoch=12.0,
+    )
+    loaded: list[Path] = []
+    monkeypatch.setattr(
+        experimental_train,
+        "validate_resume_adapter_topology",
+        lambda model, source: "objective-topology-sha",
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "load_delta_mem_adapter",
+        lambda model, source: loaded.append(Path(source)),
+    )
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.model = torch.nn.Linear(2, 2)
+    trainer.delta_config = HFDeltaMemConfig(rank=2)
+    trainer.training_protocol = _objective_target_protocol()
+    trainer.content_contrast_pairing_manifest = {"manifest_sha256": "a" * 64}
+    trainer.resume_mode = "objective_ablation"
+    trainer.continuation_manifest = {"mode": "objective_ablation"}
+
+    trainer._load_from_checkpoint(str(checkpoint))
+
+    assert loaded == [checkpoint.resolve()]
+    assert (
+        trainer.continuation_manifest["ordered_adapter_parameter_topology_sha256"]
+        == "objective-topology-sha"
+    )
+
+
+def test_delta_mem_trainer_saves_objective_ablation_lineage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "checkpoint-416"
+    manifest = {
+        "schema_version": experimental_train._ABLATION_LINEAGE_SCHEMA_VERSION,
+        "mode": "objective_ablation",
+        "source_global_step": 384,
+    }
+
+    def fake_save_adapter(model, output_dir, active_config) -> None:
+        del model, active_config
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(experimental_train, "save_delta_mem_adapter", fake_save_adapter)
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.args = SimpleNamespace(output_dir=str(output))
+    trainer.model = torch.nn.Linear(2, 2)
+    trainer.delta_config = HFDeltaMemConfig(rank=2)
+    trainer.training_protocol = _objective_target_protocol()
+    trainer.content_contrast_pairing_manifest = {"manifest_sha256": "a" * 64}
+    trainer.continuation_manifest = manifest
+    trainer.accelerator = SimpleNamespace(unwrap_model=lambda wrapped: wrapped)
+    trainer.is_world_process_zero = lambda: True
+
+    trainer.save_model(str(output))
+
+    assert json.loads(
+        (output / experimental_train._ABLATION_LINEAGE_FILENAME).read_text()
+    ) == manifest
+
+
+def test_exact_resume_accepts_objective_ablation_lineage(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "trainer" / "checkpoint-416"
+    checkpoint.mkdir(parents=True)
+    manifest = {
+        "schema_version": experimental_train._ABLATION_LINEAGE_SCHEMA_VERSION,
+        "mode": "objective_ablation",
+        "source_global_step": 384,
+    }
+    (checkpoint / experimental_train._ABLATION_LINEAGE_FILENAME).write_text(
+        json.dumps(manifest)
+    )
+    args = SimpleNamespace(resume_mode="exact")
+
+    assert experimental_train.prepare_training_continuation(
+        args,
+        str(checkpoint),
     ) == manifest

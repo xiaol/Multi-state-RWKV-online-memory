@@ -224,7 +224,8 @@ def _promote_trainable_parameters_to_fp32(model) -> None:
 
 
 _RESUME_LATEST_VALUES = frozenset({"auto", "latest"})
-_RESUME_MODES = ("exact", "extend", "placement_ablation")
+_RESUME_MODES = ("exact", "extend", "placement_ablation", "objective_ablation")
+_ABLATION_RESUME_MODES = frozenset({"placement_ablation", "objective_ablation"})
 _CONTINUATION_SCHEDULERS = frozenset({"constant", "constant_with_warmup"})
 _REQUIRED_RESUME_CHECKPOINT_FILES = (
     "delta_mem_adapter.pt",
@@ -244,6 +245,22 @@ _CONTINUATION_MANIFEST_FILENAME = "continuation_manifest.json"
 _CONTINUATION_MANIFEST_SCHEMA_VERSION = 1
 _ABLATION_LINEAGE_FILENAME = "ablation_lineage_manifest.json"
 _ABLATION_LINEAGE_SCHEMA_VERSION = 1
+_OBJECTIVE_ABLATION_PROTOCOL_DRIFT = frozenset(
+    {
+        "schema_version",
+        "memory_objective_version",
+        "memory_loss_mode",
+        "memory_contrast_weight",
+        "memory_margin",
+        "memory_kl_weight",
+        "write_sparsity_weight",
+        "memory_partition_alignment_weight",
+        "memory_partition_entropy_weight",
+        "memory_partition_balance_weight",
+        "content_contrast_negative_priming_grad",
+        "content_contrast_pairing",
+    }
+)
 
 
 def _missing_resume_checkpoint_files(
@@ -437,11 +454,161 @@ def _normalize_memory_fusion_placement_protocol(
     return normalized
 
 
+def _is_sha256(value: object) -> bool:
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
+
+
+def _validate_objective_ablation_source_protocol(
+    source_protocol: dict[str, object],
+) -> None:
+    expected = {
+        "schema_version": _TRAINING_PROTOCOL_SCHEMA_VERSION,
+        "memory_objective_version": _MEMORY_OBJECTIVE_VERSION,
+        "memory_loss_mode": "context_dropout_ce",
+        "memory_base_kl_weight": 0.0,
+    }
+    mismatches = [
+        key for key, value in expected.items() if source_protocol.get(key) != value
+    ]
+    if mismatches:
+        raise ValueError(
+            "objective_ablation requires a canonical context_dropout_ce source; "
+            "invalid fields: " + ", ".join(mismatches)
+        )
+    source_only_forbidden = sorted(
+        (_OBJECTIVE_ABLATION_PROTOCOL_DRIFT - set(expected)).intersection(source_protocol)
+    )
+    if source_only_forbidden:
+        raise ValueError(
+            "objective_ablation source unexpectedly contains content-contrast fields: "
+            + ", ".join(source_only_forbidden)
+        )
+
+
+def _validate_content_contrast_pairing_summary(
+    protocol: dict[str, object],
+) -> None:
+    pairing = protocol.get("content_contrast_pairing")
+    if not isinstance(pairing, dict):
+        raise ValueError(
+            "objective_ablation target requires content_contrast_pairing metadata"
+        )
+    if pairing.get("pairing_version") != _CONTENT_CONTRAST_PAIRING_VERSION:
+        raise ValueError("objective_ablation target has an unsupported pairing_version")
+    if pairing.get("pairing_scope") != "within_post_split_partition":
+        raise ValueError("objective_ablation target has an unsupported pairing_scope")
+    if pairing.get("data_seed") != protocol.get("data_seed"):
+        raise ValueError("objective_ablation target pairing data_seed does not match")
+    if pairing.get("tokenized_fingerprint") != protocol.get("tokenized_fingerprint"):
+        raise ValueError(
+            "objective_ablation target pairing tokenized_fingerprint does not match"
+        )
+    if not _is_sha256(pairing.get("manifest_sha256")):
+        raise ValueError("objective_ablation target pairing manifest hash is invalid")
+
+    splits = pairing.get("splits")
+    if not isinstance(splits, dict) or "train" not in splits:
+        raise ValueError("objective_ablation target pairing requires a train split")
+    expected_split_sizes = {
+        "train": protocol.get("train_samples"),
+        "eval": protocol.get("eval_samples"),
+    }
+    for split_name, split in splits.items():
+        if split_name not in expected_split_sizes or not isinstance(split, dict):
+            raise ValueError(
+                f"objective_ablation target pairing has invalid split: {split_name}"
+            )
+        try:
+            sample_count = int(split["sample_count"])
+            rotation = int(split["rotation"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"objective_ablation target pairing split {split_name} is incomplete"
+            ) from exc
+        if sample_count < 2 or sample_count % 2 != 0 or rotation != sample_count // 2:
+            raise ValueError(
+                f"objective_ablation target pairing split {split_name} has invalid rotation"
+            )
+        expected_size = expected_split_sizes[split_name]
+        if expected_size is not None and sample_count != int(expected_size):
+            raise ValueError(
+                f"objective_ablation target pairing split {split_name} size does not match"
+            )
+        for hash_name in ("pairs_sha256", "manifest_sha256"):
+            if not _is_sha256(split.get(hash_name)):
+                raise ValueError(
+                    f"objective_ablation target pairing split {split_name} "
+                    f"has invalid {hash_name}"
+                )
+
+
+def _validate_objective_ablation_target_protocol(
+    target_protocol: dict[str, object],
+    *,
+    require_pairing: bool,
+) -> None:
+    expected = {
+        "schema_version": _CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION,
+        "memory_objective_version": _CONTENT_CONTRAST_OBJECTIVE_VERSION,
+        "memory_loss_mode": "content_contrast_ce",
+        "memory_base_kl_weight": 0.0,
+        "memory_kl_weight": 0.0,
+        "write_sparsity_weight": 0.0,
+        "memory_partition_alignment_weight": 0.0,
+        "memory_partition_entropy_weight": 0.0,
+        "memory_partition_balance_weight": 0.0,
+        "content_contrast_negative_priming_grad": False,
+    }
+    mismatches = [
+        key for key, value in expected.items() if target_protocol.get(key) != value
+    ]
+    if mismatches:
+        raise ValueError(
+            "objective_ablation requires the KL-free content_contrast_ce target; "
+            "invalid fields: " + ", ".join(mismatches)
+        )
+    try:
+        contrast_weight = float(target_protocol["memory_contrast_weight"])
+        margin = float(target_protocol["memory_margin"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "objective_ablation target requires numeric memory_contrast_weight and memory_margin"
+        ) from exc
+    if not math.isfinite(contrast_weight) or contrast_weight <= 0.0:
+        raise ValueError(
+            "objective_ablation target requires memory_contrast_weight to be positive"
+        )
+    if not math.isfinite(margin) or margin <= 0.0:
+        raise ValueError("objective_ablation target requires memory_margin to be positive")
+    if require_pairing:
+        _validate_content_contrast_pairing_summary(target_protocol)
+
+
+def _validate_objective_ablation_protocol_transition(
+    source_protocol: dict[str, object],
+    target_protocol: dict[str, object],
+    *,
+    require_pairing: bool,
+) -> None:
+    _validate_objective_ablation_source_protocol(source_protocol)
+    _validate_objective_ablation_target_protocol(
+        target_protocol,
+        require_pairing=require_pairing,
+    )
+
+
 def validate_resume_training_protocol(
     source_protocol: dict[str, object],
     target_protocol: dict[str, object],
     *,
     resume_mode: str,
+    require_objective_pairing: bool = True,
 ) -> None:
     if resume_mode not in _RESUME_MODES:
         raise ValueError(f"Unsupported resume mode: {resume_mode}")
@@ -454,7 +621,7 @@ def validate_resume_training_protocol(
         for key in set(source_protocol) | set(target_protocol)
         if source_protocol.get(key) != target_protocol.get(key)
     )
-    if resume_mode in {"extend", "placement_ablation"}:
+    if resume_mode in {"extend", "placement_ablation", "objective_ablation"}:
         _validate_training_horizon_extension(source_protocol, target_protocol)
         mismatches = [
             key for key in mismatches if key not in {"max_steps", "num_train_epochs"}
@@ -469,6 +636,15 @@ def validate_resume_training_protocol(
             )
         mismatches = [
             key for key in mismatches if key != "memory_fusion_placement"
+        ]
+    if resume_mode == "objective_ablation":
+        _validate_objective_ablation_protocol_transition(
+            source_protocol,
+            target_protocol,
+            require_pairing=require_objective_pairing,
+        )
+        mismatches = [
+            key for key in mismatches if key not in _OBJECTIVE_ABLATION_PROTOCOL_DRIFT
         ]
     if mismatches:
         raise ValueError(
@@ -521,7 +697,7 @@ def validate_resume_adapter_topology(
     target_keys = list(target_state)
     if source_keys != target_keys:
         raise ValueError(
-            "Delta-Mem placement ablation requires identical ordered adapter parameter names"
+            "Delta-Mem ablation requires identical ordered adapter parameter names"
         )
     topology = []
     for name in source_keys:
@@ -531,12 +707,12 @@ def validate_resume_adapter_topology(
             raise ValueError(f"Delta-Mem adapter entry is not a tensor: {name}")
         if source_tensor.shape != target_tensor.shape:
             raise ValueError(
-                "Delta-Mem placement ablation adapter shape mismatch for "
+                "Delta-Mem ablation adapter shape mismatch for "
                 f"{name}: source={tuple(source_tensor.shape)} target={tuple(target_tensor.shape)}"
             )
         if source_tensor.dtype != target_tensor.dtype:
             raise ValueError(
-                "Delta-Mem placement ablation adapter dtype mismatch for "
+                "Delta-Mem ablation adapter dtype mismatch for "
                 f"{name}: source={source_tensor.dtype} target={target_tensor.dtype}"
             )
         topology.append(
@@ -552,7 +728,7 @@ def validate_resume_adapter_topology(
 
 
 def _lineage_manifest_filename(manifest: dict[str, object]) -> str:
-    if manifest.get("mode") == "placement_ablation":
+    if manifest.get("mode") in _ABLATION_RESUME_MODES:
         return _ABLATION_LINEAGE_FILENAME
     return _CONTINUATION_MANIFEST_FILENAME
 
@@ -579,15 +755,13 @@ def prepare_training_continuation(
             raise ValueError(f"Checkpoint has ambiguous resume lineage manifests: {checkpoint}")
         manifest_path = existing[0]
         manifest = _load_json_object(manifest_path, description="resume lineage manifest")
-        expected = (
-            ("placement_ablation", _ABLATION_LINEAGE_SCHEMA_VERSION)
-            if manifest_path.name == _ABLATION_LINEAGE_FILENAME
-            else ("extend", _CONTINUATION_MANIFEST_SCHEMA_VERSION)
-        )
-        if (
-            manifest.get("mode") != expected[0]
-            or manifest.get("schema_version") != expected[1]
-        ):
+        if manifest_path.name == _ABLATION_LINEAGE_FILENAME:
+            valid_mode = manifest.get("mode") in _ABLATION_RESUME_MODES
+            expected_schema = _ABLATION_LINEAGE_SCHEMA_VERSION
+        else:
+            valid_mode = manifest.get("mode") == "extend"
+            expected_schema = _CONTINUATION_MANIFEST_SCHEMA_VERSION
+        if not valid_mode or manifest.get("schema_version") != expected_schema:
             raise ValueError(f"Unsupported resume lineage manifest: {manifest_path}")
         return manifest
 
@@ -613,12 +787,12 @@ def prepare_training_continuation(
             f"--resume-mode {args.resume_mode} requires a distinct --output-dir"
         )
     if (
-        args.resume_mode == "placement_ablation"
+        args.resume_mode in _ABLATION_RESUME_MODES
         and target_output_dir.exists()
         and any(target_output_dir.iterdir())
     ):
         raise ValueError(
-            "--resume-mode placement_ablation requires a fresh, empty --output-dir"
+            f"--resume-mode {args.resume_mode} requires a fresh, empty --output-dir"
         )
 
     rng_state_files = sorted(
@@ -652,16 +826,47 @@ def prepare_training_continuation(
         raise ValueError(
             "Training continuation checkpoint directory step does not match trainer_state.json"
         )
+    source_epoch = None
+    if args.resume_mode == "objective_ablation":
+        try:
+            source_epoch = float(trainer_state["epoch"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                "objective_ablation requires a numeric source epoch in trainer_state.json"
+            ) from exc
+        if not math.isfinite(source_epoch) or not source_epoch.is_integer():
+            raise ValueError(
+                "objective_ablation requires a source checkpoint at an epoch boundary"
+            )
 
     target_protocol = dict(source_protocol)
     target_protocol["max_steps"] = args.max_steps
     target_protocol["num_train_epochs"] = args.num_train_epochs
     if args.resume_mode == "placement_ablation":
         target_protocol["memory_fusion_placement"] = args.memory_fusion_placement
+    elif args.resume_mode == "objective_ablation":
+        target_protocol.update(
+            {
+                "schema_version": _CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION,
+                "memory_objective_version": _CONTENT_CONTRAST_OBJECTIVE_VERSION,
+                "memory_loss_mode": args.memory_loss_mode,
+                "memory_contrast_weight": args.memory_contrast_weight,
+                "memory_margin": args.memory_margin,
+                "memory_kl_weight": args.memory_kl_weight,
+                "write_sparsity_weight": args.write_sparsity_weight,
+                "memory_partition_alignment_weight": (
+                    args.memory_partition_alignment_weight
+                ),
+                "memory_partition_entropy_weight": args.memory_partition_entropy_weight,
+                "memory_partition_balance_weight": args.memory_partition_balance_weight,
+                "content_contrast_negative_priming_grad": False,
+            }
+        )
     validate_resume_training_protocol(
         source_protocol,
         target_protocol,
         resume_mode=args.resume_mode,
+        require_objective_pairing=False,
     )
     source_protocol_max_steps = int(source_protocol["max_steps"])
     if source_protocol_max_steps > 0 and source_protocol_max_steps != source_effective_max_steps:
@@ -672,7 +877,7 @@ def prepare_training_continuation(
     manifest = {
         "schema_version": (
             _ABLATION_LINEAGE_SCHEMA_VERSION
-            if args.resume_mode == "placement_ablation"
+            if args.resume_mode in _ABLATION_RESUME_MODES
             else _CONTINUATION_MANIFEST_SCHEMA_VERSION
         ),
         "mode": args.resume_mode,
@@ -688,6 +893,8 @@ def prepare_training_continuation(
         "lr_scheduler_type": str(source_protocol["lr_scheduler_type"]),
         "warmup_steps": int(source_protocol["warmup_steps"]),
     }
+    if source_epoch is not None:
+        manifest["source_epoch"] = source_epoch
     if args.resume_mode == "placement_ablation":
         source_config = HFDeltaMemConfig.from_pretrained(checkpoint)
         manifest.update(
@@ -697,6 +904,22 @@ def prepare_training_continuation(
                 "target_memory_fusion_placement": normalize_memory_fusion_placement(
                     args.memory_fusion_placement
                 ),
+                "source_delta_config_sha256": _protocol_sha256(source_config.to_dict()),
+            }
+        )
+    elif args.resume_mode == "objective_ablation":
+        source_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+        manifest.update(
+            {
+                "ablation": "memory_training_objective",
+                "source_memory_loss_mode": source_protocol["memory_loss_mode"],
+                "target_memory_loss_mode": args.memory_loss_mode,
+                "source_memory_objective_version": source_protocol[
+                    "memory_objective_version"
+                ],
+                "target_memory_objective_version": _CONTENT_CONTRAST_OBJECTIVE_VERSION,
+                "target_memory_contrast_weight": float(args.memory_contrast_weight),
+                "target_memory_margin": float(args.memory_margin),
                 "source_delta_config_sha256": _protocol_sha256(source_config.to_dict()),
             }
         )
@@ -2707,17 +2930,18 @@ class DeltaMemTrainer(Trainer):
                 f"Delta-Mem checkpoint is missing {_TRAINING_PROTOCOL_FILENAME}: {checkpoint}"
             )
         actual = json.loads(protocol_path.read_text())
+        active_resume_mode = (
+            getattr(self, "resume_mode", "exact")
+            if resume_mode is None
+            else resume_mode
+        )
         validate_resume_training_protocol(
             actual,
             expected,
-            resume_mode=(
-                getattr(self, "resume_mode", "exact")
-                if resume_mode is None
-                else resume_mode
-            ),
+            resume_mode=active_resume_mode,
         )
         expected_pairing = getattr(self, "content_contrast_pairing_manifest", None)
-        if expected_pairing is None:
+        if expected_pairing is None or active_resume_mode == "objective_ablation":
             return
         pairing_path = checkpoint / _CONTENT_CONTRAST_PAIRING_FILENAME
         if not pairing_path.is_file():
@@ -2730,24 +2954,25 @@ class DeltaMemTrainer(Trainer):
             raise ValueError("Delta-Mem checkpoint content-contrast pairing manifest does not match")
 
     def _load_from_checkpoint(self, resume_from_checkpoint: str, model=None) -> None:
+        active_resume_mode = getattr(self, "resume_mode", "exact")
         checkpoint = _validate_resume_checkpoint(
             Path(resume_from_checkpoint),
             require_training_protocol=(getattr(self, "training_protocol", None) is not None),
             require_content_contrast_pairing=(
                 getattr(self, "content_contrast_pairing_manifest", None) is not None
+                and active_resume_mode != "objective_ablation"
             ),
         )
         if self.delta_config is None:
             raise ValueError("DeltaMemTrainer checkpoint loading requires delta_config")
         checkpoint_config = HFDeltaMemConfig.from_pretrained(checkpoint)
-        active_resume_mode = getattr(self, "resume_mode", "exact")
         validate_resume_delta_config(
             checkpoint_config,
             self.delta_config,
             resume_mode=active_resume_mode,
         )
         load_model = self.model if model is None else model
-        if active_resume_mode == "placement_ablation":
+        if active_resume_mode in _ABLATION_RESUME_MODES:
             topology_sha256 = validate_resume_adapter_topology(load_model, checkpoint)
             lineage = getattr(self, "continuation_manifest", None)
             if lineage is not None:
@@ -2801,7 +3026,8 @@ def parse_args() -> argparse.Namespace:
         default="exact",
         help=(
             "Use 'extend' for a larger horizon, or 'placement_ablation' for a paired "
-            "fusion-placement fork with otherwise identical state and protocol."
+            "fusion-placement fork. Use 'objective_ablation' only for the strict "
+            "context-dropout to content-contrast training-objective fork."
         ),
     )
     parser.add_argument("--hf-cache-dir", type=Path, default=None)
@@ -4620,7 +4846,7 @@ def main() -> None:
             "Gradient checkpointing is currently incompatible with Delta-Mem's stateful token updates. "
             "Disable --gradient-checkpointing before training."
         )
-    if args.resume_mode in {"extend", "placement_ablation"}:
+    if args.resume_mode in {"extend", *_ABLATION_RESUME_MODES}:
         raw_checkpoint = (
             ""
             if args.resume_from_checkpoint is None
@@ -4637,6 +4863,7 @@ def main() -> None:
         require_training_protocol=True,
         require_content_contrast_pairing=(
             args.memory_loss_mode == "content_contrast_ce"
+            and args.resume_mode != "objective_ablation"
         ),
     )
     continuation_manifest = prepare_training_continuation(
@@ -4800,13 +5027,33 @@ def main() -> None:
     training_protocol_sha256 = hashlib.sha256(
         json.dumps(training_protocol, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    if continuation_manifest is not None and args.resume_mode == "placement_ablation":
+    if args.resume_mode == "objective_ablation":
+        if resume_from_checkpoint is None:
+            raise ValueError("objective_ablation requires a resolved source checkpoint")
+        source_protocol = _load_json_object(
+            Path(resume_from_checkpoint) / _TRAINING_PROTOCOL_FILENAME,
+            description="source training protocol",
+        )
+        validate_resume_training_protocol(
+            source_protocol,
+            training_protocol,
+            resume_mode=args.resume_mode,
+        )
+    if continuation_manifest is not None and args.resume_mode in _ABLATION_RESUME_MODES:
         continuation_manifest.update(
             {
                 "target_training_protocol_sha256": training_protocol_sha256,
                 "target_delta_config_sha256": _protocol_sha256(delta_config.to_dict()),
             }
         )
+        if args.resume_mode == "objective_ablation":
+            if content_contrast_pairing_manifest is None:
+                raise ValueError(
+                    "objective_ablation requires a generated content-contrast pairing manifest"
+                )
+            continuation_manifest["target_content_contrast_pairing_manifest_sha256"] = (
+                content_contrast_pairing_manifest["manifest_sha256"]
+            )
     training_args_kwargs = dict(
         output_dir=str(args.output_dir / "trainer"),
         per_device_train_batch_size=args.per_device_train_batch_size,
