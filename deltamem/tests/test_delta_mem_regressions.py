@@ -1547,6 +1547,270 @@ def test_attach_delta_mem_wraps_all_gemma4_shared_kv_layers_for_o_only() -> None
     assert torch.isfinite(output.last_hidden_state).all()
 
 
+def test_gemma4_post_attention_norm_runs_once_and_reports_layer_groups() -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(0)
+    config = make_gemma4_shared_kv_config()
+    model = Gemma4TextModel(config).eval()
+    replaced = attach_delta_mem(
+        model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="random",
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            memory_fusion_placement="post_attention_norm",
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+    base_calls = [0, 0, 0, 0]
+    handles = []
+    for layer_idx, layer in enumerate(model.layers):
+        wrapped = layer.self_attn
+        assert isinstance(wrapped, DeltaMemAttention)
+
+        def count_base(_module, _inputs, _output, *, index=layer_idx) -> None:
+            base_calls[index] += 1
+
+        handles.append(wrapped.base.register_forward_hook(count_base))
+
+    with torch.no_grad():
+        output = model(input_ids=torch.randint(0, config.vocab_size, (1, 5)), use_cache=False)
+    for handle in handles:
+        handle.remove()
+
+    assert replaced == [f"layers.{layer_idx}.self_attn" for layer_idx in range(4)]
+    assert output.last_hidden_state.shape == (1, 5, config.hidden_size)
+    assert base_calls == [1, 1, 1, 1]
+    for layer in model.layers:
+        wrapped = layer.self_attn
+        assert wrapped.rwkv_ms_positions.tolist() == [5]
+        assert wrapped._pending_post_attention_delta is None
+        assert wrapped._post_attention_norm_hook_handle is not None
+
+    stats = collect_delta_mem_output_ratio_stats(model)
+    assert stats["attention_output_fusion_modules"] == 0
+    assert stats["post_attention_norm_fusion_modules"] == 4
+    assert stats["nonshared_local_modules"] == 1
+    assert stats["nonshared_full_modules"] == 1
+    assert stats["shared_local_modules"] == 1
+    assert stats["shared_full_modules"] == 1
+    assert 0.0 <= stats["mean_delta_o_gate_lt_001_fraction"] <= 1.0
+    assert 0.0 <= stats["mean_delta_o_gate_gt_099_fraction"] <= 1.0
+
+
+def test_gemma4_post_attention_norm_matches_manual_decoder_equation() -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(7)
+    config = Gemma4TextConfig(
+        vocab_size=64,
+        hidden_size=16,
+        intermediate_size=32,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+        num_key_value_heads=1,
+        head_dim=8,
+        global_head_dim=8,
+        num_global_key_value_heads=1,
+        attention_dropout=0.0,
+        attention_bias=False,
+        layer_types=["full_attention"],
+        num_kv_shared_layers=0,
+        hidden_size_per_layer_input=0,
+        sliding_window=4,
+        tie_word_embeddings=False,
+    )
+    config._attn_implementation = "eager"
+    model = Gemma4TextModel(config).eval()
+    layer = model.layers[0]
+    legacy_norm = copy.deepcopy(layer.post_attention_layernorm).eval()
+    captures: dict[str, torch.Tensor] = {}
+
+    def capture_raw_norm(_module, _inputs, output) -> None:
+        captures["raw_norm"] = output.detach().clone()
+
+    def capture_residual(_module, inputs) -> None:
+        captures["residual"] = inputs[0].detach().clone()
+
+    def capture_base_o(_module, _inputs, output) -> None:
+        captures["base_o"] = output[0].detach().clone()
+
+    def capture_postnorm_plus_delta(_module, _inputs, output) -> None:
+        captures["postnorm_plus_delta"] = output.detach().clone()
+
+    def capture_attention_residual(_module, inputs) -> None:
+        captures["attention_residual"] = inputs[0].detach().clone()
+
+    raw_norm_hook = layer.post_attention_layernorm.register_forward_hook(capture_raw_norm)
+    attach_delta_mem(
+        model,
+        HFDeltaMemConfig(
+            rank=2,
+            alpha=4.0,
+            output_init="random",
+            online_gain=0.2,
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            memory_fusion_gate_init=0.25,
+            memory_fusion_placement="post_attention_norm",
+            target_layers=(0,),
+            target_modules=("self_attn",),
+        ),
+    )
+    wrapped = layer.self_attn
+    with torch.no_grad():
+        wrapped.delta_o_proj.mul_(1000.0)
+    handles = [
+        layer.input_layernorm.register_forward_pre_hook(capture_residual),
+        wrapped.base.register_forward_hook(capture_base_o),
+        layer.post_attention_layernorm.register_forward_hook(capture_postnorm_plus_delta),
+        layer.pre_feedforward_layernorm.register_forward_pre_hook(capture_attention_residual),
+    ]
+
+    with torch.no_grad():
+        model(input_ids=torch.tensor([[1, 2, 3, 4, 5]]), use_cache=False)
+    raw_norm_hook.remove()
+    for handle in handles:
+        handle.remove()
+
+    fused_delta = captures["postnorm_plus_delta"] - captures["raw_norm"]
+    expected = captures["residual"] + captures["raw_norm"] + fused_delta
+    legacy_equation = captures["residual"] + legacy_norm(
+        captures["base_o"] + fused_delta
+    )
+    torch.testing.assert_close(captures["attention_residual"], expected)
+    assert fused_delta.float().norm().item() > 0.0
+    assert not torch.allclose(
+        captures["attention_residual"],
+        legacy_equation,
+        atol=1e-6,
+        rtol=1e-6,
+    )
+    assert wrapped._pending_post_attention_delta is None
+    assert wrapped.last_base_o_norm.item() == pytest.approx(
+        captures["raw_norm"].float().norm(dim=-1).mean().item(),
+        rel=1e-6,
+    )
+
+
+def test_gemma4_post_attention_norm_gradients_reach_memory_and_gate() -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(0)
+    model = Gemma4TextModel(make_gemma4_shared_kv_config()).train()
+    attach_delta_mem(
+        model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="random",
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            memory_fusion_gate_init=0.25,
+            memory_fusion_placement="post_attention_norm",
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+    freeze_non_delta_mem_params(model)
+    output = model(input_ids=torch.tensor([[1, 2, 3, 4, 5]]), use_cache=False)
+    (output.last_hidden_state * torch.randn_like(output.last_hidden_state)).sum().backward()
+
+    wrapped = model.layers[3].self_attn
+    required = {
+        "memory_v_proj": wrapped.memory_v_proj,
+        "beta_proj": wrapped.beta_proj,
+        "delta_o_proj": wrapped.delta_o_proj,
+        "memory_fusion_hidden_weight": wrapped.memory_fusion_hidden_weight,
+        "memory_fusion_read_weight": wrapped.memory_fusion_read_weight,
+        "memory_fusion_bias": wrapped.memory_fusion_bias,
+    }
+    for name, parameter in required.items():
+        assert parameter.grad is not None, name
+        assert torch.isfinite(parameter.grad).all(), name
+        assert parameter.grad.float().norm().item() > 0.0, name
+    assert any(
+        parameter.grad is not None and parameter.grad.float().norm().item() > 0.0
+        for parameter in wrapped.hrm_rwkv7_core.parameters()
+    )
+    assert all(parameter.grad is None for parameter in wrapped.base.parameters())
+    assert all(
+        parameter.grad is None
+        for parameter in model.layers[3].post_attention_layernorm.parameters()
+    )
+
+
+def test_post_attention_norm_rejects_non_gemma_and_non_o_targets_atomically() -> None:
+    qwen_model = ToyAttentionModel()
+    original_qwen = qwen_model.self_attn
+    with pytest.raises(ValueError, match="Gemma4-only"):
+        attach_delta_mem(
+            qwen_model,
+            HFDeltaMemConfig(
+                rank=2,
+                delta_heads=("o",),
+                memory_fusion_placement="post_attention_norm",
+                target_layers=(0,),
+            ),
+        )
+    assert qwen_model.self_attn is original_qwen
+
+    gemma_model = Gemma4TextModel(make_gemma4_shared_kv_config())
+    original_gemma = [layer.self_attn for layer in gemma_model.layers]
+    with pytest.raises(ValueError, match="O-only"):
+        attach_delta_mem(
+            gemma_model,
+            HFDeltaMemConfig(
+                rank=2,
+                delta_heads=("q", "o"),
+                memory_fusion_placement="post_attention_norm",
+                target_layers=(0, 1, 2, 3),
+            ),
+        )
+    assert [layer.self_attn for layer in gemma_model.layers] == original_gemma
+
+
+def test_post_attention_norm_attach_rolls_back_on_hook_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = Gemma4TextModel(make_gemma4_shared_kv_config())
+    original = [layer.self_attn for layer in model.layers]
+
+    def fail_hook_registration(*_args, **_kwargs):
+        raise RuntimeError("injected hook failure")
+
+    monkeypatch.setattr(
+        model.layers[1].post_attention_layernorm,
+        "register_forward_hook",
+        fail_hook_registration,
+    )
+    with pytest.raises(RuntimeError, match="injected hook failure"):
+        attach_delta_mem(
+            model,
+            HFDeltaMemConfig(
+                rank=2,
+                memory_backend="rwkv_ms",
+                delta_heads=("o",),
+                memory_fusion_placement="post_attention_norm",
+                target_layers=(0, 1, 2, 3),
+            ),
+        )
+
+    assert [layer.self_attn for layer in model.layers] == original
+    assert not model.layers[0].post_attention_layernorm._forward_hooks
+
+
 def test_gemma4_empty_target_layers_preserve_legacy_non_shared_scope() -> None:
     if Gemma4TextConfig is None or Gemma4TextModel is None:
         pytest.skip("Gemma4 is not available in this Transformers version")
@@ -1598,7 +1862,13 @@ def test_attach_delta_mem_rejects_non_o_heads_for_gemma4_shared_kv_atomically(
     assert all(not isinstance(layer.self_attn, DeltaMemAttention) for layer in model.layers)
 
 
-def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base() -> None:
+@pytest.mark.parametrize(
+    "memory_fusion_placement",
+    ["attention_output", "post_attention_norm"],
+)
+def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base(
+    memory_fusion_placement: str,
+) -> None:
     if Gemma4TextConfig is None or Gemma4TextModel is None:
         pytest.skip("Gemma4 is not available in this Transformers version")
     torch.manual_seed(0)
@@ -1615,6 +1885,7 @@ def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base() -> None:
             rwkv_ms_chunk_size=2,
             delta_heads=("o",),
             memory_fusion_mode="content_gated_add",
+            memory_fusion_placement=memory_fusion_placement,
             target_layers=(0, 1, 2, 3),
             target_modules=("self_attn",),
         ),
@@ -1636,11 +1907,17 @@ def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base() -> None:
         assert torch.count_nonzero(wrapped.delta_state) == 0
         assert wrapped.last_delta_o_norm is not None
         assert wrapped.last_delta_o_norm.item() == 0.0
+        assert wrapped._pending_post_attention_delta is None
 
 
 @pytest.mark.parametrize("attn_implementation", ["eager", "sdpa"])
+@pytest.mark.parametrize(
+    "memory_fusion_placement",
+    ["attention_output", "post_attention_norm"],
+)
 def test_gemma4_shared_kv_o_only_cached_decode_matches_base(
     attn_implementation: str,
+    memory_fusion_placement: str,
 ) -> None:
     if Gemma4TextConfig is None or Gemma4TextModel is None:
         pytest.skip("Gemma4 is not available in this Transformers version")
@@ -1659,6 +1936,7 @@ def test_gemma4_shared_kv_o_only_cached_decode_matches_base(
             rwkv_ms_chunk_size=2,
             delta_heads=("o",),
             memory_fusion_mode="content_gated_add",
+            memory_fusion_placement=memory_fusion_placement,
             target_layers=(0, 1, 2, 3),
             target_modules=("self_attn",),
         ),
@@ -1694,6 +1972,10 @@ def test_gemma4_shared_kv_o_only_cached_decode_matches_base(
     )
     assert base_decode.past_key_values.get_seq_length() == 4
     assert wrapped_decode.past_key_values.get_seq_length() == 4
+    assert all(
+        layer.self_attn._pending_post_attention_delta is None
+        for layer in wrapped_model.layers
+    )
 
 
 def test_gemma4_shared_kv_o_only_memory_and_gate_receive_gradients() -> None:
@@ -1753,7 +2035,14 @@ def test_gemma4_shared_kv_o_only_memory_and_gate_receive_gradients() -> None:
     assert all(parameter.grad is None for parameter in wrapped.base.parameters())
 
 
-def test_gemma4_shared_kv_o_only_adapter_round_trip(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "memory_fusion_placement",
+    ["attention_output", "post_attention_norm"],
+)
+def test_gemma4_shared_kv_o_only_adapter_round_trip(
+    tmp_path: Path,
+    memory_fusion_placement: str,
+) -> None:
     if Gemma4TextConfig is None or Gemma4TextModel is None:
         pytest.skip("Gemma4 is not available in this Transformers version")
     torch.manual_seed(0)
@@ -1768,6 +2057,7 @@ def test_gemma4_shared_kv_o_only_adapter_round_trip(tmp_path: Path) -> None:
         rwkv_ms_chunk_size=2,
         delta_heads=("o",),
         memory_fusion_mode="content_gated_add",
+        memory_fusion_placement=memory_fusion_placement,
         target_layers=(0, 1, 2, 3),
         target_modules=("self_attn",),
     )
@@ -1780,9 +2070,13 @@ def test_gemma4_shared_kv_o_only_adapter_round_trip(tmp_path: Path) -> None:
                 module.memory_fusion_read_weight.normal_()
 
     save_delta_mem_adapter(source, tmp_path, delta_config)
+    adapter_path = tmp_path / "delta_mem_adapter.pt"
+    adapter_state = torch.load(adapter_path, map_location="cpu", weights_only=True)
+    torch.save(dict(reversed(list(adapter_state.items()))), adapter_path)
     loaded_config = load_delta_mem_adapter(target, tmp_path)
 
     assert loaded_config.target_layers == (0, 1, 2, 3)
+    assert loaded_config.memory_fusion_placement == memory_fusion_placement
     source_modules = dict(source.named_modules())
     target_modules = dict(target.named_modules())
     for module_name, source_module in source_modules.items():
@@ -1795,9 +2089,21 @@ def test_gemma4_shared_kv_o_only_adapter_round_trip(tmp_path: Path) -> None:
                 continue
             target_parameter = dict(target_module.named_parameters())[parameter_name]
             torch.testing.assert_close(target_parameter, source_parameter)
+        assert (
+            source_module._post_attention_norm_hook_handle is not None
+        ) is (memory_fusion_placement == "post_attention_norm")
+        assert (
+            target_module._post_attention_norm_hook_handle is not None
+        ) is (memory_fusion_placement == "post_attention_norm")
 
 
-def test_frozen_mlp_activation_checkpointing_recomputes_only_mlps() -> None:
+@pytest.mark.parametrize(
+    "memory_fusion_placement",
+    ["attention_output", "post_attention_norm"],
+)
+def test_frozen_mlp_activation_checkpointing_recomputes_only_mlps(
+    memory_fusion_placement: str,
+) -> None:
     if Gemma4TextConfig is None or Gemma4TextModel is None:
         pytest.skip("Gemma4 is not available in this Transformers version")
 
@@ -1825,6 +2131,7 @@ def test_frozen_mlp_activation_checkpointing_recomputes_only_mlps() -> None:
             rwkv_ms_chunk_size=2,
             delta_heads=("o",),
             memory_fusion_mode="content_gated_add",
+            memory_fusion_placement=memory_fusion_placement,
             target_layers=(0, 1, 2, 3),
             target_modules=("self_attn",),
         ),
@@ -2386,19 +2693,27 @@ def test_memory_fusion_config_preserves_legacy_add_and_round_trips(
         delta_heads=("o",),
         memory_fusion_mode="content_gated_add",
         memory_fusion_gate_init=0.25,
+        memory_fusion_placement="post_attention_norm",
     )
     gated.save_pretrained(tmp_path)
     legacy_payload = gated.to_dict()
     legacy_payload.pop("memory_fusion_mode")
     legacy_payload.pop("memory_fusion_gate_init")
+    legacy_payload.pop("memory_fusion_placement")
 
     assert HFDeltaMemConfig.from_pretrained(tmp_path) == gated
     assert HFDeltaMemConfig.from_dict(legacy_payload).memory_fusion_mode == "add"
     assert HFDeltaMemConfig.from_dict(legacy_payload).memory_fusion_gate_init == 0.1
+    assert (
+        HFDeltaMemConfig.from_dict(legacy_payload).memory_fusion_placement
+        == "attention_output"
+    )
     with pytest.raises(ValueError, match="memory fusion mode"):
         HFDeltaMemConfig(memory_fusion_mode="unknown")
     with pytest.raises(ValueError, match="memory_fusion_gate_init"):
         HFDeltaMemConfig(memory_fusion_gate_init=0.0)
+    with pytest.raises(ValueError, match="fusion placement"):
+        HFDeltaMemConfig(memory_fusion_placement="inside_mlp")
 
 
 def test_content_gated_delta_o_matches_manual_interpolation_and_reports_stats() -> None:
@@ -2609,6 +2924,8 @@ def test_rwkv_ms_output_init_scale_round_trips_and_is_exposed_by_cli(
             "content_gated_add",
             "--memory-fusion-gate-init",
             "0.25",
+            "--memory-fusion-placement",
+            "post_attention_norm",
         ],
     )
 
@@ -2616,6 +2933,7 @@ def test_rwkv_ms_output_init_scale_round_trips_and_is_exposed_by_cli(
     assert parsed.rwkv_ms_output_init_scale == 0.013
     assert parsed.memory_fusion_mode == "content_gated_add"
     assert parsed.memory_fusion_gate_init == 0.25
+    assert parsed.memory_fusion_placement == "post_attention_norm"
 
 
 def test_rwkv_ms_v2_normalizes_the_live_source_but_v1_remains_raw() -> None:

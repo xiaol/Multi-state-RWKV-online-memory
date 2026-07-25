@@ -32,6 +32,7 @@ from deltamem.core.delta import (
     collect_delta_mem_state_stats,
     collect_delta_mem_weight_stats,
     freeze_non_delta_mem_params,
+    get_delta_mem_state_dict,
     get_delta_mem_online_state,
     get_delta_mem_partition_regularization,
     get_delta_mem_write_regularization,
@@ -40,6 +41,7 @@ from deltamem.core.delta import (
     load_delta_mem_online_state,
     normalize_delta_heads,
     normalize_memory_backend,
+    normalize_memory_fusion_placement,
     normalize_memory_readout_mode,
     normalize_state_update_mode,
     reset_delta_mem_states,
@@ -157,6 +159,8 @@ def _preserve_delta_runtime(model):
         "last_delta_o_gate_mean",
         "last_delta_o_gate_min",
         "last_delta_o_gate_max",
+        "last_delta_o_gate_lt_001_fraction",
+        "last_delta_o_gate_gt_099_fraction",
         "last_fused_delta_o_norm",
         "last_fused_delta_o_ratio",
         "last_delta_o_base_cosine",
@@ -220,7 +224,7 @@ def _promote_trainable_parameters_to_fp32(model) -> None:
 
 
 _RESUME_LATEST_VALUES = frozenset({"auto", "latest"})
-_RESUME_MODES = ("exact", "extend")
+_RESUME_MODES = ("exact", "extend", "placement_ablation")
 _CONTINUATION_SCHEDULERS = frozenset({"constant", "constant_with_warmup"})
 _REQUIRED_RESUME_CHECKPOINT_FILES = (
     "delta_mem_adapter.pt",
@@ -238,6 +242,8 @@ _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
 _CONTENT_CONTRAST_PAIRING_VERSION = "post_split_half_rotation_v1"
 _CONTINUATION_MANIFEST_FILENAME = "continuation_manifest.json"
 _CONTINUATION_MANIFEST_SCHEMA_VERSION = 1
+_ABLATION_LINEAGE_FILENAME = "ablation_lineage_manifest.json"
+_ABLATION_LINEAGE_SCHEMA_VERSION = 1
 
 
 def _missing_resume_checkpoint_files(
@@ -421,6 +427,16 @@ def _normalize_frozen_mlp_checkpointing_protocol(
     return normalized
 
 
+def _normalize_memory_fusion_placement_protocol(
+    protocol: dict[str, object],
+) -> dict[str, object]:
+    normalized = dict(protocol)
+    normalized["memory_fusion_placement"] = normalize_memory_fusion_placement(
+        str(normalized.get("memory_fusion_placement", "attention_output"))
+    )
+    return normalized
+
+
 def validate_resume_training_protocol(
     source_protocol: dict[str, object],
     target_protocol: dict[str, object],
@@ -431,15 +447,28 @@ def validate_resume_training_protocol(
         raise ValueError(f"Unsupported resume mode: {resume_mode}")
     source_protocol = _normalize_frozen_mlp_checkpointing_protocol(source_protocol)
     target_protocol = _normalize_frozen_mlp_checkpointing_protocol(target_protocol)
+    source_protocol = _normalize_memory_fusion_placement_protocol(source_protocol)
+    target_protocol = _normalize_memory_fusion_placement_protocol(target_protocol)
     mismatches = sorted(
         key
         for key in set(source_protocol) | set(target_protocol)
         if source_protocol.get(key) != target_protocol.get(key)
     )
-    if resume_mode == "extend":
+    if resume_mode in {"extend", "placement_ablation"}:
         _validate_training_horizon_extension(source_protocol, target_protocol)
         mismatches = [
             key for key in mismatches if key not in {"max_steps", "num_train_epochs"}
+        ]
+    if resume_mode == "placement_ablation":
+        if (
+            source_protocol["memory_fusion_placement"]
+            == target_protocol["memory_fusion_placement"]
+        ):
+            raise ValueError(
+                "placement_ablation resume requires memory_fusion_placement to change"
+            )
+        mismatches = [
+            key for key in mismatches if key != "memory_fusion_placement"
         ]
     if mismatches:
         raise ValueError(
@@ -448,26 +477,120 @@ def validate_resume_training_protocol(
         )
 
 
+def validate_resume_delta_config(
+    source_config: HFDeltaMemConfig,
+    target_config: HFDeltaMemConfig,
+    *,
+    resume_mode: str,
+) -> None:
+    if resume_mode not in _RESUME_MODES:
+        raise ValueError(f"Unsupported resume mode: {resume_mode}")
+    source = source_config.to_dict()
+    target = target_config.to_dict()
+    mismatches = sorted(
+        key for key in set(source) | set(target) if source.get(key) != target.get(key)
+    )
+    if resume_mode == "placement_ablation":
+        if source["memory_fusion_placement"] == target["memory_fusion_placement"]:
+            raise ValueError(
+                "placement_ablation resume requires memory_fusion_placement to change"
+            )
+        mismatches = [
+            key for key in mismatches if key != "memory_fusion_placement"
+        ]
+    if mismatches:
+        raise ValueError(
+            "Delta-Mem checkpoint config does not match the current training config for: "
+            + ", ".join(mismatches)
+        )
+
+
+def validate_resume_adapter_topology(
+    model: nn.Module,
+    checkpoint: Path,
+) -> str:
+    source_state = torch.load(
+        checkpoint / "delta_mem_adapter.pt",
+        map_location="cpu",
+        weights_only=True,
+    )
+    if not isinstance(source_state, dict):
+        raise ValueError("Delta-Mem checkpoint adapter must contain a state dictionary")
+    target_state = get_delta_mem_state_dict(model)
+    source_keys = list(source_state)
+    target_keys = list(target_state)
+    if source_keys != target_keys:
+        raise ValueError(
+            "Delta-Mem placement ablation requires identical ordered adapter parameter names"
+        )
+    topology = []
+    for name in source_keys:
+        source_tensor = source_state[name]
+        target_tensor = target_state[name]
+        if not isinstance(source_tensor, torch.Tensor):
+            raise ValueError(f"Delta-Mem adapter entry is not a tensor: {name}")
+        if source_tensor.shape != target_tensor.shape:
+            raise ValueError(
+                "Delta-Mem placement ablation adapter shape mismatch for "
+                f"{name}: source={tuple(source_tensor.shape)} target={tuple(target_tensor.shape)}"
+            )
+        if source_tensor.dtype != target_tensor.dtype:
+            raise ValueError(
+                "Delta-Mem placement ablation adapter dtype mismatch for "
+                f"{name}: source={source_tensor.dtype} target={target_tensor.dtype}"
+            )
+        topology.append(
+            {
+                "name": name,
+                "shape": list(source_tensor.shape),
+                "dtype": str(source_tensor.dtype),
+            }
+        )
+    return hashlib.sha256(
+        json.dumps(topology, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _lineage_manifest_filename(manifest: dict[str, object]) -> str:
+    if manifest.get("mode") == "placement_ablation":
+        return _ABLATION_LINEAGE_FILENAME
+    return _CONTINUATION_MANIFEST_FILENAME
+
+
 def prepare_training_continuation(
     args: argparse.Namespace,
     resume_from_checkpoint: str | None,
 ) -> dict[str, object] | None:
-    if args.resume_mode != "extend":
+    if args.resume_mode == "exact":
         if resume_from_checkpoint is None:
             return None
-        manifest_path = Path(resume_from_checkpoint) / _CONTINUATION_MANIFEST_FILENAME
-        if not manifest_path.is_file():
+        checkpoint = Path(resume_from_checkpoint)
+        existing = [
+            path
+            for path in (
+                checkpoint / _ABLATION_LINEAGE_FILENAME,
+                checkpoint / _CONTINUATION_MANIFEST_FILENAME,
+            )
+            if path.is_file()
+        ]
+        if not existing:
             return None
-        manifest = _load_json_object(
-            manifest_path,
-            description="continuation manifest",
+        if len(existing) != 1:
+            raise ValueError(f"Checkpoint has ambiguous resume lineage manifests: {checkpoint}")
+        manifest_path = existing[0]
+        manifest = _load_json_object(manifest_path, description="resume lineage manifest")
+        expected = (
+            ("placement_ablation", _ABLATION_LINEAGE_SCHEMA_VERSION)
+            if manifest_path.name == _ABLATION_LINEAGE_FILENAME
+            else ("extend", _CONTINUATION_MANIFEST_SCHEMA_VERSION)
         )
         if (
-            manifest.get("schema_version") != _CONTINUATION_MANIFEST_SCHEMA_VERSION
-            or manifest.get("mode") != "extend"
+            manifest.get("mode") != expected[0]
+            or manifest.get("schema_version") != expected[1]
         ):
-            raise ValueError(f"Unsupported continuation manifest: {manifest_path}")
+            raise ValueError(f"Unsupported resume lineage manifest: {manifest_path}")
         return manifest
+
     raw_checkpoint = (
         ""
         if args.resume_from_checkpoint is None
@@ -475,16 +598,28 @@ def prepare_training_continuation(
     )
     if not raw_checkpoint or raw_checkpoint.lower() in _RESUME_LATEST_VALUES:
         raise ValueError(
-            "--resume-mode extend requires an explicit --resume-from-checkpoint path"
+            f"--resume-mode {args.resume_mode} requires an explicit "
+            "--resume-from-checkpoint path"
         )
     if resume_from_checkpoint is None:
-        raise ValueError("--resume-mode extend requires a resolved checkpoint")
+        raise ValueError(f"--resume-mode {args.resume_mode} requires a resolved checkpoint")
 
     checkpoint = Path(resume_from_checkpoint).resolve()
     source_trainer_dir = checkpoint.parent
-    target_trainer_dir = (Path(args.output_dir).expanduser().resolve() / "trainer")
+    target_output_dir = Path(args.output_dir).expanduser().resolve()
+    target_trainer_dir = target_output_dir / "trainer"
     if source_trainer_dir == target_trainer_dir:
-        raise ValueError("--resume-mode extend requires a distinct --output-dir")
+        raise ValueError(
+            f"--resume-mode {args.resume_mode} requires a distinct --output-dir"
+        )
+    if (
+        args.resume_mode == "placement_ablation"
+        and target_output_dir.exists()
+        and any(target_output_dir.iterdir())
+    ):
+        raise ValueError(
+            "--resume-mode placement_ablation requires a fresh, empty --output-dir"
+        )
 
     rng_state_files = sorted(
         path.name for path in checkpoint.glob("rng_state*.pth") if path.is_file()
@@ -507,7 +642,7 @@ def prepare_training_continuation(
         ) from exc
     if global_step <= 0 or global_step != source_effective_max_steps:
         raise ValueError(
-            "--resume-mode extend requires a completed checkpoint "
+            f"--resume-mode {args.resume_mode} requires a completed checkpoint "
             "with global_step equal to max_steps"
         )
     checkpoint_step = checkpoint.name.removeprefix("checkpoint-")
@@ -521,10 +656,12 @@ def prepare_training_continuation(
     target_protocol = dict(source_protocol)
     target_protocol["max_steps"] = args.max_steps
     target_protocol["num_train_epochs"] = args.num_train_epochs
+    if args.resume_mode == "placement_ablation":
+        target_protocol["memory_fusion_placement"] = args.memory_fusion_placement
     validate_resume_training_protocol(
         source_protocol,
         target_protocol,
-        resume_mode="extend",
+        resume_mode=args.resume_mode,
     )
     source_protocol_max_steps = int(source_protocol["max_steps"])
     if source_protocol_max_steps > 0 and source_protocol_max_steps != source_effective_max_steps:
@@ -532,9 +669,13 @@ def prepare_training_continuation(
             "Source training protocol max_steps does not match trainer_state.json"
         )
 
-    return {
-        "schema_version": _CONTINUATION_MANIFEST_SCHEMA_VERSION,
-        "mode": "extend",
+    manifest = {
+        "schema_version": (
+            _ABLATION_LINEAGE_SCHEMA_VERSION
+            if args.resume_mode == "placement_ablation"
+            else _CONTINUATION_MANIFEST_SCHEMA_VERSION
+        ),
+        "mode": args.resume_mode,
         "source_checkpoint": str(checkpoint),
         "source_global_step": global_step,
         "source_effective_max_steps": source_effective_max_steps,
@@ -547,6 +688,19 @@ def prepare_training_continuation(
         "lr_scheduler_type": str(source_protocol["lr_scheduler_type"]),
         "warmup_steps": int(source_protocol["warmup_steps"]),
     }
+    if args.resume_mode == "placement_ablation":
+        source_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+        manifest.update(
+            {
+                "ablation": "memory_fusion_placement",
+                "source_memory_fusion_placement": source_config.memory_fusion_placement,
+                "target_memory_fusion_placement": normalize_memory_fusion_placement(
+                    args.memory_fusion_placement
+                ),
+                "source_delta_config_sha256": _protocol_sha256(source_config.to_dict()),
+            }
+        )
+    return manifest
 
 
 def resolve_resume_warmup_steps(
@@ -2402,6 +2556,12 @@ class DeltaMemTrainer(Trainer):
                     "delta/content_gated_fusion_modules": output_ratio_stats[
                         "content_gated_modules"
                     ],
+                    "delta/attention_output_fusion_modules": output_ratio_stats[
+                        "attention_output_fusion_modules"
+                    ],
+                    "delta/post_attention_norm_fusion_modules": output_ratio_stats[
+                        "post_attention_norm_fusion_modules"
+                    ],
                     "delta/base_o_norm": output_ratio_stats["mean_base_o_norm"],
                     "delta/raw_delta_o_norm": output_ratio_stats["mean_delta_o_norm"],
                     "delta/raw_delta_o_ratio": output_ratio_stats["mean_delta_o_ratio"],
@@ -2409,6 +2569,12 @@ class DeltaMemTrainer(Trainer):
                     "delta/fusion_gate_mean": output_ratio_stats["mean_delta_o_gate"],
                     "delta/fusion_gate_min": output_ratio_stats["min_delta_o_gate"],
                     "delta/fusion_gate_max": output_ratio_stats["max_delta_o_gate"],
+                    "delta/fusion_gate_lt_001_fraction": output_ratio_stats[
+                        "mean_delta_o_gate_lt_001_fraction"
+                    ],
+                    "delta/fusion_gate_gt_099_fraction": output_ratio_stats[
+                        "mean_delta_o_gate_gt_099_fraction"
+                    ],
                     "delta/fused_delta_o_norm": output_ratio_stats[
                         "mean_fused_delta_o_norm"
                     ],
@@ -2450,6 +2616,26 @@ class DeltaMemTrainer(Trainer):
                     "delta/memory_partition_balance_loss": self._last_memory_partition_balance_loss,
                 }
             )
+            for group_name in (
+                "nonshared_local",
+                "nonshared_full",
+                "shared_local",
+                "shared_full",
+            ):
+                for metric_name in (
+                    "modules",
+                    "active_modules",
+                    "mean_fused_delta_o_ratio",
+                    "max_fused_delta_o_ratio",
+                    "mean_fused_o_ratio",
+                    "mean_delta_o_base_cosine",
+                    "mean_delta_o_gate",
+                    "mean_delta_o_gate_lt_001_fraction",
+                    "mean_delta_o_gate_gt_099_fraction",
+                ):
+                    enriched_logs[f"delta/group/{group_name}/{metric_name}"] = (
+                        output_ratio_stats[f"{group_name}_{metric_name}"]
+                    )
         super().log(enriched_logs, start_time=start_time)
 
     def training_step(
@@ -2502,7 +2688,7 @@ class DeltaMemTrainer(Trainer):
             )
         continuation_manifest = getattr(self, "continuation_manifest", None)
         if continuation_manifest is not None:
-            (output_path / _CONTINUATION_MANIFEST_FILENAME).write_text(
+            (output_path / _lineage_manifest_filename(continuation_manifest)).write_text(
                 json.dumps(continuation_manifest, indent=2, sort_keys=True)
             )
 
@@ -2554,20 +2740,27 @@ class DeltaMemTrainer(Trainer):
         if self.delta_config is None:
             raise ValueError("DeltaMemTrainer checkpoint loading requires delta_config")
         checkpoint_config = HFDeltaMemConfig.from_pretrained(checkpoint)
-        if checkpoint_config != self.delta_config:
-            expected_config = self.delta_config.to_dict()
-            checkpoint_config_dict = checkpoint_config.to_dict()
-            mismatches = [
-                field_name
-                for field_name, expected_value in expected_config.items()
-                if checkpoint_config_dict[field_name] != expected_value
-            ]
-            raise ValueError(
-                "Delta-Mem checkpoint config does not match the current training config for: "
-                + ", ".join(mismatches)
-            )
+        active_resume_mode = getattr(self, "resume_mode", "exact")
+        validate_resume_delta_config(
+            checkpoint_config,
+            self.delta_config,
+            resume_mode=active_resume_mode,
+        )
+        load_model = self.model if model is None else model
+        if active_resume_mode == "placement_ablation":
+            topology_sha256 = validate_resume_adapter_topology(load_model, checkpoint)
+            lineage = getattr(self, "continuation_manifest", None)
+            if lineage is not None:
+                lineage["ordered_adapter_parameter_topology_sha256"] = topology_sha256
         self._validate_checkpoint_training_protocol(checkpoint)
-        load_delta_mem_adapter(self.model if model is None else model, checkpoint)
+        if active_resume_mode == "placement_ablation":
+            load_delta_mem_adapter(
+                load_model,
+                checkpoint,
+                allowed_config_mismatches=("memory_fusion_placement",),
+            )
+        else:
+            load_delta_mem_adapter(load_model, checkpoint)
 
     def _load_best_model(self) -> None:
         if self.state.best_model_checkpoint is None:
@@ -2606,7 +2799,10 @@ def parse_args() -> argparse.Namespace:
         "--resume-mode",
         choices=_RESUME_MODES,
         default="exact",
-        help="Use 'extend' only to continue a completed checkpoint to a larger horizon.",
+        help=(
+            "Use 'extend' for a larger horizon, or 'placement_ablation' for a paired "
+            "fusion-placement fork with otherwise identical state and protocol."
+        ),
     )
     parser.add_argument("--hf-cache-dir", type=Path, default=None)
     parser.add_argument("--tokenized-dataset-root", type=Path, default=None)
@@ -2680,6 +2876,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.1,
         help="Initial token gate probability for content_gated_add fusion.",
+    )
+    parser.add_argument(
+        "--memory-fusion-placement",
+        default="attention_output",
+        choices=["attention_output", "post_attention_norm"],
+        help="Add delta_o inside attention output or after Gemma's post-attention RMSNorm.",
     )
     parser.add_argument(
         "--trainable-delta-scale",
@@ -4134,6 +4336,11 @@ def build_training_protocol(
         "memory_write_granularity": args.memory_write_granularity,
         "memory_fusion_mode": getattr(args, "memory_fusion_mode", "add"),
         "memory_fusion_gate_init": getattr(args, "memory_fusion_gate_init", 0.1),
+        "memory_fusion_placement": getattr(
+            args,
+            "memory_fusion_placement",
+            "attention_output",
+        ),
         "rwkv_ms_output_init_scale": getattr(args, "rwkv_ms_output_init_scale", 0.02),
         "rwkv_ms_semantics_version": getattr(args, "rwkv_ms_semantics_version", 2),
         "memory_loss_mode": args.memory_loss_mode,
@@ -4413,7 +4620,7 @@ def main() -> None:
             "Gradient checkpointing is currently incompatible with Delta-Mem's stateful token updates. "
             "Disable --gradient-checkpointing before training."
         )
-    if args.resume_mode == "extend":
+    if args.resume_mode in {"extend", "placement_ablation"}:
         raw_checkpoint = (
             ""
             if args.resume_from_checkpoint is None
@@ -4421,7 +4628,8 @@ def main() -> None:
         )
         if not raw_checkpoint or raw_checkpoint.lower() in _RESUME_LATEST_VALUES:
             raise ValueError(
-                "--resume-mode extend requires an explicit --resume-from-checkpoint path"
+                f"--resume-mode {args.resume_mode} requires an explicit "
+                "--resume-from-checkpoint path"
             )
     resume_from_checkpoint = resolve_resume_checkpoint(
         args.resume_from_checkpoint,
@@ -4546,6 +4754,7 @@ def main() -> None:
         delta_o_rmsnorm_eps=args.delta_o_rmsnorm_eps,
         memory_fusion_mode=args.memory_fusion_mode,
         memory_fusion_gate_init=args.memory_fusion_gate_init,
+        memory_fusion_placement=args.memory_fusion_placement,
         online_gain=args.online_gain,
         target_layers=requested_target_layers,
         memory_readout_mode=normalize_memory_readout_mode(args.memory_readout_mode),
@@ -4591,6 +4800,13 @@ def main() -> None:
     training_protocol_sha256 = hashlib.sha256(
         json.dumps(training_protocol, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+    if continuation_manifest is not None and args.resume_mode == "placement_ablation":
+        continuation_manifest.update(
+            {
+                "target_training_protocol_sha256": training_protocol_sha256,
+                "target_delta_config_sha256": _protocol_sha256(delta_config.to_dict()),
+            }
+        )
     training_args_kwargs = dict(
         output_dir=str(args.output_dir / "trainer"),
         per_device_train_batch_size=args.per_device_train_batch_size,
@@ -4698,6 +4914,7 @@ def main() -> None:
 
     base_model = trainer.accelerator.unwrap_model(trainer.model)
     if trainer.is_world_process_zero():
+        active_lineage = getattr(trainer, "continuation_manifest", None)
         save_delta_mem_adapter(base_model, args.output_dir, delta_config)
         (args.output_dir / _TRAINING_PROTOCOL_FILENAME).write_text(
             json.dumps(training_protocol, indent=2, sort_keys=True)
@@ -4706,15 +4923,18 @@ def main() -> None:
             (args.output_dir / _CONTENT_CONTRAST_PAIRING_FILENAME).write_text(
                 json.dumps(content_contrast_pairing_manifest, indent=2, sort_keys=True)
             )
-        if continuation_manifest is not None:
-            (args.output_dir / _CONTINUATION_MANIFEST_FILENAME).write_text(
-                json.dumps(continuation_manifest, indent=2, sort_keys=True)
+        if active_lineage is not None:
+            (
+                args.output_dir / _lineage_manifest_filename(active_lineage)
+            ).write_text(
+                json.dumps(active_lineage, indent=2, sort_keys=True)
             )
         summary = {
             "output_dir": str(args.output_dir),
             "resume_from_checkpoint": resume_from_checkpoint,
             "resume_mode": args.resume_mode,
-            "continuation": continuation_manifest,
+            "continuation": active_lineage,
+            "resume_lineage": active_lineage,
             "num_replaced_modules": len(replaced),
             "num_trainable_tensors": len(trainable_names),
             "num_checkpointed_frozen_mlps": len(checkpointed_frozen_mlps),
@@ -4738,6 +4958,7 @@ def main() -> None:
             "delta_o_rmsnorm_eps": args.delta_o_rmsnorm_eps,
             "memory_fusion_mode": args.memory_fusion_mode,
             "memory_fusion_gate_init": args.memory_fusion_gate_init,
+            "memory_fusion_placement": args.memory_fusion_placement,
             "target_layers": args.target_layers,
             "memory_contrast_weight": args.memory_contrast_weight,
             "memory_kl_weight": args.memory_kl_weight,

@@ -684,3 +684,202 @@ def test_delta_mem_trainer_saves_continuation_manifest(
     assert json.loads(
         (output / experimental_train._CONTINUATION_MANIFEST_FILENAME).read_text()
     ) == manifest
+
+
+def test_resume_protocol_normalizes_legacy_fusion_placement() -> None:
+    legacy = _continuation_protocol()
+    explicit_legacy = {
+        **legacy,
+        "memory_fusion_placement": "attention_output",
+    }
+    experimental_train.validate_resume_training_protocol(
+        legacy,
+        explicit_legacy,
+        resume_mode="exact",
+    )
+
+    with pytest.raises(ValueError, match="memory_fusion_placement"):
+        experimental_train.validate_resume_training_protocol(
+            legacy,
+            {**legacy, "memory_fusion_placement": "post_attention_norm"},
+            resume_mode="exact",
+        )
+
+
+def test_placement_ablation_protocol_allows_only_placement_and_horizon() -> None:
+    source = _continuation_protocol()
+    target = {
+        **source,
+        "max_steps": 160,
+        "num_train_epochs": 5.0,
+        "memory_fusion_placement": "post_attention_norm",
+    }
+    experimental_train.validate_resume_training_protocol(
+        source,
+        target,
+        resume_mode="placement_ablation",
+    )
+
+    with pytest.raises(ValueError, match="requires memory_fusion_placement to change"):
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "memory_fusion_placement": "attention_output"},
+            resume_mode="placement_ablation",
+        )
+    with pytest.raises(ValueError, match="learning_rate"):
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "learning_rate": 2e-3},
+            resume_mode="placement_ablation",
+        )
+
+
+def test_placement_ablation_config_allows_only_placement() -> None:
+    source = HFDeltaMemConfig(
+        rank=2,
+        delta_heads=("o",),
+        memory_fusion_placement="attention_output",
+    )
+    target = HFDeltaMemConfig(
+        rank=2,
+        delta_heads=("o",),
+        memory_fusion_placement="post_attention_norm",
+    )
+    experimental_train.validate_resume_delta_config(
+        source,
+        target,
+        resume_mode="placement_ablation",
+    )
+
+    with pytest.raises(ValueError, match="rank"):
+        experimental_train.validate_resume_delta_config(
+            source,
+            HFDeltaMemConfig(
+                rank=4,
+                delta_heads=("o",),
+                memory_fusion_placement="post_attention_norm",
+            ),
+            resume_mode="placement_ablation",
+        )
+
+
+def test_prepare_placement_ablation_records_strict_lineage(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "source" / "trainer" / "checkpoint-128"
+    source_protocol = _write_continuation_checkpoint(checkpoint)
+    args = SimpleNamespace(
+        resume_mode="placement_ablation",
+        resume_from_checkpoint=str(checkpoint),
+        output_dir=tmp_path / "target",
+        max_steps=160,
+        num_train_epochs=5.0,
+        memory_fusion_placement="post_attention_norm",
+    )
+
+    manifest = experimental_train.prepare_training_continuation(args, str(checkpoint))
+
+    assert manifest is not None
+    assert manifest["mode"] == "placement_ablation"
+    assert manifest["ablation"] == "memory_fusion_placement"
+    assert manifest["source_memory_fusion_placement"] == "attention_output"
+    assert manifest["target_memory_fusion_placement"] == "post_attention_norm"
+    assert manifest["source_global_step"] == 128
+    assert manifest["target_max_steps"] == 160
+    assert manifest["source_training_protocol_sha256"] == (
+        experimental_train._protocol_sha256(source_protocol)
+    )
+
+
+def test_prepare_placement_ablation_requires_fresh_output(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "source" / "trainer" / "checkpoint-128"
+    _write_continuation_checkpoint(checkpoint)
+    output_dir = tmp_path / "target"
+    output_dir.mkdir()
+    (output_dir / "existing.txt").touch()
+    args = SimpleNamespace(
+        resume_mode="placement_ablation",
+        resume_from_checkpoint=str(checkpoint),
+        output_dir=output_dir,
+        max_steps=160,
+        num_train_epochs=5.0,
+        memory_fusion_placement="post_attention_norm",
+    )
+
+    with pytest.raises(ValueError, match="fresh, empty"):
+        experimental_train.prepare_training_continuation(args, str(checkpoint))
+
+
+def test_delta_mem_trainer_loads_placement_ablation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkpoint = tmp_path / "source" / "trainer" / "checkpoint-128"
+    source_protocol = _write_continuation_checkpoint(checkpoint)
+    target_protocol = {
+        **source_protocol,
+        "max_steps": 160,
+        "num_train_epochs": 5.0,
+        "memory_fusion_placement": "post_attention_norm",
+    }
+    loaded: list[tuple[Path, tuple[str, ...]]] = []
+    monkeypatch.setattr(
+        experimental_train,
+        "validate_resume_adapter_topology",
+        lambda model, source: "topology-sha",
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "load_delta_mem_adapter",
+        lambda model, source, *, allowed_config_mismatches=(): loaded.append(
+            (Path(source), allowed_config_mismatches)
+        ),
+    )
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.model = torch.nn.Linear(2, 2)
+    trainer.delta_config = HFDeltaMemConfig(
+        rank=2,
+        memory_fusion_placement="post_attention_norm",
+    )
+    trainer.training_protocol = target_protocol
+    trainer.resume_mode = "placement_ablation"
+    trainer.continuation_manifest = {"mode": "placement_ablation"}
+
+    trainer._load_from_checkpoint(str(checkpoint))
+
+    assert loaded == [(checkpoint.resolve(), ("memory_fusion_placement",))]
+    assert (
+        trainer.continuation_manifest["ordered_adapter_parameter_topology_sha256"]
+        == "topology-sha"
+    )
+
+
+def test_delta_mem_trainer_saves_ablation_lineage_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "checkpoint-160"
+    manifest = {
+        "schema_version": experimental_train._ABLATION_LINEAGE_SCHEMA_VERSION,
+        "mode": "placement_ablation",
+        "source_global_step": 128,
+    }
+
+    def fake_save_adapter(model, output_dir, active_config) -> None:
+        del model, active_config
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(experimental_train, "save_delta_mem_adapter", fake_save_adapter)
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.args = SimpleNamespace(output_dir=str(output))
+    trainer.model = torch.nn.Linear(2, 2)
+    trainer.delta_config = HFDeltaMemConfig(rank=2)
+    trainer.training_protocol = _continuation_protocol(max_steps=160)
+    trainer.content_contrast_pairing_manifest = None
+    trainer.continuation_manifest = manifest
+    trainer.accelerator = SimpleNamespace(unwrap_model=lambda wrapped: wrapped)
+    trainer.is_world_process_zero = lambda: True
+
+    trainer.save_model(str(output))
+
+    assert json.loads(
+        (output / experimental_train._ABLATION_LINEAGE_FILENAME).read_text()
+    ) == manifest

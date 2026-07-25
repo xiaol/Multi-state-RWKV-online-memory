@@ -14,6 +14,8 @@ REPO="${REPO:-$(cd -- "$SCRIPT_DIR/../.." && pwd)}"
 NUM_TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-4}"
 MAX_STEPS="${MAX_STEPS:-128}"
 RESUME_FROM_CHECKPOINT="${RESUME_FROM_CHECKPOINT:-}"
+RESUME_MODE="${RESUME_MODE:-extend}"
+MEMORY_FUSION_PLACEMENT="${MEMORY_FUSION_PLACEMENT:-attention_output}"
 TARGET_LAYERS="$(seq -s, 0 41)"
 
 if [[ -e "$OUTPUT_DIR" ]]; then
@@ -25,7 +27,7 @@ resume_args=()
 if [[ -n "$RESUME_FROM_CHECKPOINT" ]]; then
   resume_args=(
     --resume-from-checkpoint "$RESUME_FROM_CHECKPOINT"
-    --resume-mode extend
+    --resume-mode "$RESUME_MODE"
   )
 fi
 
@@ -64,6 +66,7 @@ PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_BIN" \
   --delta-o-rmsnorm-eps 1e-6 \
   --memory-fusion-mode content_gated_add \
   --memory-fusion-gate-init 0.1 \
+  --memory-fusion-placement "$MEMORY_FUSION_PLACEMENT" \
   --trainable-delta-scale \
   --delta-scale-init 0.1 \
   --delta-scale-max 0.5 \

@@ -308,6 +308,13 @@ def export_sidecar(args: argparse.Namespace) -> dict[str, Any]:
     if config.get("memory_backend") == "rwkv_ms" and "rwkv_ms_semantics_version" not in config:
         config = dict(config)
         config["rwkv_ms_semantics_version"] = 1
+    fusion_placement = str(config.get("memory_fusion_placement", "attention_output"))
+    if fusion_placement != "attention_output":
+        raise ValueError(
+            "GGUF export does not support "
+            f"memory_fusion_placement={fusion_placement!r}; post-attention RMSNorm "
+            "fusion is not implemented by the GGUF runtime"
+        )
     fusion_mode = str(config.get("memory_fusion_mode", "add"))
     if fusion_mode != "add":
         raise ValueError(

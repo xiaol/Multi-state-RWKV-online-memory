@@ -20,11 +20,13 @@ except Exception:  # pragma: no cover - optional Transformers version support
 try:
     from transformers.models.gemma4.modeling_gemma4 import (
         Gemma4TextAttention,
+        Gemma4TextDecoderLayer,
         apply_rotary_pos_emb as gemma4_apply_rotary_pos_emb,
         eager_attention_forward as gemma4_eager_attention_forward,
     )
 except Exception:  # pragma: no cover - optional Transformers version support
     Gemma4TextAttention = None
+    Gemma4TextDecoderLayer = None
     gemma4_apply_rotary_pos_emb = None
     gemma4_eager_attention_forward = None
 

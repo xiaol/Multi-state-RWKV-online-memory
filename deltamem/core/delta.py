@@ -14,6 +14,7 @@ from deltamem.core.delta_impl import (
     VALID_DELTA_HEADS,
     VALID_MEMORY_BACKENDS,
     VALID_MEMORY_FUSION_MODES,
+    VALID_MEMORY_FUSION_PLACEMENTS,
     VALID_MEMORY_PARTITION_BASIS,
     VALID_MEMORY_PARTITION_ROUTING,
     VALID_STATE_UPDATE_MODES,
@@ -24,6 +25,7 @@ from deltamem.core.delta_impl import (
     collect_delta_mem_weight_stats,
     diff_delta_mem_snapshots,
     freeze_non_delta_mem_params,
+    get_delta_mem_state_dict,
     get_delta_mem_online_state,
     get_delta_mem_partition_regularization,
     get_delta_mem_write_regularization,
@@ -33,6 +35,7 @@ from deltamem.core.delta_impl import (
     normalize_delta_heads,
     normalize_memory_backend,
     normalize_memory_fusion_mode,
+    normalize_memory_fusion_placement,
     normalize_memory_partition_basis,
     normalize_memory_partition_routing,
     normalize_state_update_mode,
@@ -44,6 +47,7 @@ from deltamem.core.delta_impl import (
     set_delta_mem_write_sentence_ids,
     snapshot_delta_mem_weights,
     validate_gemma4_shared_delta_heads,
+    validate_memory_fusion_placement_target,
     HFDeltaMemConfig as ExperimentalHFDeltaMemConfig,
     DeltaMemAttention as ExperimentalDeltaMemAttention,
 )
@@ -115,27 +119,44 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
         ):
             continue
         validate_gemma4_shared_delta_heads(module, config)
-        candidates.append((name, module))
-
-    replaced = []
-    for name, module in candidates:
-        module = ensure_attention_compat_views(module)
         parent, attr = _get_parent_module(model, name)
-        wrapped = DeltaMemAttention(module, config).to(
-            device=module.q_proj.weight.device,
-            dtype=module.q_proj.weight.dtype,
+        layernorm = validate_memory_fusion_placement_target(
+            module,
+            parent,
+            attr,
+            config,
+            module_name=name,
         )
-        setattr(parent, attr, wrapped)
-        replaced.append(name)
-    if not replaced:
+        candidates.append((name, module, parent, attr, layernorm))
+
+    if not candidates:
         raise RuntimeError("No target modules were replaced")
-    return replaced
+
+    installed = []
+    try:
+        for name, module, parent, attr, layernorm in candidates:
+            module = ensure_attention_compat_views(module)
+            wrapped = DeltaMemAttention(module, config).to(
+                device=module.q_proj.weight.device,
+                dtype=module.q_proj.weight.dtype,
+            )
+            setattr(parent, attr, wrapped)
+            installed.append((parent, attr, module, wrapped))
+            if layernorm is not None:
+                wrapped.bind_post_attention_layernorm(layernorm)
+    except Exception:
+        for parent, attr, original, wrapped in reversed(installed):
+            wrapped.remove_post_attention_layernorm_hook()
+            setattr(parent, attr, original)
+        raise
+    return [name for name, *_ in candidates]
 
 
 __all__ = [
     "VALID_DELTA_HEADS",
     "VALID_MEMORY_BACKENDS",
     "VALID_MEMORY_FUSION_MODES",
+    "VALID_MEMORY_FUSION_PLACEMENTS",
     "VALID_MEMORY_PARTITION_BASIS",
     "VALID_MEMORY_PARTITION_ROUTING",
     "VALID_MEMORY_READOUT_MODES",
@@ -150,6 +171,7 @@ __all__ = [
     "collect_delta_mem_weight_stats",
     "diff_delta_mem_snapshots",
     "freeze_non_delta_mem_params",
+    "get_delta_mem_state_dict",
     "get_delta_mem_online_state",
     "get_delta_mem_partition_regularization",
     "get_delta_mem_write_regularization",
@@ -159,6 +181,7 @@ __all__ = [
     "normalize_delta_heads",
     "normalize_memory_backend",
     "normalize_memory_fusion_mode",
+    "normalize_memory_fusion_placement",
     "normalize_memory_partition_basis",
     "normalize_memory_partition_routing",
     "normalize_memory_readout_mode",
