@@ -237,9 +237,11 @@ _REQUIRED_RESUME_CHECKPOINT_FILES = (
 _TRAINING_PROTOCOL_FILENAME = "training_protocol.json"
 _TRAINING_PROTOCOL_SCHEMA_VERSION = 2
 _MEMORY_OBJECTIVE_VERSION = "canonical_full_context_teacher_v1"
-_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 4
-_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v2"
+_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 5
+_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v3"
 _CONTENT_CONTRAST_BACKWARD_MODE = "sequential_exact_first_order_v1"
+_CONTENT_CONTRAST_READ_MASK_MODE = "valid_context_tokens_v1"
+_CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD = True
 _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
 _CONTENT_CONTRAST_PAIRING_VERSION = "post_split_half_rotation_v1"
 _CONTINUATION_MANIFEST_FILENAME = "continuation_manifest.json"
@@ -260,6 +262,8 @@ _OBJECTIVE_ABLATION_PROTOCOL_DRIFT = frozenset(
         "memory_partition_balance_weight",
         "content_contrast_negative_priming_grad",
         "content_contrast_backward_mode",
+        "content_contrast_read_mask_mode",
+        "content_contrast_previous_source_grad",
         "content_contrast_pairing",
     }
 )
@@ -574,6 +578,8 @@ def _validate_objective_ablation_target_protocol(
         "memory_partition_balance_weight": 0.0,
         "content_contrast_negative_priming_grad": True,
         "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
+        "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
+        "content_contrast_previous_source_grad": _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD,
     }
     mismatches = [
         key for key, value in expected.items() if target_protocol.get(key) != value
@@ -879,6 +885,10 @@ def prepare_training_continuation(
                 "memory_partition_balance_weight": args.memory_partition_balance_weight,
                 "content_contrast_negative_priming_grad": True,
                 "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
+                "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
+                "content_contrast_previous_source_grad": (
+                    _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
+                ),
             }
         )
     validate_resume_training_protocol(
@@ -945,6 +955,12 @@ def prepare_training_continuation(
                 "target_memory_objective_version": _CONTENT_CONTRAST_OBJECTIVE_VERSION,
                 "target_content_contrast_backward_mode": (
                     _CONTENT_CONTRAST_BACKWARD_MODE
+                ),
+                "target_content_contrast_read_mask_mode": (
+                    _CONTENT_CONTRAST_READ_MASK_MODE
+                ),
+                "target_content_contrast_previous_source_grad": (
+                    _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
                 ),
                 "target_memory_contrast_weight": float(args.memory_contrast_weight),
                 "target_memory_margin": float(args.memory_margin),
@@ -4952,6 +4968,10 @@ def build_training_protocol(
                 "memory_partition_balance_weight": args.memory_partition_balance_weight,
                 "content_contrast_negative_priming_grad": True,
                 "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
+                "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
+                "content_contrast_previous_source_grad": (
+                    _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
+                ),
                 "content_contrast_pairing": _content_contrast_protocol_pairing_summary(
                     content_contrast_pairing_manifest
                 ),
@@ -5537,6 +5557,12 @@ def main() -> None:
             "memory_objective_version": training_protocol["memory_objective_version"],
             "content_contrast_backward_mode": training_protocol.get(
                 "content_contrast_backward_mode"
+            ),
+            "content_contrast_read_mask_mode": training_protocol.get(
+                "content_contrast_read_mask_mode"
+            ),
+            "content_contrast_previous_source_grad": training_protocol.get(
+                "content_contrast_previous_source_grad"
             ),
             "teacher_max_length": args.max_write_length + args.max_length,
             "memory_write_source": args.memory_write_source,

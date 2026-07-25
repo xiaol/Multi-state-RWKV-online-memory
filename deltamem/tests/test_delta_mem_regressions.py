@@ -26,6 +26,7 @@ from deltamem.core.delta import (
     load_delta_mem_online_state,
     reset_delta_mem_states,
     save_delta_mem_adapter,
+    set_delta_mem_read_context_mask,
     set_delta_mem_write_enabled,
     set_delta_mem_write_message_ids,
     set_delta_mem_write_sentence_ids,
@@ -2580,6 +2581,103 @@ def test_disable_writes_preserves_rwkv_ms_state_during_read_phase() -> None:
     assert torch.equal(module.rwkv_ms_previous_source, previous_source_before)
 
 
+def test_rwkv_ms_read_context_mask_gates_memory_without_changing_write_validity() -> None:
+    module = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=3,
+        delta_heads=("o",),
+    ).eval()
+    write_x = torch.randn(1, 5, 8)
+    write_position_embeddings = make_position_embeddings(
+        batch_size=write_x.size(0),
+        seq_len=write_x.size(1),
+        head_dim=module.base.head_dim,
+        device=write_x.device,
+        dtype=write_x.dtype,
+    )
+    with torch.no_grad():
+        _ = module(write_x, write_position_embeddings, None)
+    baseline = copy.deepcopy(module)
+    assert baseline.delta_state is not None
+    baseline.delta_state.zero_()
+
+    read_x = torch.randn(1, 4, 8)
+    read_position_embeddings = make_position_embeddings(
+        batch_size=read_x.size(0),
+        seq_len=read_x.size(1),
+        head_dim=module.base.head_dim,
+        device=read_x.device,
+        dtype=read_x.dtype,
+    )
+    context_mask = torch.tensor([[True, False, True, True]])
+    attention_mask = make_causal_attention_mask(torch.tensor([[1, 1, 1, 0]]))
+    for active in (module, baseline):
+        set_delta_mem_write_enabled(active, False)
+        set_delta_mem_read_context_mask(active, context_mask)
+
+    with torch.no_grad():
+        output, _ = module(read_x, read_position_embeddings, attention_mask)
+        baseline_output, _ = baseline(read_x, read_position_embeddings, attention_mask)
+    memory_correction = output - baseline_output
+
+    assert torch.count_nonzero(memory_correction[:, [0, 2]]).item() > 0
+    assert torch.equal(
+        memory_correction[:, [1, 3]],
+        torch.zeros_like(memory_correction[:, [1, 3]]),
+    )
+    assert module.last_read_routes is not None
+    assert torch.equal(
+        module.last_read_routes[:, [1, 3]],
+        torch.zeros_like(module.last_read_routes[:, [1, 3]]),
+    )
+
+
+def test_rwkv_ms_read_time_mix_keeps_live_gradient_to_final_write_source() -> None:
+    module = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=3,
+        delta_heads=("o",),
+    ).eval()
+
+    for _ in range(2):
+        module.reset_state()
+        set_delta_mem_write_enabled(module, True)
+        module.zero_grad(set_to_none=True)
+        write_x = torch.randn(1, 5, 8, requires_grad=True)
+        write_position_embeddings = make_position_embeddings(
+            batch_size=write_x.size(0),
+            seq_len=write_x.size(1),
+            head_dim=module.base.head_dim,
+            device=write_x.device,
+            dtype=write_x.dtype,
+        )
+        _ = module(write_x, write_position_embeddings, None)
+        assert module.delta_state is not None
+        assert module.rwkv_ms_previous_source is not None
+        assert module.rwkv_ms_previous_source.requires_grad
+
+        # Remove the ordinary memory-state edge so this checks only the
+        # write-final-source -> read time-mix path.
+        module.delta_state = module.delta_state.detach()
+        set_delta_mem_write_enabled(module, False)
+        read_x = torch.randn(1, 4, 8)
+        read_position_embeddings = make_position_embeddings(
+            batch_size=read_x.size(0),
+            seq_len=read_x.size(1),
+            head_dim=module.base.head_dim,
+            device=read_x.device,
+            dtype=read_x.dtype,
+        )
+        output, _ = module(read_x, read_position_embeddings, None)
+        output.square().sum().backward()
+
+        assert write_x.grad is not None
+        assert torch.isfinite(write_x.grad).all()
+        assert torch.count_nonzero(write_x.grad[:, -1]).item() > 0
+
+
 def test_rwkv_ms_read_only_reads_are_chunk_invariant() -> None:
     module = make_delta_module(
         output_init="random",
@@ -2769,6 +2867,11 @@ def test_rwkv_ms_online_state_round_trips_streaming_predecessor() -> None:
     assert torch.equal(target.delta_state, source.delta_state)
     assert torch.equal(target.rwkv_ms_positions, source.rwkv_ms_positions)
     assert torch.equal(target.rwkv_ms_previous_source, source.rwkv_ms_previous_source)
+    assert not target.rwkv_ms_previous_source.requires_grad
+    assert target.rwkv_ms_previous_source.grad_fn is None
+    for tensor in snapshot.values():
+        assert not tensor.requires_grad
+        assert tensor.grad_fn is None
 
 
 def test_rwkv_ms_trainer_capture_and_scatter_include_streaming_predecessor() -> None:

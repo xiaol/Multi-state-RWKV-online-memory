@@ -164,6 +164,12 @@ def _objective_target_protocol() -> dict[str, object]:
         "content_contrast_backward_mode": (
             experimental_train._CONTENT_CONTRAST_BACKWARD_MODE
         ),
+        "content_contrast_read_mask_mode": (
+            experimental_train._CONTENT_CONTRAST_READ_MASK_MODE
+        ),
+        "content_contrast_previous_source_grad": (
+            experimental_train._CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
+        ),
         "content_contrast_pairing": _objective_pairing_summary(),
         "max_steps": 416,
         "num_train_epochs": 13.0,
@@ -1114,6 +1120,10 @@ def test_prepare_objective_ablation_records_strict_lineage(tmp_path: Path) -> No
     assert manifest["target_content_contrast_backward_mode"] == (
         experimental_train._CONTENT_CONTRAST_BACKWARD_MODE
     )
+    assert manifest["target_content_contrast_read_mask_mode"] == (
+        experimental_train._CONTENT_CONTRAST_READ_MASK_MODE
+    )
+    assert manifest["target_content_contrast_previous_source_grad"] is True
     assert manifest["target_memory_contrast_weight"] == 0.25
     assert manifest["target_memory_margin"] == 0.5
     assert manifest["source_training_protocol_sha256"] == (

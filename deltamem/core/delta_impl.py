@@ -1506,7 +1506,10 @@ class DeltaMemAttention(nn.Module):
             return token_mask
         if self.read_context_mask.size(0) != batch_size or self.read_context_mask.size(1) != seq_len:
             return token_mask
-        return self.read_context_mask.to(device=device)
+        read_context_mask = self.read_context_mask.to(device=device, dtype=torch.bool)
+        if token_mask is None:
+            return read_context_mask
+        return read_context_mask & token_mask.to(device=device, dtype=torch.bool)
 
     def _global_partition_logit_bias(
         self,
@@ -2346,7 +2349,9 @@ class DeltaMemAttention(nn.Module):
         self.last_write_routes = torch.stack(write_routes, dim=1)
         if update_positions:
             self.rwkv_ms_positions = positions.detach()
-            self.rwkv_ms_previous_source = next_previous_source.detach()
+            # Keep the write-to-read time-mix path live inside an episode. Online
+            # state export remains the persistence boundary that detaches tensors.
+            self.rwkv_ms_previous_source = next_previous_source
         return current_state, reads
 
     def _rwkv_ms_token_state_reads(
@@ -2711,6 +2716,12 @@ class DeltaMemAttention(nn.Module):
             seq_len=seq_len,
             device=hidden_states.device,
         )
+        read_mask = self._resolve_read_context_mask(
+            token_mask,
+            batch_size=batch_size,
+            seq_len=seq_len,
+            device=hidden_states.device,
+        )
         token_memory_q_seq, token_memory_k_seq, token_memory_v_seq, beta_seq, lambda_seq = (
             self._memory_sequence_projections(hidden_states)
         )
@@ -2798,6 +2809,15 @@ class DeltaMemAttention(nn.Module):
                 read_route_seq,
                 token_mask,
             )
+        if read_mask is not None:
+            reads = reads * read_mask.unsqueeze(-1).to(dtype=reads.dtype)
+            if (
+                self.last_read_routes is not None
+                and self.last_read_routes.shape[:2] == read_mask.shape
+            ):
+                self.last_read_routes = self.last_read_routes * read_mask.unsqueeze(-1).to(
+                    dtype=self.last_read_routes.dtype
+                )
         self.delta_state = state
         self.last_beta_mean = self._masked_gate_mean(stats_beta, stats_mask)
         self.last_lambda_mean = self._masked_gate_mean(stats_lambda, stats_mask)
@@ -2824,7 +2844,7 @@ class DeltaMemAttention(nn.Module):
                     delta_o,
                     hidden_states,
                     reads,
-                    token_mask,
+                    read_mask,
                 ),
                 attn_weights,
             )
@@ -2910,7 +2930,7 @@ class DeltaMemAttention(nn.Module):
                 delta_o,
                 hidden_states,
                 reads,
-                token_mask,
+                read_mask,
             ),
             attn_weights,
         )

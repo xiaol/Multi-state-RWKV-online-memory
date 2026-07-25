@@ -1411,6 +1411,10 @@ def test_training_protocol_records_exact_content_contrast_pairing() -> None:
     assert protocol["content_contrast_backward_mode"] == (
         experimental_train._CONTENT_CONTRAST_BACKWARD_MODE
     )
+    assert protocol["content_contrast_read_mask_mode"] == (
+        experimental_train._CONTENT_CONTRAST_READ_MASK_MODE
+    )
+    assert protocol["content_contrast_previous_source_grad"] is True
     assert protocol["content_contrast_pairing"]["manifest_sha256"] == (
         pairing_manifest["manifest_sha256"]
     )
