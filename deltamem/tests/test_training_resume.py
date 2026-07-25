@@ -160,7 +160,10 @@ def _objective_target_protocol() -> dict[str, object]:
         "memory_partition_alignment_weight": 0.0,
         "memory_partition_entropy_weight": 0.0,
         "memory_partition_balance_weight": 0.0,
-        "content_contrast_negative_priming_grad": False,
+        "content_contrast_negative_priming_grad": True,
+        "content_contrast_backward_mode": (
+            experimental_train._CONTENT_CONTRAST_BACKWARD_MODE
+        ),
         "content_contrast_pairing": _objective_pairing_summary(),
         "max_steps": 416,
         "num_train_epochs": 13.0,
@@ -417,6 +420,9 @@ def test_delta_mem_trainer_requires_exact_content_contrast_pairing_manifest(
     protocol = {
         "schema_version": experimental_train._CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION,
         "memory_objective_version": experimental_train._CONTENT_CONTRAST_OBJECTIVE_VERSION,
+        "content_contrast_backward_mode": (
+            experimental_train._CONTENT_CONTRAST_BACKWARD_MODE
+        ),
         "content_contrast_pairing": {"manifest_sha256": "expected"},
     }
     pairing_manifest = {
@@ -456,6 +462,9 @@ def test_content_contrast_checkpoint_manifest_save_load_roundtrip(
     protocol = {
         "schema_version": experimental_train._CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION,
         "memory_objective_version": experimental_train._CONTENT_CONTRAST_OBJECTIVE_VERSION,
+        "content_contrast_backward_mode": (
+            experimental_train._CONTENT_CONTRAST_BACKWARD_MODE
+        ),
         "content_contrast_pairing": {"manifest_sha256": "pairing-hash"},
     }
     pairing_manifest = {
@@ -1045,6 +1054,12 @@ def test_objective_ablation_protocol_allows_only_strict_objective_transition() -
             {**target, "memory_contrast_weight": 0.0},
             resume_mode="objective_ablation",
         )
+    with pytest.raises(ValueError, match="content_contrast_backward_mode"):
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "content_contrast_backward_mode": "joint_graph_v1"},
+            resume_mode="objective_ablation",
+        )
     with pytest.raises(ValueError, match="tokenized_fingerprint does not match"):
         invalid_pairing = {
             **_objective_pairing_summary(),
@@ -1096,6 +1111,9 @@ def test_prepare_objective_ablation_records_strict_lineage(tmp_path: Path) -> No
     assert manifest["target_max_steps"] == 416
     assert manifest["source_memory_loss_mode"] == "context_dropout_ce"
     assert manifest["target_memory_loss_mode"] == "content_contrast_ce"
+    assert manifest["target_content_contrast_backward_mode"] == (
+        experimental_train._CONTENT_CONTRAST_BACKWARD_MODE
+    )
     assert manifest["target_memory_contrast_weight"] == 0.25
     assert manifest["target_memory_margin"] == 0.5
     assert manifest["source_training_protocol_sha256"] == (

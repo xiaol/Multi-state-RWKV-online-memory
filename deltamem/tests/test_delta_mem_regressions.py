@@ -880,7 +880,7 @@ def test_two_training_steps_succeed_with_state_reset() -> None:
         optimizer.step()
 
 
-def test_content_contrast_real_rwkv_ms_state_keeps_only_positive_writer_graph() -> None:
+def test_content_contrast_real_rwkv_ms_state_keeps_both_writer_graphs() -> None:
     class TinyDeltaMemoryLM(torch.nn.Module):
         def __init__(self) -> None:
             super().__init__()
@@ -945,17 +945,17 @@ def test_content_contrast_real_rwkv_ms_state_keeps_only_positive_writer_graph() 
         model,
         model_inputs,
         loss_kwargs={},
-        write_input_ids=torch.tensor([[4, 5, 6]]),
+        write_input_ids=torch.tensor([[10, 11, 12]]),
         write_attention_mask=torch.ones(1, 3, dtype=torch.long),
         write_message_ids=torch.zeros(1, 3, dtype=torch.long),
         write_sentence_ids=torch.zeros(1, 3, dtype=torch.long),
-        negative_write_input_ids=torch.tensor([[7, 8, 9]]),
+        negative_write_input_ids=torch.tensor([[20, 21, 22]]),
         negative_write_attention_mask=torch.ones(1, 3, dtype=torch.long),
         negative_write_message_ids=torch.zeros(1, 3, dtype=torch.long),
         negative_write_sentence_ids=torch.zeros(1, 3, dtype=torch.long),
     )
 
-    assert prime_state_requires_grad == [True, False]
+    assert prime_state_requires_grad == [True, True]
     assert stats["teacher_loss"] == 0.0
     assert stats["kl_loss"] == 0.0
     assert torch.isfinite(loss)
@@ -965,6 +965,11 @@ def test_content_contrast_real_rwkv_ms_state_keeps_only_positive_writer_graph() 
     assert readout_grad is not None
     assert torch.isfinite(readout_grad).all()
     assert torch.count_nonzero(readout_grad) > 0
+    embedding_grad = model.embedding.weight.grad
+    assert embedding_grad is not None
+    donor_writer_grad = embedding_grad[20:23]
+    assert torch.isfinite(donor_writer_grad).all()
+    assert torch.count_nonzero(donor_writer_grad) > 0
 
 
 @pytest.mark.parametrize("rankwise_gates", [False, True])

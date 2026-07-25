@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from argparse import Namespace
+from contextlib import nullcontext
 import sys
 
 import pytest
@@ -566,7 +567,7 @@ def test_content_contrast_resets_between_branches_and_never_runs_teacher(
     ]
     assert [event for event in events if event[0] == "prime"] == [
         ("prime", (10, True)),
-        ("prime", (20, False)),
+        ("prime", (20, True)),
     ]
     assert [event for event in events if event[0] == "write"] == [
         ("write", False),
@@ -589,6 +590,106 @@ def test_content_contrast_resets_between_branches_and_never_runs_teacher(
     loss.backward()
     assert model.parameter.grad is not None
     assert torch.isfinite(model.parameter.grad)
+
+
+def test_content_contrast_sequential_backward_matches_joint_gradient(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    trainer = _build_trainer()
+    trainer.memory_contrast_weight = 0.25
+    trainer.memory_margin = 0.5
+    trainer.memory_kl_weight = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.write_sparsity_weight = 0.0
+    trainer.memory_partition_alignment_weight = 0.0
+    trainer.memory_partition_entropy_weight = 0.0
+    trainer.memory_partition_balance_weight = 0.0
+    trainer.episode_read_write_enabled = False
+    trainer.compute_loss_context_manager = nullcontext
+
+    class Accelerator:
+        @staticmethod
+        def backward(loss: torch.Tensor, **kwargs) -> None:
+            assert kwargs == {}
+            loss.backward()
+
+    trainer.accelerator = Accelerator()
+    model = _ContentContrastReadModel()
+
+    def reset_online_state(active_model) -> None:
+        active_model.active_write_token = None
+
+    def prime_episode_state(active_model, **kwargs) -> None:
+        active_model.active_write_token = int(kwargs["write_input_ids"][0, 0].item())
+
+    trainer._reset_online_state = reset_online_state
+    trainer._prime_episode_state = prime_episode_state
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_write_enabled",
+        lambda active_model, enabled: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_read_context_mask",
+        lambda active_model, mask: None,
+    )
+
+    reported_loss, stats = trainer._content_contrast_sequential_backward(
+        model,
+        _episode_inputs(),
+        loss_kwargs={},
+        write_input_ids=torch.tensor([[10]]),
+        write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+        write_message_ids=None,
+        write_sentence_ids=None,
+        negative_write_input_ids=torch.tensor([[20]]),
+        negative_write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+        negative_write_message_ids=None,
+        negative_write_sentence_ids=None,
+        gradient_scale=1.0,
+    )
+
+    correct = torch.tensor(1.0, requires_grad=True)
+    wrong = torch.tensor(2.0, requires_grad=True)
+    expected_loss, _, _ = trainer._content_contrast_objective(correct, wrong)
+    expected_loss.backward()
+    expected_parameter_grad = correct.grad + 2.0 * wrong.grad
+
+    assert reported_loss.item() == pytest.approx(expected_loss.item())
+    assert model.parameter.grad is not None
+    assert model.parameter.grad.item() == pytest.approx(expected_parameter_grad.item())
+    assert [call[1] for call in model.read_calls] == [False, True, True]
+    assert [call[2] for call in model.read_calls] == [20, 10, 20]
+    assert stats["keep_loss"] == pytest.approx(1.0)
+    assert stats["corrupt_loss"] == pytest.approx(2.0)
+    assert stats["margin_gap"] == pytest.approx(1.0)
+
+
+def test_content_contrast_sequential_backward_rejects_unsafe_step_modes() -> None:
+    trainer = _build_trainer()
+    trainer.memory_kl_weight = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.write_sparsity_weight = 0.0
+    trainer.memory_partition_alignment_weight = 0.0
+    trainer.memory_partition_entropy_weight = 0.0
+    trainer.memory_partition_balance_weight = 0.0
+    trainer.current_gradient_accumulation_steps = 2
+    trainer.args = Namespace(optim="adamw_torch_fused")
+    trainer.accelerator = Namespace(distributed_type=Namespace(name="NO"))
+
+    with pytest.raises(ValueError, match="gradient_accumulation_steps=1"):
+        trainer._validate_content_contrast_sequential_runtime()
+
+    trainer.current_gradient_accumulation_steps = 1
+    trainer.args.optim = "lomo"
+    with pytest.raises(ValueError, match="LOMO or AdaLOMO"):
+        trainer._validate_content_contrast_sequential_runtime()
+
+    trainer.args.optim = "adamw_torch_fused"
+    trainer.accelerator.distributed_type.name = "DEEPSPEED"
+    with pytest.raises(ValueError, match="does not support DeepSpeed"):
+        trainer._validate_content_contrast_sequential_runtime()
 
 
 def test_masked_lm_loss_never_supervises_the_first_sequence_token() -> None:
@@ -1306,7 +1407,10 @@ def test_training_protocol_records_exact_content_contrast_pairing() -> None:
     assert protocol["memory_partition_alignment_weight"] == 0.0
     assert protocol["memory_partition_entropy_weight"] == 0.0
     assert protocol["memory_partition_balance_weight"] == 0.0
-    assert protocol["content_contrast_negative_priming_grad"] is False
+    assert protocol["content_contrast_negative_priming_grad"] is True
+    assert protocol["content_contrast_backward_mode"] == (
+        experimental_train._CONTENT_CONTRAST_BACKWARD_MODE
+    )
     assert protocol["content_contrast_pairing"]["manifest_sha256"] == (
         pairing_manifest["manifest_sha256"]
     )

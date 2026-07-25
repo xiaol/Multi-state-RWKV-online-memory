@@ -237,8 +237,9 @@ _REQUIRED_RESUME_CHECKPOINT_FILES = (
 _TRAINING_PROTOCOL_FILENAME = "training_protocol.json"
 _TRAINING_PROTOCOL_SCHEMA_VERSION = 2
 _MEMORY_OBJECTIVE_VERSION = "canonical_full_context_teacher_v1"
-_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 3
-_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v1"
+_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 4
+_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v2"
+_CONTENT_CONTRAST_BACKWARD_MODE = "sequential_exact_first_order_v1"
 _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
 _CONTENT_CONTRAST_PAIRING_VERSION = "post_split_half_rotation_v1"
 _CONTINUATION_MANIFEST_FILENAME = "continuation_manifest.json"
@@ -258,6 +259,7 @@ _OBJECTIVE_ABLATION_PROTOCOL_DRIFT = frozenset(
         "memory_partition_entropy_weight",
         "memory_partition_balance_weight",
         "content_contrast_negative_priming_grad",
+        "content_contrast_backward_mode",
         "content_contrast_pairing",
     }
 )
@@ -570,7 +572,8 @@ def _validate_objective_ablation_target_protocol(
         "memory_partition_alignment_weight": 0.0,
         "memory_partition_entropy_weight": 0.0,
         "memory_partition_balance_weight": 0.0,
-        "content_contrast_negative_priming_grad": False,
+        "content_contrast_negative_priming_grad": True,
+        "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
     }
     mismatches = [
         key for key, value in expected.items() if target_protocol.get(key) != value
@@ -874,7 +877,8 @@ def prepare_training_continuation(
                 ),
                 "memory_partition_entropy_weight": args.memory_partition_entropy_weight,
                 "memory_partition_balance_weight": args.memory_partition_balance_weight,
-                "content_contrast_negative_priming_grad": False,
+                "content_contrast_negative_priming_grad": True,
+                "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
             }
         )
     validate_resume_training_protocol(
@@ -939,6 +943,9 @@ def prepare_training_continuation(
                     "memory_objective_version"
                 ],
                 "target_memory_objective_version": _CONTENT_CONTRAST_OBJECTIVE_VERSION,
+                "target_content_contrast_backward_mode": (
+                    _CONTENT_CONTRAST_BACKWARD_MODE
+                ),
                 "target_memory_contrast_weight": float(args.memory_contrast_weight),
                 "target_memory_margin": float(args.memory_margin),
                 "source_delta_config_sha256": _protocol_sha256(source_config.to_dict()),
@@ -1997,21 +2004,7 @@ class DeltaMemTrainer(Trainer):
         total_loss = correct_loss + self.memory_contrast_weight * contrast_loss
         return total_loss, contrast_loss, gap
 
-    def _compute_content_contrast_ce(
-        self,
-        model,
-        model_inputs: dict[str, torch.Tensor],
-        *,
-        loss_kwargs: dict[str, torch.Tensor],
-        write_input_ids: torch.Tensor,
-        write_attention_mask: torch.Tensor,
-        write_message_ids: torch.Tensor | None,
-        write_sentence_ids: torch.Tensor | None,
-        negative_write_input_ids: torch.Tensor,
-        negative_write_attention_mask: torch.Tensor,
-        negative_write_message_ids: torch.Tensor | None,
-        negative_write_sentence_ids: torch.Tensor | None,
-    ):
+    def _validate_content_contrast_runtime(self) -> None:
         if self.episode_read_write_enabled:
             raise ValueError("content_contrast_ce requires episode read writes to be disabled")
         if self.memory_kl_weight != 0.0 or self.memory_base_kl_weight != 0.0:
@@ -2027,9 +2020,46 @@ class DeltaMemTrainer(Trainer):
                 "content_contrast_ce requires memory partition regularization to be disabled"
             )
 
+    def _validate_content_contrast_sequential_runtime(self) -> None:
+        self._validate_content_contrast_runtime()
+        accumulation_steps = int(
+            getattr(self, "current_gradient_accumulation_steps", 1)
+        )
+        if accumulation_steps != 1:
+            raise ValueError(
+                "content_contrast_ce sequential backward requires "
+                "gradient_accumulation_steps=1"
+            )
+        optimizer_name = str(
+            getattr(getattr(self, "args", None), "optim", "")
+        ).lower()
+        if optimizer_name.endswith("lomo") or optimizer_name.endswith("adalomo"):
+            raise ValueError(
+                "content_contrast_ce sequential backward does not support LOMO or AdaLOMO"
+            )
+        distributed_type = getattr(
+            getattr(self, "accelerator", None),
+            "distributed_type",
+            None,
+        )
+        if getattr(distributed_type, "name", None) == "DEEPSPEED":
+            raise ValueError(
+                "content_contrast_ce sequential backward does not support DeepSpeed"
+            )
+
+    def _content_contrast_branch(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        loss_kwargs: dict[str, torch.Tensor],
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         batch_size = int(model_inputs["input_ids"].size(0))
         read_context_mask = self._build_read_context_mask(model_inputs)
-
         self._reset_online_state(model)
         self._prime_episode_state(
             model,
@@ -2041,40 +2071,74 @@ class DeltaMemTrainer(Trainer):
         )
         set_delta_mem_write_enabled(model, False)
         set_delta_mem_read_context_mask(model, read_context_mask)
-        correct_outputs = model(**model_inputs, **loss_kwargs)
-        if not isinstance(correct_outputs, dict):
-            correct_outputs = {
-                "loss": (
-                    correct_outputs.loss
-                    if hasattr(correct_outputs, "loss")
-                    else correct_outputs[0]
-                ),
-                "logits": correct_outputs.logits,
+        outputs = model(**model_inputs, **loss_kwargs)
+        if not isinstance(outputs, dict):
+            outputs = {
+                "loss": outputs.loss if hasattr(outputs, "loss") else outputs[0],
+                "logits": outputs.logits,
             }
-        correct_loss = correct_outputs["loss"]
-        if correct_loss.ndim > 0:
-            correct_loss = correct_loss.mean()
+        loss = outputs["loss"]
+        if loss.ndim > 0:
+            loss = loss.mean()
+        return loss, outputs
 
-        self._reset_online_state(model)
-        # The mismatched writer state is a fixed negative target. Detaching donor
-        # priming saves VRAM while the mismatched read path still receives gradients.
-        with torch.no_grad():
-            self._prime_episode_state(
-                model,
-                write_input_ids=negative_write_input_ids,
-                write_attention_mask=negative_write_attention_mask,
-                batch_size=batch_size,
-                write_message_ids=negative_write_message_ids,
-                write_sentence_ids=negative_write_sentence_ids,
-            )
-        set_delta_mem_write_enabled(model, False)
-        set_delta_mem_read_context_mask(model, read_context_mask)
-        wrong_outputs = model(**model_inputs, **loss_kwargs)
-        wrong_loss = (
-            wrong_outputs["loss"] if isinstance(wrong_outputs, dict) else wrong_outputs[0]
+    def _content_contrast_loss_and_coefficients(
+        self,
+        correct_loss: torch.Tensor,
+        wrong_loss: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        correct_probe = correct_loss.detach().float().requires_grad_(True)
+        wrong_probe = wrong_loss.detach().float().requires_grad_(True)
+        total_loss, contrast_loss, gap = self._content_contrast_objective(
+            correct_probe,
+            wrong_probe,
         )
-        if wrong_loss.ndim > 0:
-            wrong_loss = wrong_loss.mean()
+        correct_coefficient, wrong_coefficient = torch.autograd.grad(
+            total_loss,
+            (correct_probe, wrong_probe),
+        )
+        return (
+            total_loss.detach(),
+            contrast_loss.detach(),
+            gap.detach(),
+            correct_coefficient.detach(),
+            wrong_coefficient.detach(),
+        )
+
+    def _compute_content_contrast_ce(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        loss_kwargs: dict[str, torch.Tensor],
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+        negative_write_input_ids: torch.Tensor,
+        negative_write_attention_mask: torch.Tensor,
+        negative_write_message_ids: torch.Tensor | None,
+        negative_write_sentence_ids: torch.Tensor | None,
+    ):
+        self._validate_content_contrast_runtime()
+        correct_loss, correct_outputs = self._content_contrast_branch(
+            model,
+            model_inputs,
+            loss_kwargs=loss_kwargs,
+            write_input_ids=write_input_ids,
+            write_attention_mask=write_attention_mask,
+            write_message_ids=write_message_ids,
+            write_sentence_ids=write_sentence_ids,
+        )
+        wrong_loss, _ = self._content_contrast_branch(
+            model,
+            model_inputs,
+            loss_kwargs=loss_kwargs,
+            write_input_ids=negative_write_input_ids,
+            write_attention_mask=negative_write_attention_mask,
+            write_message_ids=negative_write_message_ids,
+            write_sentence_ids=negative_write_sentence_ids,
+        )
 
         total_loss, contrast_loss, margin_gap = self._content_contrast_objective(
             correct_loss,
@@ -2104,6 +2168,150 @@ class DeltaMemTrainer(Trainer):
             "probe_kl": 0.0,
             "probe_ce": 0.0,
         }
+
+    def _content_contrast_sequential_backward(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        loss_kwargs: dict[str, torch.Tensor],
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+        negative_write_input_ids: torch.Tensor,
+        negative_write_attention_mask: torch.Tensor,
+        negative_write_message_ids: torch.Tensor | None,
+        negative_write_sentence_ids: torch.Tensor | None,
+        gradient_scale: float,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
+        """Backpropagate the exact first derivative with one live writer graph at a time."""
+
+        self._validate_content_contrast_sequential_runtime()
+        with torch.no_grad(), self.compute_loss_context_manager():
+            wrong_probe, wrong_probe_outputs = self._content_contrast_branch(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                write_input_ids=negative_write_input_ids,
+                write_attention_mask=negative_write_attention_mask,
+                write_message_ids=negative_write_message_ids,
+                write_sentence_ids=negative_write_sentence_ids,
+            )
+        wrong_probe = wrong_probe.detach()
+        del wrong_probe_outputs
+
+        with self.compute_loss_context_manager():
+            correct_loss, correct_outputs = self._content_contrast_branch(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                write_input_ids=write_input_ids,
+                write_attention_mask=write_attention_mask,
+                write_message_ids=write_message_ids,
+                write_sentence_ids=write_sentence_ids,
+            )
+        (
+            total_loss,
+            contrast_loss,
+            margin_gap,
+            correct_coefficient,
+            wrong_coefficient,
+        ) = self._content_contrast_loss_and_coefficients(correct_loss, wrong_probe)
+        correct_value = correct_loss.detach()
+        self.accelerator.backward(
+            correct_loss * correct_coefficient * gradient_scale,
+        )
+        del correct_loss, correct_outputs
+
+        with self.compute_loss_context_manager():
+            wrong_loss, wrong_outputs = self._content_contrast_branch(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                write_input_ids=negative_write_input_ids,
+                write_attention_mask=negative_write_attention_mask,
+                write_message_ids=negative_write_message_ids,
+                write_sentence_ids=negative_write_sentence_ids,
+            )
+        if not torch.allclose(wrong_loss.detach(), wrong_probe, rtol=1e-5, atol=1e-6):
+            raise RuntimeError(
+                "Sequential content-contrast donor replay is not deterministic: "
+                f"probe={float(wrong_probe.float().item()):.8f} "
+                f"gradient={float(wrong_loss.detach().float().item()):.8f}"
+            )
+        wrong_value = wrong_loss.detach()
+        self.accelerator.backward(
+            wrong_loss * wrong_coefficient * gradient_scale,
+        )
+        del wrong_loss, wrong_outputs
+
+        set_delta_mem_read_context_mask(model, None)
+        set_delta_mem_write_enabled(model, True)
+        return total_loss * gradient_scale, {
+            "keep_loss": float(correct_value.float().item()),
+            "reset_loss": 0.0,
+            "corrupt_loss": float(wrong_value.float().item()),
+            "teacher_loss": 0.0,
+            "margin_loss": 0.0,
+            "causal_loss": float(contrast_loss.float().item()),
+            "anchor_loss": 0.0,
+            "full_ce_loss": 0.0,
+            "kl_loss": 0.0,
+            "reset_kl_loss": 0.0,
+            "margin_gap": float(margin_gap.float().item()),
+            "wmem": 1.0,
+            "probe_keep_loss": 0.0,
+            "probe_reset_loss": 0.0,
+            "probe_margin_loss": 0.0,
+            "probe_gap": 0.0,
+            "probe_kl": 0.0,
+            "probe_ce": 0.0,
+        }
+
+    def _record_memory_stats(self, model, memory_stats: dict[str, float]) -> None:
+        partition_route_stats = collect_delta_mem_partition_route_stats(model)
+        self._last_partition_enabled_modules = partition_route_stats["enabled_modules"]
+        self._last_partition_tied_read_write_modules = partition_route_stats[
+            "tied_read_write_modules"
+        ]
+        self._last_partition_active_modules = partition_route_stats["active_modules"]
+        self._last_partition_write_route_entropy = partition_route_stats[
+            "write_route_entropy"
+        ]
+        self._last_partition_read_route_entropy = partition_route_stats[
+            "read_route_entropy"
+        ]
+        self._last_partition_route_alignment_mse = partition_route_stats[
+            "route_alignment_mse"
+        ]
+        self._last_partition_route_overlap = partition_route_stats["route_overlap"]
+        self._last_partition_write_route_max = partition_route_stats["write_route_max"]
+        self._last_partition_read_route_max = partition_route_stats["read_route_max"]
+        self._last_partition_write_route_balance_l2 = partition_route_stats[
+            "write_route_balance_l2"
+        ]
+        self._last_partition_read_route_balance_l2 = partition_route_stats[
+            "read_route_balance_l2"
+        ]
+        self._last_memory_keep_loss = memory_stats["keep_loss"]
+        self._last_memory_reset_loss = memory_stats["reset_loss"]
+        self._last_memory_corrupt_loss = memory_stats["corrupt_loss"]
+        self._last_memory_teacher_loss = memory_stats["teacher_loss"]
+        self._last_memory_margin_loss = memory_stats["margin_loss"]
+        self._last_memory_causal_loss = memory_stats["causal_loss"]
+        self._last_memory_anchor_loss = memory_stats["anchor_loss"]
+        self._last_memory_full_ce_loss = memory_stats["full_ce_loss"]
+        self._last_memory_kl_loss = memory_stats["kl_loss"]
+        self._last_memory_reset_kl_loss = memory_stats["reset_kl_loss"]
+        self._last_memory_margin_gap = memory_stats["margin_gap"]
+        self._last_memory_wmem = memory_stats["wmem"]
+        self._last_memory_probe_keep_loss = memory_stats["probe_keep_loss"]
+        self._last_memory_probe_reset_loss = memory_stats["probe_reset_loss"]
+        self._last_memory_probe_margin_loss = memory_stats["probe_margin_loss"]
+        self._last_memory_probe_gap = memory_stats["probe_gap"]
+        self._last_memory_probe_kl_loss = memory_stats["probe_kl"]
+        self._last_memory_probe_ce_loss = memory_stats["probe_ce"]
 
     def _compute_context_ablation_ce(
         self,
@@ -2706,36 +2914,7 @@ class DeltaMemTrainer(Trainer):
             self._last_memory_partition_alignment_loss = 0.0
             self._last_memory_partition_entropy_loss = 0.0
             self._last_memory_partition_balance_loss = 0.0
-        partition_route_stats = collect_delta_mem_partition_route_stats(model)
-        self._last_partition_enabled_modules = partition_route_stats["enabled_modules"]
-        self._last_partition_tied_read_write_modules = partition_route_stats["tied_read_write_modules"]
-        self._last_partition_active_modules = partition_route_stats["active_modules"]
-        self._last_partition_write_route_entropy = partition_route_stats["write_route_entropy"]
-        self._last_partition_read_route_entropy = partition_route_stats["read_route_entropy"]
-        self._last_partition_route_alignment_mse = partition_route_stats["route_alignment_mse"]
-        self._last_partition_route_overlap = partition_route_stats["route_overlap"]
-        self._last_partition_write_route_max = partition_route_stats["write_route_max"]
-        self._last_partition_read_route_max = partition_route_stats["read_route_max"]
-        self._last_partition_write_route_balance_l2 = partition_route_stats["write_route_balance_l2"]
-        self._last_partition_read_route_balance_l2 = partition_route_stats["read_route_balance_l2"]
-        self._last_memory_keep_loss = memory_stats["keep_loss"]
-        self._last_memory_reset_loss = memory_stats["reset_loss"]
-        self._last_memory_corrupt_loss = memory_stats["corrupt_loss"]
-        self._last_memory_teacher_loss = memory_stats["teacher_loss"]
-        self._last_memory_margin_loss = memory_stats["margin_loss"]
-        self._last_memory_causal_loss = memory_stats["causal_loss"]
-        self._last_memory_anchor_loss = memory_stats["anchor_loss"]
-        self._last_memory_full_ce_loss = memory_stats["full_ce_loss"]
-        self._last_memory_kl_loss = memory_stats["kl_loss"]
-        self._last_memory_reset_kl_loss = memory_stats["reset_kl_loss"]
-        self._last_memory_margin_gap = memory_stats["margin_gap"]
-        self._last_memory_wmem = memory_stats["wmem"]
-        self._last_memory_probe_keep_loss = memory_stats["probe_keep_loss"]
-        self._last_memory_probe_reset_loss = memory_stats["probe_reset_loss"]
-        self._last_memory_probe_margin_loss = memory_stats["probe_margin_loss"]
-        self._last_memory_probe_gap = memory_stats["probe_gap"]
-        self._last_memory_probe_kl_loss = memory_stats["probe_kl"]
-        self._last_memory_probe_ce_loss = memory_stats["probe_ce"]
+        self._record_memory_stats(model, memory_stats)
         set_delta_mem_read_context_mask(model, None)
         set_delta_mem_write_enabled(model, True)
         if partition_regularization is not None:
@@ -2904,7 +3083,110 @@ class DeltaMemTrainer(Trainer):
     ) -> torch.Tensor:
         self._maybe_enable_static_graph(model)
         self._reset_online_state(model)
+        if self.memory_loss_mode == "content_contrast_ce":
+            return self._content_contrast_sequential_training_step(
+                model,
+                inputs,
+                num_items_in_batch=num_items_in_batch,
+            )
         return super().training_step(model, inputs, num_items_in_batch=num_items_in_batch)
+
+    def _content_contrast_sequential_training_step(
+        self,
+        model,
+        inputs: dict[str, torch.Tensor],
+        *,
+        num_items_in_batch: torch.Tensor | None,
+    ) -> torch.Tensor:
+        cp_context, inputs = self._prepare_context_parallel_inputs(model, inputs)
+        with cp_context():
+            model.train()
+            if hasattr(self.optimizer, "train") and callable(self.optimizer.train):
+                self.optimizer.train()
+            prepared_inputs = self._prepare_inputs(inputs)
+            model_inputs = dict(prepared_inputs)
+            payload = {
+                key: model_inputs.pop(key, None)
+                for key in (
+                    "write_input_ids",
+                    "write_attention_mask",
+                    "write_message_ids",
+                    "write_sentence_ids",
+                    "negative_write_input_ids",
+                    "negative_write_attention_mask",
+                    "negative_write_message_ids",
+                    "negative_write_sentence_ids",
+                )
+            }
+            for key in (
+                "state_only_write_input_ids",
+                "state_only_write_attention_mask",
+                "state_only_write_message_ids",
+                "state_only_write_sentence_ids",
+                "state_only_input_ids",
+                "state_only_attention_mask",
+                "state_only_labels",
+                "teacher_input_ids",
+                "teacher_attention_mask",
+                "teacher_labels",
+                "full_input_ids",
+                "full_attention_mask",
+                "full_labels",
+                "write_lengths",
+                "read_lengths",
+            ):
+                model_inputs.pop(key, None)
+
+            required = (
+                "write_input_ids",
+                "write_attention_mask",
+                "negative_write_input_ids",
+                "negative_write_attention_mask",
+            )
+            missing = [key for key in required if payload[key] is None]
+            if missing:
+                raise ValueError(
+                    "content_contrast_ce requires materialized positive and negative write "
+                    "tensors: " + ", ".join(missing)
+                )
+
+            loss_kwargs = {}
+            if self.model_accepts_loss_kwargs and num_items_in_batch is not None:
+                loss_kwargs["num_items_in_batch"] = num_items_in_batch
+            gradient_scale = 1.0
+            if (
+                (not self.model_accepts_loss_kwargs or num_items_in_batch is None)
+                and self.compute_loss_func is None
+            ):
+                gradient_scale /= self.current_gradient_accumulation_steps
+
+            loss, memory_stats = self._content_contrast_sequential_backward(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                write_input_ids=payload["write_input_ids"],
+                write_attention_mask=payload["write_attention_mask"],
+                write_message_ids=payload["write_message_ids"],
+                write_sentence_ids=payload["write_sentence_ids"],
+                negative_write_input_ids=payload["negative_write_input_ids"],
+                negative_write_attention_mask=payload["negative_write_attention_mask"],
+                negative_write_message_ids=payload["negative_write_message_ids"],
+                negative_write_sentence_ids=payload["negative_write_sentence_ids"],
+                gradient_scale=gradient_scale,
+            )
+            self._last_memory_partition_alignment_loss = 0.0
+            self._last_memory_partition_entropy_loss = 0.0
+            self._last_memory_partition_balance_loss = 0.0
+            self._last_write_sparsity_loss = 0.0
+            self._record_memory_stats(model, memory_stats)
+            del prepared_inputs, model_inputs
+            if (
+                self.args.torch_empty_cache_steps is not None
+                and self.state.global_step % self.args.torch_empty_cache_steps == 0
+                and torch.cuda.is_available()
+            ):
+                torch.cuda.empty_cache()
+            return loss.detach()
 
     def prediction_step(
         self,
@@ -4668,7 +4950,8 @@ def build_training_protocol(
                 "memory_partition_alignment_weight": args.memory_partition_alignment_weight,
                 "memory_partition_entropy_weight": args.memory_partition_entropy_weight,
                 "memory_partition_balance_weight": args.memory_partition_balance_weight,
-                "content_contrast_negative_priming_grad": False,
+                "content_contrast_negative_priming_grad": True,
+                "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
                 "content_contrast_pairing": _content_contrast_protocol_pairing_summary(
                     content_contrast_pairing_manifest
                 ),
@@ -5252,6 +5535,9 @@ def main() -> None:
             "episode_read_write_enabled": args.episode_read_write_enabled,
             "memory_loss_mode": args.memory_loss_mode,
             "memory_objective_version": training_protocol["memory_objective_version"],
+            "content_contrast_backward_mode": training_protocol.get(
+                "content_contrast_backward_mode"
+            ),
             "teacher_max_length": args.max_write_length + args.max_length,
             "memory_write_source": args.memory_write_source,
             "memory_write_granularity": args.memory_write_granularity,
