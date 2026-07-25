@@ -19,6 +19,7 @@ from deltamem.core.delta import (
     attach_delta_mem,
     collect_delta_mem_state_stats,
     get_delta_mem_online_state,
+    iter_delta_mem_modules,
     load_delta_mem_adapter,
     load_delta_mem_online_state,
     reset_delta_mem_states,
@@ -238,6 +239,7 @@ class DeltaMemSessionSnapshot:
     past_key_values: object | None = None
     write_message_ids: list[int] = field(default_factory=list)
     write_sentence_ids: list[int] = field(default_factory=list)
+    rwkv_ms_semantics_versions: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -272,6 +274,15 @@ class DeltaMemChatSession:
     def state_stats(self) -> dict[str, float]:
         return collect_delta_mem_state_stats(self.model)
 
+    def _rwkv_ms_semantics_versions(self) -> list[int]:
+        return sorted(
+            {
+                int(module.rwkv_ms_semantics_version)
+                for _, module in iter_delta_mem_modules(self.model)
+                if module.memory_backend == "rwkv_ms"
+            }
+        )
+
     def snapshot(self) -> DeltaMemSessionSnapshot:
         _, write_message_ids, write_sentence_ids = self._current_message_token_cache()
         return DeltaMemSessionSnapshot(
@@ -283,9 +294,22 @@ class DeltaMemChatSession:
             past_key_values=_move_nested_tensors(self.past_key_values, "cpu"),
             write_message_ids=write_message_ids,
             write_sentence_ids=write_sentence_ids,
+            rwkv_ms_semantics_versions=self._rwkv_ms_semantics_versions(),
         )
 
     def load_snapshot(self, snapshot: DeltaMemSessionSnapshot) -> None:
+        current_versions = self._rwkv_ms_semantics_versions()
+        snapshot_versions = sorted({int(version) for version in snapshot.rwkv_ms_semantics_versions})
+        if current_versions:
+            if not snapshot_versions and current_versions != [1]:
+                raise ValueError(
+                    "RWKV-MS snapshot predates semantics metadata and can only load under semantics v1"
+                )
+            if snapshot_versions and snapshot_versions != current_versions:
+                raise ValueError(
+                    "RWKV-MS snapshot semantics mismatch: "
+                    f"snapshot={snapshot_versions}, runtime={current_versions}"
+                )
         self.messages = [dict(message) for message in snapshot.messages]
         if snapshot.processed_input_ids:
             self.processed_input_ids = torch.tensor(
@@ -328,6 +352,7 @@ class DeltaMemChatSession:
             "processed_input_ids": snapshot.processed_input_ids,
             "write_message_ids": snapshot.write_message_ids,
             "write_sentence_ids": snapshot.write_sentence_ids,
+            "rwkv_ms_semantics_versions": snapshot.rwkv_ms_semantics_versions,
         }
         (output_path / "session.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2)
@@ -356,6 +381,7 @@ class DeltaMemChatSession:
                 past_key_values=past_key_values,
                 write_message_ids=meta.get("write_message_ids", []),
                 write_sentence_ids=meta.get("write_sentence_ids", []),
+                rwkv_ms_semantics_versions=meta.get("rwkv_ms_semantics_versions", []),
             )
         )
 

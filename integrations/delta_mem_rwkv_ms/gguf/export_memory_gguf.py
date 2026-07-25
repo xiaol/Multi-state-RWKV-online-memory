@@ -179,7 +179,7 @@ def build_manifest(
 ) -> dict[str, Any]:
     per_layer_attention = infer_per_layer_attention(tensor_entries, config.get("target_layers", []))
     return {
-        "schema": "delta_mem_rwkv_ms_memory_gguf_sidecar.v1",
+        "schema": "delta_mem_rwkv_ms_memory_gguf_sidecar.v2",
         "status": "sidecar_only_runtime_port_required",
         "memory_dir": str(memory_dir),
         "output": str(output),
@@ -202,6 +202,7 @@ def build_manifest(
             "memory_backend": config.get("memory_backend"),
             "rwkv_ms_num_states": config.get("rwkv_ms_num_states"),
             "rwkv_ms_chunk_size": config.get("rwkv_ms_chunk_size"),
+            "rwkv_ms_semantics_version": config.get("rwkv_ms_semantics_version"),
         },
         "per_layer_attention": per_layer_attention,
         "tensors": tensor_entries,
@@ -261,7 +262,7 @@ def add_metadata(writer: Any, manifest: dict[str, Any]) -> None:
     writer.add_string("delta_mem.mmproj_gguf", str(manifest["mmproj_gguf"]))
     writer.add_string("delta_mem.mmproj_gguf_sha256", str(manifest["mmproj_gguf_sha256"] or ""))
     writer.add_string("delta_mem.tensor_name_format", "compact_with_source_name_manifest")
-    writer.add_uint32("delta_mem.format_version", 1)
+    writer.add_uint32("delta_mem.format_version", 2)
     writer.add_uint32("delta_mem.tensor_count", int(summary["tensor_count"]))
     writer.add_uint64("delta_mem.total_numel", int(summary["total_numel"]))
     writer.add_uint64("delta_mem.total_bytes", int(summary["total_bytes"]))
@@ -270,6 +271,11 @@ def add_metadata(writer: Any, manifest: dict[str, Any]) -> None:
     writer.add_uint32("delta_mem.num_state_heads", int(config.get("num_state_heads", 0)))
     writer.add_uint32("delta_mem.rwkv_ms_num_states", int(config.get("rwkv_ms_num_states", 0)))
     writer.add_uint32("delta_mem.rwkv_ms_chunk_size", int(config.get("rwkv_ms_chunk_size", 0)))
+    writer.add_uint32(
+        "delta_mem.rwkv_ms_semantics_version",
+        int(config.get("rwkv_ms_semantics_version", 1)),
+    )
+    writer.add_string("delta_mem.rwkv_ms_state_dtype", "f32")
     writer.add_string("delta_mem.rwkv_ms_boundary_mode", str(config.get("rwkv_ms_boundary_mode", "")))
     writer.add_string("delta_mem.target_layers_json", json.dumps(config.get("target_layers", []), separators=(",", ":")))
     writer.add_string("delta_mem.delta_heads_json", json.dumps(config.get("delta_heads", []), separators=(",", ":")))
@@ -296,12 +302,22 @@ def add_metadata(writer: Any, manifest: dict[str, Any]) -> None:
 
 
 def export_sidecar(args: argparse.Namespace) -> dict[str, Any]:
-    add_gguf_to_path(args.gguf_py_root)
-    from gguf import GGUFWriter
-
     memory_dir = args.memory_dir.expanduser().resolve()
     output = args.output.expanduser().resolve()
     config = read_json(memory_dir / "delta_mem_config.json")
+    if config.get("memory_backend") == "rwkv_ms" and "rwkv_ms_semantics_version" not in config:
+        config = dict(config)
+        config["rwkv_ms_semantics_version"] = 1
+    fusion_mode = str(config.get("memory_fusion_mode", "add"))
+    if fusion_mode != "add":
+        raise ValueError(
+            f"GGUF export does not support memory_fusion_mode={fusion_mode!r}; "
+            "content-gated O-residual fusion is not implemented by the GGUF runtime"
+        )
+
+    add_gguf_to_path(args.gguf_py_root)
+    from gguf import GGUFWriter
+
     metadata = read_json(memory_dir / "adapter_metadata.json")
     adapter = load_adapter(memory_dir / "delta_mem_adapter.pt")
     tensors = iter_tensors(adapter)

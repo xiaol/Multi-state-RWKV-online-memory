@@ -64,6 +64,7 @@ def scan_config_from_checkpoint(config: dict[str, Any], args: argparse.Namespace
         "rwkv_ms_boundary_mode": str(config.get("rwkv_ms_boundary_mode", "fixed_chunk")),
         "rwkv_ms_erase_gate": float(config.get("rwkv_ms_erase_gate", 1.0)),
         "rwkv_ms_read_top_k": read_top_k,
+        "rwkv_ms_semantics_version": int(config.get("rwkv_ms_semantics_version", 1)),
     }
 
 
@@ -123,7 +124,7 @@ def generate_fixture(args: argparse.Namespace) -> dict[str, Any]:
         input_records["token_mask"] = tensor_record(inputs["token_mask"])  # type: ignore[arg-type]
     expected_records = records_from_tensors(expected)
     fixture = {
-        "schema": "delta_mem_rwkv_ms_math_fixture.v1",
+        "schema": "delta_mem_rwkv_ms_math_fixture.v2",
         "created_at": utc_now(),
         "source": {
             "memory_dir": str(layer_artifacts["memory_dir"]),
@@ -154,6 +155,7 @@ def generate_fixture(args: argparse.Namespace) -> dict[str, Any]:
             "couple_lambda": bool(config.get("couple_lambda", True)),
             "rankwise_gates": bool(config.get("rankwise_gates", True)),
             "state_update_mode": str(config.get("state_update_mode", "standard")),
+            "rwkv_ms_semantics_version": int(config.get("rwkv_ms_semantics_version", 1)),
             "trainable_delta_scale": bool(config.get("trainable_delta_scale", False)),
         },
         "scan_config": scan_config,

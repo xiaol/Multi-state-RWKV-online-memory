@@ -103,6 +103,7 @@ class HRMRWKV7LowRankCore(nn.Module):
         head_size: int,
         layer_id: int = 0,
         n_layer: int = 1,
+        output_init_scale: float = 0.0,
     ) -> None:
         super().__init__()
         if dim < 1:
@@ -115,6 +116,8 @@ class HRMRWKV7LowRankCore(nn.Module):
             raise ValueError("n_layer must be >= 1")
         if layer_id < 0:
             raise ValueError("layer_id must be >= 0")
+        if output_init_scale < 0.0:
+            raise ValueError("output_init_scale must be >= 0")
         self.dim = int(dim)
         self.head_size = int(head_size)
         self.n_head = self.dim // self.head_size
@@ -148,9 +151,12 @@ class HRMRWKV7LowRankCore(nn.Module):
         self.value = nn.Linear(dim, dim, bias=False)
         self.output = nn.Linear(dim, dim, bias=False)
         self.ln_x = nn.GroupNorm(self.n_head, dim, eps=64e-5)
-        self.reset_parameters(dim**-0.5)
+        self.reset_parameters(dim**-0.5, output_init_scale=output_init_scale)
+        # Retain the parameter for old checkpoints, but never let an empty
+        # state acquire a learned offset through GroupNorm.
+        self.ln_x.bias.requires_grad_(False)
 
-    def reset_parameters(self, init_std: float) -> None:
+    def reset_parameters(self, init_std: float, *, output_init_scale: float = 0.0) -> None:
         device = self.x_r.device
         dim = self.dim
         ratio_0_to_1 = self.layer_id / max(self.n_layer - 1, 1)
@@ -182,7 +188,16 @@ class HRMRWKV7LowRankCore(nn.Module):
         nn.init.uniform_(self.receptance.weight, -0.5 * init_std, 0.5 * init_std)
         nn.init.uniform_(self.key.weight, -0.05 * init_std, 0.05 * init_std)
         nn.init.uniform_(self.value.weight, -0.5 * init_std, 0.5 * init_std)
-        nn.init.zeros_(self.output.weight)
+        if output_init_scale == 0.0:
+            nn.init.zeros_(self.output.weight)
+        else:
+            nn.init.trunc_normal_(
+                self.output.weight,
+                mean=0.0,
+                std=output_init_scale,
+                a=-3 * output_init_scale,
+                b=3 * output_init_scale,
+            )
         self.ln_x.reset_parameters()
 
     def project(
@@ -245,7 +260,7 @@ class HRMRWKV7LowRankCore(nn.Module):
             reads.reshape(batch_size * seq_len, dim),
             num_groups=self.n_head,
             weight=self.ln_x.weight.to(device=reads.device, dtype=reads.dtype),
-            bias=self.ln_x.bias.to(device=reads.device, dtype=reads.dtype),
+            bias=None,
             eps=self.ln_x.eps,
         ).reshape(batch_size, seq_len, dim)
         return self.output(normalized * g)

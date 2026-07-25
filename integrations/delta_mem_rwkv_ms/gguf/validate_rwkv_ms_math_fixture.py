@@ -84,7 +84,10 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
     fixture_path = args.fixture.expanduser().resolve()
     fixture = read_json(fixture_path)
     errors: list[str] = []
-    if fixture.get("schema") != "delta_mem_rwkv_ms_math_fixture.v1":
+    if fixture.get("schema") not in {
+        "delta_mem_rwkv_ms_math_fixture.v1",
+        "delta_mem_rwkv_ms_math_fixture.v2",
+    }:
         errors.append(f"unexpected schema: {fixture.get('schema')}")
 
     input_records = fixture.get("inputs", {})
@@ -124,7 +127,7 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
         write_json(
             args.emit_actual.expanduser(),
             {
-                "schema": "delta_mem_rwkv_ms_math_actual.v1",
+                "schema": "delta_mem_rwkv_ms_math_actual.v2",
                 "fixture": str(fixture_path),
                 "memory_dir": str(memory_dir),
                 "tensors": records_from_tensors(actual),

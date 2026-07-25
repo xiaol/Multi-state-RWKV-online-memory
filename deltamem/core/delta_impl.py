@@ -58,6 +58,7 @@ VALID_MEMORY_WRITE_GRANULARITIES = (
 VALID_MEMORY_PARTITION_READ_MODES = ("softmax",)
 VALID_GLOBAL_MEMORY_MODES = ("shared_rw",)
 VALID_GLOBAL_MEMORY_MERGE_MODES = ("gated_residual",)
+VALID_MEMORY_FUSION_MODES = ("add", "content_gated_add")
 VALID_DELTA_SCALE_GRANULARITIES = ("layer", "head")
 VALID_DELTA_SCALE_PARAMETERIZATIONS = ("alpha_over_rank")
 
@@ -191,6 +192,16 @@ def normalize_global_memory_merge_mode(mode: str) -> str:
     return normalized
 
 
+def normalize_memory_fusion_mode(mode: str) -> str:
+    normalized = str(mode).strip().lower().replace("-", "_")
+    if normalized not in VALID_MEMORY_FUSION_MODES:
+        raise ValueError(
+            "Unsupported memory fusion mode: "
+            f"{mode}; expected one of {VALID_MEMORY_FUSION_MODES}"
+        )
+    return normalized
+
+
 def normalize_delta_scale_granularity(granularity: str) -> str:
     normalized = str(granularity).strip().lower()
     if normalized not in VALID_DELTA_SCALE_GRANULARITIES:
@@ -265,6 +276,8 @@ class HFDeltaMemConfig:
     delta_heads: tuple[str, ...] = VALID_DELTA_HEADS
     delta_o_rmsnorm: bool = False
     delta_o_rmsnorm_eps: float = 1e-6
+    memory_fusion_mode: str = "add"
+    memory_fusion_gate_init: float = 0.1
     trainable_delta_scale: bool = False
     delta_scale_init: float = 1.0
     delta_scale_max: float = 2.0
@@ -275,6 +288,8 @@ class HFDeltaMemConfig:
     rwkv_ms_boundary_mode: str = "fixed_chunk"
     rwkv_ms_erase_gate: float = 1.0
     rwkv_ms_read_top_k: int = 0
+    rwkv_ms_output_init_scale: float = 0.02
+    rwkv_ms_semantics_version: int = 2
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "delta_heads", normalize_delta_heads(self.delta_heads))
@@ -292,6 +307,10 @@ class HFDeltaMemConfig:
             raise ValueError("rwkv_ms_erase_gate must be >= 0")
         if int(self.rwkv_ms_read_top_k) < 0:
             raise ValueError("rwkv_ms_read_top_k must be >= 0")
+        if float(self.rwkv_ms_output_init_scale) < 0.0:
+            raise ValueError("rwkv_ms_output_init_scale must be >= 0")
+        if int(self.rwkv_ms_semantics_version) not in {1, 2}:
+            raise ValueError("rwkv_ms_semantics_version must be 1 or 2")
         object.__setattr__(self, "rwkv_ms_num_states", int(self.rwkv_ms_num_states))
         object.__setattr__(self, "rwkv_ms_chunk_size", int(self.rwkv_ms_chunk_size))
         object.__setattr__(
@@ -301,6 +320,16 @@ class HFDeltaMemConfig:
         )
         object.__setattr__(self, "rwkv_ms_erase_gate", float(self.rwkv_ms_erase_gate))
         object.__setattr__(self, "rwkv_ms_read_top_k", int(self.rwkv_ms_read_top_k))
+        object.__setattr__(
+            self,
+            "rwkv_ms_output_init_scale",
+            float(self.rwkv_ms_output_init_scale),
+        )
+        object.__setattr__(
+            self,
+            "rwkv_ms_semantics_version",
+            int(self.rwkv_ms_semantics_version),
+        )
         if int(self.num_state_heads) < 1:
             raise ValueError("num_state_heads must be >= 1")
         if int(self.num_memory_partitions) < 1:
@@ -315,6 +344,8 @@ class HFDeltaMemConfig:
             raise ValueError("base_slice_ref_width must be >= 1")
         if float(self.delta_o_rmsnorm_eps) <= 0.0:
             raise ValueError("delta_o_rmsnorm_eps must be > 0")
+        if not 0.0 < float(self.memory_fusion_gate_init) < 1.0:
+            raise ValueError("memory_fusion_gate_init must satisfy 0 < value < 1")
         if float(self.delta_scale_init) <= 0.0:
             raise ValueError("delta_scale_init must be > 0")
         if float(self.delta_scale_max) <= 0.0:
@@ -331,6 +362,16 @@ class HFDeltaMemConfig:
         object.__setattr__(self, "base_slice_ref_width", int(self.base_slice_ref_width))
         object.__setattr__(self, "delta_o_rmsnorm", bool(self.delta_o_rmsnorm))
         object.__setattr__(self, "delta_o_rmsnorm_eps", float(self.delta_o_rmsnorm_eps))
+        object.__setattr__(
+            self,
+            "memory_fusion_mode",
+            normalize_memory_fusion_mode(self.memory_fusion_mode),
+        )
+        object.__setattr__(
+            self,
+            "memory_fusion_gate_init",
+            float(self.memory_fusion_gate_init),
+        )
         object.__setattr__(self, "trainable_delta_scale", bool(self.trainable_delta_scale))
         object.__setattr__(self, "delta_scale_init", float(self.delta_scale_init))
         object.__setattr__(self, "delta_scale_max", float(self.delta_scale_max))
@@ -525,8 +566,15 @@ class HFDeltaMemConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> "HFDeltaMemConfig":
+        data = dict(data)
+        if (
+            normalize_memory_backend(data.get("memory_backend", "delta_rule")) == "rwkv_ms"
+            and "rwkv_ms_semantics_version" not in data
+        ):
+            # Checkpoints written before v2 used raw sources, lambda-scaled
+            # carry, and magnitude-sensitive routing.
+            data["rwkv_ms_semantics_version"] = 1
         if "target_modules" in data and isinstance(data["target_modules"], list):
-            data = dict(data)
             data["target_modules"] = tuple(data["target_modules"])
         if "memory_reader_layers" in data and isinstance(data["memory_reader_layers"], list):
             data = dict(data)
@@ -599,10 +647,14 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_boundary_mode = config.rwkv_ms_boundary_mode
         self.rwkv_ms_erase_gate = config.rwkv_ms_erase_gate
         self.rwkv_ms_read_top_k = config.rwkv_ms_read_top_k
+        self.rwkv_ms_output_init_scale = config.rwkv_ms_output_init_scale
+        self.rwkv_ms_semantics_version = config.rwkv_ms_semantics_version
         self.delta_scaling = config.alpha / config.rank
         self.trainable_delta_scale = config.trainable_delta_scale
         self.delta_scale_max = config.delta_scale_max
         self.delta_scale_granularity = config.delta_scale_granularity
+        self.memory_fusion_mode = config.memory_fusion_mode
+        self.memory_fusion_gate_init = config.memory_fusion_gate_init
         self.normalize_qk = config.normalize_qk
         self.couple_lambda = config.couple_lambda
         self.state_update_mode = config.state_update_mode
@@ -634,10 +686,12 @@ class DeltaMemAttention(nn.Module):
         self.delta_o_rmsnorm_eps = config.delta_o_rmsnorm_eps
 
         if self.is_gemma4_attention and self.is_kv_shared_layer:
-            raise ValueError(
-                "Delta-Mem does not wrap Gemma4 KV-shared attention layers because they do not own k/v projections. "
-                "Select non-shared target layers."
-            )
+            unsupported_heads = sorted(self.active_delta_heads - {"o"})
+            if unsupported_heads:
+                raise ValueError(
+                    "Gemma4 KV-shared attention layers support only O-residual Delta-Mem; "
+                    f"unsupported delta heads: {unsupported_heads}"
+                )
 
         hidden_size = base.q_proj.in_features
         self.hidden_size = hidden_size
@@ -651,11 +705,20 @@ class DeltaMemAttention(nn.Module):
                 )
         else:
             self.query_out_features = base.q_proj.out_features
-        self.key_out_features = base.k_proj.out_features
-        self.base_v_out_features = (
-            base.v_proj.out_features if base.v_proj is not None else base.k_proj.out_features
-        )
-        self.num_key_value_heads = base.k_proj.out_features // self.head_dim
+        if self.is_gemma4_attention and self.is_kv_shared_layer:
+            self.num_key_value_heads = int(
+                base.config.num_global_key_value_heads
+                if base.use_alternative_attention
+                else base.config.num_key_value_heads
+            )
+            self.key_out_features = self.num_key_value_heads * self.head_dim
+            self.base_v_out_features = self.key_out_features
+        else:
+            self.key_out_features = base.k_proj.out_features
+            self.base_v_out_features = (
+                base.v_proj.out_features if base.v_proj is not None else base.k_proj.out_features
+            )
+            self.num_key_value_heads = base.k_proj.out_features // self.head_dim
         self.partition_state_dim = config.rank * config.rank
         self.memory_write_source = config.memory_write_source
         self.memory_write_granularity = config.memory_write_granularity
@@ -665,17 +728,31 @@ class DeltaMemAttention(nn.Module):
             head_size=self.rank,
             layer_id=self.layer_idx,
             n_layer=base.config.num_hidden_layers,
+            output_init_scale=(
+                0.0 if self.output_init == "zero" else self.rwkv_ms_output_init_scale
+            ),
         ) if self.memory_backend == "rwkv_ms" else None
-        self.memory_q_proj = nn.Parameter(torch.empty(self.state_read_dim, hidden_size))
-        self.memory_k_proj = nn.Parameter(torch.empty(self.state_read_dim, hidden_size))
+        memory_qk_trainable = self.memory_backend != "rwkv_ms"
+        self.memory_q_proj = nn.Parameter(
+            torch.empty(self.state_read_dim, hidden_size),
+            requires_grad=memory_qk_trainable,
+        )
+        self.memory_k_proj = nn.Parameter(
+            torch.empty(self.state_read_dim, hidden_size),
+            requires_grad=memory_qk_trainable,
+        )
         self.memory_v_proj = nn.Parameter(torch.empty(self.state_read_dim, hidden_size))
 
         self.delta_q_proj = nn.Parameter(torch.empty(self.query_out_features, self.state_read_dim))
-        self.delta_k_proj = nn.Parameter(torch.empty(base.k_proj.out_features, self.state_read_dim))
+        self.delta_k_proj = nn.Parameter(torch.empty(self.key_out_features, self.state_read_dim))
         self.delta_v_proj = nn.Parameter(torch.empty(self.base_v_out_features, self.state_read_dim))
         self.delta_o_proj = nn.Parameter(torch.empty(base.o_proj.out_features, self.state_read_dim))
         if self.delta_o_rmsnorm:
             self.delta_o_rmsnorm_weight = nn.Parameter(torch.ones(base.o_proj.out_features))
+        if self.memory_fusion_mode == "content_gated_add":
+            self.memory_fusion_hidden_weight = nn.Parameter(torch.empty(1, hidden_size))
+            self.memory_fusion_read_weight = nn.Parameter(torch.empty(1, self.state_read_dim))
+            self.memory_fusion_bias = nn.Parameter(torch.empty(1))
 
         self.beta_proj = nn.Parameter(torch.empty(self.gate_dim, hidden_size))
         self.beta_bias = nn.Parameter(torch.full((self.gate_dim,), config.beta_bias_init))
@@ -698,6 +775,13 @@ class DeltaMemAttention(nn.Module):
         self.last_base_o_norm: torch.Tensor | None = None
         self.last_delta_o_norm: torch.Tensor | None = None
         self.last_delta_o_ratio: torch.Tensor | None = None
+        self.last_delta_o_gate_mean: torch.Tensor | None = None
+        self.last_delta_o_gate_min: torch.Tensor | None = None
+        self.last_delta_o_gate_max: torch.Tensor | None = None
+        self.last_fused_delta_o_norm: torch.Tensor | None = None
+        self.last_fused_delta_o_ratio: torch.Tensor | None = None
+        self.last_delta_o_base_cosine: torch.Tensor | None = None
+        self.last_fused_o_ratio: torch.Tensor | None = None
         self.write_message_ids: torch.Tensor | None = None
         self.write_sentence_ids: torch.Tensor | None = None
         self.scan_impl = os.environ.get("DELTA_MEM_SCAN_IMPL", "auto")
@@ -779,11 +863,15 @@ class DeltaMemAttention(nn.Module):
         nn.init.kaiming_uniform_(self.memory_k_proj, a=math.sqrt(5))
         nn.init.kaiming_uniform_(self.memory_v_proj, a=math.sqrt(5))
         self._init_delta_head(self.delta_q_proj, self._query_projection_weight())
-        self._init_delta_head(self.delta_k_proj, self.base.k_proj.weight)
-        self._init_delta_head(
-            self.delta_v_proj,
-            self.base.v_proj.weight if self.base.v_proj is not None else self.base.k_proj.weight,
-        )
+        if self.is_gemma4_attention and self.is_kv_shared_layer:
+            nn.init.zeros_(self.delta_k_proj)
+            nn.init.zeros_(self.delta_v_proj)
+        else:
+            self._init_delta_head(self.delta_k_proj, self.base.k_proj.weight)
+            self._init_delta_head(
+                self.delta_v_proj,
+                self.base.v_proj.weight if self.base.v_proj is not None else self.base.k_proj.weight,
+            )
         self._init_delta_head(self.delta_o_proj, self.base.o_proj.weight)
         for head_name, param in (
             ("q", self.delta_q_proj),
@@ -795,6 +883,13 @@ class DeltaMemAttention(nn.Module):
                 nn.init.zeros_(param)
         if self.delta_o_rmsnorm:
             nn.init.ones_(self.delta_o_rmsnorm_weight)
+        if self.memory_fusion_mode == "content_gated_add":
+            nn.init.zeros_(self.memory_fusion_hidden_weight)
+            nn.init.zeros_(self.memory_fusion_read_weight)
+            gate_logit = math.log(
+                self.memory_fusion_gate_init / (1.0 - self.memory_fusion_gate_init)
+            )
+            nn.init.constant_(self.memory_fusion_bias, gate_logit)
         nn.init.zeros_(self.beta_proj)
         if not self.couple_lambda:
             nn.init.zeros_(self.lambda_proj)
@@ -811,6 +906,13 @@ class DeltaMemAttention(nn.Module):
         self.last_base_o_norm = None
         self.last_delta_o_norm = None
         self.last_delta_o_ratio = None
+        self.last_delta_o_gate_mean = None
+        self.last_delta_o_gate_min = None
+        self.last_delta_o_gate_max = None
+        self.last_fused_delta_o_norm = None
+        self.last_fused_delta_o_ratio = None
+        self.last_delta_o_base_cosine = None
+        self.last_fused_o_ratio = None
         self.write_message_ids = None
         self.write_sentence_ids = None
 
@@ -829,8 +931,12 @@ class DeltaMemAttention(nn.Module):
         self.write_sentence_ids = sentence_ids
 
     def is_trainable_parameter(self, sub_name: str) -> bool:
-        if sub_name in {"memory_q_proj", "memory_k_proj", "memory_v_proj"}:
+        if sub_name in {"memory_q_proj", "memory_k_proj"}:
+            return self.memory_backend != "rwkv_ms"
+        if sub_name == "memory_v_proj":
             return True
+        if sub_name == "hrm_rwkv7_core.ln_x.bias":
+            return False
         if sub_name == "delta_q_proj":
             return "q" in self.active_delta_heads
         if sub_name == "delta_k_proj":
@@ -841,6 +947,8 @@ class DeltaMemAttention(nn.Module):
             return "o" in self.active_delta_heads
         if sub_name == "delta_o_rmsnorm_weight":
             return self.delta_o_rmsnorm and "o" in self.active_delta_heads
+        if sub_name.startswith("memory_fusion_"):
+            return self.memory_fusion_mode == "content_gated_add" and "o" in self.active_delta_heads
         if sub_name == "delta_scale_raw":
             return self.trainable_delta_scale
         return True
@@ -864,7 +972,7 @@ class DeltaMemAttention(nn.Module):
                     self.rank,
                     self.rank,
                     device=device,
-                    dtype=dtype,
+                    dtype=torch.float32,
                 )
                 self.rwkv_ms_positions = torch.zeros(
                     batch_size,
@@ -894,10 +1002,10 @@ class DeltaMemAttention(nn.Module):
                     device=device,
                     dtype=dtype,
                 )
+        elif self.memory_backend == "rwkv_ms":
+            if self.delta_state.dtype != torch.float32:
+                self.delta_state = self.delta_state.float()
         elif self.delta_state.dtype != dtype:
-            # RWKV-MS arithmetic can promote the recurrent state to float32.
-            # Preserve that state across a lower-precision read phase instead
-            # of treating the dtype change as a new session.
             self.delta_state = self.delta_state.to(dtype=dtype)
         return self.delta_state
 
@@ -911,8 +1019,13 @@ class DeltaMemAttention(nn.Module):
             return projected
         return projected.reshape(*projected.shape[:-2], self.state_read_dim)
 
-    def _normalize_memory_projection(self, projected: torch.Tensor) -> torch.Tensor:
-        if self.normalize_qk:
+    def _normalize_memory_projection(
+        self,
+        projected: torch.Tensor,
+        *,
+        force: bool = False,
+    ) -> torch.Tensor:
+        if self.normalize_qk or force:
             if self.multi_head_state and projected.size(-1) == self.state_read_dim:
                 projected = self._reshape_state_heads(projected)
                 projected = torch.tanh(projected)
@@ -1027,18 +1140,27 @@ class DeltaMemAttention(nn.Module):
         packed_gates = F.linear(hidden_states, packed_gate_weight)
         gate_splits = torch.split(packed_gates, split_sizes, dim=-1)
 
-        packed_memory_weight = torch.cat(
-            [self.memory_q_proj, self.memory_k_proj, self.memory_v_proj],
-            dim=0,
-        )
-        packed_memory = F.linear(hidden_states, packed_memory_weight)
-        memory_q, memory_k, memory_v = torch.split(
-            packed_memory,
-            [self.state_read_dim, self.state_read_dim, self.state_read_dim],
-            dim=-1,
-        )
-        memory_q = self._normalize_memory_projection(memory_q)
-        memory_k = self._normalize_memory_projection(memory_k)
+        if self.memory_backend == "rwkv_ms":
+            memory_v = F.linear(hidden_states, self.memory_v_proj)
+            if self.rwkv_ms_semantics_version >= 2:
+                memory_v = self._normalize_memory_projection(memory_v, force=True)
+            # The RWKV core derives its own r/k/v features from this source.
+            # Preserve the shared projection API without evaluating dead q/k matrices.
+            memory_q = memory_v
+            memory_k = memory_v
+        else:
+            packed_memory_weight = torch.cat(
+                [self.memory_q_proj, self.memory_k_proj, self.memory_v_proj],
+                dim=0,
+            )
+            packed_memory = F.linear(hidden_states, packed_memory_weight)
+            memory_q, memory_k, memory_v = torch.split(
+                packed_memory,
+                [self.state_read_dim, self.state_read_dim, self.state_read_dim],
+                dim=-1,
+            )
+            memory_q = self._normalize_memory_projection(memory_q)
+            memory_k = self._normalize_memory_projection(memory_k)
 
         beta = torch.sigmoid(
             gate_splits[0]
@@ -1207,6 +1329,66 @@ class DeltaMemAttention(nn.Module):
         if not token_mask.any():
             return ratios.new_zeros(())
         return ratios.masked_select(token_mask).mean()
+
+    def _masked_token_mean(
+        self,
+        values: torch.Tensor,
+        token_mask: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        token_values = values.float().squeeze(-1)
+        if token_mask is None:
+            return token_values.mean()
+        if not token_mask.any():
+            return token_values.new_zeros(())
+        return token_values.masked_select(token_mask).mean()
+
+    def _masked_token_min_max(
+        self,
+        values: torch.Tensor,
+        token_mask: Optional[torch.Tensor],
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        token_values = values.float().squeeze(-1)
+        if token_mask is not None:
+            if not token_mask.any():
+                zero = token_values.new_zeros(())
+                return zero, zero
+            token_values = token_values.masked_select(token_mask)
+        return token_values.min(), token_values.max()
+
+    def _masked_cosine_mean(
+        self,
+        left: torch.Tensor,
+        right: torch.Tensor,
+        token_mask: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        cosine = F.cosine_similarity(left.float(), right.float(), dim=-1, eps=1e-6)
+        if token_mask is None:
+            return cosine.mean()
+        if not token_mask.any():
+            return cosine.new_zeros(())
+        return cosine.masked_select(token_mask).mean()
+
+    def _memory_fusion_gate(
+        self,
+        hidden_states: torch.Tensor,
+        reads: torch.Tensor,
+    ) -> torch.Tensor:
+        if self.memory_fusion_mode == "add":
+            return reads.new_ones(*reads.shape[:-1], 1)
+        normalized_hidden = F.rms_norm(
+            hidden_states.float(),
+            (hidden_states.shape[-1],),
+            eps=1e-6,
+        )
+        normalized_reads = F.rms_norm(
+            reads.float(),
+            (reads.shape[-1],),
+            eps=1e-6,
+        )
+        logits = F.linear(normalized_hidden, self.memory_fusion_hidden_weight.float())
+        logits = logits + F.linear(normalized_reads, self.memory_fusion_read_weight.float())
+        logits = logits + self.memory_fusion_bias.float()
+        return torch.sigmoid(logits)
 
     def _apply_delta_o_rmsnorm(self, delta_o: torch.Tensor) -> torch.Tensor:
         if not self.delta_o_rmsnorm:
@@ -1942,6 +2124,11 @@ class DeltaMemAttention(nn.Module):
         lambda_seq: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         keep_seq, erase_seq, write_seq = self._memory_update_coefficients(beta_seq, lambda_seq)
+        if self.rwkv_ms_semantics_version >= 2:
+            # RWKV's learned decay already controls carry. Beta gates the
+            # complete write/correction pair without shortening that memory.
+            keep_seq = torch.ones_like(keep_seq)
+            erase_seq = write_seq
         if self.num_state_heads == 1:
             keep_seq = keep_seq.unsqueeze(2)
             erase_seq = erase_seq.unsqueeze(2)
@@ -1966,7 +2153,15 @@ class DeltaMemAttention(nn.Module):
         q_t: torch.Tensor,
         valid_t: torch.Tensor | None,
     ) -> torch.Tensor:
-        scores = (slot_reads * q_t.unsqueeze(2)).sum(dim=-1) / math.sqrt(float(self.rank))
+        if self.rwkv_ms_semantics_version >= 2:
+            scores = F.cosine_similarity(
+                slot_reads.float(),
+                q_t.float().unsqueeze(2),
+                dim=-1,
+                eps=1e-6,
+            )
+        else:
+            scores = (slot_reads * q_t.unsqueeze(2)).sum(dim=-1) / math.sqrt(float(self.rank))
         if 0 < self.rwkv_ms_read_top_k < scores.size(-1):
             top_scores, top_indices = torch.topk(scores, k=self.rwkv_ms_read_top_k, dim=-1)
             masked_scores = torch.full_like(scores, torch.finfo(scores.dtype).min)
@@ -1998,7 +2193,7 @@ class DeltaMemAttention(nn.Module):
                 0,
                 self.rwkv_ms_num_states,
             )
-            return state, memory_source_seq.new_zeros(batch_size, 0, self.state_read_dim)
+            return state.float(), memory_source_seq.new_zeros(batch_size, 0, self.state_read_dim)
         if self.hrm_rwkv7_core is None:  # pragma: no cover
             raise RuntimeError("RWKV-MS backend requires HRM RWKV-7 core")
         previous_source = self._ensure_rwkv_ms_previous_source(
@@ -2012,15 +2207,18 @@ class DeltaMemAttention(nn.Module):
             token_mask=token_mask,
             return_previous=True,
         )
-        r_seq = self._rwkv_ms_project_heads(features.r)
-        w_seq = self._rwkv_ms_project_heads(features.w)
-        k_seq = self._rwkv_ms_project_heads(features.k)
-        v_seq = self._rwkv_ms_project_heads(features.v)
-        a_seq = self._rwkv_ms_project_heads(features.a)
-        b_seq = self._rwkv_ms_project_heads(features.b)
+        r_seq = self._rwkv_ms_project_heads(features.r).float()
+        w_seq = self._rwkv_ms_project_heads(features.w).float()
+        k_seq = self._rwkv_ms_project_heads(features.k).float()
+        v_seq = self._rwkv_ms_project_heads(features.v).float()
+        a_seq = self._rwkv_ms_project_heads(features.a).float()
+        b_seq = self._rwkv_ms_project_heads(features.b).float()
         keep_seq, erase_seq, write_seq = self._rwkv_ms_update_coefficients(beta_seq, lambda_seq)
+        keep_seq = keep_seq.float()
+        erase_seq = erase_seq.float()
+        write_seq = write_seq.float()
 
-        current_state = state
+        current_state = state.float()
         positions = self._ensure_rwkv_ms_positions(batch_size, memory_source_seq.device).clone()
         read_steps: list[torch.Tensor] = []
         read_routes: list[torch.Tensor] = []
@@ -2028,7 +2226,7 @@ class DeltaMemAttention(nn.Module):
 
         for token_idx in range(seq_len):
             r_t = r_seq[:, token_idx]
-            w_t = torch.exp(-torch.exp(w_seq[:, token_idx].float())).to(dtype=memory_source_seq.dtype)
+            w_t = torch.exp(-torch.exp(w_seq[:, token_idx]))
             k_t = k_seq[:, token_idx]
             v_t = v_seq[:, token_idx]
             a_t = a_seq[:, token_idx]
@@ -2071,7 +2269,7 @@ class DeltaMemAttention(nn.Module):
             else:
                 positions = positions + valid_t.to(dtype=torch.long)
 
-        reads = torch.stack(read_steps, dim=1)
+        reads = torch.stack(read_steps, dim=1).to(dtype=features.g.dtype)
         reads = self.hrm_rwkv7_core.readout(reads, features.g)
         self.last_read_routes = torch.stack(read_routes, dim=1)
         self.last_write_routes = torch.stack(write_routes, dim=1)
@@ -2112,19 +2310,21 @@ class DeltaMemAttention(nn.Module):
             token_mask=token_mask,
             advance_within_sequence=False,
         )
-        r_seq = self._rwkv_ms_project_heads(features.r)
+        current_state = state.float()
+        r_seq = self._rwkv_ms_project_heads(features.r).float()
         read_steps: list[torch.Tensor] = []
         read_routes: list[torch.Tensor] = []
         for token_idx in range(seq_len):
             r_t = r_seq[:, token_idx]
             valid_t = None if token_mask is None else token_mask[:, token_idx]
-            slot_reads = torch.einsum("bhsij,bhj->bhsi", state, r_t)
+            slot_reads = torch.einsum("bhsij,bhj->bhsi", current_state, r_t)
             routes = self._rwkv_ms_read_routes(slot_reads, r_t, valid_t)
             read_t = torch.einsum("bhs,bhsi->bhi", routes, slot_reads)
             read_steps.append(read_t.reshape(batch_size, self.state_read_dim))
             read_routes.append(routes.mean(dim=1))
         self.last_read_routes = torch.stack(read_routes, dim=1)
-        return self.hrm_rwkv7_core.readout(torch.stack(read_steps, dim=1), features.g)
+        read_inputs = torch.stack(read_steps, dim=1).to(dtype=features.g.dtype)
+        return self.hrm_rwkv7_core.readout(read_inputs, features.g)
 
     def _memory_backend_scan(
         self,
@@ -2173,6 +2373,59 @@ class DeltaMemAttention(nn.Module):
             read_route_seq,
             token_mask,
         )
+
+    def _fuse_delta_o_output(
+        self,
+        base_o_output: torch.Tensor,
+        delta_o: torch.Tensor | None,
+        hidden_states: torch.Tensor,
+        reads: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        self.last_base_o_norm = self._masked_hidden_norm(base_o_output, token_mask)
+        self.last_delta_o_norm = None
+        self.last_delta_o_ratio = None
+        self.last_delta_o_gate_mean = None
+        self.last_delta_o_gate_min = None
+        self.last_delta_o_gate_max = None
+        self.last_fused_delta_o_norm = None
+        self.last_fused_delta_o_ratio = None
+        self.last_delta_o_base_cosine = None
+        self.last_fused_o_ratio = None
+        if delta_o is None:
+            return base_o_output
+
+        delta_o_typed = self._apply_delta_o_rmsnorm(delta_o.to(hidden_states.dtype))
+        self.last_delta_o_norm = self._masked_hidden_norm(delta_o_typed, token_mask)
+        self.last_delta_o_ratio = self._masked_ratio_mean(
+            delta_o_typed.norm(dim=-1),
+            base_o_output.norm(dim=-1),
+            token_mask,
+        )
+        fusion_gate = self._memory_fusion_gate(hidden_states, reads)
+        self.last_delta_o_gate_mean = self._masked_token_mean(fusion_gate, token_mask)
+        self.last_delta_o_gate_min, self.last_delta_o_gate_max = (
+            self._masked_token_min_max(fusion_gate, token_mask)
+        )
+        fused_delta_o = delta_o_typed * fusion_gate.to(dtype=delta_o_typed.dtype)
+        self.last_fused_delta_o_norm = self._masked_hidden_norm(fused_delta_o, token_mask)
+        self.last_fused_delta_o_ratio = self._masked_ratio_mean(
+            fused_delta_o.norm(dim=-1),
+            base_o_output.norm(dim=-1),
+            token_mask,
+        )
+        self.last_delta_o_base_cosine = self._masked_cosine_mean(
+            fused_delta_o,
+            base_o_output,
+            token_mask,
+        )
+        fused_output = base_o_output + fused_delta_o
+        self.last_fused_o_ratio = self._masked_ratio_mean(
+            fused_output.norm(dim=-1),
+            base_o_output.norm(dim=-1),
+            token_mask,
+        )
+        return fused_output
 
     def forward(
         self,
@@ -2290,6 +2543,29 @@ class DeltaMemAttention(nn.Module):
         delta_q, delta_k, delta_v = self._compute_delta_qkv_from_reads(reads)
         delta_o = self._project_delta_head(reads, self.delta_o_proj, "o")
 
+        if self.is_gemma4_attention and self.is_kv_shared_layer:
+            base_kwargs = dict(kwargs)
+            if cache_position is not None:
+                base_kwargs["cache_position"] = cache_position
+            base_o_output, attn_weights = self.base(
+                hidden_states=hidden_states,
+                position_embeddings=position_embeddings,
+                attention_mask=attention_mask,
+                shared_kv_states=shared_kv_states,
+                past_key_values=past_key_values,
+                **base_kwargs,
+            )
+            return (
+                self._fuse_delta_o_output(
+                    base_o_output,
+                    delta_o,
+                    hidden_states,
+                    reads,
+                    token_mask,
+                ),
+                attn_weights,
+            )
+
         input_shape = hidden_states.shape[:-1]
         hidden_shape = (*input_shape, -1, self.base.head_dim)
 
@@ -2365,20 +2641,16 @@ class DeltaMemAttention(nn.Module):
         if output_gate is not None:
             attn_output = attn_output * torch.sigmoid(output_gate)
         base_o_output = self.base.o_proj(attn_output)
-        self.last_base_o_norm = self._masked_hidden_norm(base_o_output, token_mask)
-        attn_output = base_o_output
-        self.last_delta_o_norm = None
-        self.last_delta_o_ratio = None
-        if delta_o is not None:
-            delta_o_typed = self._apply_delta_o_rmsnorm(delta_o.to(hidden_states.dtype))
-            self.last_delta_o_norm = self._masked_hidden_norm(delta_o_typed, token_mask)
-            self.last_delta_o_ratio = self._masked_ratio_mean(
-                delta_o_typed.norm(dim=-1),
-                base_o_output.norm(dim=-1),
+        return (
+            self._fuse_delta_o_output(
+                base_o_output,
+                delta_o,
+                hidden_states,
+                reads,
                 token_mask,
-            )
-            attn_output = attn_output + delta_o_typed
-        return attn_output, attn_weights
+            ),
+            attn_weights,
+        )
 
 
 def _get_parent_module(root: nn.Module, module_name: str) -> tuple[nn.Module, str]:
@@ -2389,18 +2661,45 @@ def _get_parent_module(root: nn.Module, module_name: str) -> tuple[nn.Module, st
     return parent, parts[-1]
 
 
+def validate_gemma4_shared_delta_heads(
+    module: nn.Module,
+    config: HFDeltaMemConfig,
+) -> None:
+    if not (
+        Gemma4TextAttention is not None
+        and isinstance(module, Gemma4TextAttention)
+        and getattr(module, "is_kv_shared_layer", False)
+    ):
+        return
+    unsupported_heads = sorted(set(config.delta_heads) - {"o"})
+    if unsupported_heads:
+        raise ValueError(
+            "Gemma4 KV-shared attention layers support only O-residual Delta-Mem; "
+            f"layer {module.layer_idx} requested unsupported delta heads: {unsupported_heads}"
+        )
+
+
 def attach_delta_mem(model: nn.Module, config: HFDeltaMemConfig) -> list[str]:
-    replaced = []
+    candidates: list[tuple[str, nn.Module]] = []
     for name, module in list(model.named_modules()):
         if not isinstance(module, SUPPORTED_BASE_ATTENTION_TYPES):
             continue
-        if Gemma4TextAttention is not None and isinstance(module, Gemma4TextAttention):
-            if getattr(module, "is_kv_shared_layer", False):
-                continue
         if name.split(".")[-1] not in config.target_modules:
             continue
         if config.target_layers and module.layer_idx not in config.target_layers:
             continue
+        if (
+            Gemma4TextAttention is not None
+            and isinstance(module, Gemma4TextAttention)
+            and getattr(module, "is_kv_shared_layer", False)
+            and not config.target_layers
+        ):
+            continue
+        validate_gemma4_shared_delta_heads(module, config)
+        candidates.append((name, module))
+
+    replaced = []
+    for name, module in candidates:
         module = ensure_attention_compat_views(module)
         parent, attr = _get_parent_module(model, name)
         wrapped = DeltaMemAttention(module, config).to(
@@ -2505,6 +2804,8 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
         "delta_k_proj_norm_sum": 0.0,
         "delta_v_proj_norm_sum": 0.0,
         "delta_o_proj_norm_sum": 0.0,
+        "memory_fusion_weight_norm_sum": 0.0,
+        "content_gated_fusion_modules": 0,
         "delta_scale_mean_sum": 0.0,
         "trainable_delta_scale_modules": 0,
         "beta_proj_norm_sum": 0.0,
@@ -2520,6 +2821,12 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
         stats["delta_k_proj_norm_sum"] += module.delta_k_proj.float().norm().item()
         stats["delta_v_proj_norm_sum"] += module.delta_v_proj.float().norm().item()
         stats["delta_o_proj_norm_sum"] += module.delta_o_proj.float().norm().item()
+        if module.memory_fusion_mode == "content_gated_add":
+            stats["content_gated_fusion_modules"] += 1
+            stats["memory_fusion_weight_norm_sum"] += (
+                module.memory_fusion_hidden_weight.float().norm().item()
+                + module.memory_fusion_read_weight.float().norm().item()
+            )
         if module.trainable_delta_scale:
             stats["trainable_delta_scale_modules"] += 1
             stats["delta_scale_mean_sum"] += (
@@ -2592,12 +2899,23 @@ def collect_delta_mem_state_stats(model: nn.Module) -> dict[str, float]:
 def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
     num_modules = 0
     modules_with_delta_o = 0
+    content_gated_modules = 0
     mean_base_o_norm = 0.0
     mean_delta_o_norm = 0.0
     mean_delta_o_ratio = 0.0
     max_delta_o_ratio = 0.0
+    mean_delta_o_gate = 0.0
+    min_delta_o_gate = math.inf
+    max_delta_o_gate = -math.inf
+    mean_fused_delta_o_norm = 0.0
+    mean_fused_delta_o_ratio = 0.0
+    max_fused_delta_o_ratio = 0.0
+    mean_delta_o_base_cosine = 0.0
+    mean_fused_o_ratio = 0.0
     for _, module in iter_delta_mem_modules(model):
         num_modules += 1
+        if module.memory_fusion_mode == "content_gated_add":
+            content_gated_modules += 1
         if module.last_base_o_norm is not None:
             mean_base_o_norm += float(module.last_base_o_norm.detach().float().item())
         if module.last_delta_o_norm is not None:
@@ -2607,18 +2925,59 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
             ratio = float(module.last_delta_o_ratio.detach().float().item())
             mean_delta_o_ratio += ratio
             max_delta_o_ratio = max(max_delta_o_ratio, ratio)
+        if module.last_delta_o_gate_mean is not None:
+            mean_delta_o_gate += float(module.last_delta_o_gate_mean.detach().float().item())
+            min_delta_o_gate = min(
+                min_delta_o_gate,
+                float(module.last_delta_o_gate_min.detach().float().item()),
+            )
+            max_delta_o_gate = max(
+                max_delta_o_gate,
+                float(module.last_delta_o_gate_max.detach().float().item()),
+            )
+        if module.last_fused_delta_o_norm is not None:
+            mean_fused_delta_o_norm += float(
+                module.last_fused_delta_o_norm.detach().float().item()
+            )
+        if module.last_fused_delta_o_ratio is not None:
+            fused_ratio = float(module.last_fused_delta_o_ratio.detach().float().item())
+            mean_fused_delta_o_ratio += fused_ratio
+            max_fused_delta_o_ratio = max(max_fused_delta_o_ratio, fused_ratio)
+        if module.last_delta_o_base_cosine is not None:
+            mean_delta_o_base_cosine += float(
+                module.last_delta_o_base_cosine.detach().float().item()
+            )
+        if module.last_fused_o_ratio is not None:
+            mean_fused_o_ratio += float(module.last_fused_o_ratio.detach().float().item())
     if num_modules > 0:
         mean_base_o_norm /= num_modules
     if modules_with_delta_o > 0:
         mean_delta_o_norm /= modules_with_delta_o
         mean_delta_o_ratio /= modules_with_delta_o
+        mean_delta_o_gate /= modules_with_delta_o
+        mean_fused_delta_o_norm /= modules_with_delta_o
+        mean_fused_delta_o_ratio /= modules_with_delta_o
+        mean_delta_o_base_cosine /= modules_with_delta_o
+        mean_fused_o_ratio /= modules_with_delta_o
+    if modules_with_delta_o == 0:
+        min_delta_o_gate = 0.0
+        max_delta_o_gate = 0.0
     return {
         "num_modules": num_modules,
         "modules_with_delta_o": modules_with_delta_o,
+        "content_gated_modules": content_gated_modules,
         "mean_base_o_norm": mean_base_o_norm,
         "mean_delta_o_norm": mean_delta_o_norm,
         "mean_delta_o_ratio": mean_delta_o_ratio,
         "max_delta_o_ratio": max_delta_o_ratio,
+        "mean_delta_o_gate": mean_delta_o_gate,
+        "min_delta_o_gate": min_delta_o_gate,
+        "max_delta_o_gate": max_delta_o_gate,
+        "mean_fused_delta_o_norm": mean_fused_delta_o_norm,
+        "mean_fused_delta_o_ratio": mean_fused_delta_o_ratio,
+        "max_fused_delta_o_ratio": max_fused_delta_o_ratio,
+        "mean_delta_o_base_cosine": mean_delta_o_base_cosine,
+        "mean_fused_o_ratio": mean_fused_o_ratio,
     }
 
 
@@ -2760,9 +3119,14 @@ def load_delta_mem_online_state(model: nn.Module, state: dict[str, torch.Tensor]
         module = module_map[name]
         if not isinstance(module, DeltaMemAttention):
             raise TypeError(f"{name} is not a DeltaMemAttention")
+        state_dtype = (
+            torch.float32
+            if module.memory_backend == "rwkv_ms"
+            else module.base.q_proj.weight.dtype
+        )
         module.delta_state = tensor.to(
             device=module.base.q_proj.weight.device,
-            dtype=module.base.q_proj.weight.dtype,
+            dtype=state_dtype,
         )
 
 

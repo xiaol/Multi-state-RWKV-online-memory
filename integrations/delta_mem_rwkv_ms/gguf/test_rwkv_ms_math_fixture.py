@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
 import torch
 
 
@@ -13,7 +14,8 @@ if str(GGUF_DIR) not in sys.path:
 from rwkv_ms_math_fixture_common import rwkv_ms_scan  # noqa: E402
 
 
-def test_rwkv_ms_scan_two_chunks_match_full_stream() -> None:
+@pytest.mark.parametrize("semantics_version", [1, 2])
+def test_rwkv_ms_scan_two_chunks_match_full_stream(semantics_version: int) -> None:
     torch.manual_seed(17)
     from hrm_rwkv7 import HRMRWKV7LowRankCore
 
@@ -55,6 +57,7 @@ def test_rwkv_ms_scan_two_chunks_match_full_stream() -> None:
         "rwkv_ms_chunk_size": 2,
         "rwkv_ms_erase_gate": 1.0,
         "rwkv_ms_read_top_k": 0,
+        "rwkv_ms_semantics_version": semantics_version,
     }
 
     def scan(

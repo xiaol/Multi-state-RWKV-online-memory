@@ -15,6 +15,12 @@ supports both the Qwen3.6 HF model and the current practical Gemma target,
 | Delta rule | `--memory-backend delta_rule` | one associative matrix per state head | existing q/k/v/o delta heads |
 | RWKV-MS | `--memory-backend rwkv_ms` | `rwkv_ms_num_states` RWKV-7 matrices per state head | same q/k/v/o delta heads |
 
+RWKV-MS semantics v2 is the default for new configs. It keeps recurrent state
+in FP32, normalizes the live source per state head, applies beta only to the
+write/correction pair, uses cosine slot routing, and makes zero-state readout
+exactly zero. Missing-version checkpoints resolve to legacy v1; use a fresh
+checkpoint rather than resuming one across the v1/v2 boundary.
+
 Supported attention backbones in the bundled runtime:
 
 | Backbone | Status |

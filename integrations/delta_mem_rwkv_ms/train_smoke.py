@@ -43,6 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chunk-size", type=int, default=16)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--max-write-length", type=int, default=128)
+    parser.add_argument("--episode-recent-messages", type=int, default=1)
     parser.add_argument("--max-steps", type=int, default=2)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
@@ -105,6 +106,7 @@ def main() -> None:
     from deltamem.core.delta_impl import (
         collect_delta_mem_state_stats,
         get_delta_mem_state_dict,
+        get_delta_mem_online_state,
         load_delta_mem_adapter,
         save_delta_mem_adapter,
     )
@@ -119,6 +121,8 @@ def main() -> None:
         raise RuntimeError("The RWKV-MS smoke train requires a CUDA GPU")
     if args.max_steps < 1:
         raise ValueError("max-steps must be >= 1")
+    if args.episode_recent_messages < 0:
+        raise ValueError("episode-recent-messages must be >= 0")
 
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
@@ -142,13 +146,18 @@ def main() -> None:
                 messages,
                 args.max_length,
                 assistant_loss_mode="final_assistant_only",
-                episode_recent_messages=1,
+                episode_recent_messages=args.episode_recent_messages,
                 max_write_length=args.max_write_length,
                 include_sentence_ids=False,
             )
         )
     if not episodes:
         raise ValueError("Training data did not produce any episode examples")
+    if not any(episode["write_input_ids"] for episode in episodes):
+        raise ValueError(
+            "Training data produced only empty memory writes; reduce "
+            "--episode-recent-messages or change the episode schema"
+        )
 
     resolved_attn_implementation = resolve_attn_implementation(
         args.model_path,
@@ -171,6 +180,8 @@ def main() -> None:
         rwkv_ms_boundary_mode="fixed_chunk",
         rwkv_ms_erase_gate=1.0,
         rwkv_ms_read_top_k=0,
+        rwkv_ms_output_init_scale=0.02,
+        rwkv_ms_semantics_version=2,
         num_state_heads=1,
         beta_bias_init=0.0,
         couple_lambda=True,
@@ -267,6 +278,23 @@ def main() -> None:
         )
         optimizer.step()
         state_stats = collect_delta_mem_state_stats(model)
+        online_state = get_delta_mem_online_state(model)
+        state_slot_norms = {
+            name: tensor.float().square().sum(dim=(0, 1, 3, 4)).sqrt().tolist()
+            for name, tensor in online_state.items()
+            if not name.endswith((".__rwkv_ms_positions", ".__rwkv_ms_previous_source"))
+            and tensor.ndim == 5
+        }
+        active_state_slots = {
+            name: sum(float(norm) > 0.0 for norm in norms)
+            for name, norms in state_slot_norms.items()
+        }
+        write_length = len(episode["write_input_ids"])
+        if write_length >= args.num_states * args.chunk_size and (
+            not active_state_slots
+            or min(active_state_slots.values()) < args.num_states
+        ):
+            raise RuntimeError("RWKV-MS smoke train did not populate every expected state slot")
         record = {
             "step": step,
             "loss": float(loss.detach().float().item()),
@@ -276,6 +304,9 @@ def main() -> None:
             "nonzero_grad_tensors": nonzero_grad_tensors,
             "nonzero_state_modules": state_stats["nonzero_modules"],
             "max_state_norm": state_stats["max_state_norm"],
+            "write_length": write_length,
+            "active_state_slots": active_state_slots,
+            "state_slot_norms": state_slot_norms,
         }
         step_records.append(record)
         print("SMOKE_STEP=" + json.dumps(record, sort_keys=True), flush=True)
@@ -295,6 +326,11 @@ def main() -> None:
         l2_change_sq += float(diff.square().sum().item())
     if not changed:
         raise RuntimeError("Training completed but no adapter tensor changed")
+    changed_rwkv_core_outputs = [
+        name for name in changed if name.endswith("hrm_rwkv7_core.output.weight")
+    ]
+    if not changed_rwkv_core_outputs:
+        raise RuntimeError("Training completed but no RWKV core output tensor changed")
 
     save_delta_mem_adapter(model, args.output_dir, delta_config)
     saved = torch.load(
@@ -349,6 +385,7 @@ def main() -> None:
         "trainable_tensor_count": len(trainable_names),
         "adapter_tensor_count": len(final),
         "changed_tensor_count": len(changed),
+        "changed_rwkv_core_output_tensors": changed_rwkv_core_outputs,
         "max_abs_parameter_change": max_abs_change,
         "l2_parameter_change": math.sqrt(l2_change_sq),
         "save_max_abs_error": save_max_abs_error,

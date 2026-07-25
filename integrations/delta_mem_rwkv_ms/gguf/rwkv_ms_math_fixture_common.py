@@ -281,7 +281,7 @@ def make_deterministic_inputs(
         ).to(dtype=dtype)
     return {
         "hidden_states": hidden.to(dtype=dtype),
-        "initial_state": initial_state.to(dtype=dtype),
+        "initial_state": initial_state,
         "initial_positions": positions,
         "initial_previous_source": initial_previous_source,
         "token_mask": token_mask,
@@ -318,30 +318,42 @@ def memory_sequence_projections(
         split_sizes.append(int(params["lambda_proj"].shape[0]))
     packed_gates = F.linear(hidden_states, torch.cat(gate_weights, dim=0))
     gate_splits = torch.split(packed_gates, split_sizes, dim=-1)
-    packed_memory = F.linear(
-        hidden_states,
-        torch.cat(
-            [params["memory_q_proj"], params["memory_k_proj"], params["memory_v_proj"]],
-            dim=0,
-        ),
-    )
-    memory_q, memory_k, memory_v = torch.split(
-        packed_memory,
-        [rank * num_state_heads, rank * num_state_heads, rank * num_state_heads],
-        dim=-1,
-    )
-    memory_q = normalize_memory_projection(
-        memory_q,
-        normalize_qk=bool(config.get("normalize_qk", True)),
-        num_state_heads=num_state_heads,
-        rank=rank,
-    )
-    memory_k = normalize_memory_projection(
-        memory_k,
-        normalize_qk=bool(config.get("normalize_qk", True)),
-        num_state_heads=num_state_heads,
-        rank=rank,
-    )
+    semantics_version = int(config.get("rwkv_ms_semantics_version", 1))
+    if semantics_version >= 2:
+        memory_v = F.linear(hidden_states, params["memory_v_proj"])
+        memory_v = normalize_memory_projection(
+            memory_v,
+            normalize_qk=True,
+            num_state_heads=num_state_heads,
+            rank=rank,
+        )
+        memory_q = memory_v
+        memory_k = memory_v
+    else:
+        packed_memory = F.linear(
+            hidden_states,
+            torch.cat(
+                [params["memory_q_proj"], params["memory_k_proj"], params["memory_v_proj"]],
+                dim=0,
+            ),
+        )
+        memory_q, memory_k, memory_v = torch.split(
+            packed_memory,
+            [rank * num_state_heads, rank * num_state_heads, rank * num_state_heads],
+            dim=-1,
+        )
+        memory_q = normalize_memory_projection(
+            memory_q,
+            normalize_qk=bool(config.get("normalize_qk", True)),
+            num_state_heads=num_state_heads,
+            rank=rank,
+        )
+        memory_k = normalize_memory_projection(
+            memory_k,
+            normalize_qk=bool(config.get("normalize_qk", True)),
+            num_state_heads=num_state_heads,
+            rank=rank,
+        )
     beta = torch.sigmoid(gate_splits[0] + params["beta_bias"].view(1, 1, -1)).unsqueeze(-1)
     if str(config.get("state_update_mode", "standard")) == "no_lambda":
         lam = torch.ones_like(beta)
@@ -370,6 +382,7 @@ def update_coefficients(
     num_state_heads: int,
     rankwise_gates: bool,
     state_update_mode: str,
+    semantics_version: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     beta_rows = beta_seq.squeeze(-1) if beta_seq.ndim == 4 else beta_seq
     lambda_rows = lambda_seq.squeeze(-1) if lambda_seq.ndim == 4 else lambda_seq
@@ -405,6 +418,9 @@ def update_coefficients(
         write_seq = beta_rows
     else:
         raise ValueError(f"Unsupported state_update_mode: {state_update_mode}")
+    if int(semantics_version) >= 2:
+        keep_seq = torch.ones_like(keep_seq)
+        erase_seq = write_seq
 
     if num_state_heads == 1:
         keep_seq = keep_seq.unsqueeze(2)
@@ -424,8 +440,17 @@ def read_routes(
     *,
     rank: int,
     read_top_k: int,
+    semantics_version: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    scores = (slot_reads * query.unsqueeze(2)).sum(dim=-1) / math.sqrt(float(rank))
+    if int(semantics_version) >= 2:
+        scores = F.cosine_similarity(
+            slot_reads.float(),
+            query.float().unsqueeze(2),
+            dim=-1,
+            eps=1e-6,
+        )
+    else:
+        scores = (slot_reads * query.unsqueeze(2)).sum(dim=-1) / math.sqrt(float(rank))
     if 0 < int(read_top_k) < scores.size(-1):
         top_scores, top_indices = torch.topk(scores, k=int(read_top_k), dim=-1)
         masked_scores = torch.full_like(scores, torch.finfo(scores.dtype).min)
@@ -456,6 +481,7 @@ def rwkv_ms_scan(
     chunk_size = int(scan_config["rwkv_ms_chunk_size"])
     erase_gate = float(scan_config["rwkv_ms_erase_gate"])
     read_top_k = int(scan_config["rwkv_ms_read_top_k"])
+    semantics_version = int(scan_config.get("rwkv_ms_semantics_version", 1))
     batch_size, seq_len, _ = memory_source_seq.shape
 
     with torch.no_grad():
@@ -471,12 +497,12 @@ def rwkv_ms_scan(
                 token_mask=token_mask,
                 return_previous=True,
             )
-        r_seq = project_heads(features.r, num_state_heads=num_state_heads, rank=rank)
-        w_seq = project_heads(features.w, num_state_heads=num_state_heads, rank=rank)
-        k_seq = project_heads(features.k, num_state_heads=num_state_heads, rank=rank)
-        v_seq = project_heads(features.v, num_state_heads=num_state_heads, rank=rank)
-        a_seq = project_heads(features.a, num_state_heads=num_state_heads, rank=rank)
-        b_seq = project_heads(features.b, num_state_heads=num_state_heads, rank=rank)
+        r_seq = project_heads(features.r, num_state_heads=num_state_heads, rank=rank).float()
+        w_seq = project_heads(features.w, num_state_heads=num_state_heads, rank=rank).float()
+        k_seq = project_heads(features.k, num_state_heads=num_state_heads, rank=rank).float()
+        v_seq = project_heads(features.v, num_state_heads=num_state_heads, rank=rank).float()
+        a_seq = project_heads(features.a, num_state_heads=num_state_heads, rank=rank).float()
+        b_seq = project_heads(features.b, num_state_heads=num_state_heads, rank=rank).float()
         keep_seq, erase_seq, write_seq = update_coefficients(
             beta_seq,
             lambda_seq,
@@ -484,9 +510,13 @@ def rwkv_ms_scan(
             num_state_heads=num_state_heads,
             rankwise_gates=bool(config.get("rankwise_gates", True)),
             state_update_mode=str(config.get("state_update_mode", "standard")),
+            semantics_version=semantics_version,
         )
+        keep_seq = keep_seq.float()
+        erase_seq = erase_seq.float()
+        write_seq = write_seq.float()
 
-        current_state = state.clone()
+        current_state = state.float().clone()
         current_positions = positions.clone()
         raw_read_steps: list[torch.Tensor] = []
         read_route_steps: list[torch.Tensor] = []
@@ -506,7 +536,7 @@ def rwkv_ms_scan(
 
         for token_idx in range(seq_len):
             r_t = r_seq[:, token_idx]
-            w_t = torch.exp(-torch.exp(w_seq[:, token_idx].float())).to(dtype=memory_source_seq.dtype)
+            w_t = torch.exp(-torch.exp(w_seq[:, token_idx]))
             k_t = k_seq[:, token_idx]
             v_t = v_seq[:, token_idx]
             a_t = a_seq[:, token_idx]
@@ -526,6 +556,7 @@ def rwkv_ms_scan(
                 valid_t,
                 rank=rank,
                 read_top_k=read_top_k,
+                semantics_version=semantics_version,
             )
             read_t = torch.einsum("bhs,bhsi->bhi", routes, slot_reads)
             raw_read_steps.append(read_t.reshape(batch_size, num_state_heads * rank))
@@ -566,7 +597,7 @@ def rwkv_ms_scan(
                 trace["state_after"].append(current_state.clone())
                 trace["positions_after"].append(current_positions.clone())
 
-        raw_reads = torch.stack(raw_read_steps, dim=1)
+        raw_reads = torch.stack(raw_read_steps, dim=1).to(dtype=features.g.dtype)
         reads = core.readout(raw_reads, features.g)
         result = {
             "memory_source": memory_source_seq,

@@ -13,10 +13,12 @@ from deltamem.core.backbone_compat import (
 from deltamem.core.delta_impl import (
     VALID_DELTA_HEADS,
     VALID_MEMORY_BACKENDS,
+    VALID_MEMORY_FUSION_MODES,
     VALID_MEMORY_PARTITION_BASIS,
     VALID_MEMORY_PARTITION_ROUTING,
     VALID_STATE_UPDATE_MODES,
     collect_delta_mem_gate_stats,
+    collect_delta_mem_output_ratio_stats,
     collect_delta_mem_partition_route_stats,
     collect_delta_mem_state_stats,
     collect_delta_mem_weight_stats,
@@ -30,6 +32,7 @@ from deltamem.core.delta_impl import (
     load_delta_mem_online_state,
     normalize_delta_heads,
     normalize_memory_backend,
+    normalize_memory_fusion_mode,
     normalize_memory_partition_basis,
     normalize_memory_partition_routing,
     normalize_state_update_mode,
@@ -40,6 +43,7 @@ from deltamem.core.delta_impl import (
     set_delta_mem_write_message_ids,
     set_delta_mem_write_sentence_ids,
     snapshot_delta_mem_weights,
+    validate_gemma4_shared_delta_heads,
     HFDeltaMemConfig as ExperimentalHFDeltaMemConfig,
     DeltaMemAttention as ExperimentalDeltaMemAttention,
 )
@@ -90,22 +94,31 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
         raise ValueError(
             "attach_delta_mem in mainline only supports memory_readout_mode='delta'."
         )
-    replaced = []
     supported_types = (Qwen3Attention, SmolLM3Attention)
     if Qwen3_5Attention is not None:
         supported_types = supported_types + (Qwen3_5Attention,)
     if Gemma4TextAttention is not None:
         supported_types = supported_types + (Gemma4TextAttention,)
+    candidates = []
     for name, module in list(model.named_modules()):
         if not isinstance(module, supported_types):
             continue
-        if Gemma4TextAttention is not None and isinstance(module, Gemma4TextAttention):
-            if getattr(module, "is_kv_shared_layer", False):
-                continue
         if name.split(".")[-1] not in config.target_modules:
             continue
         if config.target_layers and module.layer_idx not in config.target_layers:
             continue
+        if (
+            Gemma4TextAttention is not None
+            and isinstance(module, Gemma4TextAttention)
+            and getattr(module, "is_kv_shared_layer", False)
+            and not config.target_layers
+        ):
+            continue
+        validate_gemma4_shared_delta_heads(module, config)
+        candidates.append((name, module))
+
+    replaced = []
+    for name, module in candidates:
         module = ensure_attention_compat_views(module)
         parent, attr = _get_parent_module(model, name)
         wrapped = DeltaMemAttention(module, config).to(
@@ -122,6 +135,7 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
 __all__ = [
     "VALID_DELTA_HEADS",
     "VALID_MEMORY_BACKENDS",
+    "VALID_MEMORY_FUSION_MODES",
     "VALID_MEMORY_PARTITION_BASIS",
     "VALID_MEMORY_PARTITION_ROUTING",
     "VALID_MEMORY_READOUT_MODES",
@@ -130,6 +144,7 @@ __all__ = [
     "HFDeltaMemConfig",
     "attach_delta_mem",
     "collect_delta_mem_gate_stats",
+    "collect_delta_mem_output_ratio_stats",
     "collect_delta_mem_partition_route_stats",
     "collect_delta_mem_state_stats",
     "collect_delta_mem_weight_stats",
@@ -143,6 +158,7 @@ __all__ = [
     "load_delta_mem_online_state",
     "normalize_delta_heads",
     "normalize_memory_backend",
+    "normalize_memory_fusion_mode",
     "normalize_memory_partition_basis",
     "normalize_memory_partition_routing",
     "normalize_memory_readout_mode",
