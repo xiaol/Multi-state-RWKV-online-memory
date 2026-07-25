@@ -88,6 +88,12 @@ def _restore_missing_chat_template(tokenizer: Any) -> None:
             return
 
 
+def resolve_effective_chat_template(tokenizer: Any) -> Any:
+    _restore_missing_chat_template(tokenizer)
+    template = getattr(tokenizer, "chat_template", None)
+    return template if template else None
+
+
 def _messages_violate_role_alternation(messages: list[dict[str, str]]) -> bool:
     previous_role: str | None = None
     for message in messages:
@@ -130,7 +136,7 @@ def _apply_tokenizer_chat_template(
 
 
 def apply_chat_template(tokenizer: Any, messages: list[dict[str, str]], /, **kwargs: Any):
-    _restore_missing_chat_template(tokenizer)
+    resolve_effective_chat_template(tokenizer)
     enable_thinking = qwen3_enable_thinking_override(tokenizer)
     if enable_thinking is None:
         enable_thinking = smollm3_enable_thinking_override(tokenizer)

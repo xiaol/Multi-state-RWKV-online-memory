@@ -9,19 +9,25 @@ import math
 import os
 import shutil
 import time
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
+from torch import nn
+from torch.utils.checkpoint import checkpoint
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
-from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
+from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments, set_seed
+
+import deltamem.chat_templates as project_chat_templates
 
 from deltamem.core.delta import (
     HFDeltaMemConfig,
     attach_delta_mem,
     collect_delta_mem_gate_stats,
+    collect_delta_mem_output_ratio_stats,
     collect_delta_mem_partition_route_stats,
     collect_delta_mem_state_stats,
     collect_delta_mem_weight_stats,
@@ -43,9 +49,141 @@ from deltamem.core.delta import (
     set_delta_mem_write_message_ids,
     set_delta_mem_write_sentence_ids,
 )
-from deltamem.chat_templates import apply_chat_template as apply_project_chat_template
+from deltamem.chat_templates import (
+    apply_chat_template as apply_project_chat_template,
+    resolve_effective_chat_template,
+)
 from deltamem.model_loading import resolve_attn_implementation
 from deltamem.core.write_segmentation import split_text_into_sentence_token_chunks
+
+
+class FrozenMLPActivationCheckpointWrapper(nn.Module):
+    def __init__(self, module: nn.Module) -> None:
+        super().__init__()
+        self.module = module
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        should_checkpoint = (
+            self.training
+            and torch.is_grad_enabled()
+            and hidden_states.requires_grad
+        )
+        if not should_checkpoint:
+            return self.module(hidden_states)
+
+        return checkpoint(self.module, hidden_states, use_reentrant=False)
+
+
+def checkpoint_frozen_mlp_activations(model: nn.Module) -> list[str]:
+    candidates: list[tuple[str, nn.Module]] = []
+    missing_mlp_layers: list[str] = []
+    for attention_name, _ in iter_delta_mem_modules(model):
+        parent_name, attention_attribute = attention_name.rsplit(".", 1)
+        if attention_attribute != "self_attn":
+            continue
+        parent = model.get_submodule(parent_name)
+        module = getattr(parent, "mlp", None)
+        if module is None:
+            missing_mlp_layers.append(parent_name)
+            continue
+        candidates.append((f"{parent_name}.mlp", module))
+
+    if missing_mlp_layers:
+        raise ValueError(
+            "Frozen MLP activation checkpointing requires an MLP beside every selected "
+            "Delta-Mem attention; missing MLP in: " + ", ".join(missing_mlp_layers)
+        )
+    if not candidates:
+        raise ValueError(
+            "Frozen MLP activation checkpointing found no decoder MLPs beside "
+            "Delta-Mem attention modules"
+        )
+
+    trainable_parameters = [
+        f"{name}.{parameter_name}"
+        for name, module in candidates
+        if not isinstance(module, FrozenMLPActivationCheckpointWrapper)
+        for parameter_name, parameter in module.named_parameters()
+        if parameter.requires_grad
+    ]
+    if trainable_parameters:
+        preview = ", ".join(trainable_parameters[:8])
+        if len(trainable_parameters) > 8:
+            preview += f", ... ({len(trainable_parameters)} total)"
+        raise ValueError(
+            "Frozen MLP activation checkpointing requires every selected MLP parameter "
+            f"to be frozen; trainable parameters: {preview}"
+        )
+
+    checkpointed: list[str] = []
+    for name, module in candidates:
+        if isinstance(module, FrozenMLPActivationCheckpointWrapper):
+            checkpointed.append(name)
+            continue
+        parent_name, attribute = name.rsplit(".", 1)
+        parent = model.get_submodule(parent_name)
+        setattr(parent, attribute, FrozenMLPActivationCheckpointWrapper(module))
+        checkpointed.append(name)
+    return checkpointed
+
+
+@contextmanager
+def _temporarily_disable_delta_heads(model):
+    active_heads = []
+    for _, module in iter_delta_mem_modules(model):
+        active_heads.append((module, module.active_delta_heads))
+        module.active_delta_heads = frozenset()
+    try:
+        yield
+    finally:
+        for module, module_active_heads in active_heads:
+            module.active_delta_heads = module_active_heads
+
+
+@contextmanager
+def _preserve_delta_runtime(model):
+    runtime_attributes = (
+        "delta_state",
+        "rwkv_ms_positions",
+        "rwkv_ms_previous_source",
+        "read_context_mask",
+        "last_beta_mean",
+        "last_lambda_mean",
+        "last_write_routes",
+        "last_read_routes",
+        "last_base_o_norm",
+        "last_delta_o_norm",
+        "last_delta_o_ratio",
+        "last_delta_o_gate_mean",
+        "last_delta_o_gate_min",
+        "last_delta_o_gate_max",
+        "last_fused_delta_o_norm",
+        "last_fused_delta_o_ratio",
+        "last_delta_o_base_cosine",
+        "last_fused_o_ratio",
+        "write_enabled",
+        "write_message_ids",
+        "write_sentence_ids",
+    )
+    snapshots = []
+    for _, module in iter_delta_mem_modules(model):
+        snapshots.append(
+            (
+                module,
+                {
+                    attribute: getattr(module, attribute)
+                    for attribute in runtime_attributes
+                    if hasattr(module, attribute)
+                },
+            )
+        )
+    try:
+        yield
+    finally:
+        for module, snapshot in snapshots:
+            for attribute, value in snapshot.items():
+                setattr(module, attribute, value)
+
 
 class _AccelerateKernelWarningFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -82,6 +220,8 @@ def _promote_trainable_parameters_to_fp32(model) -> None:
 
 
 _RESUME_LATEST_VALUES = frozenset({"auto", "latest"})
+_RESUME_MODES = ("exact", "extend")
+_CONTINUATION_SCHEDULERS = frozenset({"constant", "constant_with_warmup"})
 _REQUIRED_RESUME_CHECKPOINT_FILES = (
     "delta_mem_adapter.pt",
     "delta_mem_config.json",
@@ -89,20 +229,48 @@ _REQUIRED_RESUME_CHECKPOINT_FILES = (
     "scheduler.pt",
     "trainer_state.json",
 )
+_TRAINING_PROTOCOL_FILENAME = "training_protocol.json"
+_TRAINING_PROTOCOL_SCHEMA_VERSION = 2
+_MEMORY_OBJECTIVE_VERSION = "canonical_full_context_teacher_v1"
+_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 3
+_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v1"
+_CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
+_CONTENT_CONTRAST_PAIRING_VERSION = "post_split_half_rotation_v1"
+_CONTINUATION_MANIFEST_FILENAME = "continuation_manifest.json"
+_CONTINUATION_MANIFEST_SCHEMA_VERSION = 1
 
 
-def _missing_resume_checkpoint_files(checkpoint: Path) -> tuple[str, ...]:
+def _missing_resume_checkpoint_files(
+    checkpoint: Path,
+    *,
+    require_training_protocol: bool = False,
+    require_content_contrast_pairing: bool = False,
+) -> tuple[str, ...]:
+    required_files = list(_REQUIRED_RESUME_CHECKPOINT_FILES)
+    if require_training_protocol or require_content_contrast_pairing:
+        required_files.append(_TRAINING_PROTOCOL_FILENAME)
+    if require_content_contrast_pairing:
+        required_files.append(_CONTENT_CONTRAST_PAIRING_FILENAME)
     return tuple(
         filename
-        for filename in _REQUIRED_RESUME_CHECKPOINT_FILES
+        for filename in required_files
         if not (checkpoint / filename).is_file()
     )
 
 
-def _validate_resume_checkpoint(checkpoint: Path) -> Path:
+def _validate_resume_checkpoint(
+    checkpoint: Path,
+    *,
+    require_training_protocol: bool = False,
+    require_content_contrast_pairing: bool = False,
+) -> Path:
     if not checkpoint.is_dir():
         raise FileNotFoundError(f"Resume checkpoint directory does not exist: {checkpoint}")
-    missing = _missing_resume_checkpoint_files(checkpoint)
+    missing = _missing_resume_checkpoint_files(
+        checkpoint,
+        require_training_protocol=require_training_protocol,
+        require_content_contrast_pairing=require_content_contrast_pairing,
+    )
     if missing:
         raise FileNotFoundError(
             f"Resume checkpoint is incomplete: {checkpoint}; missing {', '.join(missing)}"
@@ -113,6 +281,9 @@ def _validate_resume_checkpoint(checkpoint: Path) -> Path:
 def resolve_resume_checkpoint(
     resume_from_checkpoint: str | Path | None,
     trainer_output_dir: str | Path,
+    *,
+    require_training_protocol: bool = False,
+    require_content_contrast_pairing: bool = False,
 ) -> str | None:
     if resume_from_checkpoint is None:
         return None
@@ -120,7 +291,13 @@ def resolve_resume_checkpoint(
     if not raw_checkpoint:
         raise ValueError("--resume-from-checkpoint must not be empty")
     if raw_checkpoint.lower() not in _RESUME_LATEST_VALUES:
-        return str(_validate_resume_checkpoint(Path(raw_checkpoint).expanduser()))
+        return str(
+            _validate_resume_checkpoint(
+                Path(raw_checkpoint).expanduser(),
+                require_training_protocol=require_training_protocol,
+                require_content_contrast_pairing=require_content_contrast_pairing,
+            )
+        )
 
     output_path = Path(trainer_output_dir).expanduser()
     if not output_path.is_dir():
@@ -139,14 +316,256 @@ def resolve_resume_checkpoint(
         raise FileNotFoundError(f"No checkpoints found in trainer output directory: {output_path}")
     candidates.sort(reverse=True)
     for _, candidate in candidates:
-        if not _missing_resume_checkpoint_files(candidate):
+        if not _missing_resume_checkpoint_files(
+            candidate,
+            require_training_protocol=require_training_protocol,
+            require_content_contrast_pairing=require_content_contrast_pairing,
+        ):
             return str(candidate.resolve())
     newest = candidates[0][1]
-    missing = _missing_resume_checkpoint_files(newest)
+    missing = _missing_resume_checkpoint_files(
+        newest,
+        require_training_protocol=require_training_protocol,
+        require_content_contrast_pairing=require_content_contrast_pairing,
+    )
     raise FileNotFoundError(
         f"No complete checkpoints found in trainer output directory: {output_path}; "
         f"newest checkpoint {newest} is missing {', '.join(missing)}"
     )
+
+
+def _load_json_object(path: Path, *, description: str) -> dict[str, object]:
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot read {description}: {path}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"{description} must contain a JSON object: {path}")
+    return payload
+
+
+def _protocol_sha256(protocol: dict[str, object]) -> str:
+    canonical = json.dumps(protocol, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _validate_training_horizon_extension(
+    source_protocol: dict[str, object],
+    target_protocol: dict[str, object],
+) -> None:
+    source_scheduler = str(source_protocol.get("lr_scheduler_type", ""))
+    target_scheduler = str(target_protocol.get("lr_scheduler_type", ""))
+    if source_scheduler != target_scheduler:
+        raise ValueError("Training continuation cannot change lr_scheduler_type")
+    if source_scheduler not in _CONTINUATION_SCHEDULERS:
+        supported = ", ".join(sorted(_CONTINUATION_SCHEDULERS))
+        raise ValueError(
+            f"Training continuation does not support lr_scheduler_type={source_scheduler!r}; "
+            f"supported schedulers: {supported}"
+        )
+
+    try:
+        source_max_steps = int(source_protocol["max_steps"])
+        target_max_steps = int(target_protocol["max_steps"])
+        source_epochs = float(source_protocol["num_train_epochs"])
+        target_epochs = float(target_protocol["num_train_epochs"])
+        source_warmup_steps = int(source_protocol["warmup_steps"])
+        target_warmup_steps = int(target_protocol["warmup_steps"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "Training continuation requires numeric max_steps, num_train_epochs, and warmup_steps"
+        ) from exc
+
+    if source_warmup_steps < 0 or target_warmup_steps != source_warmup_steps:
+        raise ValueError("Training continuation must preserve the source warmup_steps")
+    if source_max_steps > 0:
+        if target_max_steps <= source_max_steps:
+            raise ValueError(
+                "Training continuation requires target max_steps to be greater than the source"
+            )
+        if target_epochs < source_epochs:
+            raise ValueError(
+                "Training continuation cannot reduce num_train_epochs when max_steps is active"
+            )
+        return
+    if target_max_steps != source_max_steps:
+        raise ValueError("Training continuation cannot switch from epoch mode to max_steps mode")
+    if target_epochs <= source_epochs:
+        raise ValueError(
+            "Training continuation requires target num_train_epochs to be greater than the source"
+        )
+
+
+def _normalize_frozen_mlp_checkpointing_protocol(
+    protocol: dict[str, object],
+) -> dict[str, object]:
+    normalized = dict(protocol)
+    current_key = "frozen_mlp_activation_checkpointing"
+    legacy_key = "frozen_mlp_checkpointing"
+    current_present = current_key in normalized
+    legacy_present = legacy_key in normalized
+    if current_present and legacy_present and normalized[current_key] != normalized[legacy_key]:
+        raise ValueError(
+            "Training protocol has conflicting frozen MLP activation checkpointing values"
+        )
+    value = normalized.get(
+        current_key,
+        normalized.get(legacy_key, False),
+    )
+    if not isinstance(value, bool):
+        raise ValueError(
+            "Training protocol frozen MLP activation checkpointing value must be Boolean"
+        )
+    normalized.pop(legacy_key, None)
+    normalized[current_key] = value
+    return normalized
+
+
+def validate_resume_training_protocol(
+    source_protocol: dict[str, object],
+    target_protocol: dict[str, object],
+    *,
+    resume_mode: str,
+) -> None:
+    if resume_mode not in _RESUME_MODES:
+        raise ValueError(f"Unsupported resume mode: {resume_mode}")
+    source_protocol = _normalize_frozen_mlp_checkpointing_protocol(source_protocol)
+    target_protocol = _normalize_frozen_mlp_checkpointing_protocol(target_protocol)
+    mismatches = sorted(
+        key
+        for key in set(source_protocol) | set(target_protocol)
+        if source_protocol.get(key) != target_protocol.get(key)
+    )
+    if resume_mode == "extend":
+        _validate_training_horizon_extension(source_protocol, target_protocol)
+        mismatches = [
+            key for key in mismatches if key not in {"max_steps", "num_train_epochs"}
+        ]
+    if mismatches:
+        raise ValueError(
+            "Delta-Mem checkpoint training protocol does not match for: "
+            + ", ".join(mismatches)
+        )
+
+
+def prepare_training_continuation(
+    args: argparse.Namespace,
+    resume_from_checkpoint: str | None,
+) -> dict[str, object] | None:
+    if args.resume_mode != "extend":
+        if resume_from_checkpoint is None:
+            return None
+        manifest_path = Path(resume_from_checkpoint) / _CONTINUATION_MANIFEST_FILENAME
+        if not manifest_path.is_file():
+            return None
+        manifest = _load_json_object(
+            manifest_path,
+            description="continuation manifest",
+        )
+        if (
+            manifest.get("schema_version") != _CONTINUATION_MANIFEST_SCHEMA_VERSION
+            or manifest.get("mode") != "extend"
+        ):
+            raise ValueError(f"Unsupported continuation manifest: {manifest_path}")
+        return manifest
+    raw_checkpoint = (
+        ""
+        if args.resume_from_checkpoint is None
+        else str(args.resume_from_checkpoint).strip()
+    )
+    if not raw_checkpoint or raw_checkpoint.lower() in _RESUME_LATEST_VALUES:
+        raise ValueError(
+            "--resume-mode extend requires an explicit --resume-from-checkpoint path"
+        )
+    if resume_from_checkpoint is None:
+        raise ValueError("--resume-mode extend requires a resolved checkpoint")
+
+    checkpoint = Path(resume_from_checkpoint).resolve()
+    source_trainer_dir = checkpoint.parent
+    target_trainer_dir = (Path(args.output_dir).expanduser().resolve() / "trainer")
+    if source_trainer_dir == target_trainer_dir:
+        raise ValueError("--resume-mode extend requires a distinct --output-dir")
+
+    rng_state_files = sorted(
+        path.name for path in checkpoint.glob("rng_state*.pth") if path.is_file()
+    )
+    if not rng_state_files:
+        raise FileNotFoundError(
+            f"Training continuation checkpoint is missing RNG state: {checkpoint}"
+        )
+
+    protocol_path = checkpoint / _TRAINING_PROTOCOL_FILENAME
+    state_path = checkpoint / "trainer_state.json"
+    source_protocol = _load_json_object(protocol_path, description="training protocol")
+    trainer_state = _load_json_object(state_path, description="trainer state")
+    try:
+        global_step = int(trainer_state["global_step"])
+        source_effective_max_steps = int(trainer_state["max_steps"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "Training continuation requires global_step and max_steps in trainer_state.json"
+        ) from exc
+    if global_step <= 0 or global_step != source_effective_max_steps:
+        raise ValueError(
+            "--resume-mode extend requires a completed checkpoint "
+            "with global_step equal to max_steps"
+        )
+    checkpoint_step = checkpoint.name.removeprefix("checkpoint-")
+    if not checkpoint.name.startswith("checkpoint-") or not checkpoint_step.isdigit():
+        raise ValueError("Training continuation source must be a checkpoint-N directory")
+    if int(checkpoint_step) != global_step:
+        raise ValueError(
+            "Training continuation checkpoint directory step does not match trainer_state.json"
+        )
+
+    target_protocol = dict(source_protocol)
+    target_protocol["max_steps"] = args.max_steps
+    target_protocol["num_train_epochs"] = args.num_train_epochs
+    validate_resume_training_protocol(
+        source_protocol,
+        target_protocol,
+        resume_mode="extend",
+    )
+    source_protocol_max_steps = int(source_protocol["max_steps"])
+    if source_protocol_max_steps > 0 and source_protocol_max_steps != source_effective_max_steps:
+        raise ValueError(
+            "Source training protocol max_steps does not match trainer_state.json"
+        )
+
+    return {
+        "schema_version": _CONTINUATION_MANIFEST_SCHEMA_VERSION,
+        "mode": "extend",
+        "source_checkpoint": str(checkpoint),
+        "source_global_step": global_step,
+        "source_effective_max_steps": source_effective_max_steps,
+        "source_max_steps": source_protocol_max_steps,
+        "source_num_train_epochs": float(source_protocol["num_train_epochs"]),
+        "source_training_protocol_sha256": _protocol_sha256(source_protocol),
+        "source_rng_state_files": rng_state_files,
+        "target_max_steps": int(args.max_steps),
+        "target_num_train_epochs": float(args.num_train_epochs),
+        "lr_scheduler_type": str(source_protocol["lr_scheduler_type"]),
+        "warmup_steps": int(source_protocol["warmup_steps"]),
+    }
+
+
+def resolve_resume_warmup_steps(
+    computed_warmup_steps: int,
+    resume_from_checkpoint: str | None,
+) -> int:
+    if resume_from_checkpoint is None:
+        return computed_warmup_steps
+    protocol = _load_json_object(
+        Path(resume_from_checkpoint) / _TRAINING_PROTOCOL_FILENAME,
+        description="resume training protocol",
+    )
+    try:
+        warmup_steps = int(protocol["warmup_steps"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Resume training protocol requires numeric warmup_steps") from exc
+    if warmup_steps < 0:
+        raise ValueError("Resume training protocol warmup_steps must be non-negative")
+    return warmup_steps
 
 
 def compute_warmup_steps(
@@ -218,9 +637,15 @@ class DeltaMemTrainer(Trainer):
         memory_partition_balance_weight: float = 0.0,
         memory_dropout_no_memory_prob: float = 0.0,
         memory_dropout_state_only_prob: float = 0.0,
+        memory_base_kl_weight: float = 0.0,
+        episode_read_write_enabled: bool = False,
         context_ablation_mode: str = "mixed",
         context_ablation_no_state_prob: float = 0.2,
         context_ablation_state_only_prob: float = 0.2,
+        training_protocol: dict[str, object] | None = None,
+        content_contrast_pairing_manifest: dict[str, object] | None = None,
+        resume_mode: str = "exact",
+        continuation_manifest: dict[str, object] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -248,9 +673,45 @@ class DeltaMemTrainer(Trainer):
         self.memory_partition_balance_weight = memory_partition_balance_weight
         self.memory_dropout_no_memory_prob = memory_dropout_no_memory_prob
         self.memory_dropout_state_only_prob = memory_dropout_state_only_prob
+        if memory_base_kl_weight < 0.0:
+            raise ValueError("memory_base_kl_weight must be non-negative")
+        self.memory_base_kl_weight = memory_base_kl_weight
+        self.episode_read_write_enabled = episode_read_write_enabled
+        if memory_loss_mode == "content_contrast_ce":
+            if episode_read_write_enabled:
+                raise ValueError("content_contrast_ce requires episode read writes to be disabled")
+            if memory_kl_weight != 0.0 or memory_base_kl_weight != 0.0:
+                raise ValueError("content_contrast_ce requires all KL weights to be zero")
+            if memory_contrast_weight < 0.0:
+                raise ValueError("content_contrast_ce requires a non-negative contrast weight")
+            if memory_margin < 0.0:
+                raise ValueError("content_contrast_ce requires a non-negative margin")
+            if write_sparsity_weight != 0.0:
+                raise ValueError("content_contrast_ce requires write sparsity loss to be disabled")
+            if (
+                memory_partition_alignment_weight != 0.0
+                or memory_partition_entropy_weight != 0.0
+                or memory_partition_balance_weight != 0.0
+            ):
+                raise ValueError(
+                    "content_contrast_ce requires memory partition regularization to be disabled"
+                )
         self.context_ablation_mode = context_ablation_mode
         self.context_ablation_no_state_prob = context_ablation_no_state_prob
         self.context_ablation_state_only_prob = context_ablation_state_only_prob
+        self.training_protocol = None if training_protocol is None else dict(training_protocol)
+        self.content_contrast_pairing_manifest = (
+            None
+            if content_contrast_pairing_manifest is None
+            else dict(content_contrast_pairing_manifest)
+        )
+        if resume_mode not in _RESUME_MODES:
+            raise ValueError(f"Unsupported resume mode: {resume_mode}")
+        self.resume_mode = resume_mode
+        self.continuation_manifest = (
+            None if continuation_manifest is None else dict(continuation_manifest)
+        )
+        self.memory_dropout_counts = {"both": 0, "state_only": 0, "no_memory": 0}
         self._last_write_sparsity_loss = 0.0
         self._last_memory_keep_loss = 0.0
         self._last_memory_reset_loss = 0.0
@@ -504,6 +965,143 @@ class DeltaMemTrainer(Trainer):
             ignore_index=-100,
         ).view_as(shift_labels)
         return ce.masked_select(shift_mask).mean()
+
+    def _masked_next_token_kl_loss(
+        self,
+        student_logits: torch.Tensor,
+        teacher_logits: torch.Tensor,
+        labels: torch.Tensor,
+        attention_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        token_mask = labels[:, 1:].ne(-100) & attention_mask[:, 1:].ne(0)
+        return self._masked_kl_loss(
+            student_logits[:, :-1].float(),
+            teacher_logits[:, :-1].float(),
+            token_mask,
+        )
+
+    def _supervised_next_token_metadata(
+        self,
+        labels: torch.Tensor,
+        attention_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        if labels.ndim != 2 or attention_mask.shape != labels.shape:
+            raise ValueError("Supervised next-token labels and attention mask must be matching 2D tensors")
+        token_mask = labels[:, 1:].ne(-100) & attention_mask[:, 1:].ne(0)
+        counts = token_mask.sum(dim=1)
+        targets = labels[:, 1:].masked_select(token_mask)
+        return token_mask, counts, targets
+
+    def _validate_supervised_next_token_alignment(
+        self,
+        student_labels: torch.Tensor,
+        student_attention_mask: torch.Tensor,
+        teacher_labels: torch.Tensor,
+        teacher_attention_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        student_mask, student_counts, student_targets = self._supervised_next_token_metadata(
+            student_labels,
+            student_attention_mask,
+        )
+        teacher_mask, teacher_counts, teacher_targets = self._supervised_next_token_metadata(
+            teacher_labels,
+            teacher_attention_mask,
+        )
+        if not torch.equal(student_counts, teacher_counts):
+            raise ValueError(
+                "Canonical teacher supervised next-token target counts do not match the episode read"
+            )
+        if not torch.equal(student_targets, teacher_targets):
+            raise ValueError(
+                "Canonical teacher supervised next-token target token IDs do not match the episode read"
+            )
+        return student_mask, teacher_mask, student_targets
+
+    def _select_supervised_next_token_logits(
+        self,
+        logits: torch.Tensor,
+        token_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        if logits.ndim != 3 or logits.shape[:2] != (
+            token_mask.size(0),
+            token_mask.size(1) + 1,
+        ):
+            raise ValueError("Next-token logits do not align with the supervised token mask")
+        return logits[:, :-1].masked_select(token_mask.unsqueeze(-1)).view(
+            -1,
+            logits.size(-1),
+        )
+
+    def _teacher_logits_projection_plan(
+        self,
+        model,
+        token_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor | None, dict[str, int | torch.Tensor]]:
+        predictor_positions = token_mask.any(dim=0).nonzero(as_tuple=False).flatten()
+        projection_kwargs = self._logits_to_keep_kwargs(model, predictor_positions)
+        if "logits_to_keep" not in projection_kwargs:
+            return None, {}
+        return predictor_positions, projection_kwargs
+
+    def _select_projected_supervised_next_token_logits(
+        self,
+        logits: torch.Tensor,
+        token_mask: torch.Tensor,
+        predictor_positions: torch.Tensor,
+    ) -> torch.Tensor:
+        if logits.ndim != 3 or logits.shape[:2] != (
+            token_mask.size(0),
+            predictor_positions.numel(),
+        ):
+            raise ValueError("Projected canonical teacher logits do not match requested positions")
+        projected_mask = token_mask.index_select(1, predictor_positions)
+        return logits.masked_select(projected_mask.unsqueeze(-1)).view(
+            -1,
+            logits.size(-1),
+        )
+
+    def _selected_teacher_kl_loss(
+        self,
+        student_logits: torch.Tensor,
+        teacher_logits: torch.Tensor,
+    ) -> torch.Tensor:
+        if student_logits.shape != teacher_logits.shape:
+            raise ValueError("Student and canonical teacher selected logits must have matching shapes")
+        if student_logits.size(0) == 0:
+            return student_logits.sum() * 0.0
+        student_log_probs = F.log_softmax(student_logits.float(), dim=-1)
+        teacher_probs = F.softmax(teacher_logits.float(), dim=-1)
+        return F.kl_div(student_log_probs, teacher_probs, reduction="batchmean")
+
+    def _forward_without_delta(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        loss_kwargs: dict[str, torch.Tensor],
+    ):
+        self._reset_online_state(model)
+        read_context_mask = self._build_read_context_mask(model_inputs)
+        set_delta_mem_read_context_mask(model, read_context_mask)
+        set_delta_mem_write_enabled(model, False)
+        with _temporarily_disable_delta_heads(model):
+            return model(**model_inputs, **loss_kwargs)
+
+    def _configure_episode_read(self, model, active_inputs: dict[str, torch.Tensor]) -> None:
+        read_context_mask = self._build_read_context_mask(active_inputs)
+        set_delta_mem_write_enabled(model, self.episode_read_write_enabled)
+        set_delta_mem_read_context_mask(model, read_context_mask)
+
+    def _zero_trainable_anchor(self, model, reference: torch.Tensor) -> torch.Tensor:
+        anchor = None
+        for parameter in model.parameters():
+            if not parameter.requires_grad or parameter.numel() == 0:
+                continue
+            parameter_anchor = parameter.reshape(-1)[0] * 0.0
+            anchor = parameter_anchor if anchor is None else anchor + parameter_anchor
+        if anchor is None:
+            return reference.new_zeros(())
+        return anchor
 
     def _capture_live_online_state(
         self,
@@ -807,19 +1405,28 @@ class DeltaMemTrainer(Trainer):
         state_only_write_attention_mask: torch.Tensor | None,
         state_only_write_message_ids: torch.Tensor | None,
         state_only_write_sentence_ids: torch.Tensor | None,
+        teacher_input_ids: torch.Tensor | None,
+        teacher_attention_mask: torch.Tensor | None,
+        teacher_labels: torch.Tensor | None,
     ):
         no_memory_prob = self.memory_dropout_no_memory_prob
         state_only_prob = self.memory_dropout_state_only_prob
         if no_memory_prob < 0.0 or state_only_prob < 0.0 or no_memory_prob + state_only_prob > 1.0:
             raise ValueError("memory dropout probabilities must satisfy p >= 0, q >= 0, p + q <= 1")
 
-        mode_sample = float(torch.rand((), device=model_inputs["input_ids"].device).item())
-        if mode_sample < no_memory_prob:
-            mode = "no_memory"
-        elif mode_sample < no_memory_prob + state_only_prob:
-            mode = "state_only"
-        else:
+        if not model.training:
             mode = "both"
+        else:
+            mode_sample = float(torch.rand((), device=model_inputs["input_ids"].device).item())
+            if mode_sample < no_memory_prob:
+                mode = "no_memory"
+            elif mode_sample < no_memory_prob + state_only_prob:
+                mode = "state_only"
+            else:
+                mode = "both"
+            counts = getattr(self, "memory_dropout_counts", None)
+            if counts is not None:
+                counts[mode] += 1
 
         if mode == "state_only":
             if (
@@ -834,45 +1441,104 @@ class DeltaMemTrainer(Trainer):
                 "labels": state_only_labels,
             }
             batch_size = int(state_only_input_ids.size(0))
-            self._reset_online_state(model)
-            self._prime_episode_state(
-                model,
-                write_input_ids=state_only_write_input_ids,
-                write_attention_mask=state_only_write_attention_mask,
-                batch_size=batch_size,
-                write_message_ids=state_only_write_message_ids,
-                write_sentence_ids=state_only_write_sentence_ids,
-            )
-            read_context_mask = self._build_read_context_mask(active_inputs)
-            set_delta_mem_read_context_mask(model, read_context_mask)
-            set_delta_mem_write_enabled(model, False)
-            outputs = model(**active_inputs, **loss_kwargs)
+            prime_kwargs = {
+                "write_input_ids": state_only_write_input_ids,
+                "write_attention_mask": state_only_write_attention_mask,
+                "batch_size": batch_size,
+                "write_message_ids": state_only_write_message_ids,
+                "write_sentence_ids": state_only_write_sentence_ids,
+            }
             wmem = 1.0
         elif mode == "no_memory":
             active_inputs = model_inputs
-            self._reset_online_state(model)
-            read_context_mask = self._build_read_context_mask(active_inputs)
-            set_delta_mem_read_context_mask(model, read_context_mask)
-            set_delta_mem_write_enabled(model, False)
-            outputs = model(**active_inputs, **loss_kwargs)
+            prime_kwargs = None
             wmem = 0.0
         else:
             active_inputs = model_inputs
             batch_size = int(model_inputs["input_ids"].size(0))
-            self._reset_online_state(model)
-            self._prime_episode_state(
-                model,
-                write_input_ids=write_input_ids,
-                write_attention_mask=write_attention_mask,
-                batch_size=batch_size,
-                write_message_ids=write_message_ids,
-                write_sentence_ids=write_sentence_ids,
-            )
-            read_context_mask = self._build_read_context_mask(active_inputs)
-            set_delta_mem_read_context_mask(model, read_context_mask)
-            set_delta_mem_write_enabled(model, False)
-            outputs = model(**active_inputs, **loss_kwargs)
+            prime_kwargs = {
+                "write_input_ids": write_input_ids,
+                "write_attention_mask": write_attention_mask,
+                "batch_size": batch_size,
+                "write_message_ids": write_message_ids,
+                "write_sentence_ids": write_sentence_ids,
+            }
             wmem = 1.0
+
+        student_supervised_mask = None
+        teacher_selected_logits = None
+        teacher_loss_value = 0.0
+        if mode == "both" and self.memory_base_kl_weight > 0.0:
+            if (
+                teacher_input_ids is None
+                or teacher_attention_mask is None
+                or teacher_labels is None
+            ):
+                raise ValueError(
+                    "context_dropout_ce with memory_base_kl_weight requires canonical teacher tensors"
+                )
+            student_supervised_mask, teacher_supervised_mask, supervised_targets = (
+                self._validate_supervised_next_token_alignment(
+                    active_inputs["labels"],
+                    active_inputs["attention_mask"],
+                    teacher_labels,
+                    teacher_attention_mask,
+                )
+            )
+            teacher_projection_positions, teacher_projection_kwargs = (
+                self._teacher_logits_projection_plan(
+                    model,
+                    teacher_supervised_mask,
+                )
+            )
+            with _preserve_delta_runtime(model), torch.no_grad():
+                teacher_outputs = self._forward_without_delta(
+                    model,
+                    {
+                        "input_ids": teacher_input_ids,
+                        "attention_mask": teacher_attention_mask,
+                    },
+                    loss_kwargs=teacher_projection_kwargs,
+                )
+                teacher_logits = (
+                    teacher_outputs["logits"]
+                    if isinstance(teacher_outputs, dict)
+                    else teacher_outputs.logits
+                )
+                if teacher_projection_positions is None:
+                    teacher_selected_logits = self._select_supervised_next_token_logits(
+                        teacher_logits,
+                        teacher_supervised_mask,
+                    ).detach()
+                else:
+                    teacher_selected_logits = (
+                        self._select_projected_supervised_next_token_logits(
+                            teacher_logits,
+                            teacher_supervised_mask,
+                            teacher_projection_positions,
+                        ).detach()
+                    )
+                del teacher_logits, teacher_outputs
+                if teacher_selected_logits.size(0) > 0:
+                    teacher_loss_value = float(
+                        F.cross_entropy(
+                            teacher_selected_logits.float(),
+                            supervised_targets,
+                        ).item()
+                    )
+
+        if mode == "no_memory":
+            outputs = self._forward_without_delta(
+                model,
+                active_inputs,
+                loss_kwargs=loss_kwargs,
+            )
+        else:
+            assert prime_kwargs is not None
+            self._reset_online_state(model)
+            self._prime_episode_state(model, **prime_kwargs)
+            self._configure_episode_read(model, active_inputs)
+            outputs = model(**active_inputs, **loss_kwargs)
 
         if not isinstance(outputs, dict):
             outputs = {
@@ -882,19 +1548,157 @@ class DeltaMemTrainer(Trainer):
         loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
         if loss.ndim > 0:
             loss = loss.mean()
+        task_loss = loss
+        teacher_loss = loss.new_tensor(teacher_loss_value)
+        base_kl_loss = loss.new_zeros(())
+        if mode == "no_memory":
+            loss = loss + self._zero_trainable_anchor(model, loss)
+        elif teacher_selected_logits is not None:
+            assert student_supervised_mask is not None
+            student_selected_logits = self._select_supervised_next_token_logits(
+                outputs["logits"],
+                student_supervised_mask,
+            )
+            base_kl_loss = self._selected_teacher_kl_loss(
+                student_selected_logits,
+                teacher_selected_logits,
+            )
+            loss = loss + self.memory_base_kl_weight * base_kl_loss
+        outputs = dict(outputs)
+        outputs["loss"] = loss
+        outputs["memory_loss"] = (loss - task_loss).detach()
+        outputs["memory_base_kl_loss"] = base_kl_loss.detach()
         return loss, outputs, {
-            "keep_loss": float(loss.detach().float().item()),
+            "keep_loss": float(task_loss.detach().float().item()),
             "reset_loss": 0.0,
             "corrupt_loss": 0.0,
-            "teacher_loss": 0.0,
+            "teacher_loss": float(teacher_loss.detach().float().item()),
             "margin_loss": 0.0,
             "causal_loss": 0.0,
             "anchor_loss": 0.0,
             "full_ce_loss": 0.0,
-            "kl_loss": 0.0,
+            "kl_loss": float(base_kl_loss.detach().float().item()),
             "reset_kl_loss": 0.0,
             "margin_gap": 0.0,
             "wmem": wmem,
+            "probe_keep_loss": 0.0,
+            "probe_reset_loss": 0.0,
+            "probe_margin_loss": 0.0,
+            "probe_gap": 0.0,
+            "probe_kl": 0.0,
+            "probe_ce": 0.0,
+        }
+
+    def _content_contrast_objective(
+        self,
+        correct_loss: torch.Tensor,
+        wrong_loss: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        gap = wrong_loss - correct_loss
+        contrast_loss = self._margin_objective(gap, self.memory_margin)
+        total_loss = correct_loss + self.memory_contrast_weight * contrast_loss
+        return total_loss, contrast_loss, gap
+
+    def _compute_content_contrast_ce(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        loss_kwargs: dict[str, torch.Tensor],
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+        negative_write_input_ids: torch.Tensor,
+        negative_write_attention_mask: torch.Tensor,
+        negative_write_message_ids: torch.Tensor | None,
+        negative_write_sentence_ids: torch.Tensor | None,
+    ):
+        if self.episode_read_write_enabled:
+            raise ValueError("content_contrast_ce requires episode read writes to be disabled")
+        if self.memory_kl_weight != 0.0 or self.memory_base_kl_weight != 0.0:
+            raise ValueError("content_contrast_ce requires all KL weights to be zero")
+        if getattr(self, "write_sparsity_weight", 0.0) != 0.0:
+            raise ValueError("content_contrast_ce requires write sparsity loss to be disabled")
+        if (
+            getattr(self, "memory_partition_alignment_weight", 0.0) != 0.0
+            or getattr(self, "memory_partition_entropy_weight", 0.0) != 0.0
+            or getattr(self, "memory_partition_balance_weight", 0.0) != 0.0
+        ):
+            raise ValueError(
+                "content_contrast_ce requires memory partition regularization to be disabled"
+            )
+
+        batch_size = int(model_inputs["input_ids"].size(0))
+        read_context_mask = self._build_read_context_mask(model_inputs)
+
+        self._reset_online_state(model)
+        self._prime_episode_state(
+            model,
+            write_input_ids=write_input_ids,
+            write_attention_mask=write_attention_mask,
+            batch_size=batch_size,
+            write_message_ids=write_message_ids,
+            write_sentence_ids=write_sentence_ids,
+        )
+        set_delta_mem_write_enabled(model, False)
+        set_delta_mem_read_context_mask(model, read_context_mask)
+        correct_outputs = model(**model_inputs, **loss_kwargs)
+        if not isinstance(correct_outputs, dict):
+            correct_outputs = {
+                "loss": (
+                    correct_outputs.loss
+                    if hasattr(correct_outputs, "loss")
+                    else correct_outputs[0]
+                ),
+                "logits": correct_outputs.logits,
+            }
+        correct_loss = correct_outputs["loss"]
+        if correct_loss.ndim > 0:
+            correct_loss = correct_loss.mean()
+
+        self._reset_online_state(model)
+        # The mismatched writer state is a fixed negative target. Detaching donor
+        # priming saves VRAM while the mismatched read path still receives gradients.
+        with torch.no_grad():
+            self._prime_episode_state(
+                model,
+                write_input_ids=negative_write_input_ids,
+                write_attention_mask=negative_write_attention_mask,
+                batch_size=batch_size,
+                write_message_ids=negative_write_message_ids,
+                write_sentence_ids=negative_write_sentence_ids,
+            )
+        set_delta_mem_write_enabled(model, False)
+        set_delta_mem_read_context_mask(model, read_context_mask)
+        wrong_outputs = model(**model_inputs, **loss_kwargs)
+        wrong_loss = (
+            wrong_outputs["loss"] if isinstance(wrong_outputs, dict) else wrong_outputs[0]
+        )
+        if wrong_loss.ndim > 0:
+            wrong_loss = wrong_loss.mean()
+
+        total_loss, contrast_loss, margin_gap = self._content_contrast_objective(
+            correct_loss,
+            wrong_loss,
+        )
+        outputs = dict(correct_outputs)
+        outputs["loss"] = total_loss
+        outputs["memory_loss"] = (total_loss - correct_loss).detach()
+        outputs["memory_keep_loss"] = correct_loss.detach()
+        return total_loss, outputs, {
+            "keep_loss": float(correct_loss.detach().float().item()),
+            "reset_loss": 0.0,
+            "corrupt_loss": float(wrong_loss.detach().float().item()),
+            "teacher_loss": 0.0,
+            "margin_loss": 0.0,
+            "causal_loss": float(contrast_loss.detach().float().item()),
+            "anchor_loss": 0.0,
+            "full_ce_loss": 0.0,
+            "kl_loss": 0.0,
+            "reset_kl_loss": 0.0,
+            "margin_gap": float(margin_gap.detach().float().item()),
+            "wmem": 1.0,
             "probe_keep_loss": 0.0,
             "probe_reset_loss": 0.0,
             "probe_margin_loss": 0.0,
@@ -1315,6 +2119,10 @@ class DeltaMemTrainer(Trainer):
         write_attention_mask = model_inputs.pop("write_attention_mask", None)
         write_message_ids = model_inputs.pop("write_message_ids", None)
         write_sentence_ids = model_inputs.pop("write_sentence_ids", None)
+        negative_write_input_ids = model_inputs.pop("negative_write_input_ids", None)
+        negative_write_attention_mask = model_inputs.pop("negative_write_attention_mask", None)
+        negative_write_message_ids = model_inputs.pop("negative_write_message_ids", None)
+        negative_write_sentence_ids = model_inputs.pop("negative_write_sentence_ids", None)
         state_only_write_input_ids = model_inputs.pop("state_only_write_input_ids", None)
         state_only_write_attention_mask = model_inputs.pop("state_only_write_attention_mask", None)
         state_only_write_message_ids = model_inputs.pop("state_only_write_message_ids", None)
@@ -1322,6 +2130,9 @@ class DeltaMemTrainer(Trainer):
         state_only_input_ids = model_inputs.pop("state_only_input_ids", None)
         state_only_attention_mask = model_inputs.pop("state_only_attention_mask", None)
         state_only_labels = model_inputs.pop("state_only_labels", None)
+        teacher_input_ids = model_inputs.pop("teacher_input_ids", None)
+        teacher_attention_mask = model_inputs.pop("teacher_attention_mask", None)
+        teacher_labels = model_inputs.pop("teacher_labels", None)
         full_input_ids = model_inputs.pop("full_input_ids", None)
         full_attention_mask = model_inputs.pop("full_attention_mask", None)
         full_labels = model_inputs.pop("full_labels", None)
@@ -1358,7 +2169,30 @@ class DeltaMemTrainer(Trainer):
             "probe_kl": 0.0,
             "probe_ce": 0.0,
         }
-        if self.memory_loss_mode == "context_dropout_ce" and has_episode_memory_inputs:
+        if self.memory_loss_mode == "content_contrast_ce":
+            if (
+                write_input_ids is None
+                or write_attention_mask is None
+                or negative_write_input_ids is None
+                or negative_write_attention_mask is None
+            ):
+                raise ValueError(
+                    "content_contrast_ce requires materialized positive and negative write tensors"
+                )
+            loss, outputs, memory_stats = self._compute_content_contrast_ce(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                write_input_ids=write_input_ids,
+                write_attention_mask=write_attention_mask,
+                write_message_ids=write_message_ids,
+                write_sentence_ids=write_sentence_ids,
+                negative_write_input_ids=negative_write_input_ids,
+                negative_write_attention_mask=negative_write_attention_mask,
+                negative_write_message_ids=negative_write_message_ids,
+                negative_write_sentence_ids=negative_write_sentence_ids,
+            )
+        elif self.memory_loss_mode == "context_dropout_ce" and has_episode_memory_inputs:
             loss, outputs, memory_stats = self._compute_context_dropout_ce(
                 model,
                 model_inputs,
@@ -1374,6 +2208,9 @@ class DeltaMemTrainer(Trainer):
                 state_only_write_attention_mask=state_only_write_attention_mask,
                 state_only_write_message_ids=state_only_write_message_ids,
                 state_only_write_sentence_ids=state_only_write_sentence_ids,
+                teacher_input_ids=teacher_input_ids,
+                teacher_attention_mask=teacher_attention_mask,
+                teacher_labels=teacher_labels,
             )
         elif self.memory_loss_mode == "context_ablation_ce" and has_episode_memory_inputs:
             loss, outputs, memory_stats = self._compute_context_ablation_ce(
@@ -1538,6 +2375,7 @@ class DeltaMemTrainer(Trainer):
         enriched_logs = dict(logs)
         if self.model is not None and getattr(self, "log_delta_debug_stats", False):
             gate_stats = collect_delta_mem_gate_stats(self.model)
+            output_ratio_stats = collect_delta_mem_output_ratio_stats(self.model)
             state_stats = collect_delta_mem_state_stats(self.model)
             weight_stats = collect_delta_mem_weight_stats(self.model)
             enriched_logs.update(
@@ -1561,6 +2399,29 @@ class DeltaMemTrainer(Trainer):
                     "delta/mean_state_norm": state_stats["mean_state_norm"],
                     "delta/max_state_abs": state_stats["max_state_abs"],
                     "delta/delta_o_proj_norm_sum": weight_stats["delta_o_proj_norm_sum"],
+                    "delta/content_gated_fusion_modules": output_ratio_stats[
+                        "content_gated_modules"
+                    ],
+                    "delta/base_o_norm": output_ratio_stats["mean_base_o_norm"],
+                    "delta/raw_delta_o_norm": output_ratio_stats["mean_delta_o_norm"],
+                    "delta/raw_delta_o_ratio": output_ratio_stats["mean_delta_o_ratio"],
+                    "delta/raw_delta_o_ratio_max": output_ratio_stats["max_delta_o_ratio"],
+                    "delta/fusion_gate_mean": output_ratio_stats["mean_delta_o_gate"],
+                    "delta/fusion_gate_min": output_ratio_stats["min_delta_o_gate"],
+                    "delta/fusion_gate_max": output_ratio_stats["max_delta_o_gate"],
+                    "delta/fused_delta_o_norm": output_ratio_stats[
+                        "mean_fused_delta_o_norm"
+                    ],
+                    "delta/fused_delta_o_ratio": output_ratio_stats[
+                        "mean_fused_delta_o_ratio"
+                    ],
+                    "delta/fused_delta_o_ratio_max": output_ratio_stats[
+                        "max_fused_delta_o_ratio"
+                    ],
+                    "delta/delta_o_base_cosine": output_ratio_stats[
+                        "mean_delta_o_base_cosine"
+                    ],
+                    "delta/fused_o_ratio": output_ratio_stats["mean_fused_o_ratio"],
                     "delta/delta_scale_mean": (
                         weight_stats["delta_scale_mean_sum"]
                         / max(weight_stats["trainable_delta_scale_modules"], 1)
@@ -1627,9 +2488,69 @@ class DeltaMemTrainer(Trainer):
         output_path.mkdir(parents=True, exist_ok=True)
         model = self.accelerator.unwrap_model(self.model)
         save_delta_mem_adapter(model, output_path, self.delta_config)
+        if self.training_protocol is not None:
+            (output_path / _TRAINING_PROTOCOL_FILENAME).write_text(
+                json.dumps(self.training_protocol, indent=2, sort_keys=True)
+            )
+        if self.content_contrast_pairing_manifest is not None:
+            (output_path / _CONTENT_CONTRAST_PAIRING_FILENAME).write_text(
+                json.dumps(
+                    self.content_contrast_pairing_manifest,
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+        continuation_manifest = getattr(self, "continuation_manifest", None)
+        if continuation_manifest is not None:
+            (output_path / _CONTINUATION_MANIFEST_FILENAME).write_text(
+                json.dumps(continuation_manifest, indent=2, sort_keys=True)
+            )
+
+    def _validate_checkpoint_training_protocol(
+        self,
+        checkpoint: Path,
+        *,
+        resume_mode: str | None = None,
+    ) -> None:
+        expected = getattr(self, "training_protocol", None)
+        if expected is None:
+            return
+        protocol_path = checkpoint / _TRAINING_PROTOCOL_FILENAME
+        if not protocol_path.is_file():
+            raise ValueError(
+                f"Delta-Mem checkpoint is missing {_TRAINING_PROTOCOL_FILENAME}: {checkpoint}"
+            )
+        actual = json.loads(protocol_path.read_text())
+        validate_resume_training_protocol(
+            actual,
+            expected,
+            resume_mode=(
+                getattr(self, "resume_mode", "exact")
+                if resume_mode is None
+                else resume_mode
+            ),
+        )
+        expected_pairing = getattr(self, "content_contrast_pairing_manifest", None)
+        if expected_pairing is None:
+            return
+        pairing_path = checkpoint / _CONTENT_CONTRAST_PAIRING_FILENAME
+        if not pairing_path.is_file():
+            raise ValueError(
+                f"Delta-Mem checkpoint is missing {_CONTENT_CONTRAST_PAIRING_FILENAME}: "
+                f"{checkpoint}"
+            )
+        actual_pairing = json.loads(pairing_path.read_text())
+        if actual_pairing != expected_pairing:
+            raise ValueError("Delta-Mem checkpoint content-contrast pairing manifest does not match")
 
     def _load_from_checkpoint(self, resume_from_checkpoint: str, model=None) -> None:
-        checkpoint = _validate_resume_checkpoint(Path(resume_from_checkpoint))
+        checkpoint = _validate_resume_checkpoint(
+            Path(resume_from_checkpoint),
+            require_training_protocol=(getattr(self, "training_protocol", None) is not None),
+            require_content_contrast_pairing=(
+                getattr(self, "content_contrast_pairing_manifest", None) is not None
+            ),
+        )
         if self.delta_config is None:
             raise ValueError("DeltaMemTrainer checkpoint loading requires delta_config")
         checkpoint_config = HFDeltaMemConfig.from_pretrained(checkpoint)
@@ -1645,7 +2566,22 @@ class DeltaMemTrainer(Trainer):
                 "Delta-Mem checkpoint config does not match the current training config for: "
                 + ", ".join(mismatches)
             )
+        self._validate_checkpoint_training_protocol(checkpoint)
         load_delta_mem_adapter(self.model if model is None else model, checkpoint)
+
+    def _load_best_model(self) -> None:
+        if self.state.best_model_checkpoint is None:
+            raise RuntimeError("Cannot load the best Delta-Mem model without a best checkpoint")
+        checkpoint = Path(self.state.best_model_checkpoint).resolve()
+        if self.delta_config is None:
+            raise ValueError("DeltaMemTrainer best-checkpoint loading requires delta_config")
+        checkpoint_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+        if checkpoint_config != self.delta_config:
+            raise ValueError("Best Delta-Mem checkpoint config does not match the active config")
+        self._validate_checkpoint_training_protocol(checkpoint, resume_mode="exact")
+        model = self.accelerator.unwrap_model(self.model)
+        load_delta_mem_adapter(model, checkpoint)
+        self._reset_online_state(model)
 
 
 def parse_args() -> argparse.Namespace:
@@ -1665,6 +2601,12 @@ def parse_args() -> argparse.Namespace:
         "--resume-from-checkpoint",
         default=None,
         help="Checkpoint path to resume, or 'latest'/'auto' for the newest complete checkpoint.",
+    )
+    parser.add_argument(
+        "--resume-mode",
+        choices=_RESUME_MODES,
+        default="exact",
+        help="Use 'extend' only to continue a completed checkpoint to a larger horizon.",
     )
     parser.add_argument("--hf-cache-dir", type=Path, default=None)
     parser.add_argument("--tokenized-dataset-root", type=Path, default=None)
@@ -1695,6 +2637,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--rwkv-ms-erase-gate", type=float, default=1.0)
     parser.add_argument("--rwkv-ms-read-top-k", type=int, default=0)
+    parser.add_argument("--rwkv-ms-output-init-scale", type=float, default=0.02)
+    parser.add_argument("--rwkv-ms-semantics-version", type=int, choices=[1, 2], default=2)
     parser.add_argument("--num-state-heads", type=int, default=1)
     parser.add_argument("--beta-bias-init", type=float, default=-1.5)
     parser.add_argument(
@@ -1725,6 +2669,18 @@ def parse_args() -> argparse.Namespace:
         help="Apply RMSNorm to delta_o before adding it to the base attention output.",
     )
     parser.add_argument("--delta-o-rmsnorm-eps", type=float, default=1e-6)
+    parser.add_argument(
+        "--memory-fusion-mode",
+        default="add",
+        choices=["add", "content_gated_add"],
+        help="Fuse delta_o additively or through a token-wise hidden/read content gate.",
+    )
+    parser.add_argument(
+        "--memory-fusion-gate-init",
+        type=float,
+        default=0.1,
+        help="Initial token gate probability for content_gated_add fusion.",
+    )
     parser.add_argument(
         "--trainable-delta-scale",
         action=argparse.BooleanOptionalAction,
@@ -1784,6 +2740,33 @@ def parse_args() -> argparse.Namespace:
         default=1024,
         help="Maximum number of write-history tokens kept in episode training.",
     )
+    parser.add_argument(
+        "--episode-read-write-enabled",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Keep online-memory writes enabled during the episode read/target forward.",
+    )
+    parser.add_argument(
+        "--memory-loss-mode",
+        default="context_dropout_ce",
+        choices=[
+            "none",
+            "context_dropout_ce",
+            "context_ablation_ce",
+            "content_contrast_ce",
+            "state_margin_kl",
+            "latent_prefix_margin",
+            "state_causal_anchor",
+            "teacher_gap_kl",
+            "teacher_kl_only",
+            "teacher_kl_wmem1",
+            "teacher_kl_wmem",
+            "keep_only",
+            "keep_full_kl",
+            "keep_fullstate_kl",
+            "keep_dual_kl",
+        ],
+    )
     parser.add_argument("--memory-contrast-weight", type=float, default=0.1)
     parser.add_argument("--memory-kl-weight", type=float, default=0.1)
     parser.add_argument("--memory-margin", type=float, default=0.1)
@@ -1792,8 +2775,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--memory-anchor-margin", type=float, default=0.005)
     parser.add_argument("--memory-recover-weight", type=float, default=0.25)
     parser.add_argument("--memory-need-floor", type=float, default=0.15)
+    parser.add_argument("--memory-dropout-no-memory-prob", type=float, default=0.0)
     parser.add_argument("--memory-dropout-state-only-prob", type=float, default=0.0)
+    parser.add_argument("--memory-base-kl-weight", type=float, default=0.0)
+    parser.add_argument(
+        "--context-ablation-mode",
+        default="mixed",
+        choices=["mixed", "full_context_no_state", "state_only", "full_context_plus_state"],
+    )
+    parser.add_argument("--context-ablation-no-state-prob", type=float, default=0.2)
+    parser.add_argument("--context-ablation-state-only-prob", type=float, default=0.2)
     parser.add_argument("--per-device-train-batch-size", type=int, default=1)
+    parser.add_argument(
+        "--per-device-eval-batch-size",
+        type=int,
+        default=None,
+        help="Evaluation batch size. Defaults to --per-device-train-batch-size.",
+    )
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--seed", type=int, default=42)
@@ -1806,10 +2804,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-steps", type=int, default=-1)
     parser.add_argument("--logging-steps", type=int, default=1)
     parser.add_argument("--save-steps", type=int, default=50)
+    parser.add_argument("--eval-steps", type=int, default=50)
+    parser.add_argument("--validation-split-ratio", type=float, default=0.0)
+    parser.add_argument("--save-total-limit", type=int, default=None)
+    parser.add_argument(
+        "--load-best-model-at-end",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
     parser.add_argument("--dataset-num-proc", type=int, default=1)
     parser.add_argument("--dataloader-num-workers", type=int, default=4)
     parser.add_argument("--group-by-length", action="store_true")
     parser.add_argument("--gradient-checkpointing", action="store_true")
+    parser.add_argument(
+        "--frozen-mlp-activation-checkpointing",
+        "--frozen-mlp-checkpointing",
+        dest="frozen_mlp_activation_checkpointing",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Checkpoint only frozen decoder MLPs. This reduces activation memory without "
+            "recomputing stateful Delta-Mem attention."
+        ),
+    )
     parser.add_argument("--torch-compile", action="store_true")
     parser.add_argument("--tf32", action="store_true")
     parser.add_argument("--deepspeed-config", type=Path, default=None)
@@ -1832,7 +2849,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--rankwise-gates", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
-    args.memory_loss_mode = "context_dropout_ce"
     args.num_memory_partitions = 1
     args.num_global_memory_partitions = 0
     args.memory_partition_routing = "soft"
@@ -1847,9 +2863,6 @@ def parse_args() -> argparse.Namespace:
     args.global_memory_gate_bias_init = -2.0
     args.global_memory_read_logit_bias = 0.0
     args.memory_write_proposals_per_message = 2
-    args.context_ablation_mode = "mixed"
-    args.context_ablation_no_state_prob = 0.2
-    args.context_ablation_state_only_prob = 0.2
     args.memory_full_ce_weight = 0.0
     args.memory_full_ce_max_length = 2048
     args.memory_probe_weight = 0.0
@@ -1858,9 +2871,56 @@ def parse_args() -> argparse.Namespace:
     args.memory_partition_alignment_weight = 0.0
     args.memory_partition_entropy_weight = 0.0
     args.memory_partition_balance_weight = 0.0
-    args.memory_dropout_no_memory_prob = 0.0
-    if args.memory_dropout_state_only_prob < 0.0 or args.memory_dropout_state_only_prob > 1.0:
-        raise ValueError("memory-dropout-state-only-prob must satisfy 0 <= p <= 1")
+    if (
+        args.memory_dropout_no_memory_prob < 0.0
+        or args.memory_dropout_state_only_prob < 0.0
+        or args.memory_dropout_no_memory_prob + args.memory_dropout_state_only_prob > 1.0
+    ):
+        raise ValueError(
+            "memory dropout probabilities must satisfy p >= 0, q >= 0, p + q <= 1"
+        )
+    if (
+        args.context_ablation_no_state_prob < 0.0
+        or args.context_ablation_state_only_prob < 0.0
+        or args.context_ablation_no_state_prob + args.context_ablation_state_only_prob > 1.0
+    ):
+        raise ValueError(
+            "context ablation probabilities must satisfy p >= 0, q >= 0, p + q <= 1"
+        )
+    if args.memory_base_kl_weight < 0.0:
+        raise ValueError("memory-base-kl-weight must be non-negative")
+    if args.rwkv_ms_output_init_scale < 0.0:
+        raise ValueError("rwkv-ms-output-init-scale must be non-negative")
+    if args.memory_base_kl_weight > 0.0 and args.memory_loss_mode != "context_dropout_ce":
+        raise ValueError("memory-base-kl-weight requires memory-loss-mode=context_dropout_ce")
+    if args.memory_loss_mode == "content_contrast_ce":
+        if args.episode_read_write_enabled:
+            raise ValueError("content_contrast_ce requires episode read writes to be disabled")
+        if args.memory_kl_weight != 0.0 or args.memory_base_kl_weight != 0.0:
+            raise ValueError("content_contrast_ce requires all KL weights to be zero")
+        if args.memory_contrast_weight < 0.0:
+            raise ValueError("content_contrast_ce requires a non-negative contrast weight")
+        if args.memory_margin < 0.0:
+            raise ValueError("content_contrast_ce requires a non-negative margin")
+        if args.write_sparsity_weight != 0.0:
+            raise ValueError("content_contrast_ce requires write sparsity loss to be disabled")
+    if args.memory_backend == "rwkv_ms" and args.output_init == "zero":
+        raise ValueError(
+            "output-init=zero is gradient-dead with memory-backend=rwkv_ms; "
+            "use output-init=base_slice_fixed"
+        )
+    if not 0.0 <= args.validation_split_ratio < 1.0:
+        raise ValueError("validation-split-ratio must satisfy 0 <= ratio < 1")
+    if args.per_device_eval_batch_size is not None and args.per_device_eval_batch_size <= 0:
+        raise ValueError("per-device-eval-batch-size must be positive")
+    if args.eval_steps <= 0:
+        raise ValueError("eval-steps must be positive")
+    if args.save_total_limit is not None and args.save_total_limit <= 0:
+        raise ValueError("save-total-limit must be positive")
+    if args.load_best_model_at_end and args.validation_split_ratio == 0.0:
+        raise ValueError("load-best-model-at-end requires a non-zero validation-split-ratio")
+    if args.load_best_model_at_end and args.save_steps % args.eval_steps != 0:
+        raise ValueError("save-steps must be a multiple of eval-steps when loading the best model")
     return args
 
 
@@ -1874,6 +2934,27 @@ def parse_layer_indices(raw: str) -> tuple[int, ...]:
     if not raw or raw.lower() in {"none", "off"}:
         return ()
     return tuple(int(piece.strip()) for piece in raw.split(",") if piece.strip())
+
+
+def validate_wrapped_target_layers(
+    requested_layers: tuple[int, ...],
+    wrapped_layers: tuple[int, ...],
+) -> None:
+    if not requested_layers:
+        return
+    if len(set(requested_layers)) != len(requested_layers):
+        raise ValueError(f"Target layers contain duplicates: {requested_layers}")
+    requested = set(requested_layers)
+    wrapped = set(wrapped_layers)
+    if wrapped != requested:
+        missing = tuple(sorted(requested - wrapped))
+        unexpected = tuple(sorted(wrapped - requested))
+        raise ValueError(
+            "Requested target layers do not match wrapped attention layers: "
+            f"requested={tuple(sorted(requested))} "
+            f"wrapped={tuple(sorted(wrapped))} "
+            f"missing={missing} unexpected={unexpected}"
+        )
 
 
 def parse_delta_heads(raw: str) -> tuple[str, ...]:
@@ -2150,6 +3231,84 @@ def tokenize_messages_for_sft(
     }
 
 
+def _mask_teacher_labels_to_student_targets(
+    teacher_labels: list[int],
+    student_labels: list[int],
+) -> list[int]:
+    student_targets = [label for label in student_labels[1:] if label != -100]
+    teacher_positions = [
+        index
+        for index, label in enumerate(teacher_labels[1:], start=1)
+        if label != -100
+    ]
+    teacher_targets = [teacher_labels[index] for index in teacher_positions]
+    if len(teacher_targets) < len(student_targets):
+        raise ValueError(
+            "Canonical teacher has fewer supervised next-token targets than the episode read"
+        )
+    if student_targets and teacher_targets[-len(student_targets) :] != student_targets:
+        raise ValueError(
+            "Canonical teacher supervised target token IDs do not match the episode read suffix"
+        )
+    masked_labels = [-100] * len(teacher_labels)
+    if not student_targets:
+        return masked_labels
+    for position in teacher_positions[-len(student_targets) :]:
+        masked_labels[position] = teacher_labels[position]
+    return masked_labels
+
+
+def _build_canonical_teacher_features(
+    tokenizer,
+    teacher_messages: list[dict[str, str]],
+    full_write_input_ids: list[int],
+    retained_write_length: int,
+    *,
+    max_write_length: int,
+    max_read_length: int,
+    student_labels: list[int],
+) -> dict[str, list[int]]:
+    canonical_input_ids = _tokenize_chat_messages(tokenizer, teacher_messages)
+    teacher_features = tokenize_messages_for_sft(
+        tokenizer,
+        teacher_messages,
+        max(len(canonical_input_ids), 1),
+        assistant_loss_mode="final_assistant_only",
+    )
+    if teacher_features["input_ids"] != canonical_input_ids:
+        raise ValueError("Canonical teacher tokenization changed between full-sequence passes")
+
+    teacher_start = 0
+    if full_write_input_ids:
+        stable_prefix_length, _ = _chat_template_delta(
+            full_write_input_ids,
+            canonical_input_ids,
+            error_message=(
+                "Chat template write prefix is not stable enough to align the canonical teacher"
+            ),
+        )
+        teacher_start = len(full_write_input_ids) - retained_write_length
+        if teacher_start > stable_prefix_length:
+            raise ValueError(
+                "Retained write boundary falls inside the chat template's rewritten suffix"
+            )
+
+    teacher_max_length = max_write_length + max_read_length
+    teacher_start = max(
+        teacher_start,
+        len(canonical_input_ids) - teacher_max_length,
+    )
+    teacher_features = {
+        key: value[teacher_start:]
+        for key, value in teacher_features.items()
+    }
+    teacher_features["labels"] = _mask_teacher_labels_to_student_targets(
+        teacher_features["labels"],
+        student_labels,
+    )
+    return teacher_features
+
+
 def build_episode_training_examples(
     tokenizer,
     messages: list[dict[str, str]],
@@ -2180,6 +3339,7 @@ def build_episode_training_examples(
         write_input_ids: list[int] = []
         write_message_ids: list[int] = []
         write_sentence_ids: list[int] = []
+        full_write_input_ids: list[int] = []
         if write_messages:
             full_write_input_ids, write_message_ids, write_sentence_ids = _tokenize_chat_messages_with_write_span_ids(
                 tokenizer,
@@ -2203,6 +3363,15 @@ def build_episode_training_examples(
             read_messages,
             max_length,
             assistant_loss_mode="final_assistant_only",
+        )
+        teacher_features = _build_canonical_teacher_features(
+            tokenizer,
+            prefix_messages + [dict(messages[target_index])],
+            full_write_input_ids,
+            len(write_input_ids),
+            max_write_length=max_write_length,
+            max_read_length=max_length,
+            student_labels=read_features["labels"],
         )
         # Keep the immediate query turn visible during state-only dropout so memory focuses on
         # far-history recall instead of reconstructing the local prompt from state.
@@ -2253,6 +3422,9 @@ def build_episode_training_examples(
                 "input_ids": read_features["input_ids"],
                 "attention_mask": read_features["attention_mask"],
                 "labels": read_features["labels"],
+                "teacher_input_ids": teacher_features["input_ids"],
+                "teacher_attention_mask": teacher_features["attention_mask"],
+                "teacher_labels": teacher_features["labels"],
                 "state_only_write_input_ids": state_only_write_input_ids,
                 "state_only_write_attention_mask": [1] * len(state_only_write_input_ids),
                 "state_only_write_message_ids": state_only_write_message_ids,
@@ -2319,6 +3491,9 @@ def tokenize_examples_batch(
         tokenized["write_attention_mask"] = []
         tokenized["write_message_ids"] = []
         tokenized["write_sentence_ids"] = []
+        tokenized["teacher_input_ids"] = []
+        tokenized["teacher_attention_mask"] = []
+        tokenized["teacher_labels"] = []
         tokenized["state_only_write_input_ids"] = []
         tokenized["state_only_write_attention_mask"] = []
         tokenized["state_only_write_message_ids"] = []
@@ -2360,6 +3535,94 @@ def tokenize_examples_batch(
     return tokenized
 
 
+def _tokenizer_cache_identity(tokenizer) -> dict[str, object]:
+    def normalize(value):
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if isinstance(value, dict):
+            return {
+                str(key): normalize(item)
+                for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+            }
+        if isinstance(value, (list, tuple)):
+            return [normalize(item) for item in value]
+        return str(value)
+
+    name_or_path = str(getattr(tokenizer, "name_or_path", ""))
+    effective_chat_template = resolve_effective_chat_template(tokenizer)
+    special_token_ids = {
+        attribute: normalize(getattr(tokenizer, attribute, None))
+        for attribute in (
+            "bos_token_id",
+            "eos_token_id",
+            "pad_token_id",
+            "unk_token_id",
+            "sep_token_id",
+            "cls_token_id",
+            "mask_token_id",
+            "additional_special_tokens_ids",
+        )
+    }
+    identity: dict[str, object] = {
+        "name_or_path": name_or_path,
+        "class": tokenizer.__class__.__name__,
+        "chat_template": normalize(effective_chat_template),
+        "vocab_size": normalize(getattr(tokenizer, "vocab_size", None)),
+        "model_max_length": normalize(getattr(tokenizer, "model_max_length", None)),
+        "padding_side": normalize(getattr(tokenizer, "padding_side", None)),
+        "truncation_side": normalize(getattr(tokenizer, "truncation_side", None)),
+        "special_tokens_map": normalize(getattr(tokenizer, "special_tokens_map", None)),
+        "special_token_ids": special_token_ids,
+    }
+
+    tokenizer_path = Path(name_or_path).expanduser()
+    artifact_files: list[Path] = []
+    if name_or_path and tokenizer_path.is_file():
+        artifact_files = [tokenizer_path]
+        artifact_root = tokenizer_path.parent
+    elif name_or_path and tokenizer_path.is_dir():
+        artifact_root = tokenizer_path
+        for candidate in tokenizer_path.iterdir():
+            if not candidate.is_file():
+                continue
+            name = candidate.name.lower()
+            if (
+                name.startswith(
+                    (
+                        "tokenizer",
+                        "vocab",
+                        "merges",
+                        "special_tokens",
+                        "added_tokens",
+                    )
+                )
+                or name.endswith((".model", ".spm"))
+            ):
+                artifact_files.append(candidate)
+    else:
+        artifact_root = None
+
+    if artifact_files and artifact_root is not None:
+        artifact_hash = hashlib.sha256()
+        artifact_names = []
+        for artifact in sorted(artifact_files, key=lambda path: path.name):
+            relative_name = artifact.relative_to(artifact_root).as_posix()
+            artifact_names.append(relative_name)
+            artifact_hash.update(relative_name.encode("utf-8"))
+            artifact_hash.update(b"\0")
+            artifact_hash.update(str(artifact.stat().st_size).encode("ascii"))
+            artifact_hash.update(b"\0")
+            with artifact.open("rb") as handle:
+                while chunk := handle.read(1024 * 1024):
+                    artifact_hash.update(chunk)
+        identity["local_artifact_files"] = artifact_names
+        identity["local_artifacts_sha256"] = artifact_hash.hexdigest()
+    else:
+        identity["local_artifact_files"] = []
+        identity["local_artifacts_sha256"] = None
+    return identity
+
+
 def _tokenized_dataset_cache_key(
     args: argparse.Namespace,
     dataset: Dataset,
@@ -2369,22 +3632,26 @@ def _tokenized_dataset_cache_key(
     for fn in (
         normalize_example,
         tokenize_messages_for_sft,
+        _mask_teacher_labels_to_student_targets,
+        _build_canonical_teacher_features,
         _sentence_ids_for_message_delta,
+        _tokenize_chat_messages,
         _tokenize_chat_messages_with_write_span_ids,
         build_episode_training_examples,
         tokenize_examples_batch,
         add_length_column,
+        _tokenizer_cache_identity,
         split_text_into_sentence_token_chunks,
     ):
         code_hash.update(inspect.getsource(fn).encode("utf-8"))
+    code_hash.update(inspect.getsource(project_chat_templates).encode("utf-8"))
     include_sentence_ids = args.memory_write_granularity == "sentence_mean"
     payload = {
         "dataset_fingerprint": getattr(dataset, "_fingerprint", None),
         "dataset_name": args.dataset_name,
         "dataset_split": args.dataset_split,
         "train_file": None if args.train_file is None else str(args.train_file.resolve()),
-        "tokenizer_name_or_path": getattr(tokenizer, "name_or_path", ""),
-        "tokenizer_class": tokenizer.__class__.__name__,
+        "tokenizer_identity": _tokenizer_cache_identity(tokenizer),
         "max_length": args.max_length,
         "training_mode": args.training_mode,
         "assistant_loss_mode": args.assistant_loss_mode,
@@ -2484,8 +3751,13 @@ def prepare_tokenized_dataset(
             if temp_dir.exists():
                 shutil.rmtree(temp_dir)
             tokenized = _build_tokenized_dataset(args, dataset, tokenizer)
+            built_fingerprint = getattr(tokenized, "_fingerprint", None)
             tokenized.save_to_disk(str(temp_dir))
             temp_dir.rename(cache_dir)
+            # Dataset.save_to_disk can assign a different Arrow fingerprint on
+            # reload. Train from the persisted view so checkpoints and cache-hit
+            # resumes record the same fingerprint.
+            tokenized = load_from_disk(str(cache_dir))
             ready_marker.write_text(
                 json.dumps(
                     {
@@ -2499,6 +3771,8 @@ def prepare_tokenized_dataset(
                         "memory_write_granularity": args.memory_write_granularity,
                         "include_sentence_ids": args.memory_write_granularity == "sentence_mean",
                         "max_length": args.max_length,
+                        "built_fingerprint": built_fingerprint,
+                        "saved_fingerprint": getattr(tokenized, "_fingerprint", None),
                     },
                     indent=2,
                 )
@@ -2555,6 +3829,366 @@ def load_or_prepare_tokenized_dataset(
         "train_samples": len(tokenized),
         "training_mode": detect_training_mode(tokenized),
     }
+
+
+def split_tokenized_dataset(
+    tokenized: Dataset,
+    *,
+    validation_split_ratio: float,
+    data_seed: int,
+) -> tuple[Dataset, Dataset | None]:
+    if not 0.0 <= validation_split_ratio < 1.0:
+        raise ValueError("validation_split_ratio must satisfy 0 <= ratio < 1")
+    if validation_split_ratio == 0.0:
+        return tokenized, None
+    if len(tokenized) < 2:
+        raise ValueError("A validation split requires at least two tokenized samples")
+    validation_samples = max(1, math.ceil(len(tokenized) * validation_split_ratio))
+    if validation_samples >= len(tokenized):
+        raise ValueError("validation_split_ratio leaves no training samples")
+    split = tokenized.train_test_split(
+        test_size=validation_samples,
+        seed=data_seed,
+        shuffle=True,
+    )
+    return split["train"], split["test"]
+
+
+def _canonical_json_sha256(payload: object) -> str:
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _content_contrast_write_payload(
+    row: dict,
+    *,
+    column_prefix: str = "write_",
+) -> dict[str, list[int]]:
+    field_names = (
+        "input_ids",
+        "attention_mask",
+        "message_ids",
+        "sentence_ids",
+    )
+    required_columns = tuple(f"{column_prefix}{field}" for field in field_names)
+    missing = [column for column in required_columns if column not in row]
+    if missing:
+        raise ValueError(
+            "content_contrast_ce requires episode write columns: " + ", ".join(missing)
+        )
+    payload = {
+        field: [int(value) for value in row[f"{column_prefix}{field}"]]
+        for field in field_names
+    }
+    write_length = len(payload["input_ids"])
+    if write_length == 0:
+        raise ValueError("content_contrast_ce requires every sample to have a non-empty write")
+    for column, values in payload.items():
+        if len(values) != write_length:
+            raise ValueError(
+                f"content_contrast_ce write field {column} does not align with input_ids"
+            )
+    return payload
+
+
+def materialize_content_contrast_pairs(
+    split: Dataset,
+    *,
+    split_name: str,
+) -> tuple[Dataset, dict[str, object]]:
+    sample_count = len(split)
+    if sample_count < 2 or sample_count % 2 != 0:
+        raise ValueError(
+            f"content_contrast_ce split {split_name!r} requires an even sample count >= 2; "
+            f"got {sample_count}"
+        )
+    materialized_columns = {
+        "negative_write_input_ids",
+        "negative_write_attention_mask",
+        "negative_write_message_ids",
+        "negative_write_sentence_ids",
+        "content_contrast_source_index",
+        "content_contrast_partner_index",
+        "content_contrast_source_id",
+        "content_contrast_partner_id",
+        "content_contrast_source_write_sha256",
+        "content_contrast_partner_write_sha256",
+        "content_contrast_negative_write_sha256",
+    }
+    collisions = sorted(materialized_columns.intersection(split.column_names))
+    if collisions:
+        raise ValueError(
+            "content_contrast_ce pairing must be materialized from the objective-neutral "
+            "post-split dataset; columns already exist: " + ", ".join(collisions)
+        )
+
+    source_fingerprint = getattr(split, "_fingerprint", None)
+    rotation = sample_count // 2
+    rows = [split[index] for index in range(sample_count)]
+    write_payloads = [_content_contrast_write_payload(row) for row in rows]
+    write_hashes = [_canonical_json_sha256(payload) for payload in write_payloads]
+    partner_indices = [
+        (source_index + rotation) % sample_count
+        for source_index in range(sample_count)
+    ]
+    pair_audit: list[dict[str, object]] = []
+    negative_columns: dict[str, list[list[int]]] = {
+        "negative_write_input_ids": [],
+        "negative_write_attention_mask": [],
+        "negative_write_message_ids": [],
+        "negative_write_sentence_ids": [],
+    }
+    source_ids: list[str] = []
+    partner_ids: list[str] = []
+    source_hashes: list[str] = []
+    partner_hashes: list[str] = []
+    for source_index, partner_index in enumerate(partner_indices):
+        if source_index == partner_index:
+            raise ValueError("content_contrast_ce pairing produced a self-pair")
+        source_write = write_payloads[source_index]["input_ids"]
+        partner_write = write_payloads[partner_index]["input_ids"]
+        if source_write == partner_write:
+            raise ValueError(
+                "content_contrast_ce pairing produced equal writes for "
+                f"{split_name}:{source_index} and {split_name}:{partner_index}"
+            )
+        source_id = f"{split_name}:{source_index}"
+        partner_id = f"{split_name}:{partner_index}"
+        source_hash = write_hashes[source_index]
+        partner_hash = write_hashes[partner_index]
+        source_ids.append(source_id)
+        partner_ids.append(partner_id)
+        source_hashes.append(source_hash)
+        partner_hashes.append(partner_hash)
+        for source_field, negative_column in (
+            ("input_ids", "negative_write_input_ids"),
+            ("attention_mask", "negative_write_attention_mask"),
+            ("message_ids", "negative_write_message_ids"),
+            ("sentence_ids", "negative_write_sentence_ids"),
+        ):
+            negative_columns[negative_column].append(
+                write_payloads[partner_index][source_field]
+            )
+        pair_audit.append(
+            {
+                "source_index": source_index,
+                "partner_index": partner_index,
+                "source_id": source_id,
+                "partner_id": partner_id,
+                "source_write_sha256": source_hash,
+                "partner_write_sha256": partner_hash,
+            }
+        )
+
+    paired = split
+    for column, values in negative_columns.items():
+        paired = paired.add_column(column, values)
+    materialized_negative_hashes = []
+    for source_index in range(sample_count):
+        materialized_payload = _content_contrast_write_payload(
+            paired[source_index],
+            column_prefix="negative_write_",
+        )
+        materialized_hash = _canonical_json_sha256(materialized_payload)
+        if materialized_hash != partner_hashes[source_index]:
+            raise RuntimeError(
+                "content_contrast_ce materialized negative write does not match its audited donor"
+            )
+        materialized_negative_hashes.append(materialized_hash)
+        pair_audit[source_index]["negative_write_sha256"] = materialized_hash
+    paired = paired.add_column("content_contrast_source_index", list(range(sample_count)))
+    paired = paired.add_column("content_contrast_partner_index", partner_indices)
+    paired = paired.add_column("content_contrast_source_id", source_ids)
+    paired = paired.add_column("content_contrast_partner_id", partner_ids)
+    paired = paired.add_column("content_contrast_source_write_sha256", source_hashes)
+    paired = paired.add_column("content_contrast_partner_write_sha256", partner_hashes)
+    paired = paired.add_column(
+        "content_contrast_negative_write_sha256",
+        materialized_negative_hashes,
+    )
+
+    split_manifest: dict[str, object] = {
+        "split": split_name,
+        "pairing_version": _CONTENT_CONTRAST_PAIRING_VERSION,
+        "sample_count": sample_count,
+        "rotation": rotation,
+        "source_fingerprint": source_fingerprint,
+        "paired_fingerprint": getattr(paired, "_fingerprint", None),
+        "pairs_sha256": _canonical_json_sha256(pair_audit),
+        "pairs": pair_audit,
+    }
+    split_manifest["manifest_sha256"] = _canonical_json_sha256(split_manifest)
+    return paired, split_manifest
+
+
+def build_content_contrast_pairing_manifest(
+    *,
+    tokenized_fingerprint: str | None,
+    data_seed: int,
+    train_manifest: dict[str, object],
+    eval_manifest: dict[str, object] | None,
+) -> dict[str, object]:
+    splits = {"train": train_manifest}
+    if eval_manifest is not None:
+        splits["eval"] = eval_manifest
+    manifest: dict[str, object] = {
+        "schema_version": 1,
+        "objective_version": _CONTENT_CONTRAST_OBJECTIVE_VERSION,
+        "pairing_version": _CONTENT_CONTRAST_PAIRING_VERSION,
+        "pairing_scope": "within_post_split_partition",
+        "data_seed": data_seed,
+        "tokenized_fingerprint": tokenized_fingerprint,
+        "splits": splits,
+    }
+    manifest["manifest_sha256"] = _canonical_json_sha256(manifest)
+    return manifest
+
+
+def _content_contrast_protocol_pairing_summary(
+    manifest: dict[str, object],
+) -> dict[str, object]:
+    split_summaries = {}
+    for split_name, split_manifest in manifest["splits"].items():
+        split_summaries[split_name] = {
+            key: split_manifest[key]
+            for key in (
+                "sample_count",
+                "rotation",
+                "source_fingerprint",
+                "paired_fingerprint",
+                "pairs_sha256",
+                "manifest_sha256",
+            )
+        }
+    return {
+        "pairing_version": manifest["pairing_version"],
+        "pairing_scope": manifest["pairing_scope"],
+        "data_seed": manifest["data_seed"],
+        "tokenized_fingerprint": manifest["tokenized_fingerprint"],
+        "manifest_sha256": manifest["manifest_sha256"],
+        "splits": split_summaries,
+    }
+
+
+def validate_canonical_teacher_columns(tokenized: Dataset) -> None:
+    required_columns = {
+        "teacher_input_ids",
+        "teacher_attention_mask",
+        "teacher_labels",
+    }
+    missing_columns = sorted(required_columns.difference(tokenized.column_names))
+    if missing_columns:
+        raise ValueError(
+            "Tokenized episode dataset is missing canonical teacher columns; rebuild it with "
+            "the current trainer: " + ", ".join(missing_columns)
+        )
+
+
+def build_training_protocol(
+    args: argparse.Namespace,
+    tokenized: Dataset,
+    *,
+    effective_training_mode: str,
+    train_samples: int,
+    eval_samples: int,
+    warmup_steps: int,
+    content_contrast_pairing_manifest: dict[str, object] | None = None,
+) -> dict[str, object]:
+    is_content_contrast = args.memory_loss_mode == "content_contrast_ce"
+    protocol = {
+        "schema_version": (
+            _CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION
+            if is_content_contrast
+            else _TRAINING_PROTOCOL_SCHEMA_VERSION
+        ),
+        "memory_objective_version": (
+            _CONTENT_CONTRAST_OBJECTIVE_VERSION
+            if is_content_contrast
+            else _MEMORY_OBJECTIVE_VERSION
+        ),
+        "train_file": None if args.train_file is None else str(args.train_file.resolve()),
+        "dataset_name": args.dataset_name,
+        "dataset_split": args.dataset_split,
+        "tokenized_dataset_dir": (
+            None
+            if args.tokenized_dataset_dir is None
+            else str(args.tokenized_dataset_dir.resolve())
+        ),
+        "tokenized_fingerprint": getattr(tokenized, "_fingerprint", None),
+        "tokenized_samples": len(tokenized),
+        "train_samples": train_samples,
+        "eval_samples": eval_samples,
+        "training_mode": effective_training_mode,
+        "assistant_loss_mode": args.assistant_loss_mode,
+        "max_length": args.max_length,
+        "max_write_length": args.max_write_length,
+        "teacher_max_length": args.max_write_length + args.max_length,
+        "episode_recent_messages": args.episode_recent_messages,
+        "episode_read_write_enabled": args.episode_read_write_enabled,
+        "memory_write_source": args.memory_write_source,
+        "memory_write_granularity": args.memory_write_granularity,
+        "memory_fusion_mode": getattr(args, "memory_fusion_mode", "add"),
+        "memory_fusion_gate_init": getattr(args, "memory_fusion_gate_init", 0.1),
+        "rwkv_ms_output_init_scale": getattr(args, "rwkv_ms_output_init_scale", 0.02),
+        "rwkv_ms_semantics_version": getattr(args, "rwkv_ms_semantics_version", 2),
+        "memory_loss_mode": args.memory_loss_mode,
+        "memory_dropout_no_memory_prob": args.memory_dropout_no_memory_prob,
+        "memory_dropout_state_only_prob": args.memory_dropout_state_only_prob,
+        "memory_base_kl_weight": args.memory_base_kl_weight,
+        "context_ablation_mode": args.context_ablation_mode,
+        "context_ablation_no_state_prob": args.context_ablation_no_state_prob,
+        "context_ablation_state_only_prob": args.context_ablation_state_only_prob,
+        "validation_split_ratio": args.validation_split_ratio,
+        "seed": args.seed,
+        "data_seed": args.data_seed,
+        "per_device_train_batch_size": args.per_device_train_batch_size,
+        "per_device_eval_batch_size": (
+            args.per_device_eval_batch_size
+            if args.per_device_eval_batch_size is not None
+            else args.per_device_train_batch_size
+        ),
+        "gradient_accumulation_steps": args.gradient_accumulation_steps,
+        "learning_rate": args.learning_rate,
+        "lr_scheduler_type": args.lr_scheduler_type,
+        "warmup_ratio": args.warmup_ratio,
+        "warmup_steps": warmup_steps,
+        "weight_decay": args.weight_decay,
+        "optim": args.optim,
+        "num_train_epochs": args.num_train_epochs,
+        "max_steps": args.max_steps,
+        "eval_steps": args.eval_steps,
+        "save_steps": args.save_steps,
+        "dtype": args.dtype,
+        "bf16": args.bf16,
+        "tf32": args.tf32,
+    }
+    protocol["frozen_mlp_activation_checkpointing"] = bool(
+        getattr(args, "frozen_mlp_activation_checkpointing", False)
+    )
+    if is_content_contrast:
+        if content_contrast_pairing_manifest is None:
+            raise ValueError("content_contrast_ce requires a post-split pairing manifest")
+        protocol.update(
+            {
+                "memory_contrast_weight": args.memory_contrast_weight,
+                "memory_margin": args.memory_margin,
+                "memory_kl_weight": args.memory_kl_weight,
+                "write_sparsity_weight": args.write_sparsity_weight,
+                "memory_partition_alignment_weight": args.memory_partition_alignment_weight,
+                "memory_partition_entropy_weight": args.memory_partition_entropy_weight,
+                "memory_partition_balance_weight": args.memory_partition_balance_weight,
+                "content_contrast_negative_priming_grad": False,
+                "content_contrast_pairing": _content_contrast_protocol_pairing_summary(
+                    content_contrast_pairing_manifest
+                ),
+            }
+        )
+    return protocol
 
 
 class DialogueCausalLMCollator:
@@ -2621,6 +4255,79 @@ class EpisodeCausalLMCollator(DialogueCausalLMCollator):
             batch["write_sentence_ids"] = write_sentence_ids
         batch["write_lengths"] = torch.tensor(write_lengths, dtype=torch.long)
         batch["read_lengths"] = torch.tensor(read_lengths, dtype=torch.long)
+
+        has_negative_writes = [
+            "negative_write_input_ids" in feature
+            for feature in features
+        ]
+        if any(has_negative_writes) and not all(has_negative_writes):
+            raise ValueError("Episode batch mixes paired and unpaired content-contrast examples")
+        if all(has_negative_writes):
+            required_negative_columns = (
+                "negative_write_input_ids",
+                "negative_write_attention_mask",
+                "negative_write_message_ids",
+                "negative_write_sentence_ids",
+            )
+            missing_negative_columns = [
+                column
+                for column in required_negative_columns
+                if any(column not in feature for feature in features)
+            ]
+            if missing_negative_columns:
+                raise ValueError(
+                    "content_contrast_ce examples have incomplete negative writes: "
+                    + ", ".join(missing_negative_columns)
+                )
+            negative_write_input_ids = _pad_sequences(
+                [feature["negative_write_input_ids"] for feature in features],
+                pad_token_id,
+            )
+            negative_write_attention_mask = _pad_sequences(
+                [feature["negative_write_attention_mask"] for feature in features],
+                0,
+            )
+            negative_write_message_ids = _pad_sequences(
+                [feature["negative_write_message_ids"] for feature in features],
+                -1,
+            )
+            negative_write_sentence_ids = _pad_sequences(
+                [feature["negative_write_sentence_ids"] for feature in features],
+                -1,
+            )
+            if (
+                negative_write_input_ids is None
+                or negative_write_attention_mask is None
+                or negative_write_message_ids is None
+                or negative_write_sentence_ids is None
+            ):
+                raise ValueError("content_contrast_ce examples require non-empty negative writes")
+            batch["negative_write_input_ids"] = negative_write_input_ids
+            batch["negative_write_attention_mask"] = negative_write_attention_mask
+            batch["negative_write_message_ids"] = negative_write_message_ids
+            batch["negative_write_sentence_ids"] = negative_write_sentence_ids
+
+        teacher_input_ids = _pad_sequences(
+            [feature["teacher_input_ids"] for feature in features],
+            pad_token_id,
+        )
+        teacher_attention_mask = _pad_sequences(
+            [feature["teacher_attention_mask"] for feature in features],
+            0,
+        )
+        teacher_labels = _pad_sequences(
+            [feature["teacher_labels"] for feature in features],
+            -100,
+        )
+        if (
+            teacher_input_ids is None
+            or teacher_attention_mask is None
+            or teacher_labels is None
+        ):
+            raise ValueError("Episode examples require non-empty canonical teacher tensors")
+        batch["teacher_input_ids"] = teacher_input_ids
+        batch["teacher_attention_mask"] = teacher_attention_mask
+        batch["teacher_labels"] = teacher_labels
 
         state_only_write_input_ids = _pad_sequences(
             [feature["state_only_write_input_ids"] for feature in features],
@@ -2699,14 +4406,34 @@ def build_data_collator(training_mode: str, tokenizer):
 
 def main() -> None:
     args = parse_args()
+    # Adapter and RWKV-core parameters are initialized before Trainer exists.
+    set_seed(args.seed)
     if args.gradient_checkpointing:
         raise ValueError(
             "Gradient checkpointing is currently incompatible with Delta-Mem's stateful token updates. "
             "Disable --gradient-checkpointing before training."
         )
+    if args.resume_mode == "extend":
+        raw_checkpoint = (
+            ""
+            if args.resume_from_checkpoint is None
+            else str(args.resume_from_checkpoint).strip()
+        )
+        if not raw_checkpoint or raw_checkpoint.lower() in _RESUME_LATEST_VALUES:
+            raise ValueError(
+                "--resume-mode extend requires an explicit --resume-from-checkpoint path"
+            )
     resume_from_checkpoint = resolve_resume_checkpoint(
         args.resume_from_checkpoint,
         args.output_dir / "trainer",
+        require_training_protocol=True,
+        require_content_contrast_pairing=(
+            args.memory_loss_mode == "content_contrast_ce"
+        ),
+    )
+    continuation_manifest = prepare_training_continuation(
+        args,
+        resume_from_checkpoint,
     )
     dtype = get_dtype(args.dtype)
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
@@ -2723,6 +4450,37 @@ def main() -> None:
         local_rank=local_rank,
     )
     effective_training_mode = str(tokenized_meta["training_mode"])
+    if (
+        effective_training_mode == "episode"
+        and args.memory_loss_mode == "context_dropout_ce"
+        and args.memory_base_kl_weight > 0.0
+    ):
+        validate_canonical_teacher_columns(tokenized)
+    train_dataset, eval_dataset = split_tokenized_dataset(
+        tokenized,
+        validation_split_ratio=args.validation_split_ratio,
+        data_seed=args.data_seed,
+    )
+    content_contrast_pairing_manifest = None
+    if args.memory_loss_mode == "content_contrast_ce":
+        if effective_training_mode != "episode":
+            raise ValueError("content_contrast_ce requires episode training mode")
+        train_dataset, train_pairing_manifest = materialize_content_contrast_pairs(
+            train_dataset,
+            split_name="train",
+        )
+        eval_pairing_manifest = None
+        if eval_dataset is not None:
+            eval_dataset, eval_pairing_manifest = materialize_content_contrast_pairs(
+                eval_dataset,
+                split_name="eval",
+            )
+        content_contrast_pairing_manifest = build_content_contrast_pairing_manifest(
+            tokenized_fingerprint=getattr(tokenized, "_fingerprint", None),
+            data_seed=args.data_seed,
+            train_manifest=train_pairing_manifest,
+            eval_manifest=eval_pairing_manifest,
+        )
     effective_group_by_length = args.group_by_length and effective_training_mode != "episode"
     if args.group_by_length and not effective_group_by_length and local_rank in (-1, 0):
         print(
@@ -2746,6 +4504,7 @@ def main() -> None:
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
 
+    requested_target_layers = parse_layer_indices(args.target_layers)
     delta_config = HFDeltaMemConfig(
         rank=args.rank,
         alpha=args.alpha,
@@ -2755,6 +4514,8 @@ def main() -> None:
         rwkv_ms_boundary_mode=args.rwkv_ms_boundary_mode,
         rwkv_ms_erase_gate=args.rwkv_ms_erase_gate,
         rwkv_ms_read_top_k=args.rwkv_ms_read_top_k,
+        rwkv_ms_output_init_scale=args.rwkv_ms_output_init_scale,
+        rwkv_ms_semantics_version=args.rwkv_ms_semantics_version,
         num_state_heads=args.num_state_heads,
         num_memory_partitions=args.num_memory_partitions,
         num_global_memory_partitions=args.num_global_memory_partitions,
@@ -2783,19 +4544,30 @@ def main() -> None:
         delta_scale_parameterization=args.delta_scale_parameterization,
         delta_o_rmsnorm=args.delta_o_rmsnorm,
         delta_o_rmsnorm_eps=args.delta_o_rmsnorm_eps,
+        memory_fusion_mode=args.memory_fusion_mode,
+        memory_fusion_gate_init=args.memory_fusion_gate_init,
         online_gain=args.online_gain,
-        target_layers=parse_layer_indices(args.target_layers),
+        target_layers=requested_target_layers,
         memory_readout_mode=normalize_memory_readout_mode(args.memory_readout_mode),
         memory_write_source=args.memory_write_source,
         memory_write_granularity=args.memory_write_granularity,
         memory_write_proposals_per_message=args.memory_write_proposals_per_message,
     )
     replaced = attach_delta_mem(model, delta_config)
+    wrapped_target_layers = tuple(
+        sorted({int(module.base.layer_idx) for _, module in iter_delta_mem_modules(model)})
+    )
+    validate_wrapped_target_layers(requested_target_layers, wrapped_target_layers)
     trainable_names = freeze_non_delta_mem_params(model)
+    checkpointed_frozen_mlps = (
+        checkpoint_frozen_mlp_activations(model)
+        if args.frozen_mlp_activation_checkpointing
+        else []
+    )
     _promote_trainable_parameters_to_fp32(model)
 
     warmup_steps = compute_warmup_steps(
-        train_samples=len(tokenized),
+        train_samples=len(train_dataset),
         per_device_train_batch_size=args.per_device_train_batch_size,
         world_size=world_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
@@ -2803,9 +4575,30 @@ def main() -> None:
         max_steps=args.max_steps,
         warmup_ratio=args.warmup_ratio,
     )
+    warmup_steps = resolve_resume_warmup_steps(
+        warmup_steps,
+        resume_from_checkpoint,
+    )
+    training_protocol = build_training_protocol(
+        args,
+        tokenized,
+        effective_training_mode=effective_training_mode,
+        train_samples=len(train_dataset),
+        eval_samples=0 if eval_dataset is None else len(eval_dataset),
+        warmup_steps=warmup_steps,
+        content_contrast_pairing_manifest=content_contrast_pairing_manifest,
+    )
+    training_protocol_sha256 = hashlib.sha256(
+        json.dumps(training_protocol, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
     training_args_kwargs = dict(
         output_dir=str(args.output_dir / "trainer"),
         per_device_train_batch_size=args.per_device_train_batch_size,
+        per_device_eval_batch_size=(
+            args.per_device_eval_batch_size
+            if args.per_device_eval_batch_size is not None
+            else args.per_device_train_batch_size
+        ),
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
         seed=args.seed,
@@ -2817,12 +4610,18 @@ def main() -> None:
         num_train_epochs=args.num_train_epochs,
         max_steps=args.max_steps,
         logging_steps=args.logging_steps,
+        eval_strategy="steps" if eval_dataset is not None else "no",
+        eval_steps=args.eval_steps,
+        do_eval=eval_dataset is not None,
         save_steps=args.save_steps,
+        save_total_limit=args.save_total_limit,
+        load_best_model_at_end=args.load_best_model_at_end,
+        metric_for_best_model="eval_loss" if args.load_best_model_at_end else None,
+        greater_is_better=False if args.load_best_model_at_end else None,
         dataloader_num_workers=args.dataloader_num_workers,
         dataloader_persistent_workers=args.dataloader_num_workers > 0,
         length_column_name="length",
-        gradient_checkpointing=args.gradient_checkpointing,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
+        gradient_checkpointing=False,
         torch_compile=args.torch_compile,
         tf32=args.tf32,
         deepspeed=None if args.deepspeed_config is None else str(args.deepspeed_config),
@@ -2858,12 +4657,13 @@ def main() -> None:
     trainer = DeltaMemTrainer(
         model=model,
         args=training_args,
-        train_dataset=tokenized,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         data_collator=build_data_collator(effective_training_mode, tokenizer),
         delta_config=delta_config,
         write_sparsity_weight=args.write_sparsity_weight,
         write_sparsity_target=args.write_sparsity_target,
-        memory_loss_mode="context_dropout_ce",
+        memory_loss_mode=args.memory_loss_mode,
         memory_contrast_weight=args.memory_contrast_weight,
         memory_kl_weight=args.memory_kl_weight,
         memory_margin=args.memory_margin,
@@ -2882,9 +4682,15 @@ def main() -> None:
         memory_partition_balance_weight=args.memory_partition_balance_weight,
         memory_dropout_no_memory_prob=args.memory_dropout_no_memory_prob,
         memory_dropout_state_only_prob=args.memory_dropout_state_only_prob,
+        memory_base_kl_weight=args.memory_base_kl_weight,
+        episode_read_write_enabled=args.episode_read_write_enabled,
         context_ablation_mode=args.context_ablation_mode,
         context_ablation_no_state_prob=args.context_ablation_no_state_prob,
         context_ablation_state_only_prob=args.context_ablation_state_only_prob,
+        training_protocol=training_protocol,
+        content_contrast_pairing_manifest=content_contrast_pairing_manifest,
+        resume_mode=args.resume_mode,
+        continuation_manifest=continuation_manifest,
     )
     trainer.log_delta_debug_stats = args.log_delta_debug_stats
     trainer.train(resume_from_checkpoint=resume_from_checkpoint)
@@ -2893,23 +4699,45 @@ def main() -> None:
     base_model = trainer.accelerator.unwrap_model(trainer.model)
     if trainer.is_world_process_zero():
         save_delta_mem_adapter(base_model, args.output_dir, delta_config)
+        (args.output_dir / _TRAINING_PROTOCOL_FILENAME).write_text(
+            json.dumps(training_protocol, indent=2, sort_keys=True)
+        )
+        if content_contrast_pairing_manifest is not None:
+            (args.output_dir / _CONTENT_CONTRAST_PAIRING_FILENAME).write_text(
+                json.dumps(content_contrast_pairing_manifest, indent=2, sort_keys=True)
+            )
+        if continuation_manifest is not None:
+            (args.output_dir / _CONTINUATION_MANIFEST_FILENAME).write_text(
+                json.dumps(continuation_manifest, indent=2, sort_keys=True)
+            )
         summary = {
             "output_dir": str(args.output_dir),
             "resume_from_checkpoint": resume_from_checkpoint,
+            "resume_mode": args.resume_mode,
+            "continuation": continuation_manifest,
             "num_replaced_modules": len(replaced),
             "num_trainable_tensors": len(trainable_names),
+            "num_checkpointed_frozen_mlps": len(checkpointed_frozen_mlps),
             "first_replaced_modules": replaced[:8],
             "first_trainable_tensors": trainable_names[:8],
-            "train_samples": len(tokenized),
+            "first_checkpointed_frozen_mlps": checkpointed_frozen_mlps[:8],
+            "tokenized_samples": len(tokenized),
+            "train_samples": len(train_dataset),
+            "eval_samples": 0 if eval_dataset is None else len(eval_dataset),
             "training_mode": effective_training_mode,
             "assistant_loss_mode": args.assistant_loss_mode,
             "episode_recent_messages": args.episode_recent_messages,
             "max_write_length": args.max_write_length,
-            "memory_loss_mode": "context_dropout_ce",
+            "episode_read_write_enabled": args.episode_read_write_enabled,
+            "memory_loss_mode": args.memory_loss_mode,
+            "memory_objective_version": training_protocol["memory_objective_version"],
+            "teacher_max_length": args.max_write_length + args.max_length,
             "memory_write_source": args.memory_write_source,
             "memory_write_granularity": args.memory_write_granularity,
             "delta_o_rmsnorm": args.delta_o_rmsnorm,
             "delta_o_rmsnorm_eps": args.delta_o_rmsnorm_eps,
+            "memory_fusion_mode": args.memory_fusion_mode,
+            "memory_fusion_gate_init": args.memory_fusion_gate_init,
             "target_layers": args.target_layers,
             "memory_contrast_weight": args.memory_contrast_weight,
             "memory_kl_weight": args.memory_kl_weight,
@@ -2921,16 +4749,33 @@ def main() -> None:
             "memory_need_floor": args.memory_need_floor,
             "memory_dropout_no_memory_prob": args.memory_dropout_no_memory_prob,
             "memory_dropout_state_only_prob": args.memory_dropout_state_only_prob,
+            "memory_base_kl_weight": args.memory_base_kl_weight,
             "context_ablation_mode": args.context_ablation_mode,
             "context_ablation_no_state_prob": args.context_ablation_no_state_prob,
             "context_ablation_state_only_prob": args.context_ablation_state_only_prob,
             "memory_full_ce_weight": args.memory_full_ce_weight,
             "memory_full_ce_max_length": args.memory_full_ce_max_length,
             "output_init": args.output_init,
+            "rwkv_ms_output_init_scale": args.rwkv_ms_output_init_scale,
+            "rwkv_ms_semantics_version": args.rwkv_ms_semantics_version,
             "base_slice_ref_width": args.base_slice_ref_width,
             "memory_readout_mode": args.memory_readout_mode,
             "seed": args.seed,
             "data_seed": args.data_seed,
+            "validation_split_ratio": args.validation_split_ratio,
+            "eval_steps": args.eval_steps,
+            "save_steps": args.save_steps,
+            "save_total_limit": args.save_total_limit,
+            "load_best_model_at_end": args.load_best_model_at_end,
+            "best_model_checkpoint": trainer.state.best_model_checkpoint,
+            "best_metric": trainer.state.best_metric,
+            "training_protocol_sha256": training_protocol_sha256,
+            "content_contrast_pairing_manifest_sha256": (
+                None
+                if content_contrast_pairing_manifest is None
+                else content_contrast_pairing_manifest["manifest_sha256"]
+            ),
+            "memory_dropout_counts_current_process_since_resume": trainer.memory_dropout_counts,
             "lr_scheduler_type": args.lr_scheduler_type,
             "warmup_ratio": args.warmup_ratio,
             "warmup_steps": warmup_steps,
@@ -2938,6 +4783,9 @@ def main() -> None:
             "requested_attn_implementation": args.attn_implementation,
             "attn_implementation": resolved_attn_implementation,
             "gradient_checkpointing": args.gradient_checkpointing,
+            "frozen_mlp_activation_checkpointing": (
+                args.frozen_mlp_activation_checkpointing
+            ),
             "torch_compile": args.torch_compile,
             "tf32": args.tf32,
             "group_by_length": effective_group_by_length,
@@ -2965,6 +4813,7 @@ def main() -> None:
             "wandb_mode": args.wandb_mode if args.wandb else None,
             "wandb_dir": str(args.wandb_dir) if args.wandb else None,
             "gate_stats": collect_delta_mem_gate_stats(base_model),
+            "output_ratio_stats": collect_delta_mem_output_ratio_stats(base_model),
             "config": asdict(delta_config),
         }
         (args.output_dir / "training_summary.json").write_text(json.dumps(summary, indent=2))

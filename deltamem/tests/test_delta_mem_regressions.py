@@ -18,11 +18,14 @@ from deltamem.core.delta import (
     DeltaMemAttention,
     HFDeltaMemConfig,
     attach_delta_mem,
+    collect_delta_mem_output_ratio_stats,
     freeze_non_delta_mem_params,
     get_delta_mem_online_state,
     get_delta_mem_write_regularization,
+    load_delta_mem_adapter,
     load_delta_mem_online_state,
     reset_delta_mem_states,
+    save_delta_mem_adapter,
     set_delta_mem_write_enabled,
     set_delta_mem_write_message_ids,
     set_delta_mem_write_sentence_ids,
@@ -618,6 +621,36 @@ def make_gemma4_attention(
     return Gemma4TextAttention(config, layer_idx)
 
 
+def make_gemma4_shared_kv_config() -> Gemma4TextConfig:
+    if Gemma4TextConfig is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    config = Gemma4TextConfig(
+        vocab_size=64,
+        hidden_size=16,
+        intermediate_size=32,
+        num_hidden_layers=4,
+        num_attention_heads=2,
+        num_key_value_heads=1,
+        head_dim=8,
+        global_head_dim=8,
+        num_global_key_value_heads=1,
+        attention_dropout=0.0,
+        attention_bias=False,
+        layer_types=[
+            "sliding_attention",
+            "full_attention",
+            "sliding_attention",
+            "full_attention",
+        ],
+        num_kv_shared_layers=2,
+        hidden_size_per_layer_input=0,
+        sliding_window=4,
+        tie_word_embeddings=False,
+    )
+    config._attn_implementation = "eager"
+    return config
+
+
 def make_position_embeddings(
     *,
     batch_size: int,
@@ -673,12 +706,16 @@ def make_delta_module(
     memory_backend: str = "delta_rule",
     rwkv_ms_num_states: int = 4,
     rwkv_ms_chunk_size: int = 2,
+    rwkv_ms_output_init_scale: float = 0.02,
+    rwkv_ms_semantics_version: int = 2,
     rankwise_gates: bool = True,
     slot_read_top_k: int = 0,
     memory_readout_mode: str = "delta",
     synthetic_memory_slots: int = 1,
     delta_heads: tuple[str, ...] | str = ("q", "k", "v", "o"),
     delta_o_rmsnorm: bool = False,
+    memory_fusion_mode: str = "add",
+    memory_fusion_gate_init: float = 0.1,
 ) -> DeltaMemAttention:
     torch.manual_seed(0)
     base = make_qwen3_attention()
@@ -690,6 +727,8 @@ def make_delta_module(
             memory_backend=memory_backend,
             rwkv_ms_num_states=rwkv_ms_num_states,
             rwkv_ms_chunk_size=rwkv_ms_chunk_size,
+            rwkv_ms_output_init_scale=rwkv_ms_output_init_scale,
+            rwkv_ms_semantics_version=rwkv_ms_semantics_version,
             output_init=output_init,
             rankwise_gates=rankwise_gates,
             slot_read_top_k=slot_read_top_k,
@@ -697,6 +736,8 @@ def make_delta_module(
             synthetic_memory_slots=synthetic_memory_slots,
             delta_heads=delta_heads,
             delta_o_rmsnorm=delta_o_rmsnorm,
+            memory_fusion_mode=memory_fusion_mode,
+            memory_fusion_gate_init=memory_fusion_gate_init,
         ),
     )
 
@@ -837,6 +878,93 @@ def test_two_training_steps_succeed_with_state_reset() -> None:
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+
+def test_content_contrast_real_rwkv_ms_state_keeps_only_positive_writer_graph() -> None:
+    class TinyDeltaMemoryLM(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.embedding = torch.nn.Embedding(32, 8)
+            self.delta = make_delta_module(
+                output_init="base_slice_fixed",
+                rank=2,
+                memory_backend="rwkv_ms",
+                rwkv_ms_num_states=2,
+                rwkv_ms_chunk_size=2,
+            )
+            self.lm_head = torch.nn.Linear(8, 32, bias=False)
+
+        def forward(self, input_ids, attention_mask, labels=None, **kwargs):
+            del attention_mask, kwargs
+            hidden_states = self.embedding(input_ids)
+            position_embeddings = make_position_embeddings(
+                batch_size=hidden_states.size(0),
+                seq_len=hidden_states.size(1),
+                head_dim=self.delta.base.head_dim,
+                device=hidden_states.device,
+                dtype=hidden_states.dtype,
+            )
+            hidden_states, _ = self.delta(
+                hidden_states,
+                position_embeddings,
+                None,
+            )
+            logits = self.lm_head(hidden_states)
+            loss = None
+            if labels is not None:
+                loss = torch.nn.functional.cross_entropy(
+                    logits[:, :-1].reshape(-1, logits.size(-1)),
+                    labels[:, 1:].reshape(-1),
+                    ignore_index=-100,
+                )
+            return {"loss": loss, "logits": logits}
+
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.episode_read_write_enabled = False
+    trainer.memory_kl_weight = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.memory_margin = 0.5
+    trainer.memory_contrast_weight = 0.25
+    model = TinyDeltaMemoryLM()
+    prime_state_requires_grad: list[bool] = []
+    original_prime = trainer._prime_episode_state
+
+    def tracked_prime(active_model, **kwargs) -> None:
+        original_prime(active_model, **kwargs)
+        assert model.delta.delta_state is not None
+        prime_state_requires_grad.append(model.delta.delta_state.requires_grad)
+
+    trainer._prime_episode_state = tracked_prime
+    model_inputs = {
+        "input_ids": torch.tensor([[1, 2, 3, 4]]),
+        "attention_mask": torch.ones(1, 4, dtype=torch.long),
+        "labels": torch.tensor([[-100, -100, 3, 4]]),
+    }
+
+    loss, _, stats = trainer._compute_content_contrast_ce(
+        model,
+        model_inputs,
+        loss_kwargs={},
+        write_input_ids=torch.tensor([[4, 5, 6]]),
+        write_attention_mask=torch.ones(1, 3, dtype=torch.long),
+        write_message_ids=torch.zeros(1, 3, dtype=torch.long),
+        write_sentence_ids=torch.zeros(1, 3, dtype=torch.long),
+        negative_write_input_ids=torch.tensor([[7, 8, 9]]),
+        negative_write_attention_mask=torch.ones(1, 3, dtype=torch.long),
+        negative_write_message_ids=torch.zeros(1, 3, dtype=torch.long),
+        negative_write_sentence_ids=torch.zeros(1, 3, dtype=torch.long),
+    )
+
+    assert prime_state_requires_grad == [True, False]
+    assert stats["teacher_loss"] == 0.0
+    assert stats["kl_loss"] == 0.0
+    assert torch.isfinite(loss)
+
+    loss.backward()
+    readout_grad = model.delta.hrm_rwkv7_core.output.weight.grad
+    assert readout_grad is not None
+    assert torch.isfinite(readout_grad).all()
+    assert torch.count_nonzero(readout_grad) > 0
 
 
 @pytest.mark.parametrize("rankwise_gates", [False, True])
@@ -995,6 +1123,7 @@ def test_zero_init_rwkv_ms_attention_wrapper_matches_base_attention() -> None:
     assert wrapped.delta_state is not None
     assert wrapped.delta_state.shape == (2, 1, 3, 2, 2)
     assert wrapped.hrm_rwkv7_core is not None
+    assert torch.count_nonzero(wrapped.hrm_rwkv7_core.output.weight) == 0
 
 
 def test_zero_init_rwkv_ms_qwen3_5_attention_wrapper_matches_output_gate() -> None:
@@ -1382,27 +1511,10 @@ def test_qwen3_5_hybrid_cached_decode_matches_zero_init_rwkv_ms_wrapper() -> Non
     assert wrapped_decode.past_key_values.get_seq_length() == 4
 
 
-def test_attach_delta_mem_wraps_gemma4_and_skips_kv_shared_layers() -> None:
+def test_attach_delta_mem_wraps_all_gemma4_shared_kv_layers_for_o_only() -> None:
     if Gemma4TextConfig is None or Gemma4TextModel is None:
         pytest.skip("Gemma4 is not available in this Transformers version")
-    config = Gemma4TextConfig(
-        vocab_size=64,
-        hidden_size=16,
-        intermediate_size=32,
-        num_hidden_layers=4,
-        num_attention_heads=2,
-        num_key_value_heads=1,
-        head_dim=8,
-        global_head_dim=8,
-        num_global_key_value_heads=1,
-        attention_dropout=0.0,
-        attention_bias=False,
-        layer_types=["sliding_attention", "full_attention", "sliding_attention", "full_attention"],
-        num_kv_shared_layers=2,
-        hidden_size_per_layer_input=0,
-        sliding_window=4,
-    )
-    config._attn_implementation = "eager"
+    config = make_gemma4_shared_kv_config()
     model = Gemma4TextModel(config)
 
     replaced = attach_delta_mem(
@@ -1413,18 +1525,427 @@ def test_attach_delta_mem_wraps_gemma4_and_skips_kv_shared_layers() -> None:
             memory_backend="rwkv_ms",
             rwkv_ms_num_states=2,
             rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+
+    assert replaced == [f"layers.{layer_idx}.self_attn" for layer_idx in range(4)]
+    for layer_idx, layer in enumerate(model.layers):
+        wrapped = layer.self_attn
+        assert isinstance(wrapped, DeltaMemAttention)
+        assert wrapped.active_delta_heads == frozenset({"o"})
+        assert wrapped.is_kv_shared_layer is (layer_idx >= 2)
+        assert hasattr(wrapped, "memory_fusion_hidden_weight")
+        if layer_idx >= 2:
+            assert not hasattr(wrapped.base, "k_proj")
+            assert not hasattr(wrapped.base, "v_proj")
+    output = model(input_ids=torch.randint(0, 64, (1, 5)), use_cache=False)
+    assert output.last_hidden_state.shape == (1, 5, 16)
+    assert torch.isfinite(output.last_hidden_state).all()
+
+
+def test_gemma4_empty_target_layers_preserve_legacy_non_shared_scope() -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    model = Gemma4TextModel(make_gemma4_shared_kv_config())
+
+    replaced = attach_delta_mem(
+        model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="zero",
+            memory_backend="rwkv_ms",
             target_modules=("self_attn",),
         ),
     )
 
     assert replaced == ["layers.0.self_attn", "layers.1.self_attn"]
-    assert isinstance(model.layers[0].self_attn, DeltaMemAttention)
-    assert isinstance(model.layers[1].self_attn, DeltaMemAttention)
-    assert not isinstance(model.layers[2].self_attn, DeltaMemAttention)
-    assert not isinstance(model.layers[3].self_attn, DeltaMemAttention)
-    output = model(input_ids=torch.randint(0, 64, (1, 5)), use_cache=False)
-    assert output.last_hidden_state.shape == (1, 5, 16)
-    assert torch.isfinite(output.last_hidden_state).all()
+    assert all(
+        not isinstance(model.layers[layer_idx].self_attn, DeltaMemAttention)
+        for layer_idx in (2, 3)
+    )
+
+
+@pytest.mark.parametrize("unsupported_head", ["q", "k", "v"])
+def test_attach_delta_mem_rejects_non_o_heads_for_gemma4_shared_kv_atomically(
+    unsupported_head: str,
+) -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    model = Gemma4TextModel(make_gemma4_shared_kv_config())
+    original_attention = [layer.self_attn for layer in model.layers]
+
+    with pytest.raises(
+        ValueError,
+        match=rf"only O-residual.*unsupported delta heads.*'{unsupported_head}'",
+    ):
+        attach_delta_mem(
+            model,
+            HFDeltaMemConfig(
+                rank=2,
+                output_init="zero",
+                memory_backend="rwkv_ms",
+                delta_heads=("o", unsupported_head),
+                target_layers=(0, 1, 2, 3),
+                target_modules=("self_attn",),
+            ),
+        )
+
+    assert [layer.self_attn for layer in model.layers] == original_attention
+    assert all(not isinstance(layer.self_attn, DeltaMemAttention) for layer in model.layers)
+
+
+def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base() -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(0)
+    config = make_gemma4_shared_kv_config()
+    base_model = Gemma4TextModel(config).eval()
+    wrapped_model = copy.deepcopy(base_model).eval()
+    attach_delta_mem(
+        wrapped_model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="random",
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+    freeze_non_delta_mem_params(wrapped_model)
+    set_delta_mem_write_enabled(wrapped_model, False)
+    input_ids = torch.randint(0, config.vocab_size, (1, 5))
+
+    with torch.inference_mode():
+        expected = base_model(input_ids=input_ids, use_cache=False).last_hidden_state
+        actual = wrapped_model(input_ids=input_ids, use_cache=False).last_hidden_state
+
+    torch.testing.assert_close(actual, expected, atol=1e-6, rtol=1e-6)
+    for layer in wrapped_model.layers:
+        wrapped = layer.self_attn
+        assert isinstance(wrapped, DeltaMemAttention)
+        assert all(not parameter.requires_grad for parameter in wrapped.base.parameters())
+        assert wrapped.delta_state is not None
+        assert torch.count_nonzero(wrapped.delta_state) == 0
+        assert wrapped.last_delta_o_norm is not None
+        assert wrapped.last_delta_o_norm.item() == 0.0
+
+
+@pytest.mark.parametrize("attn_implementation", ["eager", "sdpa"])
+def test_gemma4_shared_kv_o_only_cached_decode_matches_base(
+    attn_implementation: str,
+) -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(0)
+    config = make_gemma4_shared_kv_config()
+    config._attn_implementation = attn_implementation
+    base_model = Gemma4TextModel(config).eval()
+    wrapped_model = copy.deepcopy(base_model).eval()
+    attach_delta_mem(
+        wrapped_model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="zero",
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+    prefill_ids = torch.tensor([[1, 2, 3]])
+    decode_ids = torch.tensor([[4]])
+
+    with torch.inference_mode():
+        base_prefill = base_model(input_ids=prefill_ids, use_cache=True)
+        wrapped_prefill = wrapped_model(input_ids=prefill_ids, use_cache=True)
+        base_decode = base_model(
+            input_ids=decode_ids,
+            past_key_values=base_prefill.past_key_values,
+            use_cache=True,
+        )
+        wrapped_decode = wrapped_model(
+            input_ids=decode_ids,
+            past_key_values=wrapped_prefill.past_key_values,
+            use_cache=True,
+        )
+
+    torch.testing.assert_close(
+        wrapped_prefill.last_hidden_state,
+        base_prefill.last_hidden_state,
+        atol=1e-6,
+        rtol=1e-6,
+    )
+    torch.testing.assert_close(
+        wrapped_decode.last_hidden_state,
+        base_decode.last_hidden_state,
+        atol=1e-6,
+        rtol=1e-6,
+    )
+    assert base_decode.past_key_values.get_seq_length() == 4
+    assert wrapped_decode.past_key_values.get_seq_length() == 4
+
+
+def test_gemma4_shared_kv_o_only_memory_and_gate_receive_gradients() -> None:
+    if Gemma4TextAttention is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(0)
+    config = make_gemma4_shared_kv_config()
+    wrapped = DeltaMemAttention(
+        Gemma4TextAttention(config, layer_idx=2),
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="random",
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            memory_fusion_gate_init=0.25,
+        ),
+    )
+    freeze_non_delta_mem_params(ToyAttentionModel(module=wrapped))
+    hidden_states = torch.randn(2, 5, config.hidden_size)
+    position_embeddings = make_position_embeddings(
+        batch_size=hidden_states.size(0),
+        seq_len=hidden_states.size(1),
+        head_dim=wrapped.head_dim,
+        device=hidden_states.device,
+        dtype=hidden_states.dtype,
+    )
+    shared_kv_states = {
+        "sliding_attention": (
+            torch.randn(2, config.num_key_value_heads, 5, wrapped.head_dim),
+            torch.randn(2, config.num_key_value_heads, 5, wrapped.head_dim),
+        )
+    }
+
+    output, _ = wrapped(
+        hidden_states,
+        position_embeddings,
+        make_causal_attention_mask(torch.ones(2, 5, dtype=torch.long)),
+        shared_kv_states=shared_kv_states,
+    )
+    (output * torch.randn_like(output)).sum().backward()
+
+    required = {
+        "memory_v_proj": wrapped.memory_v_proj,
+        "delta_o_proj": wrapped.delta_o_proj,
+        "memory_fusion_hidden_weight": wrapped.memory_fusion_hidden_weight,
+        "memory_fusion_read_weight": wrapped.memory_fusion_read_weight,
+        "memory_fusion_bias": wrapped.memory_fusion_bias,
+    }
+    for name, parameter in required.items():
+        assert parameter.grad is not None, name
+        assert torch.isfinite(parameter.grad).all(), name
+        assert parameter.grad.float().norm().item() > 0.0, name
+    assert all(not parameter.requires_grad for parameter in wrapped.base.parameters())
+    assert all(parameter.grad is None for parameter in wrapped.base.parameters())
+
+
+def test_gemma4_shared_kv_o_only_adapter_round_trip(tmp_path: Path) -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(0)
+    config = make_gemma4_shared_kv_config()
+    source = Gemma4TextModel(config)
+    target = copy.deepcopy(source)
+    delta_config = HFDeltaMemConfig(
+        rank=2,
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=2,
+        rwkv_ms_chunk_size=2,
+        delta_heads=("o",),
+        memory_fusion_mode="content_gated_add",
+        target_layers=(0, 1, 2, 3),
+        target_modules=("self_attn",),
+    )
+    attach_delta_mem(source, delta_config)
+    attach_delta_mem(target, delta_config)
+    with torch.no_grad():
+        for _, module in source.named_modules():
+            if isinstance(module, DeltaMemAttention):
+                module.memory_fusion_hidden_weight.normal_()
+                module.memory_fusion_read_weight.normal_()
+
+    save_delta_mem_adapter(source, tmp_path, delta_config)
+    loaded_config = load_delta_mem_adapter(target, tmp_path)
+
+    assert loaded_config.target_layers == (0, 1, 2, 3)
+    source_modules = dict(source.named_modules())
+    target_modules = dict(target.named_modules())
+    for module_name, source_module in source_modules.items():
+        if not isinstance(source_module, DeltaMemAttention):
+            continue
+        target_module = target_modules[module_name]
+        assert isinstance(target_module, DeltaMemAttention)
+        for parameter_name, source_parameter in source_module.named_parameters():
+            if parameter_name.startswith("base."):
+                continue
+            target_parameter = dict(target_module.named_parameters())[parameter_name]
+            torch.testing.assert_close(target_parameter, source_parameter)
+
+
+def test_frozen_mlp_activation_checkpointing_recomputes_only_mlps() -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+
+    class CountingMLP(torch.nn.Module):
+        def __init__(self, module: torch.nn.Module) -> None:
+            super().__init__()
+            self.module = module
+            self.forward_calls = 0
+
+        def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+            self.forward_calls += 1
+            return self.module(hidden_states)
+
+    torch.manual_seed(0)
+    model = Gemma4TextModel(make_gemma4_shared_kv_config()).train()
+    for layer in model.layers:
+        layer.mlp = CountingMLP(layer.mlp)
+    attach_delta_mem(
+        model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="random",
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+    freeze_non_delta_mem_params(model)
+
+    checkpointed = experimental_train.checkpoint_frozen_mlp_activations(model)
+    output = model(input_ids=torch.tensor([[1, 2, 3, 4, 5]]), use_cache=False)
+    positions_after_forward = {
+        name: module.rwkv_ms_positions.clone()
+        for name, module in model.named_modules()
+        if isinstance(module, DeltaMemAttention)
+    }
+    states_after_forward = {
+        name: module.delta_state.clone()
+        for name, module in model.named_modules()
+        if isinstance(module, DeltaMemAttention)
+    }
+    (output.last_hidden_state * torch.randn_like(output.last_hidden_state)).sum().backward()
+
+    assert checkpointed == [f"layers.{layer_idx}.mlp" for layer_idx in range(4)]
+    for layer in model.layers:
+        assert isinstance(
+            layer.mlp,
+            experimental_train.FrozenMLPActivationCheckpointWrapper,
+        )
+        assert isinstance(layer.mlp.module, CountingMLP)
+        assert layer.mlp.module.forward_calls == 2
+    assert len(positions_after_forward) == 4
+    for name, module in model.named_modules():
+        if not isinstance(module, DeltaMemAttention):
+            continue
+        assert torch.equal(module.rwkv_ms_positions, positions_after_forward[name])
+        assert torch.equal(module.delta_state, states_after_forward[name])
+        assert module.rwkv_ms_positions.tolist() == [5]
+    tail = model.layers[3].self_attn
+    assert isinstance(tail, DeltaMemAttention)
+    for name, parameter in {
+        "memory_v_proj": tail.memory_v_proj,
+        "beta_proj": tail.beta_proj,
+        "delta_o_proj": tail.delta_o_proj,
+    }.items():
+        assert parameter.grad is not None, name
+        assert torch.isfinite(parameter.grad).all(), name
+        assert parameter.grad.float().norm().item() > 0.0, name
+
+
+def test_frozen_mlp_activation_checkpointing_eval_and_no_grad_are_direct() -> None:
+    class CountingMLP(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.proj = torch.nn.Linear(8, 8)
+            self.forward_calls = 0
+
+        def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+            self.forward_calls += 1
+            return torch.tanh(self.proj(hidden_states))
+
+    class TinyLayer(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.self_attn = make_delta_module(memory_backend="rwkv_ms", delta_heads=("o",))
+            self.mlp = CountingMLP()
+
+    class TinyModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.layers = torch.nn.ModuleList([TinyLayer()])
+
+    model = TinyModel()
+    freeze_non_delta_mem_params(model)
+    original_mlp = model.layers[0].mlp
+    hidden_states = torch.randn(2, 3, 8, requires_grad=True)
+    expected = original_mlp(hidden_states)
+    original_mlp.forward_calls = 0
+
+    checkpointed = experimental_train.checkpoint_frozen_mlp_activations(model)
+    model.eval()
+    actual_eval = model.layers[0].mlp(hidden_states)
+
+    assert checkpointed == ["layers.0.mlp"]
+    torch.testing.assert_close(actual_eval, expected)
+    assert original_mlp.forward_calls == 1
+
+    original_mlp.forward_calls = 0
+    model.train()
+    with torch.no_grad():
+        actual_no_grad = model.layers[0].mlp(hidden_states)
+    torch.testing.assert_close(actual_no_grad, expected)
+    assert original_mlp.forward_calls == 1
+
+
+def test_frozen_mlp_activation_checkpointing_rejects_trainable_mlp_atomically() -> None:
+    class TinyLayer(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.self_attn = make_delta_module(memory_backend="rwkv_ms", delta_heads=("o",))
+            self.mlp = torch.nn.Linear(8, 8)
+
+    model = torch.nn.Module()
+    model.layers = torch.nn.ModuleList([TinyLayer(), TinyLayer()])
+    for parameter in model.layers[0].mlp.parameters():
+        parameter.requires_grad = False
+
+    with pytest.raises(ValueError, match="trainable parameters: layers.1.mlp"):
+        experimental_train.checkpoint_frozen_mlp_activations(model)
+
+    assert all(isinstance(layer.mlp, torch.nn.Linear) for layer in model.layers)
+
+
+def test_frozen_mlp_activation_checkpointing_rejects_missing_decoder_mlp() -> None:
+    class TinyLayer(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.self_attn = make_delta_module(memory_backend="rwkv_ms", delta_heads=("o",))
+
+    model = torch.nn.Module()
+    model.layers = torch.nn.ModuleList([TinyLayer()])
+
+    with pytest.raises(ValueError, match="missing MLP"):
+        experimental_train.checkpoint_frozen_mlp_activations(model)
 
 
 def test_gemma4_sdpa_sliding_attention_writes_beyond_window() -> None:
@@ -1844,7 +2365,170 @@ def test_rwkv_ms_core_uses_physical_backbone_depth_for_initialization() -> None:
     assert torch.allclose(core.x_w, expected_x_w)
 
 
-def test_rwkv_ms_group_norm_bias_participates_in_readout_training() -> None:
+def test_rwkv_ms_semantics_version_migrates_legacy_configs() -> None:
+    fresh = HFDeltaMemConfig(memory_backend="rwkv_ms")
+    legacy_payload = fresh.to_dict()
+    legacy_payload.pop("rwkv_ms_semantics_version")
+
+    assert fresh.rwkv_ms_semantics_version == 2
+    assert HFDeltaMemConfig.from_dict(legacy_payload).rwkv_ms_semantics_version == 1
+    assert HFDeltaMemConfig.from_dict(fresh.to_dict()).rwkv_ms_semantics_version == 2
+    assert HFDeltaMemConfig.from_dict({}).rwkv_ms_semantics_version == 2
+    with pytest.raises(ValueError, match="rwkv_ms_semantics_version"):
+        HFDeltaMemConfig(memory_backend="rwkv_ms", rwkv_ms_semantics_version=3)
+
+
+def test_memory_fusion_config_preserves_legacy_add_and_round_trips(
+    tmp_path: Path,
+) -> None:
+    gated = HFDeltaMemConfig(
+        memory_backend="rwkv_ms",
+        delta_heads=("o",),
+        memory_fusion_mode="content_gated_add",
+        memory_fusion_gate_init=0.25,
+    )
+    gated.save_pretrained(tmp_path)
+    legacy_payload = gated.to_dict()
+    legacy_payload.pop("memory_fusion_mode")
+    legacy_payload.pop("memory_fusion_gate_init")
+
+    assert HFDeltaMemConfig.from_pretrained(tmp_path) == gated
+    assert HFDeltaMemConfig.from_dict(legacy_payload).memory_fusion_mode == "add"
+    assert HFDeltaMemConfig.from_dict(legacy_payload).memory_fusion_gate_init == 0.1
+    with pytest.raises(ValueError, match="memory fusion mode"):
+        HFDeltaMemConfig(memory_fusion_mode="unknown")
+    with pytest.raises(ValueError, match="memory_fusion_gate_init"):
+        HFDeltaMemConfig(memory_fusion_gate_init=0.0)
+
+
+def test_content_gated_delta_o_matches_manual_interpolation_and_reports_stats() -> None:
+    module = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        delta_heads=("o",),
+        memory_fusion_mode="content_gated_add",
+        memory_fusion_gate_init=0.25,
+    ).eval()
+    x = torch.randn(2, 4, module.hidden_size)
+    position_embeddings = make_position_embeddings(
+        batch_size=x.size(0),
+        seq_len=x.size(1),
+        head_dim=module.base.head_dim,
+        device=x.device,
+        dtype=x.dtype,
+    )
+    attention_mask = make_causal_attention_mask(torch.ones(2, 4, dtype=torch.long))
+
+    module.memory_fusion_mode = "add"
+    additive_output, _ = module(x, position_embeddings, attention_mask)
+    module.reset_state()
+    module.active_delta_heads = frozenset()
+    base_output, _ = module(x, position_embeddings, attention_mask)
+    module.reset_state()
+    module.active_delta_heads = frozenset({"o"})
+    module.memory_fusion_mode = "content_gated_add"
+    gated_output, _ = module(x, position_embeddings, attention_mask)
+
+    expected = base_output + 0.25 * (additive_output - base_output)
+    assert torch.allclose(gated_output, expected, atol=1e-6, rtol=1e-6)
+    assert module.last_delta_o_gate_mean.item() == pytest.approx(0.25, abs=1e-6)
+    assert module.last_delta_o_gate_min.item() == pytest.approx(0.25, abs=1e-6)
+    assert module.last_delta_o_gate_max.item() == pytest.approx(0.25, abs=1e-6)
+    assert module.last_delta_o_ratio.item() > 0.0
+    assert module.last_fused_delta_o_ratio.item() == pytest.approx(
+        module.last_delta_o_ratio.item() * 0.25,
+        rel=1e-5,
+        abs=1e-7,
+    )
+    stats = collect_delta_mem_output_ratio_stats(ToyAttentionModel(module))
+    assert stats["content_gated_modules"] == 1
+    assert stats["mean_delta_o_gate"] == pytest.approx(0.25, abs=1e-6)
+    assert stats["mean_fused_delta_o_ratio"] == pytest.approx(
+        module.last_fused_delta_o_ratio.item()
+    )
+
+
+def test_content_gated_delta_o_zero_state_matches_base_for_full_sequence() -> None:
+    torch.manual_seed(0)
+    base = make_qwen3_attention()
+    wrapped_base = make_qwen3_attention()
+    wrapped_base.load_state_dict(copy.deepcopy(base.state_dict()))
+    module = DeltaMemAttention(
+        wrapped_base,
+        HFDeltaMemConfig(
+            rank=2,
+            memory_backend="rwkv_ms",
+            output_init="random",
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+        ),
+    ).eval()
+    with torch.no_grad():
+        module.memory_fusion_hidden_weight.normal_()
+        module.memory_fusion_read_weight.normal_()
+        module.memory_fusion_bias.fill_(3.0)
+    module.set_write_enabled(False)
+    x = torch.randn(2, 5, module.hidden_size)
+    position_embeddings = make_position_embeddings(
+        batch_size=x.size(0),
+        seq_len=x.size(1),
+        head_dim=base.head_dim,
+        device=x.device,
+        dtype=x.dtype,
+    )
+    attention_mask = make_causal_attention_mask(torch.ones(2, 5, dtype=torch.long))
+
+    base_output, _ = base(x, position_embeddings, attention_mask)
+    wrapped_output, _ = module(x, position_embeddings, attention_mask)
+
+    assert torch.equal(module.delta_state, torch.zeros_like(module.delta_state))
+    assert torch.allclose(base_output, wrapped_output, atol=1e-6, rtol=1e-6)
+    assert module.last_delta_o_norm.item() == 0.0
+    assert module.last_fused_delta_o_norm.item() == 0.0
+
+
+def test_content_gated_delta_o_first_step_gradients_reach_memory_and_gate() -> None:
+    module = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        delta_heads=("o",),
+        memory_fusion_mode="content_gated_add",
+        memory_fusion_gate_init=0.1,
+    )
+    x = torch.randn(2, 5, module.hidden_size)
+    position_embeddings = make_position_embeddings(
+        batch_size=x.size(0),
+        seq_len=x.size(1),
+        head_dim=module.base.head_dim,
+        device=x.device,
+        dtype=x.dtype,
+    )
+    attention_mask = make_causal_attention_mask(torch.ones(2, 5, dtype=torch.long))
+    output, _ = module(x, position_embeddings, attention_mask)
+    loss = (output * torch.randn_like(output)).sum()
+    loss.backward()
+
+    required = {
+        "memory_v_proj": module.memory_v_proj,
+        "delta_o_proj": module.delta_o_proj,
+        "beta_proj": module.beta_proj,
+        "memory_fusion_hidden_weight": module.memory_fusion_hidden_weight,
+        "memory_fusion_read_weight": module.memory_fusion_read_weight,
+        "memory_fusion_bias": module.memory_fusion_bias,
+    }
+    for name, parameter in required.items():
+        assert parameter.grad is not None, name
+        assert torch.isfinite(parameter.grad).all(), name
+        assert parameter.grad.float().norm().item() > 0.0, name
+    assert module.hrm_rwkv7_core is not None
+    assert any(
+        parameter.grad is not None and parameter.grad.float().norm().item() > 0.0
+        for parameter in module.hrm_rwkv7_core.parameters()
+        if parameter.requires_grad
+    )
+
+
+def test_rwkv_ms_zero_state_readout_ignores_stored_group_norm_bias() -> None:
     module = make_delta_module(
         rank=2,
         num_state_heads=2,
@@ -1853,14 +2537,225 @@ def test_rwkv_ms_group_norm_bias_participates_in_readout_training() -> None:
     core = module.hrm_rwkv7_core
     assert core is not None
     torch.nn.init.normal_(core.output.weight)
-    reads = torch.randn(2, 3, module.state_read_dim, requires_grad=True)
+    stored_state = core.state_dict()
+    stored_state["ln_x.bias"].fill_(7.0)
+    core.load_state_dict(stored_state, strict=True)
+    reads = torch.zeros(2, 3, module.state_read_dim, requires_grad=True)
     gate = torch.randn_like(reads)
 
-    core.readout(reads, gate).square().mean().backward()
+    readout = core.readout(reads, gate)
+    readout.sum().backward()
 
-    assert core.ln_x.weight.grad is not None
-    assert core.ln_x.bias.grad is not None
-    assert torch.count_nonzero(core.ln_x.bias.grad) > 0
+    assert torch.count_nonzero(core.ln_x.bias) > 0
+    assert core.ln_x.bias.requires_grad is False
+    assert core.ln_x.bias.grad is None
+    assert torch.count_nonzero(readout) == 0
+
+
+def test_rwkv_ms_skips_and_freezes_unused_memory_qk_projections() -> None:
+    module = make_delta_module(memory_backend="rwkv_ms")
+    with torch.no_grad():
+        module.memory_q_proj.fill_(torch.nan)
+        module.memory_k_proj.fill_(torch.nan)
+
+    memory_q, memory_k, memory_v, _, _ = module._memory_sequence_projections(
+        torch.randn(2, 3, module.hidden_size)
+    )
+
+    assert module.memory_q_proj.requires_grad is False
+    assert module.memory_k_proj.requires_grad is False
+    assert module.is_trainable_parameter("memory_q_proj") is False
+    assert module.is_trainable_parameter("memory_k_proj") is False
+    assert memory_q.data_ptr() == memory_v.data_ptr()
+    assert memory_k.data_ptr() == memory_v.data_ptr()
+    assert torch.isfinite(memory_v).all()
+
+    model = ToyAttentionModel(module)
+    trainable_names = freeze_non_delta_mem_params(model)
+    assert all(not name.endswith(("memory_q_proj", "memory_k_proj")) for name in trainable_names)
+    assert module.hrm_rwkv7_core is not None
+    assert module.hrm_rwkv7_core.ln_x.bias.requires_grad is False
+
+
+def test_rwkv_ms_output_init_scale_round_trips_and_is_exposed_by_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter_dir = tmp_path / "adapter"
+    config = HFDeltaMemConfig(
+        memory_backend="rwkv_ms",
+        output_init="base_slice_fixed",
+        rwkv_ms_output_init_scale=0.013,
+    )
+    config.save_pretrained(adapter_dir)
+
+    assert HFDeltaMemConfig.from_pretrained(adapter_dir) == config
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "delta_sft.py",
+            "--model-path",
+            "model",
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--memory-backend",
+            "rwkv_ms",
+            "--output-init",
+            "base_slice_fixed",
+            "--rwkv-ms-output-init-scale",
+            "0.013",
+            "--memory-fusion-mode",
+            "content_gated_add",
+            "--memory-fusion-gate-init",
+            "0.25",
+        ],
+    )
+
+    parsed = parse_args()
+    assert parsed.rwkv_ms_output_init_scale == 0.013
+    assert parsed.memory_fusion_mode == "content_gated_add"
+    assert parsed.memory_fusion_gate_init == 0.25
+
+
+def test_rwkv_ms_v2_normalizes_the_live_source_but_v1_remains_raw() -> None:
+    legacy = make_delta_module(memory_backend="rwkv_ms", rwkv_ms_semantics_version=1)
+    fixed = make_delta_module(memory_backend="rwkv_ms", rwkv_ms_semantics_version=2)
+    hidden_states = torch.randn(2, 3, fixed.hidden_size) * 1000.0
+    raw = torch.nn.functional.linear(hidden_states, fixed.memory_v_proj)
+
+    _, _, legacy_source, _, _ = legacy._memory_sequence_projections(hidden_states)
+    _, _, fixed_source, _, _ = fixed._memory_sequence_projections(hidden_states)
+    expected_fixed = fixed._normalize_memory_projection(raw, force=True)
+
+    assert torch.allclose(legacy_source, raw)
+    assert torch.allclose(fixed_source, expected_fixed)
+    assert torch.isfinite(fixed_source).all()
+    assert torch.all(fixed_source.norm(dim=-1) <= 1.0 + 1e-6)
+
+
+def test_rwkv_ms_v2_beta_gates_writes_without_scaling_carry() -> None:
+    fixed = make_delta_module(memory_backend="rwkv_ms", rwkv_ms_semantics_version=2)
+    legacy = make_delta_module(memory_backend="rwkv_ms", rwkv_ms_semantics_version=1)
+    beta = torch.full((1, 3, fixed.rank, 1), 0.25)
+    low_lambda = torch.full_like(beta, 0.1)
+    high_lambda = torch.full_like(beta, 0.9)
+
+    fixed_low = fixed._rwkv_ms_update_coefficients(beta, low_lambda)
+    fixed_high = fixed._rwkv_ms_update_coefficients(beta, high_lambda)
+    legacy_low = legacy._rwkv_ms_update_coefficients(beta, low_lambda)
+    legacy_high = legacy._rwkv_ms_update_coefficients(beta, high_lambda)
+
+    assert torch.count_nonzero(fixed_low[0] - 1.0) == 0
+    for low, high in zip(fixed_low, fixed_high):
+        assert torch.equal(low, high)
+    assert not torch.equal(legacy_low[0], legacy_high[0])
+
+
+def test_rwkv_ms_v2_cosine_routes_are_scale_invariant_and_finite() -> None:
+    module = make_delta_module(
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=3,
+        rwkv_ms_semantics_version=2,
+    )
+    slot_reads = torch.randn(2, 1, 3, module.rank)
+    slot_reads[0, :, 0] = 0.0
+    query = torch.randn(2, 1, module.rank)
+    scales = torch.tensor([0.5, 3.0, 11.0]).view(1, 1, 3, 1)
+
+    routes = module._rwkv_ms_read_routes(slot_reads, query, None)
+    scaled_routes = module._rwkv_ms_read_routes(slot_reads * scales, query * 7.0, None)
+
+    assert torch.isfinite(routes).all()
+    assert torch.allclose(routes, scaled_routes, atol=1e-6, rtol=1e-6)
+
+
+def test_rwkv_ms_v2_recurrence_matches_direct_fp32_reference() -> None:
+    module = make_delta_module(
+        output_init="random",
+        rank=2,
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=1,
+        rwkv_ms_semantics_version=2,
+    )
+    core = module.hrm_rwkv7_core
+    assert core is not None
+    source = torch.randn(1, 4, module.state_read_dim)
+    initial_state = torch.randn(1, 1, 1, module.rank, module.rank)
+    beta = torch.ones(1, source.size(1), module.rank, 1)
+    lam = torch.rand_like(beta)
+    features = core.project(source, previous_x=torch.zeros(1, module.state_read_dim))
+    k_seq = module._rwkv_ms_project_heads(features.k).float()
+    v_seq = module._rwkv_ms_project_heads(features.v).float()
+    w_seq = module._rwkv_ms_project_heads(features.w).float()
+    a_seq = module._rwkv_ms_project_heads(features.a).float()
+    b_seq = module._rwkv_ms_project_heads(features.b).float()
+    expected = initial_state.float()
+    for token_idx in range(source.size(1)):
+        decay = torch.exp(-torch.exp(w_seq[:, token_idx]))
+        correction_read = torch.einsum(
+            "bhsij,bhj->bhsi",
+            expected,
+            a_seq[:, token_idx],
+        )
+        write_outer = (
+            v_seq[:, token_idx].unsqueeze(2).unsqueeze(-1)
+            * k_seq[:, token_idx].unsqueeze(2).unsqueeze(-2)
+        )
+        correction_outer = (
+            correction_read.unsqueeze(-1)
+            * b_seq[:, token_idx].unsqueeze(2).unsqueeze(-2)
+        )
+        expected = (
+            decay.unsqueeze(2).unsqueeze(-2) * expected
+            + write_outer
+            + module.rwkv_ms_erase_gate * correction_outer
+        )
+
+    actual, _ = module._rwkv_ms_scan(initial_state, source, beta, lam)
+
+    assert actual.dtype == torch.float32
+    assert torch.allclose(actual, expected, atol=1e-6, rtol=1e-5)
+
+
+def test_rwkv_ms_first_ce_backward_reaches_writer_and_controller() -> None:
+    module = make_delta_module(
+        output_init="base_slice_fixed",
+        memory_backend="rwkv_ms",
+        rwkv_ms_output_init_scale=0.02,
+        delta_heads=("o",),
+    )
+    core = module.hrm_rwkv7_core
+    assert core is not None
+    assert torch.count_nonzero(core.output.weight) > 0
+    freeze_non_delta_mem_params(ToyAttentionModel(module))
+
+    hidden_states = torch.randn(2, 5, module.hidden_size)
+    position_embeddings = make_position_embeddings(
+        batch_size=hidden_states.size(0),
+        seq_len=hidden_states.size(1),
+        head_dim=module.base.head_dim,
+        device=hidden_states.device,
+        dtype=hidden_states.dtype,
+    )
+    output, _ = module(hidden_states, position_embeddings, None)
+    vocab_weight = torch.randn(11, module.hidden_size)
+    labels = torch.tensor([[1, 3, 5, 7, 9], [2, 4, 6, 8, 10]])
+    loss = torch.nn.functional.cross_entropy(
+        torch.nn.functional.linear(output, vocab_weight).reshape(-1, 11),
+        labels.reshape(-1),
+    )
+
+    loss.backward()
+
+    assert module.memory_q_proj.grad is None
+    assert module.memory_k_proj.grad is None
+    assert module.memory_v_proj.grad is not None
+    assert module.memory_v_proj.grad.norm().item() > 0
+    assert module.beta_proj.grad is not None
+    assert module.beta_proj.grad.norm().item() > 0
+    assert core.value.weight.grad is not None
+    assert core.value.weight.grad.norm().item() > 0
 
 
 def test_rwkv_ms_state_dtype_conversion_preserves_memory() -> None:
@@ -1879,8 +2774,8 @@ def test_rwkv_ms_state_dtype_conversion_preserves_memory() -> None:
         dtype=torch.bfloat16,
     )
 
-    assert converted.dtype == torch.bfloat16
-    assert torch.allclose(converted.float(), initial, atol=5e-3, rtol=5e-3)
+    assert converted.dtype == torch.float32
+    assert torch.equal(converted, initial)
 
 
 def test_base_slice_initialization_gives_controller_gradients() -> None:
@@ -2300,10 +3195,19 @@ def test_build_episode_training_examples_splits_write_and_visible_context() -> N
         max_length=1024,
         assistant_loss_mode="final_assistant_only",
     )
+    expected_teacher = tokenize_messages_for_sft(
+        tokenizer,
+        messages,
+        max_length=2048,
+        assistant_loss_mode="final_assistant_only",
+    )
 
     assert episodes[1]["write_input_ids"] == expected_write
     assert episodes[1]["input_ids"] == expected_read["input_ids"]
     assert episodes[1]["labels"] == expected_read["labels"]
+    assert episodes[1]["teacher_input_ids"] == expected_teacher["input_ids"]
+    assert episodes[1]["teacher_attention_mask"] == expected_teacher["attention_mask"]
+    assert episodes[1]["teacher_labels"] == expected_teacher["labels"]
     assert episodes[1]["episode_target_message_index"] == 4
     assert len(episodes[1]["write_message_ids"]) == len(episodes[1]["write_input_ids"])
     assert len(episodes[1]["write_sentence_ids"]) == len(episodes[1]["write_input_ids"])
@@ -2315,6 +3219,78 @@ def test_build_episode_training_examples_splits_write_and_visible_context() -> N
     assert len(episodes[1]["state_only_write_sentence_ids"]) == len(episodes[1]["state_only_write_input_ids"])
     assert set(episodes[1]["state_only_write_message_ids"]) == {-1, 0, 1}
     assert set(episodes[1]["state_only_write_sentence_ids"]) == {-1, 0, 1}
+
+
+def test_episode_teacher_masks_extra_long_target_prefix() -> None:
+    tokenizer = FakeTokenizer()
+    messages = [
+        {"role": "user", "content": "context"},
+        {"role": "assistant", "content": "x" * 160},
+    ]
+
+    episode = build_episode_training_examples(
+        tokenizer,
+        messages,
+        max_length=40,
+        assistant_loss_mode="final_assistant_only",
+        episode_recent_messages=1,
+        max_write_length=60,
+        include_sentence_ids=False,
+    )[0]
+    unmasked_teacher = tokenize_messages_for_sft(
+        tokenizer,
+        messages,
+        max_length=100,
+        assistant_loss_mode="final_assistant_only",
+    )
+    student_targets = [label for label in episode["labels"][1:] if label != -100]
+    teacher_targets = [label for label in episode["teacher_labels"][1:] if label != -100]
+
+    assert teacher_targets == student_targets
+    assert sum(label != -100 for label in unmasked_teacher["labels"][1:]) > len(teacher_targets)
+
+
+def test_episode_teacher_starts_at_retained_write_boundary() -> None:
+    tokenizer = FakeTokenizer()
+    messages = [
+        {"role": "system", "content": "policy"},
+        {"role": "user", "content": "u" * 80},
+        {"role": "assistant", "content": "a" * 80},
+        {"role": "user", "content": "continue"},
+        {"role": "assistant", "content": "target" * 4},
+    ]
+    max_write_length = 30
+    max_read_length = 40
+
+    episode = build_episode_training_examples(
+        tokenizer,
+        messages,
+        max_length=max_read_length,
+        assistant_loss_mode="final_assistant_only",
+        episode_recent_messages=1,
+        max_write_length=max_write_length,
+        include_sentence_ids=False,
+    )[0]
+    full_write_input_ids = tokenizer.apply_chat_template(
+        messages[:3],
+        tokenize=True,
+        add_generation_prompt=False,
+        return_tensors="pt",
+    ).squeeze(0).tolist()
+    canonical_input_ids = tokenizer.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=False,
+        return_tensors="pt",
+    ).squeeze(0).tolist()
+    retained_boundary = len(full_write_input_ids) - max_write_length
+    expected_start = max(
+        retained_boundary,
+        len(canonical_input_ids) - max_write_length - max_read_length,
+    )
+
+    assert episode["write_input_ids"] == full_write_input_ids[-max_write_length:]
+    assert episode["teacher_input_ids"] == canonical_input_ids[expected_start:]
 
 
 def test_experimental_sentence_span_builder_handles_non_prefix_stable_sentence_chunks() -> None:
@@ -2408,6 +3384,7 @@ def test_prepare_tokenized_dataset_reuses_saved_cache(tmp_path: Path) -> None:
     assert cache_hit_1 is False
     assert cache_hit_2 is True
     assert cache_dir_1 == cache_dir_2
+    assert tokenized_1._fingerprint == tokenized_2._fingerprint
     assert tokenized_1[0]["input_ids"] == tokenized_2[0]["input_ids"]
     assert "write_input_ids" in tokenized_1.column_names
 
@@ -2425,6 +3402,9 @@ def test_episode_collator_builds_teacher_inputs() -> None:
             "input_ids": [3, 4, 5],
             "attention_mask": [1, 1, 1],
             "labels": [-100, 4, 5],
+            "teacher_input_ids": [9, 10, 3, 4, 5],
+            "teacher_attention_mask": [1, 1, 1, 1, 1],
+            "teacher_labels": [-100, -100, -100, 4, 5],
             "state_only_write_input_ids": [1, 2],
             "state_only_write_attention_mask": [1, 1],
             "state_only_write_message_ids": [-1, 0],
@@ -2441,6 +3421,9 @@ def test_episode_collator_builds_teacher_inputs() -> None:
             "input_ids": [7, 8],
             "attention_mask": [1, 1],
             "labels": [-100, 8],
+            "teacher_input_ids": [11, 7, 8],
+            "teacher_attention_mask": [1, 1, 1],
+            "teacher_labels": [-100, -100, 8],
             "state_only_write_input_ids": [6],
             "state_only_write_attention_mask": [1],
             "state_only_write_message_ids": [0],
@@ -2459,6 +3442,12 @@ def test_episode_collator_builds_teacher_inputs() -> None:
     assert batch["write_sentence_ids"].tolist() == [[-1, 0], [0, -1]]
     assert batch["state_only_write_message_ids"].tolist() == [[-1, 0], [0, -1]]
     assert batch["state_only_write_sentence_ids"].tolist() == [[-1, 0], [0, -1]]
+    assert batch["teacher_input_ids"].tolist() == [[9, 10, 3, 4, 5], [11, 7, 8, 0, 0]]
+    assert batch["teacher_attention_mask"].tolist() == [[1, 1, 1, 1, 1], [1, 1, 1, 0, 0]]
+    assert batch["teacher_labels"].tolist() == [
+        [-100, -100, -100, 4, 5],
+        [-100, -100, 8, -100, -100],
+    ]
     assert batch["full_input_ids"].tolist() == [[1, 2, 3, 4, 5], [6, 7, 8, 0, 0]]
     assert batch["full_attention_mask"].tolist() == [[1, 1, 1, 1, 1], [1, 1, 1, 0, 0]]
     assert batch["full_labels"].tolist() == [[-100, -100, -100, 4, 5], [-100, -100, 8, -100, -100]]
@@ -2702,6 +3691,36 @@ def test_runtime_write_message_ids_reuses_snapshot_cache_for_appended_prompt(
     assert helper_calls == 1
     assert prompt_message_ids.shape[1] == prompt_ids.shape[1]
     assert set(prompt_message_ids.squeeze(0).tolist()) == {-1, 0, 1, 2}
+
+
+def test_rwkv_ms_session_snapshot_rejects_missing_or_mismatched_semantics() -> None:
+    model = ToyAttentionModel(
+        make_delta_module(memory_backend="rwkv_ms", rwkv_ms_semantics_version=2)
+    )
+    session = DeltaMemChatSession(model=model, tokenizer=FakeTokenizer(), device="cpu")
+    legacy_snapshot = DeltaMemSessionSnapshot(
+        messages=[],
+        processed_input_ids=[],
+        delta_state={},
+    )
+    wrong_snapshot = DeltaMemSessionSnapshot(
+        messages=[],
+        processed_input_ids=[],
+        delta_state={},
+        rwkv_ms_semantics_versions=[1],
+    )
+    matching_snapshot = DeltaMemSessionSnapshot(
+        messages=[],
+        processed_input_ids=[],
+        delta_state={},
+        rwkv_ms_semantics_versions=[2],
+    )
+
+    with pytest.raises(ValueError, match="predates semantics metadata"):
+        session.load_snapshot(legacy_snapshot)
+    with pytest.raises(ValueError, match="semantics mismatch"):
+        session.load_snapshot(wrong_snapshot)
+    session.load_snapshot(matching_snapshot)
 
 
 
