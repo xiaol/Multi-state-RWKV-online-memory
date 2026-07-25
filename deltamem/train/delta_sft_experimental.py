@@ -237,10 +237,10 @@ _REQUIRED_RESUME_CHECKPOINT_FILES = (
 _TRAINING_PROTOCOL_FILENAME = "training_protocol.json"
 _TRAINING_PROTOCOL_SCHEMA_VERSION = 2
 _MEMORY_OBJECTIVE_VERSION = "canonical_full_context_teacher_v1"
-_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 5
-_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v3"
+_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 6
+_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v4"
 _CONTENT_CONTRAST_BACKWARD_MODE = "sequential_exact_first_order_v1"
-_CONTENT_CONTRAST_READ_MASK_MODE = "valid_context_tokens_v1"
+_CONTENT_CONTRAST_READ_MASK_MODE = "valid_context_and_supervised_predictors_v2"
 _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD = True
 _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
 _CONTENT_CONTRAST_PAIRING_VERSION = "post_split_half_rotation_v1"
@@ -1187,7 +1187,20 @@ class DeltaMemTrainer(Trainer):
         attention_mask = model_inputs.get("attention_mask")
         if labels is None or attention_mask is None:
             return None
-        return labels.eq(-100) & attention_mask.ne(0)
+        if labels.ndim != 2 or attention_mask.shape != labels.shape:
+            raise ValueError("Read-context labels and attention mask must be matching 2D tensors")
+
+        valid_tokens = attention_mask.ne(0)
+        read_context_mask = labels.eq(-100) & valid_tokens
+        # A causal LM predicts label[t + 1] from the representation at t. Keep
+        # memory active at every supervised predictor, including answer tokens
+        # that provide causal context for the following answer token.
+        read_context_mask[:, :-1] |= (
+            labels[:, 1:].ne(-100)
+            & valid_tokens[:, :-1]
+            & valid_tokens[:, 1:]
+        )
+        return read_context_mask
 
     def _unwrap_base_model(self, model):
         while True:

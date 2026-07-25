@@ -266,8 +266,54 @@ def test_episode_read_configures_writes_before_context_mask(
     assert events[1][0] == "mask"
     assert torch.equal(
         events[1][1],
-        torch.tensor([[True, True, False, False]]),
+        torch.tensor([[True, True, True, False]]),
     )
+
+
+def test_read_context_mask_causally_aligns_supervised_predictors_and_padding() -> None:
+    trainer = _build_trainer()
+    labels = torch.tensor(
+        [
+            [-100, -100, 10, 11, -100],
+            [-100, 20, -100, 30, 31],
+        ]
+    )
+    attention_mask = torch.tensor(
+        [
+            [1, 1, 1, 1, 0],
+            [1, 1, 1, 1, 1],
+        ]
+    )
+
+    read_mask = trainer._build_read_context_mask(
+        {"labels": labels, "attention_mask": attention_mask}
+    )
+
+    assert torch.equal(
+        read_mask,
+        torch.tensor(
+            [
+                [True, True, True, False, False],
+                [True, False, True, True, False],
+            ]
+        ),
+    )
+    supervised_predictors = labels[:, 1:].ne(-100) & attention_mask[:, 1:].ne(0)
+    assert torch.all(read_mask[:, :-1][supervised_predictors])
+    assert not torch.any(read_mask & attention_mask.eq(0))
+
+
+def test_read_context_mask_requires_aligned_2d_labels_and_attention() -> None:
+    trainer = _build_trainer()
+    assert trainer._build_read_context_mask({"attention_mask": torch.ones(1, 2)}) is None
+
+    with pytest.raises(ValueError, match="matching 2D tensors"):
+        trainer._build_read_context_mask(
+            {
+                "labels": torch.tensor([[-100, 1]]),
+                "attention_mask": torch.ones(1, 3),
+            }
+        )
 
 
 def test_context_dropout_base_kl_uses_no_delta_teacher(
