@@ -811,6 +811,8 @@ def load_delta_mem_chat_model(
     adapter_dir: str | Path,
     memory_fusion_placement: str | None = None,
     memory_fusion_residual_scale: float | None = None,
+    memory_fusion_residual_scale_max: float | None = None,
+    initialize_missing_residual_hybrid_gain: bool = False,
 ) -> tuple[torch.nn.Module, object]:
     tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
     resolved_attn_implementation = resolve_attn_implementation(
@@ -830,12 +832,19 @@ def load_delta_mem_chat_model(
         overrides["memory_fusion_placement"] = memory_fusion_placement
     if memory_fusion_residual_scale is not None:
         overrides["memory_fusion_residual_scale"] = memory_fusion_residual_scale
+    if memory_fusion_residual_scale_max is not None:
+        overrides["memory_fusion_residual_scale_max"] = (
+            memory_fusion_residual_scale_max
+        )
     effective_config = replace(saved_config, **overrides) if overrides else saved_config
     attach_delta_mem(model, effective_config)
     load_delta_mem_adapter(
         model,
         adapter_dir,
         allowed_config_mismatches=tuple(overrides),
+        initialize_missing_residual_hybrid_gain=(
+            initialize_missing_residual_hybrid_gain
+        ),
     )
     return model, tokenizer
 

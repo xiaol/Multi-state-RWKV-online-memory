@@ -64,9 +64,17 @@ VALID_MEMORY_FUSION_PLACEMENTS = (
     "attention_output",
     "post_attention_norm",
     "normalized_residual_correction",
+    "post_attention_residual_hybrid",
 )
 MEMORY_FUSION_NORM_HOOK_PLACEMENTS = frozenset(
-    {"post_attention_norm", "normalized_residual_correction"}
+    {
+        "post_attention_norm",
+        "normalized_residual_correction",
+        "post_attention_residual_hybrid",
+    }
+)
+MEMORY_FUSION_NORMALIZED_RESIDUAL_PLACEMENTS = frozenset(
+    {"normalized_residual_correction", "post_attention_residual_hybrid"}
 )
 VALID_DELTA_SCALE_GRANULARITIES = ("layer", "head")
 VALID_DELTA_SCALE_PARAMETERIZATIONS = ("alpha_over_rank")
@@ -299,6 +307,7 @@ class HFDeltaMemConfig:
     memory_fusion_gate_init: float = 0.1
     memory_fusion_placement: str = "attention_output"
     memory_fusion_residual_scale: float = 1.0
+    memory_fusion_residual_scale_max: float = 1.0
     trainable_delta_scale: bool = False
     delta_scale_init: float = 1.0
     delta_scale_max: float = 2.0
@@ -367,12 +376,33 @@ class HFDeltaMemConfig:
             raise ValueError("delta_o_rmsnorm_eps must be > 0")
         if not 0.0 < float(self.memory_fusion_gate_init) < 1.0:
             raise ValueError("memory_fusion_gate_init must satisfy 0 < value < 1")
+        memory_fusion_placement = normalize_memory_fusion_placement(
+            self.memory_fusion_placement
+        )
         memory_fusion_residual_scale = float(self.memory_fusion_residual_scale)
         if not math.isfinite(memory_fusion_residual_scale) or not (
             0.0 <= memory_fusion_residual_scale <= 1.0
         ):
             raise ValueError(
                 "memory_fusion_residual_scale must be finite and satisfy 0 <= value <= 1"
+            )
+        memory_fusion_residual_scale_max = float(
+            self.memory_fusion_residual_scale_max
+        )
+        if not math.isfinite(memory_fusion_residual_scale_max) or not (
+            0.0 < memory_fusion_residual_scale_max <= 1.0
+        ):
+            raise ValueError(
+                "memory_fusion_residual_scale_max must be finite and satisfy "
+                "0 < value <= 1"
+            )
+        if (
+            memory_fusion_placement == "post_attention_residual_hybrid"
+            and memory_fusion_residual_scale > memory_fusion_residual_scale_max
+        ):
+            raise ValueError(
+                "post_attention_residual_hybrid requires "
+                "memory_fusion_residual_scale <= memory_fusion_residual_scale_max"
             )
         if float(self.delta_scale_init) <= 0.0:
             raise ValueError("delta_scale_init must be > 0")
@@ -403,12 +433,17 @@ class HFDeltaMemConfig:
         object.__setattr__(
             self,
             "memory_fusion_placement",
-            normalize_memory_fusion_placement(self.memory_fusion_placement),
+            memory_fusion_placement,
         )
         object.__setattr__(
             self,
             "memory_fusion_residual_scale",
             memory_fusion_residual_scale,
+        )
+        object.__setattr__(
+            self,
+            "memory_fusion_residual_scale_max",
+            memory_fusion_residual_scale_max,
         )
         object.__setattr__(self, "trainable_delta_scale", bool(self.trainable_delta_scale))
         object.__setattr__(self, "delta_scale_init", float(self.delta_scale_init))
@@ -695,6 +730,7 @@ class DeltaMemAttention(nn.Module):
         self.memory_fusion_gate_init = config.memory_fusion_gate_init
         self.memory_fusion_placement = config.memory_fusion_placement
         self.memory_fusion_residual_scale = config.memory_fusion_residual_scale
+        self.memory_fusion_residual_scale_max = config.memory_fusion_residual_scale_max
         self.normalize_qk = config.normalize_qk
         self.couple_lambda = config.couple_lambda
         self.state_update_mode = config.state_update_mode
@@ -793,6 +829,8 @@ class DeltaMemAttention(nn.Module):
             self.memory_fusion_hidden_weight = nn.Parameter(torch.empty(1, hidden_size))
             self.memory_fusion_read_weight = nn.Parameter(torch.empty(1, self.state_read_dim))
             self.memory_fusion_bias = nn.Parameter(torch.empty(1))
+        if self.memory_fusion_placement == "post_attention_residual_hybrid":
+            self.memory_fusion_residual_gain_raw = nn.Parameter(torch.empty(1))
 
         self.beta_proj = nn.Parameter(torch.empty(self.gate_dim, hidden_size))
         self.beta_bias = nn.Parameter(torch.full((self.gate_dim,), config.beta_bias_init))
@@ -826,8 +864,11 @@ class DeltaMemAttention(nn.Module):
         self.last_fused_delta_o_ratio: torch.Tensor | None = None
         self.last_delta_o_base_cosine: torch.Tensor | None = None
         self.last_fused_o_ratio: torch.Tensor | None = None
+        self.last_applied_memory_correction_norm: torch.Tensor | None = None
+        self.last_applied_memory_correction_ratio: torch.Tensor | None = None
         self.last_memory_residual_norm: torch.Tensor | None = None
         self.last_memory_residual_ratio: torch.Tensor | None = None
+        self.last_memory_residual_gain: torch.Tensor | None = None
         self._pending_post_attention_delta: tuple[
             torch.Tensor | None,
             torch.Tensor | None,
@@ -942,6 +983,10 @@ class DeltaMemAttention(nn.Module):
                 self.memory_fusion_gate_init / (1.0 - self.memory_fusion_gate_init)
             )
             nn.init.constant_(self.memory_fusion_bias, gate_logit)
+        if self.memory_fusion_placement == "post_attention_residual_hybrid":
+            self.set_memory_fusion_residual_gain(
+                self.memory_fusion_residual_scale
+            )
         nn.init.zeros_(self.beta_proj)
         if not self.couple_lambda:
             nn.init.zeros_(self.lambda_proj)
@@ -969,8 +1014,11 @@ class DeltaMemAttention(nn.Module):
         self.last_fused_delta_o_ratio = None
         self.last_delta_o_base_cosine = None
         self.last_fused_o_ratio = None
+        self.last_applied_memory_correction_norm = None
+        self.last_applied_memory_correction_ratio = None
         self.last_memory_residual_norm = None
         self.last_memory_residual_ratio = None
+        self.last_memory_residual_gain = None
         self._pending_post_attention_delta = None
         self.write_message_ids = None
         self.write_sentence_ids = None
@@ -1006,6 +1054,11 @@ class DeltaMemAttention(nn.Module):
             return "o" in self.active_delta_heads
         if sub_name == "delta_o_rmsnorm_weight":
             return self.delta_o_rmsnorm and "o" in self.active_delta_heads
+        if sub_name == "memory_fusion_residual_gain_raw":
+            return (
+                self.memory_fusion_placement == "post_attention_residual_hybrid"
+                and "o" in self.active_delta_heads
+            )
         if sub_name.startswith("memory_fusion_"):
             return self.memory_fusion_mode == "content_gated_add" and "o" in self.active_delta_heads
         if sub_name == "delta_scale_raw":
@@ -1465,6 +1518,42 @@ class DeltaMemAttention(nn.Module):
         logits = logits + self.memory_fusion_bias.float()
         return torch.sigmoid(logits)
 
+    def set_memory_fusion_residual_gain(self, gain: float) -> None:
+        if self.memory_fusion_placement != "post_attention_residual_hybrid":
+            raise RuntimeError(
+                "A trainable residual gain is only available for "
+                "memory_fusion_placement='post_attention_residual_hybrid'"
+            )
+        resolved_gain = float(gain)
+        if not math.isfinite(resolved_gain) or not (
+            0.0 <= resolved_gain <= self.memory_fusion_residual_scale_max
+        ):
+            raise ValueError(
+                "Memory fusion residual gain must be finite and satisfy "
+                "0 <= value <= memory_fusion_residual_scale_max"
+            )
+        with torch.no_grad():
+            self.memory_fusion_residual_gain_raw.fill_(resolved_gain)
+
+    def _resolved_memory_fusion_residual_gain(
+        self,
+        *,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        if self.memory_fusion_placement != "post_attention_residual_hybrid":
+            raise RuntimeError(
+                "A trainable residual gain is only available for "
+                "memory_fusion_placement='post_attention_residual_hybrid'"
+            )
+        raw_gain = self.memory_fusion_residual_gain_raw.float()
+        bounded_gain = raw_gain.clamp(
+            min=0.0,
+            max=self.memory_fusion_residual_scale_max,
+        )
+        gain = bounded_gain.detach() + (raw_gain - raw_gain.detach())
+        return gain.to(device=device, dtype=dtype)[0]
+
     def _apply_delta_o_rmsnorm(self, delta_o: torch.Tensor) -> torch.Tensor:
         if not self.delta_o_rmsnorm:
             return delta_o
@@ -1517,31 +1606,31 @@ class DeltaMemAttention(nn.Module):
 
     def _capture_read_representation(
         self,
-        fused_delta_o: torch.Tensor | None,
+        applied_correction: torch.Tensor | None,
         token_mask: torch.Tensor | None,
     ) -> None:
         self.last_read_representation = None
         capture_mask = self.read_representation_capture_mask
         if capture_mask is None:
             return
-        if fused_delta_o is None:
+        if applied_correction is None:
             raise RuntimeError(
                 "Read representation capture requires an active delta_o head"
             )
-        expected_shape = fused_delta_o.shape[:2]
+        expected_shape = applied_correction.shape[:2]
         if capture_mask.ndim != 2 or tuple(capture_mask.shape) != expected_shape:
             raise ValueError(
                 "Read representation capture mask must match the model token shape: "
                 f"expected={expected_shape} actual={tuple(capture_mask.shape)}"
             )
-        resolved_mask = capture_mask.to(device=fused_delta_o.device, dtype=torch.bool)
+        resolved_mask = capture_mask.to(device=applied_correction.device, dtype=torch.bool)
         selected_per_row = resolved_mask.sum(dim=1)
         if not torch.equal(selected_per_row, torch.ones_like(selected_per_row)):
             raise ValueError(
                 "Read representation capture mask must select exactly one token per batch row"
             )
         if token_mask is not None:
-            valid_mask = token_mask.to(device=fused_delta_o.device, dtype=torch.bool)
+            valid_mask = token_mask.to(device=applied_correction.device, dtype=torch.bool)
             if tuple(valid_mask.shape) != expected_shape:
                 raise ValueError(
                     "Read representation validity mask must match the model token shape: "
@@ -1553,9 +1642,29 @@ class DeltaMemAttention(nn.Module):
                 )
         self.last_read_representation = torch.einsum(
             "bt,bth->bh",
-            resolved_mask.to(dtype=fused_delta_o.dtype),
-            fused_delta_o,
+            resolved_mask.to(dtype=applied_correction.dtype),
+            applied_correction,
         )
+
+    def _record_applied_memory_correction(
+        self,
+        reference_output: torch.Tensor,
+        applied_correction: torch.Tensor | None,
+        token_mask: torch.Tensor | None,
+    ) -> None:
+        if applied_correction is None:
+            self._capture_read_representation(None, token_mask)
+            return
+        self.last_applied_memory_correction_norm = self._masked_hidden_norm(
+            applied_correction,
+            token_mask,
+        )
+        self.last_applied_memory_correction_ratio = self._masked_ratio_mean(
+            applied_correction.norm(dim=-1),
+            reference_output.norm(dim=-1),
+            token_mask,
+        )
+        self._capture_read_representation(applied_correction, token_mask)
 
     def _global_partition_logit_bias(
         self,
@@ -2516,8 +2625,11 @@ class DeltaMemAttention(nn.Module):
         self.last_fused_delta_o_ratio = None
         self.last_delta_o_base_cosine = None
         self.last_fused_o_ratio = None
+        self.last_applied_memory_correction_norm = None
+        self.last_applied_memory_correction_ratio = None
         self.last_memory_residual_norm = None
         self.last_memory_residual_ratio = None
+        self.last_memory_residual_gain = None
         delta_o_typed = None
         fused_delta_o = None
         if delta_o is not None:
@@ -2540,8 +2652,6 @@ class DeltaMemAttention(nn.Module):
                 greater=True,
             )
             fused_delta_o = delta_o_typed * fusion_gate.to(dtype=delta_o_typed.dtype)
-
-        self._capture_read_representation(fused_delta_o, token_mask)
 
         if self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS:
             if self._post_attention_norm_hook_handle is None:
@@ -2582,8 +2692,91 @@ class DeltaMemAttention(nn.Module):
             token_mask,
         )
         if delta_o is None or fused_delta_o is None:
+            self._record_applied_memory_correction(
+                reference_output,
+                None,
+                token_mask,
+            )
             return reference_output
-        fused_output = reference_output + fused_delta_o.to(reference_output.dtype)
+        applied_correction = fused_delta_o.to(reference_output.dtype)
+        self._record_applied_memory_correction(
+            reference_output,
+            applied_correction,
+            token_mask,
+        )
+        fused_output = reference_output + applied_correction
+        self.last_fused_o_ratio = self._masked_ratio_mean(
+            fused_output.norm(dim=-1),
+            reference_output.norm(dim=-1),
+            token_mask,
+        )
+        return fused_output
+
+    def _add_scaled_delta_o_to_reference(
+        self,
+        reference_output: torch.Tensor,
+        delta_o: torch.Tensor | None,
+        fused_delta_o: torch.Tensor | None,
+        token_mask: torch.Tensor | None,
+        scale: float | torch.Tensor,
+    ) -> torch.Tensor:
+        resolved_scale = (
+            reference_output.new_tensor(scale)
+            if isinstance(scale, float)
+            else scale.to(device=reference_output.device, dtype=reference_output.dtype)
+        )
+        self.last_memory_residual_gain = resolved_scale
+        if isinstance(scale, float) and scale == 1.0:
+            fused_output = self._add_delta_o_to_reference(
+                reference_output,
+                delta_o,
+                fused_delta_o,
+                token_mask,
+            )
+            self.last_memory_residual_norm = self.last_applied_memory_correction_norm
+            self.last_memory_residual_ratio = self.last_applied_memory_correction_ratio
+            return fused_output
+
+        self._record_delta_o_reference_stats(
+            reference_output,
+            delta_o,
+            fused_delta_o,
+            token_mask,
+        )
+        if delta_o is None or fused_delta_o is None:
+            self._record_applied_memory_correction(
+                reference_output,
+                None,
+                token_mask,
+            )
+            self.last_memory_residual_norm = reference_output.new_zeros(())
+            self.last_memory_residual_ratio = reference_output.new_zeros(())
+            return reference_output
+        if isinstance(scale, float) and scale == 0.0:
+            applied_correction = torch.zeros_like(reference_output)
+            self._record_applied_memory_correction(
+                reference_output,
+                applied_correction,
+                token_mask,
+            )
+            self.last_memory_residual_norm = reference_output.new_zeros(())
+            self.last_memory_residual_ratio = reference_output.new_zeros(())
+            self.last_fused_o_ratio = self._masked_ratio_mean(
+                reference_output.norm(dim=-1),
+                reference_output.norm(dim=-1),
+                token_mask,
+            )
+            return reference_output
+
+        applied_correction = fused_delta_o.to(reference_output.dtype) * resolved_scale
+        self._record_applied_memory_correction(
+            reference_output,
+            applied_correction,
+            token_mask,
+        )
+        self.last_memory_residual_norm = self.last_applied_memory_correction_norm
+        self.last_memory_residual_ratio = self.last_applied_memory_correction_ratio
+        fused_output = reference_output + applied_correction
         self.last_fused_o_ratio = self._masked_ratio_mean(
             fused_output.norm(dim=-1),
             reference_output.norm(dim=-1),
@@ -2634,26 +2827,27 @@ class DeltaMemAttention(nn.Module):
         self._pending_post_attention_delta = None
         delta_o, fused_delta_o, token_mask = payload
         if self.memory_fusion_placement == "post_attention_norm":
-            return self._add_delta_o_to_reference(
+            return self._add_scaled_delta_o_to_reference(
                 output,
                 delta_o,
                 fused_delta_o,
                 token_mask,
+                self.memory_fusion_residual_scale,
             )
-        if self.memory_fusion_placement != "normalized_residual_correction":
+        if self.memory_fusion_placement not in MEMORY_FUSION_NORMALIZED_RESIDUAL_PLACEMENTS:
             raise RuntimeError(
                 "A post-attention RMSNorm hook received an unsupported memory fusion "
                 f"placement: {self.memory_fusion_placement}"
             )
         if len(inputs) != 1 or not torch.is_tensor(inputs[0]):
             raise RuntimeError(
-                "normalized_residual_correction requires Gemma's post-attention RMSNorm "
-                "to receive exactly one tensor input"
+                f"{self.memory_fusion_placement} requires Gemma's post-attention "
+                "RMSNorm to receive exactly one tensor input"
             )
         raw_attention = inputs[0]
         if raw_attention.shape != output.shape:
             raise RuntimeError(
-                "normalized_residual_correction RMSNorm input/output shape mismatch: "
+                f"{self.memory_fusion_placement} RMSNorm input/output shape mismatch: "
                 f"input={tuple(raw_attention.shape)} output={tuple(output.shape)}"
             )
         self._record_delta_o_reference_stats(
@@ -2663,6 +2857,7 @@ class DeltaMemAttention(nn.Module):
             token_mask,
         )
         if delta_o is None or fused_delta_o is None:
+            self._record_applied_memory_correction(output, None, token_mask)
             self.last_memory_residual_norm = output.new_zeros(())
             self.last_memory_residual_ratio = output.new_zeros(())
             self.last_fused_o_ratio = self._masked_ratio_mean(
@@ -2673,30 +2868,58 @@ class DeltaMemAttention(nn.Module):
             return output
 
         scale = self.memory_fusion_residual_scale
-        if scale == 0.0:
-            self.last_memory_residual_norm = output.new_zeros(())
-            self.last_memory_residual_ratio = output.new_zeros(())
-            self.last_fused_o_ratio = self._masked_ratio_mean(
-                output.norm(dim=-1),
-                output.norm(dim=-1),
-                token_mask,
-            )
-            return output
+        if self.memory_fusion_placement == "normalized_residual_correction":
+            self.last_memory_residual_gain = output.new_tensor(scale)
+            if scale == 0.0:
+                self._record_applied_memory_correction(
+                    output,
+                    torch.zeros_like(output),
+                    token_mask,
+                )
+                self.last_memory_residual_norm = output.new_zeros(())
+                self.last_memory_residual_ratio = output.new_zeros(())
+                self.last_fused_o_ratio = self._masked_ratio_mean(
+                    output.norm(dim=-1),
+                    output.norm(dim=-1),
+                    token_mask,
+                )
+                return output
 
         memory_norm = module.forward(
             raw_attention + fused_delta_o.to(dtype=raw_attention.dtype)
         )
         correction = memory_norm - output
+        if self.memory_fusion_placement == "post_attention_residual_hybrid":
+            gain = self._resolved_memory_fusion_residual_gain(
+                device=output.device,
+                dtype=output.dtype,
+            )
+            self.last_memory_residual_gain = gain
+            direct_residual = fused_delta_o.to(dtype=output.dtype) * gain
+            applied_correction = correction + direct_residual
+            self._record_applied_memory_correction(
+                output,
+                applied_correction,
+                token_mask,
+            )
+            self.last_memory_residual_norm = self.last_applied_memory_correction_norm
+            self.last_memory_residual_ratio = self.last_applied_memory_correction_ratio
+            fused_output = memory_norm + direct_residual
+            self.last_fused_o_ratio = self._masked_ratio_mean(
+                fused_output.norm(dim=-1),
+                output.norm(dim=-1),
+                token_mask,
+            )
+            return fused_output
+
         applied_correction = correction * scale
-        self.last_memory_residual_norm = self._masked_hidden_norm(
+        self._record_applied_memory_correction(
+            output,
             applied_correction,
             token_mask,
         )
-        self.last_memory_residual_ratio = self._masked_ratio_mean(
-            applied_correction.norm(dim=-1),
-            output.norm(dim=-1),
-            token_mask,
-        )
+        self.last_memory_residual_norm = self.last_applied_memory_correction_norm
+        self.last_memory_residual_ratio = self.last_applied_memory_correction_ratio
         if scale == 1.0:
             fused_output = memory_norm
         else:
@@ -3236,6 +3459,8 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
         "delta_o_proj_norm_sum": 0.0,
         "memory_fusion_weight_norm_sum": 0.0,
         "content_gated_fusion_modules": 0,
+        "post_attention_residual_hybrid_modules": 0,
+        "memory_fusion_residual_gain_sum": 0.0,
         "delta_scale_mean_sum": 0.0,
         "trainable_delta_scale_modules": 0,
         "beta_proj_norm_sum": 0.0,
@@ -3256,6 +3481,14 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
             stats["memory_fusion_weight_norm_sum"] += (
                 module.memory_fusion_hidden_weight.float().norm().item()
                 + module.memory_fusion_read_weight.float().norm().item()
+            )
+        if module.memory_fusion_placement == "post_attention_residual_hybrid":
+            stats["post_attention_residual_hybrid_modules"] += 1
+            stats["memory_fusion_residual_gain_sum"] += float(
+                module.memory_fusion_residual_gain_raw.detach()
+                .float()
+                .clamp(min=0.0, max=module.memory_fusion_residual_scale_max)
+                .item()
             )
         if module.trainable_delta_scale:
             stats["trainable_delta_scale_modules"] += 1
@@ -3333,6 +3566,7 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
     attention_output_fusion_modules = 0
     post_attention_norm_fusion_modules = 0
     normalized_residual_correction_fusion_modules = 0
+    post_attention_residual_hybrid_fusion_modules = 0
     mean_base_o_norm = 0.0
     mean_delta_o_norm = 0.0
     mean_delta_o_ratio = 0.0
@@ -3347,9 +3581,16 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
     max_fused_delta_o_ratio = 0.0
     mean_delta_o_base_cosine = 0.0
     mean_fused_o_ratio = 0.0
+    mean_applied_memory_correction_norm = 0.0
+    mean_applied_memory_correction_ratio = 0.0
+    max_applied_memory_correction_ratio = 0.0
     mean_memory_residual_norm = 0.0
     mean_memory_residual_ratio = 0.0
     max_memory_residual_ratio = 0.0
+    modules_with_memory_residual_gain = 0
+    mean_memory_residual_gain = 0.0
+    min_memory_residual_gain = math.inf
+    max_memory_residual_gain = -math.inf
     for _, module in iter_delta_mem_modules(model):
         num_modules += 1
         if module.memory_fusion_mode == "content_gated_add":
@@ -3360,6 +3601,8 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
             post_attention_norm_fusion_modules += 1
         elif module.memory_fusion_placement == "normalized_residual_correction":
             normalized_residual_correction_fusion_modules += 1
+        elif module.memory_fusion_placement == "post_attention_residual_hybrid":
+            post_attention_residual_hybrid_fusion_modules += 1
         if module.last_base_o_norm is not None:
             mean_base_o_norm += float(module.last_base_o_norm.detach().float().item())
         if module.last_delta_o_norm is not None:
@@ -3399,6 +3642,19 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
             )
         if module.last_fused_o_ratio is not None:
             mean_fused_o_ratio += float(module.last_fused_o_ratio.detach().float().item())
+        if module.last_applied_memory_correction_norm is not None:
+            mean_applied_memory_correction_norm += float(
+                module.last_applied_memory_correction_norm.detach().float().item()
+            )
+        if module.last_applied_memory_correction_ratio is not None:
+            applied_correction_ratio = float(
+                module.last_applied_memory_correction_ratio.detach().float().item()
+            )
+            mean_applied_memory_correction_ratio += applied_correction_ratio
+            max_applied_memory_correction_ratio = max(
+                max_applied_memory_correction_ratio,
+                applied_correction_ratio,
+            )
         if module.last_memory_residual_norm is not None:
             mean_memory_residual_norm += float(
                 module.last_memory_residual_norm.detach().float().item()
@@ -3412,6 +3668,14 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
                 max_memory_residual_ratio,
                 memory_residual_ratio,
             )
+        if module.last_memory_residual_gain is not None:
+            modules_with_memory_residual_gain += 1
+            residual_gain = float(
+                module.last_memory_residual_gain.detach().float().item()
+            )
+            mean_memory_residual_gain += residual_gain
+            min_memory_residual_gain = min(min_memory_residual_gain, residual_gain)
+            max_memory_residual_gain = max(max_memory_residual_gain, residual_gain)
     if num_modules > 0:
         mean_base_o_norm /= num_modules
     if modules_with_delta_o > 0:
@@ -3424,8 +3688,15 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
         mean_fused_delta_o_ratio /= modules_with_delta_o
         mean_delta_o_base_cosine /= modules_with_delta_o
         mean_fused_o_ratio /= modules_with_delta_o
+        mean_applied_memory_correction_norm /= modules_with_delta_o
+        mean_applied_memory_correction_ratio /= modules_with_delta_o
         mean_memory_residual_norm /= modules_with_delta_o
         mean_memory_residual_ratio /= modules_with_delta_o
+    if modules_with_memory_residual_gain > 0:
+        mean_memory_residual_gain /= modules_with_memory_residual_gain
+    else:
+        min_memory_residual_gain = 0.0
+        max_memory_residual_gain = 0.0
     if modules_with_delta_o == 0:
         min_delta_o_gate = 0.0
         max_delta_o_gate = 0.0
@@ -3437,6 +3708,9 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
         "post_attention_norm_fusion_modules": post_attention_norm_fusion_modules,
         "normalized_residual_correction_fusion_modules": (
             normalized_residual_correction_fusion_modules
+        ),
+        "post_attention_residual_hybrid_fusion_modules": (
+            post_attention_residual_hybrid_fusion_modules
         ),
         "mean_base_o_norm": mean_base_o_norm,
         "mean_delta_o_norm": mean_delta_o_norm,
@@ -3452,9 +3726,16 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
         "max_fused_delta_o_ratio": max_fused_delta_o_ratio,
         "mean_delta_o_base_cosine": mean_delta_o_base_cosine,
         "mean_fused_o_ratio": mean_fused_o_ratio,
+        "mean_applied_memory_correction_norm": mean_applied_memory_correction_norm,
+        "mean_applied_memory_correction_ratio": mean_applied_memory_correction_ratio,
+        "max_applied_memory_correction_ratio": max_applied_memory_correction_ratio,
         "mean_memory_residual_norm": mean_memory_residual_norm,
         "mean_memory_residual_ratio": mean_memory_residual_ratio,
         "max_memory_residual_ratio": max_memory_residual_ratio,
+        "modules_with_memory_residual_gain": modules_with_memory_residual_gain,
+        "mean_memory_residual_gain": mean_memory_residual_gain,
+        "min_memory_residual_gain": min_memory_residual_gain,
+        "max_memory_residual_gain": max_memory_residual_gain,
     }
     modules = [module for _, module in iter_delta_mem_modules(model)]
     for sharing in ("nonshared", "shared"):
@@ -3482,6 +3763,10 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
             for metric_name, attribute in (
                 ("mean_fused_delta_o_ratio", "last_fused_delta_o_ratio"),
                 ("mean_fused_o_ratio", "last_fused_o_ratio"),
+                (
+                    "mean_applied_memory_correction_ratio",
+                    "last_applied_memory_correction_ratio",
+                ),
                 ("mean_delta_o_base_cosine", "last_delta_o_base_cosine"),
                 ("mean_delta_o_gate", "last_delta_o_gate_mean"),
                 (
@@ -3686,18 +3971,53 @@ def get_delta_mem_state_dict(model: nn.Module) -> dict[str, torch.Tensor]:
     return state_dict
 
 
-def load_delta_mem_state_dict(model: nn.Module, state_dict: dict[str, torch.Tensor]) -> None:
+def load_delta_mem_state_dict(
+    model: nn.Module,
+    state_dict: dict[str, torch.Tensor],
+    *,
+    initialize_missing_residual_hybrid_gain: bool = False,
+) -> None:
     expected_state = get_delta_mem_state_dict(model)
     expected_keys = list(expected_state)
     actual_keys = list(state_dict)
-    if set(actual_keys) != set(expected_keys):
-        missing = [key for key in expected_keys if key not in state_dict]
-        extra = [key for key in actual_keys if key not in expected_state]
+    missing = [key for key in expected_keys if key not in state_dict]
+    extra = [key for key in actual_keys if key not in expected_state]
+    module_map = dict(model.named_modules())
+    residual_hybrid_gain_missing = []
+    for key in missing:
+        module_name, param_name = key.rsplit(".", 1)
+        module = module_map.get(module_name)
+        if (
+            param_name == "memory_fusion_residual_gain_raw"
+            and isinstance(module, DeltaMemAttention)
+            and module.memory_fusion_placement == "post_attention_residual_hybrid"
+        ):
+            residual_hybrid_gain_missing.append(key)
+    allowed_missing = (
+        set(residual_hybrid_gain_missing)
+        if initialize_missing_residual_hybrid_gain
+        else set()
+    )
+    disallowed_missing = [key for key in missing if key not in allowed_missing]
+    if disallowed_missing or extra:
+        warm_start_hint = ""
+        if (
+            not initialize_missing_residual_hybrid_gain
+            and missing
+            and len(residual_hybrid_gain_missing) == len(missing)
+            and not extra
+        ):
+            warm_start_hint = (
+                " To warm-start these weights into post_attention_residual_hybrid, "
+                "pass initialize_missing_residual_hybrid_gain=True."
+            )
         raise ValueError(
             "Delta-Mem adapter parameter topology does not match the attached model; "
-            f"missing={missing[:8]} extra={extra[:8]}"
+            f"missing={missing[:8]} extra={extra[:8]}.{warm_start_hint}"
         )
     for name in expected_keys:
+        if name in allowed_missing:
+            continue
         tensor = state_dict[name]
         if not isinstance(tensor, torch.Tensor):
             raise ValueError(f"Delta-Mem adapter entry is not a tensor: {name}")
@@ -3706,7 +4026,6 @@ def load_delta_mem_state_dict(model: nn.Module, state_dict: dict[str, torch.Tens
                 f"Delta-Mem adapter shape mismatch for {name}: "
                 f"checkpoint={tuple(tensor.shape)} model={tuple(expected_state[name].shape)}"
             )
-    module_map = dict(model.named_modules())
     for full_name, tensor in state_dict.items():
         module_name, param_name = full_name.rsplit(".", 1)
         module = module_map[module_name]
@@ -3763,9 +4082,33 @@ def load_delta_mem_adapter(
     input_dir: str | Path,
     *,
     allowed_config_mismatches: tuple[str, ...] = (),
+    initialize_missing_residual_hybrid_gain: bool = False,
 ) -> HFDeltaMemConfig:
     input_path = Path(input_dir)
     config = HFDeltaMemConfig.from_pretrained(input_path)
+    if initialize_missing_residual_hybrid_gain:
+        modules = list(iter_delta_mem_modules(model))
+        non_hybrid = [
+            name
+            for name, module in modules
+            if module.memory_fusion_placement != "post_attention_residual_hybrid"
+        ]
+        if non_hybrid:
+            raise ValueError(
+                "initialize_missing_residual_hybrid_gain=True requires every attached "
+                "Delta-Mem module to use post_attention_residual_hybrid; "
+                f"non_hybrid={non_hybrid[:8]}"
+            )
+        allowed_config_mismatches = tuple(
+            dict.fromkeys(
+                (
+                    *allowed_config_mismatches,
+                    "memory_fusion_placement",
+                    "memory_fusion_residual_scale",
+                    "memory_fusion_residual_scale_max",
+                )
+            )
+        )
     validate_attached_delta_config(
         model,
         config,
@@ -3776,5 +4119,11 @@ def load_delta_mem_adapter(
         map_location="cpu",
         weights_only=True,
     )
-    load_delta_mem_state_dict(model, adapter_state)
+    load_delta_mem_state_dict(
+        model,
+        adapter_state,
+        initialize_missing_residual_hybrid_gain=(
+            initialize_missing_residual_hybrid_gain
+        ),
+    )
     return config

@@ -156,6 +156,12 @@ Qwen3.5/Qwen3.6, SmolLM3, and Gemma4 text attention;
 for `google/gemma-4-E4B-it` it wraps the non-KV-shared attention layers and
 skips the KV-shared tail layers.
 
+Fresh RWKV-MS configs use semantics v2: FP32 recurrent matrices, bounded
+per-head write sources, RWKV decay without a second lambda decay, cosine slot
+routing, and a bias-free empty-state readout. Checkpoints without an explicit
+`rwkv_ms_semantics_version` load as legacy v1 and must not be resumed as v2;
+start a fresh run with `--rwkv-ms-semantics-version 2`.
+
 Transformers exposes Qwen3.6 as `qwen3_5`. Its 64-layer hybrid stack has 16
 full-attention layers at physical indices `3,7,11,...,63`; the other 48 Gated
 DeltaNet layers are not wrapped. Use layer `3` for a smoke run or

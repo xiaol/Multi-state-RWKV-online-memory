@@ -111,6 +111,181 @@ def pair_metrics(left: torch.Tensor, right: torch.Tensor) -> dict[str, float]:
     }
 
 
+def correction_reference_metrics(
+    correction: torch.Tensor,
+    reference: torch.Tensor,
+) -> dict[str, float]:
+    correction_rows = correction.detach().double().reshape(-1, correction.size(-1))
+    reference_rows = reference.detach().double().reshape(-1, reference.size(-1))
+    if correction_rows.shape != reference_rows.shape:
+        raise ValueError(
+            "Correction and reference tensors must have the same shape: "
+            f"{tuple(correction_rows.shape)} != {tuple(reference_rows.shape)}"
+        )
+    if correction_rows.size(0) == 0:
+        raise ValueError("Correction/reference metrics require at least one row")
+    if not torch.isfinite(correction_rows).all() or not torch.isfinite(reference_rows).all():
+        raise ValueError("Correction and reference tensors must be finite")
+    correction_norms = correction_rows.norm(dim=-1)
+    reference_norms = reference_rows.norm(dim=-1)
+    ratios = correction_norms / reference_norms.clamp_min(1e-12)
+    cosine = F.cosine_similarity(
+        correction_rows,
+        reference_rows,
+        dim=-1,
+        eps=1e-12,
+    )
+    return {
+        "correction_l2_norm": float(correction_rows.reshape(-1).norm().item()),
+        "reference_l2_norm": float(reference_rows.reshape(-1).norm().item()),
+        "global_norm_ratio": float(
+            (
+                correction_rows.reshape(-1).norm()
+                / reference_rows.reshape(-1).norm().clamp_min(1e-12)
+            ).item()
+        ),
+        "token_norm_ratio_mean": float(ratios.mean().item()),
+        "token_norm_ratio_median": float(ratios.median().item()),
+        "token_norm_ratio_min": float(ratios.min().item()),
+        "token_norm_ratio_max": float(ratios.max().item()),
+        "token_cosine_mean": float(cosine.mean().item()),
+        "token_cosine_min": float(cosine.min().item()),
+        "token_cosine_max": float(cosine.max().item()),
+    }
+
+
+def causal_read_context_mask(
+    labels: torch.Tensor,
+    attention_mask: torch.Tensor,
+) -> torch.Tensor:
+    if labels.ndim != 2 or attention_mask.shape != labels.shape:
+        raise ValueError("Read-context labels and attention mask must be matching 2D tensors")
+    valid_tokens = attention_mask.ne(0)
+    read_mask = labels.eq(-100) & valid_tokens
+    read_mask[:, :-1] |= (
+        labels[:, 1:].ne(-100)
+        & valid_tokens[:, :-1]
+        & valid_tokens[:, 1:]
+    )
+    return read_mask
+
+
+def module_online_state_keys(module_name: str) -> tuple[str, str, str]:
+    return (
+        module_name,
+        f"{module_name}.__rwkv_ms_positions",
+        f"{module_name}.__rwkv_ms_previous_source",
+    )
+
+
+def replace_module_online_state(
+    base_state: dict[str, torch.Tensor],
+    replacement_state: dict[str, torch.Tensor],
+    module_name: str,
+) -> dict[str, torch.Tensor]:
+    keys = module_online_state_keys(module_name)
+    missing_base = [key for key in keys if key not in base_state]
+    missing_replacement = [key for key in keys if key not in replacement_state]
+    if missing_base or missing_replacement:
+        raise ValueError(
+            f"Cannot replace online state for {module_name}: "
+            f"missing_base={missing_base} missing_replacement={missing_replacement}"
+        )
+    mixed_state = dict(base_state)
+    for key in keys:
+        mixed_state[key] = replacement_state[key]
+    return mixed_state
+
+
+def causal_state_swap_metrics(
+    *,
+    correct_ce: float,
+    donor_ce: float,
+    donor_with_correct_layer_ce: float,
+    correct_with_donor_layer_ce: float,
+) -> dict[str, float | bool]:
+    donor_to_correct_gain = donor_ce - donor_with_correct_layer_ce
+    correct_to_donor_damage = correct_with_donor_layer_ce - correct_ce
+    return {
+        "donor_with_correct_layer_ce": donor_with_correct_layer_ce,
+        "correct_with_donor_layer_ce": correct_with_donor_layer_ce,
+        "donor_to_correct_ce_gain": donor_to_correct_gain,
+        "correct_to_donor_ce_damage": correct_to_donor_damage,
+        "bidirectional_mean_ce_effect": (
+            donor_to_correct_gain + correct_to_donor_damage
+        )
+        * 0.5,
+        "bidirectional_positive": bool(
+            donor_to_correct_gain > 0.0 and correct_to_donor_damage > 0.0
+        ),
+    }
+
+
+def pearson_correlation(left: list[float], right: list[float]) -> float | None:
+    if len(left) != len(right) or len(left) < 2:
+        raise ValueError("Pearson correlation requires matching lists with at least two values")
+    left_tensor = torch.tensor(left, dtype=torch.float64)
+    right_tensor = torch.tensor(right, dtype=torch.float64)
+    left_centered = left_tensor - left_tensor.mean()
+    right_centered = right_tensor - right_tensor.mean()
+    denominator = left_centered.norm() * right_centered.norm()
+    if float(denominator.item()) <= 1e-24:
+        return None
+    return float((left_centered @ right_centered / denominator).item())
+
+
+def load_pairing_donors(
+    checkpoint: Path,
+    *,
+    split_name: str,
+    row_count: int,
+    fallback_seed: int,
+    tokenized: Dataset,
+) -> tuple[list[int], dict[str, Any]]:
+    manifest_path = checkpoint / "content_contrast_pairing_manifest.json"
+    if not manifest_path.is_file():
+        donors = make_mismatched_donors(tokenized, fallback_seed)
+        return donors, {
+            "source": "seeded_derangement_fallback",
+            "shuffle_seed": fallback_seed,
+        }
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    split = manifest.get("splits", {}).get(split_name)
+    if not isinstance(split, dict) or not isinstance(split.get("pairs"), list):
+        raise ValueError(
+            f"Pairing manifest does not contain split {split_name!r}: {manifest_path}"
+        )
+    pairs = split["pairs"]
+    if len(pairs) != row_count:
+        raise ValueError(
+            f"Pairing manifest row count mismatch: expected={row_count} actual={len(pairs)}"
+        )
+    donors = [-1] * row_count
+    for pair in pairs:
+        source_index = int(pair["source_index"])
+        partner_index = int(pair["partner_index"])
+        if source_index < 0 or source_index >= row_count:
+            raise ValueError(f"Pairing manifest source index is out of range: {source_index}")
+        if partner_index < 0 or partner_index >= row_count:
+            raise ValueError(f"Pairing manifest partner index is out of range: {partner_index}")
+        if source_index == partner_index:
+            raise ValueError(f"Pairing manifest contains a self-pair at row {source_index}")
+        if donors[source_index] != -1:
+            raise ValueError(f"Pairing manifest repeats source row {source_index}")
+        donors[source_index] = partner_index
+    if any(index < 0 for index in donors):
+        raise ValueError("Pairing manifest does not cover every tokenized row")
+    return donors, {
+        "source": "checkpoint_pairing_manifest",
+        "path": str(manifest_path),
+        "file_sha256": sha256_file(manifest_path),
+        "manifest_sha256": manifest.get("manifest_sha256"),
+        "split_manifest_sha256": split.get("manifest_sha256"),
+        "pairing_version": split.get("pairing_version"),
+        "split": split_name,
+    }
+
+
 def _spectral_summary(matrix: torch.Tensor) -> dict[str, Any]:
     singular_values = torch.linalg.svdvals(matrix)
     energy = singular_values.square()
@@ -231,8 +406,13 @@ def causal_supervised_features(
 class ReadPathCapture:
     """Temporarily capture low-rank reads and the exact attention-output residual."""
 
-    def __init__(self, modules: list[tuple[str, torch.nn.Module]]) -> None:
+    def __init__(
+        self,
+        modules: list[tuple[str, torch.nn.Module]],
+        post_attention_norms: dict[str, torch.nn.Module],
+    ) -> None:
         self.modules = modules
+        self.post_attention_norms = post_attention_norms
         self.records: dict[str, dict[str, torch.Tensor]] = {}
         self.capture_fused_delta = False
         self._readout_originals: list[tuple[torch.nn.Module, Any]] = []
@@ -249,6 +429,7 @@ class ReadPathCapture:
                 raise RuntimeError(f"{name} does not have an RWKV-MS core")
             original_readout = core.readout
             original_fusion = module._fuse_delta_o_output
+            post_attention_norm = self.post_attention_norms[name]
             self._readout_originals.append((core, original_readout))
             self._fusion_originals.append((module, original_fusion))
 
@@ -276,23 +457,38 @@ class ReadPathCapture:
                 *,
                 module_name: str = name,
                 bound_original=original_fusion,
+                layernorm=post_attention_norm,
             ) -> torch.Tensor:
                 record = self.records.setdefault(module_name, {})
                 fusion_gate = owner._memory_fusion_gate(hidden_states, reads)
                 record["fusion_gate"] = fusion_gate.detach().float().cpu()
-                if self.capture_fused_delta and delta_o is not None:
-                    typed_delta = owner._apply_delta_o_rmsnorm(
-                        delta_o.to(dtype=hidden_states.dtype)
-                    )
-                    fused_delta = typed_delta * fusion_gate.to(dtype=typed_delta.dtype)
-                    record["fused_delta_o"] = fused_delta.detach().float().cpu()
-                return bound_original(
+                fused_output = bound_original(
                     base_o_output,
                     delta_o,
                     hidden_states,
                     reads,
                     token_mask,
                 )
+                if self.capture_fused_delta and delta_o is not None:
+                    typed_delta = owner._apply_delta_o_rmsnorm(
+                        delta_o.to(dtype=hidden_states.dtype)
+                    )
+                    fused_delta = typed_delta * fusion_gate.to(dtype=typed_delta.dtype)
+                    record["base_o_output"] = base_o_output.detach().float().cpu()
+                    record["fused_delta_o"] = fused_delta.detach().float().cpu()
+                    record["applied_delta_o"] = (
+                        fused_output.float() - base_o_output.float()
+                    ).detach().cpu()
+                    base_post_norm = layernorm.forward(base_o_output)
+                    memory_post_norm = layernorm.forward(fused_output)
+                    record["base_post_attention_norm"] = (
+                        base_post_norm.detach().float().cpu()
+                    )
+                    record["post_attention_residual_correction"] = (
+                        memory_post_norm.float() - base_post_norm.float()
+                    ).detach().cpu()
+                    del base_post_norm, memory_post_norm
+                return fused_output
 
             core.readout = MethodType(capture_readout, core)
             module._fuse_delta_o_output = MethodType(capture_fusion, module)
@@ -318,6 +514,21 @@ class ReadPathCapture:
                 raise RuntimeError(f"Read capture for {name} is missing: {absent}")
             if self.capture_fused_delta and "fused_delta_o" not in record:
                 raise RuntimeError(f"Read capture for {name} is missing fused_delta_o")
+            if self.capture_fused_delta and "base_o_output" not in record:
+                raise RuntimeError(f"Read capture for {name} is missing base_o_output")
+            if self.capture_fused_delta and "applied_delta_o" not in record:
+                raise RuntimeError(f"Read capture for {name} is missing applied_delta_o")
+            if self.capture_fused_delta and "base_post_attention_norm" not in record:
+                raise RuntimeError(
+                    f"Read capture for {name} is missing base_post_attention_norm"
+                )
+            if (
+                self.capture_fused_delta
+                and "post_attention_residual_correction" not in record
+            ):
+                raise RuntimeError(
+                    f"Read capture for {name} is missing post_attention_residual_correction"
+                )
         return self.records
 
 
@@ -327,18 +538,20 @@ def replay_fixed_target(
     target_row: dict[str, Any],
     online_state: dict[str, torch.Tensor],
     device: str,
-    capture: ReadPathCapture,
-    capture_fused_delta: bool,
+    capture: ReadPathCapture | None,
+    capture_fused_delta: bool = False,
+    include_token_nll: bool = False,
 ) -> tuple[dict[str, Any], dict[str, dict[str, torch.Tensor]]]:
     reset_runtime(model, write_enabled=False)
     load_delta_mem_online_state(model, online_state)
     input_ids = tensor_row(target_row, "input_ids", device)
     attention_mask = tensor_row(target_row, "attention_mask", device)
     labels = tensor_row(target_row, "labels", device)
-    read_context_mask = labels.eq(-100) & attention_mask.ne(0)
+    read_context_mask = causal_read_context_mask(labels, attention_mask)
     set_delta_mem_write_enabled(model, False)
     set_delta_mem_read_context_mask(model, read_context_mask)
-    capture.arm(capture_fused_delta=capture_fused_delta)
+    if capture is not None:
+        capture.arm(capture_fused_delta=capture_fused_delta)
     outputs = model(
         input_ids=input_ids,
         attention_mask=attention_mask,
@@ -348,12 +561,14 @@ def replay_fixed_target(
     token_nll = supervised_token_nll(outputs.logits, labels, attention_mask)
     if not torch.isfinite(token_nll).all():
         raise RuntimeError("Fixed-target replay produced non-finite token NLL")
-    records = capture.finish()
+    records = {} if capture is None else capture.finish()
     metrics = {
         "token_count": int(token_nll.numel()),
         "nll_sum": float(token_nll.sum().item()),
         "ce": float(token_nll.mean().item()),
     }
+    if include_token_nll:
+        metrics["token_nll"] = [float(value) for value in token_nll.detach().cpu().tolist()]
     del outputs, token_nll
     return metrics, records
 
@@ -411,7 +626,13 @@ def main() -> None:
             f"--target-row-index must be in [0, {len(tokenized) - 1}], "
             f"got {args.target_row_index}"
         )
-    donors = make_mismatched_donors(tokenized, args.shuffle_seed)
+    donors, pairing_provenance = load_pairing_donors(
+        checkpoint,
+        split_name=str(protocol.get("dataset_split", "train")),
+        row_count=len(tokenized),
+        fallback_seed=args.shuffle_seed,
+        tokenized=tokenized,
+    )
     shuffled_row_index = donors[args.target_row_index]
 
     model, _ = load_model_and_tokenizer(
@@ -437,6 +658,15 @@ def main() -> None:
             "This diagnostic currently requires RWKV-MS attention_output fusion: "
             f"{unsupported}"
         )
+    named_modules = dict(model.named_modules())
+    post_attention_norms: dict[str, torch.nn.Module] = {}
+    for name, _ in modules:
+        parent_name = name.rsplit(".", 1)[0]
+        parent = named_modules.get(parent_name)
+        layernorm = getattr(parent, "post_attention_layernorm", None)
+        if not isinstance(layernorm, torch.nn.Module):
+            raise ValueError(f"Delta-Mem module {name} has no post_attention_layernorm")
+        post_attention_norms[name] = layernorm
 
     started_at = time.time()
     writer_snapshots: list[dict[str, torch.Tensor]] = []
@@ -517,7 +747,14 @@ def main() -> None:
     fixed_target_replays: list[dict[str, Any]] = []
     full_records: dict[int, dict[str, dict[str, torch.Tensor]]] = {}
     low_dim_raw_records: list[dict[str, dict[str, torch.Tensor]]] = []
-    with torch.inference_mode(), ReadPathCapture(modules) as capture:
+    high_dim_capture_keys = {
+        "fused_delta_o",
+        "base_o_output",
+        "applied_delta_o",
+        "base_post_attention_norm",
+        "post_attention_residual_correction",
+    }
+    with torch.inference_mode(), ReadPathCapture(modules, post_attention_norms) as capture:
         for memory_row_index, snapshot in enumerate(writer_snapshots):
             capture_full = memory_row_index in {
                 args.target_row_index,
@@ -541,7 +778,7 @@ def main() -> None:
                     name: {
                         key: value
                         for key, value in records[name].items()
-                        if key != "fused_delta_o"
+                        if key not in high_dim_capture_keys
                     }
                     for name, _ in modules
                 }
@@ -591,6 +828,46 @@ def main() -> None:
             target_labels,
             target_attention_mask,
         )
+        correct_base = causal_supervised_features(
+            correct_record["base_o_output"],
+            target_labels,
+            target_attention_mask,
+        )
+        shuffled_base = causal_supervised_features(
+            shuffled_record["base_o_output"],
+            target_labels,
+            target_attention_mask,
+        )
+        correct_applied = causal_supervised_features(
+            correct_record["applied_delta_o"],
+            target_labels,
+            target_attention_mask,
+        )
+        shuffled_applied = causal_supervised_features(
+            shuffled_record["applied_delta_o"],
+            target_labels,
+            target_attention_mask,
+        )
+        correct_post_norm_base = causal_supervised_features(
+            correct_record["base_post_attention_norm"],
+            target_labels,
+            target_attention_mask,
+        )
+        shuffled_post_norm_base = causal_supervised_features(
+            shuffled_record["base_post_attention_norm"],
+            target_labels,
+            target_attention_mask,
+        )
+        correct_post_norm_correction = causal_supervised_features(
+            correct_record["post_attention_residual_correction"],
+            target_labels,
+            target_attention_mask,
+        )
+        shuffled_post_norm_correction = causal_supervised_features(
+            shuffled_record["post_attention_residual_correction"],
+            target_labels,
+            target_attention_mask,
+        )
         read_layer_metrics[name] = {
             "layer_index": int(dict(modules)[name].layer_idx),
         }
@@ -609,9 +886,95 @@ def main() -> None:
         read_layer_metrics[name]["fused_delta_o"] = {
             "shape_per_condition": list(correct_fused.shape),
             "correct_vs_shuffled": pair_metrics(correct_fused, shuffled_fused),
+            "correct_vs_base_attention": correction_reference_metrics(
+                correct_fused,
+                correct_base,
+            ),
+            "shuffled_vs_base_attention": correction_reference_metrics(
+                shuffled_fused,
+                shuffled_base,
+            ),
             "correct_sha256": tensor_sha256(correct_fused),
             "shuffled_sha256": tensor_sha256(shuffled_fused),
         }
+        read_layer_metrics[name]["base_o_output"] = {
+            "correct_vs_shuffled": pair_metrics(correct_base, shuffled_base),
+        }
+        read_layer_metrics[name]["applied_delta_o"] = {
+            "shape_per_condition": list(correct_applied.shape),
+            "correct_vs_shuffled": pair_metrics(correct_applied, shuffled_applied),
+            "correct_vs_base_attention": correction_reference_metrics(
+                correct_applied,
+                correct_base,
+            ),
+            "shuffled_vs_base_attention": correction_reference_metrics(
+                shuffled_applied,
+                shuffled_base,
+            ),
+            "correct_sha256": tensor_sha256(correct_applied),
+            "shuffled_sha256": tensor_sha256(shuffled_applied),
+        }
+        read_layer_metrics[name]["post_attention_residual_correction"] = {
+            "shape_per_condition": list(correct_post_norm_correction.shape),
+            "correct_vs_shuffled": pair_metrics(
+                correct_post_norm_correction,
+                shuffled_post_norm_correction,
+            ),
+            "correct_vs_post_norm_base": correction_reference_metrics(
+                correct_post_norm_correction,
+                correct_post_norm_base,
+            ),
+            "shuffled_vs_post_norm_base": correction_reference_metrics(
+                shuffled_post_norm_correction,
+                shuffled_post_norm_base,
+            ),
+            "correct_sha256": tensor_sha256(correct_post_norm_correction),
+            "shuffled_sha256": tensor_sha256(shuffled_post_norm_correction),
+        }
+
+    correct_snapshot = writer_snapshots[args.target_row_index]
+    shuffled_snapshot = writer_snapshots[shuffled_row_index]
+    correct_replay = fixed_target_replays[args.target_row_index]
+    shuffled_replay = fixed_target_replays[shuffled_row_index]
+    with torch.inference_mode():
+        for module_index, (name, _) in enumerate(modules):
+            donor_with_correct_layer, _ = replay_fixed_target(
+                model=model,
+                target_row=target_row,
+                online_state=replace_module_online_state(
+                    shuffled_snapshot,
+                    correct_snapshot,
+                    name,
+                ),
+                device=args.device,
+                capture=None,
+            )
+            correct_with_donor_layer, _ = replay_fixed_target(
+                model=model,
+                target_row=target_row,
+                online_state=replace_module_online_state(
+                    correct_snapshot,
+                    shuffled_snapshot,
+                    name,
+                ),
+                device=args.device,
+                capture=None,
+            )
+            read_layer_metrics[name]["causal_state_swap"] = causal_state_swap_metrics(
+                correct_ce=float(correct_replay["ce"]),
+                donor_ce=float(shuffled_replay["ce"]),
+                donor_with_correct_layer_ce=float(donor_with_correct_layer["ce"]),
+                correct_with_donor_layer_ce=float(correct_with_donor_layer["ce"]),
+            )
+            bidirectional_effect = read_layer_metrics[name]["causal_state_swap"][
+                "bidirectional_mean_ce_effect"
+            ]
+            print(
+                f"swap {module_index + 1:02d}/{len(modules)} "
+                f"layer={read_layer_metrics[name]['layer_index']} "
+                f"effect={bidirectional_effect:.6f}",
+                flush=True,
+            )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     raw_payload = {
@@ -624,10 +987,68 @@ def main() -> None:
     }
     torch.save(raw_payload, raw_path)
 
-    correct_replay = fixed_target_replays[args.target_row_index]
-    shuffled_replay = fixed_target_replays[shuffled_row_index]
+    correction_distances = [
+        float(metrics["applied_delta_o"]["correct_vs_shuffled"]["relative_l2_mean_norm"])
+        for metrics in read_layer_metrics.values()
+    ]
+    correction_ratios = [
+        float(metrics["applied_delta_o"]["correct_vs_base_attention"]["token_norm_ratio_mean"])
+        for metrics in read_layer_metrics.values()
+    ]
+    post_norm_distances = [
+        float(
+            metrics["post_attention_residual_correction"]["correct_vs_shuffled"][
+                "relative_l2_mean_norm"
+            ]
+        )
+        for metrics in read_layer_metrics.values()
+    ]
+    causal_effects = [
+        float(metrics["causal_state_swap"]["bidirectional_mean_ce_effect"])
+        for metrics in read_layer_metrics.values()
+    ]
+    ranked_layers = sorted(
+        (
+            {
+                "layer_index": int(metrics["layer_index"]),
+                "module_name": name,
+                "bidirectional_mean_ce_effect": float(
+                    metrics["causal_state_swap"]["bidirectional_mean_ce_effect"]
+                ),
+                "donor_to_correct_ce_gain": float(
+                    metrics["causal_state_swap"]["donor_to_correct_ce_gain"]
+                ),
+                "correct_to_donor_ce_damage": float(
+                    metrics["causal_state_swap"]["correct_to_donor_ce_damage"]
+                ),
+                "correction_relative_l2": float(
+                    metrics["applied_delta_o"]["correct_vs_shuffled"][
+                        "relative_l2_mean_norm"
+                    ]
+                ),
+                "correction_base_ratio": float(
+                    metrics["applied_delta_o"]["correct_vs_base_attention"][
+                        "token_norm_ratio_mean"
+                    ]
+                ),
+                "post_norm_correction_relative_l2": float(
+                    metrics["post_attention_residual_correction"][
+                        "correct_vs_shuffled"
+                    ]["relative_l2_mean_norm"]
+                ),
+                "post_norm_correction_base_ratio": float(
+                    metrics["post_attention_residual_correction"][
+                        "correct_vs_post_norm_base"
+                    ]["token_norm_ratio_mean"]
+                ),
+            }
+            for name, metrics in read_layer_metrics.items()
+        ),
+        key=lambda item: item["bidirectional_mean_ce_effect"],
+        reverse=True,
+    )
     result = {
-        "schema": "rwkv_ms_memory_representation_diagnostic.v1",
+        "schema": "rwkv_ms_memory_representation_diagnostic.v2",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "elapsed_seconds": time.time() - started_at,
         "provenance": {
@@ -640,6 +1061,7 @@ def main() -> None:
             "source_jsonl_sha256": sha256_file(source_path),
             "training_protocol": protocol,
             "shuffle_seed": args.shuffle_seed,
+            "pairing": pairing_provenance,
             "shuffled_donor_indices": donors,
             "device": args.device,
             "dtype": args.dtype,
@@ -715,6 +1137,71 @@ def main() -> None:
                     "effective_rank",
                 ),
             ),
+            "fused_delta_correct_base_ratio": _aggregate_layer_metric(
+                read_layer_metrics,
+                (
+                    "fused_delta_o",
+                    "correct_vs_base_attention",
+                    "token_norm_ratio_mean",
+                ),
+            ),
+            "applied_delta_correct_vs_shuffled_relative_l2": _aggregate_layer_metric(
+                read_layer_metrics,
+                ("applied_delta_o", "correct_vs_shuffled", "relative_l2_mean_norm"),
+            ),
+            "applied_delta_correct_base_ratio": _aggregate_layer_metric(
+                read_layer_metrics,
+                (
+                    "applied_delta_o",
+                    "correct_vs_base_attention",
+                    "token_norm_ratio_mean",
+                ),
+            ),
+            "post_norm_correction_correct_vs_shuffled_relative_l2": _aggregate_layer_metric(
+                read_layer_metrics,
+                (
+                    "post_attention_residual_correction",
+                    "correct_vs_shuffled",
+                    "relative_l2_mean_norm",
+                ),
+            ),
+            "post_norm_correction_base_ratio": _aggregate_layer_metric(
+                read_layer_metrics,
+                (
+                    "post_attention_residual_correction",
+                    "correct_vs_post_norm_base",
+                    "token_norm_ratio_mean",
+                ),
+            ),
+            "causal_donor_to_correct_ce_gain": _aggregate_layer_metric(
+                read_layer_metrics,
+                ("causal_state_swap", "donor_to_correct_ce_gain"),
+            ),
+            "causal_correct_to_donor_ce_damage": _aggregate_layer_metric(
+                read_layer_metrics,
+                ("causal_state_swap", "correct_to_donor_ce_damage"),
+            ),
+            "causal_bidirectional_mean_ce_effect": _aggregate_layer_metric(
+                read_layer_metrics,
+                ("causal_state_swap", "bidirectional_mean_ce_effect"),
+            ),
+            "causal_bidirectional_positive_layers": sum(
+                bool(metrics["causal_state_swap"]["bidirectional_positive"])
+                for metrics in read_layer_metrics.values()
+            ),
+            "correction_distance_vs_causal_effect_pearson": pearson_correlation(
+                correction_distances,
+                causal_effects,
+            ),
+            "correction_base_ratio_vs_causal_effect_pearson": pearson_correlation(
+                correction_ratios,
+                causal_effects,
+            ),
+            "post_norm_distance_vs_causal_effect_pearson": pearson_correlation(
+                post_norm_distances,
+                causal_effects,
+            ),
+            "ranked_layers_by_causal_effect": ranked_layers,
         },
         "metric_notes": {
             "relative_l2_mean_norm": "||a-b|| / ((||a||+||b||)/2)",
@@ -725,8 +1212,24 @@ def main() -> None:
             "raw_state_read": "Slot-routed state lookup before RWKV readout GroupNorm/g/output.",
             "post_readout": "Four-dimensional RWKV read after GroupNorm, g, and output projection.",
             "fused_delta_o": (
-                "Exact content-gated delta_o injected by attention_output fusion at supervised "
-                "causal source positions."
+                "Pre-add content-gated delta_o used by the representation objective at "
+                "supervised causal source positions."
+            ),
+            "applied_delta_o": (
+                "Actual bfloat16 attention-output change after adding fused_delta_o to the "
+                "base attention output."
+            ),
+            "post_attention_residual_correction": (
+                "Exact downstream change after Gemma post-attention RMSNorm, before the "
+                "decoder residual addition."
+            ),
+            "causal_state_swap": (
+                "Downstream supervised CE change when one layer's complete RWKV-MS online "
+                "state is swapped between the correct and shuffled writer snapshots."
+            ),
+            "bidirectional_mean_ce_effect": (
+                "Mean of donor CE improvement after inserting the correct layer state and "
+                "correct CE damage after inserting the donor layer state; positive is desired."
             ),
         },
     }

@@ -15,8 +15,13 @@ NUM_TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-4}"
 MAX_STEPS="${MAX_STEPS:-128}"
 RESUME_FROM_CHECKPOINT="${RESUME_FROM_CHECKPOINT:-}"
 RESUME_MODE="${RESUME_MODE:-extend}"
+WARM_START_FROM_CHECKPOINT="${WARM_START_FROM_CHECKPOINT:-}"
+WARM_START_MODE="${WARM_START_MODE:-residual_hybrid_w8_ablation}"
 MEMORY_FUSION_PLACEMENT="${MEMORY_FUSION_PLACEMENT:-attention_output}"
 MEMORY_FUSION_RESIDUAL_SCALE="${MEMORY_FUSION_RESIDUAL_SCALE:-1.0}"
+MEMORY_FUSION_RESIDUAL_SCALE_MAX="${MEMORY_FUSION_RESIDUAL_SCALE_MAX:-1.0}"
+MEMORY_FUSION_MODE="${MEMORY_FUSION_MODE:-content_gated_add}"
+MEMORY_FUSION_GATE_INIT="${MEMORY_FUSION_GATE_INIT:-0.1}"
 MEMORY_LOSS_MODE="${MEMORY_LOSS_MODE:-context_dropout_ce}"
 MEMORY_CONTRAST_WEIGHT="${MEMORY_CONTRAST_WEIGHT:-0}"
 MEMORY_MARGIN="${MEMORY_MARGIN:-0.1}"
@@ -25,15 +30,29 @@ MEMORY_REPRESENTATION_MARGIN="${MEMORY_REPRESENTATION_MARGIN:-0.1}"
 TARGET_LAYERS="$(seq -s, 0 41)"
 
 if [[ -e "$OUTPUT_DIR" ]]; then
-  echo "OUTPUT_DIR must not already exist: $OUTPUT_DIR" >&2
-  exit 1
+  if [[ -z "$RESUME_FROM_CHECKPOINT" || "$RESUME_MODE" != "exact" ]]; then
+    echo "OUTPUT_DIR may already exist only for an exact checkpoint resume: $OUTPUT_DIR" >&2
+    exit 1
+  fi
 fi
 
 resume_args=()
+if [[ -n "$RESUME_FROM_CHECKPOINT" && -n "$WARM_START_FROM_CHECKPOINT" ]]; then
+  echo "RESUME_FROM_CHECKPOINT and WARM_START_FROM_CHECKPOINT are mutually exclusive" >&2
+  exit 1
+fi
 if [[ -n "$RESUME_FROM_CHECKPOINT" ]]; then
   resume_args=(
     --resume-from-checkpoint "$RESUME_FROM_CHECKPOINT"
     --resume-mode "$RESUME_MODE"
+  )
+fi
+
+warm_start_args=()
+if [[ -n "$WARM_START_FROM_CHECKPOINT" ]]; then
+  warm_start_args=(
+    --warm-start-from-checkpoint "$WARM_START_FROM_CHECKPOINT"
+    --warm-start-mode "$WARM_START_MODE"
   )
 fi
 
@@ -44,6 +63,7 @@ PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_BIN" \
   --train-file "$TRAIN_FILE" \
   --output-dir "$OUTPUT_DIR" \
   "${resume_args[@]}" \
+  "${warm_start_args[@]}" \
   --hf-cache-dir "$HF_CACHE_DIR" \
   --tokenized-dataset-root "$TOKENIZED_DATASET_ROOT" \
   --tokenized-cache \
@@ -70,10 +90,11 @@ PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_BIN" \
   --delta-heads o \
   --no-delta-o-rmsnorm \
   --delta-o-rmsnorm-eps 1e-6 \
-  --memory-fusion-mode content_gated_add \
-  --memory-fusion-gate-init 0.1 \
+  --memory-fusion-mode "$MEMORY_FUSION_MODE" \
+  --memory-fusion-gate-init "$MEMORY_FUSION_GATE_INIT" \
   --memory-fusion-placement "$MEMORY_FUSION_PLACEMENT" \
   --memory-fusion-residual-scale "$MEMORY_FUSION_RESIDUAL_SCALE" \
+  --memory-fusion-residual-scale-max "$MEMORY_FUSION_RESIDUAL_SCALE_MAX" \
   --trainable-delta-scale \
   --delta-scale-init 0.1 \
   --delta-scale-max 0.5 \

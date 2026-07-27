@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -127,6 +128,9 @@ def _objective_pairing_summary() -> dict[str, object]:
     return {
         "pairing_version": experimental_train._CONTENT_CONTRAST_PAIRING_VERSION,
         "pairing_scope": "within_post_split_partition",
+        "target_mode": experimental_train._CONTENT_CONTRAST_TARGET_MODE,
+        "target_span_tokens": experimental_train._CONTENT_CONTRAST_TARGET_SPAN_TOKENS,
+        "target_token_count": 256,
         "data_seed": 42,
         "tokenized_fingerprint": "fixed-dataset",
         "manifest_sha256": "a" * 64,
@@ -134,6 +138,11 @@ def _objective_pairing_summary() -> dict[str, object]:
             "train": {
                 "sample_count": 32,
                 "rotation": 16,
+                "target_mode": experimental_train._CONTENT_CONTRAST_TARGET_MODE,
+                "target_span_tokens": (
+                    experimental_train._CONTENT_CONTRAST_TARGET_SPAN_TOKENS
+                ),
+                "target_token_count": 256,
                 "source_fingerprint": "source-fingerprint",
                 "paired_fingerprint": "paired-fingerprint",
                 "pairs_sha256": "b" * 64,
@@ -169,6 +178,12 @@ def _objective_target_protocol() -> dict[str, object]:
         "content_contrast_read_mask_mode": (
             experimental_train._CONTENT_CONTRAST_READ_MASK_MODE
         ),
+        "content_contrast_target_mode": (
+            experimental_train._CONTENT_CONTRAST_TARGET_MODE
+        ),
+        "content_contrast_target_span_tokens": (
+            experimental_train._CONTENT_CONTRAST_TARGET_SPAN_TOKENS
+        ),
         "content_contrast_previous_source_grad": (
             experimental_train._CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
         ),
@@ -199,6 +214,148 @@ def _objective_args(checkpoint: Path, output_dir: Path) -> SimpleNamespace:
         memory_partition_entropy_weight=0.0,
         memory_partition_balance_weight=0.0,
     )
+
+
+def _v14_pairing_summary() -> dict[str, object]:
+    current = _objective_pairing_summary()
+    train_split = dict(current["splits"]["train"])
+    train_split.pop("target_mode")
+    train_split.pop("target_span_tokens")
+    train_split.pop("target_token_count")
+    pairing = dict(current)
+    pairing.pop("target_mode")
+    pairing.pop("target_span_tokens")
+    pairing.pop("target_token_count")
+    pairing["splits"] = {"train": train_split}
+    return pairing
+
+
+def _v14_protocol() -> dict[str, object]:
+    protocol = {
+        **_objective_target_protocol(),
+        "schema_version": experimental_train._RESIDUAL_HYBRID_W8_SOURCE_SCHEMA_VERSION,
+        "memory_objective_version": (
+            experimental_train._RESIDUAL_HYBRID_W8_SOURCE_OBJECTIVE_VERSION
+        ),
+        "content_contrast_representation_mode": (
+            experimental_train._RESIDUAL_HYBRID_W8_SOURCE_REPRESENTATION_MODE
+        ),
+        "content_contrast_pairing": _v14_pairing_summary(),
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_scale": 1.0,
+        "warmup_ratio": experimental_train._RESIDUAL_HYBRID_W8_TARGET_WARMUP_RATIO,
+        "warmup_steps": 8,
+        "max_steps": experimental_train._RESIDUAL_HYBRID_W8_SOURCE_GLOBAL_STEP,
+        "num_train_epochs": experimental_train._RESIDUAL_HYBRID_W8_SOURCE_EPOCH,
+    }
+    protocol.pop("content_contrast_target_mode")
+    protocol.pop("content_contrast_target_span_tokens")
+    protocol.pop("memory_fusion_residual_scale_max", None)
+    return protocol
+
+
+def _synthetic_v14_adapter_state() -> dict[str, torch.Tensor]:
+    return {
+        f"shared.{index:04d}": torch.tensor([float(index)], dtype=torch.float32)
+        for index in range(
+            experimental_train._RESIDUAL_HYBRID_W8_SOURCE_ADAPTER_TENSORS
+        )
+    }
+
+
+def _residual_gain_names() -> tuple[str, ...]:
+    return tuple(
+        f"layer.{index}.memory_fusion_residual_gain_raw"
+        for index in experimental_train._RESIDUAL_HYBRID_W8_TARGET_LAYERS
+    )
+
+
+def _synthetic_hybrid_target_state(
+    source_state: dict[str, torch.Tensor],
+) -> dict[str, torch.Tensor]:
+    target = {name: tensor.clone() for name, tensor in source_state.items()}
+    for name in _residual_gain_names():
+        target[name] = torch.zeros(1, dtype=torch.float32)
+    return target
+
+
+def _warm_start_args(checkpoint: Path, output_dir: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        warm_start_mode=experimental_train._RESIDUAL_HYBRID_W8_WARM_START_MODE,
+        warm_start_from_checkpoint=str(checkpoint),
+        resume_from_checkpoint=None,
+        resume_mode="exact",
+        output_dir=output_dir,
+        memory_loss_mode="content_contrast_ce",
+        memory_contrast_weight=0.25,
+        memory_margin=0.5,
+        memory_representation_weight=0.1,
+        memory_representation_margin=0.1,
+        memory_kl_weight=0.0,
+        memory_base_kl_weight=0.0,
+        write_sparsity_weight=0.0,
+        memory_partition_alignment_weight=0.0,
+        memory_partition_entropy_weight=0.0,
+        memory_partition_balance_weight=0.0,
+        lr_scheduler_type="constant_with_warmup",
+        warmup_ratio=experimental_train._RESIDUAL_HYBRID_W8_TARGET_WARMUP_RATIO,
+        max_steps=experimental_train._RESIDUAL_HYBRID_W8_TARGET_MAX_STEPS,
+        num_train_epochs=experimental_train._RESIDUAL_HYBRID_W8_TARGET_EPOCHS,
+        memory_fusion_placement=(
+            experimental_train._RESIDUAL_HYBRID_W8_TARGET_PLACEMENT
+        ),
+        memory_fusion_residual_scale=(
+            experimental_train._RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE
+        ),
+        memory_fusion_residual_scale_max=(
+            experimental_train._RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE_MAX
+        ),
+        target_layers=",".join(
+            str(index) for index in experimental_train._RESIDUAL_HYBRID_W8_TARGET_LAYERS
+        ),
+    )
+
+
+def _write_v14_warm_start_checkpoint(path: Path) -> HFDeltaMemConfig:
+    path.mkdir(parents=True)
+    source_config = HFDeltaMemConfig(
+        rank=2,
+        delta_heads=("o",),
+        memory_fusion_placement="attention_output",
+        memory_fusion_residual_scale=1.0,
+        target_layers=experimental_train._RESIDUAL_HYBRID_W8_TARGET_LAYERS,
+    )
+    source_config.save_pretrained(path)
+    torch.save(_synthetic_v14_adapter_state(), path / "delta_mem_adapter.pt")
+    parameter_ids = list(
+        range(experimental_train._RESIDUAL_HYBRID_W8_SOURCE_OPTIMIZER_PARAMETERS)
+    )
+    torch.save(
+        {
+            "param_groups": [{"params": parameter_ids}],
+            "state": {parameter_id: {} for parameter_id in parameter_ids},
+        },
+        path / "optimizer.pt",
+    )
+    torch.save({}, path / "scheduler.pt")
+    torch.save({}, path / "rng_state.pth")
+    (path / "trainer_state.json").write_text(
+        json.dumps(
+            {
+                "global_step": experimental_train._RESIDUAL_HYBRID_W8_SOURCE_GLOBAL_STEP,
+                "max_steps": experimental_train._RESIDUAL_HYBRID_W8_SOURCE_GLOBAL_STEP,
+                "epoch": experimental_train._RESIDUAL_HYBRID_W8_SOURCE_EPOCH,
+            }
+        )
+    )
+    source_protocol = _v14_protocol()
+    (path / experimental_train._TRAINING_PROTOCOL_FILENAME).write_text(
+        json.dumps(source_protocol)
+    )
+    (path / experimental_train._CONTENT_CONTRAST_PAIRING_FILENAME).write_text(
+        json.dumps(_v14_pairing_summary())
+    )
+    return source_config
 
 
 def test_resolve_resume_checkpoint_uses_latest_complete_checkpoint(tmp_path: Path) -> None:
@@ -1079,6 +1236,18 @@ def test_objective_ablation_protocol_allows_only_strict_objective_transition() -
             {**target, "content_contrast_representation_mode": "wrong_mode"},
             resume_mode="objective_ablation",
         )
+    with pytest.raises(ValueError, match="content_contrast_target_mode"):
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "content_contrast_target_mode": "full_answer_v1"},
+            resume_mode="objective_ablation",
+        )
+    with pytest.raises(ValueError, match="content_contrast_target_span_tokens"):
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "content_contrast_target_span_tokens": 1},
+            resume_mode="objective_ablation",
+        )
     with pytest.raises(ValueError, match="memory_representation_margin to be positive"):
         experimental_train.validate_resume_training_protocol(
             source,
@@ -1097,20 +1266,19 @@ def test_objective_ablation_protocol_allows_only_strict_objective_transition() -
         )
 
 
-def test_exact_resume_rejects_legacy_content_contrast_representation_protocol() -> None:
+def test_exact_resume_rejects_legacy_full_answer_content_contrast_protocol() -> None:
     target = _objective_target_protocol()
     legacy = {
         **target,
-        "schema_version": 6,
-        "memory_objective_version": "content_contrast_ce_v4",
+        "schema_version": 7,
+        "memory_objective_version": "content_contrast_ce_v5",
     }
-    legacy.pop("memory_representation_weight")
-    legacy.pop("memory_representation_margin")
-    legacy.pop("content_contrast_representation_mode")
+    legacy.pop("content_contrast_target_mode")
+    legacy.pop("content_contrast_target_span_tokens")
 
     with pytest.raises(
         ValueError,
-        match="content_contrast_representation_mode|memory_objective_version|schema_version",
+        match="content_contrast_target_mode|memory_objective_version|schema_version",
     ):
         experimental_train.validate_resume_training_protocol(
             legacy,
@@ -1163,6 +1331,12 @@ def test_prepare_objective_ablation_records_strict_lineage(tmp_path: Path) -> No
     )
     assert manifest["target_content_contrast_read_mask_mode"] == (
         experimental_train._CONTENT_CONTRAST_READ_MASK_MODE
+    )
+    assert manifest["target_content_contrast_target_mode"] == (
+        experimental_train._CONTENT_CONTRAST_TARGET_MODE
+    )
+    assert manifest["target_content_contrast_target_span_tokens"] == (
+        experimental_train._CONTENT_CONTRAST_TARGET_SPAN_TOKENS
     )
     assert manifest["target_content_contrast_previous_source_grad"] is True
     assert manifest["target_content_contrast_representation_mode"] == (
@@ -1291,3 +1465,403 @@ def test_exact_resume_accepts_objective_ablation_lineage(tmp_path: Path) -> None
         args,
         str(checkpoint),
     ) == manifest
+
+
+def test_warm_start_cli_is_mutually_exclusive_and_exposes_hybrid_gain_max(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkpoint = tmp_path / "checkpoint-416"
+    argv = [
+        "delta_sft",
+        "--model-path",
+        "base-model",
+        "--output-dir",
+        str(tmp_path / "output"),
+        "--warm-start-from-checkpoint",
+        str(checkpoint),
+        "--warm-start-mode",
+        experimental_train._RESIDUAL_HYBRID_W8_WARM_START_MODE,
+        "--memory-fusion-placement",
+        experimental_train._RESIDUAL_HYBRID_W8_TARGET_PLACEMENT,
+        "--memory-fusion-residual-scale",
+        str(experimental_train._RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE),
+        "--memory-fusion-residual-scale-max",
+        str(experimental_train._RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE_MAX),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    args = experimental_train.parse_args()
+
+    assert args.warm_start_from_checkpoint == str(checkpoint)
+    assert args.memory_fusion_placement == "post_attention_residual_hybrid"
+    assert args.memory_fusion_residual_scale == 0.01
+    assert args.memory_fusion_residual_scale_max == 0.02
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            *argv,
+            "--resume-from-checkpoint",
+            str(checkpoint),
+        ],
+    )
+    with pytest.raises(SystemExit):
+        experimental_train.parse_args()
+
+
+def test_residual_hybrid_w8_warm_start_args_are_exact(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "checkpoint-416"
+    args = _warm_start_args(checkpoint, tmp_path / "target")
+
+    experimental_train._validate_residual_hybrid_w8_warm_start_args(args)
+
+    args.memory_fusion_residual_scale_max = 0.05
+    with pytest.raises(ValueError, match="memory_fusion_residual_scale_max"):
+        experimental_train._validate_residual_hybrid_w8_warm_start_args(args)
+
+
+def test_prepare_adapter_warm_start_records_non_import_provenance(
+    tmp_path: Path,
+) -> None:
+    checkpoint = tmp_path / "source" / "trainer" / "checkpoint-416"
+    _write_v14_warm_start_checkpoint(checkpoint)
+    args = _warm_start_args(checkpoint, tmp_path / "target")
+    resolved = experimental_train.resolve_adapter_warm_start_checkpoint(checkpoint)
+
+    context = experimental_train.prepare_adapter_warm_start(args, resolved)
+
+    assert context is not None
+    assert context.checkpoint == checkpoint.resolve()
+    assert context.manifest["source_global_step"] == 416
+    assert context.manifest["source_optimizer_parameter_count"] == 1218
+    assert context.manifest["source_state_imports"] == {
+        "adapter": True,
+        "optimizer": False,
+        "scheduler": False,
+        "trainer_state": False,
+        "rng": False,
+    }
+    assert context.manifest["source_optimizer_imported"] is False
+    assert context.manifest["source_scheduler_imported"] is False
+    assert context.manifest["source_trainer_state_imported"] is False
+    assert context.manifest["source_rng_state_imported"] is False
+    assert context.manifest["target_initial_global_step"] == 0
+    assert context.manifest["target_max_steps"] == 32
+    assert context.manifest["target_warmup_steps"] == 2
+    assert context.manifest[
+        "source_content_contrast_pairing_manifest_sha256"
+    ] == _v14_pairing_summary()["manifest_sha256"]
+    assert len(
+        context.manifest["source_content_contrast_pairing_file_sha256"]
+    ) == 64
+    experimental_train.finalize_adapter_warm_start_lineage(
+        context,
+        target_training_protocol_sha256="d" * 64,
+        target_pairing_manifest={"manifest_sha256": "e" * 64},
+    )
+    assert context.manifest["target_training_protocol_sha256"] == "d" * 64
+    assert context.manifest[
+        "target_content_contrast_pairing_manifest_sha256"
+    ] == "e" * 64
+    assert context.manifest["trainer_resume_from_checkpoint"] is None
+    assert context.manifest["fresh_optimizer_created"] is True
+    assert (
+        experimental_train._lineage_manifest_filename(context.manifest)
+        == experimental_train._WARM_START_LINEAGE_FILENAME
+    )
+
+
+def test_residual_hybrid_w8_adapter_topology_requires_only_42_new_gains() -> None:
+    source_state = _synthetic_v14_adapter_state()
+    target_state = _synthetic_hybrid_target_state(source_state)
+    gain_names = _residual_gain_names()
+
+    manifest = experimental_train.validate_residual_hybrid_w8_adapter_topology(
+        source_state,
+        target_state,
+        gain_names=gain_names,
+        source_optimizer_parameter_count=1218,
+        target_trainable_tensor_count=1260,
+    )
+
+    assert manifest["source_adapter_tensor_count"] == 1470
+    assert manifest["target_adapter_tensor_count"] == 1512
+    assert manifest["shared_adapter_tensor_count"] == 1470
+    assert manifest["new_residual_gain_tensor_count"] == 42
+    assert manifest["target_trainable_tensor_count"] == 1260
+    assert manifest["source_adapter_topology_sha256"] == manifest[
+        "target_shared_adapter_topology_sha256"
+    ]
+
+    missing_gain = dict(target_state)
+    missing_gain.pop(gain_names[-1])
+    with pytest.raises(ValueError, match="target adapter must contain exactly 1512"):
+        experimental_train.validate_residual_hybrid_w8_adapter_topology(
+            source_state,
+            missing_gain,
+            gain_names=gain_names,
+            source_optimizer_parameter_count=1218,
+            target_trainable_tensor_count=1260,
+        )
+
+    shape_mismatch = dict(target_state)
+    shape_mismatch[next(iter(source_state))] = torch.zeros(2)
+    with pytest.raises(ValueError, match="shape mismatch"):
+        experimental_train.validate_residual_hybrid_w8_adapter_topology(
+            source_state,
+            shape_mismatch,
+            gain_names=gain_names,
+            source_optimizer_parameter_count=1218,
+            target_trainable_tensor_count=1260,
+        )
+
+    with pytest.raises(ValueError, match=r"source optimizer count \+ 42"):
+        experimental_train.validate_residual_hybrid_w8_adapter_topology(
+            source_state,
+            target_state,
+            gain_names=gain_names,
+            source_optimizer_parameter_count=1218,
+            target_trainable_tensor_count=1259,
+        )
+
+
+def test_apply_adapter_warm_start_loads_only_shared_weights_and_preserves_gains(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkpoint = tmp_path / "source" / "trainer" / "checkpoint-416"
+    source_config = _write_v14_warm_start_checkpoint(checkpoint)
+    context = experimental_train.prepare_adapter_warm_start(
+        _warm_start_args(checkpoint, tmp_path / "target"),
+        str(checkpoint),
+    )
+    assert context is not None
+    target_payload = source_config.to_dict()
+    target_payload.update(
+        {
+            "memory_fusion_placement": (
+                experimental_train._RESIDUAL_HYBRID_W8_TARGET_PLACEMENT
+            ),
+            "memory_fusion_residual_scale": (
+                experimental_train._RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE
+            ),
+            "memory_fusion_residual_scale_max": (
+                experimental_train._RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE_MAX
+            ),
+        }
+    )
+    target_config = HFDeltaMemConfig.from_dict(target_payload)
+    source_state = _synthetic_v14_adapter_state()
+    active_state = {
+        name: torch.zeros_like(tensor) for name, tensor in source_state.items()
+    }
+    for name in _residual_gain_names():
+        active_state[name] = torch.tensor(0.01, dtype=torch.bfloat16).float().reshape(1)
+
+    class FakeHybridModule:
+        def __init__(self, layer_index: int) -> None:
+            self.base = SimpleNamespace(layer_idx=layer_index)
+            self.state_name = f"layer.{layer_index}.memory_fusion_residual_gain_raw"
+            self.memory_fusion_residual_gain_raw = torch.nn.Parameter(torch.zeros(1))
+
+        def set_memory_fusion_residual_gain(self, gain: float) -> None:
+            active_state[self.state_name] = torch.tensor(
+                [gain], dtype=torch.float32
+            )
+
+        def _resolved_memory_fusion_residual_gain(self, *, device, dtype):
+            return active_state[self.state_name].to(device=device, dtype=dtype)[0]
+
+    modules = [
+        (f"layer.{index}", FakeHybridModule(index))
+        for index in experimental_train._RESIDUAL_HYBRID_W8_TARGET_LAYERS
+    ]
+    load_calls: list[tuple[Path, bool]] = []
+
+    monkeypatch.setattr(
+        experimental_train,
+        "get_delta_mem_state_dict",
+        lambda model: dict(active_state),
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "iter_delta_mem_modules",
+        lambda model: iter(modules),
+    )
+
+    def fake_load_adapter(model, source, *, initialize_missing_residual_hybrid_gain=False):
+        del model
+        load_calls.append((Path(source), initialize_missing_residual_hybrid_gain))
+        for name, tensor in source_state.items():
+            active_state[name] = tensor.clone()
+        return source_config
+
+    monkeypatch.setattr(experimental_train, "load_delta_mem_adapter", fake_load_adapter)
+    trainable_names = [
+        *list(source_state)[:1218],
+        *_residual_gain_names(),
+    ]
+    manifest = experimental_train.apply_adapter_warm_start(
+        object(),
+        context,
+        target_config,
+        trainable_names,
+    )
+
+    assert load_calls == [(checkpoint, True)]
+    assert manifest["shared_adapter_bit_equality_verified"] is True
+    assert manifest["new_residual_gains_preserved_during_load"] is True
+    assert manifest["target_effective_residual_gain_initial"] == 0.01
+    assert manifest["target_effective_residual_gain_max"] == 0.02
+    for name, source_tensor in source_state.items():
+        torch.testing.assert_close(active_state[name], source_tensor, rtol=0.0, atol=0.0)
+    for name in _residual_gain_names():
+        torch.testing.assert_close(
+            active_state[name],
+            torch.tensor([0.01], dtype=torch.float32),
+            rtol=0.0,
+            atol=0.0,
+        )
+
+
+def test_residual_hybrid_w8_target_protocol_is_fresh_schema8_w8() -> None:
+    source = _v14_protocol()
+    target = {
+        **_objective_target_protocol(),
+        "memory_fusion_placement": (
+            experimental_train._RESIDUAL_HYBRID_W8_TARGET_PLACEMENT
+        ),
+        "memory_fusion_residual_scale": (
+            experimental_train._RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE
+        ),
+        "memory_fusion_residual_scale_max": (
+            experimental_train._RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE_MAX
+        ),
+        "warmup_steps": experimental_train._RESIDUAL_HYBRID_W8_TARGET_WARMUP_STEPS,
+        "max_steps": experimental_train._RESIDUAL_HYBRID_W8_TARGET_MAX_STEPS,
+        "num_train_epochs": experimental_train._RESIDUAL_HYBRID_W8_TARGET_EPOCHS,
+    }
+
+    experimental_train.validate_residual_hybrid_w8_target_protocol(source, target)
+
+    with pytest.raises(ValueError, match="warmup_steps"):
+        experimental_train.validate_residual_hybrid_w8_target_protocol(
+            source,
+            {**target, "warmup_steps": 3},
+        )
+
+
+def test_warm_start_uses_fresh_step_zero_optimizer_and_two_step_warmup(
+    tmp_path: Path,
+) -> None:
+    checkpoint = tmp_path / "source" / "trainer" / "checkpoint-416"
+    _write_v14_warm_start_checkpoint(checkpoint)
+    context = experimental_train.prepare_adapter_warm_start(
+        _warm_start_args(checkpoint, tmp_path / "target"),
+        str(checkpoint),
+    )
+    assert context is not None
+
+    assert experimental_train.resolve_trainer_resume_checkpoint(None, context) is None
+    with pytest.raises(RuntimeError, match="must not restore Trainer checkpoint state"):
+        experimental_train.resolve_trainer_resume_checkpoint(str(checkpoint), context)
+    assert experimental_train.compute_warmup_steps(
+        train_samples=32,
+        per_device_train_batch_size=1,
+        world_size=1,
+        gradient_accumulation_steps=1,
+        num_train_epochs=1.0,
+        max_steps=32,
+        warmup_ratio=0.0625,
+    ) == 2
+
+
+def test_content_contrast_representation_allows_only_output_and_residual_hybrid() -> None:
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.episode_read_write_enabled = False
+    trainer.memory_representation_weight = 0.1
+    trainer.memory_representation_margin = 0.1
+    trainer.memory_kl_weight = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.write_sparsity_weight = 0.0
+    trainer.memory_partition_alignment_weight = 0.0
+    trainer.memory_partition_entropy_weight = 0.0
+    trainer.memory_partition_balance_weight = 0.0
+    trainer.delta_config = HFDeltaMemConfig(
+        delta_heads=("o",),
+        memory_fusion_placement="post_attention_residual_hybrid",
+        memory_fusion_residual_scale=0.01,
+        memory_fusion_residual_scale_max=0.02,
+    )
+
+    trainer._validate_content_contrast_runtime()
+
+    trainer.delta_config = HFDeltaMemConfig(
+        delta_heads=("o",),
+        memory_fusion_placement="post_attention_norm",
+    )
+    with pytest.raises(ValueError, match="attention_output or post_attention_residual_hybrid"):
+        trainer._validate_content_contrast_runtime()
+
+
+def test_exact_resume_accepts_warm_start_lineage(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "trainer" / "checkpoint-16"
+    checkpoint.mkdir(parents=True)
+    manifest = {
+        "schema_version": experimental_train._WARM_START_LINEAGE_SCHEMA_VERSION,
+        "mode": experimental_train._RESIDUAL_HYBRID_W8_WARM_START_MODE,
+        "source_global_step": 416,
+        "source_optimizer_imported": False,
+        "trainer_resume_from_checkpoint": None,
+        "fresh_optimizer_created": True,
+    }
+    (checkpoint / experimental_train._WARM_START_LINEAGE_FILENAME).write_text(
+        json.dumps(manifest)
+    )
+
+    assert experimental_train.prepare_training_continuation(
+        SimpleNamespace(resume_mode="exact"),
+        str(checkpoint),
+    ) == manifest
+
+
+def test_delta_mem_trainer_saves_finalized_warm_start_lineage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "checkpoint-16"
+    manifest = {
+        "schema_version": experimental_train._WARM_START_LINEAGE_SCHEMA_VERSION,
+        "mode": experimental_train._RESIDUAL_HYBRID_W8_WARM_START_MODE,
+        "source_global_step": 416,
+        "target_training_protocol_sha256": "d" * 64,
+        "target_content_contrast_pairing_manifest_sha256": "e" * 64,
+        "trainer_resume_from_checkpoint": None,
+        "fresh_optimizer_created": True,
+    }
+
+    def fake_save_adapter(model, output_dir, active_config) -> None:
+        del model, active_config
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(experimental_train, "save_delta_mem_adapter", fake_save_adapter)
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.args = SimpleNamespace(output_dir=str(output))
+    trainer.model = torch.nn.Linear(2, 2)
+    trainer.delta_config = HFDeltaMemConfig(rank=2)
+    trainer.training_protocol = _objective_target_protocol()
+    trainer.content_contrast_pairing_manifest = {"manifest_sha256": "e" * 64}
+    trainer.continuation_manifest = dict(manifest)
+    trainer.accelerator = SimpleNamespace(unwrap_model=lambda wrapped: wrapped)
+    trainer.is_world_process_zero = lambda: True
+
+    trainer.save_model(str(output))
+
+    saved = json.loads(
+        (output / experimental_train._WARM_START_LINEAGE_FILENAME).read_text()
+    )
+    assert saved == manifest
+    assert saved["trainer_resume_from_checkpoint"] is None
+    assert saved["fresh_optimizer_created"] is True

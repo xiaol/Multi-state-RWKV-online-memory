@@ -102,6 +102,8 @@ def load_model_and_tokenizer(
     memory_repo: str | None = None,
     memory_fusion_placement: str | None = None,
     memory_fusion_residual_scale: float | None = None,
+    memory_fusion_residual_scale_max: float | None = None,
+    initialize_missing_residual_hybrid_gain: bool = False,
 ):
     add_delta_mem_root(delta_mem_root)
     adapter_dir = resolve_memory_dir(memory_dir, memory_repo)
@@ -116,6 +118,10 @@ def load_model_and_tokenizer(
             attn_implementation=attn_implementation,
             memory_fusion_placement=memory_fusion_placement,
             memory_fusion_residual_scale=memory_fusion_residual_scale,
+            memory_fusion_residual_scale_max=memory_fusion_residual_scale_max,
+            initialize_missing_residual_hybrid_gain=(
+                initialize_missing_residual_hybrid_gain
+            ),
         )
 
     import torch

@@ -245,7 +245,12 @@ def _promote_trainable_parameters_to_fp32(model) -> None:
 _RESUME_LATEST_VALUES = frozenset({"auto", "latest"})
 _RESUME_MODES = ("exact", "extend", "placement_ablation", "objective_ablation")
 _ABLATION_RESUME_MODES = frozenset({"placement_ablation", "objective_ablation"})
+_WARM_START_MODES = ("residual_hybrid_w8_ablation",)
+_RESIDUAL_HYBRID_W8_WARM_START_MODE = _WARM_START_MODES[0]
 _CONTINUATION_SCHEDULERS = frozenset({"constant", "constant_with_warmup"})
+_REPRESENTATION_CAPTURE_FUSION_PLACEMENTS = frozenset(
+    {"attention_output", "post_attention_residual_hybrid"}
+)
 _REQUIRED_RESUME_CHECKPOINT_FILES = (
     "delta_mem_adapter.pt",
     "delta_mem_config.json",
@@ -256,13 +261,15 @@ _REQUIRED_RESUME_CHECKPOINT_FILES = (
 _TRAINING_PROTOCOL_FILENAME = "training_protocol.json"
 _TRAINING_PROTOCOL_SCHEMA_VERSION = 2
 _MEMORY_OBJECTIVE_VERSION = "canonical_full_context_teacher_v1"
-_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 7
-_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v5"
+_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 8
+_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v6"
 _CONTENT_CONTRAST_BACKWARD_MODE = "sequential_exact_first_order_v1"
 _CONTENT_CONTRAST_READ_MASK_MODE = "valid_context_and_supervised_predictors_v2"
+_CONTENT_CONTRAST_TARGET_MODE = "first_differing_supervised_target_span_v1"
+_CONTENT_CONTRAST_TARGET_SPAN_TOKENS = 8
 _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD = True
 _CONTENT_CONTRAST_REPRESENTATION_MODE = (
-    "fused_delta_o_first_supervised_predictor_relative_l2_v1"
+    "fused_delta_o_first_selected_target_predictor_relative_l2_v1"
 )
 _CONTENT_CONTRAST_REPRESENTATION_EPS = 1e-6
 _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
@@ -271,6 +278,52 @@ _CONTINUATION_MANIFEST_FILENAME = "continuation_manifest.json"
 _CONTINUATION_MANIFEST_SCHEMA_VERSION = 1
 _ABLATION_LINEAGE_FILENAME = "ablation_lineage_manifest.json"
 _ABLATION_LINEAGE_SCHEMA_VERSION = 1
+_WARM_START_LINEAGE_FILENAME = "warm_start_lineage_manifest.json"
+_WARM_START_LINEAGE_SCHEMA_VERSION = 1
+_RESIDUAL_HYBRID_W8_SOURCE_SCHEMA_VERSION = 7
+_RESIDUAL_HYBRID_W8_SOURCE_OBJECTIVE_VERSION = "content_contrast_ce_v5"
+_RESIDUAL_HYBRID_W8_SOURCE_REPRESENTATION_MODE = (
+    "fused_delta_o_first_supervised_predictor_relative_l2_v1"
+)
+_RESIDUAL_HYBRID_W8_SOURCE_GLOBAL_STEP = 416
+_RESIDUAL_HYBRID_W8_SOURCE_EPOCH = 13.0
+_RESIDUAL_HYBRID_W8_SOURCE_ADAPTER_TENSORS = 1470
+_RESIDUAL_HYBRID_W8_SOURCE_OPTIMIZER_PARAMETERS = 1218
+_RESIDUAL_HYBRID_W8_TARGET_LAYERS = tuple(range(42))
+_RESIDUAL_HYBRID_W8_TARGET_NEW_GAIN_TENSORS = len(
+    _RESIDUAL_HYBRID_W8_TARGET_LAYERS
+)
+_RESIDUAL_HYBRID_W8_TARGET_ADAPTER_TENSORS = (
+    _RESIDUAL_HYBRID_W8_SOURCE_ADAPTER_TENSORS
+    + _RESIDUAL_HYBRID_W8_TARGET_NEW_GAIN_TENSORS
+)
+_RESIDUAL_HYBRID_W8_TARGET_TRAINABLE_TENSORS = (
+    _RESIDUAL_HYBRID_W8_SOURCE_OPTIMIZER_PARAMETERS
+    + _RESIDUAL_HYBRID_W8_TARGET_NEW_GAIN_TENSORS
+)
+_RESIDUAL_HYBRID_W8_TARGET_PLACEMENT = "post_attention_residual_hybrid"
+_RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE = 0.01
+_RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE_MAX = 0.02
+_RESIDUAL_HYBRID_W8_TARGET_MAX_STEPS = 32
+_RESIDUAL_HYBRID_W8_TARGET_EPOCHS = 1.0
+_RESIDUAL_HYBRID_W8_TARGET_WARMUP_RATIO = 0.0625
+_RESIDUAL_HYBRID_W8_TARGET_WARMUP_STEPS = 2
+_RESIDUAL_HYBRID_W8_PROTOCOL_DRIFT = frozenset(
+    {
+        "schema_version",
+        "memory_objective_version",
+        "memory_fusion_placement",
+        "memory_fusion_residual_scale",
+        "memory_fusion_residual_scale_max",
+        "content_contrast_target_mode",
+        "content_contrast_target_span_tokens",
+        "content_contrast_representation_mode",
+        "content_contrast_pairing",
+        "max_steps",
+        "num_train_epochs",
+        "warmup_steps",
+    }
+)
 _OBJECTIVE_ABLATION_PROTOCOL_DRIFT = frozenset(
     {
         "schema_version",
@@ -288,11 +341,69 @@ _OBJECTIVE_ABLATION_PROTOCOL_DRIFT = frozenset(
         "content_contrast_negative_priming_grad",
         "content_contrast_backward_mode",
         "content_contrast_read_mask_mode",
+        "content_contrast_target_mode",
+        "content_contrast_target_span_tokens",
         "content_contrast_previous_source_grad",
         "content_contrast_representation_mode",
         "content_contrast_pairing",
     }
 )
+
+
+@dataclass
+class AdapterWarmStartContext:
+    checkpoint: Path
+    mode: str
+    source_protocol: dict[str, object]
+    source_config: HFDeltaMemConfig
+    manifest: dict[str, object]
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _adapter_topology_sha256(state_dict: dict[str, torch.Tensor]) -> str:
+    topology = []
+    for name, tensor in state_dict.items():
+        if not isinstance(tensor, torch.Tensor):
+            raise ValueError(f"Delta-Mem adapter entry is not a tensor: {name}")
+        topology.append(
+            {
+                "name": name,
+                "shape": list(tensor.shape),
+                "dtype": str(tensor.dtype),
+            }
+        )
+    return hashlib.sha256(
+        json.dumps(topology, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _load_optimizer_parameter_count(path: Path) -> int:
+    payload = torch.load(path, map_location="cpu", weights_only=True)
+    if not isinstance(payload, dict):
+        raise ValueError("Warm-start optimizer checkpoint must contain a dictionary")
+    param_groups = payload.get("param_groups")
+    optimizer_state = payload.get("state")
+    if not isinstance(param_groups, list) or not isinstance(optimizer_state, dict):
+        raise ValueError("Warm-start optimizer checkpoint is incomplete")
+    parameter_ids: list[object] = []
+    for group in param_groups:
+        if not isinstance(group, dict) or not isinstance(group.get("params"), list):
+            raise ValueError("Warm-start optimizer param_groups are invalid")
+        parameter_ids.extend(group["params"])
+    if len(parameter_ids) != len(set(parameter_ids)):
+        raise ValueError("Warm-start optimizer contains duplicate parameter references")
+    if set(optimizer_state) != set(parameter_ids):
+        raise ValueError(
+            "Warm-start optimizer state keys do not match its parameter references"
+        )
+    return len(parameter_ids)
 
 
 def _missing_resume_checkpoint_files(
@@ -404,6 +515,272 @@ def _protocol_sha256(protocol: dict[str, object]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def resolve_adapter_warm_start_checkpoint(
+    warm_start_from_checkpoint: str | Path | None,
+) -> str | None:
+    if warm_start_from_checkpoint is None:
+        return None
+    raw_checkpoint = str(warm_start_from_checkpoint).strip()
+    if not raw_checkpoint:
+        raise ValueError("--warm-start-from-checkpoint must not be empty")
+    if raw_checkpoint.lower() in _RESUME_LATEST_VALUES:
+        raise ValueError(
+            "--warm-start-from-checkpoint requires an explicit checkpoint-416 path"
+        )
+    checkpoint = Path(raw_checkpoint).expanduser()
+    if not checkpoint.is_dir():
+        raise FileNotFoundError(
+            f"Warm-start checkpoint directory does not exist: {checkpoint}"
+        )
+    required_files = (
+        "delta_mem_adapter.pt",
+        "delta_mem_config.json",
+        "optimizer.pt",
+        "scheduler.pt",
+        "trainer_state.json",
+        _TRAINING_PROTOCOL_FILENAME,
+        _CONTENT_CONTRAST_PAIRING_FILENAME,
+    )
+    missing = [name for name in required_files if not (checkpoint / name).is_file()]
+    rng_files = sorted(path for path in checkpoint.glob("rng_state*.pth") if path.is_file())
+    if not rng_files:
+        missing.append("rng_state*.pth")
+    if missing:
+        raise FileNotFoundError(
+            f"Warm-start checkpoint is incomplete: {checkpoint}; missing {', '.join(missing)}"
+        )
+    return str(checkpoint.resolve())
+
+
+def _validate_residual_hybrid_w8_warm_start_args(args: argparse.Namespace) -> None:
+    if args.warm_start_mode != _RESIDUAL_HYBRID_W8_WARM_START_MODE:
+        raise ValueError(
+            "Residual-hybrid W8 warm start requires "
+            f"--warm-start-mode {_RESIDUAL_HYBRID_W8_WARM_START_MODE}"
+        )
+    if args.resume_from_checkpoint is not None:
+        raise ValueError("Adapter warm start cannot be combined with checkpoint resume")
+    if args.resume_mode != "exact":
+        raise ValueError("Adapter warm start requires --resume-mode exact")
+    expected_values = {
+        "memory_loss_mode": "content_contrast_ce",
+        "memory_contrast_weight": 0.25,
+        "memory_margin": 0.5,
+        "memory_representation_weight": 0.1,
+        "memory_representation_margin": 0.1,
+        "memory_kl_weight": 0.0,
+        "memory_base_kl_weight": 0.0,
+        "write_sparsity_weight": 0.0,
+        "memory_partition_alignment_weight": 0.0,
+        "memory_partition_entropy_weight": 0.0,
+        "memory_partition_balance_weight": 0.0,
+        "lr_scheduler_type": "constant_with_warmup",
+        "warmup_ratio": _RESIDUAL_HYBRID_W8_TARGET_WARMUP_RATIO,
+        "max_steps": _RESIDUAL_HYBRID_W8_TARGET_MAX_STEPS,
+        "num_train_epochs": _RESIDUAL_HYBRID_W8_TARGET_EPOCHS,
+    }
+    mismatches = [
+        name for name, expected in expected_values.items() if getattr(args, name) != expected
+    ]
+    placement = normalize_memory_fusion_placement(args.memory_fusion_placement)
+    if placement != _RESIDUAL_HYBRID_W8_TARGET_PLACEMENT:
+        mismatches.append("memory_fusion_placement")
+    if args.memory_fusion_residual_scale != _RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE:
+        mismatches.append("memory_fusion_residual_scale")
+    if (
+        args.memory_fusion_residual_scale_max
+        != _RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE_MAX
+    ):
+        mismatches.append("memory_fusion_residual_scale_max")
+    if parse_layer_indices(args.target_layers) != _RESIDUAL_HYBRID_W8_TARGET_LAYERS:
+        mismatches.append("target_layers")
+    if mismatches:
+        raise ValueError(
+            "residual_hybrid_w8_ablation target contract mismatch for: "
+            + ", ".join(sorted(set(mismatches)))
+        )
+
+
+def _validate_residual_hybrid_w8_source_protocol(
+    source_protocol: dict[str, object],
+) -> None:
+    expected = {
+        "schema_version": _RESIDUAL_HYBRID_W8_SOURCE_SCHEMA_VERSION,
+        "memory_objective_version": _RESIDUAL_HYBRID_W8_SOURCE_OBJECTIVE_VERSION,
+        "memory_loss_mode": "content_contrast_ce",
+        "memory_contrast_weight": 0.25,
+        "memory_margin": 0.5,
+        "memory_representation_weight": 0.1,
+        "memory_representation_margin": 0.1,
+        "memory_kl_weight": 0.0,
+        "memory_base_kl_weight": 0.0,
+        "write_sparsity_weight": 0.0,
+        "memory_partition_alignment_weight": 0.0,
+        "memory_partition_entropy_weight": 0.0,
+        "memory_partition_balance_weight": 0.0,
+        "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
+        "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
+        "content_contrast_previous_source_grad": True,
+        "content_contrast_representation_mode": (
+            _RESIDUAL_HYBRID_W8_SOURCE_REPRESENTATION_MODE
+        ),
+        "train_samples": 32,
+        "eval_samples": 0,
+        "learning_rate": 0.001,
+        "lr_scheduler_type": "constant_with_warmup",
+        "warmup_ratio": _RESIDUAL_HYBRID_W8_TARGET_WARMUP_RATIO,
+        "warmup_steps": 8,
+        "max_steps": _RESIDUAL_HYBRID_W8_SOURCE_GLOBAL_STEP,
+        "num_train_epochs": _RESIDUAL_HYBRID_W8_SOURCE_EPOCH,
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_scale": 1.0,
+    }
+    mismatches = [
+        name for name, value in expected.items() if source_protocol.get(name) != value
+    ]
+    if "content_contrast_target_mode" in source_protocol:
+        mismatches.append("content_contrast_target_mode")
+    if "content_contrast_target_span_tokens" in source_protocol:
+        mismatches.append("content_contrast_target_span_tokens")
+    if mismatches:
+        raise ValueError(
+            "residual_hybrid_w8_ablation requires the completed V14 schema-7/v5 source; "
+            "invalid fields: " + ", ".join(sorted(set(mismatches)))
+        )
+
+
+def prepare_adapter_warm_start(
+    args: argparse.Namespace,
+    warm_start_from_checkpoint: str | None,
+) -> AdapterWarmStartContext | None:
+    if warm_start_from_checkpoint is None:
+        return None
+    _validate_residual_hybrid_w8_warm_start_args(args)
+    checkpoint = Path(warm_start_from_checkpoint).resolve()
+    if checkpoint.name != f"checkpoint-{_RESIDUAL_HYBRID_W8_SOURCE_GLOBAL_STEP}":
+        raise ValueError(
+            "residual_hybrid_w8_ablation source must be checkpoint-416"
+        )
+    target_output_dir = Path(args.output_dir).expanduser().resolve()
+    if target_output_dir.exists() and any(target_output_dir.iterdir()):
+        raise ValueError(
+            "residual_hybrid_w8_ablation requires a fresh, empty --output-dir"
+        )
+
+    source_protocol = _load_json_object(
+        checkpoint / _TRAINING_PROTOCOL_FILENAME,
+        description="warm-start source training protocol",
+    )
+    _validate_residual_hybrid_w8_source_protocol(source_protocol)
+    source_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+    if source_config.target_layers != _RESIDUAL_HYBRID_W8_TARGET_LAYERS:
+        raise ValueError("Warm-start V14 source must wrap exactly layers 0-41")
+    if source_config.memory_fusion_placement != "attention_output":
+        raise ValueError("Warm-start V14 source must use attention_output fusion")
+    if source_config.memory_fusion_residual_scale != 1.0:
+        raise ValueError("Warm-start V14 source residual scale must be 1.0")
+    if source_config.memory_fusion_residual_scale_max != 1.0:
+        raise ValueError("Warm-start V14 source residual scale max must normalize to 1.0")
+
+    trainer_state = _load_json_object(
+        checkpoint / "trainer_state.json",
+        description="warm-start source trainer state",
+    )
+    try:
+        global_step = int(trainer_state["global_step"])
+        max_steps = int(trainer_state["max_steps"])
+        epoch = float(trainer_state["epoch"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "Warm-start source trainer state requires global_step, max_steps, and epoch"
+        ) from exc
+    if (
+        global_step != _RESIDUAL_HYBRID_W8_SOURCE_GLOBAL_STEP
+        or max_steps != global_step
+        or epoch != _RESIDUAL_HYBRID_W8_SOURCE_EPOCH
+    ):
+        raise ValueError(
+            "Warm-start source must be the completed checkpoint-416 epoch-13 boundary"
+        )
+
+    source_pairing = _load_json_object(
+        checkpoint / _CONTENT_CONTRAST_PAIRING_FILENAME,
+        description="warm-start source content-contrast pairing manifest",
+    )
+    protocol_pairing = source_protocol.get("content_contrast_pairing")
+    if not isinstance(protocol_pairing, dict) or (
+        source_pairing.get("manifest_sha256")
+        != protocol_pairing.get("manifest_sha256")
+    ):
+        raise ValueError(
+            "Warm-start source pairing manifest does not match its training protocol"
+        )
+
+    source_optimizer_parameter_count = _load_optimizer_parameter_count(
+        checkpoint / "optimizer.pt"
+    )
+    if (
+        source_optimizer_parameter_count
+        != _RESIDUAL_HYBRID_W8_SOURCE_OPTIMIZER_PARAMETERS
+    ):
+        raise ValueError(
+            "Warm-start V14 optimizer must contain exactly "
+            f"{_RESIDUAL_HYBRID_W8_SOURCE_OPTIMIZER_PARAMETERS} parameters"
+        )
+    rng_files = sorted(path for path in checkpoint.glob("rng_state*.pth") if path.is_file())
+    manifest: dict[str, object] = {
+        "schema_version": _WARM_START_LINEAGE_SCHEMA_VERSION,
+        "mode": _RESIDUAL_HYBRID_W8_WARM_START_MODE,
+        "source_checkpoint": str(checkpoint),
+        "source_global_step": global_step,
+        "source_epoch": epoch,
+        "source_training_protocol_sha256": _protocol_sha256(source_protocol),
+        "source_training_protocol_file_sha256": _sha256_file(
+            checkpoint / _TRAINING_PROTOCOL_FILENAME
+        ),
+        "source_content_contrast_pairing_file_sha256": _sha256_file(
+            checkpoint / _CONTENT_CONTRAST_PAIRING_FILENAME
+        ),
+        "source_content_contrast_pairing_manifest_sha256": source_pairing[
+            "manifest_sha256"
+        ],
+        "source_delta_config_sha256": _protocol_sha256(source_config.to_dict()),
+        "source_delta_config_file_sha256": _sha256_file(
+            checkpoint / "delta_mem_config.json"
+        ),
+        "source_adapter_sha256": _sha256_file(checkpoint / "delta_mem_adapter.pt"),
+        "source_optimizer_sha256": _sha256_file(checkpoint / "optimizer.pt"),
+        "source_scheduler_sha256": _sha256_file(checkpoint / "scheduler.pt"),
+        "source_trainer_state_sha256": _sha256_file(checkpoint / "trainer_state.json"),
+        "source_rng_state_sha256": {
+            path.name: _sha256_file(path) for path in rng_files
+        },
+        "source_optimizer_parameter_count": source_optimizer_parameter_count,
+        "source_state_imports": {
+            "adapter": True,
+            "optimizer": False,
+            "scheduler": False,
+            "trainer_state": False,
+            "rng": False,
+        },
+        "source_optimizer_imported": False,
+        "source_scheduler_imported": False,
+        "source_trainer_state_imported": False,
+        "source_rng_state_imported": False,
+        "target_initial_global_step": 0,
+        "target_max_steps": _RESIDUAL_HYBRID_W8_TARGET_MAX_STEPS,
+        "target_num_train_epochs": _RESIDUAL_HYBRID_W8_TARGET_EPOCHS,
+        "target_warmup_steps": _RESIDUAL_HYBRID_W8_TARGET_WARMUP_STEPS,
+    }
+    return AdapterWarmStartContext(
+        checkpoint=checkpoint,
+        mode=_RESIDUAL_HYBRID_W8_WARM_START_MODE,
+        source_protocol=source_protocol,
+        source_config=source_config,
+        manifest=manifest,
+    )
+
+
 def _validate_training_horizon_extension(
     source_protocol: dict[str, object],
     target_protocol: dict[str, object],
@@ -490,6 +867,15 @@ def _normalize_memory_fusion_placement_protocol(
             "0 <= value <= 1"
         )
     normalized["memory_fusion_residual_scale"] = residual_scale
+    residual_scale_max = float(
+        normalized.get("memory_fusion_residual_scale_max", 1.0)
+    )
+    if not math.isfinite(residual_scale_max) or not 0.0 < residual_scale_max <= 1.0:
+        raise ValueError(
+            "Training protocol memory_fusion_residual_scale_max must be finite and satisfy "
+            "0 < value <= 1"
+        )
+    normalized["memory_fusion_residual_scale_max"] = residual_scale_max
     return normalized
 
 
@@ -542,6 +928,12 @@ def _validate_content_contrast_pairing_summary(
         raise ValueError("objective_ablation target has an unsupported pairing_version")
     if pairing.get("pairing_scope") != "within_post_split_partition":
         raise ValueError("objective_ablation target has an unsupported pairing_scope")
+    if pairing.get("target_mode") != _CONTENT_CONTRAST_TARGET_MODE:
+        raise ValueError("objective_ablation target pairing target_mode does not match")
+    if pairing.get("target_span_tokens") != _CONTENT_CONTRAST_TARGET_SPAN_TOKENS:
+        raise ValueError(
+            "objective_ablation target pairing target_span_tokens does not match"
+        )
     if pairing.get("data_seed") != protocol.get("data_seed"):
         raise ValueError("objective_ablation target pairing data_seed does not match")
     if pairing.get("tokenized_fingerprint") != protocol.get("tokenized_fingerprint"):
@@ -574,6 +966,22 @@ def _validate_content_contrast_pairing_summary(
             raise ValueError(
                 f"objective_ablation target pairing split {split_name} has invalid rotation"
             )
+        if split.get("target_mode") != _CONTENT_CONTRAST_TARGET_MODE:
+            raise ValueError(
+                f"objective_ablation target pairing split {split_name} has invalid target_mode"
+            )
+        if split.get("target_span_tokens") != _CONTENT_CONTRAST_TARGET_SPAN_TOKENS:
+            raise ValueError(
+                f"objective_ablation target pairing split {split_name} has invalid "
+                "target_span_tokens"
+            )
+        if split.get("target_token_count") != (
+            sample_count * _CONTENT_CONTRAST_TARGET_SPAN_TOKENS
+        ):
+            raise ValueError(
+                f"objective_ablation target pairing split {split_name} has invalid "
+                "target_token_count"
+            )
         expected_size = expected_split_sizes[split_name]
         if expected_size is not None and sample_count != int(expected_size):
             raise ValueError(
@@ -605,6 +1013,8 @@ def _validate_objective_ablation_target_protocol(
         "content_contrast_negative_priming_grad": True,
         "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
         "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
+        "content_contrast_target_mode": _CONTENT_CONTRAST_TARGET_MODE,
+        "content_contrast_target_span_tokens": _CONTENT_CONTRAST_TARGET_SPAN_TOKENS,
         "content_contrast_previous_source_grad": _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD,
         "content_contrast_representation_mode": (
             _CONTENT_CONTRAST_REPRESENTATION_MODE
@@ -787,7 +1197,292 @@ def validate_resume_adapter_topology(
     ).hexdigest()
 
 
+def _validate_residual_hybrid_w8_delta_config_transition(
+    source_config: HFDeltaMemConfig,
+    target_config: HFDeltaMemConfig,
+) -> None:
+    if source_config.target_layers != _RESIDUAL_HYBRID_W8_TARGET_LAYERS:
+        raise ValueError("Warm-start source config must target exactly layers 0-41")
+    if target_config.target_layers != _RESIDUAL_HYBRID_W8_TARGET_LAYERS:
+        raise ValueError("Warm-start target config must target exactly layers 0-41")
+    if target_config.memory_fusion_placement != _RESIDUAL_HYBRID_W8_TARGET_PLACEMENT:
+        raise ValueError("Warm-start target config must use residual-hybrid placement")
+    if (
+        target_config.memory_fusion_residual_scale
+        != _RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE
+    ):
+        raise ValueError("Warm-start target config must initialize effective gamma at 0.01")
+    if (
+        target_config.memory_fusion_residual_scale_max
+        != _RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE_MAX
+    ):
+        raise ValueError("Warm-start target config must cap effective gamma at 0.02")
+    source = source_config.to_dict()
+    target = target_config.to_dict()
+    allowed_mismatches = {
+        "memory_fusion_placement",
+        "memory_fusion_residual_scale",
+        "memory_fusion_residual_scale_max",
+    }
+    mismatches = {
+        key for key in set(source) | set(target) if source.get(key) != target.get(key)
+    }
+    if mismatches != allowed_mismatches:
+        raise ValueError(
+            "Residual-hybrid warm start requires only placement and residual-gain config "
+            "changes; mismatches: " + ", ".join(sorted(mismatches))
+        )
+
+
+def validate_residual_hybrid_w8_adapter_topology(
+    source_state: dict[str, torch.Tensor],
+    target_state: dict[str, torch.Tensor],
+    *,
+    gain_names: tuple[str, ...],
+    source_optimizer_parameter_count: int,
+    target_trainable_tensor_count: int,
+) -> dict[str, object]:
+    if len(source_state) != _RESIDUAL_HYBRID_W8_SOURCE_ADAPTER_TENSORS:
+        raise ValueError(
+            "Warm-start source adapter must contain exactly "
+            f"{_RESIDUAL_HYBRID_W8_SOURCE_ADAPTER_TENSORS} tensors"
+        )
+    if len(target_state) != _RESIDUAL_HYBRID_W8_TARGET_ADAPTER_TENSORS:
+        raise ValueError(
+            "Warm-start target adapter must contain exactly "
+            f"{_RESIDUAL_HYBRID_W8_TARGET_ADAPTER_TENSORS} tensors"
+        )
+    if (
+        len(gain_names) != _RESIDUAL_HYBRID_W8_TARGET_NEW_GAIN_TENSORS
+        or len(set(gain_names)) != len(gain_names)
+    ):
+        raise ValueError("Warm-start target must expose exactly 42 unique residual gains")
+    expected_gain_set = set(gain_names)
+    target_gain_names = tuple(
+        name
+        for name in target_state
+        if name.endswith(".memory_fusion_residual_gain_raw")
+    )
+    if target_gain_names != gain_names:
+        raise ValueError(
+            "Warm-start target must contain exactly one ordered residual gain per layer"
+        )
+    source_gain_names = [name for name in source_state if name in expected_gain_set]
+    if source_gain_names:
+        raise ValueError("Warm-start V14 source must not contain residual-hybrid gains")
+    missing = [name for name in target_state if name not in source_state]
+    extra = [name for name in source_state if name not in target_state]
+    if tuple(missing) != gain_names or extra:
+        raise ValueError(
+            "Warm-start topology must add only the 42 residual gains; "
+            f"missing={missing[:8]} extra={extra[:8]}"
+        )
+    target_shared_names = [name for name in target_state if name not in expected_gain_set]
+    if list(source_state) != target_shared_names:
+        raise ValueError(
+            "Warm-start shared adapter parameter names must remain in exact source order"
+        )
+    for name, source_tensor in source_state.items():
+        target_tensor = target_state[name]
+        if not isinstance(source_tensor, torch.Tensor) or not isinstance(
+            target_tensor, torch.Tensor
+        ):
+            raise ValueError(f"Warm-start adapter entry is not a tensor: {name}")
+        if source_tensor.shape != target_tensor.shape:
+            raise ValueError(
+                f"Warm-start shared adapter shape mismatch for {name}: "
+                f"source={tuple(source_tensor.shape)} target={tuple(target_tensor.shape)}"
+            )
+        if source_tensor.dtype != target_tensor.dtype:
+            raise ValueError(
+                f"Warm-start shared adapter dtype mismatch for {name}: "
+                f"source={source_tensor.dtype} target={target_tensor.dtype}"
+            )
+    if (
+        source_optimizer_parameter_count
+        != _RESIDUAL_HYBRID_W8_SOURCE_OPTIMIZER_PARAMETERS
+    ):
+        raise ValueError("Warm-start source optimizer parameter count must be 1218")
+    if (
+        target_trainable_tensor_count
+        != source_optimizer_parameter_count + len(gain_names)
+        or target_trainable_tensor_count
+        != _RESIDUAL_HYBRID_W8_TARGET_TRAINABLE_TENSORS
+    ):
+        raise ValueError(
+            "Warm-start target trainable tensor count must equal source optimizer count + 42"
+        )
+    shared_target_state = {
+        name: target_state[name] for name in target_shared_names
+    }
+    source_topology_sha256 = _adapter_topology_sha256(source_state)
+    shared_target_topology_sha256 = _adapter_topology_sha256(shared_target_state)
+    if source_topology_sha256 != shared_target_topology_sha256:
+        raise ValueError("Warm-start shared source/target topology hashes do not match")
+    return {
+        "source_adapter_tensor_count": len(source_state),
+        "target_adapter_tensor_count": len(target_state),
+        "shared_adapter_tensor_count": len(target_shared_names),
+        "new_residual_gain_tensor_count": len(gain_names),
+        "target_trainable_tensor_count": target_trainable_tensor_count,
+        "source_adapter_topology_sha256": source_topology_sha256,
+        "target_shared_adapter_topology_sha256": shared_target_topology_sha256,
+        "target_adapter_topology_sha256": _adapter_topology_sha256(target_state),
+    }
+
+
+def apply_adapter_warm_start(
+    model: nn.Module,
+    context: AdapterWarmStartContext,
+    target_config: HFDeltaMemConfig,
+    trainable_names: list[str],
+) -> dict[str, object]:
+    if context.mode != _RESIDUAL_HYBRID_W8_WARM_START_MODE:
+        raise ValueError(f"Unsupported adapter warm-start mode: {context.mode}")
+    _validate_residual_hybrid_w8_delta_config_transition(
+        context.source_config,
+        target_config,
+    )
+    source_state = torch.load(
+        context.checkpoint / "delta_mem_adapter.pt",
+        map_location="cpu",
+        weights_only=True,
+    )
+    if not isinstance(source_state, dict):
+        raise ValueError("Warm-start source adapter must contain a state dictionary")
+    modules = list(iter_delta_mem_modules(model))
+    for _, module in modules:
+        module.set_memory_fusion_residual_gain(
+            target_config.memory_fusion_residual_scale
+        )
+    target_state = get_delta_mem_state_dict(model)
+    wrapped_layers = tuple(int(module.base.layer_idx) for _, module in modules)
+    if wrapped_layers != _RESIDUAL_HYBRID_W8_TARGET_LAYERS:
+        raise ValueError("Warm-start target model must wrap ordered layers 0-41")
+    gain_names = tuple(
+        f"{name}.memory_fusion_residual_gain_raw" for name, _ in modules
+    )
+    topology_manifest = validate_residual_hybrid_w8_adapter_topology(
+        source_state,
+        target_state,
+        gain_names=gain_names,
+        source_optimizer_parameter_count=int(
+            context.manifest["source_optimizer_parameter_count"]
+        ),
+        target_trainable_tensor_count=len(trainable_names),
+    )
+    if not set(gain_names).issubset(trainable_names):
+        raise ValueError("Every residual-hybrid gain must be a trainable target tensor")
+    initial_gains = {name: target_state[name].clone() for name in gain_names}
+    loaded_config = load_delta_mem_adapter(
+        model,
+        context.checkpoint,
+        initialize_missing_residual_hybrid_gain=True,
+    )
+    if loaded_config.to_dict() != context.source_config.to_dict():
+        raise ValueError("Warm-start adapter loader returned an unexpected source config")
+    loaded_state = get_delta_mem_state_dict(model)
+    if list(loaded_state) != list(target_state):
+        raise ValueError("Warm-start adapter topology changed during loading")
+    unequal_shared = [
+        name
+        for name, source_tensor in source_state.items()
+        if not torch.equal(loaded_state[name], source_tensor)
+    ]
+    if unequal_shared:
+        raise ValueError(
+            "Warm-start shared adapter tensors are not bit-equal after loading: "
+            + ", ".join(unequal_shared[:8])
+        )
+    changed_gains = [
+        name
+        for name, initial_tensor in initial_gains.items()
+        if not torch.equal(loaded_state[name], initial_tensor)
+    ]
+    if changed_gains:
+        raise ValueError(
+            "Warm-start adapter loading changed newly initialized residual gains: "
+            + ", ".join(changed_gains[:8])
+        )
+    effective_gains = []
+    for _, module in modules:
+        parameter = module.memory_fusion_residual_gain_raw
+        resolved = module._resolved_memory_fusion_residual_gain(
+            device=parameter.device,
+            dtype=torch.float32,
+        )
+        effective_gains.append(float(resolved.detach().cpu().item()))
+    if any(
+        not math.isclose(
+            value,
+            _RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE,
+            rel_tol=0.0,
+            abs_tol=1e-7,
+        )
+        for value in effective_gains
+    ):
+        raise ValueError("Warm-start target effective residual gains must initialize at 0.01")
+    return {
+        **topology_manifest,
+        "target_delta_config_sha256": _protocol_sha256(target_config.to_dict()),
+        "shared_adapter_bit_equality_verified": True,
+        "new_residual_gains_preserved_during_load": True,
+        "target_effective_residual_gain_initial": (
+            _RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE
+        ),
+        "target_effective_residual_gain_max": (
+            _RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE_MAX
+        ),
+    }
+
+
+def validate_residual_hybrid_w8_target_protocol(
+    source_protocol: dict[str, object],
+    target_protocol: dict[str, object],
+) -> None:
+    _validate_residual_hybrid_w8_source_protocol(source_protocol)
+    _validate_objective_ablation_target_protocol(
+        target_protocol,
+        require_pairing=True,
+    )
+    expected = {
+        "schema_version": _CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION,
+        "memory_objective_version": _CONTENT_CONTRAST_OBJECTIVE_VERSION,
+        "memory_loss_mode": "content_contrast_ce",
+        "memory_fusion_placement": _RESIDUAL_HYBRID_W8_TARGET_PLACEMENT,
+        "memory_fusion_residual_scale": _RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE,
+        "memory_fusion_residual_scale_max": (
+            _RESIDUAL_HYBRID_W8_TARGET_RESIDUAL_SCALE_MAX
+        ),
+        "content_contrast_target_mode": _CONTENT_CONTRAST_TARGET_MODE,
+        "content_contrast_target_span_tokens": _CONTENT_CONTRAST_TARGET_SPAN_TOKENS,
+        "max_steps": _RESIDUAL_HYBRID_W8_TARGET_MAX_STEPS,
+        "num_train_epochs": _RESIDUAL_HYBRID_W8_TARGET_EPOCHS,
+        "warmup_steps": _RESIDUAL_HYBRID_W8_TARGET_WARMUP_STEPS,
+    }
+    mismatches = [
+        name for name, expected_value in expected.items()
+        if target_protocol.get(name) != expected_value
+    ]
+    source = _normalize_memory_fusion_placement_protocol(source_protocol)
+    target = _normalize_memory_fusion_placement_protocol(target_protocol)
+    unexpected_drift = sorted(
+        key
+        for key in set(source) | set(target)
+        if source.get(key) != target.get(key)
+        and key not in _RESIDUAL_HYBRID_W8_PROTOCOL_DRIFT
+    )
+    if mismatches or unexpected_drift:
+        invalid = sorted(set(mismatches) | set(unexpected_drift))
+        raise ValueError(
+            "Residual-hybrid W8 warm-start target protocol mismatch for: "
+            + ", ".join(invalid)
+        )
+
+
 def _lineage_manifest_filename(manifest: dict[str, object]) -> str:
+    if manifest.get("mode") in _WARM_START_MODES:
+        return _WARM_START_LINEAGE_FILENAME
     if manifest.get("mode") in _ABLATION_RESUME_MODES:
         return _ABLATION_LINEAGE_FILENAME
     return _CONTINUATION_MANIFEST_FILENAME
@@ -806,6 +1501,7 @@ def prepare_training_continuation(
             for path in (
                 checkpoint / _ABLATION_LINEAGE_FILENAME,
                 checkpoint / _CONTINUATION_MANIFEST_FILENAME,
+                checkpoint / _WARM_START_LINEAGE_FILENAME,
             )
             if path.is_file()
         ]
@@ -815,7 +1511,10 @@ def prepare_training_continuation(
             raise ValueError(f"Checkpoint has ambiguous resume lineage manifests: {checkpoint}")
         manifest_path = existing[0]
         manifest = _load_json_object(manifest_path, description="resume lineage manifest")
-        if manifest_path.name == _ABLATION_LINEAGE_FILENAME:
+        if manifest_path.name == _WARM_START_LINEAGE_FILENAME:
+            valid_mode = manifest.get("mode") in _WARM_START_MODES
+            expected_schema = _WARM_START_LINEAGE_SCHEMA_VERSION
+        elif manifest_path.name == _ABLATION_LINEAGE_FILENAME:
             valid_mode = manifest.get("mode") in _ABLATION_RESUME_MODES
             expected_schema = _ABLATION_LINEAGE_SCHEMA_VERSION
         else:
@@ -929,6 +1628,10 @@ def prepare_training_continuation(
                 "content_contrast_negative_priming_grad": True,
                 "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
                 "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
+                "content_contrast_target_mode": _CONTENT_CONTRAST_TARGET_MODE,
+                "content_contrast_target_span_tokens": (
+                    _CONTENT_CONTRAST_TARGET_SPAN_TOKENS
+                ),
                 "content_contrast_previous_source_grad": (
                     _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
                 ),
@@ -1005,6 +1708,12 @@ def prepare_training_continuation(
                 "target_content_contrast_read_mask_mode": (
                     _CONTENT_CONTRAST_READ_MASK_MODE
                 ),
+                "target_content_contrast_target_mode": (
+                    _CONTENT_CONTRAST_TARGET_MODE
+                ),
+                "target_content_contrast_target_span_tokens": (
+                    _CONTENT_CONTRAST_TARGET_SPAN_TOKENS
+                ),
                 "target_content_contrast_previous_source_grad": (
                     _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
                 ),
@@ -1064,6 +1773,38 @@ def compute_warmup_steps(
         steps_per_epoch = max(1, math.ceil(num_batches / max(1, gradient_accumulation_steps)))
         total_steps = max(1, math.ceil(steps_per_epoch * num_train_epochs))
     return max(1, math.ceil(total_steps * warmup_ratio))
+
+
+def resolve_trainer_resume_checkpoint(
+    resume_from_checkpoint: str | None,
+    warm_start_context: AdapterWarmStartContext | None,
+) -> str | None:
+    if warm_start_context is None:
+        return resume_from_checkpoint
+    if resume_from_checkpoint is not None:
+        raise RuntimeError("Adapter warm start must not restore Trainer checkpoint state")
+    return None
+
+
+def finalize_adapter_warm_start_lineage(
+    context: AdapterWarmStartContext,
+    *,
+    target_training_protocol_sha256: str,
+    target_pairing_manifest: dict[str, object],
+) -> None:
+    pairing_sha256 = target_pairing_manifest.get("manifest_sha256")
+    if not _is_sha256(target_training_protocol_sha256) or not _is_sha256(
+        pairing_sha256
+    ):
+        raise ValueError("Warm-start target protocol and pairing hashes must be SHA256 values")
+    context.manifest.update(
+        {
+            "target_training_protocol_sha256": target_training_protocol_sha256,
+            "target_content_contrast_pairing_manifest_sha256": pairing_sha256,
+            "trainer_resume_from_checkpoint": None,
+            "fresh_optimizer_created": True,
+        }
+    )
 
 
 def _build_ddp_training_kwargs(
@@ -1153,10 +1894,13 @@ class DeltaMemTrainer(Trainer):
                 raise ValueError(
                     "memory_representation_weight requires an active delta_o head"
                 )
-            if delta_config.memory_fusion_placement != "attention_output":
+            if (
+                delta_config.memory_fusion_placement
+                not in _REPRESENTATION_CAPTURE_FUSION_PLACEMENTS
+            ):
                 raise ValueError(
-                    "memory_representation_weight currently measures only "
-                    "memory_fusion_placement=attention_output"
+                    "memory_representation_weight supports only attention_output or "
+                    "post_attention_residual_hybrid fusion"
                 )
         self.memory_representation_weight = memory_representation_weight
         self.memory_representation_margin = memory_representation_margin
@@ -1229,6 +1973,13 @@ class DeltaMemTrainer(Trainer):
         self._last_memory_margin_gap = 0.0
         self._last_memory_representation_loss = 0.0
         self._last_memory_representation_distance = 0.0
+        self._last_content_contrast_full_correct_ce = 0.0
+        self._last_content_contrast_full_donor_ce = 0.0
+        self._last_content_contrast_targeted_correct_ce = 0.0
+        self._last_content_contrast_targeted_donor_ce = 0.0
+        self._last_content_contrast_targeted_gap = 0.0
+        self._last_content_contrast_targeted_positive_fraction = 0.0
+        self._last_content_contrast_targeted_token_count = 0.0
         self._last_memory_teacher_loss = 0.0
         self._last_memory_wmem = 0.0
         self._last_memory_probe_keep_loss = 0.0
@@ -1292,6 +2043,7 @@ class DeltaMemTrainer(Trainer):
         self,
         model_inputs: dict[str, torch.Tensor],
         read_context_mask: torch.Tensor | None,
+        target_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         labels = model_inputs.get("labels")
         attention_mask = model_inputs.get("attention_mask")
@@ -1303,13 +2055,31 @@ class DeltaMemTrainer(Trainer):
             raise ValueError(
                 "Read-representation labels and attention mask must be matching 2D tensors"
             )
-        supervised_targets = labels[:, 1:].ne(-100) & attention_mask[:, 1:].ne(0)
+        supervised_labels = labels.ne(-100) & attention_mask.ne(0)
+        if target_mask is None:
+            supervised_targets = supervised_labels[:, 1:]
+            missing_target_description = "supervised target"
+        else:
+            if target_mask.shape != labels.shape:
+                raise ValueError(
+                    "Read-representation target mask must match labels"
+                )
+            target_mask = target_mask.to(device=labels.device, dtype=torch.bool)
+            if bool(target_mask[:, 0].any()) or bool(
+                (target_mask & ~supervised_labels).any()
+            ):
+                raise ValueError(
+                    "Read-representation target mask must select causally predictable "
+                    "supervised labels"
+                )
+            supervised_targets = target_mask[:, 1:]
+            missing_target_description = "selected target"
         has_supervised_target = supervised_targets.any(dim=1)
         if not bool(has_supervised_target.all()):
             missing_rows = (~has_supervised_target).nonzero(as_tuple=False).flatten().tolist()
             raise ValueError(
-                "Read-representation capture requires a causally predictable supervised "
-                "target in every row; "
+                "Read-representation capture requires a causally predictable "
+                f"{missing_target_description} in every row; "
                 f"missing rows: {missing_rows}"
             )
         predictor_positions = supervised_targets.to(dtype=torch.int64).argmax(dim=1)
@@ -2173,14 +2943,64 @@ class DeltaMemTrainer(Trainer):
             "probe_ce": 0.0,
         }
 
+    def _content_contrast_target_ce(
+        self,
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        attention_mask: torch.Tensor,
+        target_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, int]:
+        if labels.ndim != 2 or attention_mask.shape != labels.shape:
+            raise ValueError(
+                "Content-contrast labels and attention mask must be matching 2D tensors"
+            )
+        if logits.ndim != 3 or logits.shape[:2] != labels.shape:
+            raise ValueError("Content-contrast logits must align with labels")
+        if target_mask.shape != labels.shape:
+            raise ValueError("Content-contrast target mask must align with labels")
+        target_mask = target_mask.to(device=labels.device, dtype=torch.bool)
+        supervised_labels = labels.ne(-100) & attention_mask.ne(0)
+        if bool(target_mask[:, 0].any()) or bool(
+            (target_mask & ~supervised_labels).any()
+        ):
+            raise ValueError(
+                "Content-contrast target mask must select causally predictable "
+                "supervised labels"
+            )
+        shift_mask = target_mask[:, 1:]
+        target_counts = shift_mask.sum(dim=1)
+        if not bool(
+            target_counts.eq(_CONTENT_CONTRAST_TARGET_SPAN_TOKENS).all()
+        ):
+            raise ValueError(
+                "Content-contrast target mask must select exactly "
+                f"{_CONTENT_CONTRAST_TARGET_SPAN_TOKENS} targets in every row"
+            )
+        shift_logits = logits[:, :-1].float()
+        shift_labels = labels[:, 1:]
+        token_ce = F.cross_entropy(
+            shift_logits.reshape(-1, shift_logits.size(-1)),
+            shift_labels.reshape(-1),
+            reduction="none",
+            ignore_index=-100,
+        ).view_as(shift_labels)
+        row_ce = (token_ce * shift_mask).sum(dim=1) / target_counts
+        return row_ce.mean(), row_ce, int(target_counts.sum().item())
+
     def _content_contrast_objective(
         self,
-        correct_loss: torch.Tensor,
-        wrong_loss: torch.Tensor,
+        correct_full_loss: torch.Tensor,
+        correct_target_loss: torch.Tensor,
+        wrong_target_loss: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        gap = wrong_loss - correct_loss
+        if wrong_target_loss is None:
+            wrong_target_loss = correct_target_loss
+            correct_target_loss = correct_full_loss
+        gap = wrong_target_loss - correct_target_loss
         contrast_loss = self._margin_objective(gap, self.memory_margin)
-        total_loss = correct_loss + self.memory_contrast_weight * contrast_loss
+        total_loss = (
+            correct_full_loss + self.memory_contrast_weight * contrast_loss
+        )
         return total_loss, contrast_loss, gap
 
     def _content_contrast_representation_enabled(self) -> bool:
@@ -2232,10 +3052,13 @@ class DeltaMemTrainer(Trainer):
                 raise ValueError(
                     "content_contrast representation capture requires an active delta_o head"
                 )
-            if delta_config.memory_fusion_placement != "attention_output":
+            if (
+                delta_config.memory_fusion_placement
+                not in _REPRESENTATION_CAPTURE_FUSION_PLACEMENTS
+            ):
                 raise ValueError(
-                    "content_contrast representation capture currently supports only "
-                    "memory_fusion_placement=attention_output"
+                    "content_contrast representation capture supports only "
+                    "attention_output or post_attention_residual_hybrid fusion"
                 )
         if self.memory_kl_weight != 0.0 or self.memory_base_kl_weight != 0.0:
             raise ValueError("content_contrast_ce requires all KL weights to be zero")
@@ -2288,8 +3111,12 @@ class DeltaMemTrainer(Trainer):
         write_message_ids: torch.Tensor | None,
         write_sentence_ids: torch.Tensor | None,
         capture_representations: bool,
+        content_contrast_target_mask: torch.Tensor | None = None,
     ) -> tuple[
         torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        int,
         dict[str, torch.Tensor],
         tuple[str, ...] | None,
         torch.Tensor | None,
@@ -2300,6 +3127,7 @@ class DeltaMemTrainer(Trainer):
             self._build_read_representation_capture_mask(
                 model_inputs,
                 read_context_mask,
+                content_contrast_target_mask,
             )
             if capture_representations
             else None
@@ -2336,15 +3164,42 @@ class DeltaMemTrainer(Trainer):
                 "loss": outputs.loss if hasattr(outputs, "loss") else outputs[0],
                 "logits": outputs.logits,
             }
-        loss = outputs["loss"]
-        if loss.ndim > 0:
-            loss = loss.mean()
-        return loss, outputs, representation_names, representations
+        full_loss = outputs["loss"]
+        if full_loss.ndim > 0:
+            full_loss = full_loss.mean()
+        if content_contrast_target_mask is None:
+            target_loss = full_loss
+            target_row_losses = full_loss.detach().expand(batch_size)
+            target_token_count = int(
+                (
+                    model_inputs["labels"][:, 1:].ne(-100)
+                    & model_inputs["attention_mask"][:, 1:].ne(0)
+                ).sum().item()
+            )
+        else:
+            target_loss, target_row_losses, target_token_count = (
+                self._content_contrast_target_ce(
+                    outputs["logits"],
+                    model_inputs["labels"],
+                    model_inputs["attention_mask"],
+                    content_contrast_target_mask,
+                )
+            )
+        return (
+            full_loss,
+            target_loss,
+            target_row_losses,
+            target_token_count,
+            outputs,
+            representation_names,
+            representations,
+        )
 
     def _content_contrast_loss_and_coefficients(
         self,
-        correct_loss: torch.Tensor,
-        wrong_loss: torch.Tensor,
+        correct_full_loss: torch.Tensor,
+        correct_target_loss: torch.Tensor,
+        wrong_target_loss: torch.Tensor,
         correct_representations: torch.Tensor | None,
         wrong_representations: torch.Tensor | None,
     ) -> tuple[
@@ -2355,18 +3210,27 @@ class DeltaMemTrainer(Trainer):
         torch.Tensor,
         torch.Tensor,
         torch.Tensor,
+        torch.Tensor,
         torch.Tensor | None,
         torch.Tensor | None,
     ]:
-        correct_probe = correct_loss.detach().float().requires_grad_(True)
-        wrong_probe = wrong_loss.detach().float().requires_grad_(True)
+        correct_full_probe = correct_full_loss.detach().float().requires_grad_(True)
+        correct_target_probe = (
+            correct_target_loss.detach().float().requires_grad_(True)
+        )
+        wrong_target_probe = wrong_target_loss.detach().float().requires_grad_(True)
         total_loss, contrast_loss, gap = self._content_contrast_objective(
-            correct_probe,
-            wrong_probe,
+            correct_full_probe,
+            correct_target_probe,
+            wrong_target_probe,
         )
         representation_loss = total_loss.new_zeros(())
         representation_distance = total_loss.new_zeros(())
-        gradient_inputs: list[torch.Tensor] = [correct_probe, wrong_probe]
+        gradient_inputs: list[torch.Tensor] = [
+            correct_full_probe,
+            correct_target_probe,
+            wrong_target_probe,
+        ]
         if self._content_contrast_representation_enabled():
             if correct_representations is None or wrong_representations is None:
                 raise RuntimeError(
@@ -2393,9 +3257,13 @@ class DeltaMemTrainer(Trainer):
                 (correct_representation_probe, wrong_representation_probe)
             )
         gradients = torch.autograd.grad(total_loss, tuple(gradient_inputs))
-        correct_coefficient, wrong_coefficient = gradients[:2]
-        if len(gradients) == 4:
-            correct_representation_gradient, wrong_representation_gradient = gradients[2:]
+        (
+            correct_full_coefficient,
+            correct_target_coefficient,
+            wrong_target_coefficient,
+        ) = gradients[:3]
+        if len(gradients) == 5:
+            correct_representation_gradient, wrong_representation_gradient = gradients[3:]
         else:
             correct_representation_gradient = None
             wrong_representation_gradient = None
@@ -2405,8 +3273,9 @@ class DeltaMemTrainer(Trainer):
             gap.detach(),
             representation_loss.detach(),
             representation_distance.detach(),
-            correct_coefficient.detach(),
-            wrong_coefficient.detach(),
+            correct_full_coefficient.detach(),
+            correct_target_coefficient.detach(),
+            wrong_target_coefficient.detach(),
             None
             if correct_representation_gradient is None
             else correct_representation_gradient.detach(),
@@ -2429,11 +3298,15 @@ class DeltaMemTrainer(Trainer):
         negative_write_attention_mask: torch.Tensor,
         negative_write_message_ids: torch.Tensor | None,
         negative_write_sentence_ids: torch.Tensor | None,
+        content_contrast_target_mask: torch.Tensor | None = None,
     ):
         self._validate_content_contrast_runtime()
         capture_representations = self._content_contrast_representation_enabled()
         (
-            correct_loss,
+            correct_full_loss,
+            correct_target_loss,
+            correct_target_row_losses,
+            target_token_count,
             correct_outputs,
             correct_representation_names,
             correct_representations,
@@ -2446,9 +3319,13 @@ class DeltaMemTrainer(Trainer):
             write_message_ids=write_message_ids,
             write_sentence_ids=write_sentence_ids,
             capture_representations=capture_representations,
+            content_contrast_target_mask=content_contrast_target_mask,
         )
         (
-            wrong_loss,
+            wrong_full_loss,
+            wrong_target_loss,
+            wrong_target_row_losses,
+            wrong_target_token_count,
             _,
             wrong_representation_names,
             wrong_representations,
@@ -2461,11 +3338,17 @@ class DeltaMemTrainer(Trainer):
             write_message_ids=negative_write_message_ids,
             write_sentence_ids=negative_write_sentence_ids,
             capture_representations=capture_representations,
+            content_contrast_target_mask=content_contrast_target_mask,
         )
+        if wrong_target_token_count != target_token_count:
+            raise RuntimeError(
+                "Content-contrast branches selected different target token counts"
+            )
 
         total_loss, contrast_loss, margin_gap = self._content_contrast_objective(
-            correct_loss,
-            wrong_loss,
+            correct_full_loss,
+            correct_target_loss,
+            wrong_target_loss,
         )
         representation_loss = total_loss.new_zeros(())
         representation_distance = total_loss.new_zeros(())
@@ -2489,19 +3372,25 @@ class DeltaMemTrainer(Trainer):
             )
         outputs = dict(correct_outputs)
         outputs["loss"] = total_loss
-        outputs["memory_loss"] = (total_loss - correct_loss).detach()
-        outputs["memory_keep_loss"] = correct_loss.detach()
+        outputs["memory_loss"] = (total_loss - correct_full_loss).detach()
+        outputs["memory_keep_loss"] = correct_full_loss.detach()
+        outputs["content_contrast_correct_target_ce"] = correct_target_loss.detach()
+        outputs["content_contrast_donor_target_ce"] = wrong_target_loss.detach()
         outputs["memory_representation_loss"] = representation_loss.detach()
         outputs["memory_representation_distance"] = representation_distance.detach()
+        target_positive_fraction = (
+            wrong_target_row_losses.detach().float()
+            > correct_target_row_losses.detach().float()
+        ).float().mean()
         return total_loss, outputs, {
-            "keep_loss": float(correct_loss.detach().float().item()),
+            "keep_loss": float(correct_full_loss.detach().float().item()),
             "reset_loss": 0.0,
-            "corrupt_loss": float(wrong_loss.detach().float().item()),
+            "corrupt_loss": float(wrong_full_loss.detach().float().item()),
             "teacher_loss": 0.0,
             "margin_loss": 0.0,
             "causal_loss": float(contrast_loss.detach().float().item()),
             "anchor_loss": 0.0,
-            "full_ce_loss": 0.0,
+            "full_ce_loss": float(correct_full_loss.detach().float().item()),
             "kl_loss": 0.0,
             "reset_kl_loss": 0.0,
             "margin_gap": float(margin_gap.detach().float().item()),
@@ -2511,6 +3400,13 @@ class DeltaMemTrainer(Trainer):
             "representation_distance": float(
                 representation_distance.detach().float().item()
             ),
+            "full_correct_ce": float(correct_full_loss.detach().float().item()),
+            "full_donor_ce": float(wrong_full_loss.detach().float().item()),
+            "targeted_correct_ce": float(correct_target_loss.detach().float().item()),
+            "targeted_donor_ce": float(wrong_target_loss.detach().float().item()),
+            "targeted_gap": float(margin_gap.detach().float().item()),
+            "targeted_positive_fraction": float(target_positive_fraction.item()),
+            "targeted_token_count": float(target_token_count),
             "wmem": 1.0,
             "probe_keep_loss": 0.0,
             "probe_reset_loss": 0.0,
@@ -2535,6 +3431,7 @@ class DeltaMemTrainer(Trainer):
         negative_write_message_ids: torch.Tensor | None,
         negative_write_sentence_ids: torch.Tensor | None,
         gradient_scale: float,
+        content_contrast_target_mask: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """Backpropagate the exact first derivative with one live writer graph at a time."""
 
@@ -2543,7 +3440,10 @@ class DeltaMemTrainer(Trainer):
         wrong_probe_rng_state = _capture_torch_rng_state()
         with torch.no_grad(), self.compute_loss_context_manager():
             (
-                wrong_probe,
+                wrong_full_probe,
+                wrong_target_probe,
+                wrong_target_row_probe,
+                wrong_target_token_count,
                 wrong_probe_outputs,
                 wrong_probe_representation_names,
                 wrong_probe_representations,
@@ -2556,15 +3456,21 @@ class DeltaMemTrainer(Trainer):
                 write_message_ids=negative_write_message_ids,
                 write_sentence_ids=negative_write_sentence_ids,
                 capture_representations=capture_representations,
+                content_contrast_target_mask=content_contrast_target_mask,
             )
-        wrong_probe = wrong_probe.detach()
+        wrong_full_probe = wrong_full_probe.detach()
+        wrong_target_probe = wrong_target_probe.detach()
+        wrong_target_row_probe = wrong_target_row_probe.detach()
         if wrong_probe_representations is not None:
             wrong_probe_representations = wrong_probe_representations.detach()
         del wrong_probe_outputs
 
         with self.compute_loss_context_manager():
             (
-                correct_loss,
+                correct_full_loss,
+                correct_target_loss,
+                correct_target_row_losses,
+                correct_target_token_count,
                 correct_outputs,
                 correct_representation_names,
                 correct_representations,
@@ -2577,6 +3483,11 @@ class DeltaMemTrainer(Trainer):
                 write_message_ids=write_message_ids,
                 write_sentence_ids=write_sentence_ids,
                 capture_representations=capture_representations,
+                content_contrast_target_mask=content_contrast_target_mask,
+            )
+        if correct_target_token_count != wrong_target_token_count:
+            raise RuntimeError(
+                "Content-contrast branches selected different target token counts"
             )
         if correct_representation_names != wrong_probe_representation_names:
             raise RuntimeError(
@@ -2588,18 +3499,25 @@ class DeltaMemTrainer(Trainer):
             margin_gap,
             representation_loss,
             representation_distance,
-            correct_coefficient,
-            wrong_coefficient,
+            correct_full_coefficient,
+            correct_target_coefficient,
+            wrong_target_coefficient,
             correct_representation_gradient,
             wrong_representation_gradient,
         ) = self._content_contrast_loss_and_coefficients(
-            correct_loss,
-            wrong_probe,
+            correct_full_loss,
+            correct_target_loss,
+            wrong_target_probe,
             correct_representations,
             wrong_probe_representations,
         )
-        correct_value = correct_loss.detach()
-        correct_backward = correct_loss * correct_coefficient
+        correct_full_value = correct_full_loss.detach()
+        correct_target_value = correct_target_loss.detach()
+        correct_target_row_values = correct_target_row_losses.detach()
+        correct_backward = (
+            correct_full_loss * correct_full_coefficient
+            + correct_target_loss * correct_target_coefficient
+        )
         if correct_representation_gradient is not None:
             assert correct_representations is not None
             correct_backward = correct_backward + torch.sum(
@@ -2608,14 +3526,23 @@ class DeltaMemTrainer(Trainer):
         self.accelerator.backward(
             correct_backward * gradient_scale,
         )
-        del correct_backward, correct_loss, correct_outputs, correct_representations
+        del (
+            correct_backward,
+            correct_full_loss,
+            correct_target_loss,
+            correct_outputs,
+            correct_representations,
+        )
 
         post_correct_rng_state = _capture_torch_rng_state()
         _restore_torch_rng_state(wrong_probe_rng_state)
         try:
             with self.compute_loss_context_manager():
                 (
-                    wrong_loss,
+                    wrong_full_loss,
+                    wrong_target_loss,
+                    wrong_target_row_losses,
+                    replay_target_token_count,
                     wrong_outputs,
                     wrong_representation_names,
                     wrong_representations,
@@ -2628,14 +3555,36 @@ class DeltaMemTrainer(Trainer):
                     write_message_ids=negative_write_message_ids,
                     write_sentence_ids=negative_write_sentence_ids,
                     capture_representations=capture_representations,
+                    content_contrast_target_mask=content_contrast_target_mask,
                 )
         finally:
             _restore_torch_rng_state(post_correct_rng_state)
-        if not torch.allclose(wrong_loss.detach(), wrong_probe, rtol=1e-5, atol=1e-6):
+        if replay_target_token_count != wrong_target_token_count:
             raise RuntimeError(
-                "Sequential content-contrast donor replay is not deterministic: "
-                f"probe={float(wrong_probe.float().item()):.8f} "
-                f"gradient={float(wrong_loss.detach().float().item()):.8f}"
+                "Sequential content-contrast donor replay selected a different target "
+                "token count"
+            )
+        if not torch.allclose(
+            wrong_full_loss.detach(),
+            wrong_full_probe,
+            rtol=1e-5,
+            atol=1e-6,
+        ):
+            raise RuntimeError(
+                "Sequential content-contrast donor full-CE replay is not deterministic: "
+                f"probe={float(wrong_full_probe.float().item()):.8f} "
+                f"gradient={float(wrong_full_loss.detach().float().item()):.8f}"
+            )
+        if not torch.allclose(
+            wrong_target_loss.detach(),
+            wrong_target_probe,
+            rtol=1e-5,
+            atol=1e-6,
+        ):
+            raise RuntimeError(
+                "Sequential content-contrast donor targeted-CE replay is not deterministic: "
+                f"probe={float(wrong_target_probe.float().item()):.8f} "
+                f"gradient={float(wrong_target_loss.detach().float().item()):.8f}"
             )
         if wrong_representation_names != wrong_probe_representation_names:
             raise RuntimeError(
@@ -2660,8 +3609,10 @@ class DeltaMemTrainer(Trainer):
                     "Sequential content-contrast donor representation replay is not "
                     f"deterministic: max_abs_error={float(maximum_error.item()):.8f}"
                 )
-        wrong_value = wrong_loss.detach()
-        wrong_backward = wrong_loss * wrong_coefficient
+        wrong_full_value = wrong_full_loss.detach()
+        wrong_target_value = wrong_target_loss.detach()
+        wrong_target_row_values = wrong_target_row_losses.detach()
+        wrong_backward = wrong_target_loss * wrong_target_coefficient
         if wrong_representation_gradient is not None:
             assert wrong_representations is not None
             wrong_backward = wrong_backward + torch.sum(
@@ -2670,24 +3621,42 @@ class DeltaMemTrainer(Trainer):
         self.accelerator.backward(
             wrong_backward * gradient_scale,
         )
-        del wrong_backward, wrong_loss, wrong_outputs, wrong_representations
+        del (
+            wrong_backward,
+            wrong_full_loss,
+            wrong_target_loss,
+            wrong_outputs,
+            wrong_representations,
+        )
 
         set_delta_mem_read_context_mask(model, None)
         set_delta_mem_write_enabled(model, True)
         return total_loss * gradient_scale, {
-            "keep_loss": float(correct_value.float().item()),
+            "keep_loss": float(correct_full_value.float().item()),
             "reset_loss": 0.0,
-            "corrupt_loss": float(wrong_value.float().item()),
+            "corrupt_loss": float(wrong_full_value.float().item()),
             "teacher_loss": 0.0,
             "margin_loss": 0.0,
             "causal_loss": float(contrast_loss.float().item()),
             "anchor_loss": 0.0,
-            "full_ce_loss": 0.0,
+            "full_ce_loss": float(correct_full_value.float().item()),
             "kl_loss": 0.0,
             "reset_kl_loss": 0.0,
             "margin_gap": float(margin_gap.float().item()),
             "representation_loss": float(representation_loss.float().item()),
             "representation_distance": float(representation_distance.float().item()),
+            "full_correct_ce": float(correct_full_value.float().item()),
+            "full_donor_ce": float(wrong_full_value.float().item()),
+            "targeted_correct_ce": float(correct_target_value.float().item()),
+            "targeted_donor_ce": float(wrong_target_value.float().item()),
+            "targeted_gap": float(margin_gap.float().item()),
+            "targeted_positive_fraction": float(
+                (
+                    wrong_target_row_values.float()
+                    > correct_target_row_values.float()
+                ).float().mean().item()
+            ),
+            "targeted_token_count": float(correct_target_token_count),
             "wmem": 1.0,
             "probe_keep_loss": 0.0,
             "probe_reset_loss": 0.0,
@@ -2739,6 +3708,34 @@ class DeltaMemTrainer(Trainer):
         )
         self._last_memory_representation_distance = memory_stats.get(
             "representation_distance",
+            0.0,
+        )
+        self._last_content_contrast_full_correct_ce = memory_stats.get(
+            "full_correct_ce",
+            0.0,
+        )
+        self._last_content_contrast_full_donor_ce = memory_stats.get(
+            "full_donor_ce",
+            0.0,
+        )
+        self._last_content_contrast_targeted_correct_ce = memory_stats.get(
+            "targeted_correct_ce",
+            0.0,
+        )
+        self._last_content_contrast_targeted_donor_ce = memory_stats.get(
+            "targeted_donor_ce",
+            0.0,
+        )
+        self._last_content_contrast_targeted_gap = memory_stats.get(
+            "targeted_gap",
+            0.0,
+        )
+        self._last_content_contrast_targeted_positive_fraction = memory_stats.get(
+            "targeted_positive_fraction",
+            0.0,
+        )
+        self._last_content_contrast_targeted_token_count = memory_stats.get(
+            "targeted_token_count",
             0.0,
         )
         self._last_memory_wmem = memory_stats["wmem"]
@@ -3165,6 +4162,10 @@ class DeltaMemTrainer(Trainer):
         negative_write_attention_mask = model_inputs.pop("negative_write_attention_mask", None)
         negative_write_message_ids = model_inputs.pop("negative_write_message_ids", None)
         negative_write_sentence_ids = model_inputs.pop("negative_write_sentence_ids", None)
+        content_contrast_target_mask = model_inputs.pop(
+            "content_contrast_target_mask",
+            None,
+        )
         state_only_write_input_ids = model_inputs.pop("state_only_write_input_ids", None)
         state_only_write_attention_mask = model_inputs.pop("state_only_write_attention_mask", None)
         state_only_write_message_ids = model_inputs.pop("state_only_write_message_ids", None)
@@ -3217,9 +4218,11 @@ class DeltaMemTrainer(Trainer):
                 or write_attention_mask is None
                 or negative_write_input_ids is None
                 or negative_write_attention_mask is None
+                or content_contrast_target_mask is None
             ):
                 raise ValueError(
-                    "content_contrast_ce requires materialized positive and negative write tensors"
+                    "content_contrast_ce requires materialized positive/negative writes "
+                    "and a strict target mask"
                 )
             loss, outputs, memory_stats = self._compute_content_contrast_ce(
                 model,
@@ -3233,6 +4236,7 @@ class DeltaMemTrainer(Trainer):
                 negative_write_attention_mask=negative_write_attention_mask,
                 negative_write_message_ids=negative_write_message_ids,
                 negative_write_sentence_ids=negative_write_sentence_ids,
+                content_contrast_target_mask=content_contrast_target_mask,
             )
         elif self.memory_loss_mode == "context_dropout_ce" and has_episode_memory_inputs:
             loss, outputs, memory_stats = self._compute_context_dropout_ce(
@@ -3483,6 +4487,27 @@ class DeltaMemTrainer(Trainer):
                     "delta/memory_representation_distance": (
                         self._last_memory_representation_distance
                     ),
+                    "delta/content_contrast_full_correct_ce": (
+                        self._last_content_contrast_full_correct_ce
+                    ),
+                    "delta/content_contrast_full_donor_ce": (
+                        self._last_content_contrast_full_donor_ce
+                    ),
+                    "delta/content_contrast_targeted_correct_ce": (
+                        self._last_content_contrast_targeted_correct_ce
+                    ),
+                    "delta/content_contrast_targeted_donor_ce": (
+                        self._last_content_contrast_targeted_donor_ce
+                    ),
+                    "delta/content_contrast_targeted_gap": (
+                        self._last_content_contrast_targeted_gap
+                    ),
+                    "delta/content_contrast_targeted_positive_fraction": (
+                        self._last_content_contrast_targeted_positive_fraction
+                    ),
+                    "delta/content_contrast_targeted_token_count": (
+                        self._last_content_contrast_targeted_token_count
+                    ),
                     "delta/memory_wmem": self._last_memory_wmem,
                     "delta/memory_probe_keep_loss": self._last_memory_probe_keep_loss,
                     "delta/memory_probe_reset_loss": self._last_memory_probe_reset_loss,
@@ -3558,6 +4583,7 @@ class DeltaMemTrainer(Trainer):
                     "negative_write_attention_mask",
                     "negative_write_message_ids",
                     "negative_write_sentence_ids",
+                    "content_contrast_target_mask",
                 )
             }
             for key in (
@@ -3584,12 +4610,13 @@ class DeltaMemTrainer(Trainer):
                 "write_attention_mask",
                 "negative_write_input_ids",
                 "negative_write_attention_mask",
+                "content_contrast_target_mask",
             )
             missing = [key for key in required if payload[key] is None]
             if missing:
                 raise ValueError(
-                    "content_contrast_ce requires materialized positive and negative write "
-                    "tensors: " + ", ".join(missing)
+                    "content_contrast_ce requires materialized positive/negative writes "
+                    "and a strict target mask: " + ", ".join(missing)
                 )
 
             loss_kwargs = {}
@@ -3615,6 +4642,9 @@ class DeltaMemTrainer(Trainer):
                 negative_write_message_ids=payload["negative_write_message_ids"],
                 negative_write_sentence_ids=payload["negative_write_sentence_ids"],
                 gradient_scale=gradient_scale,
+                content_contrast_target_mask=payload[
+                    "content_contrast_target_mask"
+                ],
             )
             self._last_memory_partition_alignment_loss = 0.0
             self._last_memory_partition_entropy_loss = 0.0
@@ -3777,10 +4807,22 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         required=True,
     )
-    parser.add_argument(
+    checkpoint_source = parser.add_mutually_exclusive_group()
+    checkpoint_source.add_argument(
         "--resume-from-checkpoint",
         default=None,
         help="Checkpoint path to resume, or 'latest'/'auto' for the newest complete checkpoint.",
+    )
+    checkpoint_source.add_argument(
+        "--warm-start-from-checkpoint",
+        default=None,
+        help="Completed adapter checkpoint to import without Trainer state.",
+    )
+    parser.add_argument(
+        "--warm-start-mode",
+        choices=_WARM_START_MODES,
+        default=None,
+        help="Strict adapter-only warm-start contract.",
     )
     parser.add_argument(
         "--resume-mode",
@@ -3872,6 +4914,7 @@ def parse_args() -> argparse.Namespace:
             "attention_output",
             "post_attention_norm",
             "normalized_residual_correction",
+            "post_attention_residual_hybrid",
         ],
         help="Choose where the gated memory output enters Gemma's attention residual branch.",
     )
@@ -3880,6 +4923,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=1.0,
         help="Interpolation scale for normalized_residual_correction fusion.",
+    )
+    parser.add_argument(
+        "--memory-fusion-residual-scale-max",
+        type=float,
+        default=1.0,
+        help="Maximum effective direct residual gain for residual-hybrid fusion.",
     )
     parser.add_argument(
         "--trainable-delta-scale",
@@ -4051,6 +5100,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--rankwise-gates", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
+    if (args.warm_start_from_checkpoint is None) != (args.warm_start_mode is None):
+        raise ValueError(
+            "--warm-start-from-checkpoint and --warm-start-mode must be provided together"
+        )
     args.num_memory_partitions = 1
     args.num_global_memory_partitions = 0
     args.memory_partition_routing = "soft"
@@ -4117,10 +5170,13 @@ def parse_args() -> argparse.Namespace:
             raise ValueError(
                 "memory-representation-weight requires an active delta_o head"
             )
-        if normalize_memory_fusion_placement(args.memory_fusion_placement) != "attention_output":
+        if (
+            normalize_memory_fusion_placement(args.memory_fusion_placement)
+            not in _REPRESENTATION_CAPTURE_FUSION_PLACEMENTS
+        ):
             raise ValueError(
-                "memory-representation-weight currently supports only "
-                "memory-fusion-placement=attention_output"
+                "memory-representation-weight supports only attention_output or "
+                "post_attention_residual_hybrid fusion"
             )
     if args.memory_loss_mode == "content_contrast_ce":
         if args.episode_read_write_enabled:
@@ -5093,6 +6149,166 @@ def _canonical_json_sha256(payload: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _content_contrast_supervised_trace(
+    row: dict,
+    *,
+    row_name: str,
+) -> list[dict[str, int]]:
+    required = ("input_ids", "attention_mask", "labels")
+    missing = [key for key in required if key not in row]
+    if missing:
+        raise ValueError(
+            f"content_contrast_ce {row_name} row is missing: " + ", ".join(missing)
+        )
+    input_ids = [int(value) for value in row["input_ids"]]
+    attention_mask = [int(value) for value in row["attention_mask"]]
+    labels = [int(value) for value in row["labels"]]
+    if not len(input_ids) == len(attention_mask) == len(labels):
+        raise ValueError(
+            f"content_contrast_ce {row_name} input IDs, attention mask, and labels "
+            "must have equal lengths"
+        )
+    if labels and labels[0] != -100 and attention_mask[0] != 0:
+        raise ValueError(
+            f"content_contrast_ce {row_name} has a supervised target without a "
+            "causal predictor"
+        )
+
+    trace: list[dict[str, int]] = []
+    for label_position in range(1, len(labels)):
+        label = labels[label_position]
+        if label == -100 or attention_mask[label_position] == 0:
+            continue
+        predictor_position = label_position - 1
+        if attention_mask[predictor_position] == 0:
+            raise ValueError(
+                f"content_contrast_ce {row_name} supervised target at "
+                f"{label_position} has a masked causal predictor"
+            )
+        if input_ids[label_position] != label:
+            raise ValueError(
+                f"content_contrast_ce {row_name} supervised label does not match "
+                f"its input token at position {label_position}"
+            )
+        trace.append(
+            {
+                "ordinal": len(trace),
+                "token_id": label,
+                "label_position": label_position,
+                "predictor_position": predictor_position,
+            }
+        )
+    if not trace:
+        raise ValueError(
+            f"content_contrast_ce {row_name} row has no supervised next-token targets"
+        )
+    return trace
+
+
+def _select_content_contrast_target_span_with_metadata(
+    source_row: dict,
+    donor_row: dict,
+    *,
+    span_tokens: int,
+) -> tuple[list[bool], dict[str, object]]:
+    if span_tokens <= 0:
+        raise ValueError("content_contrast_ce target span_tokens must be positive")
+    source_trace = _content_contrast_supervised_trace(source_row, row_name="source")
+    donor_trace = _content_contrast_supervised_trace(donor_row, row_name="donor")
+    if len(source_trace) != len(donor_trace):
+        raise ValueError(
+            "content_contrast_ce source and donor supervised target counts differ: "
+            f"source={len(source_trace)} donor={len(donor_trace)}"
+        )
+    source_positions = [item["label_position"] for item in source_trace]
+    donor_positions = [item["label_position"] for item in donor_trace]
+    if source_positions != donor_positions:
+        raise ValueError(
+            "content_contrast_ce source and donor supervised target positions differ"
+        )
+
+    first_differing_ordinal = next(
+        (
+            ordinal
+            for ordinal, (source_item, donor_item) in enumerate(
+                zip(source_trace, donor_trace)
+            )
+            if source_item["token_id"] != donor_item["token_id"]
+        ),
+        None,
+    )
+    if first_differing_ordinal is None:
+        raise ValueError(
+            "content_contrast_ce source and donor have identical supervised answers"
+        )
+    if len(source_trace) - first_differing_ordinal < span_tokens:
+        raise ValueError(
+            f"content_contrast_ce fewer than {span_tokens} supervised targets remain "
+            "after the first differing target"
+        )
+
+    first_label_position = source_trace[first_differing_ordinal]["label_position"]
+    source_prefix = [
+        int(value) for value in source_row["input_ids"][:first_label_position]
+    ]
+    donor_prefix = [
+        int(value) for value in donor_row["input_ids"][:first_label_position]
+    ]
+    if source_prefix != donor_prefix:
+        raise ValueError(
+            "content_contrast_ce source and donor causal prefix differs before the "
+            "first selected target"
+        )
+    source_attention_prefix = [
+        int(value)
+        for value in source_row["attention_mask"][:first_label_position]
+    ]
+    donor_attention_prefix = [
+        int(value)
+        for value in donor_row["attention_mask"][:first_label_position]
+    ]
+    if source_attention_prefix != donor_attention_prefix:
+        raise ValueError(
+            "content_contrast_ce source and donor causal attention-mask prefix differs "
+            "before the first selected target"
+        )
+
+    selected_trace = source_trace[
+        first_differing_ordinal : first_differing_ordinal + span_tokens
+    ]
+    donor_selected_trace = donor_trace[
+        first_differing_ordinal : first_differing_ordinal + span_tokens
+    ]
+    target_mask = [False] * len(source_row["labels"])
+    for item in selected_trace:
+        target_mask[item["label_position"]] = True
+    metadata: dict[str, object] = {
+        "target_mode": _CONTENT_CONTRAST_TARGET_MODE,
+        "target_span_tokens": span_tokens,
+        "first_differing_supervised_ordinal": first_differing_ordinal,
+        "first_target_label_position": first_label_position,
+        "first_target_predictor_position": first_label_position - 1,
+        "target_label_positions": [item["label_position"] for item in selected_trace],
+        "target_token_ids": [item["token_id"] for item in selected_trace],
+        "donor_token_ids": [item["token_id"] for item in donor_selected_trace],
+    }
+    return target_mask, metadata
+
+
+def select_content_contrast_target_span(
+    source_row: dict,
+    donor_row: dict,
+    *,
+    span_tokens: int = _CONTENT_CONTRAST_TARGET_SPAN_TOKENS,
+) -> list[bool]:
+    target_mask, _ = _select_content_contrast_target_span_with_metadata(
+        source_row,
+        donor_row,
+        span_tokens=span_tokens,
+    )
+    return target_mask
+
+
 def _content_contrast_write_payload(
     row: dict,
     *,
@@ -5141,6 +6357,8 @@ def materialize_content_contrast_pairs(
         "negative_write_attention_mask",
         "negative_write_message_ids",
         "negative_write_sentence_ids",
+        "content_contrast_target_mask",
+        "content_contrast_target_mask_sha256",
         "content_contrast_source_index",
         "content_contrast_partner_index",
         "content_contrast_source_id",
@@ -5176,6 +6394,8 @@ def materialize_content_contrast_pairs(
     partner_ids: list[str] = []
     source_hashes: list[str] = []
     partner_hashes: list[str] = []
+    target_masks: list[list[bool]] = []
+    target_mask_hashes: list[str] = []
     for source_index, partner_index in enumerate(partner_indices):
         if source_index == partner_index:
             raise ValueError("content_contrast_ce pairing produced a self-pair")
@@ -5194,6 +6414,16 @@ def materialize_content_contrast_pairs(
         partner_ids.append(partner_id)
         source_hashes.append(source_hash)
         partner_hashes.append(partner_hash)
+        target_mask, target_metadata = (
+            _select_content_contrast_target_span_with_metadata(
+                rows[source_index],
+                rows[partner_index],
+                span_tokens=_CONTENT_CONTRAST_TARGET_SPAN_TOKENS,
+            )
+        )
+        target_mask_hash = _canonical_json_sha256(target_mask)
+        target_masks.append(target_mask)
+        target_mask_hashes.append(target_mask_hash)
         for source_field, negative_column in (
             ("input_ids", "negative_write_input_ids"),
             ("attention_mask", "negative_write_attention_mask"),
@@ -5211,12 +6441,19 @@ def materialize_content_contrast_pairs(
                 "partner_id": partner_id,
                 "source_write_sha256": source_hash,
                 "partner_write_sha256": partner_hash,
+                **target_metadata,
+                "target_mask_sha256": target_mask_hash,
             }
         )
 
     paired = split
     for column, values in negative_columns.items():
         paired = paired.add_column(column, values)
+    paired = paired.add_column("content_contrast_target_mask", target_masks)
+    paired = paired.add_column(
+        "content_contrast_target_mask_sha256",
+        target_mask_hashes,
+    )
     materialized_negative_hashes = []
     for source_index in range(sample_count):
         materialized_payload = _content_contrast_write_payload(
@@ -5246,6 +6483,9 @@ def materialize_content_contrast_pairs(
         "pairing_version": _CONTENT_CONTRAST_PAIRING_VERSION,
         "sample_count": sample_count,
         "rotation": rotation,
+        "target_mode": _CONTENT_CONTRAST_TARGET_MODE,
+        "target_span_tokens": _CONTENT_CONTRAST_TARGET_SPAN_TOKENS,
+        "target_token_count": sample_count * _CONTENT_CONTRAST_TARGET_SPAN_TOKENS,
         "source_fingerprint": source_fingerprint,
         "paired_fingerprint": getattr(paired, "_fingerprint", None),
         "pairs_sha256": _canonical_json_sha256(pair_audit),
@@ -5265,11 +6505,18 @@ def build_content_contrast_pairing_manifest(
     splits = {"train": train_manifest}
     if eval_manifest is not None:
         splits["eval"] = eval_manifest
+    target_token_count = sum(
+        int(split_manifest["target_token_count"])
+        for split_manifest in splits.values()
+    )
     manifest: dict[str, object] = {
         "schema_version": 1,
         "objective_version": _CONTENT_CONTRAST_OBJECTIVE_VERSION,
         "pairing_version": _CONTENT_CONTRAST_PAIRING_VERSION,
         "pairing_scope": "within_post_split_partition",
+        "target_mode": _CONTENT_CONTRAST_TARGET_MODE,
+        "target_span_tokens": _CONTENT_CONTRAST_TARGET_SPAN_TOKENS,
+        "target_token_count": target_token_count,
         "data_seed": data_seed,
         "tokenized_fingerprint": tokenized_fingerprint,
         "splits": splits,
@@ -5288,6 +6535,9 @@ def _content_contrast_protocol_pairing_summary(
             for key in (
                 "sample_count",
                 "rotation",
+                "target_mode",
+                "target_span_tokens",
+                "target_token_count",
                 "source_fingerprint",
                 "paired_fingerprint",
                 "pairs_sha256",
@@ -5297,6 +6547,9 @@ def _content_contrast_protocol_pairing_summary(
     return {
         "pairing_version": manifest["pairing_version"],
         "pairing_scope": manifest["pairing_scope"],
+        "target_mode": manifest["target_mode"],
+        "target_span_tokens": manifest["target_span_tokens"],
+        "target_token_count": manifest["target_token_count"],
         "data_seed": manifest["data_seed"],
         "tokenized_fingerprint": manifest["tokenized_fingerprint"],
         "manifest_sha256": manifest["manifest_sha256"],
@@ -5373,6 +6626,11 @@ def build_training_protocol(
             "memory_fusion_residual_scale",
             1.0,
         ),
+        "memory_fusion_residual_scale_max": getattr(
+            args,
+            "memory_fusion_residual_scale_max",
+            1.0,
+        ),
         "rwkv_ms_output_init_scale": getattr(args, "rwkv_ms_output_init_scale", 0.02),
         "rwkv_ms_semantics_version": getattr(args, "rwkv_ms_semantics_version", 2),
         "memory_loss_mode": args.memory_loss_mode,
@@ -5426,6 +6684,10 @@ def build_training_protocol(
                 "content_contrast_negative_priming_grad": True,
                 "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
                 "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
+                "content_contrast_target_mode": _CONTENT_CONTRAST_TARGET_MODE,
+                "content_contrast_target_span_tokens": (
+                    _CONTENT_CONTRAST_TARGET_SPAN_TOKENS
+                ),
                 "content_contrast_previous_source_grad": (
                     _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
                 ),
@@ -5517,6 +6779,8 @@ class EpisodeCausalLMCollator(DialogueCausalLMCollator):
                 "negative_write_attention_mask",
                 "negative_write_message_ids",
                 "negative_write_sentence_ids",
+                "content_contrast_target_mask",
+                "content_contrast_target_mask_sha256",
             )
             missing_negative_columns = [
                 column
@@ -5555,6 +6819,38 @@ class EpisodeCausalLMCollator(DialogueCausalLMCollator):
             batch["negative_write_attention_mask"] = negative_write_attention_mask
             batch["negative_write_message_ids"] = negative_write_message_ids
             batch["negative_write_sentence_ids"] = negative_write_sentence_ids
+            for feature in features:
+                target_mask = feature["content_contrast_target_mask"]
+                if len(target_mask) != len(feature["labels"]):
+                    raise ValueError(
+                        "content_contrast_ce target mask must align with labels"
+                    )
+                if sum(bool(value) for value in target_mask) != (
+                    _CONTENT_CONTRAST_TARGET_SPAN_TOKENS
+                ):
+                    raise ValueError(
+                        "content_contrast_ce target mask must select exactly "
+                        f"{_CONTENT_CONTRAST_TARGET_SPAN_TOKENS} labels"
+                    )
+                expected_target_mask_hash = str(
+                    feature["content_contrast_target_mask_sha256"]
+                )
+                actual_target_mask_hash = _canonical_json_sha256(
+                    [bool(value) for value in target_mask]
+                )
+                if actual_target_mask_hash != expected_target_mask_hash:
+                    raise ValueError(
+                        "content_contrast_ce target mask does not match its audited hash"
+                    )
+            content_contrast_target_mask = _pad_sequences(
+                [feature["content_contrast_target_mask"] for feature in features],
+                False,
+            )
+            if content_contrast_target_mask is None:
+                raise ValueError("content_contrast_ce target masks must be non-empty")
+            batch["content_contrast_target_mask"] = (
+                content_contrast_target_mask.to(dtype=torch.bool)
+            )
 
         teacher_input_ids = _pad_sequences(
             [feature["teacher_input_ids"] for feature in features],
@@ -5657,6 +6953,8 @@ def main() -> None:
     args = parse_args()
     # Adapter and RWKV-core parameters are initialized before Trainer exists.
     set_seed(args.seed)
+    if args.warm_start_from_checkpoint is not None:
+        _validate_residual_hybrid_w8_warm_start_args(args)
     if args.gradient_checkpointing:
         raise ValueError(
             "Gradient checkpointing is currently incompatible with Delta-Mem's stateful token updates. "
@@ -5682,9 +6980,17 @@ def main() -> None:
             and args.resume_mode != "objective_ablation"
         ),
     )
-    continuation_manifest = prepare_training_continuation(
+    warm_start_from_checkpoint = resolve_adapter_warm_start_checkpoint(
+        args.warm_start_from_checkpoint
+    )
+    warm_start_context = prepare_adapter_warm_start(
         args,
-        resume_from_checkpoint,
+        warm_start_from_checkpoint,
+    )
+    continuation_manifest = (
+        warm_start_context.manifest
+        if warm_start_context is not None
+        else prepare_training_continuation(args, resume_from_checkpoint)
     )
     dtype = get_dtype(args.dtype)
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
@@ -5799,6 +7105,7 @@ def main() -> None:
         memory_fusion_gate_init=args.memory_fusion_gate_init,
         memory_fusion_placement=args.memory_fusion_placement,
         memory_fusion_residual_scale=args.memory_fusion_residual_scale,
+        memory_fusion_residual_scale_max=args.memory_fusion_residual_scale_max,
         online_gain=args.online_gain,
         target_layers=requested_target_layers,
         memory_readout_mode=normalize_memory_readout_mode(args.memory_readout_mode),
@@ -5818,6 +7125,15 @@ def main() -> None:
         else []
     )
     _promote_trainable_parameters_to_fp32(model)
+    if warm_start_context is not None:
+        warm_start_context.manifest.update(
+            apply_adapter_warm_start(
+                model,
+                warm_start_context,
+                delta_config,
+                trainable_names,
+            )
+        )
 
     warmup_steps = compute_warmup_steps(
         train_samples=len(train_dataset),
@@ -5832,6 +7148,11 @@ def main() -> None:
         warmup_steps,
         resume_from_checkpoint,
     )
+    if (
+        warm_start_context is not None
+        and warmup_steps != _RESIDUAL_HYBRID_W8_TARGET_WARMUP_STEPS
+    ):
+        raise ValueError("Residual-hybrid W8 warm start requires exactly 2 warmup steps")
     training_protocol = build_training_protocol(
         args,
         tokenized,
@@ -5844,6 +7165,22 @@ def main() -> None:
     training_protocol_sha256 = hashlib.sha256(
         json.dumps(training_protocol, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+    if warm_start_context is not None:
+        validate_residual_hybrid_w8_target_protocol(
+            warm_start_context.source_protocol,
+            training_protocol,
+        )
+        if content_contrast_pairing_manifest is None:
+            raise RuntimeError("Residual-hybrid W8 warm start requires target pairing metadata")
+        finalize_adapter_warm_start_lineage(
+            warm_start_context,
+            target_training_protocol_sha256=training_protocol_sha256,
+            target_pairing_manifest=content_contrast_pairing_manifest,
+        )
+    trainer_resume_from_checkpoint = resolve_trainer_resume_checkpoint(
+        resume_from_checkpoint,
+        warm_start_context,
+    )
     if args.resume_mode == "objective_ablation":
         if resume_from_checkpoint is None:
             raise ValueError("objective_ablation requires a resolved source checkpoint")
@@ -5975,7 +7312,7 @@ def main() -> None:
         continuation_manifest=continuation_manifest,
     )
     trainer.log_delta_debug_stats = args.log_delta_debug_stats
-    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+    trainer.train(resume_from_checkpoint=trainer_resume_from_checkpoint)
     trainer.accelerator.wait_for_everyone()
 
     base_model = trainer.accelerator.unwrap_model(trainer.model)
@@ -5999,6 +7336,8 @@ def main() -> None:
             "output_dir": str(args.output_dir),
             "resume_from_checkpoint": resume_from_checkpoint,
             "resume_mode": args.resume_mode,
+            "warm_start_from_checkpoint": warm_start_from_checkpoint,
+            "warm_start_mode": args.warm_start_mode,
             "continuation": active_lineage,
             "resume_lineage": active_lineage,
             "num_replaced_modules": len(replaced),
@@ -6023,6 +7362,12 @@ def main() -> None:
             "content_contrast_read_mask_mode": training_protocol.get(
                 "content_contrast_read_mask_mode"
             ),
+            "content_contrast_target_mode": training_protocol.get(
+                "content_contrast_target_mode"
+            ),
+            "content_contrast_target_span_tokens": training_protocol.get(
+                "content_contrast_target_span_tokens"
+            ),
             "content_contrast_previous_source_grad": training_protocol.get(
                 "content_contrast_previous_source_grad"
             ),
@@ -6038,6 +7383,7 @@ def main() -> None:
             "memory_fusion_gate_init": args.memory_fusion_gate_init,
             "memory_fusion_placement": args.memory_fusion_placement,
             "memory_fusion_residual_scale": args.memory_fusion_residual_scale,
+            "memory_fusion_residual_scale_max": args.memory_fusion_residual_scale_max,
             "target_layers": args.target_layers,
             "memory_contrast_weight": args.memory_contrast_weight,
             "memory_kl_weight": args.memory_kl_weight,

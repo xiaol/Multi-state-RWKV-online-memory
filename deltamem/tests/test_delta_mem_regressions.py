@@ -1671,6 +1671,7 @@ def test_gemma4_post_attention_norm_matches_manual_decoder_equation() -> None:
             memory_fusion_mode="content_gated_add",
             memory_fusion_gate_init=0.25,
             memory_fusion_placement="post_attention_norm",
+            memory_fusion_residual_scale=1.0,
             target_layers=(0,),
             target_modules=("self_attn",),
         ),
@@ -1828,10 +1829,175 @@ def test_gemma4_normalized_residual_correction_matches_manual_decoder_equation(
 
 
 @pytest.mark.parametrize(
+    "memory_fusion_placement",
+    [
+        "attention_output",
+        "post_attention_norm",
+        "normalized_residual_correction",
+        "post_attention_residual_hybrid",
+    ],
+)
+def test_gemma4_read_representation_captures_actual_applied_correction(
+    memory_fusion_placement: str,
+) -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(11)
+    config = Gemma4TextConfig(
+        vocab_size=64,
+        hidden_size=16,
+        intermediate_size=32,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+        num_key_value_heads=1,
+        head_dim=8,
+        global_head_dim=8,
+        num_global_key_value_heads=1,
+        attention_dropout=0.0,
+        attention_bias=False,
+        layer_types=["full_attention"],
+        num_kv_shared_layers=0,
+        hidden_size_per_layer_input=0,
+        sliding_window=4,
+        tie_word_embeddings=False,
+    )
+    config._attn_implementation = "eager"
+    model = Gemma4TextModel(config).train()
+    layer = model.layers[0]
+    reference_norm = copy.deepcopy(layer.post_attention_layernorm).eval()
+    captures: dict[str, torch.Tensor] = {}
+
+    def capture_frozen_norm(_module, inputs, output) -> None:
+        captures["raw_attention"] = inputs[0].detach().clone()
+        captures["frozen_norm"] = output.detach().clone()
+        payload = wrapped._pending_post_attention_delta
+        if payload is not None and payload[1] is not None:
+            captures["fused_delta"] = payload[1].detach().clone()
+
+    def capture_base_attention(_module, _inputs, output) -> None:
+        captures["base_attention"] = output.detach().clone()
+
+    def capture_fused_attention(_module, _inputs, output) -> None:
+        captures["fused_attention"] = output[0].detach().clone()
+
+    def capture_fused_norm(_module, _inputs, output) -> None:
+        captures["fused_norm"] = output.detach().clone()
+
+    frozen_norm_hook = layer.post_attention_layernorm.register_forward_hook(
+        capture_frozen_norm
+    )
+    attach_delta_mem(
+        model,
+        HFDeltaMemConfig(
+            rank=2,
+            alpha=4.0,
+            output_init="random",
+            online_gain=0.2,
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            memory_fusion_gate_init=0.25,
+            memory_fusion_placement=memory_fusion_placement,
+            memory_fusion_residual_scale=0.005,
+            memory_fusion_residual_scale_max=0.05,
+            target_layers=(0,),
+            target_modules=("self_attn",),
+        ),
+    )
+    wrapped = layer.self_attn
+    assert isinstance(wrapped, DeltaMemAttention)
+    with torch.no_grad():
+        wrapped.delta_o_proj.mul_(1000.0)
+    handles = [
+        wrapped.base.o_proj.register_forward_hook(capture_base_attention),
+        wrapped.register_forward_hook(capture_fused_attention),
+        layer.post_attention_layernorm.register_forward_hook(capture_fused_norm),
+    ]
+    capture_mask = torch.tensor([[False, False, False, False, True]])
+    set_delta_mem_read_representation_capture_mask(model, capture_mask)
+
+    model(input_ids=torch.tensor([[1, 2, 3, 4, 5]]), use_cache=False)
+    frozen_norm_hook.remove()
+    for handle in handles:
+        handle.remove()
+
+    if memory_fusion_placement == "attention_output":
+        applied_correction = (
+            captures["fused_attention"] - captures["base_attention"]
+        )
+    else:
+        applied_correction = captures["fused_norm"] - captures["frozen_norm"]
+    representation = collect_delta_mem_read_representations(model)[
+        "layers.0.self_attn"
+    ]
+
+    torch.testing.assert_close(representation.detach(), applied_correction[:, -1])
+    assert applied_correction.float().norm().item() > 0.0
+    assert wrapped.last_applied_memory_correction_norm is not None
+    assert wrapped.last_applied_memory_correction_ratio is not None
+    if memory_fusion_placement == "normalized_residual_correction":
+        memory_norm = reference_norm(
+            captures["raw_attention"] + captures["fused_delta"]
+        )
+        normalized_correction = memory_norm - captures["frozen_norm"]
+        torch.testing.assert_close(
+            applied_correction,
+            normalized_correction * 0.005,
+            atol=1e-6,
+            rtol=1e-5,
+        )
+        assert not torch.allclose(applied_correction, normalized_correction)
+    if memory_fusion_placement == "post_attention_norm":
+        torch.testing.assert_close(
+            applied_correction,
+            captures["fused_delta"] * 0.005,
+            atol=1e-6,
+            rtol=1e-5,
+        )
+    if memory_fusion_placement == "post_attention_residual_hybrid":
+        memory_norm = reference_norm(
+            captures["raw_attention"] + captures["fused_delta"]
+        )
+        normalized_correction = memory_norm - captures["frozen_norm"]
+        torch.testing.assert_close(
+            applied_correction,
+            normalized_correction + captures["fused_delta"] * 0.005,
+            atol=1e-6,
+            rtol=1e-5,
+        )
+        resolved_gain = wrapped._resolved_memory_fusion_residual_gain(
+            device=wrapped.memory_fusion_residual_gain_raw.device,
+            dtype=torch.float32,
+        ).item()
+        assert resolved_gain == pytest.approx(0.005, rel=1e-6)
+        representation.square().sum().backward()
+        gain_grad = wrapped.memory_fusion_residual_gain_raw.grad
+        assert gain_grad is not None
+        assert torch.isfinite(gain_grad).all()
+        assert gain_grad.abs().item() > 0.0
+
+    stats = collect_delta_mem_output_ratio_stats(model)
+    assert stats["mean_applied_memory_correction_norm"] > 0.0
+    assert stats["mean_applied_memory_correction_ratio"] > 0.0
+    assert stats["max_applied_memory_correction_ratio"] > 0.0
+    assert stats["post_attention_residual_hybrid_fusion_modules"] == int(
+        memory_fusion_placement == "post_attention_residual_hybrid"
+    )
+    if memory_fusion_placement != "attention_output":
+        assert stats["modules_with_memory_residual_gain"] == 1
+        assert stats["mean_memory_residual_gain"] == pytest.approx(0.005, rel=1e-6)
+        assert stats["min_memory_residual_gain"] == pytest.approx(0.005, rel=1e-6)
+        assert stats["max_memory_residual_gain"] == pytest.approx(0.005, rel=1e-6)
+
+
+@pytest.mark.parametrize(
     ("memory_fusion_placement", "memory_fusion_residual_scale"),
     [
         ("post_attention_norm", 1.0),
         ("normalized_residual_correction", 0.5),
+        ("post_attention_residual_hybrid", 0.5),
     ],
 )
 def test_gemma4_post_attention_norm_gradients_reach_memory_and_gate(
@@ -1872,6 +2038,10 @@ def test_gemma4_post_attention_norm_gradients_reach_memory_and_gate(
         "memory_fusion_read_weight": wrapped.memory_fusion_read_weight,
         "memory_fusion_bias": wrapped.memory_fusion_bias,
     }
+    if memory_fusion_placement == "post_attention_residual_hybrid":
+        required["memory_fusion_residual_gain_raw"] = (
+            wrapped.memory_fusion_residual_gain_raw
+        )
     for name, parameter in required.items():
         assert parameter.grad is not None, name
         assert torch.isfinite(parameter.grad).all(), name
@@ -1887,7 +2057,17 @@ def test_gemma4_post_attention_norm_gradients_reach_memory_and_gate(
     )
 
 
-def test_post_attention_norm_rejects_non_gemma_and_non_o_targets_atomically() -> None:
+@pytest.mark.parametrize(
+    "memory_fusion_placement",
+    [
+        "post_attention_norm",
+        "normalized_residual_correction",
+        "post_attention_residual_hybrid",
+    ],
+)
+def test_post_attention_norm_rejects_non_gemma_and_non_o_targets_atomically(
+    memory_fusion_placement: str,
+) -> None:
     qwen_model = ToyAttentionModel()
     original_qwen = qwen_model.self_attn
     with pytest.raises(ValueError, match="Gemma4-only"):
@@ -1896,7 +2076,7 @@ def test_post_attention_norm_rejects_non_gemma_and_non_o_targets_atomically() ->
             HFDeltaMemConfig(
                 rank=2,
                 delta_heads=("o",),
-                memory_fusion_placement="post_attention_norm",
+                memory_fusion_placement=memory_fusion_placement,
                 target_layers=(0,),
             ),
         )
@@ -1910,7 +2090,7 @@ def test_post_attention_norm_rejects_non_gemma_and_non_o_targets_atomically() ->
             HFDeltaMemConfig(
                 rank=2,
                 delta_heads=("q", "o"),
-                memory_fusion_placement="post_attention_norm",
+                memory_fusion_placement=memory_fusion_placement,
                 target_layers=(0, 1, 2, 3),
             ),
         )
@@ -2004,6 +2184,7 @@ def test_attach_delta_mem_rejects_non_o_heads_for_gemma4_shared_kv_atomically(
         "attention_output",
         "post_attention_norm",
         "normalized_residual_correction",
+        "post_attention_residual_hybrid",
     ],
 )
 def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base(
@@ -2050,6 +2231,130 @@ def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base(
         assert wrapped._pending_post_attention_delta is None
 
 
+def test_gemma4_post_attention_norm_scale_zero_matches_base_with_live_memory() -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(23)
+    config = make_gemma4_shared_kv_config()
+    base_model = Gemma4TextModel(config).eval()
+    wrapped_model = copy.deepcopy(base_model).eval()
+    attach_delta_mem(
+        wrapped_model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="random",
+            online_gain=0.2,
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            memory_fusion_gate_init=0.25,
+            memory_fusion_placement="post_attention_norm",
+            memory_fusion_residual_scale=0.0,
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+    input_ids = torch.tensor([[1, 2, 3, 4, 5]])
+
+    with torch.inference_mode():
+        expected = base_model(input_ids=input_ids, use_cache=False).last_hidden_state
+        actual = wrapped_model(input_ids=input_ids, use_cache=False).last_hidden_state
+
+    torch.testing.assert_close(actual, expected, atol=1e-6, rtol=1e-6)
+    wrapped_modules = [layer.self_attn for layer in wrapped_model.layers]
+    assert any(module.last_fused_delta_o_norm.item() > 0.0 for module in wrapped_modules)
+    assert all(
+        module.last_applied_memory_correction_norm.item() == 0.0
+        for module in wrapped_modules
+    )
+    assert all(module.last_memory_residual_gain.item() == 0.0 for module in wrapped_modules)
+
+
+def test_post_attention_residual_hybrid_zero_gain_matches_normalized_scale_one() -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(29)
+    config = make_gemma4_shared_kv_config()
+    normalized_model = Gemma4TextModel(config).eval()
+    hybrid_model = copy.deepcopy(normalized_model).eval()
+    common_config = dict(
+        rank=2,
+        output_init="random",
+        online_gain=0.2,
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=2,
+        rwkv_ms_chunk_size=2,
+        delta_heads=("o",),
+        memory_fusion_mode="content_gated_add",
+        memory_fusion_gate_init=0.25,
+        target_layers=(0, 1, 2, 3),
+        target_modules=("self_attn",),
+    )
+    attach_delta_mem(
+        normalized_model,
+        HFDeltaMemConfig(
+            **common_config,
+            memory_fusion_placement="normalized_residual_correction",
+            memory_fusion_residual_scale=1.0,
+        ),
+    )
+    attach_delta_mem(
+        hybrid_model,
+        HFDeltaMemConfig(
+            **common_config,
+            memory_fusion_placement="post_attention_residual_hybrid",
+            memory_fusion_residual_scale=0.0,
+            memory_fusion_residual_scale_max=0.05,
+        ),
+    )
+    normalized_modules = dict(normalized_model.named_modules())
+    with torch.no_grad():
+        for name, hybrid_module in hybrid_model.named_modules():
+            if not isinstance(hybrid_module, DeltaMemAttention):
+                continue
+            normalized_module = normalized_modules[name]
+            assert isinstance(normalized_module, DeltaMemAttention)
+            hybrid_parameters = dict(hybrid_module.named_parameters())
+            for parameter_name, normalized_parameter in normalized_module.named_parameters():
+                if parameter_name.startswith("base."):
+                    continue
+                hybrid_parameters[parameter_name].copy_(normalized_parameter)
+    capture_mask = torch.tensor([[False, False, False, False, True]])
+    set_delta_mem_read_representation_capture_mask(normalized_model, capture_mask)
+    set_delta_mem_read_representation_capture_mask(hybrid_model, capture_mask)
+    input_ids = torch.tensor([[1, 2, 3, 4, 5]])
+
+    with torch.inference_mode():
+        normalized_output = normalized_model(
+            input_ids=input_ids,
+            use_cache=False,
+        ).last_hidden_state
+        hybrid_output = hybrid_model(
+            input_ids=input_ids,
+            use_cache=False,
+        ).last_hidden_state
+
+    assert torch.equal(hybrid_output, normalized_output)
+    normalized_representations = collect_delta_mem_read_representations(
+        normalized_model
+    )
+    hybrid_representations = collect_delta_mem_read_representations(hybrid_model)
+    assert normalized_representations.keys() == hybrid_representations.keys()
+    for name in normalized_representations:
+        assert torch.equal(
+            hybrid_representations[name],
+            normalized_representations[name],
+        )
+    for _, module in hybrid_model.named_modules():
+        if isinstance(module, DeltaMemAttention):
+            assert module._resolved_memory_fusion_residual_gain(
+                device=module.memory_fusion_residual_gain_raw.device,
+                dtype=torch.float32,
+            ).item() == 0.0
+
+
 @pytest.mark.parametrize("attn_implementation", ["eager", "sdpa"])
 @pytest.mark.parametrize(
     "memory_fusion_placement",
@@ -2057,6 +2362,7 @@ def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base(
         "attention_output",
         "post_attention_norm",
         "normalized_residual_correction",
+        "post_attention_residual_hybrid",
     ],
 )
 def test_gemma4_shared_kv_o_only_cached_decode_matches_base(
@@ -2185,6 +2491,7 @@ def test_gemma4_shared_kv_o_only_memory_and_gate_receive_gradients() -> None:
         "attention_output",
         "post_attention_norm",
         "normalized_residual_correction",
+        "post_attention_residual_hybrid",
     ],
 )
 def test_gemma4_shared_kv_o_only_adapter_round_trip(
@@ -2241,13 +2548,112 @@ def test_gemma4_shared_kv_o_only_adapter_round_trip(
             source_module._post_attention_norm_hook_handle is not None
         ) is (
             memory_fusion_placement
-            in {"post_attention_norm", "normalized_residual_correction"}
+            in {
+                "post_attention_norm",
+                "normalized_residual_correction",
+                "post_attention_residual_hybrid",
+            }
         )
         assert (
             target_module._post_attention_norm_hook_handle is not None
         ) is (
             memory_fusion_placement
-            in {"post_attention_norm", "normalized_residual_correction"}
+            in {
+                "post_attention_norm",
+                "normalized_residual_correction",
+                "post_attention_residual_hybrid",
+            }
+        )
+
+
+def test_post_attention_residual_hybrid_adapter_warm_start_is_explicit_and_strict(
+    tmp_path: Path,
+) -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(17)
+    base_config = make_gemma4_shared_kv_config()
+    source = Gemma4TextModel(base_config)
+    target = copy.deepcopy(source)
+    source_config = HFDeltaMemConfig(
+        rank=2,
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=2,
+        rwkv_ms_chunk_size=2,
+        delta_heads=("o",),
+        memory_fusion_mode="content_gated_add",
+        memory_fusion_placement="post_attention_norm",
+        memory_fusion_residual_scale=1.0,
+        target_layers=(0, 1, 2, 3),
+        target_modules=("self_attn",),
+    )
+    target_payload = source_config.to_dict()
+    target_payload["memory_fusion_placement"] = "post_attention_residual_hybrid"
+    target_payload["memory_fusion_residual_scale"] = 0.005
+    target_payload["memory_fusion_residual_scale_max"] = 0.05
+    target_config = HFDeltaMemConfig.from_dict(target_payload)
+    attach_delta_mem(source, source_config)
+    attach_delta_mem(target, target_config)
+    save_delta_mem_adapter(source, tmp_path, source_config)
+    initial_gains = {
+        name: module.memory_fusion_residual_gain_raw.detach().clone()
+        for name, module in target.named_modules()
+        if isinstance(module, DeltaMemAttention)
+    }
+
+    with pytest.raises(ValueError, match="memory_fusion_placement"):
+        load_delta_mem_adapter(target, tmp_path)
+    with pytest.raises(
+        ValueError,
+        match="initialize_missing_residual_hybrid_gain=True",
+    ):
+        load_delta_mem_adapter(
+            target,
+            tmp_path,
+            allowed_config_mismatches=(
+                "memory_fusion_placement",
+                "memory_fusion_residual_scale",
+                "memory_fusion_residual_scale_max",
+            ),
+        )
+
+    loaded_config = load_delta_mem_adapter(
+        target,
+        tmp_path,
+        initialize_missing_residual_hybrid_gain=True,
+    )
+
+    assert loaded_config.memory_fusion_placement == "post_attention_norm"
+    source_modules = dict(source.named_modules())
+    for name, target_module in target.named_modules():
+        if not isinstance(target_module, DeltaMemAttention):
+            continue
+        source_module = source_modules[name]
+        assert isinstance(source_module, DeltaMemAttention)
+        torch.testing.assert_close(
+            target_module.memory_fusion_residual_gain_raw,
+            initial_gains[name],
+        )
+        for parameter_name, source_parameter in source_module.named_parameters():
+            if parameter_name.startswith("base."):
+                continue
+            target_parameter = dict(target_module.named_parameters())[parameter_name]
+            torch.testing.assert_close(target_parameter, source_parameter)
+
+    adapter_path = tmp_path / "delta_mem_adapter.pt"
+    adapter_state = torch.load(adapter_path, map_location="cpu", weights_only=True)
+    corrupt_state = dict(adapter_state)
+    common_key = next(
+        key for key in corrupt_state if key.endswith(".memory_v_proj")
+    )
+    corrupt_state.pop(common_key)
+    torch.save(corrupt_state, adapter_path)
+    with pytest.raises(ValueError, match="memory_v_proj"):
+        load_delta_mem_adapter(
+            target,
+            tmp_path,
+            initialize_missing_residual_hybrid_gain=True,
         )
 
 
@@ -2257,6 +2663,7 @@ def test_gemma4_shared_kv_o_only_adapter_round_trip(
         "attention_output",
         "post_attention_norm",
         "normalized_residual_correction",
+        "post_attention_residual_hybrid",
     ],
 )
 def test_frozen_mlp_activation_checkpointing_recomputes_only_mlps(
@@ -3139,7 +3546,9 @@ def test_memory_fusion_config_preserves_legacy_add_and_round_trips(
 
 def test_normalized_residual_scale_defaults_and_round_trips(tmp_path: Path) -> None:
     assert HFDeltaMemConfig().memory_fusion_residual_scale == 1.0
+    assert HFDeltaMemConfig().memory_fusion_residual_scale_max == 1.0
     config = HFDeltaMemConfig(
+        rank=2,
         memory_backend="rwkv_ms",
         delta_heads=("o",),
         memory_fusion_placement="normalized-residual-correction",
@@ -3152,7 +3561,150 @@ def test_normalized_residual_scale_defaults_and_round_trips(tmp_path: Path) -> N
     assert HFDeltaMemConfig.from_pretrained(tmp_path) == config
     legacy_payload = config.to_dict()
     legacy_payload.pop("memory_fusion_residual_scale")
+    legacy_payload.pop("memory_fusion_residual_scale_max")
     assert HFDeltaMemConfig.from_dict(legacy_payload).memory_fusion_residual_scale == 1.0
+    assert HFDeltaMemConfig.from_dict(legacy_payload).memory_fusion_residual_scale_max == 1.0
+
+
+def test_post_attention_residual_hybrid_round_trips_and_only_adds_its_gain_parameter(
+    tmp_path: Path,
+) -> None:
+    config = HFDeltaMemConfig(
+        rank=2,
+        memory_backend="rwkv_ms",
+        delta_heads=("o",),
+        memory_fusion_placement="post-attention-residual-hybrid",
+        memory_fusion_residual_scale="0.005",
+        memory_fusion_residual_scale_max="0.05",
+    )
+    config.save_pretrained(tmp_path)
+
+    assert config.memory_fusion_placement == "post_attention_residual_hybrid"
+    assert config.memory_fusion_residual_scale == 0.005
+    assert config.memory_fusion_residual_scale_max == 0.05
+    assert HFDeltaMemConfig.from_pretrained(tmp_path) == config
+
+    fixed = DeltaMemAttention(
+        make_qwen3_attention(),
+        HFDeltaMemConfig(
+            rank=2,
+            memory_backend="rwkv_ms",
+            delta_heads=("o",),
+            memory_fusion_placement="post_attention_norm",
+            memory_fusion_residual_scale=0.005,
+            memory_fusion_residual_scale_max=0.05,
+        ),
+    )
+    hybrid = DeltaMemAttention(make_qwen3_attention(), config)
+    fixed_parameters = {
+        name for name, _ in fixed.named_parameters() if not name.startswith("base.")
+    }
+    hybrid_parameters = {
+        name for name, _ in hybrid.named_parameters() if not name.startswith("base.")
+    }
+
+    assert hybrid_parameters - fixed_parameters == {
+        "memory_fusion_residual_gain_raw"
+    }
+    assert fixed_parameters - hybrid_parameters == set()
+    assert not hasattr(fixed, "memory_fusion_residual_gain_raw")
+    resolved_gain = hybrid._resolved_memory_fusion_residual_gain(
+        device=hybrid.memory_fusion_residual_gain_raw.device,
+        dtype=torch.float32,
+    ).item()
+    assert resolved_gain == pytest.approx(
+        0.005,
+        rel=1e-6,
+    )
+    for raw_gain, expected_gain in (
+        (-100.0, 0.0),
+        (0.049, 0.049),
+        (100.0, hybrid.memory_fusion_residual_scale_max),
+    ):
+        with torch.no_grad():
+            hybrid.memory_fusion_residual_gain_raw.fill_(raw_gain)
+        hybrid.memory_fusion_residual_gain_raw.grad = None
+        resolved_gain = hybrid._resolved_memory_fusion_residual_gain(
+            device=hybrid.memory_fusion_residual_gain_raw.device,
+            dtype=torch.float32,
+        )
+        torch.testing.assert_close(
+            resolved_gain,
+            resolved_gain.new_tensor(expected_gain),
+            atol=0.0,
+            rtol=0.0,
+        )
+        resolved_gain.backward()
+        gain_grad = hybrid.memory_fusion_residual_gain_raw.grad
+        assert gain_grad is not None
+        assert torch.isfinite(gain_grad).all()
+        torch.testing.assert_close(
+            gain_grad,
+            torch.ones_like(gain_grad),
+            atol=0.0,
+            rtol=0.0,
+        )
+    hybrid.reset_parameters()
+
+    hybrid_model = ToyAttentionModel(hybrid)
+    freeze_non_delta_mem_params(hybrid_model)
+    assert hybrid.memory_fusion_residual_gain_raw.requires_grad
+    hybrid.reset_state()
+    assert hybrid.last_memory_residual_gain is None
+    assert hybrid.last_applied_memory_correction_norm is None
+    assert hybrid.last_applied_memory_correction_ratio is None
+
+
+def test_residual_hybrid_effective_gain_setter_is_exact_and_validated() -> None:
+    hybrid = DeltaMemAttention(
+        make_qwen3_attention(),
+        HFDeltaMemConfig(
+            rank=2,
+            memory_backend="rwkv_ms",
+            delta_heads=("o",),
+            memory_fusion_placement="post_attention_residual_hybrid",
+            memory_fusion_residual_scale=0.002,
+            memory_fusion_residual_scale_max=0.05,
+        ),
+    )
+
+    for requested_gain in (0.0, 0.002, 0.05):
+        hybrid.set_memory_fusion_residual_gain(requested_gain)
+        expected = hybrid.memory_fusion_residual_gain_raw.new_tensor(
+            [requested_gain]
+        )
+        torch.testing.assert_close(
+            hybrid.memory_fusion_residual_gain_raw,
+            expected,
+            atol=0.0,
+            rtol=0.0,
+        )
+        resolved = hybrid._resolved_memory_fusion_residual_gain(
+            device=hybrid.memory_fusion_residual_gain_raw.device,
+            dtype=torch.float32,
+        )
+        torch.testing.assert_close(
+            resolved,
+            expected[0],
+            atol=0.0,
+            rtol=0.0,
+        )
+
+    for invalid_gain in (-0.001, 0.051, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="residual gain"):
+            hybrid.set_memory_fusion_residual_gain(invalid_gain)
+
+    fixed = DeltaMemAttention(
+        make_qwen3_attention(),
+        HFDeltaMemConfig(
+            rank=2,
+            memory_backend="rwkv_ms",
+            delta_heads=("o",),
+            memory_fusion_placement="post_attention_norm",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="post_attention_residual_hybrid"):
+        fixed.set_memory_fusion_residual_gain(0.0)
 
 
 @pytest.mark.parametrize(
@@ -3162,6 +3714,24 @@ def test_normalized_residual_scale_defaults_and_round_trips(tmp_path: Path) -> N
 def test_normalized_residual_scale_rejects_invalid_bounds(invalid_scale: float) -> None:
     with pytest.raises(ValueError, match="memory_fusion_residual_scale"):
         HFDeltaMemConfig(memory_fusion_residual_scale=invalid_scale)
+
+
+@pytest.mark.parametrize(
+    "invalid_max",
+    [0.0, -0.001, 1.001, float("nan"), float("inf"), float("-inf")],
+)
+def test_residual_hybrid_scale_max_rejects_invalid_bounds(invalid_max: float) -> None:
+    with pytest.raises(ValueError, match="memory_fusion_residual_scale_max"):
+        HFDeltaMemConfig(memory_fusion_residual_scale_max=invalid_max)
+
+
+def test_residual_hybrid_rejects_init_above_bound() -> None:
+    with pytest.raises(ValueError, match="residual_scale <="):
+        HFDeltaMemConfig(
+            memory_fusion_placement="post_attention_residual_hybrid",
+            memory_fusion_residual_scale=0.3,
+            memory_fusion_residual_scale_max=0.25,
+        )
 
 
 def test_content_gated_delta_o_matches_manual_interpolation_and_reports_stats() -> None:

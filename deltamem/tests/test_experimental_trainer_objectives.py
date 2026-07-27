@@ -182,6 +182,21 @@ def _episode_inputs() -> dict[str, torch.Tensor]:
     }
 
 
+def _content_contrast_inputs() -> dict[str, torch.Tensor]:
+    return {
+        "input_ids": torch.tensor([[1, 2, *([0] * 10)]]),
+        "attention_mask": torch.ones(1, 12, dtype=torch.long),
+        "labels": torch.tensor([[-100, -100, *([0] * 10)]]),
+    }
+
+
+def _content_contrast_target_mask() -> torch.Tensor:
+    return torch.tensor(
+        [[False, False, False, False, *([True] * 8)]],
+        dtype=torch.bool,
+    )
+
+
 def _compute_context_dropout(
     trainer: experimental_train.DeltaMemTrainer,
     model: torch.nn.Module,
@@ -596,14 +611,20 @@ def test_base_kl_uses_supervised_next_token_positions() -> None:
     assert supervised_kl.item() > 0.0
 
 
-def test_content_contrast_objective_exact_arithmetic_and_gradient_signs() -> None:
+def test_content_contrast_objective_uses_full_correct_and_only_targeted_contrast() -> None:
     trainer = _build_trainer()
     trainer.memory_contrast_weight = 0.25
     trainer.memory_margin = 0.5
-    correct_loss = torch.tensor(1.0, requires_grad=True)
-    wrong_loss = torch.tensor(2.0, requires_grad=True)
+    full_correct_loss = torch.tensor(1.0, requires_grad=True)
+    full_donor_metric = torch.tensor(9.0, requires_grad=True)
+    target_correct_loss = torch.tensor(1.0, requires_grad=True)
+    target_donor_loss = torch.tensor(2.0, requires_grad=True)
 
-    total, contrast, gap = trainer._content_contrast_objective(correct_loss, wrong_loss)
+    total, contrast, gap = trainer._content_contrast_objective(
+        full_correct_loss,
+        target_correct_loss,
+        target_donor_loss,
+    )
 
     expected_contrast = torch.nn.functional.softplus(torch.tensor(-1.0))
     assert gap.item() == pytest.approx(1.0)
@@ -612,10 +633,38 @@ def test_content_contrast_objective_exact_arithmetic_and_gradient_signs() -> Non
 
     total.backward()
     sigmoid = torch.sigmoid(torch.tensor(-1.0)).item()
-    assert correct_loss.grad.item() == pytest.approx(1.0 + 0.25 * sigmoid / 0.5)
-    assert wrong_loss.grad.item() == pytest.approx(-0.25 * sigmoid / 0.5)
-    assert correct_loss.grad.item() > 0.0
-    assert wrong_loss.grad.item() < 0.0
+    assert full_correct_loss.grad.item() == pytest.approx(1.0)
+    assert full_donor_metric.grad is None
+    assert target_correct_loss.grad.item() == pytest.approx(0.25 * sigmoid / 0.5)
+    assert target_donor_loss.grad.item() == pytest.approx(-0.25 * sigmoid / 0.5)
+    assert target_correct_loss.grad.item() > 0.0
+    assert target_donor_loss.grad.item() < 0.0
+
+
+def test_content_contrast_target_ce_has_no_gradient_outside_w8_predictors() -> None:
+    trainer = _build_trainer()
+    logits = torch.zeros(1, 12, 3, requires_grad=True)
+    labels = torch.tensor([[-100, -100, *([0] * 10)]])
+    attention_mask = torch.ones_like(labels)
+    target_mask = torch.tensor(
+        [[False, False, False, False, *([True] * 8)]]
+    )
+
+    target_ce, row_ce, token_count = trainer._content_contrast_target_ce(
+        logits,
+        labels,
+        attention_mask,
+        target_mask,
+    )
+    target_ce.backward()
+
+    assert target_ce.item() == pytest.approx(torch.log(torch.tensor(3.0)).item())
+    assert row_ce.tolist() == pytest.approx([target_ce.item()])
+    assert token_count == 8
+    predictor_gradient = logits.grad.abs().sum(dim=-1)
+    assert torch.all(predictor_gradient[:, 3:11] > 0)
+    assert torch.count_nonzero(predictor_gradient[:, :3]) == 0
+    assert torch.count_nonzero(predictor_gradient[:, 11:]) == 0
 
 
 def test_read_representation_capture_mask_selects_first_supervised_predictor() -> None:
@@ -672,6 +721,43 @@ def test_read_representation_capture_mask_selects_first_supervised_predictor() -
         ),
         torch.tensor([[False, True, False, False]]),
     )
+
+
+def test_read_representation_capture_mask_selects_first_w8_target_predictor() -> None:
+    trainer = _build_trainer()
+    model_inputs = {
+        "labels": torch.tensor(
+            [
+                [-100, -100, 10, 11, 12, 13],
+                [-100, 20, 21, 22, 23, 24],
+            ]
+        ),
+        "attention_mask": torch.ones(2, 6, dtype=torch.long),
+    }
+    target_mask = torch.tensor(
+        [
+            [False, False, False, True, True, True],
+            [False, False, True, True, True, True],
+        ]
+    )
+    read_mask = trainer._build_read_context_mask(model_inputs)
+
+    capture_mask = trainer._build_read_representation_capture_mask(
+        model_inputs,
+        read_mask,
+        target_mask=target_mask,
+    )
+
+    assert torch.equal(
+        capture_mask,
+        torch.tensor(
+            [
+                [False, False, True, False, False, False],
+                [False, True, False, False, False, False],
+            ]
+        ),
+    )
+    assert torch.all(read_mask.masked_select(capture_mask))
 
 
 def test_content_contrast_representation_objective_is_scale_invariant() -> None:
@@ -735,7 +821,7 @@ def test_content_contrast_resets_between_branches_and_never_runs_teacher(
 
     loss, outputs, stats = trainer._compute_content_contrast_ce(
         model,
-        _episode_inputs(),
+        _content_contrast_inputs(),
         loss_kwargs={},
         write_input_ids=torch.tensor([[10]]),
         write_attention_mask=torch.ones(1, 1, dtype=torch.long),
@@ -745,6 +831,7 @@ def test_content_contrast_resets_between_branches_and_never_runs_teacher(
         negative_write_attention_mask=torch.ones(1, 1, dtype=torch.long),
         negative_write_message_ids=torch.zeros(1, 1, dtype=torch.long),
         negative_write_sentence_ids=torch.zeros(1, 1, dtype=torch.long),
+        content_contrast_target_mask=_content_contrast_target_mask(),
     )
 
     assert [event for event in events if event[0] == "reset"] == [
@@ -765,10 +852,18 @@ def test_content_contrast_resets_between_branches_and_never_runs_teacher(
     assert torch.equal(model.read_calls[0][0], model.read_calls[1][0])
     assert stats["keep_loss"] == pytest.approx(1.0)
     assert stats["corrupt_loss"] == pytest.approx(2.0)
-    assert stats["margin_gap"] == pytest.approx(1.0)
+    assert stats["margin_gap"] == pytest.approx(0.0)
     assert stats["causal_loss"] == pytest.approx(
-        torch.nn.functional.softplus(torch.tensor(-1.0)).item()
+        torch.nn.functional.softplus(torch.tensor(1.0)).item()
     )
+    expected_target_ce = torch.log(torch.tensor(3.0)).item()
+    assert stats["full_correct_ce"] == pytest.approx(1.0)
+    assert stats["full_donor_ce"] == pytest.approx(2.0)
+    assert stats["targeted_correct_ce"] == pytest.approx(expected_target_ce)
+    assert stats["targeted_donor_ce"] == pytest.approx(expected_target_ce)
+    assert stats["targeted_gap"] == pytest.approx(0.0)
+    assert stats["targeted_positive_fraction"] == pytest.approx(0.0)
+    assert stats["targeted_token_count"] == pytest.approx(8.0)
     assert stats["teacher_loss"] == 0.0
     assert stats["kl_loss"] == 0.0
     assert outputs["loss"] is loss
@@ -823,7 +918,7 @@ def test_content_contrast_sequential_backward_matches_joint_gradient(
 
     reported_loss, stats = trainer._content_contrast_sequential_backward(
         model,
-        _episode_inputs(),
+        _content_contrast_inputs(),
         loss_kwargs={},
         write_input_ids=torch.tensor([[10]]),
         write_attention_mask=torch.ones(1, 1, dtype=torch.long),
@@ -834,22 +929,45 @@ def test_content_contrast_sequential_backward_matches_joint_gradient(
         negative_write_message_ids=None,
         negative_write_sentence_ids=None,
         gradient_scale=1.0,
+        content_contrast_target_mask=_content_contrast_target_mask(),
     )
 
-    correct = torch.tensor(1.0, requires_grad=True)
-    wrong = torch.tensor(2.0, requires_grad=True)
-    expected_loss, _, _ = trainer._content_contrast_objective(correct, wrong)
+    parameter = torch.tensor(0.0, requires_grad=True)
+    correct_full = 1.0 + parameter
+    uniform_logits = parameter * torch.ones(1, 12, 3)
+    correct_target, _, _ = trainer._content_contrast_target_ce(
+        uniform_logits,
+        _content_contrast_inputs()["labels"],
+        _content_contrast_inputs()["attention_mask"],
+        _content_contrast_target_mask(),
+    )
+    donor_target, _, _ = trainer._content_contrast_target_ce(
+        uniform_logits,
+        _content_contrast_inputs()["labels"],
+        _content_contrast_inputs()["attention_mask"],
+        _content_contrast_target_mask(),
+    )
+    expected_loss, _, _ = trainer._content_contrast_objective(
+        correct_full,
+        correct_target,
+        donor_target,
+    )
     expected_loss.backward()
-    expected_parameter_grad = correct.grad + 2.0 * wrong.grad
 
     assert reported_loss.item() == pytest.approx(expected_loss.item())
     assert model.parameter.grad is not None
-    assert model.parameter.grad.item() == pytest.approx(expected_parameter_grad.item())
+    assert model.parameter.grad.item() == pytest.approx(parameter.grad.item())
     assert [call[1] for call in model.read_calls] == [False, True, True]
     assert [call[2] for call in model.read_calls] == [20, 10, 20]
     assert stats["keep_loss"] == pytest.approx(1.0)
     assert stats["corrupt_loss"] == pytest.approx(2.0)
-    assert stats["margin_gap"] == pytest.approx(1.0)
+    assert stats["margin_gap"] == pytest.approx(0.0)
+    assert stats["full_correct_ce"] == pytest.approx(1.0)
+    assert stats["full_donor_ce"] == pytest.approx(2.0)
+    assert stats["targeted_correct_ce"] == pytest.approx(correct_target.item())
+    assert stats["targeted_donor_ce"] == pytest.approx(donor_target.item())
+    assert stats["targeted_gap"] == pytest.approx(0.0)
+    assert stats["targeted_token_count"] == pytest.approx(8.0)
 
 
 def test_content_contrast_representation_sequential_backward_matches_joint_gradient(
@@ -909,7 +1027,7 @@ def test_content_contrast_representation_sequential_backward_matches_joint_gradi
 
     reported_loss, stats = trainer._content_contrast_sequential_backward(
         model,
-        _episode_inputs(),
+        _content_contrast_inputs(),
         loss_kwargs={},
         write_input_ids=torch.tensor([[10]]),
         write_attention_mask=torch.ones(1, 1, dtype=torch.long),
@@ -920,14 +1038,28 @@ def test_content_contrast_representation_sequential_backward_matches_joint_gradi
         negative_write_message_ids=None,
         negative_write_sentence_ids=None,
         gradient_scale=1.0,
+        content_contrast_target_mask=_content_contrast_target_mask(),
     )
 
     parameter = torch.tensor(0.0, requires_grad=True)
-    correct_loss = 1.0 + parameter
-    wrong_loss = 2.0 + 2.0 * parameter
+    correct_full_loss = 1.0 + parameter
+    uniform_logits = parameter * torch.ones(1, 12, 3)
+    correct_target_loss, _, _ = trainer._content_contrast_target_ce(
+        uniform_logits,
+        _content_contrast_inputs()["labels"],
+        _content_contrast_inputs()["attention_mask"],
+        _content_contrast_target_mask(),
+    )
+    donor_target_loss, _, _ = trainer._content_contrast_target_ce(
+        uniform_logits,
+        _content_contrast_inputs()["labels"],
+        _content_contrast_inputs()["attention_mask"],
+        _content_contrast_target_mask(),
+    )
     expected_loss, _, _ = trainer._content_contrast_objective(
-        correct_loss,
-        wrong_loss,
+        correct_full_loss,
+        correct_target_loss,
+        donor_target_loss,
     )
     correct_representation = torch.stack(
         (1.0 + parameter, 2.0 - parameter)
@@ -1012,7 +1144,7 @@ def test_content_contrast_representation_rejects_nondeterministic_donor_replay(
     with pytest.raises(RuntimeError, match="representation replay is not deterministic"):
         trainer._content_contrast_sequential_backward(
             model,
-            _episode_inputs(),
+            _content_contrast_inputs(),
             loss_kwargs={},
             write_input_ids=torch.tensor([[10]]),
             write_attention_mask=torch.ones(1, 1, dtype=torch.long),
@@ -1023,6 +1155,7 @@ def test_content_contrast_representation_rejects_nondeterministic_donor_replay(
             negative_write_message_ids=None,
             negative_write_sentence_ids=None,
             gradient_scale=1.0,
+            content_contrast_target_mask=_content_contrast_target_mask(),
         )
 
 
@@ -1078,7 +1211,7 @@ def test_content_contrast_representation_replay_restores_torch_rng(
     torch.manual_seed(1234)
     trainer._content_contrast_sequential_backward(
         model,
-        _episode_inputs(),
+        _content_contrast_inputs(),
         loss_kwargs={},
         write_input_ids=torch.tensor([[10]]),
         write_attention_mask=torch.ones(1, 1, dtype=torch.long),
@@ -1089,6 +1222,7 @@ def test_content_contrast_representation_replay_restores_torch_rng(
         negative_write_message_ids=None,
         negative_write_sentence_ids=None,
         gradient_scale=1.0,
+        content_contrast_target_mask=_content_contrast_target_mask(),
     )
 
     assert len(model.noise_by_write[10]) == 1
@@ -1360,7 +1494,11 @@ class _CacheTokenizer:
 
 
 def _pairing_row(write_token: int) -> dict[str, list[int]]:
+    answer_tokens = [3, 4, *(write_token + 100 + index for index in range(8))]
     return {
+        "input_ids": [1, 2, *answer_tokens],
+        "attention_mask": [1] * 12,
+        "labels": [-100, -100, *answer_tokens],
         "write_input_ids": [write_token, write_token + 1],
         "write_attention_mask": [1, 1],
         "write_message_ids": [0, 0],
@@ -1372,22 +1510,123 @@ def _collator_episode_row(write_token: int) -> dict[str, list[int]]:
     row = _pairing_row(write_token)
     row.update(
         {
-            "input_ids": [1, 2, 3],
-            "attention_mask": [1, 1, 1],
-            "labels": [-100, 2, 3],
-            "teacher_input_ids": [write_token, 1, 2, 3],
-            "teacher_attention_mask": [1, 1, 1, 1],
-            "teacher_labels": [-100, -100, 2, 3],
+            "teacher_input_ids": [write_token, *row["input_ids"]],
+            "teacher_attention_mask": [1, *row["attention_mask"]],
+            "teacher_labels": [-100, *row["labels"]],
             "state_only_write_input_ids": [write_token],
             "state_only_write_attention_mask": [1],
             "state_only_write_message_ids": [0],
             "state_only_write_sentence_ids": [0],
-            "state_only_input_ids": [1, 2, 3],
-            "state_only_attention_mask": [1, 1, 1],
-            "state_only_labels": [-100, 2, 3],
+            "state_only_input_ids": row["input_ids"],
+            "state_only_attention_mask": row["attention_mask"],
+            "state_only_labels": row["labels"],
         }
     )
     return row
+
+
+def test_content_contrast_target_span_selects_first_differing_w8() -> None:
+    source = _pairing_row(10)
+    donor = _pairing_row(20)
+
+    target_mask = experimental_train.select_content_contrast_target_span(
+        source,
+        donor,
+        span_tokens=8,
+    )
+
+    assert target_mask == [False, False, False, False, *([True] * 8)]
+    assert sum(target_mask) == 8
+    selected_targets = [
+        label for label, selected in zip(source["labels"], target_mask) if selected
+    ]
+    assert selected_targets == source["labels"][4:12]
+
+
+@pytest.mark.parametrize(
+    ("mutate_donor", "message"),
+    [
+        (
+            lambda row: row["labels"].__setitem__(-1, -100),
+            "supervised target counts",
+        ),
+        (
+            lambda row: (
+                row["labels"].__setitem__(-1, -100),
+                row["labels"].__setitem__(1, row["input_ids"][1]),
+            ),
+            "supervised target positions",
+        ),
+    ],
+)
+def test_content_contrast_target_span_rejects_unaligned_supervision(
+    mutate_donor,
+    message: str,
+) -> None:
+    source = _pairing_row(10)
+    donor = _pairing_row(20)
+    mutate_donor(donor)
+
+    with pytest.raises(ValueError, match=message):
+        experimental_train.select_content_contrast_target_span(
+            source,
+            donor,
+            span_tokens=8,
+        )
+
+
+def test_content_contrast_target_span_rejects_identical_answers() -> None:
+    source = _pairing_row(10)
+    donor = _pairing_row(20)
+    donor["input_ids"] = list(source["input_ids"])
+    donor["labels"] = list(source["labels"])
+
+    with pytest.raises(ValueError, match="identical supervised answers"):
+        experimental_train.select_content_contrast_target_span(
+            source,
+            donor,
+            span_tokens=8,
+        )
+
+
+def test_content_contrast_target_span_rejects_different_causal_prefix() -> None:
+    source = _pairing_row(10)
+    donor = _pairing_row(20)
+    donor["input_ids"][0] = 999
+
+    with pytest.raises(ValueError, match="causal prefix"):
+        experimental_train.select_content_contrast_target_span(
+            source,
+            donor,
+            span_tokens=8,
+        )
+
+
+def test_content_contrast_target_span_rejects_different_attention_prefix() -> None:
+    source = _pairing_row(10)
+    donor = _pairing_row(20)
+    donor["attention_mask"][0] = 0
+
+    with pytest.raises(ValueError, match="attention-mask prefix"):
+        experimental_train.select_content_contrast_target_span(
+            source,
+            donor,
+            span_tokens=8,
+        )
+
+
+def test_content_contrast_target_span_requires_full_w8_after_first_difference() -> None:
+    source = _pairing_row(10)
+    donor = _pairing_row(20)
+    donor["input_ids"][4:10] = source["input_ids"][4:10]
+    donor["labels"][4:10] = source["labels"][4:10]
+
+    with pytest.raises(ValueError, match="fewer than 8 supervised targets remain"):
+        experimental_train.select_content_contrast_target_span(
+            source,
+            donor,
+            span_tokens=8,
+        )
 
 
 def test_content_contrast_pairing_is_post_split_half_rotation_and_auditable() -> None:
@@ -1422,11 +1661,38 @@ def test_content_contrast_pairing_is_post_split_half_rotation_and_auditable() ->
         assert paired[source_index]["content_contrast_negative_write_sha256"] == (
             paired[source_index]["content_contrast_partner_write_sha256"]
         )
+        assert paired[source_index]["content_contrast_target_mask"] == [
+            False,
+            False,
+            False,
+            False,
+            *([True] * 8),
+        ]
+        assert len(
+            paired[source_index]["content_contrast_target_mask_sha256"]
+        ) == 64
         assert split_manifest["pairs"][source_index]["negative_write_sha256"] == (
             paired[source_index]["content_contrast_negative_write_sha256"]
         )
+        pair_audit = split_manifest["pairs"][source_index]
+        assert pair_audit["target_mode"] == (
+            "first_differing_supervised_target_span_v1"
+        )
+        assert pair_audit["target_span_tokens"] == 8
+        assert pair_audit["first_differing_supervised_ordinal"] == 2
+        assert pair_audit["target_label_positions"] == list(range(4, 12))
+        assert pair_audit["target_token_ids"] == paired[source_index]["labels"][4:12]
+        assert pair_audit["donor_token_ids"] == paired[partner_index]["labels"][4:12]
+        assert pair_audit["target_mask_sha256"] == (
+            paired[source_index]["content_contrast_target_mask_sha256"]
+        )
     assert split_manifest["rotation"] == 2
     assert split_manifest["sample_count"] == 4
+    assert split_manifest["target_mode"] == (
+        experimental_train._CONTENT_CONTRAST_TARGET_MODE
+    )
+    assert split_manifest["target_span_tokens"] == 8
+    assert split_manifest["target_token_count"] == 32
     assert split_manifest["pairing_version"] == (
         experimental_train._CONTENT_CONTRAST_PAIRING_VERSION
     )
@@ -1455,6 +1721,9 @@ def test_content_contrast_pairing_stays_within_each_post_split_partition() -> No
     assert max(value for row in train["negative_write_input_ids"] for value in row) < 100
     assert min(value for row in evaluation["negative_write_input_ids"] for value in row) > 100
     assert manifest["pairing_scope"] == "within_post_split_partition"
+    assert manifest["target_mode"] == experimental_train._CONTENT_CONTRAST_TARGET_MODE
+    assert manifest["target_span_tokens"] == 8
+    assert manifest["target_token_count"] == 32
     assert set(manifest["splits"]) == {"train", "eval"}
     assert len(manifest["manifest_sha256"]) == 64
 
@@ -1529,6 +1798,24 @@ def test_episode_collator_emits_materialized_negative_write_for_batch_size_one()
     assert batch["negative_write_attention_mask"].tolist() == [[1, 1]]
     assert batch["negative_write_message_ids"].tolist() == [[0, 0]]
     assert batch["negative_write_sentence_ids"].tolist() == [[0, 0]]
+    assert batch["content_contrast_target_mask"].dtype == torch.bool
+    assert batch["content_contrast_target_mask"].tolist() == [
+        [False, False, False, False, *([True] * 8)]
+    ]
+
+
+def test_episode_collator_rejects_target_mask_hash_drift() -> None:
+    source = _collator_episode_row(10)
+    donor = _collator_episode_row(20)
+    paired, _ = experimental_train.materialize_content_contrast_pairs(
+        Dataset.from_list([source, donor]),
+        split_name="train",
+    )
+    feature = dict(paired[0])
+    feature["content_contrast_target_mask_sha256"] = "0" * 64
+
+    with pytest.raises(ValueError, match="audited hash"):
+        experimental_train.EpisodeCausalLMCollator(_CacheTokenizer())([feature])
 
 
 def _cache_args(**overrides) -> Namespace:
@@ -1833,9 +2120,11 @@ def test_training_protocol_records_exact_content_contrast_pairing() -> None:
     assert protocol["schema_version"] == (
         experimental_train._CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION
     )
+    assert protocol["schema_version"] == 8
     assert protocol["memory_objective_version"] == (
         experimental_train._CONTENT_CONTRAST_OBJECTIVE_VERSION
     )
+    assert protocol["memory_objective_version"] == "content_contrast_ce_v6"
     assert protocol["memory_contrast_weight"] == 0.25
     assert protocol["memory_margin"] == 0.5
     assert protocol["memory_representation_weight"] == 0.1
@@ -1852,9 +2141,16 @@ def test_training_protocol_records_exact_content_contrast_pairing() -> None:
     assert protocol["content_contrast_read_mask_mode"] == (
         experimental_train._CONTENT_CONTRAST_READ_MASK_MODE
     )
+    assert protocol["content_contrast_target_mode"] == (
+        "first_differing_supervised_target_span_v1"
+    )
+    assert protocol["content_contrast_target_span_tokens"] == 8
     assert protocol["content_contrast_previous_source_grad"] is True
     assert protocol["content_contrast_representation_mode"] == (
         experimental_train._CONTENT_CONTRAST_REPRESENTATION_MODE
+    )
+    assert protocol["content_contrast_representation_mode"] == (
+        "fused_delta_o_first_selected_target_predictor_relative_l2_v1"
     )
     assert protocol["content_contrast_pairing"]["manifest_sha256"] == (
         pairing_manifest["manifest_sha256"]
@@ -1862,6 +2158,14 @@ def test_training_protocol_records_exact_content_contrast_pairing() -> None:
     assert protocol["content_contrast_pairing"]["splits"]["train"]["pairs_sha256"] == (
         train_pairing["pairs_sha256"]
     )
+    assert protocol["content_contrast_pairing"]["target_mode"] == (
+        experimental_train._CONTENT_CONTRAST_TARGET_MODE
+    )
+    assert protocol["content_contrast_pairing"]["target_span_tokens"] == 8
+    assert protocol["content_contrast_pairing"]["target_token_count"] == 16
+    assert protocol["content_contrast_pairing"]["splits"]["train"][
+        "target_token_count"
+    ] == 16
 
 
 def test_legacy_tokenized_episode_dataset_fails_canonical_teacher_validation() -> None:
