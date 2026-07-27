@@ -20,6 +20,8 @@ MEMORY_FUSION_RESIDUAL_SCALE="${MEMORY_FUSION_RESIDUAL_SCALE:-1.0}"
 MEMORY_LOSS_MODE="${MEMORY_LOSS_MODE:-context_dropout_ce}"
 MEMORY_CONTRAST_WEIGHT="${MEMORY_CONTRAST_WEIGHT:-0}"
 MEMORY_MARGIN="${MEMORY_MARGIN:-0.1}"
+MEMORY_REPRESENTATION_WEIGHT="${MEMORY_REPRESENTATION_WEIGHT:-0}"
+MEMORY_REPRESENTATION_MARGIN="${MEMORY_REPRESENTATION_MARGIN:-0.1}"
 TARGET_LAYERS="$(seq -s, 0 41)"
 
 if [[ -e "$OUTPUT_DIR" ]]; then
@@ -90,6 +92,8 @@ PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_BIN" \
   --memory-loss-mode "$MEMORY_LOSS_MODE" \
   --memory-contrast-weight "$MEMORY_CONTRAST_WEIGHT" \
   --memory-margin "$MEMORY_MARGIN" \
+  --memory-representation-weight "$MEMORY_REPRESENTATION_WEIGHT" \
+  --memory-representation-margin "$MEMORY_REPRESENTATION_MARGIN" \
   --memory-kl-weight 0 \
   --memory-causal-weight 0 \
   --memory-anchor-weight 0 \

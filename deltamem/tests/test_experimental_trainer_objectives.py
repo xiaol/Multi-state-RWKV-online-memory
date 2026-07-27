@@ -102,6 +102,65 @@ class _ContentContrastReadModel(torch.nn.Module):
         return {"loss": loss, "logits": logits}
 
 
+class _ContentContrastRepresentationModel(_ContentContrastReadModel):
+    def __init__(self, *, nondeterministic_donor: bool = False) -> None:
+        super().__init__()
+        self.nondeterministic_donor = nondeterministic_donor
+        self.donor_calls = 0
+        self.read_representation: torch.Tensor | None = None
+
+    def forward(self, input_ids, attention_mask, labels=None, **kwargs):
+        outputs = super().forward(
+            input_ids,
+            attention_mask,
+            labels=labels,
+            **kwargs,
+        )
+        if self.active_write_token == 10:
+            representation = torch.stack(
+                (1.0 + self.parameter, 2.0 - self.parameter)
+            )
+        else:
+            self.donor_calls += 1
+            replay_offset = (
+                0.1
+                if self.nondeterministic_donor and self.donor_calls > 1
+                else 0.0
+            )
+            representation = torch.stack(
+                (
+                    -0.5 + 2.0 * self.parameter + replay_offset,
+                    0.25 + 0.5 * self.parameter,
+                )
+            )
+        self.read_representation = representation.view(1, -1)
+        return outputs
+
+
+class _StochasticContentContrastRepresentationModel(
+    _ContentContrastRepresentationModel
+):
+    def __init__(self) -> None:
+        super().__init__()
+        self.noise_by_write: dict[int, list[float]] = {10: [], 20: []}
+
+    def forward(self, input_ids, attention_mask, labels=None, **kwargs):
+        outputs = super().forward(
+            input_ids,
+            attention_mask,
+            labels=labels,
+            **kwargs,
+        )
+        assert self.active_write_token is not None
+        noise = torch.rand((), device=self.parameter.device)
+        self.noise_by_write[self.active_write_token].append(float(noise.item()))
+        outputs = dict(outputs)
+        outputs["loss"] = outputs["loss"] + noise
+        assert self.read_representation is not None
+        self.read_representation = self.read_representation + noise
+        return outputs
+
+
 def _build_trainer() -> experimental_train.DeltaMemTrainer:
     trainer = object.__new__(experimental_train.DeltaMemTrainer)
     trainer.episode_read_write_enabled = False
@@ -559,6 +618,87 @@ def test_content_contrast_objective_exact_arithmetic_and_gradient_signs() -> Non
     assert wrong_loss.grad.item() < 0.0
 
 
+def test_read_representation_capture_mask_selects_first_supervised_predictor() -> None:
+    trainer = _build_trainer()
+    model_inputs = {
+        "labels": torch.tensor(
+            [
+                [-100, -100, 10, 11, -100],
+                [-100, 20, -100, -100, -100],
+            ]
+        ),
+        "attention_mask": torch.tensor(
+            [
+                [1, 1, 1, 1, 0],
+                [1, 1, 1, 0, 0],
+            ]
+        ),
+    }
+    read_mask = trainer._build_read_context_mask(model_inputs)
+
+    capture_mask = trainer._build_read_representation_capture_mask(
+        model_inputs,
+        read_mask,
+    )
+
+    assert torch.equal(
+        capture_mask,
+        torch.tensor(
+            [
+                [False, True, False, False, False],
+                [True, False, False, False, False],
+            ]
+        ),
+    )
+    assert torch.all(read_mask.masked_select(capture_mask))
+
+    with pytest.raises(ValueError, match="supervised target in every row"):
+        trainer._build_read_representation_capture_mask(
+            {
+                "labels": torch.full((1, 3), -100),
+                "attention_mask": torch.ones(1, 3, dtype=torch.long),
+            },
+            torch.ones(1, 3, dtype=torch.bool),
+        )
+    truncated_inputs = {
+        "labels": torch.tensor([[7, -100, 8, 9]]),
+        "attention_mask": torch.ones(1, 4, dtype=torch.long),
+    }
+    truncated_read_mask = trainer._build_read_context_mask(truncated_inputs)
+    assert torch.equal(
+        trainer._build_read_representation_capture_mask(
+            truncated_inputs,
+            truncated_read_mask,
+        ),
+        torch.tensor([[False, True, False, False]]),
+    )
+
+
+def test_content_contrast_representation_objective_is_scale_invariant() -> None:
+    trainer = _build_trainer()
+    trainer.memory_representation_margin = 0.1
+    correct = torch.tensor([[[1.0, 0.0]], [[0.0, 2.0]]])
+    wrong = torch.tensor([[[0.9, 0.0]], [[0.0, 1.5]]])
+
+    loss, distance = trainer._content_contrast_representation_objective(
+        correct,
+        wrong,
+    )
+    scaled_loss, scaled_distance = trainer._content_contrast_representation_objective(
+        correct * 7.0,
+        wrong * 7.0,
+    )
+
+    expected_distance = torch.tensor([0.1 / 0.95, 0.5 / 1.75])
+    expected_loss = torch.nn.functional.softplus(
+        (0.1 - expected_distance) / 0.1
+    ).mean()
+    assert torch.allclose(distance.flatten(), expected_distance)
+    assert loss.item() == pytest.approx(expected_loss.item())
+    assert torch.allclose(scaled_distance, distance)
+    assert scaled_loss.item() == pytest.approx(loss.item())
+
+
 def test_content_contrast_resets_between_branches_and_never_runs_teacher(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -710,6 +850,252 @@ def test_content_contrast_sequential_backward_matches_joint_gradient(
     assert stats["keep_loss"] == pytest.approx(1.0)
     assert stats["corrupt_loss"] == pytest.approx(2.0)
     assert stats["margin_gap"] == pytest.approx(1.0)
+
+
+def test_content_contrast_representation_sequential_backward_matches_joint_gradient(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    trainer = _build_trainer()
+    trainer.memory_contrast_weight = 0.25
+    trainer.memory_margin = 0.5
+    trainer.memory_representation_weight = 0.1
+    trainer.memory_representation_margin = 0.1
+    trainer.memory_kl_weight = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.write_sparsity_weight = 0.0
+    trainer.memory_partition_alignment_weight = 0.0
+    trainer.memory_partition_entropy_weight = 0.0
+    trainer.memory_partition_balance_weight = 0.0
+    trainer.compute_loss_context_manager = nullcontext
+
+    class Accelerator:
+        @staticmethod
+        def backward(loss: torch.Tensor, **kwargs) -> None:
+            assert kwargs == {}
+            loss.backward()
+
+    trainer.accelerator = Accelerator()
+    model = _ContentContrastRepresentationModel()
+
+    def reset_online_state(active_model) -> None:
+        active_model.active_write_token = None
+        active_model.read_representation = None
+
+    def prime_episode_state(active_model, **kwargs) -> None:
+        active_model.active_write_token = int(kwargs["write_input_ids"][0, 0].item())
+
+    trainer._reset_online_state = reset_online_state
+    trainer._prime_episode_state = prime_episode_state
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_write_enabled",
+        lambda active_model, enabled: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_read_context_mask",
+        lambda active_model, mask: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_read_representation_capture_mask",
+        lambda active_model, mask: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "collect_delta_mem_read_representations",
+        lambda active_model: {"layer": active_model.read_representation},
+    )
+
+    reported_loss, stats = trainer._content_contrast_sequential_backward(
+        model,
+        _episode_inputs(),
+        loss_kwargs={},
+        write_input_ids=torch.tensor([[10]]),
+        write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+        write_message_ids=None,
+        write_sentence_ids=None,
+        negative_write_input_ids=torch.tensor([[20]]),
+        negative_write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+        negative_write_message_ids=None,
+        negative_write_sentence_ids=None,
+        gradient_scale=1.0,
+    )
+
+    parameter = torch.tensor(0.0, requires_grad=True)
+    correct_loss = 1.0 + parameter
+    wrong_loss = 2.0 + 2.0 * parameter
+    expected_loss, _, _ = trainer._content_contrast_objective(
+        correct_loss,
+        wrong_loss,
+    )
+    correct_representation = torch.stack(
+        (1.0 + parameter, 2.0 - parameter)
+    ).view(1, 1, -1)
+    wrong_representation = torch.stack(
+        (-0.5 + 2.0 * parameter, 0.25 + 0.5 * parameter)
+    ).view(1, 1, -1)
+    expected_representation_loss, expected_distance = (
+        trainer._content_contrast_representation_objective(
+            correct_representation,
+            wrong_representation,
+        )
+    )
+    expected_loss = (
+        expected_loss
+        + trainer.memory_representation_weight * expected_representation_loss
+    )
+    expected_loss.backward()
+
+    assert reported_loss.item() == pytest.approx(expected_loss.item())
+    assert model.parameter.grad is not None
+    assert model.parameter.grad.item() == pytest.approx(parameter.grad.item())
+    assert [call[1] for call in model.read_calls] == [False, True, True]
+    assert [call[2] for call in model.read_calls] == [20, 10, 20]
+    assert stats["representation_loss"] == pytest.approx(
+        expected_representation_loss.item()
+    )
+    assert stats["representation_distance"] == pytest.approx(
+        expected_distance.mean().item()
+    )
+
+
+def test_content_contrast_representation_rejects_nondeterministic_donor_replay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    trainer = _build_trainer()
+    trainer.memory_contrast_weight = 0.25
+    trainer.memory_margin = 0.5
+    trainer.memory_representation_weight = 0.1
+    trainer.memory_representation_margin = 0.1
+    trainer.memory_kl_weight = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.write_sparsity_weight = 0.0
+    trainer.memory_partition_alignment_weight = 0.0
+    trainer.memory_partition_entropy_weight = 0.0
+    trainer.memory_partition_balance_weight = 0.0
+    trainer.compute_loss_context_manager = nullcontext
+    trainer.accelerator = Namespace(backward=lambda loss: loss.backward())
+    model = _ContentContrastRepresentationModel(nondeterministic_donor=True)
+
+    trainer._reset_online_state = lambda active_model: setattr(
+        active_model,
+        "active_write_token",
+        None,
+    )
+    trainer._prime_episode_state = lambda active_model, **kwargs: setattr(
+        active_model,
+        "active_write_token",
+        int(kwargs["write_input_ids"][0, 0].item()),
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_write_enabled",
+        lambda active_model, enabled: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_read_context_mask",
+        lambda active_model, mask: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_read_representation_capture_mask",
+        lambda active_model, mask: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "collect_delta_mem_read_representations",
+        lambda active_model: {"layer": active_model.read_representation},
+    )
+
+    with pytest.raises(RuntimeError, match="representation replay is not deterministic"):
+        trainer._content_contrast_sequential_backward(
+            model,
+            _episode_inputs(),
+            loss_kwargs={},
+            write_input_ids=torch.tensor([[10]]),
+            write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+            write_message_ids=None,
+            write_sentence_ids=None,
+            negative_write_input_ids=torch.tensor([[20]]),
+            negative_write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+            negative_write_message_ids=None,
+            negative_write_sentence_ids=None,
+            gradient_scale=1.0,
+        )
+
+
+def test_content_contrast_representation_replay_restores_torch_rng(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    trainer = _build_trainer()
+    trainer.memory_contrast_weight = 0.25
+    trainer.memory_margin = 0.5
+    trainer.memory_representation_weight = 0.1
+    trainer.memory_representation_margin = 0.1
+    trainer.memory_kl_weight = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.write_sparsity_weight = 0.0
+    trainer.memory_partition_alignment_weight = 0.0
+    trainer.memory_partition_entropy_weight = 0.0
+    trainer.memory_partition_balance_weight = 0.0
+    trainer.compute_loss_context_manager = nullcontext
+    trainer.accelerator = Namespace(backward=lambda loss: loss.backward())
+    model = _StochasticContentContrastRepresentationModel()
+
+    trainer._reset_online_state = lambda active_model: setattr(
+        active_model,
+        "active_write_token",
+        None,
+    )
+    trainer._prime_episode_state = lambda active_model, **kwargs: setattr(
+        active_model,
+        "active_write_token",
+        int(kwargs["write_input_ids"][0, 0].item()),
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_write_enabled",
+        lambda active_model, enabled: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_read_context_mask",
+        lambda active_model, mask: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "set_delta_mem_read_representation_capture_mask",
+        lambda active_model, mask: None,
+    )
+    monkeypatch.setattr(
+        experimental_train,
+        "collect_delta_mem_read_representations",
+        lambda active_model: {"layer": active_model.read_representation},
+    )
+
+    torch.manual_seed(1234)
+    trainer._content_contrast_sequential_backward(
+        model,
+        _episode_inputs(),
+        loss_kwargs={},
+        write_input_ids=torch.tensor([[10]]),
+        write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+        write_message_ids=None,
+        write_sentence_ids=None,
+        negative_write_input_ids=torch.tensor([[20]]),
+        negative_write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+        negative_write_message_ids=None,
+        negative_write_sentence_ids=None,
+        gradient_scale=1.0,
+    )
+
+    assert len(model.noise_by_write[10]) == 1
+    assert len(model.noise_by_write[20]) == 2
+    assert model.noise_by_write[20][0] == pytest.approx(
+        model.noise_by_write[20][1]
+    )
 
 
 def test_content_contrast_sequential_backward_rejects_unsafe_step_modes() -> None:
@@ -1161,6 +1547,8 @@ def _cache_args(**overrides) -> Namespace:
         "memory_contrast_weight": 0.1,
         "memory_kl_weight": 0.1,
         "memory_margin": 0.1,
+        "memory_representation_weight": 0.0,
+        "memory_representation_margin": 0.1,
         "write_sparsity_weight": 0.0,
         "memory_partition_alignment_weight": 0.0,
         "memory_partition_entropy_weight": 0.0,
@@ -1401,6 +1789,8 @@ def test_training_protocol_records_exact_content_contrast_pairing() -> None:
         memory_contrast_weight=0.25,
         memory_kl_weight=0.0,
         memory_margin=0.5,
+        memory_representation_weight=0.1,
+        memory_representation_margin=0.1,
     )
     protocol_values = {
         "tokenized_dataset_dir": None,
@@ -1448,6 +1838,8 @@ def test_training_protocol_records_exact_content_contrast_pairing() -> None:
     )
     assert protocol["memory_contrast_weight"] == 0.25
     assert protocol["memory_margin"] == 0.5
+    assert protocol["memory_representation_weight"] == 0.1
+    assert protocol["memory_representation_margin"] == 0.1
     assert protocol["memory_kl_weight"] == 0.0
     assert protocol["write_sparsity_weight"] == 0.0
     assert protocol["memory_partition_alignment_weight"] == 0.0
@@ -1461,6 +1853,9 @@ def test_training_protocol_records_exact_content_contrast_pairing() -> None:
         experimental_train._CONTENT_CONTRAST_READ_MASK_MODE
     )
     assert protocol["content_contrast_previous_source_grad"] is True
+    assert protocol["content_contrast_representation_mode"] == (
+        experimental_train._CONTENT_CONTRAST_REPRESENTATION_MODE
+    )
     assert protocol["content_contrast_pairing"]["manifest_sha256"] == (
         pairing_manifest["manifest_sha256"]
     )

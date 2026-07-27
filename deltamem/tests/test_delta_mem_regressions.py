@@ -19,6 +19,7 @@ from deltamem.core.delta import (
     HFDeltaMemConfig,
     attach_delta_mem,
     collect_delta_mem_output_ratio_stats,
+    collect_delta_mem_read_representations,
     freeze_non_delta_mem_params,
     get_delta_mem_online_state,
     get_delta_mem_write_regularization,
@@ -27,6 +28,7 @@ from deltamem.core.delta import (
     reset_delta_mem_states,
     save_delta_mem_adapter,
     set_delta_mem_read_context_mask,
+    set_delta_mem_read_representation_capture_mask,
     set_delta_mem_write_enabled,
     set_delta_mem_write_message_ids,
     set_delta_mem_write_sentence_ids,
@@ -2631,6 +2633,167 @@ def test_rwkv_ms_read_context_mask_gates_memory_without_changing_write_validity(
         module.last_read_routes[:, [1, 3]],
         torch.zeros_like(module.last_read_routes[:, [1, 3]]),
     )
+
+
+def test_read_representation_capture_collects_live_gated_scaled_delta_o() -> None:
+    modules = [
+        make_delta_module(
+            output_init="random",
+            delta_heads=("o",),
+            memory_fusion_mode="content_gated_add",
+            memory_fusion_gate_init=0.25,
+        )
+        for _ in range(2)
+    ]
+    model = torch.nn.Module()
+    model.add_module("first", modules[0])
+    model.add_module("second", modules[1])
+    batch_size, seq_len, hidden_size = 2, 4, 8
+    capture_mask = torch.tensor(
+        [
+            [False, True, False, False],
+            [False, False, True, False],
+        ]
+    )
+    valid_mask = torch.tensor(
+        [
+            [True, True, True, False],
+            [True, True, True, True],
+        ]
+    )
+    set_delta_mem_read_representation_capture_mask(model, capture_mask)
+
+    read_features = []
+    expected = {}
+    for name, module in zip(("first", "second"), modules):
+        features = torch.randn(
+            batch_size,
+            seq_len,
+            module.state_read_dim,
+            requires_grad=True,
+        )
+        read_features.append(features)
+        scaled_delta_o = module._project_delta_head(
+            features,
+            module.delta_o_proj,
+            "o",
+        )
+        assert scaled_delta_o is not None
+        expected[name] = torch.stack(
+            [scaled_delta_o[0, 1], scaled_delta_o[1, 2]],
+        ) * 0.25
+        module._fuse_delta_o_output(
+            torch.randn(batch_size, seq_len, hidden_size),
+            scaled_delta_o,
+            torch.randn(batch_size, seq_len, hidden_size),
+            features,
+            valid_mask,
+        )
+        module.delta_state = torch.randn(batch_size, module.rank, module.rank)
+
+    representations = collect_delta_mem_read_representations(model)
+
+    assert list(representations) == ["first", "second"]
+    for name, representation in representations.items():
+        assert representation.shape == (batch_size, hidden_size)
+        assert representation.requires_grad
+        assert representation.grad_fn is not None
+        assert torch.allclose(representation, expected[name])
+
+    sum(value.square().sum() for value in representations.values()).backward()
+    for module, features in zip(modules, read_features):
+        assert features.grad is not None
+        assert torch.count_nonzero(features.grad[capture_mask]) > 0
+        assert torch.count_nonzero(features.grad[~capture_mask]) == 0
+        assert module.delta_o_proj.grad is not None
+        assert torch.count_nonzero(module.delta_o_proj.grad) > 0
+        for gate_parameter in (
+            module.memory_fusion_bias,
+            module.memory_fusion_hidden_weight,
+            module.memory_fusion_read_weight,
+        ):
+            assert gate_parameter.grad is not None
+            assert torch.isfinite(gate_parameter.grad).all()
+            assert torch.count_nonzero(gate_parameter.grad) > 0
+
+    assert set(get_delta_mem_online_state(model)) == {"first", "second"}
+
+    set_delta_mem_read_representation_capture_mask(model, None)
+    assert collect_delta_mem_read_representations(model) == {}
+    assert all(module.last_read_representation is None for module in modules)
+
+
+def test_read_representation_capture_validates_selection_shape_and_validity() -> None:
+    module = make_delta_module(output_init="random", delta_heads=("o",))
+    model = ToyAttentionModel(module)
+
+    with pytest.raises(ValueError, match=r"shape \[batch, sequence\]"):
+        set_delta_mem_read_representation_capture_mask(
+            model,
+            torch.tensor([False, True, False]),
+        )
+    with pytest.raises(ValueError, match="exactly one token per batch row"):
+        set_delta_mem_read_representation_capture_mask(
+            model,
+            torch.tensor([[False, False, False], [True, True, False]]),
+        )
+
+    hidden_states = torch.randn(1, 4, 8)
+    reads = torch.randn(1, 4, module.state_read_dim)
+    delta_o = module._project_delta_head(reads, module.delta_o_proj, "o")
+    assert delta_o is not None
+
+    set_delta_mem_read_representation_capture_mask(
+        model,
+        torch.tensor([[False, True, False]]),
+    )
+    with pytest.raises(ValueError, match="must match the model token shape"):
+        module._fuse_delta_o_output(
+            torch.randn_like(hidden_states),
+            delta_o,
+            hidden_states,
+            reads,
+            torch.ones(1, 4, dtype=torch.bool),
+        )
+
+    set_delta_mem_read_representation_capture_mask(
+        model,
+        torch.tensor([[False, False, True, False]]),
+    )
+    with pytest.raises(ValueError, match="outside the valid read mask"):
+        module._fuse_delta_o_output(
+            torch.randn_like(hidden_states),
+            delta_o,
+            hidden_states,
+            reads,
+            torch.tensor([[True, True, False, False]]),
+        )
+    assert module.last_read_representation is None
+
+    module.reset_state()
+    assert module.read_representation_capture_mask is None
+    assert module.last_read_representation is None
+    assert collect_delta_mem_read_representations(model) == {}
+
+
+def test_read_representation_capture_is_inert_without_a_mask() -> None:
+    module = make_delta_module(output_init="random", delta_heads=("o",))
+    model = ToyAttentionModel(module)
+    hidden_states = torch.randn(1, 3, 8)
+    reads = torch.randn(1, 3, module.state_read_dim)
+    delta_o = module._project_delta_head(reads, module.delta_o_proj, "o")
+    assert delta_o is not None
+
+    module._fuse_delta_o_output(
+        torch.randn_like(hidden_states),
+        delta_o,
+        hidden_states,
+        reads,
+        torch.ones(1, 3, dtype=torch.bool),
+    )
+
+    assert module.last_read_representation is None
+    assert collect_delta_mem_read_representations(model) == {}
 
 
 def test_rwkv_ms_read_time_mix_keeps_live_gradient_to_final_write_source() -> None:

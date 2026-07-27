@@ -155,6 +155,8 @@ def _objective_target_protocol() -> dict[str, object]:
         "memory_loss_mode": "content_contrast_ce",
         "memory_contrast_weight": 0.25,
         "memory_margin": 0.5,
+        "memory_representation_weight": 0.1,
+        "memory_representation_margin": 0.1,
         "memory_kl_weight": 0.0,
         "write_sparsity_weight": 0.0,
         "memory_partition_alignment_weight": 0.0,
@@ -169,6 +171,9 @@ def _objective_target_protocol() -> dict[str, object]:
         ),
         "content_contrast_previous_source_grad": (
             experimental_train._CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
+        ),
+        "content_contrast_representation_mode": (
+            experimental_train._CONTENT_CONTRAST_REPRESENTATION_MODE
         ),
         "content_contrast_pairing": _objective_pairing_summary(),
         "max_steps": 416,
@@ -186,6 +191,8 @@ def _objective_args(checkpoint: Path, output_dir: Path) -> SimpleNamespace:
         memory_loss_mode="content_contrast_ce",
         memory_contrast_weight=0.25,
         memory_margin=0.5,
+        memory_representation_weight=0.1,
+        memory_representation_margin=0.1,
         memory_kl_weight=0.0,
         write_sparsity_weight=0.0,
         memory_partition_alignment_weight=0.0,
@@ -1066,6 +1073,18 @@ def test_objective_ablation_protocol_allows_only_strict_objective_transition() -
             {**target, "content_contrast_backward_mode": "joint_graph_v1"},
             resume_mode="objective_ablation",
         )
+    with pytest.raises(ValueError, match="content_contrast_representation_mode"):
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "content_contrast_representation_mode": "wrong_mode"},
+            resume_mode="objective_ablation",
+        )
+    with pytest.raises(ValueError, match="memory_representation_margin to be positive"):
+        experimental_train.validate_resume_training_protocol(
+            source,
+            {**target, "memory_representation_margin": 0.0},
+            resume_mode="objective_ablation",
+        )
     with pytest.raises(ValueError, match="tokenized_fingerprint does not match"):
         invalid_pairing = {
             **_objective_pairing_summary(),
@@ -1075,6 +1094,28 @@ def test_objective_ablation_protocol_allows_only_strict_objective_transition() -
             source,
             {**target, "content_contrast_pairing": invalid_pairing},
             resume_mode="objective_ablation",
+        )
+
+
+def test_exact_resume_rejects_legacy_content_contrast_representation_protocol() -> None:
+    target = _objective_target_protocol()
+    legacy = {
+        **target,
+        "schema_version": 6,
+        "memory_objective_version": "content_contrast_ce_v4",
+    }
+    legacy.pop("memory_representation_weight")
+    legacy.pop("memory_representation_margin")
+    legacy.pop("content_contrast_representation_mode")
+
+    with pytest.raises(
+        ValueError,
+        match="content_contrast_representation_mode|memory_objective_version|schema_version",
+    ):
+        experimental_train.validate_resume_training_protocol(
+            legacy,
+            target,
+            resume_mode="exact",
         )
 
 
@@ -1124,8 +1165,13 @@ def test_prepare_objective_ablation_records_strict_lineage(tmp_path: Path) -> No
         experimental_train._CONTENT_CONTRAST_READ_MASK_MODE
     )
     assert manifest["target_content_contrast_previous_source_grad"] is True
+    assert manifest["target_content_contrast_representation_mode"] == (
+        experimental_train._CONTENT_CONTRAST_REPRESENTATION_MODE
+    )
     assert manifest["target_memory_contrast_weight"] == 0.25
     assert manifest["target_memory_margin"] == 0.5
+    assert manifest["target_memory_representation_weight"] == 0.1
+    assert manifest["target_memory_representation_margin"] == 0.1
     assert manifest["source_training_protocol_sha256"] == (
         experimental_train._protocol_sha256(source_protocol)
     )

@@ -807,6 +807,8 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_positions: torch.Tensor | None = None
         self.rwkv_ms_previous_source: torch.Tensor | None = None
         self.read_context_mask: torch.Tensor | None = None
+        self.read_representation_capture_mask: torch.Tensor | None = None
+        self.last_read_representation: torch.Tensor | None = None
         self.last_beta_mean: torch.Tensor | None = None
         self.last_lambda_mean: torch.Tensor | None = None
         self.write_enabled = True
@@ -949,6 +951,8 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_positions = None
         self.rwkv_ms_previous_source = None
         self.read_context_mask = None
+        self.read_representation_capture_mask = None
+        self.last_read_representation = None
         self.last_beta_mean = None
         self.last_lambda_mean = None
         self.last_write_routes = None
@@ -1510,6 +1514,48 @@ class DeltaMemAttention(nn.Module):
         if token_mask is None:
             return read_context_mask
         return read_context_mask & token_mask.to(device=device, dtype=torch.bool)
+
+    def _capture_read_representation(
+        self,
+        fused_delta_o: torch.Tensor | None,
+        token_mask: torch.Tensor | None,
+    ) -> None:
+        self.last_read_representation = None
+        capture_mask = self.read_representation_capture_mask
+        if capture_mask is None:
+            return
+        if fused_delta_o is None:
+            raise RuntimeError(
+                "Read representation capture requires an active delta_o head"
+            )
+        expected_shape = fused_delta_o.shape[:2]
+        if capture_mask.ndim != 2 or tuple(capture_mask.shape) != expected_shape:
+            raise ValueError(
+                "Read representation capture mask must match the model token shape: "
+                f"expected={expected_shape} actual={tuple(capture_mask.shape)}"
+            )
+        resolved_mask = capture_mask.to(device=fused_delta_o.device, dtype=torch.bool)
+        selected_per_row = resolved_mask.sum(dim=1)
+        if not torch.equal(selected_per_row, torch.ones_like(selected_per_row)):
+            raise ValueError(
+                "Read representation capture mask must select exactly one token per batch row"
+            )
+        if token_mask is not None:
+            valid_mask = token_mask.to(device=fused_delta_o.device, dtype=torch.bool)
+            if tuple(valid_mask.shape) != expected_shape:
+                raise ValueError(
+                    "Read representation validity mask must match the model token shape: "
+                    f"expected={expected_shape} actual={tuple(valid_mask.shape)}"
+                )
+            if (resolved_mask & ~valid_mask).any():
+                raise ValueError(
+                    "Read representation capture mask selected a token outside the valid read mask"
+                )
+        self.last_read_representation = torch.einsum(
+            "bt,bth->bh",
+            resolved_mask.to(dtype=fused_delta_o.dtype),
+            fused_delta_o,
+        )
 
     def _global_partition_logit_bias(
         self,
@@ -2495,6 +2541,8 @@ class DeltaMemAttention(nn.Module):
             )
             fused_delta_o = delta_o_typed * fusion_gate.to(dtype=delta_o_typed.dtype)
 
+        self._capture_read_representation(fused_delta_o, token_mask)
+
         if self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS:
             if self._post_attention_norm_hook_handle is None:
                 raise RuntimeError(
@@ -3094,6 +3142,46 @@ def set_delta_mem_read_context_mask(
 ) -> None:
     for _, module in iter_delta_mem_modules(model):
         module.read_context_mask = token_mask
+
+
+def set_delta_mem_read_representation_capture_mask(
+    model: nn.Module,
+    token_mask: torch.Tensor | None,
+) -> None:
+    if token_mask is not None:
+        if token_mask.ndim != 2:
+            raise ValueError(
+                "Read representation capture mask must have shape [batch, sequence]"
+            )
+        selected_per_row = token_mask.to(dtype=torch.bool).sum(dim=1)
+        if not torch.equal(selected_per_row, torch.ones_like(selected_per_row)):
+            raise ValueError(
+                "Read representation capture mask must select exactly one token per batch row"
+            )
+    for _, module in iter_delta_mem_modules(model):
+        module.read_representation_capture_mask = token_mask
+        module.last_read_representation = None
+
+
+def collect_delta_mem_read_representations(
+    model: nn.Module,
+) -> dict[str, torch.Tensor]:
+    representations: dict[str, torch.Tensor] = {}
+    for name, module in iter_delta_mem_modules(model):
+        if module.read_representation_capture_mask is None:
+            continue
+        representation = module.last_read_representation
+        if representation is None:
+            raise RuntimeError(
+                f"Delta-Mem module {name!r} has a capture mask but no read representation"
+            )
+        if representation.ndim != 2:
+            raise RuntimeError(
+                f"Delta-Mem module {name!r} produced an invalid read representation shape: "
+                f"{tuple(representation.shape)}"
+            )
+        representations[name] = representation
+    return representations
 
 
 def get_delta_mem_write_regularization(

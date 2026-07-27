@@ -29,6 +29,7 @@ from deltamem.core.delta import (
     collect_delta_mem_gate_stats,
     collect_delta_mem_output_ratio_stats,
     collect_delta_mem_partition_route_stats,
+    collect_delta_mem_read_representations,
     collect_delta_mem_state_stats,
     collect_delta_mem_weight_stats,
     freeze_non_delta_mem_params,
@@ -47,6 +48,7 @@ from deltamem.core.delta import (
     reset_delta_mem_states,
     save_delta_mem_adapter,
     set_delta_mem_read_context_mask,
+    set_delta_mem_read_representation_capture_mask,
     set_delta_mem_write_enabled,
     set_delta_mem_write_message_ids,
     set_delta_mem_write_sentence_ids,
@@ -149,6 +151,8 @@ def _preserve_delta_runtime(model):
         "rwkv_ms_positions",
         "rwkv_ms_previous_source",
         "read_context_mask",
+        "read_representation_capture_mask",
+        "last_read_representation",
         "last_beta_mean",
         "last_lambda_mean",
         "last_write_routes",
@@ -187,6 +191,21 @@ def _preserve_delta_runtime(model):
         for module, snapshot in snapshots:
             for attribute, value in snapshot.items():
                 setattr(module, attribute, value)
+
+
+def _capture_torch_rng_state() -> tuple[torch.Tensor, list[torch.Tensor] | None]:
+    cpu_state = torch.random.get_rng_state()
+    cuda_states = torch.cuda.get_rng_state_all() if torch.cuda.is_initialized() else None
+    return cpu_state, cuda_states
+
+
+def _restore_torch_rng_state(
+    state: tuple[torch.Tensor, list[torch.Tensor] | None],
+) -> None:
+    cpu_state, cuda_states = state
+    torch.random.set_rng_state(cpu_state)
+    if cuda_states is not None:
+        torch.cuda.set_rng_state_all(cuda_states)
 
 
 class _AccelerateKernelWarningFilter(logging.Filter):
@@ -237,11 +256,15 @@ _REQUIRED_RESUME_CHECKPOINT_FILES = (
 _TRAINING_PROTOCOL_FILENAME = "training_protocol.json"
 _TRAINING_PROTOCOL_SCHEMA_VERSION = 2
 _MEMORY_OBJECTIVE_VERSION = "canonical_full_context_teacher_v1"
-_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 6
-_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v4"
+_CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION = 7
+_CONTENT_CONTRAST_OBJECTIVE_VERSION = "content_contrast_ce_v5"
 _CONTENT_CONTRAST_BACKWARD_MODE = "sequential_exact_first_order_v1"
 _CONTENT_CONTRAST_READ_MASK_MODE = "valid_context_and_supervised_predictors_v2"
 _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD = True
+_CONTENT_CONTRAST_REPRESENTATION_MODE = (
+    "fused_delta_o_first_supervised_predictor_relative_l2_v1"
+)
+_CONTENT_CONTRAST_REPRESENTATION_EPS = 1e-6
 _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
 _CONTENT_CONTRAST_PAIRING_VERSION = "post_split_half_rotation_v1"
 _CONTINUATION_MANIFEST_FILENAME = "continuation_manifest.json"
@@ -255,6 +278,8 @@ _OBJECTIVE_ABLATION_PROTOCOL_DRIFT = frozenset(
         "memory_loss_mode",
         "memory_contrast_weight",
         "memory_margin",
+        "memory_representation_weight",
+        "memory_representation_margin",
         "memory_kl_weight",
         "write_sparsity_weight",
         "memory_partition_alignment_weight",
@@ -264,6 +289,7 @@ _OBJECTIVE_ABLATION_PROTOCOL_DRIFT = frozenset(
         "content_contrast_backward_mode",
         "content_contrast_read_mask_mode",
         "content_contrast_previous_source_grad",
+        "content_contrast_representation_mode",
         "content_contrast_pairing",
     }
 )
@@ -580,6 +606,9 @@ def _validate_objective_ablation_target_protocol(
         "content_contrast_backward_mode": _CONTENT_CONTRAST_BACKWARD_MODE,
         "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
         "content_contrast_previous_source_grad": _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD,
+        "content_contrast_representation_mode": (
+            _CONTENT_CONTRAST_REPRESENTATION_MODE
+        ),
     }
     mismatches = [
         key for key, value in expected.items() if target_protocol.get(key) != value
@@ -592,9 +621,12 @@ def _validate_objective_ablation_target_protocol(
     try:
         contrast_weight = float(target_protocol["memory_contrast_weight"])
         margin = float(target_protocol["memory_margin"])
+        representation_weight = float(target_protocol["memory_representation_weight"])
+        representation_margin = float(target_protocol["memory_representation_margin"])
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError(
-            "objective_ablation target requires numeric memory_contrast_weight and memory_margin"
+            "objective_ablation target requires numeric contrast and representation weights "
+            "and margins"
         ) from exc
     if not math.isfinite(contrast_weight) or contrast_weight <= 0.0:
         raise ValueError(
@@ -602,6 +634,15 @@ def _validate_objective_ablation_target_protocol(
         )
     if not math.isfinite(margin) or margin <= 0.0:
         raise ValueError("objective_ablation target requires memory_margin to be positive")
+    if not math.isfinite(representation_weight) or representation_weight < 0.0:
+        raise ValueError(
+            "objective_ablation target requires memory_representation_weight to be "
+            "finite and non-negative"
+        )
+    if not math.isfinite(representation_margin) or representation_margin <= 0.0:
+        raise ValueError(
+            "objective_ablation target requires memory_representation_margin to be positive"
+        )
     if require_pairing:
         _validate_content_contrast_pairing_summary(target_protocol)
 
@@ -876,6 +917,8 @@ def prepare_training_continuation(
                 "memory_loss_mode": args.memory_loss_mode,
                 "memory_contrast_weight": args.memory_contrast_weight,
                 "memory_margin": args.memory_margin,
+                "memory_representation_weight": args.memory_representation_weight,
+                "memory_representation_margin": args.memory_representation_margin,
                 "memory_kl_weight": args.memory_kl_weight,
                 "write_sparsity_weight": args.write_sparsity_weight,
                 "memory_partition_alignment_weight": (
@@ -888,6 +931,9 @@ def prepare_training_continuation(
                 "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
                 "content_contrast_previous_source_grad": (
                     _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
+                ),
+                "content_contrast_representation_mode": (
+                    _CONTENT_CONTRAST_REPRESENTATION_MODE
                 ),
             }
         )
@@ -962,8 +1008,17 @@ def prepare_training_continuation(
                 "target_content_contrast_previous_source_grad": (
                     _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
                 ),
+                "target_content_contrast_representation_mode": (
+                    _CONTENT_CONTRAST_REPRESENTATION_MODE
+                ),
                 "target_memory_contrast_weight": float(args.memory_contrast_weight),
                 "target_memory_margin": float(args.memory_margin),
+                "target_memory_representation_weight": float(
+                    args.memory_representation_weight
+                ),
+                "target_memory_representation_margin": float(
+                    args.memory_representation_margin
+                ),
                 "source_delta_config_sha256": _protocol_sha256(source_config.to_dict()),
             }
         )
@@ -1043,6 +1098,8 @@ class DeltaMemTrainer(Trainer):
         memory_contrast_weight: float = 0.1,
         memory_kl_weight: float = 0.1,
         memory_margin: float = 0.1,
+        memory_representation_weight: float = 0.0,
+        memory_representation_margin: float = 0.1,
         memory_causal_weight: float = 1.0,
         memory_anchor_weight: float = 1.0,
         memory_anchor_margin: float = 0.005,
@@ -1077,6 +1134,32 @@ class DeltaMemTrainer(Trainer):
         self.memory_contrast_weight = memory_contrast_weight
         self.memory_kl_weight = memory_kl_weight
         self.memory_margin = memory_margin
+        if (
+            not math.isfinite(memory_representation_weight)
+            or memory_representation_weight < 0.0
+        ):
+            raise ValueError("memory_representation_weight must be finite and non-negative")
+        if (
+            not math.isfinite(memory_representation_margin)
+            or memory_representation_margin <= 0.0
+        ):
+            raise ValueError("memory_representation_margin must be finite and positive")
+        if memory_representation_weight > 0.0 and memory_loss_mode != "content_contrast_ce":
+            raise ValueError(
+                "memory_representation_weight requires memory_loss_mode=content_contrast_ce"
+            )
+        if memory_representation_weight > 0.0 and delta_config is not None:
+            if "o" not in delta_config.delta_heads:
+                raise ValueError(
+                    "memory_representation_weight requires an active delta_o head"
+                )
+            if delta_config.memory_fusion_placement != "attention_output":
+                raise ValueError(
+                    "memory_representation_weight currently measures only "
+                    "memory_fusion_placement=attention_output"
+                )
+        self.memory_representation_weight = memory_representation_weight
+        self.memory_representation_margin = memory_representation_margin
         self.memory_causal_weight = memory_causal_weight
         self.memory_anchor_weight = memory_anchor_weight
         self.memory_anchor_margin = memory_anchor_margin
@@ -1144,6 +1227,8 @@ class DeltaMemTrainer(Trainer):
         self._last_memory_kl_loss = 0.0
         self._last_memory_reset_kl_loss = 0.0
         self._last_memory_margin_gap = 0.0
+        self._last_memory_representation_loss = 0.0
+        self._last_memory_representation_distance = 0.0
         self._last_memory_teacher_loss = 0.0
         self._last_memory_wmem = 0.0
         self._last_memory_probe_keep_loss = 0.0
@@ -1178,6 +1263,7 @@ class DeltaMemTrainer(Trainer):
     def _reset_online_state(self, model) -> None:
         reset_delta_mem_states(model)
         set_delta_mem_read_context_mask(model, None)
+        set_delta_mem_read_representation_capture_mask(model, None)
         set_delta_mem_write_message_ids(model, None)
         set_delta_mem_write_sentence_ids(model, None)
         set_delta_mem_write_enabled(model, True)
@@ -1201,6 +1287,70 @@ class DeltaMemTrainer(Trainer):
             & valid_tokens[:, 1:]
         )
         return read_context_mask
+
+    def _build_read_representation_capture_mask(
+        self,
+        model_inputs: dict[str, torch.Tensor],
+        read_context_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        labels = model_inputs.get("labels")
+        attention_mask = model_inputs.get("attention_mask")
+        if labels is None or attention_mask is None:
+            raise ValueError(
+                "Read-representation capture requires labels and attention_mask"
+            )
+        if labels.ndim != 2 or attention_mask.shape != labels.shape:
+            raise ValueError(
+                "Read-representation labels and attention mask must be matching 2D tensors"
+            )
+        supervised_targets = labels[:, 1:].ne(-100) & attention_mask[:, 1:].ne(0)
+        has_supervised_target = supervised_targets.any(dim=1)
+        if not bool(has_supervised_target.all()):
+            missing_rows = (~has_supervised_target).nonzero(as_tuple=False).flatten().tolist()
+            raise ValueError(
+                "Read-representation capture requires a causally predictable supervised "
+                "target in every row; "
+                f"missing rows: {missing_rows}"
+            )
+        predictor_positions = supervised_targets.to(dtype=torch.int64).argmax(dim=1)
+        capture_mask = torch.zeros_like(labels, dtype=torch.bool)
+        capture_mask.scatter_(1, predictor_positions.unsqueeze(1), True)
+        if read_context_mask is None or read_context_mask.shape != capture_mask.shape:
+            raise ValueError(
+                "Read-representation capture requires a matching read-context mask"
+            )
+        if not bool(read_context_mask.to(dtype=torch.bool).masked_select(capture_mask).all()):
+            raise ValueError(
+                "Read-representation capture predictor must be covered by the read-context mask"
+            )
+        return capture_mask
+
+    @staticmethod
+    def _stack_read_representations(
+        representations: dict[str, torch.Tensor],
+    ) -> tuple[tuple[str, ...], torch.Tensor]:
+        if not representations:
+            raise RuntimeError("Read-representation capture returned no Delta-Mem modules")
+        module_names = tuple(sorted(representations))
+        tensors = []
+        expected_shape = None
+        for module_name in module_names:
+            representation = representations[module_name]
+            if not isinstance(representation, torch.Tensor) or representation.ndim != 2:
+                raise RuntimeError(
+                    "Read-representation capture must return [batch, hidden] tensors; "
+                    f"invalid module: {module_name}"
+                )
+            if expected_shape is None:
+                expected_shape = representation.shape
+            elif representation.shape != expected_shape:
+                raise RuntimeError(
+                    "Read-representation capture tensors must have identical shapes; "
+                    f"module {module_name} has {tuple(representation.shape)}, expected "
+                    f"{tuple(expected_shape)}"
+                )
+            tensors.append(representation)
+        return module_names, torch.stack(tensors, dim=0)
 
     def _unwrap_base_model(self, model):
         while True:
@@ -2033,9 +2183,60 @@ class DeltaMemTrainer(Trainer):
         total_loss = correct_loss + self.memory_contrast_weight * contrast_loss
         return total_loss, contrast_loss, gap
 
+    def _content_contrast_representation_enabled(self) -> bool:
+        return getattr(self, "memory_representation_weight", 0.0) > 0.0
+
+    def _content_contrast_representation_objective(
+        self,
+        correct_representations: torch.Tensor,
+        wrong_representations: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if (
+            correct_representations.ndim != 3
+            or wrong_representations.shape != correct_representations.shape
+        ):
+            raise ValueError(
+                "Content-contrast representations must be matching [layer, batch, hidden] "
+                "tensors"
+            )
+        correct = correct_representations.float()
+        wrong = wrong_representations.float()
+        difference_norm = torch.linalg.vector_norm(correct - wrong, dim=-1)
+        mean_norm = (
+            torch.linalg.vector_norm(correct, dim=-1)
+            + torch.linalg.vector_norm(wrong, dim=-1)
+        ) / 2.0
+        relative_distance = difference_norm / mean_norm.clamp_min(
+            _CONTENT_CONTRAST_REPRESENTATION_EPS
+        )
+        margin = getattr(self, "memory_representation_margin", 0.1)
+        representation_loss = F.softplus((margin - relative_distance) / margin).mean()
+        return representation_loss, relative_distance
+
     def _validate_content_contrast_runtime(self) -> None:
         if self.episode_read_write_enabled:
             raise ValueError("content_contrast_ce requires episode read writes to be disabled")
+        representation_weight = getattr(self, "memory_representation_weight", 0.0)
+        representation_margin = getattr(self, "memory_representation_margin", 0.1)
+        if not math.isfinite(representation_weight) or representation_weight < 0.0:
+            raise ValueError(
+                "content_contrast_ce requires a finite non-negative representation weight"
+            )
+        if not math.isfinite(representation_margin) or representation_margin <= 0.0:
+            raise ValueError(
+                "content_contrast_ce requires a finite positive representation margin"
+            )
+        delta_config = getattr(self, "delta_config", None)
+        if representation_weight > 0.0 and delta_config is not None:
+            if "o" not in delta_config.delta_heads:
+                raise ValueError(
+                    "content_contrast representation capture requires an active delta_o head"
+                )
+            if delta_config.memory_fusion_placement != "attention_output":
+                raise ValueError(
+                    "content_contrast representation capture currently supports only "
+                    "memory_fusion_placement=attention_output"
+                )
         if self.memory_kl_weight != 0.0 or self.memory_base_kl_weight != 0.0:
             raise ValueError("content_contrast_ce requires all KL weights to be zero")
         if getattr(self, "write_sparsity_weight", 0.0) != 0.0:
@@ -2086,9 +2287,23 @@ class DeltaMemTrainer(Trainer):
         write_attention_mask: torch.Tensor,
         write_message_ids: torch.Tensor | None,
         write_sentence_ids: torch.Tensor | None,
-    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        capture_representations: bool,
+    ) -> tuple[
+        torch.Tensor,
+        dict[str, torch.Tensor],
+        tuple[str, ...] | None,
+        torch.Tensor | None,
+    ]:
         batch_size = int(model_inputs["input_ids"].size(0))
         read_context_mask = self._build_read_context_mask(model_inputs)
+        capture_mask = (
+            self._build_read_representation_capture_mask(
+                model_inputs,
+                read_context_mask,
+            )
+            if capture_representations
+            else None
+        )
         self._reset_online_state(model)
         self._prime_episode_state(
             model,
@@ -2100,7 +2315,22 @@ class DeltaMemTrainer(Trainer):
         )
         set_delta_mem_write_enabled(model, False)
         set_delta_mem_read_context_mask(model, read_context_mask)
-        outputs = model(**model_inputs, **loss_kwargs)
+        set_delta_mem_read_representation_capture_mask(model, capture_mask)
+        try:
+            outputs = model(**model_inputs, **loss_kwargs)
+            if capture_representations:
+                representation_names, representations = self._stack_read_representations(
+                    collect_delta_mem_read_representations(model)
+                )
+                if representations.size(1) != batch_size:
+                    raise RuntimeError(
+                        "Read-representation capture batch size does not match the read batch"
+                    )
+            else:
+                representation_names = None
+                representations = None
+        finally:
+            set_delta_mem_read_representation_capture_mask(model, None)
         if not isinstance(outputs, dict):
             outputs = {
                 "loss": outputs.loss if hasattr(outputs, "loss") else outputs[0],
@@ -2109,29 +2339,80 @@ class DeltaMemTrainer(Trainer):
         loss = outputs["loss"]
         if loss.ndim > 0:
             loss = loss.mean()
-        return loss, outputs
+        return loss, outputs, representation_names, representations
 
     def _content_contrast_loss_and_coefficients(
         self,
         correct_loss: torch.Tensor,
         wrong_loss: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        correct_representations: torch.Tensor | None,
+        wrong_representations: torch.Tensor | None,
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor | None,
+        torch.Tensor | None,
+    ]:
         correct_probe = correct_loss.detach().float().requires_grad_(True)
         wrong_probe = wrong_loss.detach().float().requires_grad_(True)
         total_loss, contrast_loss, gap = self._content_contrast_objective(
             correct_probe,
             wrong_probe,
         )
-        correct_coefficient, wrong_coefficient = torch.autograd.grad(
-            total_loss,
-            (correct_probe, wrong_probe),
-        )
+        representation_loss = total_loss.new_zeros(())
+        representation_distance = total_loss.new_zeros(())
+        gradient_inputs: list[torch.Tensor] = [correct_probe, wrong_probe]
+        if self._content_contrast_representation_enabled():
+            if correct_representations is None or wrong_representations is None:
+                raise RuntimeError(
+                    "Content-contrast representation objective requires both branch captures"
+                )
+            correct_representation_probe = (
+                correct_representations.detach().float().requires_grad_(True)
+            )
+            wrong_representation_probe = (
+                wrong_representations.detach().float().requires_grad_(True)
+            )
+            representation_loss, relative_distance = (
+                self._content_contrast_representation_objective(
+                    correct_representation_probe,
+                    wrong_representation_probe,
+                )
+            )
+            representation_distance = relative_distance.mean()
+            total_loss = (
+                total_loss
+                + self.memory_representation_weight * representation_loss
+            )
+            gradient_inputs.extend(
+                (correct_representation_probe, wrong_representation_probe)
+            )
+        gradients = torch.autograd.grad(total_loss, tuple(gradient_inputs))
+        correct_coefficient, wrong_coefficient = gradients[:2]
+        if len(gradients) == 4:
+            correct_representation_gradient, wrong_representation_gradient = gradients[2:]
+        else:
+            correct_representation_gradient = None
+            wrong_representation_gradient = None
         return (
             total_loss.detach(),
             contrast_loss.detach(),
             gap.detach(),
+            representation_loss.detach(),
+            representation_distance.detach(),
             correct_coefficient.detach(),
             wrong_coefficient.detach(),
+            None
+            if correct_representation_gradient is None
+            else correct_representation_gradient.detach(),
+            None
+            if wrong_representation_gradient is None
+            else wrong_representation_gradient.detach(),
         )
 
     def _compute_content_contrast_ce(
@@ -2150,7 +2431,13 @@ class DeltaMemTrainer(Trainer):
         negative_write_sentence_ids: torch.Tensor | None,
     ):
         self._validate_content_contrast_runtime()
-        correct_loss, correct_outputs = self._content_contrast_branch(
+        capture_representations = self._content_contrast_representation_enabled()
+        (
+            correct_loss,
+            correct_outputs,
+            correct_representation_names,
+            correct_representations,
+        ) = self._content_contrast_branch(
             model,
             model_inputs,
             loss_kwargs=loss_kwargs,
@@ -2158,8 +2445,14 @@ class DeltaMemTrainer(Trainer):
             write_attention_mask=write_attention_mask,
             write_message_ids=write_message_ids,
             write_sentence_ids=write_sentence_ids,
+            capture_representations=capture_representations,
         )
-        wrong_loss, _ = self._content_contrast_branch(
+        (
+            wrong_loss,
+            _,
+            wrong_representation_names,
+            wrong_representations,
+        ) = self._content_contrast_branch(
             model,
             model_inputs,
             loss_kwargs=loss_kwargs,
@@ -2167,16 +2460,39 @@ class DeltaMemTrainer(Trainer):
             write_attention_mask=negative_write_attention_mask,
             write_message_ids=negative_write_message_ids,
             write_sentence_ids=negative_write_sentence_ids,
+            capture_representations=capture_representations,
         )
 
         total_loss, contrast_loss, margin_gap = self._content_contrast_objective(
             correct_loss,
             wrong_loss,
         )
+        representation_loss = total_loss.new_zeros(())
+        representation_distance = total_loss.new_zeros(())
+        if capture_representations:
+            if correct_representation_names != wrong_representation_names:
+                raise RuntimeError(
+                    "Content-contrast branches captured different Delta-Mem modules"
+                )
+            assert correct_representations is not None
+            assert wrong_representations is not None
+            representation_loss, relative_distance = (
+                self._content_contrast_representation_objective(
+                    correct_representations,
+                    wrong_representations,
+                )
+            )
+            representation_distance = relative_distance.mean()
+            total_loss = (
+                total_loss
+                + self.memory_representation_weight * representation_loss
+            )
         outputs = dict(correct_outputs)
         outputs["loss"] = total_loss
         outputs["memory_loss"] = (total_loss - correct_loss).detach()
         outputs["memory_keep_loss"] = correct_loss.detach()
+        outputs["memory_representation_loss"] = representation_loss.detach()
+        outputs["memory_representation_distance"] = representation_distance.detach()
         return total_loss, outputs, {
             "keep_loss": float(correct_loss.detach().float().item()),
             "reset_loss": 0.0,
@@ -2189,6 +2505,12 @@ class DeltaMemTrainer(Trainer):
             "kl_loss": 0.0,
             "reset_kl_loss": 0.0,
             "margin_gap": float(margin_gap.detach().float().item()),
+            "representation_loss": float(
+                representation_loss.detach().float().item()
+            ),
+            "representation_distance": float(
+                representation_distance.detach().float().item()
+            ),
             "wmem": 1.0,
             "probe_keep_loss": 0.0,
             "probe_reset_loss": 0.0,
@@ -2217,8 +2539,15 @@ class DeltaMemTrainer(Trainer):
         """Backpropagate the exact first derivative with one live writer graph at a time."""
 
         self._validate_content_contrast_sequential_runtime()
+        capture_representations = self._content_contrast_representation_enabled()
+        wrong_probe_rng_state = _capture_torch_rng_state()
         with torch.no_grad(), self.compute_loss_context_manager():
-            wrong_probe, wrong_probe_outputs = self._content_contrast_branch(
+            (
+                wrong_probe,
+                wrong_probe_outputs,
+                wrong_probe_representation_names,
+                wrong_probe_representations,
+            ) = self._content_contrast_branch(
                 model,
                 model_inputs,
                 loss_kwargs=loss_kwargs,
@@ -2226,12 +2555,20 @@ class DeltaMemTrainer(Trainer):
                 write_attention_mask=negative_write_attention_mask,
                 write_message_ids=negative_write_message_ids,
                 write_sentence_ids=negative_write_sentence_ids,
+                capture_representations=capture_representations,
             )
         wrong_probe = wrong_probe.detach()
+        if wrong_probe_representations is not None:
+            wrong_probe_representations = wrong_probe_representations.detach()
         del wrong_probe_outputs
 
         with self.compute_loss_context_manager():
-            correct_loss, correct_outputs = self._content_contrast_branch(
+            (
+                correct_loss,
+                correct_outputs,
+                correct_representation_names,
+                correct_representations,
+            ) = self._content_contrast_branch(
                 model,
                 model_inputs,
                 loss_kwargs=loss_kwargs,
@@ -2239,41 +2576,101 @@ class DeltaMemTrainer(Trainer):
                 write_attention_mask=write_attention_mask,
                 write_message_ids=write_message_ids,
                 write_sentence_ids=write_sentence_ids,
+                capture_representations=capture_representations,
+            )
+        if correct_representation_names != wrong_probe_representation_names:
+            raise RuntimeError(
+                "Content-contrast branches captured different Delta-Mem modules"
             )
         (
             total_loss,
             contrast_loss,
             margin_gap,
+            representation_loss,
+            representation_distance,
             correct_coefficient,
             wrong_coefficient,
-        ) = self._content_contrast_loss_and_coefficients(correct_loss, wrong_probe)
-        correct_value = correct_loss.detach()
-        self.accelerator.backward(
-            correct_loss * correct_coefficient * gradient_scale,
+            correct_representation_gradient,
+            wrong_representation_gradient,
+        ) = self._content_contrast_loss_and_coefficients(
+            correct_loss,
+            wrong_probe,
+            correct_representations,
+            wrong_probe_representations,
         )
-        del correct_loss, correct_outputs
-
-        with self.compute_loss_context_manager():
-            wrong_loss, wrong_outputs = self._content_contrast_branch(
-                model,
-                model_inputs,
-                loss_kwargs=loss_kwargs,
-                write_input_ids=negative_write_input_ids,
-                write_attention_mask=negative_write_attention_mask,
-                write_message_ids=negative_write_message_ids,
-                write_sentence_ids=negative_write_sentence_ids,
+        correct_value = correct_loss.detach()
+        correct_backward = correct_loss * correct_coefficient
+        if correct_representation_gradient is not None:
+            assert correct_representations is not None
+            correct_backward = correct_backward + torch.sum(
+                correct_representations.float() * correct_representation_gradient
             )
+        self.accelerator.backward(
+            correct_backward * gradient_scale,
+        )
+        del correct_backward, correct_loss, correct_outputs, correct_representations
+
+        post_correct_rng_state = _capture_torch_rng_state()
+        _restore_torch_rng_state(wrong_probe_rng_state)
+        try:
+            with self.compute_loss_context_manager():
+                (
+                    wrong_loss,
+                    wrong_outputs,
+                    wrong_representation_names,
+                    wrong_representations,
+                ) = self._content_contrast_branch(
+                    model,
+                    model_inputs,
+                    loss_kwargs=loss_kwargs,
+                    write_input_ids=negative_write_input_ids,
+                    write_attention_mask=negative_write_attention_mask,
+                    write_message_ids=negative_write_message_ids,
+                    write_sentence_ids=negative_write_sentence_ids,
+                    capture_representations=capture_representations,
+                )
+        finally:
+            _restore_torch_rng_state(post_correct_rng_state)
         if not torch.allclose(wrong_loss.detach(), wrong_probe, rtol=1e-5, atol=1e-6):
             raise RuntimeError(
                 "Sequential content-contrast donor replay is not deterministic: "
                 f"probe={float(wrong_probe.float().item()):.8f} "
                 f"gradient={float(wrong_loss.detach().float().item()):.8f}"
             )
+        if wrong_representation_names != wrong_probe_representation_names:
+            raise RuntimeError(
+                "Sequential content-contrast donor representation replay captured different "
+                "Delta-Mem modules"
+            )
+        if wrong_probe_representations is not None:
+            assert wrong_representations is not None
+            if not torch.allclose(
+                wrong_representations.detach(),
+                wrong_probe_representations,
+                rtol=1e-5,
+                atol=1e-6,
+            ):
+                maximum_error = torch.max(
+                    torch.abs(
+                        wrong_representations.detach().float()
+                        - wrong_probe_representations.float()
+                    )
+                )
+                raise RuntimeError(
+                    "Sequential content-contrast donor representation replay is not "
+                    f"deterministic: max_abs_error={float(maximum_error.item()):.8f}"
+                )
         wrong_value = wrong_loss.detach()
+        wrong_backward = wrong_loss * wrong_coefficient
+        if wrong_representation_gradient is not None:
+            assert wrong_representations is not None
+            wrong_backward = wrong_backward + torch.sum(
+                wrong_representations.float() * wrong_representation_gradient
+            )
         self.accelerator.backward(
-            wrong_loss * wrong_coefficient * gradient_scale,
+            wrong_backward * gradient_scale,
         )
-        del wrong_loss, wrong_outputs
+        del wrong_backward, wrong_loss, wrong_outputs, wrong_representations
 
         set_delta_mem_read_context_mask(model, None)
         set_delta_mem_write_enabled(model, True)
@@ -2289,6 +2686,8 @@ class DeltaMemTrainer(Trainer):
             "kl_loss": 0.0,
             "reset_kl_loss": 0.0,
             "margin_gap": float(margin_gap.float().item()),
+            "representation_loss": float(representation_loss.float().item()),
+            "representation_distance": float(representation_distance.float().item()),
             "wmem": 1.0,
             "probe_keep_loss": 0.0,
             "probe_reset_loss": 0.0,
@@ -2334,6 +2733,14 @@ class DeltaMemTrainer(Trainer):
         self._last_memory_kl_loss = memory_stats["kl_loss"]
         self._last_memory_reset_kl_loss = memory_stats["reset_kl_loss"]
         self._last_memory_margin_gap = memory_stats["margin_gap"]
+        self._last_memory_representation_loss = memory_stats.get(
+            "representation_loss",
+            0.0,
+        )
+        self._last_memory_representation_distance = memory_stats.get(
+            "representation_distance",
+            0.0,
+        )
         self._last_memory_wmem = memory_stats["wmem"]
         self._last_memory_probe_keep_loss = memory_stats["probe_keep_loss"]
         self._last_memory_probe_reset_loss = memory_stats["probe_reset_loss"]
@@ -3070,6 +3477,12 @@ class DeltaMemTrainer(Trainer):
                     "delta/memory_kl_loss": self._last_memory_kl_loss,
                     "delta/memory_reset_kl_loss": self._last_memory_reset_kl_loss,
                     "delta/memory_margin_gap": self._last_memory_margin_gap,
+                    "delta/memory_representation_loss": (
+                        self._last_memory_representation_loss
+                    ),
+                    "delta/memory_representation_distance": (
+                        self._last_memory_representation_distance
+                    ),
                     "delta/memory_wmem": self._last_memory_wmem,
                     "delta/memory_probe_keep_loss": self._last_memory_probe_keep_loss,
                     "delta/memory_probe_reset_loss": self._last_memory_probe_reset_loss,
@@ -3557,6 +3970,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--memory-contrast-weight", type=float, default=0.1)
     parser.add_argument("--memory-kl-weight", type=float, default=0.1)
     parser.add_argument("--memory-margin", type=float, default=0.1)
+    parser.add_argument("--memory-representation-weight", type=float, default=0.0)
+    parser.add_argument("--memory-representation-margin", type=float, default=0.1)
     parser.add_argument("--memory-causal-weight", type=float, default=1.0)
     parser.add_argument("--memory-anchor-weight", type=float, default=1.0)
     parser.add_argument("--memory-anchor-margin", type=float, default=0.005)
@@ -3676,10 +4091,37 @@ def parse_args() -> argparse.Namespace:
         )
     if args.memory_base_kl_weight < 0.0:
         raise ValueError("memory-base-kl-weight must be non-negative")
+    if (
+        not math.isfinite(args.memory_representation_weight)
+        or args.memory_representation_weight < 0.0
+    ):
+        raise ValueError("memory-representation-weight must be finite and non-negative")
+    if (
+        not math.isfinite(args.memory_representation_margin)
+        or args.memory_representation_margin <= 0.0
+    ):
+        raise ValueError("memory-representation-margin must be finite and positive")
     if args.rwkv_ms_output_init_scale < 0.0:
         raise ValueError("rwkv-ms-output-init-scale must be non-negative")
     if args.memory_base_kl_weight > 0.0 and args.memory_loss_mode != "context_dropout_ce":
         raise ValueError("memory-base-kl-weight requires memory-loss-mode=context_dropout_ce")
+    if (
+        args.memory_representation_weight > 0.0
+        and args.memory_loss_mode != "content_contrast_ce"
+    ):
+        raise ValueError(
+            "memory-representation-weight requires memory-loss-mode=content_contrast_ce"
+        )
+    if args.memory_representation_weight > 0.0:
+        if "o" not in parse_delta_heads(args.delta_heads):
+            raise ValueError(
+                "memory-representation-weight requires an active delta_o head"
+            )
+        if normalize_memory_fusion_placement(args.memory_fusion_placement) != "attention_output":
+            raise ValueError(
+                "memory-representation-weight currently supports only "
+                "memory-fusion-placement=attention_output"
+            )
     if args.memory_loss_mode == "content_contrast_ce":
         if args.episode_read_write_enabled:
             raise ValueError("content_contrast_ce requires episode read writes to be disabled")
@@ -4974,6 +5416,8 @@ def build_training_protocol(
             {
                 "memory_contrast_weight": args.memory_contrast_weight,
                 "memory_margin": args.memory_margin,
+                "memory_representation_weight": args.memory_representation_weight,
+                "memory_representation_margin": args.memory_representation_margin,
                 "memory_kl_weight": args.memory_kl_weight,
                 "write_sparsity_weight": args.write_sparsity_weight,
                 "memory_partition_alignment_weight": args.memory_partition_alignment_weight,
@@ -4984,6 +5428,9 @@ def build_training_protocol(
                 "content_contrast_read_mask_mode": _CONTENT_CONTRAST_READ_MASK_MODE,
                 "content_contrast_previous_source_grad": (
                     _CONTENT_CONTRAST_PREVIOUS_SOURCE_GRAD
+                ),
+                "content_contrast_representation_mode": (
+                    _CONTENT_CONTRAST_REPRESENTATION_MODE
                 ),
                 "content_contrast_pairing": _content_contrast_protocol_pairing_summary(
                     content_contrast_pairing_manifest
@@ -5500,6 +5947,8 @@ def main() -> None:
         memory_contrast_weight=args.memory_contrast_weight,
         memory_kl_weight=args.memory_kl_weight,
         memory_margin=args.memory_margin,
+        memory_representation_weight=args.memory_representation_weight,
+        memory_representation_margin=args.memory_representation_margin,
         memory_causal_weight=args.memory_causal_weight,
         memory_anchor_weight=args.memory_anchor_weight,
         memory_anchor_margin=args.memory_anchor_margin,
@@ -5577,6 +6026,9 @@ def main() -> None:
             "content_contrast_previous_source_grad": training_protocol.get(
                 "content_contrast_previous_source_grad"
             ),
+            "content_contrast_representation_mode": training_protocol.get(
+                "content_contrast_representation_mode"
+            ),
             "teacher_max_length": args.max_write_length + args.max_length,
             "memory_write_source": args.memory_write_source,
             "memory_write_granularity": args.memory_write_granularity,
@@ -5590,6 +6042,8 @@ def main() -> None:
             "memory_contrast_weight": args.memory_contrast_weight,
             "memory_kl_weight": args.memory_kl_weight,
             "memory_margin": args.memory_margin,
+            "memory_representation_weight": args.memory_representation_weight,
+            "memory_representation_margin": args.memory_representation_margin,
             "memory_causal_weight": args.memory_causal_weight,
             "memory_anchor_weight": args.memory_anchor_weight,
             "memory_anchor_margin": args.memory_anchor_margin,
