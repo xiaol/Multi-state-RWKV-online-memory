@@ -5906,18 +5906,20 @@ class DeltaMemTrainer(Trainer):
             donor_probe,
             zero,
         )
+        correct_values = {
+            key: value.detach() if isinstance(value, torch.Tensor) else value
+            for key, value in correct.items()
+        }
         correct_backward = (
             objective_probe["generation_ce"]
             + objective_probe["first_error_loss"]
             + objective_probe["correct_pair_ce"]
             + objective_probe["zero_margin_loss"]
         )
-        self.accelerator.backward(correct_backward * gradient_scale)
-        correct_values = {
-            key: value.detach() if isinstance(value, torch.Tensor) else value
-            for key, value in correct.items()
-        }
-        del correct_backward, correct_outputs, correct
+        correct_backward_root = correct_backward * gradient_scale
+        del objective_probe, correct_backward, correct_outputs, correct
+        self.accelerator.backward(correct_backward_root)
+        del correct_backward_root
 
         post_correct_rng_state = _capture_torch_rng_state()
         _restore_torch_rng_state(donor_probe_rng_state)
@@ -5935,6 +5937,10 @@ class DeltaMemTrainer(Trainer):
         finally:
             _restore_torch_rng_state(post_correct_rng_state)
         self._validate_scene_state_generation_replay(donor_probe, donor)
+        donor_values = {
+            key: value.detach() if isinstance(value, torch.Tensor) else value
+            for key, value in donor.items()
+        }
         donor_pair_ce = F.cross_entropy(
             donor["pair_logits"],
             torch.ones(
@@ -5943,12 +5949,10 @@ class DeltaMemTrainer(Trainer):
                 dtype=torch.long,
             ),
         )
-        self.accelerator.backward(donor_pair_ce * gradient_scale)
-        donor_values = {
-            key: value.detach() if isinstance(value, torch.Tensor) else value
-            for key, value in donor.items()
-        }
+        donor_backward_root = donor_pair_ce * gradient_scale
         del donor_pair_ce, donor_outputs, donor
+        self.accelerator.backward(donor_backward_root)
+        del donor_backward_root
         objective = self._scene_state_generation_objective(
             correct_values,
             donor_values,

@@ -5,6 +5,7 @@ from contextlib import nullcontext
 import hashlib
 import json
 from types import SimpleNamespace
+import weakref
 
 from datasets import Dataset
 import pytest
@@ -489,6 +490,86 @@ def test_generation_sequential_replay_matches_joint_and_zero_is_no_grad(
         "scene_generation_zero_decision_margin",
     ):
         assert replay_stats[key] == pytest.approx(joint_stats[key], abs=1e-6)
+
+
+def test_generation_sequential_releases_graphful_branches_before_backward(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    joint_trainer = _trainer()
+    joint_model = _SceneGenerationModel()
+    _bind_state_controls(joint_trainer, monkeypatch)
+    joint_loss, _, _ = joint_trainer._compute_scene_state_generation_ce(
+        joint_model,
+        _model_inputs(),
+        loss_kwargs={},
+        **_branch_kwargs(),
+    )
+    joint_loss.backward()
+    expected_gradient = joint_model.parameter.grad.detach().clone()
+
+    replay_trainer = _trainer()
+    replay_model = _SceneGenerationModel()
+    _bind_state_controls(replay_trainer, monkeypatch)
+
+    class WeakRefDict(dict):
+        pass
+
+    graphful_branch_refs: list[
+        tuple[
+            weakref.ReferenceType[WeakRefDict],
+            weakref.ReferenceType[WeakRefDict],
+            weakref.ReferenceType[torch.Tensor],
+            weakref.ReferenceType[torch.Tensor],
+        ]
+    ] = []
+    original_branch = replay_trainer._scene_state_generation_branch
+
+    def tracked_branch(*args, **kwargs):
+        outputs, metrics = original_branch(*args, **kwargs)
+        if torch.is_grad_enabled():
+            outputs = WeakRefDict(outputs)
+            metrics = WeakRefDict(metrics)
+            graphful_branch_refs.append(
+                (
+                    weakref.ref(outputs),
+                    weakref.ref(metrics),
+                    weakref.ref(outputs["loss"]),
+                    weakref.ref(metrics["schema_row_ce"]),
+                )
+            )
+        return outputs, metrics
+
+    replay_trainer._scene_state_generation_branch = tracked_branch
+
+    class LifecycleCheckingAccelerator:
+        distributed_type = SimpleNamespace(name="NO")
+
+        def __init__(self) -> None:
+            self.backward_calls = 0
+
+        def backward(self, loss: torch.Tensor, **kwargs) -> None:
+            assert kwargs == {}
+            branch_refs = graphful_branch_refs[self.backward_calls]
+            assert all(branch_ref() is None for branch_ref in branch_refs)
+            self.backward_calls += 1
+            loss.backward()
+
+    accelerator = LifecycleCheckingAccelerator()
+    replay_trainer.accelerator = accelerator
+    gradient_scale = 0.375
+    replay_trainer._scene_state_generation_sequential_backward(
+        replay_model,
+        _model_inputs(),
+        loss_kwargs={},
+        gradient_scale=gradient_scale,
+        **_branch_kwargs(),
+    )
+
+    assert accelerator.backward_calls == 2
+    assert replay_model.parameter.grad.item() == pytest.approx(
+        (expected_gradient * gradient_scale).item(),
+        abs=1e-6,
+    )
 
 
 def _neutral_generation_row(source_token: int, write_token: int) -> dict[str, object]:

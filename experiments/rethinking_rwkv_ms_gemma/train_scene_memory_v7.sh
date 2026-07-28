@@ -63,6 +63,7 @@ fi
 OUTPUT_DIR="${RUN_ROOT}/scene_memory_v7_${DATASET_KIND}_${RUN_NAME}"
 LOG_DIR="${RUN_ROOT}/logs"
 LOG_FILE="${LOG_DIR}/scene_memory_v7_${DATASET_KIND}_${RUN_NAME}.log"
+EXECUTION_METADATA="${OUTPUT_DIR}/execution_metadata.json"
 HF_HOME_LOCKED="${CACHE_ROOT}/huggingface"
 HF_CACHE_DIR="${HF_HOME_LOCKED}/datasets"
 XDG_CACHE_HOME_LOCKED="${CACHE_ROOT}/xdg"
@@ -78,7 +79,8 @@ require_ssd_path() {
 }
 
 for locked_path in \
-  "${MODEL_PATH}" "${OUTPUT_DIR}" "${LOG_DIR}" "${LOG_FILE}" "${HF_HOME_LOCKED}" \
+  "${MODEL_PATH}" "${OUTPUT_DIR}" "${LOG_DIR}" "${LOG_FILE}" \
+  "${EXECUTION_METADATA}" "${HF_HOME_LOCKED}" \
   "${HF_CACHE_DIR}" "${XDG_CACHE_HOME_LOCKED}" "${TOKENIZED_DATASET_ROOT}" \
   "${TMPDIR_LOCKED}" "${TORCH_CACHE_ROOT}"; do
   require_ssd_path "${locked_path}"
@@ -87,6 +89,8 @@ done
   || fail "fresh_output_collision path=${OUTPUT_DIR}"
 [[ ! -e "${LOG_FILE}" ]] \
   || fail "fresh_log_collision path=${LOG_FILE}"
+[[ -z "$(git -C "${REPO}" status --porcelain --untracked-files=no)" ]] \
+  || fail "tracked_worktree_must_be_clean_before_v7_training"
 
 export PYTHONPATH="${REPO}${PYTHONPATH:+:${PYTHONPATH}}"
 export CUDA_VISIBLE_DEVICES=0
@@ -423,7 +427,68 @@ mkdir -p \
   "${TORCH_EXTENSIONS_DIR}" "${TRITON_CACHE_DIR}"
 mkdir "${OUTPUT_DIR}"
 
+CODE_COMMIT="$(git -C "${REPO}" rev-parse HEAD)"
+TRAINER_CODE="${REPO}/deltamem/train/delta_sft_experimental.py"
+LAUNCHER="${SCRIPT_DIR}/train_scene_memory_v7.sh"
+TRAINER_CODE_SHA256="$(sha256sum "${TRAINER_CODE}" | cut -d' ' -f1)"
+LAUNCHER_SHA256="$(sha256sum "${LAUNCHER}" | cut -d' ' -f1)"
+"${VALIDATION_PYTHON_BIN}" - \
+  "${EXECUTION_METADATA}" "${DATASET_KIND}" "${RUN_NAME}" \
+  "${SOURCE_STEP}" "${MAX_STEPS}" "${RESUME_FROM_CHECKPOINT}" \
+  "${CODE_COMMIT}" "${TRAINER_CODE}" "${TRAINER_CODE_SHA256}" \
+  "${LAUNCHER}" "${LAUNCHER_SHA256}" <<'PY'
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import sys
+
+
+(
+    output_raw,
+    dataset_kind,
+    run_name,
+    source_step,
+    target_step,
+    resume_checkpoint,
+    code_commit,
+    trainer_code,
+    trainer_code_sha256,
+    launcher,
+    launcher_sha256,
+) = sys.argv[1:]
+payload = {
+    "schema": "rwkv_ms_scene_memory_v7_execution.v1",
+    "created_at": datetime.now(timezone.utc).isoformat(),
+    "dataset_kind": dataset_kind,
+    "run_name": run_name,
+    "source_step": int(source_step),
+    "target_step": int(target_step),
+    "resume_checkpoint": resume_checkpoint or None,
+    "training_code": {
+        "git_commit": code_commit,
+        "tracked_worktree_clean": True,
+        "trainer_path": str(Path(trainer_code).resolve()),
+        "trainer_sha256": trainer_code_sha256,
+        "launcher_path": str(Path(launcher).resolve()),
+        "launcher_sha256": launcher_sha256,
+    },
+    "memory_mitigation": {
+        "mode": "pre_backward_unused_graph_release_v1",
+        "branch_order_changed": False,
+        "saved_tensor_cpu_offload": False,
+        "allocator": "expandable_segments:True",
+    },
+}
+Path(output_raw).write_text(
+    json.dumps(payload, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+
 {
+  printf 'Execution metadata: %s\n' "${EXECUTION_METADATA}"
   printf 'Starting V7 dataset=%s mode=%s source_step=%s target_max_steps=%s\n' \
     "${DATASET_KIND}" "${resume_kind}" "${SOURCE_STEP}" "${MAX_STEPS}"
   printf 'Command: '
