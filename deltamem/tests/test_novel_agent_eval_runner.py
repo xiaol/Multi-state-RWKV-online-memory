@@ -10,6 +10,7 @@ import torch
 
 from experiments.rethinking_rwkv_ms_gemma import run_novel_agent_eval as evaluator
 from experiments.rethinking_rwkv_ms_gemma import diagnose_residual_hybrid_scales as diagnostic
+from experiments.rethinking_rwkv_ms_gemma import scene_memory_v6_run_audit as audit
 
 
 class FakeModule:
@@ -366,9 +367,29 @@ def test_scene_v6_training_lineage_rejects_old_unproven_pilot(
         evaluator.scene_v6_training_lineage(checkpoint)
 
 
-def test_scene_v6_identity_lineage_accepts_step32_receipt_without_summary(
+@pytest.mark.parametrize(
+    ("stale_section", "stale_field", "stale_value"),
+    [
+        (
+            "objective",
+            "backward_mode",
+            "sequential_replayed_donor_zero_diagnostic_exact_first_order_v2",
+        ),
+        ("objective", "zero_margin_weight", 1.0),
+        ("history", "finite", True),
+        (
+            "receipt",
+            "adapter_change_from_step_zero",
+            {"changed_tensor_count": 1},
+        ),
+    ],
+)
+def test_scene_v6_identity_lineage_accepts_current_receipt_and_rejects_stale_contract_variants(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    stale_section: str,
+    stale_field: str,
+    stale_value: object,
 ) -> None:
     run_root = tmp_path / "identity_proof"
     checkpoint = run_root / "trainer" / "checkpoint-32"
@@ -433,7 +454,7 @@ def test_scene_v6_identity_lineage_accepts_step32_receipt_without_summary(
         "data_contract": data_contract,
         "source_lock": source_lock,
         "pair_manifest": pair_manifest,
-        "objective": dict(evaluator.SCENE_V6_IDENTITY_OBJECTIVE_EXPECTED),
+        "objective": dict(audit.OBJECTIVE_PROTOCOL),
         "train_partition": {
             **train_partition,
             "rows": 32,
@@ -452,9 +473,9 @@ def test_scene_v6_identity_lineage_accepts_step32_receipt_without_summary(
             "records": 32,
             "first_step": 1,
             "last_step": 32,
-            "finite": True,
+            "identity_metrics_finite": True,
         },
-        "adapter_change_from_step_zero": {"changed_tensor_count": 1},
+        "adapter_change": {"changed_tensor_count": 1},
     }
     receipt["receipt_sha256"] = evaluator.canonical_object_sha256(receipt)
     (checkpoint / "checkpoint_receipt.json").write_text(
@@ -469,10 +490,16 @@ def test_scene_v6_identity_lineage_accepts_step32_receipt_without_summary(
     assert lineage["objective"]["objective_version"] == (
         "scene_state_identity_ce_v2"
     )
-    assert lineage["objective"]["zero_margin_weight"] == 0.0
+    assert lineage["objective"] == dict(audit.OBJECTIVE_PROTOCOL)
+    assert lineage["objective"]["zero_diagnostic_weight"] == 0.0
     assert not (run_root / "training_summary.json").exists()
 
-    receipt["objective"]["zero_margin_weight"] = 1.0
+    if stale_section == "objective":
+        receipt["objective"][stale_field] = stale_value
+    elif stale_section == "history":
+        receipt["history"][stale_field] = stale_value
+    else:
+        receipt[stale_field] = stale_value
     receipt["receipt_sha256"] = evaluator.canonical_object_sha256(
         {key: value for key, value in receipt.items() if key != "receipt_sha256"}
     )
@@ -480,8 +507,14 @@ def test_scene_v6_identity_lineage_accepts_step32_receipt_without_summary(
         json.dumps(receipt),
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="objective zero_margin_weight differs"):
+    with pytest.raises(ValueError):
         evaluator.scene_v6_training_lineage(checkpoint)
+
+
+def test_scene_v6_identity_objective_matches_audited_protocol() -> None:
+    assert evaluator.SCENE_V6_IDENTITY_OBJECTIVE_EXPECTED == dict(
+        audit.OBJECTIVE_PROTOCOL
+    )
 
 
 def _write_scene_v6_hard32_pass_receipt(

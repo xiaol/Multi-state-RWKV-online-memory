@@ -87,11 +87,49 @@ SCENE_V6_IDENTITY_OBJECTIVE_VERSION = "scene_state_identity_ce_v2"
 SCENE_V6_IDENTITY_OBJECTIVE_EXPECTED = {
     "memory_loss_mode": "scene_state_identity_ce",
     "objective_version": SCENE_V6_IDENTITY_OBJECTIVE_VERSION,
-    "backward_mode": (
-        "sequential_replayed_donor_zero_diagnostic_exact_first_order_v2"
+    "margin": 0.5,
+    "margin_mode": "per_row_hinge_relu_v1",
+    "objective_formula": (
+        "full_correct_ce + correct_all_semantic_ce + "
+        "mean(relu(margin - (donor_pair_semantic_ce - "
+        "correct_pair_semantic_ce)))"
     ),
+    "backward_mode": (
+        "sequential_replayed_donor_single_zero_diagnostic_exact_first_order_v2"
+    ),
+    "read_protocol": "state_only_same_read_correct_donor_zero_adapter_active_v1",
+    "zero_protocol": "adapter_active_reset_state_writes_disabled_v1",
+    "semantic_mask_mode": "top_level_boundaries_nonwhitespace_offset_overlap_v1",
+    "semantic_loss_normalization": "selected_tokens_per_row_then_batch_mean_v1",
+    "target_mode": "first_pair_distinguishing_semantic_token_v1",
+    "causal_prefix_mode": "exact_input_ids_and_attention_before_pair_target_v1",
+    "full_correct_ce_weight": 1.0,
+    "correct_all_semantic_ce_weight": 1.0,
     "donor_margin_weight": 1.0,
-    "zero_margin_weight": 0.0,
+    "zero_diagnostic_weight": 0.0,
+    "zero_diagnostic_gradient": False,
+    "read_time_positions_observable": False,
+    "correct_all_semantic_scope": "all_semantic_tokens_v1",
+    "pair_semantic_scope": "first_pair_distinguishing_semantic_token_v1",
+    "donor_margin_scope": "first_pair_distinguishing_semantic_token_v1",
+    "zero_diagnostic_scope": "all_semantic_tokens_v1",
+    "target_strata": [
+        "presence",
+        "same_cardinality_value",
+        "cross_cardinality_value",
+    ],
+    "pairing_version": "nearest_write_token_length_label_distinct_symmetric_pair_v2",
+    "pairing_refinement": (
+        "maximize_nonempty_same_cardinality_within_nearest_length_budget_v1"
+    ),
+    "pairing_length_control": (
+        "nearest_feasible_symmetric_absolute_write_token_delta_v1"
+    ),
+    "pairing_limitation": (
+        "nonzero_write_token_length_deltas_retained_without_truncation_"
+        "or_hybrid_carriers_v1"
+    ),
+    "auxiliary_regularizers": "all_zero",
 }
 SCENE_V6_IDENTITY_PAIR_MANIFEST_SHA256 = (
     "2ceb291b9c21063164e30ca0b8b052798f8ba42d9a089a5abc78d1cb321dc008"
@@ -1245,11 +1283,20 @@ def scene_v6_identity_checkpoint_lineage(checkpoint_dir: Path) -> dict[str, Any]
     objective = receipt.get("objective")
     if not isinstance(objective, dict):
         raise ValueError("Scene V6 identity checkpoint objective is missing")
-    for field, expected in SCENE_V6_IDENTITY_OBJECTIVE_EXPECTED.items():
-        if objective.get(field) != expected:
-            raise ValueError(
-                f"Scene V6 identity checkpoint objective {field} differs"
-            )
+    if objective != SCENE_V6_IDENTITY_OBJECTIVE_EXPECTED:
+        missing = object()
+        objective_fields = set(objective) | set(
+            SCENE_V6_IDENTITY_OBJECTIVE_EXPECTED
+        )
+        differing_field = next(
+            field
+            for field in sorted(objective_fields)
+            if objective.get(field, missing)
+            != SCENE_V6_IDENTITY_OBJECTIVE_EXPECTED.get(field, missing)
+        )
+        raise ValueError(
+            f"Scene V6 identity checkpoint objective {differing_field} differs"
+        )
 
     train_partition = receipt.get("train_partition")
     if not isinstance(train_partition, dict):
@@ -1325,13 +1372,16 @@ def scene_v6_identity_checkpoint_lineage(checkpoint_dir: Path) -> dict[str, Any]
     history = receipt.get("history")
     if (
         not isinstance(history, dict)
-        or history.get("finite") is not True
+        or history.get("identity_metrics_finite") is not True
+        or "finite" in history
         or history.get("last_step") != checkpoint_step
         or not isinstance(history.get("records"), int)
         or history["records"] < checkpoint_step
     ):
         raise ValueError("Scene V6 identity checkpoint history differs")
-    adapter_change = receipt.get("adapter_change_from_step_zero")
+    if "adapter_change_from_step_zero" in receipt:
+        raise ValueError("Scene V6 identity checkpoint adapter-change proof differs")
+    adapter_change = receipt.get("adapter_change")
     if not isinstance(adapter_change, dict):
         raise ValueError("Scene V6 identity checkpoint adapter-change proof is missing")
 
@@ -1358,7 +1408,7 @@ def scene_v6_identity_checkpoint_lineage(checkpoint_dir: Path) -> dict[str, Any]
             "rng": validated_rng,
         },
         "history": history,
-        "adapter_change_from_step_zero": adapter_change,
+        "adapter_change": adapter_change,
     }
 
 
