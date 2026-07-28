@@ -144,6 +144,28 @@ integrations/delta_mem_rwkv_ms/    # launchers, docs, GGUF tools, optional upstr
 integrations/delta_mem_rwkv_ms/gguf/ # GGUF sidecar, fixture, and parity helpers
 ```
 
+## HOLA Hippocampus on RWKV-7 Multi-State
+
+`experiments/hola_hippocampus/` replaces the neocortex of HOLA (arXiv 2607.02303,
+semiparametric memory = compressive state + bounded exact-KV cache) with this repo's
+read-before-write RWKV-7 multi-state and re-tests HOLA's design claims on the
+state-only ablation grid. The mapping is exact: for unit keys the RWKV-7 correction
+term makes the update a delta rule, so HOLA's surprise score beta*||e|| becomes the
+write magnitude `m_t = ||Delta_t||_F` already computed by the recurrence.
+
+Result summary (5 seeds; full tables in `experiments/hola_hippocampus/REPORT.md`):
+
+- The weakest state-only cell (16 needles, `low_k_dla`, 0.669 above) rises to
+  **0.880** with a 16-slot surprise cache; a matched recency cache stays at 0.665.
+- HOLA's two claims reproduce on RWKV-7: recency caching is dead weight for far
+  needles, and a flat softmax read (0.83*cos) equals no cache at all.
+- One correction was required: raw surprise admission fails with an untrained
+  constant gate; an online CLS-style consolidation rule (demote cache entries whose
+  key the state later predicts well) plus a read-confidence gate makes the cache
+  strictly non-harmful. Hypothesis ledger and run provenance live in `.keel/`.
+
+Run: `.venv/bin/python experiments/hola_hippocampus/hola_rwkv_ms.py`
+
 ## Delta-Mem RWKV-MS Online Memory
 
 The practical RWKV-MS online-memory integration is self-contained in this

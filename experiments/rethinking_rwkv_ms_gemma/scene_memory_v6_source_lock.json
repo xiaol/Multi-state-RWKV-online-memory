@@ -1,0 +1,154 @@
+{
+  "data_artifacts": {
+    "hard32": {
+      "bytes": 56379,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/holdout.jsonl",
+      "sha256": "b5b1137de89f82eee4b3ae3e3c7b5305240699ec7b65e84b61cb415a7a000d4a"
+    },
+    "hard32_indices": {
+      "bytes": 4356,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/holdout_source_indices.json",
+      "sha256": "76d510e5f02c30f2cf3a0262cc4c97d69ef8f52861e9ced855d530b233d916db"
+    },
+    "hard32_row_manifest": {
+      "bytes": 14319,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/holdout_manifest.jsonl",
+      "sha256": "6802d992805164342ea4ed16b9113814ee472ad363aa76eaf5298147e7a0d1cc"
+    },
+    "pair_manifest": {
+      "bytes": 9390,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/manifest.json",
+      "sha256": "2ceb291b9c21063164e30ca0b8b052798f8ba42d9a089a5abc78d1cb321dc008"
+    },
+    "train32": {
+      "bytes": 58162,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/train.jsonl",
+      "sha256": "5f35f6ed41a2edaf88afee83626f17c34da38f5cb61cf4b6796a03eaae38f897"
+    },
+    "train32_row_manifest": {
+      "bytes": 22720,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/train_manifest.jsonl",
+      "sha256": "d112056a80b9dc13728b021646c0fbe3da5c3c41641fb28bb8c5448b1f8427fa"
+    }
+  },
+  "experiment": "scene_memory_v6_identity_proof",
+  "lock_sha256": "be20e9287a16f8f7a7dff4148ee1edf422c6385d3f19480c2918c018acab24f4",
+  "model": {
+    "config": {
+      "bytes": 5145,
+      "relative_path": "config.json",
+      "sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4"
+    },
+    "path": "/run/media/xiaol/B214449214445C0B/models/gemma/gemma-4-E4B-it",
+    "tokenizer_artifacts": {
+      "chat_template": {
+        "bytes": 17336,
+        "relative_path": "chat_template.jinja",
+        "sha256": "2f1b4d75d067bae3fe44e676721c7f077d243bc007156cb9c2f8b5836613d082"
+      },
+      "tokenizer_config": {
+        "bytes": 2095,
+        "relative_path": "tokenizer_config.json",
+        "sha256": "90c3a3ba5bf53818383a58e1a776cbcacd2a038d4812eaa373e1522f2d06f3df"
+      },
+      "tokenizer_json": {
+        "bytes": 32169626,
+        "relative_path": "tokenizer.json",
+        "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+      }
+    },
+    "weight": {
+      "bytes": 15992595884,
+      "relative_path": "model.safetensors",
+      "sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503"
+    }
+  },
+  "repository": "/home/xiaol/X/Multi-state-RWKV-online-memory",
+  "runtime_versions": {
+    "accelerate": "1.14.0",
+    "datasets": "5.0.0",
+    "python": "3.12.13",
+    "safetensors": "0.8.0",
+    "tokenizers": "0.22.2",
+    "torch": "2.12.1",
+    "transformers": "5.12.1"
+  },
+  "schema": "rwkv_ms_scene_v6_identity_source_lock.v1",
+  "sources": {
+    "affine_scan": {
+      "bytes": 15561,
+      "relative_path": "deltamem/kernels/affine_scan.py",
+      "sha256": "c668b2041e4ee2fce054d1a3923d0fc3d6a018679a5a053c2a0128e8afd02009"
+    },
+    "backbone_compatibility": {
+      "bytes": 1230,
+      "relative_path": "deltamem/core/backbone_compat.py",
+      "sha256": "fc6b848b279ee3abf5900c330eb8950febcffb75d064559de2c2350013ecc96d"
+    },
+    "chat_templates": {
+      "bytes": 5885,
+      "relative_path": "deltamem/chat_templates.py",
+      "sha256": "b851792e11a65cecdac47a4250e5220a7bbcbd90c4728ec5205cd4a3b67c8398"
+    },
+    "data_contract": {
+      "bytes": 31873,
+      "relative_path": "experiments/rethinking_rwkv_ms_gemma/scene_memory_v6_data_contract.py",
+      "sha256": "cd41c8548bc48e406ac3d803f4d62df37bdb0411cd100c17946a3c2209af5517"
+    },
+    "delta_entrypoint": {
+      "bytes": 7006,
+      "relative_path": "deltamem/core/delta.py",
+      "sha256": "f5b12201212f9d5f2fb1a24c2203b91af810b2b690ccb293008d1d51e154df36"
+    },
+    "delta_implementation": {
+      "bytes": 179324,
+      "relative_path": "deltamem/core/delta_impl.py",
+      "sha256": "921f11cad0196372a03147d4167996dcf08c2cb2477f0dcc2a74e89d2a26f99c"
+    },
+    "launch_contract": {
+      "bytes": 60963,
+      "relative_path": "experiments/rethinking_rwkv_ms_gemma/scene_memory_v6_launch_contract.py",
+      "sha256": "91057825693cb74a23ecd5a01f00682512b33aa0107d9823d576f0213329e626"
+    },
+    "launcher": {
+      "bytes": 13914,
+      "relative_path": "experiments/rethinking_rwkv_ms_gemma/train_scene_memory_v6.sh",
+      "sha256": "2a58310088abfef36bde40ba045e0d003e32ecf9dda62b9cb1a442ef7648b12f"
+    },
+    "model_loading": {
+      "bytes": 1223,
+      "relative_path": "deltamem/model_loading.py",
+      "sha256": "77ca4965e3c76034bb0a30cdbb2aaeee69f4647773bea382759f34db5249f38b"
+    },
+    "pair_builder": {
+      "bytes": 45058,
+      "relative_path": "experiments/rethinking_rwkv_ms_gemma/prepare_scene_failure_pairs.py",
+      "sha256": "13424e08a35f55e319f85ca370eec1978950766331f529460e5806af4ce8a064"
+    },
+    "run_audit": {
+      "bytes": 91467,
+      "relative_path": "experiments/rethinking_rwkv_ms_gemma/scene_memory_v6_run_audit.py",
+      "sha256": "6661238d1444fce00a1dbd277521fda862fa08a902ca428927152c76e9f919d6"
+    },
+    "rwkv_ms_core": {
+      "bytes": 11447,
+      "relative_path": "deltamem/core/hrm_rwkv7.py",
+      "sha256": "b7a07054c150af53f7293a3844e08e00d77d5451676c414e58e225045e4121a1"
+    },
+    "tokenization_lock": {
+      "bytes": 1735,
+      "relative_path": "experiments/rethinking_rwkv_ms_gemma/scene_memory_v6_tokenized_cache_lock.json",
+      "sha256": "6b448afd531b12b90846ca1d7b4a0cedc96017c961f50c0ad7f7b5096d8f3a97"
+    },
+    "trainer_entrypoint": {
+      "bytes": 1988,
+      "relative_path": "deltamem/train/delta_sft.py",
+      "sha256": "3016b3b55bde30b1bc63e43a741b5fc24117537608a2704a929b826c0c5b1a06"
+    },
+    "trainer_implementation": {
+      "bytes": 503170,
+      "relative_path": "deltamem/train/delta_sft_experimental.py",
+      "sha256": "4a5cfcb63e8e01d3f7946cea521c1531c29aae180b6d5b11b194f0322843282e"
+    }
+  }
+}

@@ -20,10 +20,29 @@ import re
 import statistics
 from typing import Any, Iterable
 
+try:
+    from .run_novel_agent_eval import score_prediction
+except ImportError:
+    from run_novel_agent_eval import score_prediction
 
+
+SUPPORTED_CONDITIONS = ("base", "normal", "no_write")
 CONDITIONS = ("base", "normal")
 BOOTSTRAP_REPLICATES = 10_000
 BOOTSTRAP_SEED = 20_260_724
+SCENE_V6_CONTRACT_ROWS = {
+    "scene_v6_validation": ("val", 170),
+    "scene_v6_final_test": ("test", 149),
+}
+SCENE_V6_RECOVERED_MICRO_F1_FLOOR = 0.37
+SCENE_V6_NORMAL_MINUS_NO_WRITE_FLOOR = 0.05
+SCENE_V6_COVERAGE_FLOOR = 0.95
+SCENE_V6_MAX_TOKEN_HIT_RATE_DELTA_CEILING = 0.05
+OFFICIAL_SCENE_V4_DATASET_REVISION = "5d3040d21f51b3ce90b9396b058e552c47f43cd5"
+OFFICIAL_SCENE_V4_SHA256 = {
+    "val": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513",
+    "test": "d8b50ca3862bd40f023155bd14aa7b25d9d5dd3db4ea1c4d5a7e6f4f79cdfd6d",
+}
 ATTRIBUTION_ALIASES = frozenset(
     {
         "best_candidate",
@@ -144,6 +163,36 @@ def evaluation_task_specs(eval_dir: Path, split: str) -> tuple[TaskSpec, ...]:
     return tuple(specs)
 
 
+def evaluation_conditions(eval_dir: Path) -> tuple[str, ...]:
+    manifest = read_json(eval_dir / "manifest.json")
+    raw_conditions = manifest.get("fingerprint_payload", {}).get("conditions")
+    if not isinstance(raw_conditions, list) or not raw_conditions:
+        return ("base", "normal")
+    if any(
+        not isinstance(condition, str) or condition not in SUPPORTED_CONDITIONS
+        for condition in raw_conditions
+    ):
+        raise ValueError(f"Evaluation manifest has invalid conditions: {raw_conditions}")
+    if len(set(raw_conditions)) != len(raw_conditions):
+        raise ValueError("Evaluation manifest conditions contain duplicates")
+    return tuple(raw_conditions)
+
+
+def evaluation_contract(eval_dir: Path) -> dict[str, Any]:
+    manifest = read_json(eval_dir / "manifest.json")
+    contract = manifest.get("evaluation_contract")
+    fingerprint_contract = manifest.get("fingerprint_payload", {}).get(
+        "evaluation_contract"
+    )
+    if contract is None and fingerprint_contract is None:
+        return {"name": "generic", "phase": "generic"}
+    if not isinstance(contract, dict) or contract != fingerprint_contract:
+        raise ValueError(
+            "Evaluation contract is missing or differs between manifest and fingerprint"
+        )
+    return dict(contract)
+
+
 TASK_SPECS = task_specs("test")
 EXPECTED_ROWS_PER_CONDITION = sum(spec.expected_rows for spec in TASK_SPECS)
 
@@ -171,6 +220,12 @@ def sha256_file(path: Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def fingerprint_payload_sha256(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        raise ValueError("Manifest fingerprint_payload must be an object")
+    return sha256_text(json.dumps(payload, sort_keys=True))
 
 
 def read_json(path: Path) -> Any:
@@ -362,6 +417,120 @@ def strict_gold_boundaries(gold: Any) -> set[int]:
     return boundaries
 
 
+def aligned_qwen_scene_reference(
+    strict_summary: dict[str, Any],
+    samples: list[DatasetSample],
+    *,
+    split: str,
+) -> dict[str, Any]:
+    if split != "test":
+        return {
+            "status": "not_applicable",
+            "reason": "The aligned Qwen artifact covers only the untouched test split.",
+        }
+    reference_root = strict_summary.get("references")
+    if not isinstance(reference_root, dict):
+        raise ValueError("Strict summary is missing reference metadata")
+    reference = reference_root.get("scene-v4-current")
+    source_hashes = reference_root.get("source_hashes")
+    if not isinstance(reference, dict) or not isinstance(source_hashes, dict):
+        raise ValueError("Strict summary is missing the aligned Qwen scene reference")
+    source = reference.get("artifact_source")
+    expected_hash = source_hashes.get("scene_boundary_final.json")
+    if not isinstance(source, str) or not isinstance(expected_hash, str):
+        raise ValueError("Aligned Qwen scene reference lacks source provenance")
+    source_path = Path(source).expanduser().resolve()
+    if not source_path.is_file() or sha256_file(source_path) != expected_hash:
+        raise ValueError("Aligned Qwen scene reference source hash differs")
+    payload = read_json(source_path)
+    rows = payload.get("v4-590", {}).get("per_sample")
+    if not isinstance(rows, list) or len(rows) != len(samples):
+        raise ValueError(
+            "Aligned Qwen scene reference row count differs from the official test rows"
+        )
+    contributions: list[tuple[int, int, int]] = []
+    predictions: list[set[int]] = []
+    for index, (row, sample) in enumerate(zip(rows, samples, strict=True)):
+        if not isinstance(row, dict) or row.get("id") != index:
+            raise ValueError(f"Aligned Qwen row identity differs at test index {index}")
+        gold = strict_gold_boundaries(sample.gold)
+        if row.get("gold") != sorted(gold):
+            raise ValueError(f"Aligned Qwen gold differs at test index {index}")
+        if row.get("paras") != sample.paragraph_count:
+            raise ValueError(
+                f"Aligned Qwen paragraph count differs at test index {index}"
+            )
+        raw_prediction = row.get("pred")
+        if not isinstance(raw_prediction, list) or any(
+            isinstance(value, bool) or not isinstance(value, int)
+            for value in raw_prediction
+        ):
+            raise ValueError(f"Aligned Qwen prediction is invalid at test index {index}")
+        prediction = set(raw_prediction)
+        tp = len(prediction & gold)
+        fp = len(prediction - gold)
+        fn = len(gold - prediction)
+        if (row.get("tp"), row.get("fp"), row.get("fn")) != (tp, fp, fn):
+            raise ValueError(f"Aligned Qwen counts differ at test index {index}")
+        contributions.append((tp, fp, fn))
+        predictions.append(prediction)
+    alignment_source = reference.get("alignment_manifest_source")
+    alignment_hash = reference.get("alignment_manifest_sha256")
+    if not isinstance(alignment_source, str) or not isinstance(alignment_hash, str):
+        return {
+            "status": "unverified_for_paired_ci",
+            "alignment_rule": (
+                "positionally_reconstructed_from_committed_generator_protocol"
+            ),
+            "reason": (
+                "The historical Qwen artifact has positional ids, gold boundaries, "
+                "and paragraph counts but no prompt or source-row hashes. An external "
+                "row-hash alignment manifest is required for a paired CI."
+            ),
+            "rows": len(rows),
+            "source": str(source_path),
+            "sha256": expected_hash,
+            "positionally_reconstructed_micro_f1": metric_from_contributions(
+                "scene", contributions
+            ),
+        }
+    alignment_path = Path(alignment_source).expanduser().resolve()
+    if not alignment_path.is_file() or sha256_file(alignment_path) != alignment_hash:
+        raise ValueError("Qwen row-hash alignment manifest source hash differs")
+    alignment = read_json(alignment_path)
+    if (
+        not isinstance(alignment, dict)
+        or alignment.get("schema") != "scene_qwen_row_alignment.v1"
+        or alignment.get("qwen_artifact_sha256") != expected_hash
+    ):
+        raise ValueError("Qwen row-hash alignment manifest metadata differs")
+    alignment_rows = alignment.get("rows")
+    if not isinstance(alignment_rows, list) or len(alignment_rows) != len(samples):
+        raise ValueError("Qwen row-hash alignment manifest row count differs")
+    for index, (alignment_row, sample) in enumerate(
+        zip(alignment_rows, samples, strict=True)
+    ):
+        if not isinstance(alignment_row, dict) or alignment_row != {
+            "id": index,
+            "row_sha256": sample.row_sha256,
+        }:
+            raise ValueError(
+                f"Qwen row-hash alignment differs at test index {index}"
+            )
+    return {
+        "status": "aligned",
+        "alignment_rule": "external_source_row_sha256_manifest_v1",
+        "rows": len(rows),
+        "source": str(source_path),
+        "sha256": expected_hash,
+        "alignment_manifest_source": str(alignment_path),
+        "alignment_manifest_sha256": alignment_hash,
+        "contributions": contributions,
+        "predictions": predictions,
+        "micro_f1": metric_from_contributions("scene", contributions),
+    }
+
+
 def expected_keys() -> set[str]:
     return {
         f"{spec.name}:{line_index}"
@@ -373,6 +542,10 @@ def expected_keys() -> set[str]:
 def validate_records(
     eval_dir: Path,
     samples_by_task: dict[str, list[DatasetSample]],
+    *,
+    expected_fingerprint: str | None = None,
+    split: str | None = None,
+    normal_fusion_profile: str | None = None,
 ) -> tuple[dict[str, dict[str, dict[str, Any]]], dict[str, dict[str, Any]]]:
     records_by_condition: dict[str, dict[str, dict[str, Any]]] = {}
     raw_provenance: dict[str, dict[str, Any]] = {}
@@ -400,6 +573,7 @@ def validate_records(
                 key = f"{spec.name}:{sample.line_index}"
                 row = records[key]
                 expected_fields = {
+                    "key": key,
                     "condition": condition,
                     "task": spec.name,
                     "task_kind": kind_by_task[spec.name],
@@ -408,10 +582,45 @@ def validate_records(
                     "gold": sample.gold,
                     "status": "ok",
                 }
+                if expected_fingerprint is not None:
+                    expected_fields.update(
+                        {
+                            "fingerprint": expected_fingerprint,
+                            "split": split,
+                            "max_new_tokens": (
+                                128 if spec.name == "scene-v4-current" else 1024
+                            ),
+                            "normal_fusion_profile": (
+                                None
+                                if condition == "base"
+                                else normal_fusion_profile
+                            ),
+                        }
+                    )
                 for field_name, expected_value in expected_fields.items():
                     if row.get(field_name) != expected_value:
                         raise ValueError(
                             f"Record mismatch for {condition}:{key}:{field_name}"
+                        )
+                if expected_fingerprint is not None:
+                    raw_generation = row.get("raw_generation")
+                    if not isinstance(raw_generation, str):
+                        raise ValueError(
+                            f"Record mismatch for {condition}:{key}:raw_generation"
+                        )
+                    if extract_json(raw_generation) != row.get("parsed_json"):
+                        raise ValueError(
+                            f"Record raw_generation does not reproduce parsed_json for "
+                            f"{condition}:{key}"
+                        )
+                    expected_score = score_prediction(
+                        spec.kind,
+                        row.get("parsed_json"),
+                        sample.gold,
+                    )
+                    if row.get("score") != expected_score:
+                        raise ValueError(
+                            f"Record mismatch for {condition}:{key}:score"
                         )
         records_by_condition[condition] = records
         raw_provenance[condition] = {
@@ -421,10 +630,19 @@ def validate_records(
         }
     for key in required_keys:
         base_row = records_by_condition["base"][key]
-        normal_row = records_by_condition["normal"][key]
-        for field_name in ("task", "task_kind", "line_index", "row_sha256", "gold"):
-            if base_row.get(field_name) != normal_row.get(field_name):
-                raise ValueError(f"Condition pairing mismatch for {key}:{field_name}")
+        for condition in CONDITIONS:
+            comparison_row = records_by_condition[condition][key]
+            for field_name in (
+                "task",
+                "task_kind",
+                "line_index",
+                "row_sha256",
+                "gold",
+            ):
+                if base_row.get(field_name) != comparison_row.get(field_name):
+                    raise ValueError(
+                        f"Condition pairing mismatch for {condition}:{key}:{field_name}"
+                    )
     return records_by_condition, raw_provenance
 
 
@@ -433,10 +651,37 @@ def validate_strict_artifacts(eval_dir: Path) -> tuple[dict[str, Any], dict[str,
     manifest_path = eval_dir / "manifest.json"
     strict_summary = read_json(summary_path)
     manifest = read_json(manifest_path)
+    recorded_fingerprint = manifest.get("fingerprint")
+    if (
+        not isinstance(recorded_fingerprint, str)
+        or fingerprint_payload_sha256(manifest.get("fingerprint_payload"))
+        != recorded_fingerprint
+    ):
+        raise ValueError("Manifest fingerprint_payload does not hash to fingerprint")
+    fingerprint_contract = manifest["fingerprint_payload"].get(
+        "evaluation_contract", {"name": "generic"}
+    )
+    if (
+        fingerprint_contract.get("name") != "generic"
+        and manifest.get("references")
+        != manifest["fingerprint_payload"].get("references")
+    ):
+        raise ValueError("Manifest references differ from fingerprint_payload")
     if strict_summary.get("complete") is not True:
         raise ValueError("Strict summary is not complete")
-    if strict_summary.get("fingerprint") != manifest.get("fingerprint"):
+    if strict_summary.get("fingerprint") != recorded_fingerprint:
         raise ValueError("Strict summary and manifest fingerprints differ")
+    if fingerprint_contract.get("name") != "generic":
+        for field in (
+            "references",
+            "evaluation_contract",
+            "split",
+            "normal_fusion_profile",
+        ):
+            if strict_summary.get(field) != manifest["fingerprint_payload"].get(field):
+                raise ValueError(
+                    f"Strict summary {field} differs from fingerprint payload"
+                )
     for condition in CONDITIONS:
         condition_summary = strict_summary.get("conditions", {}).get(condition)
         if not isinstance(condition_summary, dict):
@@ -856,6 +1101,44 @@ def paired_bootstrap(
     }
 
 
+def paired_bootstrap_comparison(
+    *,
+    kind: str,
+    candidate_name: str,
+    comparator_name: str,
+    candidate_contributions: list[tuple[int, ...]],
+    comparator_contributions: list[tuple[int, ...]],
+) -> dict[str, Any]:
+    bootstrap = paired_bootstrap(
+        kind,
+        comparator_contributions,
+        candidate_contributions,
+    )
+    point_estimate = bootstrap.pop("normal_minus_base")
+    return {
+        "candidate": candidate_name,
+        "comparator": comparator_name,
+        "difference_name": f"{candidate_name}_minus_{comparator_name}",
+        "point_estimate": point_estimate,
+        **bootstrap,
+    }
+
+
+def condition_task_diagnostics(
+    rows: list[dict[str, Any]],
+    predictions: list[Any],
+) -> dict[str, Any]:
+    recovered_rows = sum(prediction is not None for prediction in predictions)
+    max_token_hits = sum(bool(row.get("hit_max_new_tokens")) for row in rows)
+    return {
+        "rows": len(rows),
+        "recovered_rows": recovered_rows,
+        "coverage": ratio(recovered_rows, len(rows)),
+        "max_token_hits": max_token_hits,
+        "max_token_hit_rate": ratio(max_token_hits, len(rows)),
+    }
+
+
 def minimum_gate(value: float, threshold: float) -> dict[str, Any]:
     return {
         "operator": ">=",
@@ -871,6 +1154,188 @@ def maximum_gate(value: float, threshold: float) -> dict[str, Any]:
         "threshold": threshold,
         "value": value,
         "passed": value <= threshold,
+    }
+
+
+def strict_positive_gate(value: float) -> dict[str, Any]:
+    return {
+        "operator": ">",
+        "threshold": 0.0,
+        "value": value,
+        "passed": value > 0.0,
+    }
+
+
+def build_scene_v6_gate_analysis(
+    *,
+    contract: dict[str, Any],
+    split: str,
+    specs: tuple[TaskSpec, ...],
+    strict_summary: dict[str, Any],
+    metrics: dict[str, dict[str, Any]],
+    predictions: dict[str, dict[str, list[Any]]],
+    contributions: dict[str, dict[str, list[tuple[int, ...]]]],
+    records_by_condition: dict[str, dict[str, dict[str, Any]]],
+    samples_by_task: dict[str, list[DatasetSample]],
+) -> dict[str, Any]:
+    contract_name = contract.get("name")
+    if contract_name == "generic":
+        return {"status": "not_requested", "contract": contract}
+    if contract_name not in SCENE_V6_CONTRACT_ROWS:
+        raise ValueError(f"Unsupported scene V6 evaluation contract: {contract_name}")
+    expected_split, expected_rows = SCENE_V6_CONTRACT_ROWS[contract_name]
+    expected_phase = (
+        "validation_selection" if expected_split == "val" else "final_test"
+    )
+    expected_contract = {
+        "name": contract_name,
+        "phase": expected_phase,
+        "split": expected_split,
+        "task": "scene-v4-current",
+        "rows": expected_rows,
+        "conditions": ["base", "normal", "no_write"],
+        "normal_fusion_profile": "native",
+        "expected_memory_layer_count": 42,
+        "memory_target_layers": list(range(42)),
+        "memory_delta_heads": ["q", "o"],
+        "memory_rank": 4,
+        "rwkv_ms_semantics_version": 2,
+        "memory_backend": "rwkv_ms",
+        "official_dataset_revision": OFFICIAL_SCENE_V4_DATASET_REVISION,
+        "official_dataset_sha256": OFFICIAL_SCENE_V4_SHA256[expected_split],
+        "overwrite_allowed": contract_name != "scene_v6_final_test",
+        "generation_policy": (
+            "Append-only resumable records; completed keys are never regenerated."
+        ),
+    }
+    if contract_name == "scene_v6_final_test":
+        expected_contract.update(
+            {
+                "checkpoint_selection_forbidden": True,
+                "test_once_enforcement_scope": (
+                    "per_output_directory_and_fingerprint"
+                ),
+                "test_once_enforcement_caveat": (
+                    "A new output directory can rerun inference; global single-use "
+                    "enforcement is not provided. Checkpoint selection on test remains "
+                    "forbidden."
+                ),
+            }
+        )
+    if contract != expected_contract:
+        raise ValueError("Scene V6 evaluation contract metadata differs from the lock")
+    if split != expected_split:
+        raise ValueError(f"{contract_name} analyzer split differs from the lock")
+    if tuple(spec.name for spec in specs) != ("scene-v4-current",):
+        raise ValueError(f"{contract_name} requires exactly scene-v4-current")
+    if specs[0].expected_rows != expected_rows:
+        raise ValueError(f"{contract_name} row count differs from the lock")
+    if CONDITIONS != ("base", "normal", "no_write"):
+        raise ValueError(f"{contract_name} condition set differs from the lock")
+
+    task_name = "scene-v4-current"
+    condition_diagnostics = {
+        condition: condition_task_diagnostics(
+            task_rows(records_by_condition[condition], specs[0]),
+            predictions[condition][task_name],
+        )
+        for condition in CONDITIONS
+    }
+    comparisons = {
+        comparator: paired_bootstrap_comparison(
+            kind="scene",
+            candidate_name="normal",
+            comparator_name=comparator,
+            candidate_contributions=contributions["normal"][task_name],
+            comparator_contributions=contributions[comparator][task_name],
+        )
+        for comparator in ("base", "no_write")
+    }
+    aligned_qwen = aligned_qwen_scene_reference(
+        strict_summary,
+        samples_by_task[task_name],
+        split=split,
+    )
+    qwen_aligned = split == "test" and aligned_qwen.get("status") == "aligned"
+    if qwen_aligned:
+        comparisons["aligned_qwen"] = paired_bootstrap_comparison(
+            kind="scene",
+            candidate_name="normal",
+            comparator_name="aligned_qwen",
+            candidate_contributions=contributions["normal"][task_name],
+            comparator_contributions=aligned_qwen["contributions"],
+        )
+
+    ci_comparators = ("base", "no_write") + (
+        ("aligned_qwen",) if qwen_aligned else ()
+    )
+    ci_gates = {
+        comparator: strict_positive_gate(
+            float(comparisons[comparator]["ci_95_percentile"][0])
+        )
+        for comparator in ci_comparators
+    }
+    if split == "test" and not qwen_aligned:
+        ci_gates["aligned_qwen"] = {
+            "operator": ">",
+            "threshold": 0.0,
+            "value": None,
+            "passed": False,
+            "status": "unavailable_without_row_hash_alignment_manifest",
+        }
+    normal_metric = float(metrics["normal"][task_name]["primary_metric"])
+    normal_coverage = float(condition_diagnostics["normal"]["coverage"])
+    no_write_delta = float(comparisons["no_write"]["point_estimate"])
+    max_token_delta_gates = {}
+    for comparator in ("base", "no_write"):
+        delta = normalized_difference(
+            float(condition_diagnostics["normal"]["max_token_hit_rate"]),
+            float(condition_diagnostics[comparator]["max_token_hit_rate"]),
+        )
+        max_token_delta_gates[comparator] = maximum_gate(
+            delta,
+            SCENE_V6_MAX_TOKEN_HIT_RATE_DELTA_CEILING,
+        )
+    gates = {
+        "normal_recovered_micro_f1": minimum_gate(
+            normal_metric,
+            SCENE_V6_RECOVERED_MICRO_F1_FLOOR,
+        ),
+        "normal_minus_no_write": minimum_gate(
+            no_write_delta,
+            SCENE_V6_NORMAL_MINUS_NO_WRITE_FLOOR,
+        ),
+        "normal_coverage": minimum_gate(
+            normal_coverage,
+            SCENE_V6_COVERAGE_FLOOR,
+        ),
+        "paired_ci_95_lower_strictly_positive": ci_gates,
+        "max_token_hit_rate_delta": max_token_delta_gates,
+    }
+    flattened_gate_results = [
+        gates["normal_recovered_micro_f1"]["passed"],
+        gates["normal_minus_no_write"]["passed"],
+        gates["normal_coverage"]["passed"],
+        *(gate["passed"] for gate in ci_gates.values()),
+        *(gate["passed"] for gate in max_token_delta_gates.values()),
+    ]
+    all_gates_passed = all(flattened_gate_results)
+    return {
+        "status": "pass" if all_gates_passed else "fail",
+        "contract": contract,
+        "selection_authorized": split == "val",
+        "checkpoint_selection_forbidden": split == "test",
+        "final_claim_authorized": split == "test" and all_gates_passed,
+        "all_official_rows_verified": True,
+        "condition_diagnostics": condition_diagnostics,
+        "comparisons": comparisons,
+        "aligned_qwen": {
+            key: value
+            for key, value in aligned_qwen.items()
+            if key not in {"contributions", "predictions"}
+        },
+        "gates": gates,
+        "all_gates_passed": all_gates_passed,
     }
 
 
@@ -1423,6 +1888,7 @@ def build_output(
             contributions[condition][spec.name] = task_contributions
 
     normal_vs_base: dict[str, dict[str, Any]] = {}
+    normal_vs_no_write: dict[str, dict[str, Any]] = {}
     paired: dict[str, dict[str, Any]] = {}
     strict_comparison: dict[str, dict[str, Any]] = {
         condition: {} for condition in CONDITIONS
@@ -1444,6 +1910,17 @@ def build_output(
             "normal": normal_metric,
             **bootstrap,
         }
+        if "no_write" in CONDITIONS:
+            normal_vs_no_write[spec.name] = {
+                "metric_name": metrics["normal"][spec.name]["primary_metric_name"],
+                **paired_bootstrap_comparison(
+                    kind=spec.kind,
+                    candidate_name="normal",
+                    comparator_name="no_write",
+                    candidate_contributions=contributions["normal"][spec.name],
+                    comparator_contributions=contributions["no_write"][spec.name],
+                ),
+            }
         paired[spec.name] = paired_changes(
             spec,
             task_rows(records_by_condition["base"], spec),
@@ -1477,7 +1954,7 @@ def build_output(
                     - float(reference_metric),
                 }
 
-    selection_criterion = build_selection_criterion(
+    legacy_selection_criterion = build_selection_criterion(
         split=split,
         specs=TASK_SPECS,
         strict_summary=strict_summary,
@@ -1487,6 +1964,48 @@ def build_output(
         records_by_condition=records_by_condition,
         all_row_bootstraps=normal_vs_base,
     )
+    condition_diagnostics = {
+        spec.name: {
+            condition: condition_task_diagnostics(
+                task_rows(records_by_condition[condition], spec),
+                predictions[condition][spec.name],
+            )
+            for condition in CONDITIONS
+        }
+        for spec in TASK_SPECS
+    }
+    contract = evaluation_contract(eval_dir)
+    scene_v6_gate_analysis = build_scene_v6_gate_analysis(
+        contract=contract,
+        split=split,
+        specs=TASK_SPECS,
+        strict_summary=strict_summary,
+        metrics=metrics,
+        predictions=predictions,
+        contributions=contributions,
+        records_by_condition=records_by_condition,
+        samples_by_task=samples_by_task,
+    )
+    if contract.get("name") == "scene_v6_validation":
+        selection_criterion = {
+            "criterion_version": "scene_v6_validation_selection_v1",
+            "status": scene_v6_gate_analysis["status"],
+            "complete": True,
+            "overall_passed": scene_v6_gate_analysis["all_gates_passed"],
+            "selection_rows": contract["rows"],
+            "source": "scene_v6_gate_analysis",
+        }
+    elif contract.get("name") == "scene_v6_final_test":
+        selection_criterion = {
+            "criterion_version": "scene_v6_no_test_selection_v1",
+            "status": "not_applicable",
+            "complete": True,
+            "overall_passed": False,
+            "selection_rows": 0,
+            "reason": "The untouched test split is forbidden for checkpoint selection.",
+        }
+    else:
+        selection_criterion = legacy_selection_criterion
     analyzer_path = Path(__file__).resolve()
     return {
         "non_official": True,
@@ -1545,18 +2064,27 @@ def build_output(
             for condition in CONDITIONS
         },
         "normal_vs_base": normal_vs_base,
+        "normal_vs_no_write": normal_vs_no_write,
+        "paired_bootstrap_comparisons": {
+            "normal_minus_base": normal_vs_base,
+            "normal_minus_no_write": normal_vs_no_write,
+        },
+        "condition_diagnostics": condition_diagnostics,
         "paired_changes": paired,
         "selection_criterion": selection_criterion,
+        "legacy_multitask_selection_criterion": legacy_selection_criterion,
+        "scene_v6_gate_analysis": scene_v6_gate_analysis,
         "strict_comparison": strict_comparison,
         "reference_comparison": reference_comparison,
     }
 
 
 def main() -> None:
-    global TASK_SPECS, EXPECTED_ROWS_PER_CONDITION
+    global CONDITIONS, TASK_SPECS, EXPECTED_ROWS_PER_CONDITION
     args = parse_args()
     eval_dir = args.eval_dir.resolve()
     split = args.split or infer_evaluation_split(eval_dir)
+    CONDITIONS = evaluation_conditions(eval_dir)
     TASK_SPECS = evaluation_task_specs(eval_dir, split)
     EXPECTED_ROWS_PER_CONDITION = sum(spec.expected_rows for spec in TASK_SPECS)
     output_path = (
@@ -1565,8 +2093,7 @@ def main() -> None:
         else eval_dir / "format_recovered_summary.json"
     )
     protected_paths = {
-        eval_dir / "base.jsonl",
-        eval_dir / "normal.jsonl",
+        *(eval_dir / f"{condition}.jsonl" for condition in CONDITIONS),
         eval_dir / "manifest.json",
         eval_dir / "summary.json",
         eval_dir / "progress.json",
@@ -1576,8 +2103,30 @@ def main() -> None:
     training_root = resolve_training_root(args.dataset_root.resolve())
     strict_summary, strict_provenance = validate_strict_artifacts(eval_dir)
     samples_by_task, dataset_provenance = load_dataset_samples(training_root)
+    contract = evaluation_contract(eval_dir)
+    if contract.get("name") in SCENE_V6_CONTRACT_ROWS:
+        scene_provenance = dataset_provenance.get("scene-v4-current", {})
+        expected_dataset_hash = OFFICIAL_SCENE_V4_SHA256[split]
+        if scene_provenance.get("sha256") != expected_dataset_hash:
+            raise ValueError(
+                "Scene V6 analyzer requires the official scene-v4 dataset at "
+                f"revision {OFFICIAL_SCENE_V4_DATASET_REVISION}"
+            )
+        if contract.get("official_dataset_sha256") != expected_dataset_hash:
+            raise ValueError("Scene V6 contract official dataset hash differs")
+    protected_contract = contract.get("name") != "generic"
     records_by_condition, raw_provenance = validate_records(
-        eval_dir, samples_by_task
+        eval_dir,
+        samples_by_task,
+        expected_fingerprint=(
+            str(strict_summary["fingerprint"]) if protected_contract else None
+        ),
+        split=split,
+        normal_fusion_profile=(
+            str(contract.get("normal_fusion_profile"))
+            if protected_contract
+            else None
+        ),
     )
     output = build_output(
         eval_dir=eval_dir,

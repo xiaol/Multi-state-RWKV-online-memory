@@ -157,11 +157,20 @@ def test_delta_chat_loader_applies_fusion_overrides_before_attachment(
         lambda model, config: captured.update(attached_model=model, config=config),
     )
 
-    def fake_load_adapter(model, adapter_dir, *, allowed_config_mismatches=()):
+    def fake_load_adapter(
+        model,
+        adapter_dir,
+        *,
+        allowed_config_mismatches=(),
+        initialize_missing_residual_hybrid_gain=False,
+    ):
         captured.update(
             loaded_model=model,
             adapter_dir=adapter_dir,
             allowed_config_mismatches=allowed_config_mismatches,
+            initialize_missing_residual_hybrid_gain=(
+                initialize_missing_residual_hybrid_gain
+            ),
         )
 
     monkeypatch.setattr(runtime_session, "load_delta_mem_adapter", fake_load_adapter)
@@ -188,6 +197,7 @@ def test_delta_chat_loader_applies_fusion_overrides_before_attachment(
         "memory_fusion_placement",
         "memory_fusion_residual_scale",
     )
+    assert captured["initialize_missing_residual_hybrid_gain"] is False
 
 
 def test_qwen36_session_preserves_historical_thinking_prefix() -> None:

@@ -17,6 +17,7 @@ from deltamem.train.delta_sft_experimental import (
     parse_layer_indices,
     prepare_tokenized_dataset,
     tokenize_messages_for_sft,
+    validate_tokenized_cache_directory,
 )
 
 SHARED_HF_DIR = Path(os.environ.get("HF_HOME", str(DEFAULT_HF_HOME)))
@@ -64,6 +65,7 @@ __all__ = [
     "parse_layer_indices",
     "prepare_tokenized_dataset",
     "tokenize_messages_for_sft",
+    "validate_tokenized_cache_directory",
 ]
 
 

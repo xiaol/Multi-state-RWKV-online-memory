@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from argparse import Namespace
 from contextlib import nullcontext
+import json
 import sys
 
 import pytest
 import torch
+import torch.nn.functional as F
 from datasets import Dataset
 
 import deltamem.train.delta_sft_experimental as experimental_train
@@ -164,6 +166,7 @@ class _StochasticContentContrastRepresentationModel(
 def _build_trainer() -> experimental_train.DeltaMemTrainer:
     trainer = object.__new__(experimental_train.DeltaMemTrainer)
     trainer.episode_read_write_enabled = False
+    trainer.scene_boundary_payload_ce_weight = 0.0
 
     def reset_online_state(model) -> None:
         model.delta_module.delta_state = None
@@ -212,6 +215,8 @@ def _compute_context_dropout(
         "state_only_input_ids": None,
         "state_only_attention_mask": None,
         "state_only_labels": None,
+        "scene_boundary_payload_mask": None,
+        "state_only_scene_boundary_payload_mask": None,
         "state_only_write_input_ids": None,
         "state_only_write_attention_mask": None,
         "state_only_write_message_ids": None,
@@ -315,6 +320,233 @@ def test_context_dropout_is_disabled_during_evaluation(
     assert model.calls == [frozenset({"q", "o"})]
     assert torch.count_nonzero(outputs["logits"]) > 0
     assert stats["wmem"] == 1.0
+
+
+def test_context_dropout_adds_weighted_scene_boundary_payload_ce(
+    delta_controls: _FakeDeltaModule,
+) -> None:
+    trainer = _build_trainer()
+    trainer.memory_dropout_no_memory_prob = 0.0
+    trainer.memory_dropout_state_only_prob = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.scene_boundary_payload_ce_weight = 4.0
+    model = _DeltaAwareModel(delta_controls)
+    payload_mask = torch.tensor([[False, False, True, True]])
+
+    loss, outputs, stats = _compute_context_dropout(
+        trainer,
+        model,
+        scene_boundary_payload_mask=payload_mask,
+    )
+    (
+        expected_payload_ce,
+        expected_payload_auxiliary,
+        token_count,
+        supervised_token_count,
+    ) = trainer._scene_boundary_payload_ce(
+        outputs["logits"],
+        _episode_inputs()["labels"],
+        _episode_inputs()["attention_mask"],
+        payload_mask,
+    )
+
+    assert token_count == 2
+    assert supervised_token_count == 2
+    assert loss.item() == pytest.approx(
+        2.0 + 4.0 * expected_payload_auxiliary.item()
+    )
+    assert stats["scene_boundary_full_ce_loss"] == pytest.approx(2.0)
+    assert stats["scene_boundary_payload_ce_loss"] == pytest.approx(
+        expected_payload_ce.item()
+    )
+    assert stats["scene_boundary_payload_token_count"] == 2.0
+    assert stats["scene_boundary_supervised_token_count"] == 2.0
+    assert stats["scene_boundary_payload_auxiliary_loss"] == pytest.approx(
+        expected_payload_auxiliary.item()
+    )
+    assert outputs["scene_boundary_full_ce_loss"].item() == pytest.approx(2.0)
+    assert outputs["scene_boundary_payload_ce_loss"].item() == pytest.approx(
+        expected_payload_ce.item()
+    )
+
+
+def test_context_dropout_payload_ce_requires_tokenizer_mask(
+    delta_controls: _FakeDeltaModule,
+) -> None:
+    trainer = _build_trainer()
+    trainer.memory_dropout_no_memory_prob = 0.0
+    trainer.memory_dropout_state_only_prob = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.scene_boundary_payload_ce_weight = 4.0
+
+    with pytest.raises(ValueError, match="tokenizer-derived payload masks"):
+        _compute_context_dropout(trainer, _DeltaAwareModel(delta_controls))
+
+
+def test_context_dropout_payload_ce_uses_num_items_in_batch_normalizer(
+    delta_controls: _FakeDeltaModule,
+) -> None:
+    trainer = _build_trainer()
+    trainer.memory_dropout_no_memory_prob = 0.0
+    trainer.memory_dropout_state_only_prob = 0.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.scene_boundary_payload_ce_weight = 4.0
+    model = _DeltaAwareModel(delta_controls)
+    payload_mask = torch.tensor([[False, False, True, True]])
+
+    loss, outputs, stats = _compute_context_dropout(
+        trainer,
+        model,
+        loss_kwargs={"num_items_in_batch": torch.tensor(4)},
+        scene_boundary_payload_mask=payload_mask,
+    )
+    _, expected_auxiliary, payload_count, supervised_count = (
+        trainer._scene_boundary_payload_ce(
+            outputs["logits"],
+            _episode_inputs()["labels"],
+            _episode_inputs()["attention_mask"],
+            payload_mask,
+            full_token_normalizer=torch.tensor(4),
+        )
+    )
+
+    assert payload_count == 2
+    assert supervised_count == 2
+    assert stats["scene_boundary_payload_auxiliary_loss"] == pytest.approx(
+        expected_auxiliary.item()
+    )
+    assert loss.item() == pytest.approx(2.0 + 4.0 * expected_auxiliary.item())
+
+
+def test_context_dropout_payload_ce_uses_state_only_mask_when_sampled(
+    delta_controls: _FakeDeltaModule,
+) -> None:
+    trainer = _build_trainer()
+    trainer.memory_dropout_no_memory_prob = 0.0
+    trainer.memory_dropout_state_only_prob = 1.0
+    trainer.memory_base_kl_weight = 0.0
+    trainer.scene_boundary_payload_ce_weight = 4.0
+    model = _DeltaAwareModel(delta_controls)
+    state_only_inputs = _episode_inputs()
+    state_only_payload_mask = torch.tensor([[False, False, True, True]])
+
+    loss, outputs, stats = _compute_context_dropout(
+        trainer,
+        model,
+        scene_boundary_payload_mask=torch.zeros_like(
+            state_only_payload_mask,
+            dtype=torch.bool,
+        ),
+        state_only_input_ids=state_only_inputs["input_ids"],
+        state_only_attention_mask=state_only_inputs["attention_mask"],
+        state_only_labels=state_only_inputs["labels"],
+        state_only_scene_boundary_payload_mask=state_only_payload_mask,
+        state_only_write_input_ids=torch.tensor([[5]]),
+        state_only_write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+    )
+    expected_payload_ce, expected_payload_auxiliary, _, _ = (
+        trainer._scene_boundary_payload_ce(
+        outputs["logits"],
+        state_only_inputs["labels"],
+        state_only_inputs["attention_mask"],
+        state_only_payload_mask,
+        )
+    )
+
+    assert stats["wmem"] == 1.0
+    assert stats["scene_boundary_payload_ce_loss"] == pytest.approx(
+        expected_payload_ce.item()
+    )
+    assert loss.item() == pytest.approx(
+        2.0 + 4.0 * expected_payload_auxiliary.item()
+    )
+
+
+def test_scene_boundary_payload_bonus_has_literal_five_to_one_token_weighting() -> None:
+    trainer = _build_trainer()
+    logits = torch.zeros(1, 5, 2, requires_grad=True)
+    labels = torch.tensor([[-100, 0, 0, 0, 0]])
+    attention_mask = torch.ones_like(labels)
+    payload_mask = torch.tensor([[False, False, True, False, False]])
+    full_ce = F.cross_entropy(
+        logits[:, :-1].reshape(-1, logits.size(-1)),
+        labels[:, 1:].reshape(-1),
+    )
+    payload_mean, payload_auxiliary, payload_count, supervised_count = (
+        trainer._scene_boundary_payload_ce(
+            logits,
+            labels,
+            attention_mask,
+            payload_mask,
+        )
+    )
+
+    total = full_ce + 4.0 * payload_auxiliary
+    total.backward()
+    payload_correct_logit_gradient = logits.grad[0, 1, 0].abs()
+    nonpayload_correct_logit_gradient = logits.grad[0, 0, 0].abs()
+
+    assert payload_count == 1
+    assert supervised_count == 4
+    assert payload_auxiliary.item() == pytest.approx(payload_mean.item() / 4.0)
+    assert (
+        payload_correct_logit_gradient / nonpayload_correct_logit_gradient
+    ).item() == pytest.approx(5.0)
+
+
+def test_scene_boundary_payload_bonus_uses_explicit_full_loss_normalizer() -> None:
+    trainer = _build_trainer()
+    logits = torch.zeros(1, 5, 2)
+    labels = torch.tensor([[-100, 0, 0, 0, 0]])
+    attention_mask = torch.ones_like(labels)
+    payload_mask = torch.tensor([[False, False, True, False, False]])
+
+    payload_mean, default_auxiliary, _, supervised_count = (
+        trainer._scene_boundary_payload_ce(
+            logits,
+            labels,
+            attention_mask,
+            payload_mask,
+        )
+    )
+    _, explicit_auxiliary, _, _ = trainer._scene_boundary_payload_ce(
+        logits,
+        labels,
+        attention_mask,
+        payload_mask,
+        full_token_normalizer=torch.tensor(8),
+    )
+
+    assert supervised_count == 4
+    assert default_auxiliary.item() == pytest.approx(payload_mean.item() / 4.0)
+    assert explicit_auxiliary.item() == pytest.approx(payload_mean.item() / 8.0)
+
+
+def test_scene_boundary_payload_ce_logs_full_and_payload_losses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.scene_boundary_payload_ce_weight = 4.0
+    trainer.model = None
+    trainer._last_scene_boundary_full_ce_loss = 1.25
+    trainer._last_scene_boundary_payload_ce_loss = 0.75
+    trainer._last_scene_boundary_payload_auxiliary_loss = 0.125
+    trainer._last_scene_boundary_payload_token_count = 6.0
+    trainer._last_scene_boundary_supervised_token_count = 36.0
+    captured: dict[str, float] = {}
+    monkeypatch.setattr(
+        experimental_train.Trainer,
+        "log",
+        lambda self, logs, start_time=None: captured.update(logs),
+    )
+
+    trainer.log({"loss": 4.25})
+
+    assert captured["delta/scene_boundary_full_ce_loss"] == 1.25
+    assert captured["delta/scene_boundary_payload_ce_loss"] == 0.75
+    assert captured["delta/scene_boundary_payload_auxiliary_loss"] == 0.125
+    assert captured["delta/scene_boundary_payload_token_count"] == 6.0
+    assert captured["delta/scene_boundary_supervised_token_count"] == 36.0
 
 
 def test_episode_read_configures_writes_before_context_mask(
@@ -1331,8 +1563,59 @@ def test_parse_args_preserves_legacy_objective_defaults(
     assert args.memory_dropout_no_memory_prob == 0.0
     assert args.memory_dropout_state_only_prob == 0.0
     assert args.memory_base_kl_weight == 0.0
+    assert args.scene_boundary_payload_ce_weight == 0.0
+    assert args.train_sampler_seed is None
     assert args.episode_read_write_enabled is False
     assert args.frozen_mlp_activation_checkpointing is False
+
+
+def test_parse_args_accepts_scene_boundary_payload_ce_weight(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "delta_sft_experimental.py",
+            "--model-path",
+            "model",
+            "--output-dir",
+            str(tmp_path),
+            "--scene-boundary-payload-ce-weight",
+            "4",
+        ],
+    )
+
+    args = experimental_train.parse_args()
+
+    assert args.scene_boundary_payload_ce_weight == 4.0
+
+
+def test_parse_args_accepts_matching_train_sampler_and_data_seeds(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "delta_sft_experimental.py",
+            "--model-path",
+            "model",
+            "--output-dir",
+            str(tmp_path),
+            "--data-seed",
+            "42",
+            "--train-sampler-seed",
+            "42",
+        ],
+    )
+
+    args = experimental_train.parse_args()
+
+    assert args.train_sampler_seed == 42
+    assert args.data_seed == 42
 
 
 def test_parse_args_accepts_kl_free_content_contrast_mode(
@@ -1409,6 +1692,28 @@ def test_parse_args_rejects_invalid_combined_dropout_probability(
         ),
         (["--context-ablation-state-only-prob", "-0.1"], "context ablation probabilities"),
         (["--memory-base-kl-weight", "-0.1"], "memory-base-kl-weight"),
+        (
+            ["--scene-boundary-payload-ce-weight", "-0.1"],
+            "scene-boundary-payload-ce-weight",
+        ),
+        (["--train-sampler-seed", "-1"], r"0 <= seed <= 2\^63 - 1"),
+        (
+            ["--data-seed", "41", "--train-sampler-seed", "42"],
+            "must equal data-seed",
+        ),
+        (
+            ["--train-sampler-seed", "42", "--group-by-length"],
+            "incompatible with group-by-length",
+        ),
+        (
+            [
+                "--memory-loss-mode",
+                "keep_only",
+                "--scene-boundary-payload-ce-weight",
+                "4",
+            ],
+            "requires memory-loss-mode=context_dropout_ce",
+        ),
         (
             [
                 "--memory-loss-mode",
@@ -1491,6 +1796,255 @@ def test_parse_args_rejects_invalid_objective_protocols(
 class _CacheTokenizer:
     name_or_path = "cache-tokenizer"
     pad_token_id = 0
+
+
+def test_unset_train_sampler_seed_delegates_to_transformers_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.train_sampler_seed = None
+    sentinel = object()
+    monkeypatch.setattr(
+        experimental_train.Trainer,
+        "_get_train_sampler",
+        lambda self, train_dataset=None: sentinel,
+    )
+
+    assert trainer._get_train_sampler([0, 1, 2]) is sentinel
+
+
+def test_seeded_train_sampler_prepared_dataloader_matches_exact_v6_order(
+    tmp_path,
+) -> None:
+    dataset_size = 1804
+    sampler_seed = 42
+    stage1_steps = 512
+    over_cap_indices = {753, 889, 908, 1585}
+    dataset = Dataset.from_dict({"row_index": list(range(dataset_size))})
+    training_args = experimental_train.TrainingArguments(
+        output_dir=str(tmp_path),
+        per_device_train_batch_size=1,
+        dataloader_pin_memory=False,
+        data_seed=sampler_seed,
+        seed=7,
+        report_to=["none"],
+        remove_unused_columns=False,
+    )
+    trainer = experimental_train.DeltaMemTrainer(
+        model=torch.nn.Linear(1, 1),
+        args=training_args,
+        train_dataset=dataset,
+        data_collator=lambda features: {
+            "row_index": torch.tensor(
+                [feature["row_index"] for feature in features],
+                dtype=torch.long,
+            )
+        },
+        train_sampler_seed=sampler_seed,
+    )
+
+    actual_order: list[int] = []
+    for batch in trainer.get_train_dataloader():
+        actual_order.extend(int(index) for index in batch["row_index"].tolist())
+        if len(actual_order) == stage1_steps:
+            break
+    expected_generator = torch.Generator().manual_seed(sampler_seed)
+    expected_order = torch.randperm(
+        dataset_size,
+        generator=expected_generator,
+    ).tolist()[:stage1_steps]
+
+    assert actual_order == expected_order
+    assert len(set(actual_order)) == stage1_steps
+    assert over_cap_indices.isdisjoint(actual_order)
+
+
+def test_seeded_train_sampler_constructor_rejects_data_seed_mismatch(
+    tmp_path,
+) -> None:
+    training_args = experimental_train.TrainingArguments(
+        output_dir=str(tmp_path),
+        data_seed=41,
+        report_to=["none"],
+    )
+
+    with pytest.raises(ValueError, match="must equal TrainingArguments.data_seed"):
+        experimental_train.DeltaMemTrainer(
+            model=torch.nn.Linear(1, 1),
+            args=training_args,
+            train_dataset=Dataset.from_dict({"row_index": [0, 1]}),
+            train_sampler_seed=42,
+        )
+
+
+class _OffsetSceneTokenizer:
+    name_or_path = "offset-scene-tokenizer"
+    pad_token_id = 0
+
+    @staticmethod
+    def _render(messages: list[dict[str, str]]) -> str:
+        return "".join(
+            f"<{message['role']}>{message['content']}</{message['role']}>"
+            for message in messages
+        )
+
+    @staticmethod
+    def _token_ids(text: str) -> list[int]:
+        return [1000 + ord(character) for character in text]
+
+    def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+        assert add_special_tokens is False
+        return self._token_ids(text)
+
+    def __call__(
+        self,
+        text: str,
+        *,
+        add_special_tokens: bool,
+        return_offsets_mapping: bool,
+    ) -> dict[str, list]:
+        assert add_special_tokens is False
+        assert return_offsets_mapping is True
+        return {
+            "input_ids": self._token_ids(text),
+            "offset_mapping": [(index, index + 1) for index in range(len(text))],
+        }
+
+    def apply_chat_template(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        tokenize: bool,
+        add_generation_prompt: bool,
+        return_tensors: str | None = None,
+    ):
+        assert add_generation_prompt is False
+        rendered = self._render(messages)
+        if not tokenize:
+            return rendered
+        token_ids = self._token_ids(rendered)
+        if return_tensors == "pt":
+            return torch.tensor([token_ids], dtype=torch.long)
+        return token_ids
+
+
+@pytest.mark.parametrize(
+    ("content", "expected_payload"),
+    [
+        ('{"boundaries":[]}', "[]"),
+        (' { "note": "nested [text]", "boundaries" : [12, 305] } ', "[12, 305]"),
+        ('{"other":{"boundaries":[9]},"boundaries":[1]}', "[1]"),
+    ],
+)
+def test_scene_boundary_payload_span_selects_only_top_level_array(
+    content: str,
+    expected_payload: str,
+) -> None:
+    span = experimental_train._scene_boundary_payload_char_span(content)
+
+    assert span is not None
+    assert content[slice(*span)] == expected_payload
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '{"boundaries":"[]"}',
+        '{"boundaries":[true]}',
+        '{"boundaries":[1],"boundaries":[2]}',
+        '[1,2]',
+        'not json',
+    ],
+)
+def test_scene_boundary_payload_span_rejects_non_scene_schema(content: str) -> None:
+    assert experimental_train._scene_boundary_payload_char_span(content) is None
+
+
+@pytest.mark.parametrize(
+    ("boundaries", "expected_payload"),
+    [([], "[]"), ([2, 17], "[2,17]")],
+)
+def test_scene_boundary_payload_mask_uses_tokenizer_offsets(
+    boundaries: list[int],
+    expected_payload: str,
+) -> None:
+    tokenizer = _OffsetSceneTokenizer()
+    assistant_content = json.dumps(
+        {"format": "scene", "boundaries": boundaries},
+        separators=(",", ": "),
+    )
+    features = experimental_train.tokenize_messages_for_sft(
+        tokenizer,
+        [
+            {"role": "user", "content": "detect"},
+            {"role": "assistant", "content": assistant_content},
+        ],
+        256,
+        assistant_loss_mode="final_assistant_only",
+        require_scene_boundary_payload_mask=True,
+    )
+    selected_text = "".join(
+        chr(token_id - 1000)
+        for token_id, selected in zip(
+            features["input_ids"],
+            features["scene_boundary_payload_mask"],
+        )
+        if selected
+    )
+
+    assert selected_text == expected_payload
+    assert all(
+        label != -100
+        for label, selected in zip(
+            features["labels"],
+            features["scene_boundary_payload_mask"],
+        )
+        if selected
+    )
+    assert len(features["scene_boundary_payload_mask"]) == len(features["labels"])
+
+
+def _scene_episode_feature(boundaries: list[int]) -> dict:
+    messages = [
+        {"role": "system", "content": "detect scene boundaries"},
+        {"role": "user", "content": "history"},
+        {"role": "assistant", "content": "ack"},
+        {"role": "user", "content": "current paragraphs"},
+        {
+            "role": "assistant",
+            "content": json.dumps({"boundaries": boundaries}, separators=(",", ":")),
+        },
+    ]
+    episodes = experimental_train.build_episode_training_examples(
+        _OffsetSceneTokenizer(),
+        messages,
+        256,
+        assistant_loss_mode="final_assistant_only",
+        episode_recent_messages=0,
+        max_write_length=256,
+        include_sentence_ids=False,
+        require_scene_boundary_payload_mask=True,
+    )
+    assert len(episodes) == 1
+    return episodes[0]
+
+
+def test_scene_boundary_episode_collator_exposes_variable_length_payload_metadata() -> None:
+    features = [_scene_episode_feature([]), _scene_episode_feature([2, 17])]
+
+    batch = experimental_train.EpisodeCausalLMCollator(_OffsetSceneTokenizer())(
+        features
+    )
+
+    for column, aligned_column in (
+        ("scene_boundary_payload_mask", "labels"),
+        ("state_only_scene_boundary_payload_mask", "state_only_labels"),
+        ("teacher_scene_boundary_payload_mask", "teacher_labels"),
+        ("full_scene_boundary_payload_mask", "full_labels"),
+    ):
+        assert batch[column].dtype == torch.bool
+        assert batch[column].shape == batch[aligned_column].shape
+        assert batch[column].sum(dim=1).tolist() == [2, 6]
 
 
 def _pairing_row(write_token: int) -> dict[str, list[int]]:
@@ -1843,13 +2397,17 @@ def _cache_args(**overrides) -> Namespace:
         "memory_dropout_no_memory_prob": 0.0,
         "memory_dropout_state_only_prob": 0.0,
         "memory_base_kl_weight": 0.0,
+        "scene_boundary_payload_ce_weight": 0.0,
+        "train_sampler_seed": None,
         "episode_read_write_enabled": False,
     }
     values.update(overrides)
     return Namespace(**values)
 
 
-def test_tokenized_cache_key_tracks_data_shape_but_not_objective_weights() -> None:
+def test_tokenized_cache_key_tracks_data_shape_but_not_objective_weights(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dataset = Dataset.from_list(
         [
             {
@@ -1897,6 +2455,17 @@ def test_tokenized_cache_key_tracks_data_shape_but_not_objective_weights() -> No
         dataset,
         tokenizer,
     ) == base_key
+    payload_key = experimental_train._tokenized_dataset_cache_key(
+        _cache_args(scene_boundary_payload_ce_weight=4.0),
+        dataset,
+        tokenizer,
+    )
+    assert payload_key != base_key
+    assert experimental_train._tokenized_dataset_cache_key(
+        _cache_args(scene_boundary_payload_ce_weight=2.0),
+        dataset,
+        tokenizer,
+    ) == payload_key
     assert experimental_train._tokenized_dataset_cache_key(
         _cache_args(
             memory_loss_mode="content_contrast_ce",
@@ -1907,6 +2476,12 @@ def test_tokenized_cache_key_tracks_data_shape_but_not_objective_weights() -> No
         dataset,
         tokenizer,
     ) == base_key
+    monkeypatch.setattr(experimental_train, "_TOKENIZED_CACHE_FORMAT_VERSION", 3)
+    assert experimental_train._tokenized_dataset_cache_key(
+        _cache_args(),
+        dataset,
+        tokenizer,
+    ) != base_key
 
 
 def test_tokenized_cache_key_tracks_chat_template_and_local_tokenizer_artifacts(
@@ -2030,6 +2605,13 @@ def test_training_protocol_records_canonical_teacher_objective_version() -> None
     args.memory_fusion_placement = "normalized_residual_correction"
     args.memory_fusion_residual_scale = 0.875
     dataset = Dataset.from_dict({"input_ids": [[1, 2, 3]]})
+    tokenized_cache_identity = experimental_train._build_tokenized_dataset_identity(
+        dataset,
+        persisted_files=[],
+    )
+    args.expected_tokenized_dataset_sha256 = tokenized_cache_identity[
+        "ordered_content_sha256"
+    ]
 
     protocol = experimental_train.build_training_protocol(
         args,
@@ -2038,6 +2620,7 @@ def test_training_protocol_records_canonical_teacher_objective_version() -> None
         train_samples=1,
         eval_samples=0,
         warmup_steps=1,
+        tokenized_cache_identity=tokenized_cache_identity,
     )
 
     assert protocol["schema_version"] == experimental_train._TRAINING_PROTOCOL_SCHEMA_VERSION
@@ -2046,7 +2629,26 @@ def test_training_protocol_records_canonical_teacher_objective_version() -> None
     assert protocol["frozen_mlp_activation_checkpointing"] is False
     assert protocol["memory_fusion_placement"] == "normalized_residual_correction"
     assert protocol["memory_fusion_residual_scale"] == 0.875
+    assert protocol["scene_boundary_payload_ce_weight"] == 0.0
+    assert protocol["scene_boundary_payload_mask_mode"] == (
+        experimental_train._SCENE_BOUNDARY_PAYLOAD_MASK_MODE
+    )
+    assert protocol["scene_boundary_payload_ce_normalization"] == (
+        experimental_train._SCENE_BOUNDARY_PAYLOAD_CE_NORMALIZATION
+    )
+    assert protocol["train_sampler_seed"] is None
+    assert protocol["train_sampler_mode"] == (
+        experimental_train._DEFAULT_TRAIN_SAMPLER_MODE
+    )
+    assert protocol["tokenized_dataset_sha256"] == tokenized_cache_identity[
+        "ordered_content_sha256"
+    ]
+    assert protocol["expected_tokenized_dataset_sha256"] == tokenized_cache_identity[
+        "ordered_content_sha256"
+    ]
+    assert protocol["tokenized_cache_identity"] == tokenized_cache_identity
 
+    args.expected_tokenized_dataset_sha256 = None
     args.frozen_mlp_activation_checkpointing = True
     checkpointed_protocol = experimental_train.build_training_protocol(
         args,
@@ -2057,6 +2659,20 @@ def test_training_protocol_records_canonical_teacher_objective_version() -> None
         warmup_steps=1,
     )
     assert checkpointed_protocol["frozen_mlp_activation_checkpointing"] is True
+
+    args.train_sampler_seed = args.data_seed
+    seeded_protocol = experimental_train.build_training_protocol(
+        args,
+        dataset,
+        effective_training_mode="episode",
+        train_samples=1,
+        eval_samples=0,
+        warmup_steps=1,
+    )
+    assert seeded_protocol["train_sampler_seed"] == args.data_seed
+    assert seeded_protocol["train_sampler_mode"] == (
+        experimental_train._SEEDED_TRAIN_SAMPLER_MODE
+    )
 
 
 def test_training_protocol_records_exact_content_contrast_pairing() -> None:

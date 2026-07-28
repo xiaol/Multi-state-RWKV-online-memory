@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import copy
+import json
+import shutil
 import sys
 from argparse import Namespace
 from pathlib import Path
 
 import pytest
 import torch
-from datasets import Dataset
+from datasets import Dataset, load_from_disk
 
 from deltamem.chat_templates import (
     apply_chat_template as apply_project_chat_template,
@@ -2149,8 +2151,32 @@ def test_gemma4_empty_target_layers_preserve_legacy_non_shared_scope() -> None:
     )
 
 
-@pytest.mark.parametrize("unsupported_head", ["q", "k", "v"])
-def test_attach_delta_mem_rejects_non_o_heads_for_gemma4_shared_kv_atomically(
+def test_attach_delta_mem_supports_q_o_for_all_gemma4_shared_kv_layers() -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    model = Gemma4TextModel(make_gemma4_shared_kv_config())
+
+    replaced = attach_delta_mem(
+        model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="zero",
+            memory_backend="rwkv_ms",
+            delta_heads=("q", "o"),
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+
+    assert replaced == [f"layers.{layer_idx}.self_attn" for layer_idx in range(4)]
+    assert all(
+        layer.self_attn.active_delta_heads == frozenset({"q", "o"})
+        for layer in model.layers
+    )
+
+
+@pytest.mark.parametrize("unsupported_head", ["k", "v"])
+def test_attach_delta_mem_rejects_kv_heads_for_gemma4_shared_kv_atomically(
     unsupported_head: str,
 ) -> None:
     if Gemma4TextConfig is None or Gemma4TextModel is None:
@@ -2160,7 +2186,7 @@ def test_attach_delta_mem_rejects_non_o_heads_for_gemma4_shared_kv_atomically(
 
     with pytest.raises(
         ValueError,
-        match=rf"only O-residual.*unsupported delta heads.*'{unsupported_head}'",
+        match=rf"only Q/O.*unsupported delta heads.*'{unsupported_head}'",
     ):
         attach_delta_mem(
             model,
@@ -2187,13 +2213,16 @@ def test_attach_delta_mem_rejects_non_o_heads_for_gemma4_shared_kv_atomically(
         "post_attention_residual_hybrid",
     ],
 )
-def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base(
+@pytest.mark.parametrize("attn_implementation", ["eager", "sdpa"])
+def test_gemma4_shared_kv_supported_heads_zero_memory_matches_frozen_base(
     memory_fusion_placement: str,
+    attn_implementation: str,
 ) -> None:
     if Gemma4TextConfig is None or Gemma4TextModel is None:
         pytest.skip("Gemma4 is not available in this Transformers version")
     torch.manual_seed(0)
     config = make_gemma4_shared_kv_config()
+    config._attn_implementation = attn_implementation
     base_model = Gemma4TextModel(config).eval()
     wrapped_model = copy.deepcopy(base_model).eval()
     attach_delta_mem(
@@ -2204,7 +2233,11 @@ def test_gemma4_shared_kv_o_only_zero_memory_matches_frozen_base(
             memory_backend="rwkv_ms",
             rwkv_ms_num_states=2,
             rwkv_ms_chunk_size=2,
-            delta_heads=("o",),
+            delta_heads=(
+                ("q", "o")
+                if memory_fusion_placement == "attention_output"
+                else ("o",)
+            ),
             memory_fusion_mode="content_gated_add",
             memory_fusion_placement=memory_fusion_placement,
             target_layers=(0, 1, 2, 3),
@@ -2428,7 +2461,58 @@ def test_gemma4_shared_kv_o_only_cached_decode_matches_base(
     )
 
 
-def test_gemma4_shared_kv_o_only_memory_and_gate_receive_gradients() -> None:
+@pytest.mark.parametrize("attn_implementation", ["eager", "sdpa"])
+def test_gemma4_shared_kv_q_o_cached_decode_matches_full_sequence(
+    attn_implementation: str,
+) -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(17)
+    config = make_gemma4_shared_kv_config()
+    config._attn_implementation = attn_implementation
+    full_model = Gemma4TextModel(config).eval()
+    attach_delta_mem(
+        full_model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="random",
+            online_gain=0.2,
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            delta_heads=("q", "o"),
+            memory_fusion_mode="add",
+            memory_fusion_placement="attention_output",
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+    cached_model = copy.deepcopy(full_model).eval()
+    full_ids = torch.tensor([[1, 2, 3, 4]])
+
+    with torch.inference_mode():
+        full_output = full_model(input_ids=full_ids, use_cache=False)
+        cached_prefill = cached_model(input_ids=full_ids[:, :3], use_cache=True)
+        cached_decode = cached_model(
+            input_ids=full_ids[:, 3:],
+            past_key_values=cached_prefill.past_key_values,
+            use_cache=True,
+        )
+
+    torch.testing.assert_close(
+        cached_decode.last_hidden_state[:, -1],
+        full_output.last_hidden_state[:, -1],
+        atol=2e-6,
+        rtol=2e-6,
+    )
+    assert cached_decode.past_key_values.get_seq_length() == full_ids.size(1)
+    assert all(
+        layer.self_attn.active_delta_heads == frozenset({"q", "o"})
+        for layer in cached_model.layers
+    )
+
+
+def test_gemma4_shared_kv_q_o_memory_and_gate_receive_gradients() -> None:
     if Gemma4TextAttention is None:
         pytest.skip("Gemma4 is not available in this Transformers version")
     torch.manual_seed(0)
@@ -2441,7 +2525,7 @@ def test_gemma4_shared_kv_o_only_memory_and_gate_receive_gradients() -> None:
             memory_backend="rwkv_ms",
             rwkv_ms_num_states=2,
             rwkv_ms_chunk_size=2,
-            delta_heads=("o",),
+            delta_heads=("q", "o"),
             memory_fusion_mode="content_gated_add",
             memory_fusion_gate_init=0.25,
         ),
@@ -2472,6 +2556,7 @@ def test_gemma4_shared_kv_o_only_memory_and_gate_receive_gradients() -> None:
 
     required = {
         "memory_v_proj": wrapped.memory_v_proj,
+        "delta_q_proj": wrapped.delta_q_proj,
         "delta_o_proj": wrapped.delta_o_proj,
         "memory_fusion_hidden_weight": wrapped.memory_fusion_hidden_weight,
         "memory_fusion_read_weight": wrapped.memory_fusion_read_weight,
@@ -3781,6 +3866,77 @@ def test_content_gated_delta_o_matches_manual_interpolation_and_reports_stats() 
     )
 
 
+def test_runtime_diagnostics_are_graph_free_without_blocking_adapter_gradients() -> None:
+    module = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        delta_heads=("q", "o"),
+        memory_fusion_mode="content_gated_add",
+        memory_fusion_gate_init=0.25,
+    ).train()
+    x = torch.randn(2, 4, module.hidden_size, requires_grad=True)
+    position_embeddings = make_position_embeddings(
+        batch_size=x.size(0),
+        seq_len=x.size(1),
+        head_dim=module.base.head_dim,
+        device=x.device,
+        dtype=x.dtype,
+    )
+    attention_mask = make_causal_attention_mask(torch.ones(2, 4, dtype=torch.long))
+
+    output, _ = module(x, position_embeddings, attention_mask)
+
+    diagnostic_names = (
+        "last_base_o_norm",
+        "last_delta_o_norm",
+        "last_delta_o_ratio",
+        "last_delta_o_gate_mean",
+        "last_delta_o_gate_min",
+        "last_delta_o_gate_max",
+        "last_delta_o_gate_lt_001_fraction",
+        "last_delta_o_gate_gt_099_fraction",
+        "last_fused_delta_o_norm",
+        "last_fused_delta_o_ratio",
+        "last_delta_o_base_cosine",
+        "last_fused_o_ratio",
+        "last_applied_memory_correction_norm",
+        "last_applied_memory_correction_ratio",
+    )
+    for name in diagnostic_names:
+        value = getattr(module, name)
+        assert value is not None, name
+        assert not value.requires_grad, name
+        assert value.grad_fn is None, name
+        assert torch.isfinite(value).all(), name
+
+    output.square().mean().backward()
+    for name in ("memory_v_proj", "delta_q_proj", "delta_o_proj"):
+        gradient = getattr(module, name).grad
+        assert gradient is not None, name
+        assert torch.isfinite(gradient).all(), name
+
+
+def test_masked_hidden_norm_uses_graph_free_fp32_reduction_for_bfloat16() -> None:
+    module = make_delta_module()
+    values = torch.randn(2, 7, module.hidden_size, dtype=torch.bfloat16).requires_grad_()
+    token_mask = torch.tensor(
+        [[True, True, False, True, False, True, True], [True] * 7]
+    )
+
+    actual = module._masked_hidden_norm(values, token_mask)
+    expected_norms = torch.linalg.vector_norm(
+        values.detach(),
+        dim=-1,
+        dtype=torch.float32,
+    )
+    expected = expected_norms.masked_select(token_mask).mean()
+
+    torch.testing.assert_close(actual, expected)
+    assert actual.dtype == torch.float32
+    assert not actual.requires_grad
+    assert actual.grad_fn is None
+
+
 def test_content_gated_delta_o_zero_state_matches_base_for_full_sequence() -> None:
     torch.manual_seed(0)
     base = make_qwen3_attention()
@@ -4394,6 +4550,13 @@ def test_write_sparsity_regularization_is_positive_after_forward() -> None:
     _ = model(x, position_embeddings)
     penalty = get_delta_mem_write_regularization(model, target=0.0)
     assert penalty.item() > 0
+    assert penalty.requires_grad
+
+    penalty.backward()
+    beta_gradient = model.self_attn.beta_bias.grad
+    assert beta_gradient is not None
+    assert torch.isfinite(beta_gradient).all()
+    assert torch.count_nonzero(beta_gradient).item() > 0
 
 
 def test_tokenize_messages_supervises_all_assistant_turns() -> None:
@@ -4674,20 +4837,26 @@ def test_runtime_sentence_span_builder_handles_non_prefix_stable_sentence_chunks
     assert set(active_sentence_ids) == {0, 1}
 
 
-def test_prepare_tokenized_dataset_reuses_saved_cache(tmp_path: Path) -> None:
-    dataset = Dataset.from_list(
+def _tokenized_cache_test_dataset() -> Dataset:
+    return Dataset.from_list(
         [
             {
                 "messages": [
-                    {"role": "user", "content": "u1"},
-                    {"role": "assistant", "content": "a1"},
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": answer},
                 ]
             }
+            for prompt, answer in (("u1", "a1"), ("u2", "a2"))
         ]
     )
-    args = Namespace(
+
+
+def _tokenized_cache_test_args(tmp_path: Path) -> Namespace:
+    return Namespace(
         tokenized_cache=True,
         tokenized_dataset_root=tmp_path / "tokenized",
+        tokenized_dataset_dir=None,
+        expected_tokenized_dataset_sha256=None,
         dataset_name="fake",
         dataset_split="train",
         train_file=None,
@@ -4700,6 +4869,11 @@ def test_prepare_tokenized_dataset_reuses_saved_cache(tmp_path: Path) -> None:
         dataset_num_proc=1,
         memory_write_granularity="token",
     )
+
+
+def test_prepare_tokenized_dataset_reuses_saved_cache(tmp_path: Path) -> None:
+    dataset = _tokenized_cache_test_dataset()
+    args = _tokenized_cache_test_args(tmp_path)
     tokenizer = FakeTokenizer()
 
     tokenized_1, cache_hit_1, cache_dir_1 = prepare_tokenized_dataset(
@@ -4723,6 +4897,173 @@ def test_prepare_tokenized_dataset_reuses_saved_cache(tmp_path: Path) -> None:
     assert tokenized_1._fingerprint == tokenized_2._fingerprint
     assert tokenized_1[0]["input_ids"] == tokenized_2[0]["input_ids"]
     assert "write_input_ids" in tokenized_1.column_names
+    ready_path = cache_dir_1 / experimental_train._TOKENIZED_CACHE_READY_FILENAME
+    ready = json.loads(ready_path.read_text(encoding="utf-8"))
+    identity = ready["identity"]
+    assert ready["schema"] == experimental_train._TOKENIZED_CACHE_READY_SCHEMA
+    assert ready["cache_format_version"] == 2
+    assert ready["cache_key"] == cache_dir_1.name
+    assert identity["rows"] == len(tokenized_1)
+    assert identity["column_names"] == tokenized_1.column_names
+    assert identity["saved_fingerprint"] == tokenized_1._fingerprint
+    assert identity["ordered_content_sha256"] == (
+        experimental_train._tokenized_dataset_ordered_sha256(tokenized_1)
+    )
+    assert {record["relative_path"] for record in identity["persisted_files"]} == {
+        "data-00000-of-00001.arrow",
+        "dataset_info.json",
+        "state.json",
+    }
+    assert not list(cache_dir_1.glob("._READY.tmp-*"))
+
+
+def test_tokenized_dataset_ordered_sha256_tracks_content_and_row_order(
+    tmp_path: Path,
+) -> None:
+    tokenized = Dataset.from_list(
+        [
+            {"input_ids": [1, 2], "attention_mask": [1, 1], "labels": [-100, 2]},
+            {"input_ids": [3, 4], "attention_mask": [1, 1], "labels": [-100, 4]},
+        ]
+    )
+    expected = experimental_train._tokenized_dataset_ordered_sha256(tokenized)
+    saved_path = tmp_path / "saved"
+    tokenized.save_to_disk(str(saved_path))
+    reloaded = load_from_disk(str(saved_path))
+
+    assert experimental_train._tokenized_dataset_ordered_sha256(reloaded) == expected
+    assert (
+        experimental_train._tokenized_dataset_ordered_sha256(tokenized.select([1, 0]))
+        != expected
+    )
+    changed_rows = [dict(tokenized[index]) for index in range(len(tokenized))]
+    changed_rows[0]["input_ids"] = [1, 9]
+    assert (
+        experimental_train._tokenized_dataset_ordered_sha256(
+            Dataset.from_list(changed_rows, features=tokenized.features)
+        )
+        != expected
+    )
+
+
+def test_tokenized_cache_hit_rejects_valid_arrow_row_order_mutation(
+    tmp_path: Path,
+) -> None:
+    dataset = _tokenized_cache_test_dataset()
+    args = _tokenized_cache_test_args(tmp_path)
+    tokenizer = FakeTokenizer()
+    tokenized, _, cache_dir = prepare_tokenized_dataset(
+        args,
+        dataset,
+        tokenizer,
+        distributed=False,
+        local_rank=-1,
+    )
+    assert cache_dir is not None
+    ready_bytes = (cache_dir / "_READY").read_bytes()
+    rows = [dict(tokenized[index]) for index in range(len(tokenized))]
+    mutated = Dataset.from_list(list(reversed(rows)), features=tokenized.features)
+    replacement = tmp_path / "replacement"
+    mutated.save_to_disk(str(replacement))
+    shutil.rmtree(cache_dir)
+    shutil.move(str(replacement), str(cache_dir))
+    (cache_dir / "_READY").write_bytes(ready_bytes)
+
+    with pytest.raises(ValueError, match="persisted files differ"):
+        prepare_tokenized_dataset(
+            args,
+            dataset,
+            tokenizer,
+            distributed=False,
+            local_rank=-1,
+        )
+
+
+def test_expected_hash_rejects_mutated_cache_with_self_consistent_manifest(
+    tmp_path: Path,
+) -> None:
+    dataset = _tokenized_cache_test_dataset()
+    args = _tokenized_cache_test_args(tmp_path)
+    tokenizer = FakeTokenizer()
+    tokenized, _, cache_dir = prepare_tokenized_dataset(
+        args,
+        dataset,
+        tokenizer,
+        distributed=False,
+        local_rank=-1,
+    )
+    assert cache_dir is not None
+    expected = experimental_train._tokenized_dataset_ordered_sha256(tokenized)
+    rows = [dict(tokenized[index]) for index in range(len(tokenized))]
+    mutated = Dataset.from_list(list(reversed(rows)), features=tokenized.features)
+    replacement = tmp_path / "replacement"
+    mutated.save_to_disk(str(replacement))
+    shutil.rmtree(cache_dir)
+    shutil.move(str(replacement), str(cache_dir))
+    persisted = load_from_disk(str(cache_dir))
+    persisted_files = experimental_train._tokenized_cache_persisted_files(cache_dir)
+    identity = experimental_train._build_tokenized_dataset_identity(
+        persisted,
+        persisted_files=persisted_files,
+    )
+    ready = experimental_train._tokenized_cache_ready_payload(
+        args=args,
+        cache_key=cache_dir.name,
+        built_fingerprint=mutated._fingerprint,
+        identity=identity,
+    )
+    experimental_train._write_json_atomic(cache_dir / "_READY", ready)
+    args.expected_tokenized_dataset_sha256 = expected
+
+    with pytest.raises(ValueError, match="differs from the launch lock"):
+        prepare_tokenized_dataset(
+            args,
+            dataset,
+            tokenizer,
+            distributed=False,
+            local_rank=-1,
+        )
+
+
+def test_load_or_prepare_exposes_validated_cache_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset = _tokenized_cache_test_dataset()
+    args = _tokenized_cache_test_args(tmp_path)
+    tokenizer = FakeTokenizer()
+    monkeypatch.setattr(experimental_train, "load_examples", lambda _: dataset)
+
+    tokenized, metadata = experimental_train.load_or_prepare_tokenized_dataset(
+        args,
+        tokenizer,
+        distributed=False,
+        local_rank=-1,
+    )
+    validation = experimental_train.validate_tokenized_cache_directory(
+        Path(metadata["tokenized_cache_dir"]),
+        Path(metadata["tokenized_cache_dir"]).name,
+        metadata["tokenized_dataset_sha256"],
+    )
+
+    assert metadata["tokenized_cache_identity"]["rows"] == len(tokenized)
+    assert metadata["tokenized_cache_identity"] == validation["identity"]
+    assert metadata["tokenized_cache_manifest_sha256"] == validation["manifest_sha256"]
+    assert validation["ready_file_sha256"] == experimental_train._sha256_file(
+        Path(metadata["tokenized_cache_dir"]) / "_READY"
+    )
+    with pytest.raises(ValueError, match="differs from the launch lock"):
+        experimental_train.validate_tokenized_cache_directory(
+            Path(metadata["tokenized_cache_dir"]),
+            Path(metadata["tokenized_cache_dir"]).name,
+            "0" * 64,
+        )
+    with pytest.raises(ValueError, match="directory name differs"):
+        experimental_train.validate_tokenized_cache_directory(
+            Path(metadata["tokenized_cache_dir"]),
+            "0" * 24,
+            metadata["tokenized_dataset_sha256"],
+        )
 
 
 def test_episode_collator_builds_teacher_inputs() -> None:

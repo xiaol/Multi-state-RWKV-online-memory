@@ -124,6 +124,82 @@ def _objective_source_protocol() -> dict[str, object]:
     }
 
 
+def test_exact_resume_binds_scene_boundary_payload_ce_weight_and_normalizes_legacy_zero() -> None:
+    current = {
+        **_objective_source_protocol(),
+        "scene_boundary_payload_ce_weight": 0.0,
+        "scene_boundary_payload_mask_mode": (
+            experimental_train._SCENE_BOUNDARY_PAYLOAD_MASK_MODE
+        ),
+        "scene_boundary_payload_ce_normalization": (
+            experimental_train._SCENE_BOUNDARY_PAYLOAD_CE_NORMALIZATION
+        ),
+    }
+    legacy = dict(current)
+    legacy.pop("scene_boundary_payload_ce_weight")
+    legacy.pop("scene_boundary_payload_mask_mode")
+    legacy.pop("scene_boundary_payload_ce_normalization")
+
+    experimental_train.validate_resume_training_protocol(
+        legacy,
+        current,
+        resume_mode="exact",
+    )
+
+    weighted = {**current, "scene_boundary_payload_ce_weight": 4.0}
+    with pytest.raises(ValueError, match="scene_boundary_payload_ce_weight"):
+        experimental_train.validate_resume_training_protocol(
+            current,
+            weighted,
+            resume_mode="exact",
+        )
+
+    weighted_without_normalization = dict(weighted)
+    weighted_without_normalization.pop("scene_boundary_payload_ce_normalization")
+    with pytest.raises(ValueError, match="missing its payload CE normalization"):
+        experimental_train.validate_resume_training_protocol(
+            weighted_without_normalization,
+            weighted,
+            resume_mode="exact",
+        )
+
+
+def test_exact_resume_binds_seeded_train_sampler_and_normalizes_legacy_default() -> None:
+    legacy = _objective_source_protocol()
+    default_protocol = {
+        **legacy,
+        "train_sampler_seed": None,
+        "train_sampler_mode": experimental_train._DEFAULT_TRAIN_SAMPLER_MODE,
+    }
+
+    experimental_train.validate_resume_training_protocol(
+        legacy,
+        default_protocol,
+        resume_mode="exact",
+    )
+
+    seeded = {
+        **default_protocol,
+        "train_sampler_seed": 42,
+        "train_sampler_mode": experimental_train._SEEDED_TRAIN_SAMPLER_MODE,
+    }
+    with pytest.raises(ValueError, match="train_sampler_mode, train_sampler_seed"):
+        experimental_train.validate_resume_training_protocol(
+            default_protocol,
+            seeded,
+            resume_mode="exact",
+        )
+
+    missing_mode = dict(seeded)
+    missing_mode.pop("train_sampler_mode")
+    with pytest.raises(ValueError, match="missing its train_sampler_mode"):
+        experimental_train.validate_resume_training_protocol(
+            missing_mode,
+            seeded,
+            resume_mode="exact",
+        )
+
+
 def _objective_pairing_summary() -> dict[str, object]:
     return {
         "pairing_version": experimental_train._CONTENT_CONTRAST_PAIRING_VERSION,

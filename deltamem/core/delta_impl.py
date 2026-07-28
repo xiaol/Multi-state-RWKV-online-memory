@@ -762,10 +762,10 @@ class DeltaMemAttention(nn.Module):
         self.delta_o_rmsnorm_eps = config.delta_o_rmsnorm_eps
 
         if self.is_gemma4_attention and self.is_kv_shared_layer:
-            unsupported_heads = sorted(self.active_delta_heads - {"o"})
+            unsupported_heads = sorted(self.active_delta_heads - {"q", "o"})
             if unsupported_heads:
                 raise ValueError(
-                    "Gemma4 KV-shared attention layers support only O-residual Delta-Mem; "
+                    "Gemma4 KV-shared attention layers support only Q/O Delta-Mem; "
                     f"unsupported delta heads: {unsupported_heads}"
                 )
 
@@ -1238,6 +1238,84 @@ class DeltaMemAttention(nn.Module):
             value_states = value_states + delta_v.to(hidden_states.dtype)
         return query_states, key_states, value_states, output_gate
 
+    def _forward_gemma4_shared_kv_attention(
+        self,
+        hidden_states: torch.Tensor,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor],
+        attention_mask: torch.Tensor | None,
+        shared_kv_states: dict[str, tuple[torch.Tensor, torch.Tensor]] | None,
+        delta_q: torch.Tensor | None,
+        delta_o: torch.Tensor | None,
+        reads: torch.Tensor,
+        read_mask: torch.Tensor | None,
+        **kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        if shared_kv_states is None or self.layer_type not in shared_kv_states:
+            raise ValueError(
+                "Gemma4 KV-shared attention requires shared K/V states for "
+                f"layer type {self.layer_type!r}"
+            )
+
+        input_shape = hidden_states.shape[:-1]
+        hidden_shape = (*input_shape, -1, self.head_dim)
+        query_states = self.base.q_proj(hidden_states)
+        if delta_q is not None:
+            query_states = query_states + delta_q.to(dtype=hidden_states.dtype)
+        query_states = self._normalize_query_states(query_states.view(hidden_shape)).transpose(
+            1, 2
+        )
+        cos, sin = position_embeddings
+        if gemma4_apply_rotary_pos_emb is None:  # pragma: no cover
+            raise RuntimeError("Gemma4 rotary function is unavailable")
+        query_states = gemma4_apply_rotary_pos_emb(
+            query_states,
+            cos,
+            sin,
+            unsqueeze_dim=1,
+        )
+
+        key_states, value_states = shared_kv_states[self.layer_type]
+        key_states = key_states.to(query_states.device)
+        value_states = value_states.to(query_states.device)
+
+        attention_interface = self.eager_attention_forward
+        if self.base.config._attn_implementation != "eager":
+            if hasattr(ALL_ATTENTION_FUNCTIONS, "get_interface"):
+                attention_interface = ALL_ATTENTION_FUNCTIONS.get_interface(
+                    self.base.config._attn_implementation,
+                    self.eager_attention_forward,
+                )
+            else:
+                attention_interface = ALL_ATTENTION_FUNCTIONS[
+                    self.base.config._attn_implementation
+                ]
+
+        attn_kwargs = dict(kwargs)
+        if self.sliding_window is not None:
+            attn_kwargs["sliding_window"] = self.sliding_window
+        attn_output, attn_weights = attention_interface(
+            self.base,
+            query_states,
+            key_states,
+            value_states,
+            attention_mask,
+            dropout=0.0 if not self.training else self.base.attention_dropout,
+            scaling=self.base.scaling,
+            **attn_kwargs,
+        )
+        attn_output = attn_output.reshape(*input_shape, -1).contiguous()
+        base_o_output = self.base.o_proj(attn_output)
+        return (
+            self._fuse_delta_o_output(
+                base_o_output,
+                delta_o,
+                hidden_states,
+                reads,
+                read_mask,
+            ),
+            attn_weights,
+        )
+
     def _memory_sequence_projections(
         self,
         hidden_states: torch.Tensor,
@@ -1409,7 +1487,11 @@ class DeltaMemAttention(nn.Module):
         values: torch.Tensor,
         token_mask: Optional[torch.Tensor],
     ) -> torch.Tensor:
-        norms = values.float().norm(dim=-1)
+        norms = torch.linalg.vector_norm(
+            values.detach(),
+            dim=-1,
+            dtype=torch.float32,
+        )
         if token_mask is None:
             return norms.mean()
         if not token_mask.any():
@@ -1435,7 +1517,7 @@ class DeltaMemAttention(nn.Module):
         *,
         eps: float = 1e-12,
     ) -> torch.Tensor:
-        ratios = numerator.float() / denominator.float().clamp_min(eps)
+        ratios = numerator.detach().float() / denominator.detach().float().clamp_min(eps)
         if token_mask is None:
             return ratios.mean()
         if not token_mask.any():
@@ -1447,7 +1529,7 @@ class DeltaMemAttention(nn.Module):
         values: torch.Tensor,
         token_mask: Optional[torch.Tensor],
     ) -> torch.Tensor:
-        token_values = values.float().squeeze(-1)
+        token_values = values.detach().float().squeeze(-1)
         if token_mask is None:
             return token_values.mean()
         if not token_mask.any():
@@ -1459,7 +1541,7 @@ class DeltaMemAttention(nn.Module):
         values: torch.Tensor,
         token_mask: Optional[torch.Tensor],
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        token_values = values.float().squeeze(-1)
+        token_values = values.detach().float().squeeze(-1)
         if token_mask is not None:
             if not token_mask.any():
                 zero = token_values.new_zeros(())
@@ -1475,7 +1557,7 @@ class DeltaMemAttention(nn.Module):
         threshold: float,
         greater: bool,
     ) -> torch.Tensor:
-        token_values = values.float().squeeze(-1)
+        token_values = values.detach().float().squeeze(-1)
         if token_mask is not None:
             if not token_mask.any():
                 return token_values.new_zeros(())
@@ -1489,7 +1571,12 @@ class DeltaMemAttention(nn.Module):
         right: torch.Tensor,
         token_mask: Optional[torch.Tensor],
     ) -> torch.Tensor:
-        cosine = F.cosine_similarity(left.float(), right.float(), dim=-1, eps=1e-6)
+        left = left.detach()
+        right = right.detach()
+        dot = torch.sum(left * right, dim=-1, dtype=torch.float32)
+        left_norm = torch.linalg.vector_norm(left, dim=-1, dtype=torch.float32)
+        right_norm = torch.linalg.vector_norm(right, dim=-1, dtype=torch.float32)
+        cosine = dot / (left_norm.clamp_min(1e-6) * right_norm.clamp_min(1e-6))
         if token_mask is None:
             return cosine.mean()
         if not token_mask.any():
@@ -2725,7 +2812,7 @@ class DeltaMemAttention(nn.Module):
             if isinstance(scale, float)
             else scale.to(device=reference_output.device, dtype=reference_output.dtype)
         )
-        self.last_memory_residual_gain = resolved_scale
+        self.last_memory_residual_gain = resolved_scale.detach()
         if isinstance(scale, float) and scale == 1.0:
             fused_output = self._add_delta_o_to_reference(
                 reference_output,
@@ -2894,7 +2981,7 @@ class DeltaMemAttention(nn.Module):
                 device=output.device,
                 dtype=output.dtype,
             )
-            self.last_memory_residual_gain = gain
+            self.last_memory_residual_gain = gain.detach()
             direct_residual = fused_delta_o.to(dtype=output.dtype) * gain
             applied_correction = correction + direct_residual
             self._record_applied_memory_correction(
@@ -3095,9 +3182,7 @@ class DeltaMemAttention(nn.Module):
         delta_q, delta_k, delta_v = self._compute_delta_qkv_from_reads(reads)
         delta_o = self._project_delta_head(reads, self.delta_o_proj, "o")
 
-        if self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS or (
-            self.is_gemma4_attention and self.is_kv_shared_layer
-        ):
+        if self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS:
             base_kwargs = dict(kwargs)
             if cache_position is not None:
                 base_kwargs["cache_position"] = cache_position
@@ -3118,6 +3203,19 @@ class DeltaMemAttention(nn.Module):
                     read_mask,
                 ),
                 attn_weights,
+            )
+
+        if self.is_gemma4_attention and self.is_kv_shared_layer:
+            return self._forward_gemma4_shared_kv_attention(
+                hidden_states,
+                position_embeddings,
+                attention_mask,
+                shared_kv_states,
+                delta_q,
+                delta_o,
+                reads,
+                read_mask,
+                **kwargs,
             )
 
         input_shape = hidden_states.shape[:-1]
@@ -3225,10 +3323,10 @@ def validate_gemma4_shared_delta_heads(
         and getattr(module, "is_kv_shared_layer", False)
     ):
         return
-    unsupported_heads = sorted(set(config.delta_heads) - {"o"})
+    unsupported_heads = sorted(set(config.delta_heads) - {"q", "o"})
     if unsupported_heads:
         raise ValueError(
-            "Gemma4 KV-shared attention layers support only O-residual Delta-Mem; "
+            "Gemma4 KV-shared attention layers support only Q/O Delta-Mem; "
             f"layer {module.layer_idx} requested unsupported delta heads: {unsupported_heads}"
         )
 

@@ -8,16 +8,19 @@ import logging
 import math
 import os
 import shutil
+import sys
 import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+import networkx as nx
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 from torch import nn
 from torch.utils.checkpoint import checkpoint
+from torch.utils.data import RandomSampler
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments, set_seed
 
@@ -272,7 +275,67 @@ _CONTENT_CONTRAST_REPRESENTATION_MODE = (
     "fused_delta_o_first_selected_target_predictor_relative_l2_v1"
 )
 _CONTENT_CONTRAST_REPRESENTATION_EPS = 1e-6
+_SCENE_BOUNDARY_PAYLOAD_MASK_MODE = "top_level_boundaries_json_array_offset_overlap_v1"
+_SCENE_BOUNDARY_PAYLOAD_CE_NORMALIZATION = (
+    "selected_sum_over_all_supervised_tokens_v1"
+)
+_SCENE_STATE_IDENTITY_TRAINING_PROTOCOL_SCHEMA_VERSION = 9
+_SCENE_STATE_IDENTITY_OBJECTIVE_VERSION = "scene_state_identity_ce_v2"
+_SCENE_STATE_IDENTITY_BACKWARD_MODE = (
+    "sequential_replayed_donor_single_zero_diagnostic_exact_first_order_v2"
+)
+_SCENE_STATE_IDENTITY_READ_PROTOCOL = (
+    "state_only_same_read_correct_donor_zero_adapter_active_v1"
+)
+_SCENE_STATE_IDENTITY_ZERO_PROTOCOL = (
+    "adapter_active_reset_state_writes_disabled_v1"
+)
+_SCENE_STATE_SEMANTIC_MASK_MODE = (
+    "top_level_boundaries_nonwhitespace_offset_overlap_v1"
+)
+_SCENE_STATE_SEMANTIC_LOSS_NORMALIZATION = (
+    "selected_tokens_per_row_then_batch_mean_v1"
+)
+_SCENE_STATE_IDENTITY_TARGET_MODE = (
+    "first_pair_distinguishing_semantic_token_v1"
+)
+_SCENE_STATE_IDENTITY_CAUSAL_PREFIX_MODE = (
+    "exact_input_ids_and_attention_before_pair_target_v1"
+)
+_SCENE_STATE_IDENTITY_PAIRING_VERSION = (
+    "nearest_write_token_length_label_distinct_symmetric_pair_v2"
+)
+_SCENE_STATE_IDENTITY_PAIRING_REFINEMENT = (
+    "maximize_nonempty_same_cardinality_within_nearest_length_budget_v1"
+)
+_SCENE_STATE_IDENTITY_TARGET_STRATA = (
+    "presence",
+    "same_cardinality_value",
+    "cross_cardinality_value",
+)
+_SCENE_STATE_IDENTITY_TARGET_STRATUM_CODES = {
+    stratum: index
+    for index, stratum in enumerate(_SCENE_STATE_IDENTITY_TARGET_STRATA)
+}
+_SCENE_STATE_IDENTITY_PAIRING_FILENAME = (
+    "scene_state_identity_pairing_manifest.json"
+)
+_SCENE_STATE_FULL_CORRECT_CE_WEIGHT = 1.0
+_SCENE_STATE_CORRECT_ALL_SEMANTIC_CE_WEIGHT = 1.0
+_SCENE_STATE_DONOR_MARGIN_WEIGHT = 1.0
+_SEEDED_TRAIN_SAMPLER_MODE = "torch_random_sampler_seed_equals_data_seed_v1"
+_DEFAULT_TRAIN_SAMPLER_MODE = "transformers_trainer_default_v1"
 _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
+_INITIAL_ADAPTER_DIRNAME = "initial_adapter"
+_INITIAL_ADAPTER_MANIFEST_FILENAME = "initial_adapter_manifest.json"
+_INITIAL_ADAPTER_MANIFEST_SCHEMA = "deltamem.seeded_initial_adapter.v1"
+_LAUNCH_MANIFEST_FILENAME = "launch_manifest.json"
+_DATA_CONTRACT_MANIFEST_FILENAME = "data_contract_manifest.json"
+_TOKENIZED_CACHE_FORMAT_VERSION = 2
+_TOKENIZED_CACHE_READY_SCHEMA = "deltamem.tokenized_dataset_cache.v2"
+_TOKENIZED_DATASET_IDENTITY_SCHEMA = "deltamem.tokenized_dataset_identity.v1"
+_TOKENIZED_ORDERED_CONTENT_SCHEMA = "deltamem.tokenized_dataset_ordered_content.v1"
+_TOKENIZED_CACHE_READY_FILENAME = "_READY"
 _CONTENT_CONTRAST_PAIRING_VERSION = "post_split_half_rotation_v1"
 _CONTINUATION_MANIFEST_FILENAME = "continuation_manifest.json"
 _CONTINUATION_MANIFEST_SCHEMA_VERSION = 1
@@ -367,6 +430,264 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _canonical_json_bytes(payload: object) -> bytes:
+    return json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def resolve_initial_adapter_output_dir(
+    args,
+    *,
+    resume_from_checkpoint: str | None,
+    warm_start_from_checkpoint: Path | None,
+    world_size: int,
+) -> Path | None:
+    requested = getattr(args, "initial_adapter_output_dir", None)
+    if requested is None:
+        return None
+    if resume_from_checkpoint is not None or warm_start_from_checkpoint is not None:
+        raise ValueError("Initial adapter snapshots are supported only for fresh runs")
+    if world_size != 1:
+        raise ValueError("Initial adapter snapshots currently require a single-process run")
+
+    output_dir = Path(args.output_dir).expanduser().resolve()
+    expected = output_dir / _INITIAL_ADAPTER_DIRNAME
+    snapshot_dir = Path(requested).expanduser().resolve()
+    if snapshot_dir != expected:
+        raise ValueError(
+            "--initial-adapter-output-dir must be exactly "
+            f"OUTPUT_DIR/{_INITIAL_ADAPTER_DIRNAME}: expected={expected} actual={snapshot_dir}"
+        )
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError(f"Training output path is not a directory: {output_dir}")
+    if output_dir.is_dir():
+        allowed_provenance_files = {
+            _LAUNCH_MANIFEST_FILENAME,
+            _DATA_CONTRACT_MANIFEST_FILENAME,
+        }
+        unexpected = sorted(
+            str(path)
+            for path in output_dir.iterdir()
+            if path.name not in allowed_provenance_files
+        )
+        if unexpected:
+            raise ValueError(
+                "Initial adapter snapshot requires a fresh training output; "
+                f"unexpected entries={unexpected}"
+            )
+        for filename in sorted(allowed_provenance_files):
+            provenance_path = output_dir / filename
+            if provenance_path.exists() and (
+                not provenance_path.is_file() or provenance_path.is_symlink()
+            ):
+                raise ValueError(
+                    f"Initial adapter provenance path is not a regular file: "
+                    f"{provenance_path}"
+                )
+    return snapshot_dir
+
+
+def _rng_tensor_sha256(value: torch.Tensor) -> str:
+    return hashlib.sha256(bytes(value.detach().cpu().tolist())).hexdigest()
+
+
+def save_seeded_initial_adapter_snapshot(
+    model: nn.Module,
+    snapshot_dir: Path,
+    delta_config: HFDeltaMemConfig,
+    *,
+    args,
+    training_protocol: dict[str, object],
+    training_protocol_sha256: str,
+    train_samples: int,
+    replaced_modules: list[str],
+    trainable_names: list[str],
+) -> dict[str, object]:
+    snapshot_dir = snapshot_dir.expanduser().resolve()
+    if snapshot_dir.exists():
+        raise ValueError(f"Initial adapter output already exists: {snapshot_dir}")
+    snapshot_dir.parent.mkdir(parents=True, exist_ok=True)
+    temporary_dir = snapshot_dir.parent / f".{snapshot_dir.name}.tmp-{os.getpid()}"
+    if temporary_dir.exists():
+        raise ValueError(f"Initial adapter temporary output already exists: {temporary_dir}")
+
+    train_file = None if args.train_file is None else Path(args.train_file).expanduser().resolve()
+    model_path = Path(args.model_path).expanduser().resolve()
+    model_config_path = model_path / "config.json"
+    launch_manifest_path = snapshot_dir.parent / _LAUNCH_MANIFEST_FILENAME
+    data_contract_manifest_path = (
+        snapshot_dir.parent / _DATA_CONTRACT_MANIFEST_FILENAME
+    )
+    adapter_state = get_delta_mem_state_dict(model)
+    cpu_rng_state, cuda_rng_states = _capture_torch_rng_state()
+    rng_provenance = {
+        "cpu_sha256": _rng_tensor_sha256(cpu_rng_state),
+        "cuda_sha256": (
+            None
+            if cuda_rng_states is None
+            else [_rng_tensor_sha256(state) for state in cuda_rng_states]
+        ),
+    }
+
+    try:
+        save_delta_mem_adapter(model, temporary_dir, delta_config)
+        training_protocol_path = temporary_dir / _TRAINING_PROTOCOL_FILENAME
+        training_protocol_path.write_text(
+            json.dumps(training_protocol, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        manifest: dict[str, object] = {
+            "schema": _INITIAL_ADAPTER_MANIFEST_SCHEMA,
+            "created_at_unix": time.time(),
+            "artifact_kind": "seeded_freshly_attached_delta_mem_adapter",
+            "global_step": 0,
+            "fresh_run": True,
+            "training_started": False,
+            "optimizer_created": False,
+            "optimizer_state_included": False,
+            "seed": int(args.seed),
+            "data_seed": int(args.data_seed),
+            "rng_state_after_attachment": rng_provenance,
+            "output_dir": str(snapshot_dir),
+            "model": {
+                "path": str(model_path),
+                "config_sha256": (
+                    _sha256_file(model_config_path) if model_config_path.is_file() else None
+                ),
+            },
+            "dataset": {
+                "train_file": None if train_file is None else str(train_file),
+                "train_file_sha256": (
+                    _sha256_file(train_file)
+                    if train_file is not None and train_file.is_file()
+                    else None
+                ),
+                "dataset_name": args.dataset_name,
+                "dataset_split": args.dataset_split,
+                "train_samples": int(train_samples),
+                "tokenized_fingerprint": training_protocol.get("tokenized_fingerprint"),
+                "tokenized_dataset_sha256": training_protocol.get(
+                    "tokenized_dataset_sha256"
+                ),
+                "tokenized_cache_identity": training_protocol.get(
+                    "tokenized_cache_identity"
+                ),
+            },
+            "topology": {
+                "replaced_modules": list(replaced_modules),
+                "trainable_names": list(trainable_names),
+                "adapter_tensor_count": len(adapter_state),
+                "adapter_parameter_count": sum(
+                    int(tensor.numel()) for tensor in adapter_state.values()
+                ),
+                "adapter_topology_sha256": _adapter_topology_sha256(adapter_state),
+                "delta_config_sha256": _protocol_sha256(delta_config.to_dict()),
+            },
+            "training_protocol": {
+                "canonical_sha256": training_protocol_sha256,
+                "file": _TRAINING_PROTOCOL_FILENAME,
+                "file_sha256": _sha256_file(training_protocol_path),
+            },
+            "launch_manifest": (
+                None
+                if not launch_manifest_path.is_file()
+                else {
+                    "path": str(launch_manifest_path),
+                    "sha256": _sha256_file(launch_manifest_path),
+                }
+            ),
+            "data_contract_manifest": (
+                None
+                if not data_contract_manifest_path.is_file()
+                else {
+                    "path": str(data_contract_manifest_path),
+                    "sha256": _sha256_file(data_contract_manifest_path),
+                }
+            ),
+            "process_argv": list(sys.argv),
+            "trainer_source": {
+                "path": str(Path(__file__).resolve()),
+                "sha256": _sha256_file(Path(__file__).resolve()),
+            },
+            "files": {
+                "adapter": {
+                    "path": "delta_mem_adapter.pt",
+                    "sha256": _sha256_file(temporary_dir / "delta_mem_adapter.pt"),
+                },
+                "config": {
+                    "path": "delta_mem_config.json",
+                    "sha256": _sha256_file(temporary_dir / "delta_mem_config.json"),
+                },
+            },
+        }
+        manifest["manifest_sha256"] = _protocol_sha256(manifest)
+        (temporary_dir / _INITIAL_ADAPTER_MANIFEST_FILENAME).write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary_dir, snapshot_dir)
+        return manifest
+    except BaseException:
+        shutil.rmtree(temporary_dir, ignore_errors=True)
+        raise
+    finally:
+        _restore_torch_rng_state((cpu_rng_state, cuda_rng_states))
+
+
+def validate_prepare_only_snapshot(
+    snapshot_dir: Path,
+    manifest: dict[str, object] | None,
+) -> dict[str, object]:
+    if manifest is None:
+        raise RuntimeError("Prepare-only mode did not create an initial adapter manifest")
+    expected_flags = {
+        "global_step": 0,
+        "fresh_run": True,
+        "training_started": False,
+        "optimizer_created": False,
+        "optimizer_state_included": False,
+    }
+    for field, expected in expected_flags.items():
+        if manifest.get(field) != expected:
+            raise RuntimeError(
+                f"Prepare-only initial adapter manifest has invalid {field}: "
+                f"expected={expected!r} actual={manifest.get(field)!r}"
+            )
+
+    required_files = (
+        "delta_mem_adapter.pt",
+        "delta_mem_config.json",
+        _TRAINING_PROTOCOL_FILENAME,
+        _INITIAL_ADAPTER_MANIFEST_FILENAME,
+    )
+    snapshot_dir = snapshot_dir.expanduser().resolve()
+    for filename in required_files:
+        artifact = snapshot_dir / filename
+        if not artifact.is_file() or artifact.is_symlink() or artifact.stat().st_size <= 0:
+            raise RuntimeError(
+                f"Prepare-only initial adapter artifact is missing or invalid: {artifact}"
+            )
+
+    saved_manifest = _load_json_object(
+        snapshot_dir / _INITIAL_ADAPTER_MANIFEST_FILENAME,
+        description="prepare-only initial adapter manifest",
+    )
+    if saved_manifest != manifest:
+        raise RuntimeError("Prepare-only in-memory and saved initial adapter manifests differ")
+    return {
+        "prepare_only": True,
+        "training_started": False,
+        "optimizer_created": False,
+        "initial_adapter_output_dir": str(snapshot_dir),
+        "initial_adapter_manifest_sha256": manifest.get("manifest_sha256"),
+    }
+
+
 def _adapter_topology_sha256(state_dict: dict[str, torch.Tensor]) -> str:
     topology = []
     for name, tensor in state_dict.items():
@@ -411,12 +732,19 @@ def _missing_resume_checkpoint_files(
     *,
     require_training_protocol: bool = False,
     require_content_contrast_pairing: bool = False,
+    require_scene_state_identity_pairing: bool = False,
 ) -> tuple[str, ...]:
     required_files = list(_REQUIRED_RESUME_CHECKPOINT_FILES)
-    if require_training_protocol or require_content_contrast_pairing:
+    if (
+        require_training_protocol
+        or require_content_contrast_pairing
+        or require_scene_state_identity_pairing
+    ):
         required_files.append(_TRAINING_PROTOCOL_FILENAME)
     if require_content_contrast_pairing:
         required_files.append(_CONTENT_CONTRAST_PAIRING_FILENAME)
+    if require_scene_state_identity_pairing:
+        required_files.append(_SCENE_STATE_IDENTITY_PAIRING_FILENAME)
     return tuple(
         filename
         for filename in required_files
@@ -429,6 +757,7 @@ def _validate_resume_checkpoint(
     *,
     require_training_protocol: bool = False,
     require_content_contrast_pairing: bool = False,
+    require_scene_state_identity_pairing: bool = False,
 ) -> Path:
     if not checkpoint.is_dir():
         raise FileNotFoundError(f"Resume checkpoint directory does not exist: {checkpoint}")
@@ -436,6 +765,7 @@ def _validate_resume_checkpoint(
         checkpoint,
         require_training_protocol=require_training_protocol,
         require_content_contrast_pairing=require_content_contrast_pairing,
+        require_scene_state_identity_pairing=require_scene_state_identity_pairing,
     )
     if missing:
         raise FileNotFoundError(
@@ -450,6 +780,7 @@ def resolve_resume_checkpoint(
     *,
     require_training_protocol: bool = False,
     require_content_contrast_pairing: bool = False,
+    require_scene_state_identity_pairing: bool = False,
 ) -> str | None:
     if resume_from_checkpoint is None:
         return None
@@ -462,6 +793,9 @@ def resolve_resume_checkpoint(
                 Path(raw_checkpoint).expanduser(),
                 require_training_protocol=require_training_protocol,
                 require_content_contrast_pairing=require_content_contrast_pairing,
+                require_scene_state_identity_pairing=(
+                    require_scene_state_identity_pairing
+                ),
             )
         )
 
@@ -486,6 +820,9 @@ def resolve_resume_checkpoint(
             candidate,
             require_training_protocol=require_training_protocol,
             require_content_contrast_pairing=require_content_contrast_pairing,
+            require_scene_state_identity_pairing=(
+                require_scene_state_identity_pairing
+            ),
         ):
             return str(candidate.resolve())
     newest = candidates[0][1]
@@ -493,6 +830,7 @@ def resolve_resume_checkpoint(
         newest,
         require_training_protocol=require_training_protocol,
         require_content_contrast_pairing=require_content_contrast_pairing,
+        require_scene_state_identity_pairing=require_scene_state_identity_pairing,
     )
     raise FileNotFoundError(
         f"No complete checkpoints found in trainer output directory: {output_path}; "
@@ -879,6 +1217,75 @@ def _normalize_memory_fusion_placement_protocol(
     return normalized
 
 
+def _normalize_scene_boundary_payload_protocol(
+    protocol: dict[str, object],
+) -> dict[str, object]:
+    normalized = dict(protocol)
+    try:
+        weight = float(normalized.get("scene_boundary_payload_ce_weight", 0.0))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "Training protocol scene_boundary_payload_ce_weight must be numeric"
+        ) from exc
+    if not math.isfinite(weight) or weight < 0.0:
+        raise ValueError(
+            "Training protocol scene_boundary_payload_ce_weight must be finite and "
+            "non-negative"
+        )
+    mask_mode = normalized.get(
+        "scene_boundary_payload_mask_mode",
+        _SCENE_BOUNDARY_PAYLOAD_MASK_MODE,
+    )
+    if mask_mode != _SCENE_BOUNDARY_PAYLOAD_MASK_MODE:
+        raise ValueError("Training protocol has an unsupported scene-boundary payload mask mode")
+    normalization_present = "scene_boundary_payload_ce_normalization" in normalized
+    if weight > 0.0 and not normalization_present:
+        raise ValueError(
+            "Weighted scene-boundary training protocol is missing its payload CE "
+            "normalization"
+        )
+    normalization = normalized.get(
+        "scene_boundary_payload_ce_normalization",
+        _SCENE_BOUNDARY_PAYLOAD_CE_NORMALIZATION,
+    )
+    if normalization != _SCENE_BOUNDARY_PAYLOAD_CE_NORMALIZATION:
+        raise ValueError(
+            "Training protocol has an unsupported scene-boundary payload CE normalization"
+        )
+    normalized["scene_boundary_payload_ce_weight"] = weight
+    normalized["scene_boundary_payload_mask_mode"] = mask_mode
+    normalized["scene_boundary_payload_ce_normalization"] = normalization
+    return normalized
+
+
+def _normalize_train_sampler_protocol(
+    protocol: dict[str, object],
+) -> dict[str, object]:
+    normalized = dict(protocol)
+    seed = normalized.get("train_sampler_seed")
+    if seed is not None:
+        if isinstance(seed, bool) or not isinstance(seed, int):
+            raise ValueError("Training protocol train_sampler_seed must be an integer or null")
+        if not 0 <= seed <= torch.iinfo(torch.int64).max:
+            raise ValueError(
+                "Training protocol train_sampler_seed must satisfy 0 <= seed <= 2^63 - 1"
+            )
+    expected_mode = (
+        _DEFAULT_TRAIN_SAMPLER_MODE
+        if seed is None
+        else _SEEDED_TRAIN_SAMPLER_MODE
+    )
+    mode_present = "train_sampler_mode" in normalized
+    if seed is not None and not mode_present:
+        raise ValueError("Seeded training protocol is missing its train_sampler_mode")
+    mode = normalized.get("train_sampler_mode", expected_mode)
+    if mode != expected_mode:
+        raise ValueError("Training protocol train_sampler_mode does not match its seed")
+    normalized["train_sampler_seed"] = seed
+    normalized["train_sampler_mode"] = mode
+    return normalized
+
+
 def _is_sha256(value: object) -> bool:
     if not isinstance(value, str) or len(value) != 64:
         return False
@@ -1083,6 +1490,10 @@ def validate_resume_training_protocol(
     target_protocol = _normalize_frozen_mlp_checkpointing_protocol(target_protocol)
     source_protocol = _normalize_memory_fusion_placement_protocol(source_protocol)
     target_protocol = _normalize_memory_fusion_placement_protocol(target_protocol)
+    source_protocol = _normalize_scene_boundary_payload_protocol(source_protocol)
+    target_protocol = _normalize_scene_boundary_payload_protocol(target_protocol)
+    source_protocol = _normalize_train_sampler_protocol(source_protocol)
+    target_protocol = _normalize_train_sampler_protocol(target_protocol)
     mismatches = sorted(
         key
         for key in set(source_protocol) | set(target_protocol)
@@ -1464,8 +1875,16 @@ def validate_residual_hybrid_w8_target_protocol(
         name for name, expected_value in expected.items()
         if target_protocol.get(name) != expected_value
     ]
-    source = _normalize_memory_fusion_placement_protocol(source_protocol)
-    target = _normalize_memory_fusion_placement_protocol(target_protocol)
+    source = _normalize_train_sampler_protocol(
+        _normalize_scene_boundary_payload_protocol(
+            _normalize_memory_fusion_placement_protocol(source_protocol)
+        )
+    )
+    target = _normalize_train_sampler_protocol(
+        _normalize_scene_boundary_payload_protocol(
+            _normalize_memory_fusion_placement_protocol(target_protocol)
+        )
+    )
     unexpected_drift = sorted(
         key
         for key in set(source) | set(target)
@@ -1857,12 +2276,16 @@ class DeltaMemTrainer(Trainer):
         memory_dropout_no_memory_prob: float = 0.0,
         memory_dropout_state_only_prob: float = 0.0,
         memory_base_kl_weight: float = 0.0,
+        scene_boundary_payload_ce_weight: float = 0.0,
+        train_sampler_seed: int | None = None,
         episode_read_write_enabled: bool = False,
         context_ablation_mode: str = "mixed",
         context_ablation_no_state_prob: float = 0.2,
         context_ablation_state_only_prob: float = 0.2,
         training_protocol: dict[str, object] | None = None,
         content_contrast_pairing_manifest: dict[str, object] | None = None,
+        scene_state_identity_margin: float = 0.5,
+        scene_state_identity_pairing_manifest: dict[str, object] | None = None,
         resume_mode: str = "exact",
         continuation_manifest: dict[str, object] | None = None,
         **kwargs,
@@ -1924,6 +2347,33 @@ class DeltaMemTrainer(Trainer):
         if memory_base_kl_weight < 0.0:
             raise ValueError("memory_base_kl_weight must be non-negative")
         self.memory_base_kl_weight = memory_base_kl_weight
+        if (
+            not math.isfinite(scene_boundary_payload_ce_weight)
+            or scene_boundary_payload_ce_weight < 0.0
+        ):
+            raise ValueError(
+                "scene_boundary_payload_ce_weight must be finite and non-negative"
+            )
+        if scene_boundary_payload_ce_weight > 0.0 and memory_loss_mode != "context_dropout_ce":
+            raise ValueError(
+                "scene_boundary_payload_ce_weight requires "
+                "memory_loss_mode=context_dropout_ce"
+            )
+        self.scene_boundary_payload_ce_weight = scene_boundary_payload_ce_weight
+        if train_sampler_seed is not None:
+            if isinstance(train_sampler_seed, bool) or not isinstance(
+                train_sampler_seed,
+                int,
+            ):
+                raise ValueError("train_sampler_seed must be an integer or None")
+            if not 0 <= train_sampler_seed <= torch.iinfo(torch.int64).max:
+                raise ValueError("train_sampler_seed must satisfy 0 <= seed <= 2^63 - 1")
+        self.train_sampler_seed = train_sampler_seed
+        if (
+            train_sampler_seed is not None
+            and getattr(self.args, "data_seed", None) != train_sampler_seed
+        ):
+            raise ValueError("train_sampler_seed must equal TrainingArguments.data_seed")
         self.episode_read_write_enabled = episode_read_write_enabled
         if memory_loss_mode == "content_contrast_ce":
             if episode_read_write_enabled:
@@ -1944,6 +2394,43 @@ class DeltaMemTrainer(Trainer):
                 raise ValueError(
                     "content_contrast_ce requires memory partition regularization to be disabled"
                 )
+        if memory_loss_mode == "scene_state_identity_ce":
+            if episode_read_write_enabled:
+                raise ValueError(
+                    "scene_state_identity_ce requires episode read writes to be disabled"
+                )
+            if memory_kl_weight != 0.0 or memory_base_kl_weight != 0.0:
+                raise ValueError(
+                    "scene_state_identity_ce requires all KL weights to be zero"
+                )
+            if memory_representation_weight != 0.0:
+                raise ValueError(
+                    "scene_state_identity_ce requires representation loss to be disabled"
+                )
+            if not math.isfinite(scene_state_identity_margin) or (
+                scene_state_identity_margin <= 0.0
+            ):
+                raise ValueError(
+                    "scene_state_identity_ce requires a finite positive identity margin"
+                )
+            if write_sparsity_weight != 0.0:
+                raise ValueError(
+                    "scene_state_identity_ce requires write sparsity loss to be disabled"
+                )
+            if (
+                memory_partition_alignment_weight != 0.0
+                or memory_partition_entropy_weight != 0.0
+                or memory_partition_balance_weight != 0.0
+            ):
+                raise ValueError(
+                    "scene_state_identity_ce requires memory partition regularization "
+                    "to be disabled"
+                )
+            if scene_boundary_payload_ce_weight != 0.0:
+                raise ValueError(
+                    "scene_state_identity_ce requires scene-boundary payload CE to be disabled"
+                )
+        self.scene_state_identity_margin = scene_state_identity_margin
         self.context_ablation_mode = context_ablation_mode
         self.context_ablation_no_state_prob = context_ablation_no_state_prob
         self.context_ablation_state_only_prob = context_ablation_state_only_prob
@@ -1952,6 +2439,11 @@ class DeltaMemTrainer(Trainer):
             None
             if content_contrast_pairing_manifest is None
             else dict(content_contrast_pairing_manifest)
+        )
+        self.scene_state_identity_pairing_manifest = (
+            None
+            if scene_state_identity_pairing_manifest is None
+            else dict(scene_state_identity_pairing_manifest)
         )
         if resume_mode not in _RESUME_MODES:
             raise ValueError(f"Unsupported resume mode: {resume_mode}")
@@ -1980,7 +2472,27 @@ class DeltaMemTrainer(Trainer):
         self._last_content_contrast_targeted_gap = 0.0
         self._last_content_contrast_targeted_positive_fraction = 0.0
         self._last_content_contrast_targeted_token_count = 0.0
+        self._last_scene_state_full_correct_ce = 0.0
+        self._last_scene_state_correct_all_semantic_ce = 0.0
+        self._last_scene_state_correct_pair_semantic_ce = 0.0
+        self._last_scene_state_donor_pair_semantic_ce = 0.0
+        self._last_scene_state_zero_all_semantic_ce = 0.0
+        self._last_scene_state_donor_pair_gap = 0.0
+        self._last_scene_state_zero_all_gap = 0.0
+        self._last_scene_state_donor_margin_loss = 0.0
+        self._last_scene_state_donor_positive_fraction = 0.0
+        self._last_scene_state_zero_positive_fraction = 0.0
+        self._last_scene_state_semantic_token_count = 0.0
+        self._last_scene_state_semantic_row_count = 0.0
+        self._last_scene_state_target_presence_row_count = 0.0
+        self._last_scene_state_target_same_cardinality_value_row_count = 0.0
+        self._last_scene_state_target_cross_cardinality_value_row_count = 0.0
         self._last_memory_teacher_loss = 0.0
+        self._last_scene_boundary_full_ce_loss = 0.0
+        self._last_scene_boundary_payload_ce_loss = 0.0
+        self._last_scene_boundary_payload_auxiliary_loss = 0.0
+        self._last_scene_boundary_payload_token_count = 0.0
+        self._last_scene_boundary_supervised_token_count = 0.0
         self._last_memory_wmem = 0.0
         self._last_memory_probe_keep_loss = 0.0
         self._last_memory_probe_reset_loss = 0.0
@@ -2003,6 +2515,19 @@ class DeltaMemTrainer(Trainer):
         self._last_partition_write_route_balance_l2 = 0.0
         self._last_partition_read_route_balance_l2 = 0.0
         self._ddp_static_graph_initialized = False
+
+    def _get_train_sampler(self, train_dataset=None):
+        default_sampler = super()._get_train_sampler(train_dataset)
+        if self.train_sampler_seed is None or default_sampler is None:
+            return default_sampler
+        if not isinstance(default_sampler, RandomSampler):
+            raise ValueError(
+                "train_sampler_seed requires Transformers random train sampling"
+            )
+        active_dataset = self.train_dataset if train_dataset is None else train_dataset
+        generator = torch.Generator()
+        generator.manual_seed(self.train_sampler_seed)
+        return RandomSampler(active_dataset, generator=generator)
 
     def _maybe_enable_static_graph(self, model) -> None:
         if self._ddp_static_graph_initialized:
@@ -2319,6 +2844,80 @@ class DeltaMemTrainer(Trainer):
             ignore_index=-100,
         ).view_as(shift_labels)
         return ce.masked_select(shift_mask).mean()
+
+    def _scene_boundary_payload_ce(
+        self,
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        attention_mask: torch.Tensor,
+        payload_mask: torch.Tensor,
+        *,
+        full_token_normalizer: torch.Tensor | int | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, int, int]:
+        if labels.ndim != 2 or attention_mask.shape != labels.shape:
+            raise ValueError(
+                "Scene-boundary payload labels and attention mask must be matching 2D tensors"
+            )
+        if logits.ndim != 3 or logits.shape[:2] != labels.shape:
+            raise ValueError("Scene-boundary payload logits must align with labels")
+        if payload_mask.shape != labels.shape:
+            raise ValueError("Scene-boundary payload mask must align with labels")
+        payload_mask = payload_mask.to(device=labels.device, dtype=torch.bool)
+        supervised_mask = labels.ne(-100) & attention_mask.ne(0)
+        if bool((payload_mask & ~supervised_mask).any().item()):
+            raise ValueError(
+                "Scene-boundary payload mask may select only supervised, non-padding labels"
+            )
+        if bool(payload_mask[:, 0].any().item()):
+            raise ValueError(
+                "Scene-boundary payload mask selects a token without a causal predictor"
+            )
+        selected_next_tokens = payload_mask[:, 1:]
+        if not bool(selected_next_tokens.any(dim=1).all().item()):
+            raise ValueError(
+                "Every scene-boundary row must select at least one payload target token"
+            )
+        if bool(
+            (selected_next_tokens & attention_mask[:, :-1].eq(0)).any().item()
+        ):
+            raise ValueError(
+                "Scene-boundary payload mask selects a target with a masked causal predictor"
+            )
+        full_next_token_mask = supervised_mask[:, 1:] & attention_mask[:, :-1].ne(0)
+        supervised_token_count = int(full_next_token_mask.sum().item())
+        if supervised_token_count <= 0:
+            raise ValueError("Scene-boundary batch has no supervised next-token targets")
+        payload_token_count = int(selected_next_tokens.sum().item())
+        shift_logits = logits[:, :-1, :].float()
+        shift_labels = labels[:, 1:]
+        token_losses = F.cross_entropy(
+            shift_logits.reshape(-1, shift_logits.size(-1)),
+            shift_labels.reshape(-1),
+            reduction="none",
+            ignore_index=-100,
+        ).view_as(shift_labels)
+        selected_sum = token_losses.masked_select(selected_next_tokens).sum()
+        payload_mean = selected_sum / payload_token_count
+        if full_token_normalizer is None:
+            normalizer = selected_sum.new_tensor(float(supervised_token_count))
+        elif isinstance(full_token_normalizer, torch.Tensor):
+            normalizer = full_token_normalizer.to(
+                device=selected_sum.device,
+                dtype=selected_sum.dtype,
+            )
+        else:
+            normalizer = selected_sum.new_tensor(float(full_token_normalizer))
+        if normalizer.numel() != 1 or not bool(torch.isfinite(normalizer).item()):
+            raise ValueError("Scene-boundary full-token normalizer must be one finite scalar")
+        if float(normalizer.item()) <= 0.0:
+            raise ValueError("Scene-boundary full-token normalizer must be positive")
+        payload_auxiliary = selected_sum / normalizer
+        return (
+            payload_mean,
+            payload_auxiliary,
+            payload_token_count,
+            supervised_token_count,
+        )
 
     def _masked_next_token_kl_loss(
         self,
@@ -2755,6 +3354,8 @@ class DeltaMemTrainer(Trainer):
         state_only_input_ids: torch.Tensor | None,
         state_only_attention_mask: torch.Tensor | None,
         state_only_labels: torch.Tensor | None,
+        scene_boundary_payload_mask: torch.Tensor | None,
+        state_only_scene_boundary_payload_mask: torch.Tensor | None,
         state_only_write_input_ids: torch.Tensor | None,
         state_only_write_attention_mask: torch.Tensor | None,
         state_only_write_message_ids: torch.Tensor | None,
@@ -2794,6 +3395,7 @@ class DeltaMemTrainer(Trainer):
                 "attention_mask": state_only_attention_mask,
                 "labels": state_only_labels,
             }
+            active_payload_mask = state_only_scene_boundary_payload_mask
             batch_size = int(state_only_input_ids.size(0))
             prime_kwargs = {
                 "write_input_ids": state_only_write_input_ids,
@@ -2805,10 +3407,12 @@ class DeltaMemTrainer(Trainer):
             wmem = 1.0
         elif mode == "no_memory":
             active_inputs = model_inputs
+            active_payload_mask = scene_boundary_payload_mask
             prime_kwargs = None
             wmem = 0.0
         else:
             active_inputs = model_inputs
+            active_payload_mask = scene_boundary_payload_mask
             batch_size = int(model_inputs["input_ids"].size(0))
             prime_kwargs = {
                 "write_input_ids": write_input_ids,
@@ -2903,6 +3507,29 @@ class DeltaMemTrainer(Trainer):
         if loss.ndim > 0:
             loss = loss.mean()
         task_loss = loss
+        payload_ce_loss = loss.new_zeros(())
+        payload_auxiliary_loss = loss.new_zeros(())
+        payload_token_count = 0
+        supervised_token_count = 0
+        payload_ce_weight = getattr(self, "scene_boundary_payload_ce_weight", 0.0)
+        if payload_ce_weight > 0.0:
+            if active_payload_mask is None:
+                raise ValueError(
+                    "scene-boundary payload CE requires tokenizer-derived payload masks"
+                )
+            (
+                payload_ce_loss,
+                payload_auxiliary_loss,
+                payload_token_count,
+                supervised_token_count,
+            ) = self._scene_boundary_payload_ce(
+                outputs["logits"],
+                active_inputs["labels"],
+                active_inputs["attention_mask"],
+                active_payload_mask,
+                full_token_normalizer=loss_kwargs.get("num_items_in_batch"),
+            )
+            loss = loss + payload_ce_weight * payload_auxiliary_loss
         teacher_loss = loss.new_tensor(teacher_loss_value)
         base_kl_loss = loss.new_zeros(())
         if mode == "no_memory":
@@ -2922,6 +3549,11 @@ class DeltaMemTrainer(Trainer):
         outputs["loss"] = loss
         outputs["memory_loss"] = (loss - task_loss).detach()
         outputs["memory_base_kl_loss"] = base_kl_loss.detach()
+        outputs["scene_boundary_full_ce_loss"] = task_loss.detach()
+        outputs["scene_boundary_payload_ce_loss"] = payload_ce_loss.detach()
+        outputs["scene_boundary_payload_auxiliary_loss"] = (
+            payload_auxiliary_loss.detach()
+        )
         return loss, outputs, {
             "keep_loss": float(task_loss.detach().float().item()),
             "reset_loss": 0.0,
@@ -2941,6 +3573,15 @@ class DeltaMemTrainer(Trainer):
             "probe_gap": 0.0,
             "probe_kl": 0.0,
             "probe_ce": 0.0,
+            "scene_boundary_full_ce_loss": float(task_loss.detach().float().item()),
+            "scene_boundary_payload_ce_loss": float(
+                payload_ce_loss.detach().float().item()
+            ),
+            "scene_boundary_payload_auxiliary_loss": float(
+                payload_auxiliary_loss.detach().float().item()
+            ),
+            "scene_boundary_payload_token_count": float(payload_token_count),
+            "scene_boundary_supervised_token_count": float(supervised_token_count),
         }
 
     def _content_contrast_target_ce(
@@ -3666,6 +4307,812 @@ class DeltaMemTrainer(Trainer):
             "probe_ce": 0.0,
         }
 
+    def _scene_state_semantic_ce(
+        self,
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        attention_mask: torch.Tensor,
+        semantic_target_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, int]:
+        """Return a batch mean of per-row semantic CE means."""
+
+        if labels.ndim != 2 or attention_mask.shape != labels.shape:
+            raise ValueError(
+                "Scene-state labels and attention mask must be matching 2D tensors"
+            )
+        if logits.ndim != 3 or logits.shape[:2] != labels.shape:
+            raise ValueError("Scene-state logits must align with labels")
+        if semantic_target_mask.shape != labels.shape:
+            raise ValueError("Scene-state semantic target mask must align with labels")
+        semantic_target_mask = semantic_target_mask.to(
+            device=labels.device,
+            dtype=torch.bool,
+        )
+        supervised_labels = labels.ne(-100) & attention_mask.ne(0)
+        if bool(semantic_target_mask[:, 0].any()) or bool(
+            (semantic_target_mask & ~supervised_labels).any()
+        ):
+            raise ValueError(
+                "Scene-state semantic target mask must select causally predictable "
+                "supervised labels"
+            )
+        shift_mask = semantic_target_mask[:, 1:]
+        target_counts = shift_mask.sum(dim=1)
+        if not bool(target_counts.gt(0).all()):
+            missing_rows = (
+                target_counts.eq(0).nonzero(as_tuple=False).flatten().tolist()
+            )
+            raise ValueError(
+                "Scene-state semantic target mask must select at least one target in "
+                f"every row; missing rows: {missing_rows}"
+            )
+        shift_logits = logits[:, :-1].float()
+        shift_labels = labels[:, 1:]
+        token_ce = F.cross_entropy(
+            shift_logits.reshape(-1, shift_logits.size(-1)),
+            shift_labels.reshape(-1),
+            reduction="none",
+            ignore_index=-100,
+        ).view_as(shift_labels)
+        row_ce = (token_ce * shift_mask).sum(dim=1) / target_counts
+        return row_ce.mean(), row_ce, int(target_counts.sum().item())
+
+    def _scene_state_identity_objective(
+        self,
+        correct_full_ce: torch.Tensor,
+        correct_all_semantic_row_ce: torch.Tensor,
+        correct_pair_semantic_row_ce: torch.Tensor,
+        donor_pair_semantic_row_ce: torch.Tensor,
+        zero_all_semantic_row_ce: torch.Tensor,
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
+        if correct_full_ce.numel() != 1:
+            raise ValueError("Scene-state correct full CE must be scalar")
+        if correct_all_semantic_row_ce.ndim != 1:
+            raise ValueError("Scene-state semantic CE must contain one value per row")
+        if (
+            correct_pair_semantic_row_ce.shape != correct_all_semantic_row_ce.shape
+            or donor_pair_semantic_row_ce.shape
+            != correct_all_semantic_row_ce.shape
+            or zero_all_semantic_row_ce.shape != correct_all_semantic_row_ce.shape
+        ):
+            raise ValueError("Scene-state semantic branch row counts must match")
+        if correct_all_semantic_row_ce.numel() == 0:
+            raise ValueError("Scene-state identity objective requires at least one row")
+
+        correct_all_semantic_ce = correct_all_semantic_row_ce.mean()
+        correct_pair_semantic_ce = correct_pair_semantic_row_ce.mean()
+        donor_pair_semantic_ce = donor_pair_semantic_row_ce.mean()
+        zero_all_semantic_ce = zero_all_semantic_row_ce.mean()
+        donor_gap_rows = (
+            donor_pair_semantic_row_ce - correct_pair_semantic_row_ce
+        )
+        zero_gap_rows = zero_all_semantic_row_ce - correct_all_semantic_row_ce
+        donor_gap = donor_gap_rows.mean()
+        zero_gap = zero_gap_rows.mean()
+        donor_margin_loss = F.relu(
+            self.scene_state_identity_margin - donor_gap_rows
+        ).mean()
+        total_loss = (
+            _SCENE_STATE_FULL_CORRECT_CE_WEIGHT * correct_full_ce
+            + _SCENE_STATE_CORRECT_ALL_SEMANTIC_CE_WEIGHT
+            * correct_all_semantic_ce
+            + _SCENE_STATE_DONOR_MARGIN_WEIGHT * donor_margin_loss
+        )
+        return (
+            total_loss,
+            correct_all_semantic_ce,
+            correct_pair_semantic_ce,
+            donor_pair_semantic_ce,
+            zero_all_semantic_ce,
+            donor_gap,
+            zero_gap,
+            donor_margin_loss,
+        )
+
+    def _validate_scene_state_identity_runtime(self) -> None:
+        if self.episode_read_write_enabled:
+            raise ValueError(
+                "scene_state_identity_ce requires episode read writes to be disabled"
+            )
+        if self.memory_kl_weight != 0.0 or self.memory_base_kl_weight != 0.0:
+            raise ValueError(
+                "scene_state_identity_ce requires all KL weights to be zero"
+            )
+        if getattr(self, "memory_representation_weight", 0.0) != 0.0:
+            raise ValueError(
+                "scene_state_identity_ce requires representation loss to be disabled"
+            )
+        if not math.isfinite(self.scene_state_identity_margin) or (
+            self.scene_state_identity_margin <= 0.0
+        ):
+            raise ValueError(
+                "scene_state_identity_ce requires a finite positive identity margin"
+            )
+        if getattr(self, "write_sparsity_weight", 0.0) != 0.0:
+            raise ValueError(
+                "scene_state_identity_ce requires write sparsity loss to be disabled"
+            )
+        if (
+            getattr(self, "memory_partition_alignment_weight", 0.0) != 0.0
+            or getattr(self, "memory_partition_entropy_weight", 0.0) != 0.0
+            or getattr(self, "memory_partition_balance_weight", 0.0) != 0.0
+        ):
+            raise ValueError(
+                "scene_state_identity_ce requires memory partition regularization "
+                "to be disabled"
+            )
+        if getattr(self, "scene_boundary_payload_ce_weight", 0.0) != 0.0:
+            raise ValueError(
+                "scene_state_identity_ce requires scene-boundary payload CE to be disabled"
+            )
+
+    def _validate_scene_state_identity_sequential_runtime(self) -> None:
+        self._validate_scene_state_identity_runtime()
+        accumulation_steps = int(
+            getattr(self, "current_gradient_accumulation_steps", 1)
+        )
+        if accumulation_steps != 1:
+            raise ValueError(
+                "scene_state_identity_ce sequential backward requires "
+                "gradient_accumulation_steps=1"
+            )
+        optimizer_name = str(
+            getattr(getattr(self, "args", None), "optim", "")
+        ).lower()
+        if optimizer_name.endswith("lomo") or optimizer_name.endswith("adalomo"):
+            raise ValueError(
+                "scene_state_identity_ce sequential backward does not support "
+                "LOMO or AdaLOMO"
+            )
+        distributed_type = getattr(
+            getattr(self, "accelerator", None),
+            "distributed_type",
+            None,
+        )
+        if getattr(distributed_type, "name", None) == "DEEPSPEED":
+            raise ValueError(
+                "scene_state_identity_ce sequential backward does not support DeepSpeed"
+            )
+
+    def _scene_state_identity_branch(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        loss_kwargs: dict[str, torch.Tensor],
+        prime_writes: bool,
+        write_input_ids: torch.Tensor | None,
+        write_attention_mask: torch.Tensor | None,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+        semantic_mask: torch.Tensor,
+        pair_target_mask: torch.Tensor,
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        int,
+        torch.Tensor,
+        torch.Tensor,
+        int,
+        dict[str, torch.Tensor],
+    ]:
+        batch_size = int(model_inputs["input_ids"].size(0))
+        self._reset_online_state(model)
+        if prime_writes:
+            if write_input_ids is None or write_attention_mask is None:
+                raise ValueError(
+                    "Scene-state correct and donor branches require materialized writes"
+                )
+            self._prime_episode_state(
+                model,
+                write_input_ids=write_input_ids,
+                write_attention_mask=write_attention_mask,
+                batch_size=batch_size,
+                write_message_ids=write_message_ids,
+                write_sentence_ids=write_sentence_ids,
+            )
+        set_delta_mem_write_enabled(model, False)
+        set_delta_mem_read_context_mask(
+            model,
+            self._build_read_context_mask(model_inputs),
+        )
+        outputs = model(**model_inputs, **loss_kwargs)
+        if not isinstance(outputs, dict):
+            outputs = {
+                "loss": outputs.loss if hasattr(outputs, "loss") else outputs[0],
+                "logits": outputs.logits,
+            }
+        full_ce = outputs["loss"]
+        if full_ce.ndim > 0:
+            full_ce = full_ce.mean()
+        all_semantic_ce, all_semantic_row_ce, all_semantic_token_count = (
+            self._scene_state_semantic_ce(
+                outputs["logits"],
+                model_inputs["labels"],
+                model_inputs["attention_mask"],
+                semantic_mask,
+            )
+        )
+        pair_semantic_ce, pair_semantic_row_ce, pair_semantic_token_count = (
+            self._scene_state_semantic_ce(
+                outputs["logits"],
+                model_inputs["labels"],
+                model_inputs["attention_mask"],
+                pair_target_mask,
+            )
+        )
+        return (
+            full_ce,
+            all_semantic_ce,
+            all_semantic_row_ce,
+            all_semantic_token_count,
+            pair_semantic_ce,
+            pair_semantic_row_ce,
+            pair_semantic_token_count,
+            outputs,
+        )
+
+    def _scene_state_identity_stats(
+        self,
+        *,
+        correct_full_ce: torch.Tensor,
+        correct_all_semantic_row_ce: torch.Tensor,
+        correct_pair_semantic_row_ce: torch.Tensor,
+        donor_pair_semantic_row_ce: torch.Tensor,
+        zero_all_semantic_row_ce: torch.Tensor,
+        semantic_token_count: int,
+        target_stratum_codes: torch.Tensor,
+        objective_values: tuple[
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+        ],
+    ) -> dict[str, float]:
+        (
+            _,
+            correct_all_semantic_ce,
+            correct_pair_semantic_ce,
+            donor_pair_semantic_ce,
+            zero_all_semantic_ce,
+            donor_gap,
+            zero_gap,
+            donor_margin_loss,
+        ) = objective_values
+        donor_gap_rows = donor_pair_semantic_row_ce.detach().float() - (
+            correct_pair_semantic_row_ce.detach().float()
+        )
+        zero_gap_rows = zero_all_semantic_row_ce.detach().float() - (
+            correct_all_semantic_row_ce.detach().float()
+        )
+        normalized_stratum_codes = target_stratum_codes.detach().to(
+            dtype=torch.long
+        )
+        if normalized_stratum_codes.ndim != 1 or normalized_stratum_codes.numel() != (
+            correct_all_semantic_row_ce.numel()
+        ):
+            raise ValueError(
+                "Scene-state target strata must contain one code per semantic row"
+            )
+        valid_stratum_codes = set(_SCENE_STATE_IDENTITY_TARGET_STRATUM_CODES.values())
+        observed_stratum_codes = set(normalized_stratum_codes.cpu().tolist())
+        if not observed_stratum_codes.issubset(valid_stratum_codes):
+            raise ValueError(
+                "Scene-state target strata contain unsupported codes: "
+                f"{sorted(observed_stratum_codes.difference(valid_stratum_codes))}"
+            )
+        stratum_row_counts = {
+            stratum: float(
+                normalized_stratum_codes.eq(code).sum().detach().cpu().item()
+            )
+            for stratum, code in _SCENE_STATE_IDENTITY_TARGET_STRATUM_CODES.items()
+        }
+        return {
+            "keep_loss": float(correct_full_ce.detach().float().item()),
+            "reset_loss": 0.0,
+            "corrupt_loss": 0.0,
+            "teacher_loss": 0.0,
+            "margin_loss": float(donor_margin_loss.detach().float().item()),
+            "causal_loss": 0.0,
+            "anchor_loss": 0.0,
+            "full_ce_loss": float(correct_full_ce.detach().float().item()),
+            "kl_loss": 0.0,
+            "reset_kl_loss": 0.0,
+            "margin_gap": float(donor_gap.detach().float().item()),
+            "wmem": 1.0,
+            "probe_keep_loss": 0.0,
+            "probe_reset_loss": 0.0,
+            "probe_margin_loss": 0.0,
+            "probe_gap": 0.0,
+            "probe_kl": 0.0,
+            "probe_ce": 0.0,
+            "scene_state_full_correct_ce": float(
+                correct_full_ce.detach().float().item()
+            ),
+            "scene_state_correct_all_semantic_ce": float(
+                correct_all_semantic_ce.detach().float().item()
+            ),
+            "scene_state_correct_pair_semantic_ce": float(
+                correct_pair_semantic_ce.detach().float().item()
+            ),
+            "scene_state_donor_pair_semantic_ce": float(
+                donor_pair_semantic_ce.detach().float().item()
+            ),
+            "scene_state_zero_all_semantic_ce": float(
+                zero_all_semantic_ce.detach().float().item()
+            ),
+            "scene_state_donor_pair_gap": float(
+                donor_gap.detach().float().item()
+            ),
+            "scene_state_zero_all_gap": float(zero_gap.detach().float().item()),
+            "scene_state_donor_margin_loss": float(
+                donor_margin_loss.detach().float().item()
+            ),
+            "scene_state_donor_positive_fraction": float(
+                donor_gap_rows.gt(0).float().mean().item()
+            ),
+            "scene_state_zero_positive_fraction": float(
+                zero_gap_rows.gt(0).float().mean().item()
+            ),
+            "scene_state_semantic_token_count": float(semantic_token_count),
+            "scene_state_semantic_row_count": float(
+                correct_all_semantic_row_ce.numel()
+            ),
+            "scene_state_target_presence_row_count": stratum_row_counts[
+                "presence"
+            ],
+            "scene_state_target_same_cardinality_value_row_count": (
+                stratum_row_counts["same_cardinality_value"]
+            ),
+            "scene_state_target_cross_cardinality_value_row_count": (
+                stratum_row_counts["cross_cardinality_value"]
+            ),
+        }
+
+    def _compute_scene_state_identity_ce(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        loss_kwargs: dict[str, torch.Tensor],
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+        donor_write_input_ids: torch.Tensor,
+        donor_write_attention_mask: torch.Tensor,
+        donor_write_message_ids: torch.Tensor | None,
+        donor_write_sentence_ids: torch.Tensor | None,
+        semantic_mask: torch.Tensor,
+        pair_target_mask: torch.Tensor,
+        target_stratum_codes: torch.Tensor,
+    ):
+        self._validate_scene_state_identity_runtime()
+        (
+            correct_full_ce,
+            _,
+            correct_all_semantic_row_ce,
+            all_semantic_token_count,
+            _,
+            correct_pair_semantic_row_ce,
+            pair_semantic_token_count,
+            correct_outputs,
+        ) = self._scene_state_identity_branch(
+            model,
+            model_inputs,
+            loss_kwargs=loss_kwargs,
+            prime_writes=True,
+            write_input_ids=write_input_ids,
+            write_attention_mask=write_attention_mask,
+            write_message_ids=write_message_ids,
+            write_sentence_ids=write_sentence_ids,
+            semantic_mask=semantic_mask,
+            pair_target_mask=pair_target_mask,
+        )
+        (
+            _,
+            _,
+            _,
+            donor_all_token_count,
+            _,
+            donor_pair_semantic_row_ce,
+            donor_pair_token_count,
+            _,
+        ) = self._scene_state_identity_branch(
+            model,
+            model_inputs,
+            loss_kwargs=loss_kwargs,
+            prime_writes=True,
+            write_input_ids=donor_write_input_ids,
+            write_attention_mask=donor_write_attention_mask,
+            write_message_ids=donor_write_message_ids,
+            write_sentence_ids=donor_write_sentence_ids,
+            semantic_mask=semantic_mask,
+            pair_target_mask=pair_target_mask,
+        )
+        with torch.no_grad():
+            (
+                _,
+                _,
+                zero_all_semantic_row_ce,
+                zero_all_token_count,
+                _,
+                _,
+                zero_pair_token_count,
+                _,
+            ) = self._scene_state_identity_branch(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                prime_writes=False,
+                write_input_ids=None,
+                write_attention_mask=None,
+                write_message_ids=None,
+                write_sentence_ids=None,
+                semantic_mask=semantic_mask,
+                pair_target_mask=pair_target_mask,
+            )
+        if not (
+            all_semantic_token_count
+            == donor_all_token_count
+            == zero_all_token_count
+        ) or not (
+            pair_semantic_token_count
+            == donor_pair_token_count
+            == zero_pair_token_count
+        ):
+            raise RuntimeError(
+                "Scene-state identity branches selected different semantic token counts"
+            )
+        objective_values = self._scene_state_identity_objective(
+            correct_full_ce,
+            correct_all_semantic_row_ce,
+            correct_pair_semantic_row_ce,
+            donor_pair_semantic_row_ce,
+            zero_all_semantic_row_ce,
+        )
+        total_loss = objective_values[0]
+        outputs = dict(correct_outputs)
+        outputs["loss"] = total_loss
+        outputs["memory_loss"] = (total_loss - correct_full_ce).detach()
+        outputs["scene_state_correct_all_semantic_ce"] = objective_values[1].detach()
+        outputs["scene_state_correct_pair_semantic_ce"] = objective_values[2].detach()
+        outputs["scene_state_donor_pair_semantic_ce"] = objective_values[3].detach()
+        outputs["scene_state_zero_all_semantic_ce"] = objective_values[4].detach()
+        memory_stats = self._scene_state_identity_stats(
+            correct_full_ce=correct_full_ce,
+            correct_all_semantic_row_ce=correct_all_semantic_row_ce,
+            correct_pair_semantic_row_ce=correct_pair_semantic_row_ce,
+            donor_pair_semantic_row_ce=donor_pair_semantic_row_ce,
+            zero_all_semantic_row_ce=zero_all_semantic_row_ce,
+            semantic_token_count=all_semantic_token_count,
+            target_stratum_codes=target_stratum_codes,
+            objective_values=objective_values,
+        )
+        set_delta_mem_read_context_mask(model, None)
+        set_delta_mem_write_enabled(model, True)
+        return total_loss, outputs, memory_stats
+
+    def _scene_state_identity_loss_and_coefficients(
+        self,
+        correct_full_ce: torch.Tensor,
+        correct_all_semantic_row_ce: torch.Tensor,
+        correct_pair_semantic_row_ce: torch.Tensor,
+        donor_pair_semantic_row_ce: torch.Tensor,
+        zero_all_semantic_row_ce: torch.Tensor,
+    ) -> tuple[
+        tuple[
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+        ],
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
+        correct_full_probe = correct_full_ce.detach().float().requires_grad_(True)
+        correct_all_semantic_probe = (
+            correct_all_semantic_row_ce.detach().float().requires_grad_(True)
+        )
+        correct_pair_semantic_probe = (
+            correct_pair_semantic_row_ce.detach().float().requires_grad_(True)
+        )
+        donor_pair_semantic_probe = (
+            donor_pair_semantic_row_ce.detach().float().requires_grad_(True)
+        )
+        zero_all_semantic_probe = zero_all_semantic_row_ce.detach().float()
+        objective_values = self._scene_state_identity_objective(
+            correct_full_probe,
+            correct_all_semantic_probe,
+            correct_pair_semantic_probe,
+            donor_pair_semantic_probe,
+            zero_all_semantic_probe,
+        )
+        coefficients = torch.autograd.grad(
+            objective_values[0],
+            (
+                correct_full_probe,
+                correct_all_semantic_probe,
+                correct_pair_semantic_probe,
+                donor_pair_semantic_probe,
+            ),
+        )
+        return (
+            tuple(value.detach() for value in objective_values),
+            coefficients[0].detach(),
+            coefficients[1].detach(),
+            coefficients[2].detach(),
+            coefficients[3].detach(),
+        )
+
+    @staticmethod
+    def _validate_scene_state_replay(
+        *,
+        branch_name: str,
+        replay_full_ce: torch.Tensor,
+        probe_full_ce: torch.Tensor,
+        replay_semantic_row_ce: torch.Tensor,
+        probe_semantic_row_ce: torch.Tensor,
+    ) -> None:
+        if not torch.allclose(
+            replay_full_ce.detach(),
+            probe_full_ce,
+            rtol=1e-5,
+            atol=1e-6,
+        ):
+            raise RuntimeError(
+                f"Sequential scene-state {branch_name} full-CE replay is not "
+                "deterministic"
+            )
+        if not torch.allclose(
+            replay_semantic_row_ce.detach(),
+            probe_semantic_row_ce,
+            rtol=1e-5,
+            atol=1e-6,
+        ):
+            maximum_error = torch.max(
+                torch.abs(
+                    replay_semantic_row_ce.detach().float()
+                    - probe_semantic_row_ce.float()
+                )
+            )
+            raise RuntimeError(
+                f"Sequential scene-state {branch_name} semantic-CE replay is not "
+                f"deterministic: max_abs_error={float(maximum_error.item()):.8f}"
+            )
+
+    def _scene_state_identity_sequential_backward(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        loss_kwargs: dict[str, torch.Tensor],
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+        donor_write_input_ids: torch.Tensor,
+        donor_write_attention_mask: torch.Tensor,
+        donor_write_message_ids: torch.Tensor | None,
+        donor_write_sentence_ids: torch.Tensor | None,
+        semantic_mask: torch.Tensor,
+        pair_target_mask: torch.Tensor,
+        target_stratum_codes: torch.Tensor,
+        gradient_scale: float,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
+        """Backpropagate two live branches and probe reset state diagnostically."""
+
+        self._validate_scene_state_identity_sequential_runtime()
+        donor_probe_rng_state = _capture_torch_rng_state()
+        with torch.no_grad(), self.compute_loss_context_manager():
+            (
+                donor_full_probe,
+                _,
+                _,
+                donor_all_token_count,
+                _,
+                donor_pair_semantic_row_probe,
+                donor_pair_token_count,
+                donor_probe_outputs,
+            ) = self._scene_state_identity_branch(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                prime_writes=True,
+                write_input_ids=donor_write_input_ids,
+                write_attention_mask=donor_write_attention_mask,
+                write_message_ids=donor_write_message_ids,
+                write_sentence_ids=donor_write_sentence_ids,
+                semantic_mask=semantic_mask,
+                pair_target_mask=pair_target_mask,
+            )
+        donor_full_probe = donor_full_probe.detach()
+        donor_pair_semantic_row_probe = donor_pair_semantic_row_probe.detach()
+        del donor_probe_outputs
+
+        with torch.no_grad(), self.compute_loss_context_manager():
+            (
+                _,
+                _,
+                zero_all_semantic_row_probe,
+                zero_all_token_count,
+                _,
+                _,
+                zero_pair_token_count,
+                zero_probe_outputs,
+            ) = self._scene_state_identity_branch(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                prime_writes=False,
+                write_input_ids=None,
+                write_attention_mask=None,
+                write_message_ids=None,
+                write_sentence_ids=None,
+                semantic_mask=semantic_mask,
+                pair_target_mask=pair_target_mask,
+            )
+        zero_all_semantic_row_probe = zero_all_semantic_row_probe.detach()
+        del zero_probe_outputs
+
+        with self.compute_loss_context_manager():
+            (
+                correct_full_ce,
+                _,
+                correct_all_semantic_row_ce,
+                correct_all_token_count,
+                _,
+                correct_pair_semantic_row_ce,
+                correct_pair_token_count,
+                correct_outputs,
+            ) = self._scene_state_identity_branch(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                prime_writes=True,
+                write_input_ids=write_input_ids,
+                write_attention_mask=write_attention_mask,
+                write_message_ids=write_message_ids,
+                write_sentence_ids=write_sentence_ids,
+                semantic_mask=semantic_mask,
+                pair_target_mask=pair_target_mask,
+            )
+        if not (
+            correct_all_token_count
+            == donor_all_token_count
+            == zero_all_token_count
+        ) or not (
+            correct_pair_token_count
+            == donor_pair_token_count
+            == zero_pair_token_count
+        ):
+            raise RuntimeError(
+                "Scene-state identity branches selected different semantic token counts"
+            )
+        (
+            objective_values,
+            correct_full_coefficient,
+            correct_all_semantic_coefficient,
+            correct_pair_semantic_coefficient,
+            donor_pair_semantic_coefficient,
+        ) = self._scene_state_identity_loss_and_coefficients(
+            correct_full_ce,
+            correct_all_semantic_row_ce,
+            correct_pair_semantic_row_ce,
+            donor_pair_semantic_row_probe,
+            zero_all_semantic_row_probe,
+        )
+        correct_full_value = correct_full_ce.detach()
+        correct_all_semantic_row_value = correct_all_semantic_row_ce.detach()
+        correct_pair_semantic_row_value = correct_pair_semantic_row_ce.detach()
+        correct_backward = (
+            correct_full_ce * correct_full_coefficient
+            + torch.sum(
+                correct_all_semantic_row_ce.float()
+                * correct_all_semantic_coefficient
+            )
+            + torch.sum(
+                correct_pair_semantic_row_ce.float()
+                * correct_pair_semantic_coefficient
+            )
+        )
+        self.accelerator.backward(correct_backward * gradient_scale)
+        del (
+            correct_backward,
+            correct_full_ce,
+            correct_all_semantic_row_ce,
+            correct_pair_semantic_row_ce,
+            correct_outputs,
+        )
+
+        post_correct_rng_state = _capture_torch_rng_state()
+        _restore_torch_rng_state(donor_probe_rng_state)
+        try:
+            with self.compute_loss_context_manager():
+                (
+                    donor_full_ce,
+                    _,
+                    _,
+                    donor_replay_all_token_count,
+                    _,
+                    donor_pair_semantic_row_ce,
+                    donor_replay_pair_token_count,
+                    donor_outputs,
+                ) = self._scene_state_identity_branch(
+                    model,
+                    model_inputs,
+                    loss_kwargs=loss_kwargs,
+                    prime_writes=True,
+                    write_input_ids=donor_write_input_ids,
+                    write_attention_mask=donor_write_attention_mask,
+                    write_message_ids=donor_write_message_ids,
+                    write_sentence_ids=donor_write_sentence_ids,
+                    semantic_mask=semantic_mask,
+                    pair_target_mask=pair_target_mask,
+                )
+        finally:
+            _restore_torch_rng_state(post_correct_rng_state)
+        if (
+            donor_replay_all_token_count != donor_all_token_count
+            or donor_replay_pair_token_count != donor_pair_token_count
+        ):
+            raise RuntimeError(
+                "Sequential scene-state donor replay selected a different token count"
+            )
+        self._validate_scene_state_replay(
+            branch_name="donor",
+            replay_full_ce=donor_full_ce,
+            probe_full_ce=donor_full_probe,
+            replay_semantic_row_ce=donor_pair_semantic_row_ce,
+            probe_semantic_row_ce=donor_pair_semantic_row_probe,
+        )
+        donor_pair_semantic_row_value = donor_pair_semantic_row_ce.detach()
+        donor_backward = torch.sum(
+            donor_pair_semantic_row_ce.float() * donor_pair_semantic_coefficient
+        )
+        self.accelerator.backward(donor_backward * gradient_scale)
+        del (
+            donor_backward,
+            donor_full_ce,
+            donor_pair_semantic_row_ce,
+            donor_outputs,
+        )
+        zero_all_semantic_row_value = zero_all_semantic_row_probe
+
+        memory_stats = self._scene_state_identity_stats(
+            correct_full_ce=correct_full_value,
+            correct_all_semantic_row_ce=correct_all_semantic_row_value,
+            correct_pair_semantic_row_ce=correct_pair_semantic_row_value,
+            donor_pair_semantic_row_ce=donor_pair_semantic_row_value,
+            zero_all_semantic_row_ce=zero_all_semantic_row_value,
+            semantic_token_count=correct_all_token_count,
+            target_stratum_codes=target_stratum_codes,
+            objective_values=objective_values,
+        )
+        set_delta_mem_read_context_mask(model, None)
+        set_delta_mem_write_enabled(model, True)
+        return objective_values[0] * gradient_scale, memory_stats
+
     def _record_memory_stats(self, model, memory_stats: dict[str, float]) -> None:
         partition_route_stats = collect_delta_mem_partition_route_stats(model)
         self._last_partition_enabled_modules = partition_route_stats["enabled_modules"]
@@ -3695,6 +5142,26 @@ class DeltaMemTrainer(Trainer):
         self._last_memory_reset_loss = memory_stats["reset_loss"]
         self._last_memory_corrupt_loss = memory_stats["corrupt_loss"]
         self._last_memory_teacher_loss = memory_stats["teacher_loss"]
+        self._last_scene_boundary_full_ce_loss = memory_stats.get(
+            "scene_boundary_full_ce_loss",
+            0.0,
+        )
+        self._last_scene_boundary_payload_ce_loss = memory_stats.get(
+            "scene_boundary_payload_ce_loss",
+            0.0,
+        )
+        self._last_scene_boundary_payload_auxiliary_loss = memory_stats.get(
+            "scene_boundary_payload_auxiliary_loss",
+            0.0,
+        )
+        self._last_scene_boundary_payload_token_count = memory_stats.get(
+            "scene_boundary_payload_token_count",
+            0.0,
+        )
+        self._last_scene_boundary_supervised_token_count = memory_stats.get(
+            "scene_boundary_supervised_token_count",
+            0.0,
+        )
         self._last_memory_margin_loss = memory_stats["margin_loss"]
         self._last_memory_causal_loss = memory_stats["causal_loss"]
         self._last_memory_anchor_loss = memory_stats["anchor_loss"]
@@ -3737,6 +5204,70 @@ class DeltaMemTrainer(Trainer):
         self._last_content_contrast_targeted_token_count = memory_stats.get(
             "targeted_token_count",
             0.0,
+        )
+        self._last_scene_state_full_correct_ce = memory_stats.get(
+            "scene_state_full_correct_ce",
+            0.0,
+        )
+        self._last_scene_state_correct_all_semantic_ce = memory_stats.get(
+            "scene_state_correct_all_semantic_ce",
+            0.0,
+        )
+        self._last_scene_state_correct_pair_semantic_ce = memory_stats.get(
+            "scene_state_correct_pair_semantic_ce",
+            0.0,
+        )
+        self._last_scene_state_donor_pair_semantic_ce = memory_stats.get(
+            "scene_state_donor_pair_semantic_ce",
+            0.0,
+        )
+        self._last_scene_state_zero_all_semantic_ce = memory_stats.get(
+            "scene_state_zero_all_semantic_ce",
+            0.0,
+        )
+        self._last_scene_state_donor_pair_gap = memory_stats.get(
+            "scene_state_donor_pair_gap",
+            0.0,
+        )
+        self._last_scene_state_zero_all_gap = memory_stats.get(
+            "scene_state_zero_all_gap",
+            0.0,
+        )
+        self._last_scene_state_donor_margin_loss = memory_stats.get(
+            "scene_state_donor_margin_loss",
+            0.0,
+        )
+        self._last_scene_state_donor_positive_fraction = memory_stats.get(
+            "scene_state_donor_positive_fraction",
+            0.0,
+        )
+        self._last_scene_state_zero_positive_fraction = memory_stats.get(
+            "scene_state_zero_positive_fraction",
+            0.0,
+        )
+        self._last_scene_state_semantic_token_count = memory_stats.get(
+            "scene_state_semantic_token_count",
+            0.0,
+        )
+        self._last_scene_state_semantic_row_count = memory_stats.get(
+            "scene_state_semantic_row_count",
+            0.0,
+        )
+        self._last_scene_state_target_presence_row_count = memory_stats.get(
+            "scene_state_target_presence_row_count",
+            0.0,
+        )
+        self._last_scene_state_target_same_cardinality_value_row_count = (
+            memory_stats.get(
+                "scene_state_target_same_cardinality_value_row_count",
+                0.0,
+            )
+        )
+        self._last_scene_state_target_cross_cardinality_value_row_count = (
+            memory_stats.get(
+                "scene_state_target_cross_cardinality_value_row_count",
+                0.0,
+            )
         )
         self._last_memory_wmem = memory_stats["wmem"]
         self._last_memory_probe_keep_loss = memory_stats["probe_keep_loss"]
@@ -4166,6 +5697,34 @@ class DeltaMemTrainer(Trainer):
             "content_contrast_target_mask",
             None,
         )
+        scene_state_donor_write_input_ids = model_inputs.pop(
+            "scene_state_donor_write_input_ids",
+            None,
+        )
+        scene_state_donor_write_attention_mask = model_inputs.pop(
+            "scene_state_donor_write_attention_mask",
+            None,
+        )
+        scene_state_donor_write_message_ids = model_inputs.pop(
+            "scene_state_donor_write_message_ids",
+            None,
+        )
+        scene_state_donor_write_sentence_ids = model_inputs.pop(
+            "scene_state_donor_write_sentence_ids",
+            None,
+        )
+        scene_state_semantic_mask = model_inputs.pop(
+            "scene_state_semantic_mask",
+            None,
+        )
+        scene_state_identity_target_mask = model_inputs.pop(
+            "scene_state_identity_target_mask",
+            None,
+        )
+        scene_state_identity_target_stratum = model_inputs.pop(
+            "scene_state_identity_target_stratum",
+            None,
+        )
         state_only_write_input_ids = model_inputs.pop("state_only_write_input_ids", None)
         state_only_write_attention_mask = model_inputs.pop("state_only_write_attention_mask", None)
         state_only_write_message_ids = model_inputs.pop("state_only_write_message_ids", None)
@@ -4173,6 +5732,16 @@ class DeltaMemTrainer(Trainer):
         state_only_input_ids = model_inputs.pop("state_only_input_ids", None)
         state_only_attention_mask = model_inputs.pop("state_only_attention_mask", None)
         state_only_labels = model_inputs.pop("state_only_labels", None)
+        scene_boundary_payload_mask = model_inputs.pop(
+            "scene_boundary_payload_mask",
+            None,
+        )
+        state_only_scene_boundary_payload_mask = model_inputs.pop(
+            "state_only_scene_boundary_payload_mask",
+            None,
+        )
+        model_inputs.pop("teacher_scene_boundary_payload_mask", None)
+        model_inputs.pop("full_scene_boundary_payload_mask", None)
         teacher_input_ids = model_inputs.pop("teacher_input_ids", None)
         teacher_attention_mask = model_inputs.pop("teacher_attention_mask", None)
         teacher_labels = model_inputs.pop("teacher_labels", None)
@@ -4212,7 +5781,64 @@ class DeltaMemTrainer(Trainer):
             "probe_kl": 0.0,
             "probe_ce": 0.0,
         }
-        if self.memory_loss_mode == "content_contrast_ce":
+        if getattr(self, "memory_loss_mode", None) == "scene_state_identity_ce":
+            required_scene_state_values = {
+                "write_input_ids": write_input_ids,
+                "write_attention_mask": write_attention_mask,
+                "scene_state_donor_write_input_ids": (
+                    scene_state_donor_write_input_ids
+                ),
+                "scene_state_donor_write_attention_mask": (
+                    scene_state_donor_write_attention_mask
+                ),
+                "scene_state_semantic_mask": scene_state_semantic_mask,
+                "scene_state_identity_target_mask": (
+                    scene_state_identity_target_mask
+                ),
+                "scene_state_identity_target_stratum": (
+                    scene_state_identity_target_stratum
+                ),
+            }
+            missing_scene_state_values = [
+                key
+                for key, value in required_scene_state_values.items()
+                if value is None
+            ]
+            if missing_scene_state_values:
+                raise ValueError(
+                    "scene_state_identity_ce requires correct/donor writes and audited "
+                    "semantic target masks: " + ", ".join(missing_scene_state_values)
+                )
+            if scene_state_semantic_mask.shape != scene_state_identity_target_mask.shape:
+                raise ValueError(
+                    "Scene-state semantic and identity target masks must align"
+                )
+            if bool(
+                (
+                    scene_state_identity_target_mask.to(dtype=torch.bool)
+                    & ~scene_state_semantic_mask.to(dtype=torch.bool)
+                ).any()
+            ):
+                raise ValueError(
+                    "Scene-state identity target mask must be a subset of the semantic mask"
+                )
+            loss, outputs, memory_stats = self._compute_scene_state_identity_ce(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                write_input_ids=write_input_ids,
+                write_attention_mask=write_attention_mask,
+                write_message_ids=write_message_ids,
+                write_sentence_ids=write_sentence_ids,
+                donor_write_input_ids=scene_state_donor_write_input_ids,
+                donor_write_attention_mask=scene_state_donor_write_attention_mask,
+                donor_write_message_ids=scene_state_donor_write_message_ids,
+                donor_write_sentence_ids=scene_state_donor_write_sentence_ids,
+                semantic_mask=scene_state_semantic_mask,
+                pair_target_mask=scene_state_identity_target_mask,
+                target_stratum_codes=scene_state_identity_target_stratum,
+            )
+        elif self.memory_loss_mode == "content_contrast_ce":
             if (
                 write_input_ids is None
                 or write_attention_mask is None
@@ -4250,6 +5876,10 @@ class DeltaMemTrainer(Trainer):
                 state_only_input_ids=state_only_input_ids,
                 state_only_attention_mask=state_only_attention_mask,
                 state_only_labels=state_only_labels,
+                scene_boundary_payload_mask=scene_boundary_payload_mask,
+                state_only_scene_boundary_payload_mask=(
+                    state_only_scene_boundary_payload_mask
+                ),
                 state_only_write_input_ids=state_only_write_input_ids,
                 state_only_write_attention_mask=state_only_write_attention_mask,
                 state_only_write_message_ids=state_only_write_message_ids,
@@ -4390,6 +6020,76 @@ class DeltaMemTrainer(Trainer):
 
     def log(self, logs: dict[str, float], start_time: float | None = None) -> None:
         enriched_logs = dict(logs)
+        if getattr(self, "scene_boundary_payload_ce_weight", 0.0) > 0.0:
+            enriched_logs.update(
+                {
+                    "delta/scene_boundary_full_ce_loss": (
+                        self._last_scene_boundary_full_ce_loss
+                    ),
+                    "delta/scene_boundary_payload_ce_loss": (
+                        self._last_scene_boundary_payload_ce_loss
+                    ),
+                    "delta/scene_boundary_payload_auxiliary_loss": (
+                        self._last_scene_boundary_payload_auxiliary_loss
+                    ),
+                    "delta/scene_boundary_payload_token_count": (
+                        self._last_scene_boundary_payload_token_count
+                    ),
+                    "delta/scene_boundary_supervised_token_count": (
+                        self._last_scene_boundary_supervised_token_count
+                    ),
+                }
+            )
+        if getattr(self, "memory_loss_mode", None) == "scene_state_identity_ce":
+            enriched_logs.update(
+                {
+                    "delta/scene_state_full_correct_ce": (
+                        self._last_scene_state_full_correct_ce
+                    ),
+                    "delta/scene_state_correct_all_semantic_ce": (
+                        self._last_scene_state_correct_all_semantic_ce
+                    ),
+                    "delta/scene_state_correct_pair_semantic_ce": (
+                        self._last_scene_state_correct_pair_semantic_ce
+                    ),
+                    "delta/scene_state_donor_pair_semantic_ce": (
+                        self._last_scene_state_donor_pair_semantic_ce
+                    ),
+                    "delta/scene_state_zero_all_semantic_ce": (
+                        self._last_scene_state_zero_all_semantic_ce
+                    ),
+                    "delta/scene_state_donor_pair_gap": (
+                        self._last_scene_state_donor_pair_gap
+                    ),
+                    "delta/scene_state_zero_all_gap": (
+                        self._last_scene_state_zero_all_gap
+                    ),
+                    "delta/scene_state_donor_margin_loss": (
+                        self._last_scene_state_donor_margin_loss
+                    ),
+                    "delta/scene_state_donor_positive_fraction": (
+                        self._last_scene_state_donor_positive_fraction
+                    ),
+                    "delta/scene_state_zero_positive_fraction": (
+                        self._last_scene_state_zero_positive_fraction
+                    ),
+                    "delta/scene_state_semantic_token_count": (
+                        self._last_scene_state_semantic_token_count
+                    ),
+                    "delta/scene_state_semantic_row_count": (
+                        self._last_scene_state_semantic_row_count
+                    ),
+                    "delta/scene_state_target_presence_row_count": (
+                        self._last_scene_state_target_presence_row_count
+                    ),
+                    "delta/scene_state_target_same_cardinality_value_row_count": (
+                        self._last_scene_state_target_same_cardinality_value_row_count
+                    ),
+                    "delta/scene_state_target_cross_cardinality_value_row_count": (
+                        self._last_scene_state_target_cross_cardinality_value_row_count
+                    ),
+                }
+            )
         if self.model is not None and getattr(self, "log_delta_debug_stats", False):
             gate_stats = collect_delta_mem_gate_stats(self.model)
             output_ratio_stats = collect_delta_mem_output_ratio_stats(self.model)
@@ -4550,6 +6250,12 @@ class DeltaMemTrainer(Trainer):
     ) -> torch.Tensor:
         self._maybe_enable_static_graph(model)
         self._reset_online_state(model)
+        if self.memory_loss_mode == "scene_state_identity_ce":
+            return self._scene_state_identity_sequential_training_step(
+                model,
+                inputs,
+                num_items_in_batch=num_items_in_batch,
+            )
         if self.memory_loss_mode == "content_contrast_ce":
             return self._content_contrast_sequential_training_step(
                 model,
@@ -4557,6 +6263,139 @@ class DeltaMemTrainer(Trainer):
                 num_items_in_batch=num_items_in_batch,
             )
         return super().training_step(model, inputs, num_items_in_batch=num_items_in_batch)
+
+    def _scene_state_identity_sequential_training_step(
+        self,
+        model,
+        inputs: dict[str, torch.Tensor],
+        *,
+        num_items_in_batch: torch.Tensor | None,
+    ) -> torch.Tensor:
+        cp_context, inputs = self._prepare_context_parallel_inputs(model, inputs)
+        with cp_context():
+            model.train()
+            if hasattr(self.optimizer, "train") and callable(self.optimizer.train):
+                self.optimizer.train()
+            prepared_inputs = self._prepare_inputs(inputs)
+            model_inputs = dict(prepared_inputs)
+            payload = {
+                key: model_inputs.pop(key, None)
+                for key in (
+                    "write_input_ids",
+                    "write_attention_mask",
+                    "write_message_ids",
+                    "write_sentence_ids",
+                    "scene_state_donor_write_input_ids",
+                    "scene_state_donor_write_attention_mask",
+                    "scene_state_donor_write_message_ids",
+                    "scene_state_donor_write_sentence_ids",
+                    "scene_state_semantic_mask",
+                    "scene_state_identity_target_mask",
+                    "scene_state_identity_target_stratum",
+                )
+            }
+            for key in (
+                "state_only_write_input_ids",
+                "state_only_write_attention_mask",
+                "state_only_write_message_ids",
+                "state_only_write_sentence_ids",
+                "state_only_input_ids",
+                "state_only_attention_mask",
+                "state_only_labels",
+                "scene_boundary_payload_mask",
+                "state_only_scene_boundary_payload_mask",
+                "teacher_scene_boundary_payload_mask",
+                "full_scene_boundary_payload_mask",
+                "teacher_input_ids",
+                "teacher_attention_mask",
+                "teacher_labels",
+                "full_input_ids",
+                "full_attention_mask",
+                "full_labels",
+                "write_lengths",
+                "read_lengths",
+            ):
+                model_inputs.pop(key, None)
+
+            required = (
+                "write_input_ids",
+                "write_attention_mask",
+                "scene_state_donor_write_input_ids",
+                "scene_state_donor_write_attention_mask",
+                "scene_state_semantic_mask",
+                "scene_state_identity_target_mask",
+                "scene_state_identity_target_stratum",
+            )
+            missing = [key for key in required if payload[key] is None]
+            if missing:
+                raise ValueError(
+                    "scene_state_identity_ce requires correct/donor writes and audited "
+                    "semantic target masks: " + ", ".join(missing)
+                )
+            semantic_mask = payload["scene_state_semantic_mask"].to(
+                dtype=torch.bool
+            )
+            target_mask = payload["scene_state_identity_target_mask"].to(
+                dtype=torch.bool
+            )
+            if semantic_mask.shape != target_mask.shape:
+                raise ValueError(
+                    "Scene-state semantic and identity target masks must align"
+                )
+            if bool((target_mask & ~semantic_mask).any()):
+                raise ValueError(
+                    "Scene-state identity target mask must be a subset of the semantic mask"
+                )
+
+            loss_kwargs = {}
+            if self.model_accepts_loss_kwargs and num_items_in_batch is not None:
+                loss_kwargs["num_items_in_batch"] = num_items_in_batch
+            gradient_scale = 1.0
+            if (
+                (not self.model_accepts_loss_kwargs or num_items_in_batch is None)
+                and self.compute_loss_func is None
+            ):
+                gradient_scale /= self.current_gradient_accumulation_steps
+            loss, memory_stats = self._scene_state_identity_sequential_backward(
+                model,
+                model_inputs,
+                loss_kwargs=loss_kwargs,
+                write_input_ids=payload["write_input_ids"],
+                write_attention_mask=payload["write_attention_mask"],
+                write_message_ids=payload["write_message_ids"],
+                write_sentence_ids=payload["write_sentence_ids"],
+                donor_write_input_ids=payload[
+                    "scene_state_donor_write_input_ids"
+                ],
+                donor_write_attention_mask=payload[
+                    "scene_state_donor_write_attention_mask"
+                ],
+                donor_write_message_ids=payload[
+                    "scene_state_donor_write_message_ids"
+                ],
+                donor_write_sentence_ids=payload[
+                    "scene_state_donor_write_sentence_ids"
+                ],
+                semantic_mask=semantic_mask,
+                pair_target_mask=target_mask,
+                target_stratum_codes=payload[
+                    "scene_state_identity_target_stratum"
+                ],
+                gradient_scale=gradient_scale,
+            )
+            self._last_memory_partition_alignment_loss = 0.0
+            self._last_memory_partition_entropy_loss = 0.0
+            self._last_memory_partition_balance_loss = 0.0
+            self._last_write_sparsity_loss = 0.0
+            self._record_memory_stats(model, memory_stats)
+            del prepared_inputs, model_inputs
+            if (
+                self.args.torch_empty_cache_steps is not None
+                and self.state.global_step % self.args.torch_empty_cache_steps == 0
+                and torch.cuda.is_available()
+            ):
+                torch.cuda.empty_cache()
+            return loss.detach()
 
     def _content_contrast_sequential_training_step(
         self,
@@ -4594,6 +6433,10 @@ class DeltaMemTrainer(Trainer):
                 "state_only_input_ids",
                 "state_only_attention_mask",
                 "state_only_labels",
+                "scene_boundary_payload_mask",
+                "state_only_scene_boundary_payload_mask",
+                "teacher_scene_boundary_payload_mask",
+                "full_scene_boundary_payload_mask",
                 "teacher_input_ids",
                 "teacher_attention_mask",
                 "teacher_labels",
@@ -4698,6 +6541,19 @@ class DeltaMemTrainer(Trainer):
                     sort_keys=True,
                 )
             )
+        scene_state_identity_pairing_manifest = getattr(
+            self,
+            "scene_state_identity_pairing_manifest",
+            None,
+        )
+        if scene_state_identity_pairing_manifest is not None:
+            (output_path / _SCENE_STATE_IDENTITY_PAIRING_FILENAME).write_text(
+                json.dumps(
+                    scene_state_identity_pairing_manifest,
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
         continuation_manifest = getattr(self, "continuation_manifest", None)
         if continuation_manifest is not None:
             (output_path / _lineage_manifest_filename(continuation_manifest)).write_text(
@@ -4730,17 +6586,35 @@ class DeltaMemTrainer(Trainer):
             resume_mode=active_resume_mode,
         )
         expected_pairing = getattr(self, "content_contrast_pairing_manifest", None)
-        if expected_pairing is None or active_resume_mode == "objective_ablation":
-            return
-        pairing_path = checkpoint / _CONTENT_CONTRAST_PAIRING_FILENAME
-        if not pairing_path.is_file():
-            raise ValueError(
-                f"Delta-Mem checkpoint is missing {_CONTENT_CONTRAST_PAIRING_FILENAME}: "
-                f"{checkpoint}"
-            )
-        actual_pairing = json.loads(pairing_path.read_text())
-        if actual_pairing != expected_pairing:
-            raise ValueError("Delta-Mem checkpoint content-contrast pairing manifest does not match")
+        if expected_pairing is not None and active_resume_mode != "objective_ablation":
+            pairing_path = checkpoint / _CONTENT_CONTRAST_PAIRING_FILENAME
+            if not pairing_path.is_file():
+                raise ValueError(
+                    f"Delta-Mem checkpoint is missing {_CONTENT_CONTRAST_PAIRING_FILENAME}: "
+                    f"{checkpoint}"
+                )
+            actual_pairing = json.loads(pairing_path.read_text())
+            if actual_pairing != expected_pairing:
+                raise ValueError(
+                    "Delta-Mem checkpoint content-contrast pairing manifest does not match"
+                )
+        expected_scene_pairing = getattr(
+            self,
+            "scene_state_identity_pairing_manifest",
+            None,
+        )
+        if expected_scene_pairing is not None:
+            scene_pairing_path = checkpoint / _SCENE_STATE_IDENTITY_PAIRING_FILENAME
+            if not scene_pairing_path.is_file():
+                raise ValueError(
+                    "Delta-Mem checkpoint is missing "
+                    f"{_SCENE_STATE_IDENTITY_PAIRING_FILENAME}: {checkpoint}"
+                )
+            actual_scene_pairing = json.loads(scene_pairing_path.read_text())
+            if actual_scene_pairing != expected_scene_pairing:
+                raise ValueError(
+                    "Delta-Mem checkpoint scene-state pairing manifest does not match"
+                )
 
     def _load_from_checkpoint(self, resume_from_checkpoint: str, model=None) -> None:
         active_resume_mode = getattr(self, "resume_mode", "exact")
@@ -4750,6 +6624,10 @@ class DeltaMemTrainer(Trainer):
             require_content_contrast_pairing=(
                 getattr(self, "content_contrast_pairing_manifest", None) is not None
                 and active_resume_mode != "objective_ablation"
+            ),
+            require_scene_state_identity_pairing=(
+                getattr(self, "scene_state_identity_pairing_manifest", None)
+                is not None
             ),
         )
         if self.delta_config is None:
@@ -4794,6 +6672,108 @@ class DeltaMemTrainer(Trainer):
         self._reset_online_state(model)
 
 
+def _scene_state_source_manifest_identity(
+    args: argparse.Namespace,
+) -> dict[str, object] | None:
+    manifest_path = getattr(args, "scene_state_source_manifest", None)
+    expected_sha256 = getattr(
+        args,
+        "expected_scene_state_source_manifest_sha256",
+        None,
+    )
+    if manifest_path is None and expected_sha256 is None:
+        return None
+    if manifest_path is None or expected_sha256 is None:
+        raise ValueError(
+            "--scene-state-source-manifest and "
+            "--expected-scene-state-source-manifest-sha256 must be provided together"
+        )
+    manifest_path = Path(manifest_path).expanduser().resolve()
+    expected_sha256 = str(expected_sha256).lower()
+    if len(expected_sha256) != 64 or any(
+        character not in "0123456789abcdef" for character in expected_sha256
+    ):
+        raise ValueError(
+            "--expected-scene-state-source-manifest-sha256 must be exactly 64 "
+            "hexadecimal characters"
+        )
+    if not manifest_path.is_file() or manifest_path.is_symlink():
+        raise ValueError(f"Scene-state source manifest is invalid: {manifest_path}")
+    actual_sha256 = _sha256_file(manifest_path)
+    if actual_sha256 != expected_sha256:
+        raise ValueError(
+            "Scene-state source manifest SHA-256 differs from the launch lock: "
+            f"expected={expected_sha256} actual={actual_sha256}"
+        )
+    manifest = _load_json_object(
+        manifest_path,
+        description="scene-state source manifest",
+    )
+    partitions = manifest.get("partitions")
+    train_partition = (
+        None if not isinstance(partitions, dict) else partitions.get("train")
+    )
+    train_data = (
+        None if not isinstance(train_partition, dict) else train_partition.get("data")
+    )
+    if not isinstance(train_data, dict):
+        raise ValueError("Scene-state source manifest omits partitions.train.data")
+    contract = manifest.get("contract")
+    episode_contract = (
+        None if not isinstance(contract, dict) else contract.get("episode_contract")
+    )
+    if not isinstance(episode_contract, dict):
+        raise ValueError("Scene-state source manifest omits contract.episode_contract")
+    required_episode_contract = {
+        "episode_recent_messages": 0,
+        "write_phase": "system + user",
+        "read_supervision": "system + assistant",
+    }
+    episode_contract_mismatches = {
+        key: episode_contract.get(key)
+        for key, expected in required_episode_contract.items()
+        if episode_contract.get(key) != expected
+    }
+    if episode_contract_mismatches:
+        raise ValueError(
+            "Scene-state source manifest has an incompatible episode contract: "
+            f"{episode_contract_mismatches}"
+        )
+    train_path_raw = train_data.get("path")
+    train_sha256 = train_data.get("sha256")
+    train_file = getattr(args, "train_file", None)
+    if train_file is None:
+        raise ValueError("scene_state_identity_ce source manifest requires --train-file")
+    train_path = Path(str(train_path_raw)).expanduser().resolve()
+    resolved_train_file = Path(train_file).expanduser().resolve()
+    if train_path != resolved_train_file:
+        raise ValueError(
+            "Scene-state source manifest train path differs from --train-file"
+        )
+    actual_train_sha256 = _sha256_file(resolved_train_file)
+    if train_sha256 != actual_train_sha256:
+        raise ValueError(
+            "Scene-state source manifest train SHA-256 differs from --train-file"
+        )
+    return {
+        "path": str(manifest_path),
+        "file_sha256": actual_sha256,
+        "schema": manifest.get("schema"),
+        "train_file": str(resolved_train_file),
+        "train_file_sha256": actual_train_sha256,
+        "train_rows": train_partition.get("rows"),
+        "train_source_split": train_partition.get("source_split"),
+        "episode_contract": {
+            key: episode_contract[key]
+            for key in (
+                "episode_recent_messages",
+                "write_phase",
+                "read_supervision",
+            )
+        },
+    }
+
+
 def parse_args() -> argparse.Namespace:
     default_optim = "adamw_torch_fused" if torch.cuda.is_available() else "adamw_torch"
     parser = argparse.ArgumentParser(description="Train Delta-Mem on a Hugging Face causal LM.")
@@ -4806,6 +6786,24 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         required=True,
+    )
+    parser.add_argument(
+        "--initial-adapter-output-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Fresh single-process runs only: save the seeded step-0 adapter, config, "
+            "training protocol, and provenance before Trainer construction. The path "
+            "must be exactly OUTPUT_DIR/initial_adapter."
+        ),
+    )
+    parser.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help=(
+            "Validate data and topology, save the seeded step-0 adapter, then exit "
+            "before TrainingArguments, Trainer, or optimizer construction."
+        ),
     )
     checkpoint_source = parser.add_mutually_exclusive_group()
     checkpoint_source.add_argument(
@@ -4840,6 +6838,15 @@ def parse_args() -> argparse.Namespace:
         "--tokenized-cache",
         action=argparse.BooleanOptionalAction,
         default=True,
+    )
+    parser.add_argument(
+        "--expected-tokenized-dataset-sha256",
+        default=None,
+        help=(
+            "Optional canonical ordered-row SHA-256 lock for the tokenized dataset. "
+            "Managed cache hits, fresh cache builds, direct maps, and explicit "
+            "--tokenized-dataset-dir loads must match it."
+        ),
     )
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--local-rank", "--local_rank", type=int, default=-1)
@@ -5003,6 +7010,7 @@ def parse_args() -> argparse.Namespace:
             "context_dropout_ce",
             "context_ablation_ce",
             "content_contrast_ce",
+            "scene_state_identity_ce",
             "state_margin_kl",
             "latent_prefix_margin",
             "state_causal_anchor",
@@ -5030,6 +7038,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--memory-dropout-state-only-prob", type=float, default=0.0)
     parser.add_argument("--memory-base-kl-weight", type=float, default=0.0)
     parser.add_argument(
+        "--scene-state-identity-margin",
+        type=float,
+        default=0.5,
+        help=(
+            "Required donor-minus-correct and zero-minus-correct per-row semantic "
+            "CE margin for scene_state_identity_ce."
+        ),
+    )
+    parser.add_argument(
+        "--scene-state-source-manifest",
+        type=Path,
+        default=None,
+        help="Dataset-bound scene failure-pair source manifest.",
+    )
+    parser.add_argument(
+        "--expected-scene-state-source-manifest-sha256",
+        default=None,
+        help="Exact SHA-256 lock for --scene-state-source-manifest.",
+    )
+    parser.add_argument(
+        "--scene-boundary-payload-ce-weight",
+        type=float,
+        default=0.0,
+        help=(
+            "For context_dropout_ce scene training, add this weight times the CE sum "
+            "over only the tokenizer-aligned top-level JSON boundaries list, normalized "
+            "by the same full supervised-token denominator as the base CE."
+        ),
+    )
+    parser.add_argument(
         "--context-ablation-mode",
         default="mixed",
         choices=["mixed", "full_context_no_state", "state_only", "full_context_plus_state"],
@@ -5047,6 +7085,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--data-seed", type=int, default=42)
+    parser.add_argument(
+        "--train-sampler-seed",
+        type=int,
+        default=None,
+        help=(
+            "Opt in to a torch RandomSampler locked to this seed. It must equal "
+            "--data-seed so Accelerate's seedable sampler preserves the same order. "
+            "Unset preserves the Transformers Trainer sampler exactly."
+        ),
+    )
     parser.add_argument("--lr-scheduler-type", default="cosine")
     parser.add_argument("--warmup-ratio", type=float, default=0.10)
     parser.add_argument("--weight-decay", type=float, default=0.0)
@@ -5104,6 +7152,24 @@ def parse_args() -> argparse.Namespace:
         raise ValueError(
             "--warm-start-from-checkpoint and --warm-start-mode must be provided together"
         )
+    if args.initial_adapter_output_dir is not None and (
+        args.resume_from_checkpoint is not None
+        or args.warm_start_from_checkpoint is not None
+    ):
+        raise ValueError("--initial-adapter-output-dir is valid only for fresh runs")
+    if args.prepare_only and args.initial_adapter_output_dir is None:
+        raise ValueError("--prepare-only requires --initial-adapter-output-dir")
+    if args.train_sampler_seed is not None and not (
+        0 <= args.train_sampler_seed <= torch.iinfo(torch.int64).max
+    ):
+        raise ValueError("train-sampler-seed must satisfy 0 <= seed <= 2^63 - 1")
+    if args.train_sampler_seed is not None and args.group_by_length:
+        raise ValueError("train-sampler-seed is incompatible with group-by-length")
+    if (
+        args.train_sampler_seed is not None
+        and args.train_sampler_seed != args.data_seed
+    ):
+        raise ValueError("train-sampler-seed must equal data-seed")
     args.num_memory_partitions = 1
     args.num_global_memory_partitions = 0
     args.memory_partition_routing = "soft"
@@ -5144,6 +7210,19 @@ def parse_args() -> argparse.Namespace:
         )
     if args.memory_base_kl_weight < 0.0:
         raise ValueError("memory-base-kl-weight must be non-negative")
+    if (
+        not math.isfinite(args.scene_boundary_payload_ce_weight)
+        or args.scene_boundary_payload_ce_weight < 0.0
+    ):
+        raise ValueError("scene-boundary-payload-ce-weight must be finite and non-negative")
+    if (
+        args.scene_boundary_payload_ce_weight > 0.0
+        and args.memory_loss_mode != "context_dropout_ce"
+    ):
+        raise ValueError(
+            "scene-boundary-payload-ce-weight requires "
+            "memory-loss-mode=context_dropout_ce"
+        )
     if (
         not math.isfinite(args.memory_representation_weight)
         or args.memory_representation_weight < 0.0
@@ -5189,6 +7268,60 @@ def parse_args() -> argparse.Namespace:
             raise ValueError("content_contrast_ce requires a non-negative margin")
         if args.write_sparsity_weight != 0.0:
             raise ValueError("content_contrast_ce requires write sparsity loss to be disabled")
+    scene_state_source_identity = _scene_state_source_manifest_identity(args)
+    if args.memory_loss_mode == "scene_state_identity_ce":
+        if scene_state_source_identity is None:
+            raise ValueError(
+                "scene_state_identity_ce requires a source manifest and exact SHA-256 lock"
+            )
+        if args.training_mode != "episode":
+            raise ValueError("scene_state_identity_ce requires training-mode=episode")
+        if args.episode_recent_messages != 0:
+            raise ValueError(
+                "scene_state_identity_ce requires episode-recent-messages=0"
+            )
+        if args.assistant_loss_mode != "final_assistant_only":
+            raise ValueError(
+                "scene_state_identity_ce requires assistant-loss-mode=final_assistant_only"
+            )
+        if args.episode_read_write_enabled:
+            raise ValueError(
+                "scene_state_identity_ce requires episode read writes to be disabled"
+            )
+        if args.memory_kl_weight != 0.0 or args.memory_base_kl_weight != 0.0:
+            raise ValueError(
+                "scene_state_identity_ce requires all KL weights to be zero"
+            )
+        if args.memory_representation_weight != 0.0:
+            raise ValueError(
+                "scene_state_identity_ce requires representation loss to be disabled"
+            )
+        if (
+            not math.isfinite(args.scene_state_identity_margin)
+            or args.scene_state_identity_margin <= 0.0
+        ):
+            raise ValueError(
+                "scene-state-identity-margin must be finite and positive"
+            )
+        if args.gradient_accumulation_steps != 1:
+            raise ValueError(
+                "scene_state_identity_ce requires gradient-accumulation-steps=1"
+            )
+        if args.write_sparsity_weight != 0.0:
+            raise ValueError(
+                "scene_state_identity_ce requires write sparsity loss to be disabled"
+            )
+        if args.scene_boundary_payload_ce_weight != 0.0:
+            raise ValueError(
+                "scene_state_identity_ce requires scene-boundary-payload-ce-weight=0"
+            )
+        if args.deepspeed_config is not None:
+            raise ValueError("scene_state_identity_ce does not support DeepSpeed")
+    elif scene_state_source_identity is not None:
+        raise ValueError(
+            "Scene-state source manifest flags require "
+            "memory-loss-mode=scene_state_identity_ce"
+        )
     if args.memory_backend == "rwkv_ms" and args.output_init == "zero":
         raise ValueError(
             "output-init=zero is gradient-dead with memory-backend=rwkv_ms; "
@@ -5465,6 +7598,221 @@ def _select_supervised_assistant_indices(
     raise ValueError(f"Unsupported assistant_loss_mode: {assistant_loss_mode}")
 
 
+def _scene_boundary_payload_metadata(
+    content: str,
+) -> tuple[tuple[int, int], int] | None:
+    decoder = json.JSONDecoder()
+
+    def skip_whitespace(position: int) -> int:
+        while position < len(content) and content[position].isspace():
+            position += 1
+        return position
+
+    position = skip_whitespace(0)
+    if position >= len(content) or content[position] != "{":
+        return None
+    position += 1
+    boundary_metadata: tuple[tuple[int, int], int] | None = None
+    try:
+        while True:
+            position = skip_whitespace(position)
+            if position >= len(content):
+                return None
+            if content[position] == "}":
+                position = skip_whitespace(position + 1)
+                return boundary_metadata if position == len(content) else None
+            key, position = decoder.raw_decode(content, position)
+            if not isinstance(key, str):
+                return None
+            position = skip_whitespace(position)
+            if position >= len(content) or content[position] != ":":
+                return None
+            value_start = skip_whitespace(position + 1)
+            value, value_end = decoder.raw_decode(content, value_start)
+            if key == "boundaries":
+                if boundary_metadata is not None:
+                    return None
+                if not isinstance(value, list) or any(
+                    not isinstance(item, int) or isinstance(item, bool)
+                    for item in value
+                ):
+                    return None
+                boundary_metadata = (
+                    (value_start, value_end),
+                    len(value),
+                )
+            position = skip_whitespace(value_end)
+            if position >= len(content):
+                return None
+            if content[position] == ",":
+                position += 1
+                continue
+            if content[position] == "}":
+                position = skip_whitespace(position + 1)
+                return boundary_metadata if position == len(content) else None
+            return None
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return None
+
+
+def _scene_boundary_payload_char_span(content: str) -> tuple[int, int] | None:
+    metadata = _scene_boundary_payload_metadata(content)
+    return None if metadata is None else metadata[0]
+
+
+def _rendered_message_content_span(
+    tokenizer,
+    messages: list[dict[str, str]],
+    message_index: int,
+) -> tuple[str, int, int]:
+    content = messages[message_index]["content"]
+    sentinel = "__DELTAMEM_SCENE_BOUNDARY_CONTENT_SENTINEL__"
+    all_content = "\n".join(str(message["content"]) for message in messages)
+    while sentinel in all_content:
+        sentinel += "_"
+    probe_messages = [dict(message) for message in messages]
+    probe_messages[message_index]["content"] = sentinel
+    rendered = apply_project_chat_template(
+        tokenizer,
+        messages,
+        tokenize=False,
+        add_generation_prompt=False,
+    )
+    probe_rendered = apply_project_chat_template(
+        tokenizer,
+        probe_messages,
+        tokenize=False,
+        add_generation_prompt=False,
+    )
+    if not isinstance(rendered, str) or not isinstance(probe_rendered, str):
+        raise ValueError("Chat template must render text for scene-boundary span alignment")
+    if probe_rendered.count(sentinel) != 1:
+        raise ValueError(
+            "Chat template did not preserve the scene-boundary assistant content sentinel"
+        )
+    prefix, suffix = probe_rendered.split(sentinel)
+    if rendered != prefix + content + suffix:
+        raise ValueError(
+            "Chat template transformed scene-boundary assistant content; cannot align payload"
+        )
+    content_start = len(prefix)
+    return rendered, content_start, content_start + len(content)
+
+
+def _tokenizer_ids_and_offsets(tokenizer, rendered: str) -> tuple[list[int], list[tuple[int, int]]]:
+    try:
+        encoded = tokenizer(
+            rendered,
+            add_special_tokens=False,
+            return_offsets_mapping=True,
+        )
+    except (NotImplementedError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "Scene-boundary payload CE requires a tokenizer with character offset mappings"
+        ) from exc
+    try:
+        input_ids = encoded["input_ids"]
+        offsets = encoded["offset_mapping"]
+    except (KeyError, TypeError) as exc:
+        raise ValueError(
+            "Scene-boundary payload CE tokenizer did not return IDs and offset mappings"
+        ) from exc
+    if isinstance(input_ids, torch.Tensor):
+        input_ids = input_ids.tolist()
+    if isinstance(offsets, torch.Tensor):
+        offsets = offsets.tolist()
+    if input_ids and isinstance(input_ids[0], list):
+        if len(input_ids) != 1:
+            raise ValueError("Scene-boundary tokenizer returned an unexpected ID batch")
+        input_ids = input_ids[0]
+    if offsets and isinstance(offsets[0], list) and offsets[0] and isinstance(offsets[0][0], list):
+        if len(offsets) != 1:
+            raise ValueError("Scene-boundary tokenizer returned an unexpected offset batch")
+        offsets = offsets[0]
+    normalized_ids = [int(token_id) for token_id in input_ids]
+    normalized_offsets = [(int(start), int(end)) for start, end in offsets]
+    if len(normalized_ids) != len(normalized_offsets):
+        raise ValueError("Scene-boundary tokenizer IDs and offsets have different lengths")
+    return normalized_ids, normalized_offsets
+
+
+def _scene_boundary_payload_token_mask(
+    tokenizer,
+    messages: list[dict[str, str]],
+    message_index: int,
+    expected_input_ids: list[int],
+) -> list[bool]:
+    content = messages[message_index]["content"]
+    payload_span = _scene_boundary_payload_char_span(content)
+    if payload_span is None:
+        raise ValueError(
+            "Scene-boundary payload CE requires a top-level integer `boundaries` JSON list"
+        )
+    rendered, content_start, _ = _rendered_message_content_span(
+        tokenizer,
+        messages,
+        message_index,
+    )
+    token_ids, offsets = _tokenizer_ids_and_offsets(tokenizer, rendered)
+    if token_ids != expected_input_ids:
+        raise ValueError(
+            "Chat-template token IDs differ from tokenizer offset-alignment token IDs"
+        )
+    payload_start = content_start + payload_span[0]
+    payload_end = content_start + payload_span[1]
+    mask = [
+        start < payload_end and end > payload_start and end > start
+        for start, end in offsets
+    ]
+    if not any(mask):
+        raise ValueError("Scene-boundary JSON list did not align to any tokenizer token")
+    return mask
+
+
+def _scene_boundary_semantic_token_mask(
+    tokenizer,
+    messages: list[dict[str, str]],
+    message_index: int,
+    expected_input_ids: list[int],
+) -> list[bool]:
+    """Select non-whitespace tokens participating in the boundaries-array decision."""
+
+    content = messages[message_index]["content"]
+    payload_span = _scene_boundary_payload_char_span(content)
+    if payload_span is None:
+        raise ValueError(
+            "Scene-state identity CE requires a top-level integer `boundaries` JSON list"
+        )
+    rendered, content_start, _ = _rendered_message_content_span(
+        tokenizer,
+        messages,
+        message_index,
+    )
+    token_ids, offsets = _tokenizer_ids_and_offsets(tokenizer, rendered)
+    if token_ids != expected_input_ids:
+        raise ValueError(
+            "Chat-template token IDs differ from tokenizer offset-alignment token IDs"
+        )
+    payload_start = content_start + payload_span[0]
+    payload_end = content_start + payload_span[1]
+    mask: list[bool] = []
+    for start, end in offsets:
+        overlap_start = max(start, payload_start)
+        overlap_end = min(end, payload_end)
+        mask.append(
+            overlap_start < overlap_end
+            and any(
+                not character.isspace()
+                for character in rendered[overlap_start:overlap_end]
+            )
+        )
+    if not any(mask):
+        raise ValueError(
+            "Scene-boundary semantic decision did not align to any non-whitespace token"
+        )
+    return mask
+
+
 def _split_system_prefix(
     messages: list[dict[str, str]],
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
@@ -5482,6 +7830,8 @@ def tokenize_messages_for_sft(
     max_length: int,
     *,
     assistant_loss_mode: str,
+    require_scene_boundary_payload_mask: bool = False,
+    require_scene_state_semantic_mask: bool = False,
 ) -> dict:
     supervised_assistant_indices = set(
         _select_supervised_assistant_indices(messages, assistant_loss_mode)
@@ -5489,6 +7839,8 @@ def tokenize_messages_for_sft(
 
     input_ids: list[int] = []
     labels: list[int] = []
+    scene_boundary_payload_mask: list[bool] = []
+    scene_state_semantic_mask: list[bool] = []
     previous_ids: list[int] = []
     for index in range(len(messages)):
         current_ids = _tokenize_chat_messages(tokenizer, messages[: index + 1])
@@ -5500,20 +7852,93 @@ def tokenize_messages_for_sft(
         if prefix_len < len(input_ids):
             del input_ids[prefix_len:]
             del labels[prefix_len:]
+            del scene_boundary_payload_mask[prefix_len:]
+            del scene_state_semantic_mask[prefix_len:]
         input_ids.extend(delta_ids)
         if index in supervised_assistant_indices:
             labels.extend(delta_ids)
+            if require_scene_boundary_payload_mask:
+                current_payload_mask = _scene_boundary_payload_token_mask(
+                    tokenizer,
+                    messages[: index + 1],
+                    index,
+                    current_ids,
+                )
+                scene_boundary_payload_mask.extend(current_payload_mask[prefix_len:])
+            else:
+                scene_boundary_payload_mask.extend([False] * len(delta_ids))
+            if require_scene_state_semantic_mask:
+                current_semantic_mask = _scene_boundary_semantic_token_mask(
+                    tokenizer,
+                    messages[: index + 1],
+                    index,
+                    current_ids,
+                )
+                scene_state_semantic_mask.extend(
+                    current_semantic_mask[prefix_len:]
+                )
+            else:
+                scene_state_semantic_mask.extend([False] * len(delta_ids))
         else:
             labels.extend([-100] * len(delta_ids))
+            scene_boundary_payload_mask.extend([False] * len(delta_ids))
+            scene_state_semantic_mask.extend([False] * len(delta_ids))
         previous_ids = current_ids
 
-    input_ids, labels = _truncate_sft_sequence(input_ids, labels, max_length)
+    untruncated_input_ids = input_ids
+    input_ids, labels = _truncate_sft_sequence(untruncated_input_ids, labels, max_length)
+    _, scene_boundary_payload_mask = _truncate_sft_sequence(
+        untruncated_input_ids,
+        scene_boundary_payload_mask,
+        max_length,
+    )
+    _, scene_state_semantic_mask = _truncate_sft_sequence(
+        untruncated_input_ids,
+        scene_state_semantic_mask,
+        max_length,
+    )
     attention_mask = [1] * len(input_ids)
-    return {
+    features = {
         "input_ids": input_ids,
         "attention_mask": attention_mask,
         "labels": labels,
     }
+    if require_scene_boundary_payload_mask:
+        if not any(scene_boundary_payload_mask[1:]):
+            raise ValueError(
+                "Scene-boundary payload was truncated or has no causal predictor"
+            )
+        if any(
+            selected and label == -100
+            for selected, label in zip(scene_boundary_payload_mask, labels)
+        ):
+            raise ValueError("Scene-boundary payload mask escaped assistant supervision")
+        features["scene_boundary_payload_mask"] = scene_boundary_payload_mask
+    if require_scene_state_semantic_mask:
+        if not any(scene_state_semantic_mask[1:]):
+            raise ValueError(
+                "Scene-state semantic decision was truncated or has no causal predictor"
+            )
+        if any(
+            selected and label == -100
+            for selected, label in zip(scene_state_semantic_mask, labels)
+        ):
+            raise ValueError("Scene-state semantic mask escaped assistant supervision")
+        features["scene_state_semantic_mask"] = scene_state_semantic_mask
+        supervised_indices = sorted(supervised_assistant_indices)
+        if len(supervised_indices) != 1:
+            raise ValueError(
+                "Scene-state identity CE requires exactly one supervised assistant turn"
+            )
+        payload_metadata = _scene_boundary_payload_metadata(
+            messages[supervised_indices[0]]["content"]
+        )
+        if payload_metadata is None:
+            raise ValueError(
+                "Scene-state identity CE requires an audited boundaries cardinality"
+            )
+        features["scene_state_boundary_count"] = payload_metadata[1]
+    return features
 
 
 def _mask_teacher_labels_to_student_targets(
@@ -5552,6 +7977,7 @@ def _build_canonical_teacher_features(
     max_write_length: int,
     max_read_length: int,
     student_labels: list[int],
+    require_scene_boundary_payload_mask: bool = False,
 ) -> dict[str, list[int]]:
     canonical_input_ids = _tokenize_chat_messages(tokenizer, teacher_messages)
     teacher_features = tokenize_messages_for_sft(
@@ -5559,6 +7985,7 @@ def _build_canonical_teacher_features(
         teacher_messages,
         max(len(canonical_input_ids), 1),
         assistant_loss_mode="final_assistant_only",
+        require_scene_boundary_payload_mask=require_scene_boundary_payload_mask,
     )
     if teacher_features["input_ids"] != canonical_input_ids:
         raise ValueError("Canonical teacher tokenization changed between full-sequence passes")
@@ -5603,6 +8030,8 @@ def build_episode_training_examples(
     episode_recent_messages: int,
     max_write_length: int,
     include_sentence_ids: bool,
+    require_scene_boundary_payload_mask: bool = False,
+    require_scene_state_semantic_mask: bool = False,
 ) -> list[dict]:
     if episode_recent_messages < 0:
         raise ValueError("episode_recent_messages must be >= 0")
@@ -5648,6 +8077,8 @@ def build_episode_training_examples(
             read_messages,
             max_length,
             assistant_loss_mode="final_assistant_only",
+            require_scene_boundary_payload_mask=require_scene_boundary_payload_mask,
+            require_scene_state_semantic_mask=require_scene_state_semantic_mask,
         )
         teacher_features = _build_canonical_teacher_features(
             tokenizer,
@@ -5657,6 +8088,7 @@ def build_episode_training_examples(
             max_write_length=max_write_length,
             max_read_length=max_length,
             student_labels=read_features["labels"],
+            require_scene_boundary_payload_mask=require_scene_boundary_payload_mask,
         )
         # Keep the immediate query turn visible during state-only dropout so memory focuses on
         # far-history recall instead of reconstructing the local prompt from state.
@@ -5696,10 +8128,10 @@ def build_episode_training_examples(
             state_only_read_messages,
             max_length,
             assistant_loss_mode="final_assistant_only",
+            require_scene_boundary_payload_mask=require_scene_boundary_payload_mask,
         )
 
-        episodes.append(
-            {
+        episode = {
                 "write_input_ids": write_input_ids,
                 "write_attention_mask": [1] * len(write_input_ids),
                 "write_message_ids": write_message_ids,
@@ -5721,7 +8153,24 @@ def build_episode_training_examples(
                 "write_message_count": len(write_messages),
                 "visible_message_count": len(read_messages) - 1,
             }
-        )
+        if require_scene_boundary_payload_mask:
+            episode["scene_boundary_payload_mask"] = read_features[
+                "scene_boundary_payload_mask"
+            ]
+            episode["teacher_scene_boundary_payload_mask"] = teacher_features[
+                "scene_boundary_payload_mask"
+            ]
+            episode["state_only_scene_boundary_payload_mask"] = (
+                state_only_read_features["scene_boundary_payload_mask"]
+            )
+        if require_scene_state_semantic_mask:
+            episode["scene_state_semantic_mask"] = read_features[
+                "scene_state_semantic_mask"
+            ]
+            episode["scene_state_boundary_count"] = read_features[
+                "scene_state_boundary_count"
+            ]
+        episodes.append(episode)
     return episodes
 
 
@@ -5734,6 +8183,8 @@ def tokenize_example(
     training_mode: str,
     episode_recent_messages: int,
     max_write_length: int,
+    require_scene_boundary_payload_mask: bool = False,
+    require_scene_state_semantic_mask: bool = False,
 ) -> dict:
     normalized = normalize_example(example)
     if training_mode == "episode":
@@ -5745,6 +8196,8 @@ def tokenize_example(
         normalized.messages,
         max_length,
         assistant_loss_mode=assistant_loss_mode,
+        require_scene_boundary_payload_mask=require_scene_boundary_payload_mask,
+        require_scene_state_semantic_mask=require_scene_state_semantic_mask,
     )
 
 
@@ -5765,6 +8218,8 @@ def tokenize_examples_batch(
     episode_recent_messages: int,
     max_write_length: int,
     include_sentence_ids: bool,
+    require_scene_boundary_payload_mask: bool = False,
+    require_scene_state_semantic_mask: bool = False,
 ) -> dict[str, list]:
     tokenized: dict[str, list] = {
         "input_ids": [],
@@ -5789,6 +8244,13 @@ def tokenize_examples_batch(
         tokenized["episode_target_message_index"] = []
         tokenized["write_message_count"] = []
         tokenized["visible_message_count"] = []
+        if require_scene_boundary_payload_mask:
+            tokenized["scene_boundary_payload_mask"] = []
+            tokenized["teacher_scene_boundary_payload_mask"] = []
+            tokenized["state_only_scene_boundary_payload_mask"] = []
+        if require_scene_state_semantic_mask:
+            tokenized["scene_state_semantic_mask"] = []
+            tokenized["scene_state_boundary_count"] = []
 
     batch_size = len(next(iter(batch.values())))
     for row_index in range(batch_size):
@@ -5800,6 +8262,8 @@ def tokenize_examples_batch(
                 normalized.messages,
                 max_length,
                 assistant_loss_mode=assistant_loss_mode,
+                require_scene_boundary_payload_mask=require_scene_boundary_payload_mask,
+                require_scene_state_semantic_mask=require_scene_state_semantic_mask,
             )
             for key, value in features.items():
                 tokenized[key].append(value)
@@ -5814,6 +8278,8 @@ def tokenize_examples_batch(
             episode_recent_messages=episode_recent_messages,
             max_write_length=max_write_length,
             include_sentence_ids=include_sentence_ids,
+            require_scene_boundary_payload_mask=require_scene_boundary_payload_mask,
+            require_scene_state_semantic_mask=require_scene_state_semantic_mask,
         ):
             for key, value in episode.items():
                 tokenized[key].append(value)
@@ -5908,6 +8374,296 @@ def _tokenizer_cache_identity(tokenizer) -> dict[str, object]:
     return identity
 
 
+def _normalized_expected_tokenized_dataset_sha256(
+    args: argparse.Namespace,
+) -> str | None:
+    expected = getattr(args, "expected_tokenized_dataset_sha256", None)
+    if expected is None:
+        return None
+    if not isinstance(expected, str):
+        raise ValueError("Expected tokenized dataset SHA-256 must be a string")
+    expected = expected.lower()
+    if len(expected) != 64 or any(
+        character not in "0123456789abcdef" for character in expected
+    ):
+        raise ValueError(
+            "--expected-tokenized-dataset-sha256 must be exactly 64 hexadecimal characters"
+        )
+    return expected
+
+
+def _tokenized_dataset_ordered_sha256(tokenized: Dataset) -> str:
+    logical = tokenized.with_format(None)
+    header = {
+        "schema": _TOKENIZED_ORDERED_CONTENT_SCHEMA,
+        "column_names": list(logical.column_names),
+        "features": logical.features.to_dict(),
+        "rows": len(logical),
+    }
+    digest = hashlib.sha256()
+    digest.update(_canonical_json_bytes(header))
+    digest.update(b"\n")
+    try:
+        for row in logical:
+            digest.update(_canonical_json_bytes(row))
+            digest.update(b"\n")
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "Tokenized dataset rows must have canonical JSON-compatible values"
+        ) from exc
+    return digest.hexdigest()
+
+
+def _tokenized_cache_persisted_files(cache_dir: Path) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for path in sorted(cache_dir.rglob("*"), key=lambda candidate: candidate.as_posix()):
+        relative_path = path.relative_to(cache_dir).as_posix()
+        if relative_path == _TOKENIZED_CACHE_READY_FILENAME:
+            continue
+        if path.is_symlink():
+            raise ValueError(
+                f"Tokenized dataset cache contains a symbolic link: {relative_path}"
+            )
+        if path.is_dir():
+            continue
+        if not path.is_file():
+            raise ValueError(
+                f"Tokenized dataset cache contains a non-regular path: {relative_path}"
+            )
+        records.append(
+            {
+                "relative_path": relative_path,
+                "bytes": path.stat().st_size,
+                "sha256": _sha256_file(path),
+            }
+        )
+    if not records:
+        raise ValueError(f"Tokenized dataset cache has no persisted files: {cache_dir}")
+    return records
+
+
+def _build_tokenized_dataset_identity(
+    tokenized: Dataset,
+    *,
+    persisted_files: list[dict[str, object]],
+) -> dict[str, object]:
+    identity: dict[str, object] = {
+        "schema": _TOKENIZED_DATASET_IDENTITY_SCHEMA,
+        "cache_format_version": _TOKENIZED_CACHE_FORMAT_VERSION,
+        "ordered_content_schema": _TOKENIZED_ORDERED_CONTENT_SCHEMA,
+        "ordered_content_sha256": _tokenized_dataset_ordered_sha256(tokenized),
+        "rows": len(tokenized),
+        "column_names": list(tokenized.column_names),
+        "saved_fingerprint": getattr(tokenized, "_fingerprint", None),
+        "persisted_files": persisted_files,
+        "persisted_files_sha256": hashlib.sha256(
+            _canonical_json_bytes(persisted_files)
+        ).hexdigest(),
+    }
+    identity["identity_sha256"] = hashlib.sha256(
+        _canonical_json_bytes(identity)
+    ).hexdigest()
+    return identity
+
+
+def _validate_expected_tokenized_dataset_sha256(
+    args: argparse.Namespace,
+    identity: dict[str, object],
+) -> None:
+    expected = _normalized_expected_tokenized_dataset_sha256(args)
+    if expected is None:
+        return
+    actual = identity.get("ordered_content_sha256")
+    if actual != expected:
+        raise ValueError(
+            "Tokenized dataset ordered-content SHA-256 differs from the launch lock: "
+            f"expected={expected} actual={actual}"
+        )
+
+
+def _tokenized_cache_ready_payload(
+    *,
+    args: argparse.Namespace,
+    cache_key: str,
+    built_fingerprint: str | None,
+    identity: dict[str, object],
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "schema": _TOKENIZED_CACHE_READY_SCHEMA,
+        "cache_format_version": _TOKENIZED_CACHE_FORMAT_VERSION,
+        "cache_key": cache_key,
+        "preparation": {
+            "training_mode": args.training_mode,
+            "group_by_length": args.group_by_length,
+            "assistant_loss_mode": args.assistant_loss_mode,
+            "episode_recent_messages": args.episode_recent_messages,
+            "max_write_length": args.max_write_length,
+            "memory_write_granularity": args.memory_write_granularity,
+            "include_sentence_ids": args.memory_write_granularity == "sentence_mean",
+            "require_scene_boundary_payload_mask": (
+                getattr(args, "scene_boundary_payload_ce_weight", 0.0) > 0.0
+            ),
+            "require_scene_state_semantic_mask": (
+                getattr(args, "memory_loss_mode", None) == "scene_state_identity_ce"
+            ),
+            "max_length": args.max_length,
+        },
+        "built_fingerprint": built_fingerprint,
+        "identity": identity,
+    }
+    payload["manifest_sha256"] = hashlib.sha256(
+        _canonical_json_bytes(payload)
+    ).hexdigest()
+    return payload
+
+
+def _write_json_atomic(path: Path, payload: dict[str, object]) -> None:
+    temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    if temporary.exists():
+        raise ValueError(f"Atomic JSON temporary path already exists: {temporary}")
+    try:
+        with temporary.open("x", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _read_tokenized_cache_ready(
+    ready_marker: Path,
+    *,
+    cache_key: str,
+) -> dict[str, object]:
+    if not ready_marker.is_file() or ready_marker.is_symlink():
+        raise ValueError(f"Tokenized dataset cache ready marker is invalid: {ready_marker}")
+    try:
+        payload = json.loads(ready_marker.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            f"Tokenized dataset cache ready marker is invalid JSON: {ready_marker}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Tokenized dataset cache ready marker must be a JSON object")
+    if payload.get("schema") != _TOKENIZED_CACHE_READY_SCHEMA:
+        raise ValueError("Tokenized dataset cache ready-marker schema differs")
+    if payload.get("cache_format_version") != _TOKENIZED_CACHE_FORMAT_VERSION:
+        raise ValueError("Tokenized dataset cache format version differs")
+    if payload.get("cache_key") != cache_key:
+        raise ValueError("Tokenized dataset cache ready-marker key differs")
+    recorded_manifest_sha256 = payload.get("manifest_sha256")
+    unsigned = dict(payload)
+    unsigned.pop("manifest_sha256", None)
+    actual_manifest_sha256 = hashlib.sha256(
+        _canonical_json_bytes(unsigned)
+    ).hexdigest()
+    if recorded_manifest_sha256 != actual_manifest_sha256:
+        raise ValueError("Tokenized dataset cache ready-marker checksum differs")
+    identity = payload.get("identity")
+    if not isinstance(identity, dict):
+        raise ValueError("Tokenized dataset cache ready marker omits its identity")
+    return payload
+
+
+def _validate_tokenized_dataset_identity_shape(identity: dict[str, object]) -> None:
+    if identity.get("schema") != _TOKENIZED_DATASET_IDENTITY_SCHEMA:
+        raise ValueError("Tokenized dataset cache identity schema differs")
+    if identity.get("cache_format_version") != _TOKENIZED_CACHE_FORMAT_VERSION:
+        raise ValueError("Tokenized dataset cache identity format version differs")
+    if identity.get("ordered_content_schema") != _TOKENIZED_ORDERED_CONTENT_SCHEMA:
+        raise ValueError("Tokenized dataset ordered-content schema differs")
+    ordered_sha256 = identity.get("ordered_content_sha256")
+    if not isinstance(ordered_sha256, str) or len(ordered_sha256) != 64:
+        raise ValueError("Tokenized dataset ordered-content SHA-256 is invalid")
+    persisted_files = identity.get("persisted_files")
+    if not isinstance(persisted_files, list) or not persisted_files:
+        raise ValueError("Tokenized dataset cache identity omits persisted files")
+    unsigned = dict(identity)
+    recorded_identity_sha256 = unsigned.pop("identity_sha256", None)
+    actual_identity_sha256 = hashlib.sha256(
+        _canonical_json_bytes(unsigned)
+    ).hexdigest()
+    if recorded_identity_sha256 != actual_identity_sha256:
+        raise ValueError("Tokenized dataset cache identity checksum differs")
+
+
+def _load_verified_tokenized_cache(
+    args: argparse.Namespace,
+    *,
+    cache_dir: Path,
+    cache_key: str,
+) -> tuple[Dataset, dict[str, object], str]:
+    ready_payload = _read_tokenized_cache_ready(
+        cache_dir / _TOKENIZED_CACHE_READY_FILENAME,
+        cache_key=cache_key,
+    )
+    recorded_identity = ready_payload["identity"]
+    assert isinstance(recorded_identity, dict)
+    _validate_tokenized_dataset_identity_shape(recorded_identity)
+    recorded_files = recorded_identity.get("persisted_files")
+    actual_files_before = _tokenized_cache_persisted_files(cache_dir)
+    if actual_files_before != recorded_files:
+        raise ValueError("Tokenized dataset cache persisted files differ from its manifest")
+    tokenized = load_from_disk(
+        str(cache_dir),
+        keep_in_memory=_normalized_expected_tokenized_dataset_sha256(args) is not None,
+    )
+    if not isinstance(tokenized, Dataset):
+        raise ValueError("Tokenized dataset cache must contain one Dataset")
+    actual_identity = _build_tokenized_dataset_identity(
+        tokenized,
+        persisted_files=actual_files_before,
+    )
+    actual_files_after = _tokenized_cache_persisted_files(cache_dir)
+    if actual_files_after != actual_files_before:
+        raise ValueError("Tokenized dataset cache changed while it was being validated")
+    if actual_identity != recorded_identity:
+        raise ValueError("Tokenized dataset cache content identity differs from its manifest")
+    _validate_expected_tokenized_dataset_sha256(args, actual_identity)
+    manifest_sha256 = ready_payload["manifest_sha256"]
+    assert isinstance(manifest_sha256, str)
+    return tokenized, actual_identity, manifest_sha256
+
+
+def validate_tokenized_cache_directory(
+    cache_dir: Path,
+    expected_cache_key: str,
+    expected_ordered_sha256: str,
+) -> dict[str, object]:
+    cache_dir = cache_dir.expanduser().resolve()
+    if cache_dir.name != expected_cache_key:
+        raise ValueError(
+            "Tokenized dataset cache directory name differs from the expected key"
+        )
+    ready_marker = cache_dir / _TOKENIZED_CACHE_READY_FILENAME
+    if not ready_marker.is_file() or ready_marker.is_symlink():
+        raise ValueError(
+            f"Tokenized dataset cache ready marker is invalid: {ready_marker}"
+        )
+    ready_file_sha256_before = _sha256_file(ready_marker)
+    validation_args = argparse.Namespace(
+        expected_tokenized_dataset_sha256=expected_ordered_sha256,
+    )
+    tokenized, identity, manifest_sha256 = _load_verified_tokenized_cache(
+        validation_args,
+        cache_dir=cache_dir,
+        cache_key=expected_cache_key,
+    )
+    ready_file_sha256_after = _sha256_file(ready_marker)
+    if ready_file_sha256_after != ready_file_sha256_before:
+        raise ValueError(
+            "Tokenized dataset cache ready marker changed while it was being validated"
+        )
+    del tokenized
+    return {
+        "identity": identity,
+        "manifest_sha256": manifest_sha256,
+        "ready_file_sha256": ready_file_sha256_after,
+    }
+
+
 def _tokenized_dataset_cache_key(
     args: argparse.Namespace,
     dataset: Dataset,
@@ -5916,6 +8672,11 @@ def _tokenized_dataset_cache_key(
     code_hash = hashlib.sha256()
     for fn in (
         normalize_example,
+        _scene_boundary_payload_char_span,
+        _rendered_message_content_span,
+        _tokenizer_ids_and_offsets,
+        _scene_boundary_payload_token_mask,
+        _scene_boundary_semantic_token_mask,
         tokenize_messages_for_sft,
         _mask_teacher_labels_to_student_targets,
         _build_canonical_teacher_features,
@@ -5932,6 +8693,8 @@ def _tokenized_dataset_cache_key(
     code_hash.update(inspect.getsource(project_chat_templates).encode("utf-8"))
     include_sentence_ids = args.memory_write_granularity == "sentence_mean"
     payload = {
+        "cache_format_version": _TOKENIZED_CACHE_FORMAT_VERSION,
+        "ordered_content_schema": _TOKENIZED_ORDERED_CONTENT_SCHEMA,
         "dataset_fingerprint": getattr(dataset, "_fingerprint", None),
         "dataset_name": args.dataset_name,
         "dataset_split": args.dataset_split,
@@ -5944,7 +8707,14 @@ def _tokenized_dataset_cache_key(
         "max_write_length": args.max_write_length,
         "memory_write_granularity": args.memory_write_granularity,
         "include_sentence_ids": include_sentence_ids,
+        "require_scene_boundary_payload_mask": (
+            getattr(args, "scene_boundary_payload_ce_weight", 0.0) > 0.0
+        ),
+        "require_scene_state_semantic_mask": (
+            getattr(args, "memory_loss_mode", None) == "scene_state_identity_ce"
+        ),
         "group_by_length": args.group_by_length,
+        "dataset_num_proc": getattr(args, "dataset_num_proc", 1),
         "code_hash": code_hash.hexdigest(),
     }
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
@@ -5966,6 +8736,13 @@ def _build_tokenized_dataset(
                 training_mode=args.training_mode,
                 episode_recent_messages=args.episode_recent_messages,
                 max_write_length=args.max_write_length,
+                require_scene_boundary_payload_mask=(
+                    getattr(args, "scene_boundary_payload_ce_weight", 0.0) > 0.0
+                ),
+                require_scene_state_semantic_mask=(
+                    getattr(args, "memory_loss_mode", None)
+                    == "scene_state_identity_ce"
+                ),
             ),
             remove_columns=dataset.column_names,
             num_proc=None if args.dataset_num_proc <= 1 else args.dataset_num_proc,
@@ -5981,6 +8758,13 @@ def _build_tokenized_dataset(
                 episode_recent_messages=args.episode_recent_messages,
                 max_write_length=args.max_write_length,
                 include_sentence_ids=args.memory_write_granularity == "sentence_mean",
+                require_scene_boundary_payload_mask=(
+                    getattr(args, "scene_boundary_payload_ce_weight", 0.0) > 0.0
+                ),
+                require_scene_state_semantic_mask=(
+                    getattr(args, "memory_loss_mode", None)
+                    == "scene_state_identity_ce"
+                ),
             ),
             batched=True,
             remove_columns=dataset.column_names,
@@ -5996,28 +8780,42 @@ def _build_tokenized_dataset(
     return tokenized
 
 
-def prepare_tokenized_dataset(
+def _prepare_tokenized_dataset_with_identity(
     args: argparse.Namespace,
     dataset: Dataset,
     tokenizer,
     *,
     distributed: bool,
     local_rank: int,
-) -> tuple[Dataset, bool, Path | None]:
+) -> tuple[
+    Dataset,
+    bool,
+    Path | None,
+    dict[str, object],
+    str | None,
+]:
     if not args.tokenized_cache:
-        return _build_tokenized_dataset(args, dataset, tokenizer), False, None
+        tokenized = _build_tokenized_dataset(args, dataset, tokenizer)
+        identity = _build_tokenized_dataset_identity(tokenized, persisted_files=[])
+        _validate_expected_tokenized_dataset_sha256(args, identity)
+        return tokenized, False, None, identity, None
     if args.tokenized_dataset_root is None:
         raise ValueError("--tokenized-dataset-root is required when --tokenized-cache is enabled")
 
     args.tokenized_dataset_root.mkdir(parents=True, exist_ok=True)
     cache_key = _tokenized_dataset_cache_key(args, dataset, tokenizer)
     cache_dir = args.tokenized_dataset_root / cache_key
-    ready_marker = cache_dir / "_READY"
+    ready_marker = cache_dir / _TOKENIZED_CACHE_READY_FILENAME
     lock_dir = args.tokenized_dataset_root / f".{cache_key}.lock"
     is_builder = (not distributed) or local_rank in (-1, 0)
 
     if ready_marker.exists():
-        return load_from_disk(str(cache_dir)), True, cache_dir
+        tokenized, identity, manifest_sha256 = _load_verified_tokenized_cache(
+            args,
+            cache_dir=cache_dir,
+            cache_key=cache_key,
+        )
+        return tokenized, True, cache_dir, identity, manifest_sha256
 
     if is_builder:
         while True:
@@ -6026,7 +8824,12 @@ def prepare_tokenized_dataset(
                 break
             except FileExistsError:
                 if ready_marker.exists():
-                    return load_from_disk(str(cache_dir)), True, cache_dir
+                    tokenized, identity, manifest_sha256 = _load_verified_tokenized_cache(
+                        args,
+                        cache_dir=cache_dir,
+                        cache_key=cache_key,
+                    )
+                    return tokenized, True, cache_dir, identity, manifest_sha256
                 time.sleep(2)
 
         try:
@@ -6039,30 +8842,35 @@ def prepare_tokenized_dataset(
             built_fingerprint = getattr(tokenized, "_fingerprint", None)
             tokenized.save_to_disk(str(temp_dir))
             temp_dir.rename(cache_dir)
-            # Dataset.save_to_disk can assign a different Arrow fingerprint on
-            # reload. Train from the persisted view so checkpoints and cache-hit
-            # resumes record the same fingerprint.
-            tokenized = load_from_disk(str(cache_dir))
-            ready_marker.write_text(
-                json.dumps(
-                    {
-                        "cache_key": cache_key,
-                        "created_at": time.time(),
-                        "training_mode": args.training_mode,
-                        "group_by_length": args.group_by_length,
-                        "assistant_loss_mode": args.assistant_loss_mode,
-                        "episode_recent_messages": args.episode_recent_messages,
-                        "max_write_length": args.max_write_length,
-                        "memory_write_granularity": args.memory_write_granularity,
-                        "include_sentence_ids": args.memory_write_granularity == "sentence_mean",
-                        "max_length": args.max_length,
-                        "built_fingerprint": built_fingerprint,
-                        "saved_fingerprint": getattr(tokenized, "_fingerprint", None),
-                    },
-                    indent=2,
-                )
+            persisted_files_before = _tokenized_cache_persisted_files(cache_dir)
+            tokenized = load_from_disk(
+                str(cache_dir),
+                keep_in_memory=(
+                    _normalized_expected_tokenized_dataset_sha256(args) is not None
+                ),
             )
-            return tokenized, False, cache_dir
+            if not isinstance(tokenized, Dataset):
+                raise ValueError("Tokenized dataset cache must contain one Dataset")
+            identity = _build_tokenized_dataset_identity(
+                tokenized,
+                persisted_files=persisted_files_before,
+            )
+            persisted_files_after = _tokenized_cache_persisted_files(cache_dir)
+            if persisted_files_after != persisted_files_before:
+                raise ValueError(
+                    "Tokenized dataset cache changed while it was being prepared"
+                )
+            _validate_expected_tokenized_dataset_sha256(args, identity)
+            ready_payload = _tokenized_cache_ready_payload(
+                args=args,
+                cache_key=cache_key,
+                built_fingerprint=built_fingerprint,
+                identity=identity,
+            )
+            _write_json_atomic(ready_marker, ready_payload)
+            manifest_sha256 = ready_payload["manifest_sha256"]
+            assert isinstance(manifest_sha256, str)
+            return tokenized, False, cache_dir, identity, manifest_sha256
         finally:
             if lock_dir.exists():
                 lock_dir.rmdir()
@@ -6073,7 +8881,30 @@ def prepare_tokenized_dataset(
         waited += 2
         if waited > 7200:
             raise TimeoutError(f"Timed out waiting for tokenized dataset cache at {cache_dir}")
-    return load_from_disk(str(cache_dir)), True, cache_dir
+    tokenized, identity, manifest_sha256 = _load_verified_tokenized_cache(
+        args,
+        cache_dir=cache_dir,
+        cache_key=cache_key,
+    )
+    return tokenized, True, cache_dir, identity, manifest_sha256
+
+
+def prepare_tokenized_dataset(
+    args: argparse.Namespace,
+    dataset: Dataset,
+    tokenizer,
+    *,
+    distributed: bool,
+    local_rank: int,
+) -> tuple[Dataset, bool, Path | None]:
+    tokenized, cache_hit, cache_dir, _, _ = _prepare_tokenized_dataset_with_identity(
+        args,
+        dataset,
+        tokenizer,
+        distributed=distributed,
+        local_rank=local_rank,
+    )
+    return tokenized, cache_hit, cache_dir
 
 
 def detect_training_mode(tokenized: Dataset) -> str:
@@ -6090,17 +8921,54 @@ def load_or_prepare_tokenized_dataset(
     local_rank: int,
 ) -> tuple[Dataset, dict[str, object]]:
     if args.tokenized_dataset_dir is not None:
-        tokenized = load_from_disk(str(args.tokenized_dataset_dir))
+        tokenized_path = args.tokenized_dataset_dir.expanduser().resolve()
+        ready_marker = tokenized_path / _TOKENIZED_CACHE_READY_FILENAME
+        if ready_marker.exists():
+            tokenized, identity, manifest_sha256 = _load_verified_tokenized_cache(
+                args,
+                cache_dir=tokenized_path,
+                cache_key=tokenized_path.name,
+            )
+        else:
+            persisted_files_before = _tokenized_cache_persisted_files(tokenized_path)
+            tokenized = load_from_disk(
+                str(tokenized_path),
+                keep_in_memory=(
+                    _normalized_expected_tokenized_dataset_sha256(args) is not None
+                ),
+            )
+            if not isinstance(tokenized, Dataset):
+                raise ValueError("--tokenized-dataset-dir must contain one Dataset")
+            identity = _build_tokenized_dataset_identity(
+                tokenized,
+                persisted_files=persisted_files_before,
+            )
+            persisted_files_after = _tokenized_cache_persisted_files(tokenized_path)
+            if persisted_files_after != persisted_files_before:
+                raise ValueError(
+                    "Tokenized dataset directory changed while it was being validated"
+                )
+            _validate_expected_tokenized_dataset_sha256(args, identity)
+            manifest_sha256 = None
         return tokenized, {
             "tokenized_cache_hit": True,
-            "tokenized_cache_dir": str(args.tokenized_dataset_dir),
+            "tokenized_cache_dir": str(tokenized_path),
             "tokenized_dataset_source": "load_from_disk",
             "train_samples": len(tokenized),
             "training_mode": detect_training_mode(tokenized),
+            "tokenized_dataset_sha256": identity["ordered_content_sha256"],
+            "tokenized_cache_identity": identity,
+            "tokenized_cache_manifest_sha256": manifest_sha256,
         }
 
     dataset = load_examples(args)
-    tokenized, tokenized_cache_hit, tokenized_cache_dir = prepare_tokenized_dataset(
+    (
+        tokenized,
+        tokenized_cache_hit,
+        tokenized_cache_dir,
+        identity,
+        manifest_sha256,
+    ) = _prepare_tokenized_dataset_with_identity(
         args,
         dataset,
         tokenizer,
@@ -6113,6 +8981,9 @@ def load_or_prepare_tokenized_dataset(
         "tokenized_dataset_source": "prepared_cache" if args.tokenized_cache else "direct_map",
         "train_samples": len(tokenized),
         "training_mode": detect_training_mode(tokenized),
+        "tokenized_dataset_sha256": identity["ordered_content_sha256"],
+        "tokenized_cache_identity": identity,
+        "tokenized_cache_manifest_sha256": manifest_sha256,
     }
 
 
@@ -6140,13 +9011,7 @@ def split_tokenized_dataset(
 
 
 def _canonical_json_sha256(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+    return hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()
 
 
 def _content_contrast_supervised_trace(
@@ -6525,6 +9390,678 @@ def build_content_contrast_pairing_manifest(
     return manifest
 
 
+def _scene_state_semantic_trace(
+    row: dict,
+    *,
+    row_name: str,
+) -> list[dict[str, int]]:
+    required = (
+        "input_ids",
+        "attention_mask",
+        "labels",
+        "scene_state_semantic_mask",
+    )
+    missing = [key for key in required if key not in row]
+    if missing:
+        raise ValueError(
+            f"scene_state_identity_ce {row_name} row is missing: "
+            + ", ".join(missing)
+        )
+    input_ids = [int(value) for value in row["input_ids"]]
+    attention_mask = [int(value) for value in row["attention_mask"]]
+    labels = [int(value) for value in row["labels"]]
+    semantic_mask = [bool(value) for value in row["scene_state_semantic_mask"]]
+    if not (
+        len(input_ids)
+        == len(attention_mask)
+        == len(labels)
+        == len(semantic_mask)
+    ):
+        raise ValueError(
+            f"scene_state_identity_ce {row_name} semantic tensors must align"
+        )
+    trace: list[dict[str, int]] = []
+    for label_position in range(1, len(labels)):
+        if not semantic_mask[label_position]:
+            continue
+        if labels[label_position] == -100 or attention_mask[label_position] == 0:
+            raise ValueError(
+                f"scene_state_identity_ce {row_name} semantic target is not supervised"
+            )
+        predictor_position = label_position - 1
+        if attention_mask[predictor_position] == 0:
+            raise ValueError(
+                f"scene_state_identity_ce {row_name} semantic target has no predictor"
+            )
+        if input_ids[label_position] != labels[label_position]:
+            raise ValueError(
+                f"scene_state_identity_ce {row_name} label differs from its input token"
+            )
+        trace.append(
+            {
+                "ordinal": len(trace),
+                "token_id": labels[label_position],
+                "label_position": label_position,
+                "predictor_position": predictor_position,
+            }
+        )
+    if not trace:
+        raise ValueError(
+            f"scene_state_identity_ce {row_name} row has no semantic targets"
+        )
+    return trace
+
+
+def _scene_state_label_identity(row: dict, *, row_name: str) -> dict[str, object]:
+    trace = _scene_state_semantic_trace(row, row_name=row_name)
+    token_ids = [item["token_id"] for item in trace]
+    return {
+        "semantic_token_ids": token_ids,
+        "semantic_token_count": len(token_ids),
+        "label_sha256": _canonical_json_sha256(token_ids),
+    }
+
+
+def _select_scene_state_identity_target_with_metadata(
+    source_row: dict,
+    donor_row: dict,
+) -> tuple[list[bool], dict[str, object]]:
+    source_trace = _scene_state_semantic_trace(source_row, row_name="source")
+    donor_trace = _scene_state_semantic_trace(donor_row, row_name="donor")
+    first_differing_ordinal = next(
+        (
+            ordinal
+            for ordinal, (source_item, donor_item) in enumerate(
+                zip(source_trace, donor_trace)
+            )
+            if source_item["token_id"] != donor_item["token_id"]
+        ),
+        min(len(source_trace), len(donor_trace)),
+    )
+    if (
+        first_differing_ordinal == len(source_trace)
+        and first_differing_ordinal == len(donor_trace)
+    ):
+        raise ValueError(
+            "scene_state_identity_ce donor must have an exact-distinct semantic label"
+        )
+    if first_differing_ordinal >= len(source_trace):
+        raise ValueError(
+            "scene_state_identity_ce source semantic sequence ends before its first "
+            "donor distinction and cannot supply a supervised target"
+        )
+    source_item = source_trace[first_differing_ordinal]
+    if first_differing_ordinal >= len(donor_trace):
+        raise ValueError(
+            "scene_state_identity_ce donor semantic sequence ends before the "
+            "distinguishing source target"
+        )
+    donor_item = donor_trace[first_differing_ordinal]
+    source_prefix = [
+        int(token_id)
+        for token_id in source_row["input_ids"][: source_item["label_position"]]
+    ]
+    donor_prefix = [
+        int(token_id)
+        for token_id in donor_row["input_ids"][: donor_item["label_position"]]
+    ]
+    source_prefix_attention = [
+        int(value)
+        for value in source_row["attention_mask"][: source_item["label_position"]]
+    ]
+    donor_prefix_attention = [
+        int(value)
+        for value in donor_row["attention_mask"][: donor_item["label_position"]]
+    ]
+    if (
+        source_prefix != donor_prefix
+        or source_prefix_attention != donor_prefix_attention
+    ):
+        raise ValueError(
+            "scene_state_identity_ce source and donor causal prefixes differ before "
+            "their first semantic distinction"
+        )
+    target_mask = [False] * len(source_row["labels"])
+    target_mask[source_item["label_position"]] = True
+    metadata: dict[str, object] = {
+        "target_mode": _SCENE_STATE_IDENTITY_TARGET_MODE,
+        "causal_prefix_mode": _SCENE_STATE_IDENTITY_CAUSAL_PREFIX_MODE,
+        "target_span_tokens": 1,
+        "first_differing_semantic_ordinal": first_differing_ordinal,
+        "target_label_positions": [source_item["label_position"]],
+        "target_predictor_positions": [source_item["predictor_position"]],
+        "target_token_ids": [source_item["token_id"]],
+        "donor_target_label_positions": [donor_item["label_position"]],
+        "donor_target_predictor_positions": [donor_item["predictor_position"]],
+        "donor_token_ids": [donor_item["token_id"]],
+        "causal_prefix_token_count": len(source_prefix),
+        "causal_prefix_sha256": _canonical_json_sha256(source_prefix),
+    }
+    return target_mask, metadata
+
+
+def select_scene_state_identity_target(
+    source_row: dict,
+    donor_row: dict,
+) -> list[bool]:
+    target_mask, _ = _select_scene_state_identity_target_with_metadata(
+        source_row,
+        donor_row,
+    )
+    return target_mask
+
+
+def _scene_state_identity_target_stratum(
+    source_boundary_count: int,
+    donor_boundary_count: int,
+) -> str:
+    for name, value in (
+        ("source", source_boundary_count),
+        ("donor", donor_boundary_count),
+    ):
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(
+                f"Scene-state {name} boundaries cardinality must be a non-negative integer"
+            )
+    if (source_boundary_count == 0) != (donor_boundary_count == 0):
+        return "presence"
+    if source_boundary_count == donor_boundary_count:
+        return "same_cardinality_value"
+    return "cross_cardinality_value"
+
+
+def materialize_scene_state_identity_pairs(
+    split: Dataset,
+    *,
+    split_name: str,
+) -> tuple[Dataset, dict[str, object]]:
+    sample_count = len(split)
+    if sample_count < 2 or sample_count % 2 != 0:
+        raise ValueError(
+            f"scene_state_identity_ce split {split_name!r} requires a positive even "
+            f"sample count; got {sample_count}"
+        )
+    materialized_columns = {
+        "scene_state_donor_write_input_ids",
+        "scene_state_donor_write_attention_mask",
+        "scene_state_donor_write_message_ids",
+        "scene_state_donor_write_sentence_ids",
+        "scene_state_donor_boundary_count",
+        "scene_state_identity_target_mask",
+        "scene_state_identity_target_mask_sha256",
+        "scene_state_identity_target_stratum",
+        "scene_state_source_index",
+        "scene_state_donor_index",
+        "scene_state_source_row_sha256",
+        "scene_state_donor_row_sha256",
+        "scene_state_source_label_sha256",
+        "scene_state_donor_label_sha256",
+        "scene_state_source_write_sha256",
+        "scene_state_donor_write_sha256",
+    }
+    collisions = sorted(materialized_columns.intersection(split.column_names))
+    if collisions:
+        raise ValueError(
+            "scene_state_identity_ce pairing requires an objective-neutral post-split "
+            "dataset; columns already exist: " + ", ".join(collisions)
+        )
+
+    source_fingerprint = getattr(split, "_fingerprint", None)
+    rows = [split[index] for index in range(sample_count)]
+    boundary_counts: list[int] = []
+    for index, row in enumerate(rows):
+        if "scene_state_boundary_count" not in row:
+            raise ValueError(
+                "scene_state_identity_ce pairing requires scene_state_boundary_count; "
+                f"missing at {split_name}:{index}"
+            )
+        boundary_count = row["scene_state_boundary_count"]
+        _scene_state_identity_target_stratum(boundary_count, boundary_count)
+        boundary_counts.append(boundary_count)
+    writes = [_content_contrast_write_payload(row) for row in rows]
+    write_hashes = [_canonical_json_sha256(payload) for payload in writes]
+    row_hashes = [_canonical_json_sha256(row) for row in rows]
+    labels = [
+        _scene_state_label_identity(row, row_name=f"{split_name}:{index}")
+        for index, row in enumerate(rows)
+    ]
+    ordered_indices = sorted(
+        range(sample_count),
+        key=lambda index: (
+            len(writes[index]["input_ids"]),
+            row_hashes[index],
+        ),
+    )
+
+    def pair_remaining(
+        remaining: tuple[int, ...],
+    ) -> list[tuple[int, int]] | None:
+        if not remaining:
+            return []
+        source_index = remaining[0]
+        candidates = sorted(
+            (
+                candidate_ordinal
+                for candidate_ordinal in range(1, len(remaining))
+                if labels[remaining[candidate_ordinal]]["label_sha256"]
+                != labels[source_index]["label_sha256"]
+            ),
+            key=lambda candidate_ordinal: (
+                abs(
+                    len(writes[remaining[candidate_ordinal]]["input_ids"])
+                    - len(writes[source_index]["input_ids"])
+                ),
+                len(writes[remaining[candidate_ordinal]]["input_ids"]),
+                row_hashes[remaining[candidate_ordinal]],
+            ),
+        )
+        for candidate_ordinal in candidates:
+            donor_index = remaining[candidate_ordinal]
+            tail = remaining[1:candidate_ordinal] + remaining[candidate_ordinal + 1 :]
+            paired_tail = pair_remaining(tail)
+            if paired_tail is not None:
+                return [(source_index, donor_index), *paired_tail]
+        return None
+
+    pairs = pair_remaining(tuple(ordered_indices))
+    if pairs is None:
+        raise ValueError(
+            "No complete nearest-feasible write-length exact-label-distinct donor "
+            "pairing exists"
+        )
+
+    def pairing_length_stats(
+        candidate_pairs: list[tuple[int, int]],
+    ) -> tuple[int, int]:
+        deltas = [
+            abs(
+                len(writes[left]["input_ids"])
+                - len(writes[right]["input_ids"])
+            )
+            for left, right in candidate_pairs
+        ]
+        return sum(deltas), max(deltas)
+
+    def nonempty_same_cardinality_pair_count(
+        candidate_pairs: list[tuple[int, int]],
+    ) -> int:
+        return sum(
+            boundary_counts[left] > 0
+            and boundary_counts[left] == boundary_counts[right]
+            for left, right in candidate_pairs
+        )
+
+    baseline_pairs = [tuple(sorted(pair)) for pair in pairs]
+    baseline_pairs.sort()
+    baseline_total_delta, baseline_max_delta = pairing_length_stats(
+        baseline_pairs
+    )
+    valid_edges = [
+        (left, right)
+        for left in range(sample_count)
+        for right in range(left + 1, sample_count)
+        if labels[left]["label_sha256"] != labels[right]["label_sha256"]
+        and abs(
+            len(writes[left]["input_ids"])
+            - len(writes[right]["input_ids"])
+        )
+        <= baseline_max_delta
+    ]
+    ordered_edges = sorted(
+        valid_edges,
+        key=lambda edge: (
+            min(row_hashes[edge[0]], row_hashes[edge[1]]),
+            max(row_hashes[edge[0]], row_hashes[edge[1]]),
+            edge,
+        ),
+    )
+    edge_count = len(ordered_edges)
+    pair_count = sample_count // 2
+    tie_scale = pair_count * max(edge_count, 1) + 1
+    primary_scale = (pair_count * baseline_max_delta + 1) * tie_scale
+    graph = nx.Graph()
+    graph.add_nodes_from(range(sample_count))
+    for edge_rank, (left, right) in enumerate(ordered_edges):
+        length_delta = abs(
+            len(writes[left]["input_ids"])
+            - len(writes[right]["input_ids"])
+        )
+        is_nonempty_same_cardinality = (
+            boundary_counts[left] > 0
+            and boundary_counts[left] == boundary_counts[right]
+        )
+        graph.add_edge(
+            left,
+            right,
+            weight=(
+                (0 if is_nonempty_same_cardinality else primary_scale)
+                + length_delta * tie_scale
+                + edge_rank
+            ),
+        )
+    refined_matching = nx.min_weight_matching(graph, weight="weight")
+    refined_pairs = sorted(
+        tuple(sorted((int(left), int(right))))
+        for left, right in refined_matching
+    )
+    if len(refined_pairs) == pair_count:
+        refined_total_delta, refined_max_delta = pairing_length_stats(
+            refined_pairs
+        )
+        baseline_objective = (
+            -nonempty_same_cardinality_pair_count(baseline_pairs),
+            baseline_total_delta,
+            baseline_max_delta,
+            baseline_pairs,
+        )
+        refined_objective = (
+            -nonempty_same_cardinality_pair_count(refined_pairs),
+            refined_total_delta,
+            refined_max_delta,
+            refined_pairs,
+        )
+        if (
+            refined_total_delta <= baseline_total_delta
+            and refined_max_delta <= baseline_max_delta
+            and refined_objective < baseline_objective
+        ):
+            pairs = refined_pairs
+        else:
+            pairs = baseline_pairs
+    else:
+        pairs = baseline_pairs
+    pairing_refinement_applied = pairs != baseline_pairs
+
+    donor_indices = [-1] * sample_count
+    for left, right in pairs:
+        donor_indices[left] = right
+        donor_indices[right] = left
+    if any(index < 0 for index in donor_indices):
+        raise RuntimeError("Scene-state donor pairing did not cover every row")
+
+    donor_columns: dict[str, list[list[int]]] = {
+        "scene_state_donor_write_input_ids": [],
+        "scene_state_donor_write_attention_mask": [],
+        "scene_state_donor_write_message_ids": [],
+        "scene_state_donor_write_sentence_ids": [],
+    }
+    target_masks: list[list[bool]] = []
+    target_mask_hashes: list[str] = []
+    target_strata: list[str] = []
+    pair_audit: list[dict[str, object]] = []
+    for source_index, donor_index in enumerate(donor_indices):
+        if donor_indices[donor_index] != source_index:
+            raise RuntimeError("Scene-state donor map is not symmetric")
+        for field, column in (
+            ("input_ids", "scene_state_donor_write_input_ids"),
+            ("attention_mask", "scene_state_donor_write_attention_mask"),
+            ("message_ids", "scene_state_donor_write_message_ids"),
+            ("sentence_ids", "scene_state_donor_write_sentence_ids"),
+        ):
+            donor_columns[column].append(writes[donor_index][field])
+        target_mask, target_metadata = (
+            _select_scene_state_identity_target_with_metadata(
+                rows[source_index],
+                rows[donor_index],
+            )
+        )
+        target_mask_hash = _canonical_json_sha256(target_mask)
+        target_stratum = _scene_state_identity_target_stratum(
+            boundary_counts[source_index],
+            boundary_counts[donor_index],
+        )
+        target_masks.append(target_mask)
+        target_mask_hashes.append(target_mask_hash)
+        target_strata.append(target_stratum)
+        pair_audit.append(
+            {
+                "source_index": source_index,
+                "donor_index": donor_index,
+                "source_row_sha256": row_hashes[source_index],
+                "donor_row_sha256": row_hashes[donor_index],
+                "source_label_sha256": labels[source_index]["label_sha256"],
+                "donor_label_sha256": labels[donor_index]["label_sha256"],
+                "source_write_sha256": write_hashes[source_index],
+                "donor_write_sha256": write_hashes[donor_index],
+                "source_write_token_count": len(writes[source_index]["input_ids"]),
+                "donor_write_token_count": len(writes[donor_index]["input_ids"]),
+                "source_boundary_count": boundary_counts[source_index],
+                "donor_boundary_count": boundary_counts[donor_index],
+                "target_stratum": target_stratum,
+                "write_token_count_delta": abs(
+                    len(writes[source_index]["input_ids"])
+                    - len(writes[donor_index]["input_ids"])
+                ),
+                **target_metadata,
+                "target_mask_sha256": target_mask_hash,
+            }
+        )
+
+    paired = split
+    for column, values in donor_columns.items():
+        paired = paired.add_column(column, values)
+    paired = paired.add_column(
+        "scene_state_donor_boundary_count",
+        [boundary_counts[index] for index in donor_indices],
+    )
+    paired = paired.add_column("scene_state_identity_target_mask", target_masks)
+    paired = paired.add_column(
+        "scene_state_identity_target_mask_sha256",
+        target_mask_hashes,
+    )
+    paired = paired.add_column(
+        "scene_state_identity_target_stratum",
+        target_strata,
+    )
+    paired = paired.add_column("scene_state_source_index", list(range(sample_count)))
+    paired = paired.add_column("scene_state_donor_index", donor_indices)
+    paired = paired.add_column("scene_state_source_row_sha256", row_hashes)
+    paired = paired.add_column(
+        "scene_state_donor_row_sha256",
+        [row_hashes[index] for index in donor_indices],
+    )
+    paired = paired.add_column(
+        "scene_state_source_label_sha256",
+        [str(identity["label_sha256"]) for identity in labels],
+    )
+    paired = paired.add_column(
+        "scene_state_donor_label_sha256",
+        [str(labels[index]["label_sha256"]) for index in donor_indices],
+    )
+    paired = paired.add_column("scene_state_source_write_sha256", write_hashes)
+    paired = paired.add_column(
+        "scene_state_donor_write_sha256",
+        [write_hashes[index] for index in donor_indices],
+    )
+
+    target_stratum_row_counts = {
+        stratum: target_strata.count(stratum)
+        for stratum in _SCENE_STATE_IDENTITY_TARGET_STRATA
+    }
+    boundary_count_histogram = {
+        str(boundary_count): boundary_counts.count(boundary_count)
+        for boundary_count in sorted(set(boundary_counts))
+    }
+    write_token_count_deltas = [
+        int(item["write_token_count_delta"])
+        for item in pair_audit
+    ]
+    split_manifest: dict[str, object] = {
+        "split": split_name,
+        "pairing_version": _SCENE_STATE_IDENTITY_PAIRING_VERSION,
+        "pairing_refinement": _SCENE_STATE_IDENTITY_PAIRING_REFINEMENT,
+        "pairing_refinement_applied": pairing_refinement_applied,
+        "target_mode": _SCENE_STATE_IDENTITY_TARGET_MODE,
+        "causal_prefix_mode": _SCENE_STATE_IDENTITY_CAUSAL_PREFIX_MODE,
+        "sample_count": sample_count,
+        "pair_count": len(pairs),
+        "target_token_count": sample_count,
+        "target_stratum_row_counts": target_stratum_row_counts,
+        "source_boundary_count_histogram": boundary_count_histogram,
+        "write_token_count_delta_max": max(write_token_count_deltas),
+        "write_token_count_delta_mean": (
+            sum(write_token_count_deltas) / len(write_token_count_deltas)
+        ),
+        "write_token_count_delta_total": pairing_length_stats(pairs)[0],
+        "nearest_baseline_write_token_count_delta_max": baseline_max_delta,
+        "nearest_baseline_write_token_count_delta_total": baseline_total_delta,
+        "source_fingerprint": source_fingerprint,
+        "paired_fingerprint": getattr(paired, "_fingerprint", None),
+        "pairs_sha256": _canonical_json_sha256(pair_audit),
+        "pairs": pair_audit,
+    }
+    split_manifest["manifest_sha256"] = _canonical_json_sha256(split_manifest)
+    return paired, split_manifest
+
+
+def build_scene_state_identity_pairing_manifest(
+    *,
+    tokenized_fingerprint: str | None,
+    tokenized_dataset_sha256: str | None,
+    data_seed: int,
+    train_manifest: dict[str, object],
+    eval_manifest: dict[str, object] | None,
+) -> dict[str, object]:
+    splits = {"train": train_manifest}
+    if eval_manifest is not None:
+        splits["eval"] = eval_manifest
+    target_stratum_row_counts = {
+        stratum: sum(
+            int(split_manifest["target_stratum_row_counts"][stratum])
+            for split_manifest in splits.values()
+        )
+        for stratum in _SCENE_STATE_IDENTITY_TARGET_STRATA
+    }
+    source_boundary_count_histogram: dict[str, int] = {}
+    for split_manifest in splits.values():
+        for boundary_count, count in split_manifest[
+            "source_boundary_count_histogram"
+        ].items():
+            source_boundary_count_histogram[str(boundary_count)] = (
+                source_boundary_count_histogram.get(str(boundary_count), 0)
+                + int(count)
+            )
+    total_rows = sum(int(item["sample_count"]) for item in splits.values())
+    manifest: dict[str, object] = {
+        "schema_version": 2,
+        "objective_version": _SCENE_STATE_IDENTITY_OBJECTIVE_VERSION,
+        "pairing_version": _SCENE_STATE_IDENTITY_PAIRING_VERSION,
+        "pairing_refinement": _SCENE_STATE_IDENTITY_PAIRING_REFINEMENT,
+        "pairing_refinement_applied": any(
+            bool(item["pairing_refinement_applied"])
+            for item in splits.values()
+        ),
+        "pairing_scope": "within_post_split_partition",
+        "target_mode": _SCENE_STATE_IDENTITY_TARGET_MODE,
+        "causal_prefix_mode": _SCENE_STATE_IDENTITY_CAUSAL_PREFIX_MODE,
+        "semantic_mask_mode": _SCENE_STATE_SEMANTIC_MASK_MODE,
+        "semantic_loss_normalization": _SCENE_STATE_SEMANTIC_LOSS_NORMALIZATION,
+        "target_token_count": sum(
+            int(item["target_token_count"]) for item in splits.values()
+        ),
+        "target_stratum_row_counts": target_stratum_row_counts,
+        "source_boundary_count_histogram": dict(
+            sorted(
+                source_boundary_count_histogram.items(),
+                key=lambda item: int(item[0]),
+            )
+        ),
+        "write_token_count_delta_max": max(
+            int(item["write_token_count_delta_max"])
+            for item in splits.values()
+        ),
+        "write_token_count_delta_mean": sum(
+            float(item["write_token_count_delta_mean"])
+            * int(item["sample_count"])
+            for item in splits.values()
+        )
+        / total_rows,
+        "write_token_count_delta_total": sum(
+            int(item["write_token_count_delta_total"])
+            for item in splits.values()
+        ),
+        "nearest_baseline_write_token_count_delta_max": max(
+            int(item["nearest_baseline_write_token_count_delta_max"])
+            for item in splits.values()
+        ),
+        "nearest_baseline_write_token_count_delta_total": sum(
+            int(item["nearest_baseline_write_token_count_delta_total"])
+            for item in splits.values()
+        ),
+        "data_seed": data_seed,
+        "tokenized_fingerprint": tokenized_fingerprint,
+        "tokenized_dataset_sha256": tokenized_dataset_sha256,
+        "splits": splits,
+    }
+    manifest["manifest_sha256"] = _canonical_json_sha256(manifest)
+    return manifest
+
+
+def _scene_state_identity_protocol_pairing_summary(
+    manifest: dict[str, object],
+) -> dict[str, object]:
+    return {
+        "pairing_version": manifest["pairing_version"],
+        "pairing_refinement": manifest["pairing_refinement"],
+        "pairing_refinement_applied": manifest[
+            "pairing_refinement_applied"
+        ],
+        "pairing_scope": manifest["pairing_scope"],
+        "target_mode": manifest["target_mode"],
+        "causal_prefix_mode": manifest["causal_prefix_mode"],
+        "semantic_mask_mode": manifest["semantic_mask_mode"],
+        "semantic_loss_normalization": manifest["semantic_loss_normalization"],
+        "target_token_count": manifest["target_token_count"],
+        "target_stratum_row_counts": manifest["target_stratum_row_counts"],
+        "source_boundary_count_histogram": manifest[
+            "source_boundary_count_histogram"
+        ],
+        "write_token_count_delta_max": manifest[
+            "write_token_count_delta_max"
+        ],
+        "write_token_count_delta_mean": manifest[
+            "write_token_count_delta_mean"
+        ],
+        "write_token_count_delta_total": manifest[
+            "write_token_count_delta_total"
+        ],
+        "nearest_baseline_write_token_count_delta_max": manifest[
+            "nearest_baseline_write_token_count_delta_max"
+        ],
+        "nearest_baseline_write_token_count_delta_total": manifest[
+            "nearest_baseline_write_token_count_delta_total"
+        ],
+        "data_seed": manifest["data_seed"],
+        "tokenized_fingerprint": manifest["tokenized_fingerprint"],
+        "tokenized_dataset_sha256": manifest["tokenized_dataset_sha256"],
+        "manifest_sha256": manifest["manifest_sha256"],
+        "splits": {
+            split_name: {
+                key: split_manifest[key]
+                for key in (
+                    "sample_count",
+                    "pair_count",
+                    "target_token_count",
+                    "causal_prefix_mode",
+                    "target_stratum_row_counts",
+                    "source_boundary_count_histogram",
+                    "write_token_count_delta_max",
+                    "write_token_count_delta_mean",
+                    "write_token_count_delta_total",
+                    "nearest_baseline_write_token_count_delta_max",
+                    "nearest_baseline_write_token_count_delta_total",
+                    "pairing_refinement_applied",
+                    "source_fingerprint",
+                    "paired_fingerprint",
+                    "pairs_sha256",
+                    "manifest_sha256",
+                )
+            }
+            for split_name, split_manifest in manifest["splits"].items()
+        },
+    }
+
+
 def _content_contrast_protocol_pairing_summary(
     manifest: dict[str, object],
 ) -> dict[str, object]:
@@ -6571,6 +10108,123 @@ def validate_canonical_teacher_columns(tokenized: Dataset) -> None:
         )
 
 
+def validate_scene_boundary_payload_columns(
+    tokenized: Dataset,
+    *,
+    training_mode: str,
+) -> None:
+    if training_mode != "episode":
+        raise ValueError("Scene-boundary payload CE requires episode training mode")
+    tensor_groups = (
+        (
+            "scene_boundary_payload_mask",
+            "labels",
+            "attention_mask",
+        ),
+        (
+            "state_only_scene_boundary_payload_mask",
+            "state_only_labels",
+            "state_only_attention_mask",
+        ),
+        (
+            "teacher_scene_boundary_payload_mask",
+            "teacher_labels",
+            "teacher_attention_mask",
+        ),
+    )
+    required_columns = {
+        column
+        for tensor_group in tensor_groups
+        for column in tensor_group
+    }
+    missing_columns = sorted(required_columns.difference(tokenized.column_names))
+    if missing_columns:
+        raise ValueError(
+            "Tokenized scene-boundary dataset is missing payload metadata; rebuild it "
+            "with the current trainer: " + ", ".join(missing_columns)
+        )
+    for row_index, row in enumerate(tokenized):
+        for mask_column, labels_column, attention_column in tensor_groups:
+            mask = [bool(value) for value in row[mask_column]]
+            labels = [int(value) for value in row[labels_column]]
+            attention_mask = [int(value) for value in row[attention_column]]
+            if not len(mask) == len(labels) == len(attention_mask):
+                raise ValueError(
+                    f"Scene-boundary payload metadata is misaligned at row {row_index}: "
+                    f"{mask_column}"
+                )
+            if not any(mask[1:]):
+                raise ValueError(
+                    f"Scene-boundary payload metadata has no causal target at row "
+                    f"{row_index}: {mask_column}"
+                )
+            if any(
+                selected and (label == -100 or attention == 0)
+                for selected, label, attention in zip(mask, labels, attention_mask)
+            ):
+                raise ValueError(
+                    f"Scene-boundary payload metadata escapes supervised tokens at row "
+                    f"{row_index}: {mask_column}"
+                )
+
+
+def validate_scene_state_semantic_columns(
+    tokenized: Dataset,
+    *,
+    training_mode: str,
+) -> None:
+    if training_mode != "episode":
+        raise ValueError("scene_state_identity_ce requires episode training mode")
+    required_columns = {
+        "scene_state_semantic_mask",
+        "scene_state_boundary_count",
+        "labels",
+        "attention_mask",
+        "write_input_ids",
+        "write_attention_mask",
+    }
+    missing_columns = sorted(required_columns.difference(tokenized.column_names))
+    if missing_columns:
+        raise ValueError(
+            "Tokenized scene-state dataset is missing semantic metadata; rebuild it "
+            "with the current trainer: " + ", ".join(missing_columns)
+        )
+    for row_index, row in enumerate(tokenized):
+        boundary_count = row["scene_state_boundary_count"]
+        if (
+            not isinstance(boundary_count, int)
+            or isinstance(boundary_count, bool)
+            or boundary_count < 0
+        ):
+            raise ValueError(
+                f"Scene-state row {row_index} has an invalid boundaries cardinality"
+            )
+        mask = [bool(value) for value in row["scene_state_semantic_mask"]]
+        labels = [int(value) for value in row["labels"]]
+        attention_mask = [int(value) for value in row["attention_mask"]]
+        if not len(mask) == len(labels) == len(attention_mask):
+            raise ValueError(
+                f"Scene-state semantic metadata is misaligned at row {row_index}"
+            )
+        if not any(mask[1:]):
+            raise ValueError(
+                f"Scene-state semantic metadata has no causal target at row {row_index}"
+            )
+        if any(
+            selected and (label == -100 or attention == 0)
+            for selected, label, attention in zip(mask, labels, attention_mask)
+        ):
+            raise ValueError(
+                f"Scene-state semantic metadata escapes supervised tokens at row {row_index}"
+            )
+        write_ids = [int(value) for value in row["write_input_ids"]]
+        write_attention = [int(value) for value in row["write_attention_mask"]]
+        if not write_ids or len(write_ids) != len(write_attention):
+            raise ValueError(
+                f"Scene-state row {row_index} must have one aligned non-empty write"
+            )
+
+
 def build_training_protocol(
     args: argparse.Namespace,
     tokenized: Dataset,
@@ -6580,18 +10234,40 @@ def build_training_protocol(
     eval_samples: int,
     warmup_steps: int,
     content_contrast_pairing_manifest: dict[str, object] | None = None,
+    scene_state_identity_pairing_manifest: dict[str, object] | None = None,
+    tokenized_cache_identity: dict[str, object] | None = None,
 ) -> dict[str, object]:
     is_content_contrast = args.memory_loss_mode == "content_contrast_ce"
+    is_scene_state_identity = args.memory_loss_mode == "scene_state_identity_ce"
+    if tokenized_cache_identity is not None:
+        if tokenized_cache_identity.get("rows") != len(tokenized):
+            raise ValueError("Tokenized cache identity row count differs from the dataset")
+        if tokenized_cache_identity.get("column_names") != list(tokenized.column_names):
+            raise ValueError("Tokenized cache identity columns differ from the dataset")
+        if tokenized_cache_identity.get("saved_fingerprint") != getattr(
+            tokenized,
+            "_fingerprint",
+            None,
+        ):
+            raise ValueError("Tokenized cache identity fingerprint differs from the dataset")
     protocol = {
         "schema_version": (
             _CONTENT_CONTRAST_TRAINING_PROTOCOL_SCHEMA_VERSION
             if is_content_contrast
-            else _TRAINING_PROTOCOL_SCHEMA_VERSION
+            else (
+                _SCENE_STATE_IDENTITY_TRAINING_PROTOCOL_SCHEMA_VERSION
+                if is_scene_state_identity
+                else _TRAINING_PROTOCOL_SCHEMA_VERSION
+            )
         ),
         "memory_objective_version": (
             _CONTENT_CONTRAST_OBJECTIVE_VERSION
             if is_content_contrast
-            else _MEMORY_OBJECTIVE_VERSION
+            else (
+                _SCENE_STATE_IDENTITY_OBJECTIVE_VERSION
+                if is_scene_state_identity
+                else _MEMORY_OBJECTIVE_VERSION
+            )
         ),
         "train_file": None if args.train_file is None else str(args.train_file.resolve()),
         "dataset_name": args.dataset_name,
@@ -6602,6 +10278,15 @@ def build_training_protocol(
             else str(args.tokenized_dataset_dir.resolve())
         ),
         "tokenized_fingerprint": getattr(tokenized, "_fingerprint", None),
+        "tokenized_dataset_sha256": (
+            None
+            if tokenized_cache_identity is None
+            else tokenized_cache_identity.get("ordered_content_sha256")
+        ),
+        "expected_tokenized_dataset_sha256": (
+            _normalized_expected_tokenized_dataset_sha256(args)
+        ),
+        "tokenized_cache_identity": tokenized_cache_identity,
         "tokenized_samples": len(tokenized),
         "train_samples": train_samples,
         "eval_samples": eval_samples,
@@ -6637,12 +10322,27 @@ def build_training_protocol(
         "memory_dropout_no_memory_prob": args.memory_dropout_no_memory_prob,
         "memory_dropout_state_only_prob": args.memory_dropout_state_only_prob,
         "memory_base_kl_weight": args.memory_base_kl_weight,
+        "scene_boundary_payload_ce_weight": getattr(
+            args,
+            "scene_boundary_payload_ce_weight",
+            0.0,
+        ),
+        "scene_boundary_payload_mask_mode": _SCENE_BOUNDARY_PAYLOAD_MASK_MODE,
+        "scene_boundary_payload_ce_normalization": (
+            _SCENE_BOUNDARY_PAYLOAD_CE_NORMALIZATION
+        ),
         "context_ablation_mode": args.context_ablation_mode,
         "context_ablation_no_state_prob": args.context_ablation_no_state_prob,
         "context_ablation_state_only_prob": args.context_ablation_state_only_prob,
         "validation_split_ratio": args.validation_split_ratio,
         "seed": args.seed,
         "data_seed": args.data_seed,
+        "train_sampler_seed": getattr(args, "train_sampler_seed", None),
+        "train_sampler_mode": (
+            _DEFAULT_TRAIN_SAMPLER_MODE
+            if getattr(args, "train_sampler_seed", None) is None
+            else _SEEDED_TRAIN_SAMPLER_MODE
+        ),
         "per_device_train_batch_size": args.per_device_train_batch_size,
         "per_device_eval_batch_size": (
             args.per_device_eval_batch_size
@@ -6699,6 +10399,97 @@ def build_training_protocol(
                 ),
             }
         )
+    if is_scene_state_identity:
+        if scene_state_identity_pairing_manifest is None:
+            raise ValueError(
+                "scene_state_identity_ce requires a post-split pairing manifest"
+            )
+        source_manifest_identity = _scene_state_source_manifest_identity(args)
+        if source_manifest_identity is None:
+            raise ValueError(
+                "scene_state_identity_ce requires a bound source manifest identity"
+            )
+        protocol.update(
+            {
+                "scene_state_identity_margin": args.scene_state_identity_margin,
+                "scene_state_margin_mode": "per_row_hinge_relu_v1",
+                "scene_state_objective_formula": (
+                    "full_correct_ce + correct_all_semantic_ce + "
+                    "mean(relu(margin - (donor_pair_semantic_ce - "
+                    "correct_pair_semantic_ce)))"
+                ),
+                "scene_state_correct_all_semantic_scope": (
+                    "all_semantic_tokens_v1"
+                ),
+                "scene_state_pair_semantic_scope": (
+                    "first_pair_distinguishing_semantic_token_v1"
+                ),
+                "scene_state_donor_margin_scope": (
+                    "first_pair_distinguishing_semantic_token_v1"
+                ),
+                "scene_state_zero_diagnostic_scope": "all_semantic_tokens_v1",
+                "scene_state_zero_diagnostic_gradient": False,
+                "scene_state_read_time_positions_observable": False,
+                "scene_state_pairing_length_control": (
+                    "nearest_feasible_symmetric_absolute_write_token_delta_v1"
+                ),
+                "scene_state_pairing_refinement": (
+                    _SCENE_STATE_IDENTITY_PAIRING_REFINEMENT
+                ),
+                "scene_state_identity_target_strata": list(
+                    _SCENE_STATE_IDENTITY_TARGET_STRATA
+                ),
+                "scene_state_full_correct_ce_weight": (
+                    _SCENE_STATE_FULL_CORRECT_CE_WEIGHT
+                ),
+                "scene_state_correct_all_semantic_ce_weight": (
+                    _SCENE_STATE_CORRECT_ALL_SEMANTIC_CE_WEIGHT
+                ),
+                "scene_state_donor_margin_weight": (
+                    _SCENE_STATE_DONOR_MARGIN_WEIGHT
+                ),
+                "scene_state_identity_backward_mode": (
+                    _SCENE_STATE_IDENTITY_BACKWARD_MODE
+                ),
+                "scene_state_identity_read_protocol": (
+                    _SCENE_STATE_IDENTITY_READ_PROTOCOL
+                ),
+                "scene_state_identity_zero_protocol": (
+                    _SCENE_STATE_IDENTITY_ZERO_PROTOCOL
+                ),
+                "scene_state_semantic_mask_mode": (
+                    _SCENE_STATE_SEMANTIC_MASK_MODE
+                ),
+                "scene_state_semantic_loss_normalization": (
+                    _SCENE_STATE_SEMANTIC_LOSS_NORMALIZATION
+                ),
+                "scene_state_identity_target_mode": (
+                    _SCENE_STATE_IDENTITY_TARGET_MODE
+                ),
+                "scene_state_identity_causal_prefix_mode": (
+                    _SCENE_STATE_IDENTITY_CAUSAL_PREFIX_MODE
+                ),
+                "scene_state_source_manifest": source_manifest_identity,
+                "scene_state_identity_pairing": (
+                    _scene_state_identity_protocol_pairing_summary(
+                        scene_state_identity_pairing_manifest
+                    )
+                ),
+                "memory_kl_weight": args.memory_kl_weight,
+                "memory_base_kl_weight": args.memory_base_kl_weight,
+                "memory_representation_weight": args.memory_representation_weight,
+                "write_sparsity_weight": args.write_sparsity_weight,
+                "memory_partition_alignment_weight": (
+                    args.memory_partition_alignment_weight
+                ),
+                "memory_partition_entropy_weight": (
+                    args.memory_partition_entropy_weight
+                ),
+                "memory_partition_balance_weight": (
+                    args.memory_partition_balance_weight
+                ),
+            }
+        )
     return protocol
 
 
@@ -6712,16 +10503,61 @@ class DialogueCausalLMCollator:
         input_ids = []
         attention_mask = []
         labels = []
+        has_payload_masks = [
+            "scene_boundary_payload_mask" in feature for feature in features
+        ]
+        if any(has_payload_masks) and not all(has_payload_masks):
+            raise ValueError("Batch mixes scene-boundary payload metadata presence")
+        payload_masks = []
+        has_scene_state_semantic_masks = [
+            "scene_state_semantic_mask" in feature for feature in features
+        ]
+        if any(has_scene_state_semantic_masks) and not all(
+            has_scene_state_semantic_masks
+        ):
+            raise ValueError("Batch mixes scene-state semantic metadata presence")
+        scene_state_semantic_masks = []
         for feature in features:
             pad_len = max_len - len(feature["input_ids"])
             input_ids.append(feature["input_ids"] + [pad_token_id] * pad_len)
             attention_mask.append(feature["attention_mask"] + [0] * pad_len)
             labels.append(feature["labels"] + [-100] * pad_len)
-        return {
+            if all(has_payload_masks):
+                payload_mask = feature["scene_boundary_payload_mask"]
+                if len(payload_mask) != len(feature["labels"]):
+                    raise ValueError(
+                        "Scene-boundary payload mask must align with labels"
+                    )
+                payload_masks.append(payload_mask + [False] * pad_len)
+            if all(has_scene_state_semantic_masks):
+                semantic_mask = feature["scene_state_semantic_mask"]
+                if len(semantic_mask) != len(feature["labels"]):
+                    raise ValueError(
+                        "Scene-state semantic mask must align with labels"
+                    )
+                if not any(bool(value) for value in semantic_mask[1:]):
+                    raise ValueError(
+                        "Scene-state semantic mask must select a causal target"
+                    )
+                scene_state_semantic_masks.append(
+                    semantic_mask + [False] * pad_len
+                )
+        batch = {
             "input_ids": torch.tensor(input_ids, dtype=torch.long),
             "attention_mask": torch.tensor(attention_mask, dtype=torch.long),
             "labels": torch.tensor(labels, dtype=torch.long),
         }
+        if all(has_payload_masks):
+            batch["scene_boundary_payload_mask"] = torch.tensor(
+                payload_masks,
+                dtype=torch.bool,
+            )
+        if all(has_scene_state_semantic_masks):
+            batch["scene_state_semantic_mask"] = torch.tensor(
+                scene_state_semantic_masks,
+                dtype=torch.bool,
+            )
+        return batch
 
 
 class EpisodeCausalLMCollator(DialogueCausalLMCollator):
@@ -6852,6 +10688,229 @@ class EpisodeCausalLMCollator(DialogueCausalLMCollator):
                 content_contrast_target_mask.to(dtype=torch.bool)
             )
 
+        has_scene_state_donor_writes = [
+            "scene_state_donor_write_input_ids" in feature
+            for feature in features
+        ]
+        if any(has_scene_state_donor_writes) and not all(
+            has_scene_state_donor_writes
+        ):
+            raise ValueError(
+                "Episode batch mixes paired and unpaired scene-state examples"
+            )
+        if all(has_scene_state_donor_writes):
+            required_scene_state_columns = (
+                "scene_state_donor_write_input_ids",
+                "scene_state_donor_write_attention_mask",
+                "scene_state_donor_write_message_ids",
+                "scene_state_donor_write_sentence_ids",
+                "scene_state_semantic_mask",
+                "scene_state_identity_target_mask",
+                "scene_state_identity_target_mask_sha256",
+                "scene_state_boundary_count",
+                "scene_state_donor_boundary_count",
+                "scene_state_identity_target_stratum",
+                "scene_state_source_index",
+                "scene_state_donor_index",
+                "scene_state_source_row_sha256",
+                "scene_state_donor_row_sha256",
+                "scene_state_source_label_sha256",
+                "scene_state_donor_label_sha256",
+                "scene_state_source_write_sha256",
+                "scene_state_donor_write_sha256",
+            )
+            missing_scene_state_columns = [
+                column
+                for column in required_scene_state_columns
+                if any(column not in feature for feature in features)
+            ]
+            if missing_scene_state_columns:
+                raise ValueError(
+                    "scene_state_identity_ce examples have incomplete pairing metadata: "
+                    + ", ".join(missing_scene_state_columns)
+                )
+            donor_write_input_ids = _pad_sequences(
+                [
+                    feature["scene_state_donor_write_input_ids"]
+                    for feature in features
+                ],
+                pad_token_id,
+            )
+            donor_write_attention_mask = _pad_sequences(
+                [
+                    feature["scene_state_donor_write_attention_mask"]
+                    for feature in features
+                ],
+                0,
+            )
+            donor_write_message_ids = _pad_sequences(
+                [
+                    feature["scene_state_donor_write_message_ids"]
+                    for feature in features
+                ],
+                -1,
+            )
+            donor_write_sentence_ids = _pad_sequences(
+                [
+                    feature["scene_state_donor_write_sentence_ids"]
+                    for feature in features
+                ],
+                -1,
+            )
+            if (
+                donor_write_input_ids is None
+                or donor_write_attention_mask is None
+                or donor_write_message_ids is None
+                or donor_write_sentence_ids is None
+            ):
+                raise ValueError(
+                    "scene_state_identity_ce examples require non-empty donor writes"
+                )
+            batch["scene_state_donor_write_input_ids"] = donor_write_input_ids
+            batch["scene_state_donor_write_attention_mask"] = (
+                donor_write_attention_mask
+            )
+            batch["scene_state_donor_write_message_ids"] = donor_write_message_ids
+            batch["scene_state_donor_write_sentence_ids"] = (
+                donor_write_sentence_ids
+            )
+
+            for feature in features:
+                target_mask = [
+                    bool(value)
+                    for value in feature["scene_state_identity_target_mask"]
+                ]
+                semantic_mask = [
+                    bool(value) for value in feature["scene_state_semantic_mask"]
+                ]
+                if not len(target_mask) == len(semantic_mask) == len(feature["labels"]):
+                    raise ValueError(
+                        "Scene-state identity and semantic masks must align with labels"
+                    )
+                if sum(target_mask) != 1:
+                    raise ValueError(
+                        "Scene-state identity target mask must select exactly one label"
+                    )
+                if any(
+                    selected and not semantic
+                    for selected, semantic in zip(target_mask, semantic_mask)
+                ):
+                    raise ValueError(
+                        "Scene-state identity target must be a subset of the semantic mask"
+                    )
+                actual_target_hash = _canonical_json_sha256(target_mask)
+                if actual_target_hash != str(
+                    feature["scene_state_identity_target_mask_sha256"]
+                ):
+                    raise ValueError(
+                        "Scene-state identity target mask does not match its audited hash"
+                    )
+
+                source_write = {
+                    "input_ids": [int(value) for value in feature["write_input_ids"]],
+                    "attention_mask": [
+                        int(value) for value in feature["write_attention_mask"]
+                    ],
+                    "message_ids": [
+                        int(value) for value in feature["write_message_ids"]
+                    ],
+                    "sentence_ids": [
+                        int(value) for value in feature["write_sentence_ids"]
+                    ],
+                }
+                donor_write = {
+                    "input_ids": [
+                        int(value)
+                        for value in feature[
+                            "scene_state_donor_write_input_ids"
+                        ]
+                    ],
+                    "attention_mask": [
+                        int(value)
+                        for value in feature[
+                            "scene_state_donor_write_attention_mask"
+                        ]
+                    ],
+                    "message_ids": [
+                        int(value)
+                        for value in feature[
+                            "scene_state_donor_write_message_ids"
+                        ]
+                    ],
+                    "sentence_ids": [
+                        int(value)
+                        for value in feature[
+                            "scene_state_donor_write_sentence_ids"
+                        ]
+                    ],
+                }
+                if _canonical_json_sha256(source_write) != str(
+                    feature["scene_state_source_write_sha256"]
+                ):
+                    raise ValueError(
+                        "Scene-state source write does not match its audited hash"
+                    )
+                if _canonical_json_sha256(donor_write) != str(
+                    feature["scene_state_donor_write_sha256"]
+                ):
+                    raise ValueError(
+                        "Scene-state donor write does not match its audited hash"
+                    )
+                for field in (
+                    "scene_state_source_row_sha256",
+                    "scene_state_donor_row_sha256",
+                    "scene_state_source_label_sha256",
+                    "scene_state_donor_label_sha256",
+                ):
+                    value = str(feature[field])
+                    if len(value) != 64 or any(
+                        character not in "0123456789abcdef" for character in value
+                    ):
+                        raise ValueError(
+                            f"Scene-state pairing has an invalid SHA-256: {field}"
+                        )
+                if feature["scene_state_source_label_sha256"] == feature[
+                    "scene_state_donor_label_sha256"
+                ]:
+                    raise ValueError(
+                        "Scene-state donor label must be exact-distinct"
+                    )
+                if int(feature["scene_state_source_index"]) == int(
+                    feature["scene_state_donor_index"]
+                ):
+                    raise ValueError("Scene-state row cannot donate to itself")
+                expected_stratum = _scene_state_identity_target_stratum(
+                    feature["scene_state_boundary_count"],
+                    feature["scene_state_donor_boundary_count"],
+                )
+                if feature["scene_state_identity_target_stratum"] != expected_stratum:
+                    raise ValueError(
+                        "Scene-state target stratum does not match source/donor "
+                        "boundaries cardinalities"
+                    )
+
+            scene_state_target_mask = _pad_sequences(
+                [
+                    feature["scene_state_identity_target_mask"]
+                    for feature in features
+                ],
+                False,
+            )
+            if scene_state_target_mask is None:
+                raise ValueError("Scene-state identity target masks must be non-empty")
+            batch["scene_state_identity_target_mask"] = (
+                scene_state_target_mask.to(dtype=torch.bool)
+            )
+            batch["scene_state_identity_target_stratum"] = torch.tensor(
+                [
+                    _SCENE_STATE_IDENTITY_TARGET_STRATUM_CODES[
+                        str(feature["scene_state_identity_target_stratum"])
+                    ]
+                    for feature in features
+                ],
+                dtype=torch.long,
+            )
+
         teacher_input_ids = _pad_sequences(
             [feature["teacher_input_ids"] for feature in features],
             pad_token_id,
@@ -6873,6 +10932,33 @@ class EpisodeCausalLMCollator(DialogueCausalLMCollator):
         batch["teacher_input_ids"] = teacher_input_ids
         batch["teacher_attention_mask"] = teacher_attention_mask
         batch["teacher_labels"] = teacher_labels
+        has_scene_boundary_payload = "scene_boundary_payload_mask" in batch
+        if has_scene_boundary_payload:
+            required_payload_columns = (
+                "teacher_scene_boundary_payload_mask",
+                "state_only_scene_boundary_payload_mask",
+            )
+            missing_payload_columns = [
+                column
+                for column in required_payload_columns
+                if any(column not in feature for feature in features)
+            ]
+            if missing_payload_columns:
+                raise ValueError(
+                    "Scene-boundary episode examples have incomplete payload metadata: "
+                    + ", ".join(missing_payload_columns)
+                )
+            teacher_payload_mask = _pad_sequences(
+                [feature["teacher_scene_boundary_payload_mask"] for feature in features],
+                False,
+            )
+            if teacher_payload_mask is None or teacher_payload_mask.shape != teacher_labels.shape:
+                raise ValueError(
+                    "Teacher scene-boundary payload mask must align with teacher labels"
+                )
+            batch["teacher_scene_boundary_payload_mask"] = teacher_payload_mask.to(
+                dtype=torch.bool
+            )
 
         state_only_write_input_ids = _pad_sequences(
             [feature["state_only_write_input_ids"] for feature in features],
@@ -6918,6 +11004,24 @@ class EpisodeCausalLMCollator(DialogueCausalLMCollator):
             batch["state_only_input_ids"] = state_only_input_ids
             batch["state_only_attention_mask"] = state_only_attention_mask
             batch["state_only_labels"] = state_only_labels
+            if has_scene_boundary_payload:
+                state_only_payload_mask = _pad_sequences(
+                    [
+                        feature["state_only_scene_boundary_payload_mask"]
+                        for feature in features
+                    ],
+                    False,
+                )
+                if (
+                    state_only_payload_mask is None
+                    or state_only_payload_mask.shape != state_only_labels.shape
+                ):
+                    raise ValueError(
+                        "State-only scene-boundary payload mask must align with labels"
+                    )
+                batch["state_only_scene_boundary_payload_mask"] = (
+                    state_only_payload_mask.to(dtype=torch.bool)
+                )
 
         max_full_len = max(
             len(feature["write_input_ids"]) + len(feature["input_ids"]) for feature in features
@@ -6925,6 +11029,7 @@ class EpisodeCausalLMCollator(DialogueCausalLMCollator):
         full_input_ids = []
         full_attention_mask = []
         full_labels = []
+        full_payload_masks = []
         for feature in features:
             combined_input_ids = feature["write_input_ids"] + feature["input_ids"]
             combined_attention_mask = (
@@ -6935,9 +11040,22 @@ class EpisodeCausalLMCollator(DialogueCausalLMCollator):
             full_input_ids.append(combined_input_ids + [pad_token_id] * pad_len)
             full_attention_mask.append(combined_attention_mask + [0] * pad_len)
             full_labels.append(combined_labels + [-100] * pad_len)
+            if has_scene_boundary_payload:
+                combined_payload_mask = (
+                    [False] * len(feature["write_input_ids"])
+                    + feature["scene_boundary_payload_mask"]
+                )
+                full_payload_masks.append(
+                    combined_payload_mask + [False] * pad_len
+                )
         batch["full_input_ids"] = torch.tensor(full_input_ids, dtype=torch.long)
         batch["full_attention_mask"] = torch.tensor(full_attention_mask, dtype=torch.long)
         batch["full_labels"] = torch.tensor(full_labels, dtype=torch.long)
+        if has_scene_boundary_payload:
+            batch["full_scene_boundary_payload_mask"] = torch.tensor(
+                full_payload_masks,
+                dtype=torch.bool,
+            )
         return batch
 
 
@@ -6979,6 +11097,9 @@ def main() -> None:
             args.memory_loss_mode == "content_contrast_ce"
             and args.resume_mode != "objective_ablation"
         ),
+        require_scene_state_identity_pairing=(
+            args.memory_loss_mode == "scene_state_identity_ce"
+        ),
     )
     warm_start_from_checkpoint = resolve_adapter_warm_start_checkpoint(
         args.warm_start_from_checkpoint
@@ -6996,6 +11117,14 @@ def main() -> None:
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     distributed = world_size > 1
     local_rank = int(os.environ.get("LOCAL_RANK", str(args.local_rank)))
+    if args.train_sampler_seed is not None and distributed:
+        raise ValueError("train-sampler-seed currently requires a single-process run")
+    initial_adapter_output_dir = resolve_initial_adapter_output_dir(
+        args,
+        resume_from_checkpoint=resume_from_checkpoint,
+        warm_start_from_checkpoint=warm_start_from_checkpoint,
+        world_size=world_size,
+    )
     tokenizer = AutoTokenizer.from_pretrained(args.model_path, local_files_only=True)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -7013,12 +11142,23 @@ def main() -> None:
         and args.memory_base_kl_weight > 0.0
     ):
         validate_canonical_teacher_columns(tokenized)
+    if args.scene_boundary_payload_ce_weight > 0.0:
+        validate_scene_boundary_payload_columns(
+            tokenized,
+            training_mode=effective_training_mode,
+        )
+    if args.memory_loss_mode == "scene_state_identity_ce":
+        validate_scene_state_semantic_columns(
+            tokenized,
+            training_mode=effective_training_mode,
+        )
     train_dataset, eval_dataset = split_tokenized_dataset(
         tokenized,
         validation_split_ratio=args.validation_split_ratio,
         data_seed=args.data_seed,
     )
     content_contrast_pairing_manifest = None
+    scene_state_identity_pairing_manifest = None
     if args.memory_loss_mode == "content_contrast_ce":
         if effective_training_mode != "episode":
             raise ValueError("content_contrast_ce requires episode training mode")
@@ -7037,6 +11177,32 @@ def main() -> None:
             data_seed=args.data_seed,
             train_manifest=train_pairing_manifest,
             eval_manifest=eval_pairing_manifest,
+        )
+    if args.memory_loss_mode == "scene_state_identity_ce":
+        train_dataset, train_scene_pairing_manifest = (
+            materialize_scene_state_identity_pairs(
+                train_dataset,
+                split_name="train",
+            )
+        )
+        eval_scene_pairing_manifest = None
+        if eval_dataset is not None:
+            eval_dataset, eval_scene_pairing_manifest = (
+                materialize_scene_state_identity_pairs(
+                    eval_dataset,
+                    split_name="eval",
+                )
+            )
+        scene_state_identity_pairing_manifest = (
+            build_scene_state_identity_pairing_manifest(
+                tokenized_fingerprint=getattr(tokenized, "_fingerprint", None),
+                tokenized_dataset_sha256=tokenized_meta.get(
+                    "tokenized_dataset_sha256"
+                ),
+                data_seed=args.data_seed,
+                train_manifest=train_scene_pairing_manifest,
+                eval_manifest=eval_scene_pairing_manifest,
+            )
         )
     effective_group_by_length = args.group_by_length and effective_training_mode != "episode"
     if args.group_by_length and not effective_group_by_length and local_rank in (-1, 0):
@@ -7161,6 +11327,10 @@ def main() -> None:
         eval_samples=0 if eval_dataset is None else len(eval_dataset),
         warmup_steps=warmup_steps,
         content_contrast_pairing_manifest=content_contrast_pairing_manifest,
+        scene_state_identity_pairing_manifest=(
+            scene_state_identity_pairing_manifest
+        ),
+        tokenized_cache_identity=tokenized_meta.get("tokenized_cache_identity"),
     )
     training_protocol_sha256 = hashlib.sha256(
         json.dumps(training_protocol, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -7208,6 +11378,28 @@ def main() -> None:
             continuation_manifest["target_content_contrast_pairing_manifest_sha256"] = (
                 content_contrast_pairing_manifest["manifest_sha256"]
             )
+    initial_adapter_manifest = None
+    if initial_adapter_output_dir is not None:
+        initial_adapter_manifest = save_seeded_initial_adapter_snapshot(
+            model,
+            initial_adapter_output_dir,
+            delta_config,
+            args=args,
+            training_protocol=training_protocol,
+            training_protocol_sha256=training_protocol_sha256,
+            train_samples=len(train_dataset),
+            replaced_modules=replaced,
+            trainable_names=trainable_names,
+        )
+    if args.prepare_only:
+        if initial_adapter_output_dir is None:
+            raise RuntimeError("Prepare-only mode requires a resolved initial adapter path")
+        prepare_receipt = validate_prepare_only_snapshot(
+            initial_adapter_output_dir,
+            initial_adapter_manifest,
+        )
+        print(json.dumps(prepare_receipt, sort_keys=True), flush=True)
+        return
     training_args_kwargs = dict(
         output_dir=str(args.output_dir / "trainer"),
         per_device_train_batch_size=args.per_device_train_batch_size,
@@ -7302,18 +11494,54 @@ def main() -> None:
         memory_dropout_no_memory_prob=args.memory_dropout_no_memory_prob,
         memory_dropout_state_only_prob=args.memory_dropout_state_only_prob,
         memory_base_kl_weight=args.memory_base_kl_weight,
+        scene_boundary_payload_ce_weight=args.scene_boundary_payload_ce_weight,
+        train_sampler_seed=args.train_sampler_seed,
         episode_read_write_enabled=args.episode_read_write_enabled,
         context_ablation_mode=args.context_ablation_mode,
         context_ablation_no_state_prob=args.context_ablation_no_state_prob,
         context_ablation_state_only_prob=args.context_ablation_state_only_prob,
         training_protocol=training_protocol,
         content_contrast_pairing_manifest=content_contrast_pairing_manifest,
+        scene_state_identity_margin=args.scene_state_identity_margin,
+        scene_state_identity_pairing_manifest=(
+            scene_state_identity_pairing_manifest
+        ),
         resume_mode=args.resume_mode,
         continuation_manifest=continuation_manifest,
     )
     trainer.log_delta_debug_stats = args.log_delta_debug_stats
+    cuda_memory_device = None
+    cuda_memory_baseline = None
+    if torch.cuda.is_available():
+        cuda_memory_device = torch.device("cuda", torch.cuda.current_device())
+        torch.cuda.synchronize(cuda_memory_device)
+        torch.cuda.reset_peak_memory_stats(cuda_memory_device)
+        cuda_memory_baseline = {
+            "allocated_bytes": int(torch.cuda.memory_allocated(cuda_memory_device)),
+            "reserved_bytes": int(torch.cuda.memory_reserved(cuda_memory_device)),
+        }
     trainer.train(resume_from_checkpoint=trainer_resume_from_checkpoint)
     trainer.accelerator.wait_for_everyone()
+    cuda_memory = None
+    if cuda_memory_device is not None:
+        torch.cuda.synchronize(cuda_memory_device)
+        cuda_memory = {
+            "device": str(cuda_memory_device),
+            "baseline_allocated_bytes": cuda_memory_baseline["allocated_bytes"],
+            "baseline_reserved_bytes": cuda_memory_baseline["reserved_bytes"],
+            "peak_allocated_bytes": int(
+                torch.cuda.max_memory_allocated(cuda_memory_device)
+            ),
+            "peak_reserved_bytes": int(
+                torch.cuda.max_memory_reserved(cuda_memory_device)
+            ),
+            "post_train_allocated_bytes": int(
+                torch.cuda.memory_allocated(cuda_memory_device)
+            ),
+            "post_train_reserved_bytes": int(
+                torch.cuda.memory_reserved(cuda_memory_device)
+            ),
+        }
 
     base_model = trainer.accelerator.unwrap_model(trainer.model)
     if trainer.is_world_process_zero():
@@ -7325,6 +11553,14 @@ def main() -> None:
         if content_contrast_pairing_manifest is not None:
             (args.output_dir / _CONTENT_CONTRAST_PAIRING_FILENAME).write_text(
                 json.dumps(content_contrast_pairing_manifest, indent=2, sort_keys=True)
+            )
+        if scene_state_identity_pairing_manifest is not None:
+            (args.output_dir / _SCENE_STATE_IDENTITY_PAIRING_FILENAME).write_text(
+                json.dumps(
+                    scene_state_identity_pairing_manifest,
+                    indent=2,
+                    sort_keys=True,
+                )
             )
         if active_lineage is not None:
             (
@@ -7338,6 +11574,16 @@ def main() -> None:
             "resume_mode": args.resume_mode,
             "warm_start_from_checkpoint": warm_start_from_checkpoint,
             "warm_start_mode": args.warm_start_mode,
+            "initial_adapter_output_dir": (
+                None
+                if initial_adapter_output_dir is None
+                else str(initial_adapter_output_dir)
+            ),
+            "initial_adapter_manifest_sha256": (
+                None
+                if initial_adapter_manifest is None
+                else initial_adapter_manifest["manifest_sha256"]
+            ),
             "continuation": active_lineage,
             "resume_lineage": active_lineage,
             "num_replaced_modules": len(replaced),
@@ -7351,11 +11597,22 @@ def main() -> None:
             "eval_samples": 0 if eval_dataset is None else len(eval_dataset),
             "training_mode": effective_training_mode,
             "assistant_loss_mode": args.assistant_loss_mode,
+            "train_sampler_seed": args.train_sampler_seed,
+            "train_sampler_mode": training_protocol["train_sampler_mode"],
             "episode_recent_messages": args.episode_recent_messages,
             "max_write_length": args.max_write_length,
             "episode_read_write_enabled": args.episode_read_write_enabled,
             "memory_loss_mode": args.memory_loss_mode,
             "memory_objective_version": training_protocol["memory_objective_version"],
+            "scene_boundary_payload_ce_weight": (
+                args.scene_boundary_payload_ce_weight
+            ),
+            "scene_boundary_payload_mask_mode": (
+                training_protocol["scene_boundary_payload_mask_mode"]
+            ),
+            "scene_boundary_payload_ce_normalization": (
+                training_protocol["scene_boundary_payload_ce_normalization"]
+            ),
             "content_contrast_backward_mode": training_protocol.get(
                 "content_contrast_backward_mode"
             ),
@@ -7423,6 +11680,47 @@ def main() -> None:
                 if content_contrast_pairing_manifest is None
                 else content_contrast_pairing_manifest["manifest_sha256"]
             ),
+            "scene_state_identity_margin": training_protocol.get(
+                "scene_state_identity_margin"
+            ),
+            "scene_state_margin_mode": training_protocol.get(
+                "scene_state_margin_mode"
+            ),
+            "scene_state_identity_backward_mode": training_protocol.get(
+                "scene_state_identity_backward_mode"
+            ),
+            "scene_state_identity_read_protocol": training_protocol.get(
+                "scene_state_identity_read_protocol"
+            ),
+            "scene_state_identity_zero_protocol": training_protocol.get(
+                "scene_state_identity_zero_protocol"
+            ),
+            "scene_state_semantic_mask_mode": training_protocol.get(
+                "scene_state_semantic_mask_mode"
+            ),
+            "scene_state_semantic_loss_normalization": training_protocol.get(
+                "scene_state_semantic_loss_normalization"
+            ),
+            "scene_state_identity_target_mode": training_protocol.get(
+                "scene_state_identity_target_mode"
+            ),
+            "scene_state_source_manifest": training_protocol.get(
+                "scene_state_source_manifest"
+            ),
+            "scene_state_full_correct_ce_weight": training_protocol.get(
+                "scene_state_full_correct_ce_weight"
+            ),
+            "scene_state_correct_all_semantic_ce_weight": training_protocol.get(
+                "scene_state_correct_all_semantic_ce_weight"
+            ),
+            "scene_state_donor_margin_weight": training_protocol.get(
+                "scene_state_donor_margin_weight"
+            ),
+            "scene_state_identity_pairing_manifest_sha256": (
+                None
+                if scene_state_identity_pairing_manifest is None
+                else scene_state_identity_pairing_manifest["manifest_sha256"]
+            ),
             "memory_dropout_counts_current_process_since_resume": trainer.memory_dropout_counts,
             "lr_scheduler_type": args.lr_scheduler_type,
             "warmup_ratio": args.warmup_ratio,
@@ -7436,6 +11734,7 @@ def main() -> None:
             ),
             "torch_compile": args.torch_compile,
             "tf32": args.tf32,
+            "cuda_memory": cuda_memory,
             "group_by_length": effective_group_by_length,
             "dataloader_num_workers": args.dataloader_num_workers,
             "dataset_num_proc": args.dataset_num_proc,
@@ -7446,6 +11745,11 @@ def main() -> None:
             "tokenized_cache_hit": tokenized_meta["tokenized_cache_hit"],
             "tokenized_cache_dir": tokenized_meta["tokenized_cache_dir"],
             "tokenized_dataset_source": tokenized_meta["tokenized_dataset_source"],
+            "tokenized_dataset_sha256": tokenized_meta["tokenized_dataset_sha256"],
+            "tokenized_cache_identity": tokenized_meta["tokenized_cache_identity"],
+            "tokenized_cache_manifest_sha256": tokenized_meta[
+                "tokenized_cache_manifest_sha256"
+            ],
             "ddp_broadcast_buffers": training_args.ddp_broadcast_buffers,
             "ddp_backend": args.ddp_backend if distributed else None,
             "local_rank": local_rank if distributed else -1,

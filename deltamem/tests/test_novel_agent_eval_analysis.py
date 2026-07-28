@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -214,3 +216,364 @@ def test_full_validation_selection_passes_equal_model_metrics(monkeypatch) -> No
         result["tasks"][task_name]["criterion_passed"] is True
         for task_name in analysis.CORE_SELECTION_TASKS
     )
+
+
+def scene_v6_contract(split: str, rows: int) -> dict[str, Any]:
+    name = "scene_v6_validation" if split == "val" else "scene_v6_final_test"
+    contract = {
+        "name": name,
+        "phase": "validation_selection" if split == "val" else "final_test",
+        "split": split,
+        "task": "scene-v4-current",
+        "rows": rows,
+        "conditions": ["base", "normal", "no_write"],
+        "normal_fusion_profile": "native",
+        "expected_memory_layer_count": 42,
+        "memory_target_layers": list(range(42)),
+        "memory_delta_heads": ["q", "o"],
+        "memory_rank": 4,
+        "rwkv_ms_semantics_version": 2,
+        "memory_backend": "rwkv_ms",
+        "official_dataset_revision": analysis.OFFICIAL_SCENE_V4_DATASET_REVISION,
+        "official_dataset_sha256": analysis.OFFICIAL_SCENE_V4_SHA256[split],
+        "overwrite_allowed": split == "val",
+        "generation_policy": (
+            "Append-only resumable records; completed keys are never regenerated."
+        ),
+    }
+    if split == "test":
+        contract.update(
+            {
+                "checkpoint_selection_forbidden": True,
+                "test_once_enforcement_scope": (
+                    "per_output_directory_and_fingerprint"
+                ),
+                "test_once_enforcement_caveat": (
+                    "A new output directory can rerun inference; global single-use "
+                    "enforcement is not provided. Checkpoint selection on test remains "
+                    "forbidden."
+                ),
+            }
+        )
+    return contract
+
+
+def scene_v6_gate_inputs(
+    rows: int,
+    *,
+    normal_contribution: tuple[int, int, int] = (1, 0, 0),
+    comparator_contribution: tuple[int, int, int] = (0, 0, 1),
+    normal_predictions: list[Any] | None = None,
+    normal_hits: list[bool] | None = None,
+) -> dict[str, Any]:
+    task_name = "scene-v4-current"
+    contributions = {
+        "base": {task_name: [comparator_contribution] * rows},
+        "normal": {task_name: [normal_contribution] * rows},
+        "no_write": {task_name: [comparator_contribution] * rows},
+    }
+    metrics = {
+        condition: {
+            task_name: {
+                "primary_metric": analysis.metric_from_contributions(
+                    "scene",
+                    condition_contributions[task_name],
+                ),
+                "primary_metric_name": "format_recovered_micro_f1",
+            }
+        }
+        for condition, condition_contributions in contributions.items()
+    }
+    predictions = {
+        "base": {task_name: [set() for _ in range(rows)]},
+        "normal": {
+            task_name: (
+                [set([1]) for _ in range(rows)]
+                if normal_predictions is None
+                else normal_predictions
+            )
+        },
+        "no_write": {task_name: [set() for _ in range(rows)]},
+    }
+    records_by_condition = {condition: {} for condition in analysis.CONDITIONS}
+    for condition in analysis.CONDITIONS:
+        hits = normal_hits if condition == "normal" and normal_hits is not None else [False] * rows
+        for index in range(rows):
+            records_by_condition[condition][f"{task_name}:{index}"] = {
+                "hit_max_new_tokens": hits[index]
+            }
+    samples = [
+        analysis.DatasetSample(
+            line_index=index,
+            row_sha256=f"{index:064x}"[-64:],
+            gold={"boundaries": [1]},
+            candidates=(),
+            paragraph_count=3,
+        )
+        for index in range(rows)
+    ]
+    return {
+        "metrics": metrics,
+        "predictions": predictions,
+        "contributions": contributions,
+        "records_by_condition": records_by_condition,
+        "samples_by_task": {task_name: samples},
+    }
+
+
+def test_scene_v6_validation_gates_all_170_rows_and_paired_cis(monkeypatch) -> None:
+    monkeypatch.setattr(analysis, "BOOTSTRAP_REPLICATES", 100)
+    monkeypatch.setattr(analysis, "CONDITIONS", ("base", "normal", "no_write"))
+    specs = (
+        analysis.TaskSpec("scene-v4-current", "unused", "scene", 170),
+    )
+    inputs = scene_v6_gate_inputs(170)
+
+    result = analysis.build_scene_v6_gate_analysis(
+        contract=scene_v6_contract("val", 170),
+        split="val",
+        specs=specs,
+        strict_summary={},
+        **inputs,
+    )
+
+    assert result["status"] == "pass"
+    assert result["all_official_rows_verified"] is True
+    assert result["selection_authorized"] is True
+    assert result["checkpoint_selection_forbidden"] is False
+    assert result["aligned_qwen"]["status"] == "not_applicable"
+    assert result["comparisons"]["base"]["ci_95_percentile"] == [1.0, 1.0]
+    assert result["comparisons"]["no_write"]["ci_95_percentile"] == [1.0, 1.0]
+    assert result["gates"]["normal_minus_no_write"]["passed"] is True
+
+
+def test_scene_v6_final_test_uses_aligned_qwen_and_forbids_selection(monkeypatch) -> None:
+    monkeypatch.setattr(analysis, "BOOTSTRAP_REPLICATES", 100)
+    monkeypatch.setattr(analysis, "CONDITIONS", ("base", "normal", "no_write"))
+    monkeypatch.setattr(
+        analysis,
+        "aligned_qwen_scene_reference",
+        lambda strict_summary, samples, split: {
+            "status": "aligned",
+            "rows": len(samples),
+            "source": "/aligned/qwen.json",
+            "sha256": "a" * 64,
+            "contributions": [(0, 0, 1)] * len(samples),
+            "predictions": [set()] * len(samples),
+            "micro_f1": 0.0,
+        },
+    )
+    specs = (
+        analysis.TaskSpec("scene-v4-current", "unused", "scene", 149),
+    )
+
+    result = analysis.build_scene_v6_gate_analysis(
+        contract=scene_v6_contract("test", 149),
+        split="test",
+        specs=specs,
+        strict_summary={},
+        **scene_v6_gate_inputs(149),
+    )
+
+    assert result["status"] == "pass"
+    assert result["selection_authorized"] is False
+    assert result["checkpoint_selection_forbidden"] is True
+    assert result["final_claim_authorized"] is True
+    assert result["comparisons"]["aligned_qwen"]["ci_95_percentile"] == [1.0, 1.0]
+
+
+def test_scene_v6_gate_fails_zero_ci_coverage_and_max_token_regression(monkeypatch) -> None:
+    monkeypatch.setattr(analysis, "BOOTSTRAP_REPLICATES", 100)
+    monkeypatch.setattr(analysis, "CONDITIONS", ("base", "normal", "no_write"))
+    specs = (
+        analysis.TaskSpec("scene-v4-current", "unused", "scene", 170),
+    )
+    normal_predictions = [None] * 10 + [set([1])] * 160
+    normal_hits = [True] * 170
+
+    result = analysis.build_scene_v6_gate_analysis(
+        contract=scene_v6_contract("val", 170),
+        split="val",
+        specs=specs,
+        strict_summary={},
+        **scene_v6_gate_inputs(
+            170,
+            normal_contribution=(1, 0, 0),
+            comparator_contribution=(1, 0, 0),
+            normal_predictions=normal_predictions,
+            normal_hits=normal_hits,
+        ),
+    )
+
+    assert result["status"] == "fail"
+    assert result["gates"]["normal_coverage"]["passed"] is False
+    assert all(
+        gate["passed"] is False
+        for gate in result["gates"]["paired_ci_95_lower_strictly_positive"].values()
+    )
+    assert all(
+        gate["passed"] is False
+        for gate in result["gates"]["max_token_hit_rate_delta"].values()
+    )
+
+
+def test_aligned_qwen_scene_reference_validates_every_test_identity(
+    tmp_path: Path,
+) -> None:
+    samples = [
+        analysis.DatasetSample(0, "a" * 64, {"boundaries": [1]}, (), 3),
+        analysis.DatasetSample(1, "b" * 64, {"boundaries": []}, (), 2),
+    ]
+    artifact = tmp_path / "scene_boundary_final.json"
+    payload = {
+        "v4-590": {
+            "per_sample": [
+                {"id": 0, "gold": [1], "pred": [1], "tp": 1, "fp": 0, "fn": 0, "paras": 3},
+                {"id": 1, "gold": [], "pred": [1], "tp": 0, "fp": 1, "fn": 0, "paras": 2},
+            ]
+        }
+    }
+    artifact.write_text(json.dumps(payload), encoding="utf-8")
+    digest = analysis.sha256_file(artifact)
+    alignment = tmp_path / "qwen_alignment.json"
+    alignment.write_text(
+        json.dumps(
+            {
+                "schema": "scene_qwen_row_alignment.v1",
+                "qwen_artifact_sha256": digest,
+                "rows": [
+                    {"id": index, "row_sha256": sample.row_sha256}
+                    for index, sample in enumerate(samples)
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    strict_summary = {
+        "references": {
+            "scene-v4-current": {
+                "artifact_source": str(artifact),
+                "alignment_manifest_source": str(alignment),
+                "alignment_manifest_sha256": analysis.sha256_file(alignment),
+            },
+            "source_hashes": {"scene_boundary_final.json": digest},
+        }
+    }
+
+    result = analysis.aligned_qwen_scene_reference(
+        strict_summary,
+        samples,
+        split="test",
+    )
+
+    assert result["status"] == "aligned"
+    assert result["rows"] == 2
+    assert result["contributions"] == [(1, 0, 0), (0, 1, 0)]
+
+    payload["v4-590"]["per_sample"][1]["gold"] = [1]
+    artifact.write_text(json.dumps(payload), encoding="utf-8")
+    strict_summary["references"]["source_hashes"]["scene_boundary_final.json"] = (
+        analysis.sha256_file(artifact)
+    )
+    with pytest.raises(ValueError, match="gold differs"):
+        analysis.aligned_qwen_scene_reference(
+            strict_summary,
+            samples,
+            split="test",
+        )
+
+
+def test_qwen_reference_without_row_hash_manifest_is_not_paired(
+    tmp_path: Path,
+) -> None:
+    sample = analysis.DatasetSample(
+        0,
+        "a" * 64,
+        {"boundaries": [1]},
+        (),
+        3,
+    )
+    artifact = tmp_path / "scene_boundary_final.json"
+    artifact.write_text(
+        json.dumps(
+            {
+                "v4-590": {
+                    "per_sample": [
+                        {
+                            "id": 0,
+                            "gold": [1],
+                            "pred": [1],
+                            "tp": 1,
+                            "fp": 0,
+                            "fn": 0,
+                            "paras": 3,
+                        }
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = analysis.aligned_qwen_scene_reference(
+        {
+            "references": {
+                "scene-v4-current": {"artifact_source": str(artifact)},
+                "source_hashes": {
+                    "scene_boundary_final.json": analysis.sha256_file(artifact)
+                },
+            }
+        },
+        [sample],
+        split="test",
+    )
+
+    assert result["status"] == "unverified_for_paired_ci"
+    assert "source-row hashes" in result["reason"]
+
+
+def test_strict_artifacts_bind_summary_references_to_fingerprint(
+    tmp_path: Path,
+) -> None:
+    references = {"source_hashes": {"reference.json": "a" * 64}}
+    contract = {"name": "scene_v6_validation"}
+    payload = {
+        "references": references,
+        "evaluation_contract": contract,
+        "split": "val",
+        "normal_fusion_profile": "native",
+    }
+    fingerprint = analysis.fingerprint_payload_sha256(payload)
+    manifest = {
+        "fingerprint": fingerprint,
+        "fingerprint_payload": payload,
+        "references": references,
+    }
+    task_summaries = {
+        spec.name: {"samples": spec.expected_rows}
+        for spec in analysis.TASK_SPECS
+    }
+    summary = {
+        "complete": True,
+        "fingerprint": fingerprint,
+        "references": references,
+        "evaluation_contract": contract,
+        "split": "val",
+        "normal_fusion_profile": "native",
+        "conditions": {
+            condition: task_summaries for condition in analysis.CONDITIONS
+        },
+    }
+    (tmp_path / "manifest.json").write_text(
+        json.dumps(manifest),
+        encoding="utf-8",
+    )
+    summary_path = tmp_path / "summary.json"
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
+
+    analysis.validate_strict_artifacts(tmp_path)
+    summary_path.write_text(
+        json.dumps({**summary, "references": {}}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="references differs"):
+        analysis.validate_strict_artifacts(tmp_path)

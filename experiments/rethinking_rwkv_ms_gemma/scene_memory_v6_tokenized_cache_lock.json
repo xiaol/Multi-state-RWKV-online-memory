@@ -1,0 +1,38 @@
+{
+  "experiment": "scene_memory_v6_identity_proof",
+  "forbidden_reuse": {
+    "reason": "The previous 1804-row cache predates semantic identity masks and donor-write columns.",
+    "tokenized_cache": true,
+    "tokenized_dataset_dir": true,
+    "tokenized_dataset_root": true
+  },
+  "lock_sha256": "90c6172a9d244b4ed33111b2e03e075af340830f2f93f540fc93062bcb9acb03",
+  "persisted_cache_enabled": false,
+  "rebuild_each_fresh_run": true,
+  "required_generated_columns": [
+    "scene_state_semantic_mask",
+    "scene_state_boundary_count",
+    "scene_state_identity_target_mask",
+    "scene_state_identity_target_mask_sha256",
+    "scene_state_identity_target_stratum",
+    "scene_state_donor_write_input_ids",
+    "scene_state_donor_write_attention_mask",
+    "scene_state_donor_write_message_ids",
+    "scene_state_donor_write_sentence_ids",
+    "scene_state_donor_boundary_count",
+    "scene_state_source_index",
+    "scene_state_donor_index",
+    "scene_state_source_row_sha256",
+    "scene_state_donor_row_sha256",
+    "scene_state_source_label_sha256",
+    "scene_state_donor_label_sha256",
+    "scene_state_source_write_sha256",
+    "scene_state_donor_write_sha256"
+  ],
+  "schema": "rwkv_ms_scene_v6_identity_tokenization_lock.v1",
+  "source_manifest": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/manifest.json",
+  "source_manifest_sha256": "2ceb291b9c21063164e30ca0b8b052798f8ba42d9a089a5abc78d1cb321dc008",
+  "train_file": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/train.jsonl",
+  "train_file_sha256": "5f35f6ed41a2edaf88afee83626f17c34da38f5cb61cf4b6796a03eaae38f897",
+  "train_rows": 32
+}
