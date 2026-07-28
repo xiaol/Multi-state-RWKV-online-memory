@@ -166,11 +166,23 @@ PAIR_TARGET_DECISION_NLL_NORMALIZATION = "single_selected_target_token_v1"
 BENCHMARK_SCENE_METRIC_NAME = "benchmark_strict_boundaries_micro_f1"
 HARD32_RECEIPT_SCHEMA = "scene_v6_identity_hard32_receipt.v2"
 CHECKPOINT_RECEIPT_SCHEMA = "rwkv_ms_scene_v6_identity_checkpoint.v1"
+SCENE_V7_TRAIN32_AUTHORIZATION_KIND = (
+    "scene_v7_train32_strict_generation_receipt"
+)
 SCENE_V6_IDENTITY_OBJECTIVE_INTERPRETATION = {
     "objective_version": SCENE_V6_IDENTITY_OBJECTIVE_VERSION,
     "donor_training_role": "live_symmetric_per_row_hinge",
     "zero_training_role": "diagnostic_only_no_objective_gradient",
     "zero_hard32_role": "required_correct_state_causal_control",
+}
+SCENE_V7_HARD32_OBJECTIVE_INTERPRETATION = {
+    "objective_version": "scene_state_generation_ce_v1",
+    "training_objective": (
+        "weighted_generation_plus_first_error_pair_identity_zero_causal"
+    ),
+    "donor_training_role": "two_token_source_donor_identity_classification",
+    "zero_training_role": "detached_decision_margin_hinge",
+    "hard32_role": "fixed_confirmatory_evaluation_only",
 }
 HARD32_GATE_REQUIREMENTS = {
     "semantic_advantage_positive_rows": 20,
@@ -331,7 +343,30 @@ def parse_args() -> argparse.Namespace:
             "full-170 matched-donor validation may run."
         ),
     )
+    parser.add_argument(
+        "--scene-v7-train32-receipt",
+        type=Path,
+        help=(
+            "Passed scene_v7_train32_overfit receipt authorizing the exact bound "
+            "checkpoint for the fixed scene_v6_identity_hard32 evaluation only."
+        ),
+    )
     return parser.parse_args()
+
+
+def validate_scene_v7_train32_receipt_scope(
+    *,
+    evaluation_contract: str,
+    receipt_path: Path | None,
+) -> None:
+    if (
+        receipt_path is not None
+        and evaluation_contract != "scene_v6_identity_hard32"
+    ):
+        raise ValueError(
+            "--scene-v7-train32-receipt is accepted only by "
+            "scene_v6_identity_hard32"
+        )
 
 
 def parse_row_indices(raw: str) -> list[int]:
@@ -2477,6 +2512,14 @@ def build_hard32_receipt(
     )
     if donor_mapping_sha256 != HARD32_FROZEN_DONOR_MAPPING_ROWS_SHA256:
         raise ValueError("Hard32 receipt donor mapping differs from the frozen optimum")
+    is_v7_authorized = (
+        candidate_lineage.get("lineage_kind")
+        == SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+    )
+    receipt_gate = copy.deepcopy(gate)
+    if is_v7_authorized:
+        receipt_gate["full170_authorized_for_bound_checkpoint"] = False
+        receipt_gate["authorization_scope"] = "fixed_hard32_only_no_full170"
     output_bindings = {
         "manifest": file_binding(output_dir / "manifest.json"),
         "summary": file_binding(output_dir / "summary.json"),
@@ -2497,7 +2540,21 @@ def build_hard32_receipt(
             "config_sha256": sha256_file(memory_dir / "delta_mem_config.json"),
             "candidate_lineage": candidate_lineage,
         },
-        "objective_interpretation": SCENE_V6_IDENTITY_OBJECTIVE_INTERPRETATION,
+        "objective_interpretation": (
+            SCENE_V7_HARD32_OBJECTIVE_INTERPRETATION
+            if is_v7_authorized
+            else SCENE_V6_IDENTITY_OBJECTIVE_INTERPRETATION
+        ),
+        **(
+            {
+                "authorization_scope": "fixed_hard32_only_no_full170",
+                "upstream_authorization_kind": (
+                    SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+                ),
+            }
+            if is_v7_authorized
+            else {}
+        ),
         "dataset": {
             "path": str(dataset_file.expanduser().resolve()),
             "sha256": sha256_file(dataset_file),
@@ -2530,7 +2587,7 @@ def build_hard32_receipt(
         },
         "code": code_fingerprint,
         "outputs": output_bindings,
-        "gate": gate,
+        "gate": receipt_gate,
         "semantic_evidence": semantic_evidence,
         "base_outcome_evidence": base_outcome_evidence,
     }
@@ -2551,6 +2608,94 @@ def _validate_bound_file(record: Any, *, description: str) -> Path:
     return path
 
 
+def validate_scene_v7_train32_hard32_authorization(
+    receipt_path: Path,
+    *,
+    memory_dir: Path,
+) -> dict[str, Any]:
+    """Validate the V7 Train32 gate for one exact fixed-Hard32 candidate."""
+
+    # This import must stay lazy: the V7 evaluator reuses this module's runtime.
+    from experiments.rethinking_rwkv_ms_gemma import run_scene_train32_eval as v7
+
+    expanded_receipt = receipt_path.expanduser()
+    if expanded_receipt.is_symlink():
+        raise ValueError("V7 Train32 receipt must not be a symlink")
+    resolved_receipt = expanded_receipt.resolve()
+    if not resolved_receipt.is_file():
+        raise ValueError(f"V7 Train32 receipt is missing: {resolved_receipt}")
+    try:
+        payload = json.loads(resolved_receipt.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError("V7 Train32 receipt is not valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("V7 Train32 receipt must contain an object")
+    if payload.get("contract") != "scene_v7_train32_overfit":
+        raise ValueError("Fixed Hard32 requires a Train32 receipt, not a Tiny2 receipt")
+    gate = payload.get("gate")
+    if not isinstance(gate, dict) or gate.get("status") != "pass":
+        raise ValueError("Fixed Hard32 requires a passed V7 Train32 receipt")
+
+    input_artifacts = payload.get("input_artifacts")
+    expected_artifact_names = {
+        "dataset",
+        "row_manifest",
+        "pair_manifest",
+        "source_manifest",
+    }
+    if not isinstance(input_artifacts, dict) or set(input_artifacts) != expected_artifact_names:
+        raise ValueError("V7 Train32 receipt input-artifact bindings differ")
+
+    artifact_paths: dict[str, Path] = {}
+    artifact_sha256: dict[str, str] = {}
+    for name in sorted(expected_artifact_names):
+        binding = input_artifacts[name]
+        if not isinstance(binding, dict):
+            raise ValueError(f"V7 Train32 receipt {name} binding is invalid")
+        raw_path = binding.get("path")
+        digest = binding.get("actual_sha256")
+        if not isinstance(raw_path, str) or not raw_path:
+            raise ValueError(f"V7 Train32 receipt {name} path is invalid")
+        if not isinstance(digest, str) or SHA256_RE.fullmatch(digest) is None:
+            raise ValueError(f"V7 Train32 receipt {name} SHA-256 is invalid")
+        artifact_paths[name] = Path(raw_path)
+        artifact_sha256[name] = digest
+
+    input_contract = v7.validate_v7_contract(
+        contract="scene_v7_train32_overfit",
+        dataset_file=artifact_paths["dataset"],
+        row_manifest_file=artifact_paths["row_manifest"],
+        pair_manifest_file=artifact_paths["pair_manifest"],
+        source_manifest_file=artifact_paths["source_manifest"],
+        expected_dataset_sha256=artifact_sha256["dataset"],
+        expected_row_manifest_sha256=artifact_sha256["row_manifest"],
+        expected_pair_manifest_sha256=artifact_sha256["pair_manifest"],
+        expected_source_manifest_sha256=artifact_sha256["source_manifest"],
+        source_lock_file=v7.DEFAULT_SOURCE_LOCK,
+    )
+    checkpoint = v7.validate_v7_checkpoint(
+        memory_dir,
+        input_contract=input_contract,
+    )
+    validated = v7.validate_fixed_hard32_authorization(
+        resolved_receipt,
+        expected_checkpoint=checkpoint,
+    )
+    return {
+        "authorization_kind": SCENE_V7_TRAIN32_AUTHORIZATION_KIND,
+        "contract": "scene_v7_train32_overfit",
+        "scope": "fixed_hard32_only_no_full170",
+        "receipt": {
+            "path": str(resolved_receipt),
+            "file_sha256": sha256_file(resolved_receipt),
+            "payload_sha256": validated["receipt_sha256"],
+            "evaluation_fingerprint": validated["evaluation_fingerprint"],
+        },
+        "checkpoint": checkpoint,
+        "source_lock": validated["source_lock"],
+    }
+
+
 def validate_hard32_pass_receipt(
     receipt_path: Path,
     *,
@@ -2566,6 +2711,21 @@ def validate_hard32_pass_receipt(
         raise ValueError("Hard32 receipt checksum differs")
     if receipt.get("schema") != HARD32_RECEIPT_SCHEMA:
         raise ValueError("Hard32 receipt schema differs")
+    checkpoint = receipt.get("checkpoint")
+    candidate_lineage = (
+        checkpoint.get("candidate_lineage") if isinstance(checkpoint, dict) else None
+    )
+    if (
+        receipt.get("authorization_scope") == "fixed_hard32_only_no_full170"
+        or (
+            isinstance(candidate_lineage, dict)
+            and candidate_lineage.get("lineage_kind")
+            == SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+        )
+    ):
+        raise ValueError(
+            "A V7 Train32-authorized Hard32 receipt does not authorize full170"
+        )
     if (
         receipt.get("objective_interpretation")
         != SCENE_V6_IDENTITY_OBJECTIVE_INTERPRETATION
@@ -2581,7 +2741,6 @@ def validate_hard32_pass_receipt(
         or contract.get("conditions") != list(CONDITIONS)
     ):
         raise ValueError("Hard32 receipt contract differs")
-    checkpoint = receipt.get("checkpoint")
     resolved_memory_dir = memory_dir.expanduser().resolve()
     current_lineage = scene_v6_training_lineage(resolved_memory_dir)
     if (
@@ -3127,6 +3286,12 @@ def main() -> None:
         args.row_indices_file = args.row_indices_file.expanduser().resolve()
     if args.hard32_receipt is not None:
         args.hard32_receipt = args.hard32_receipt.expanduser().resolve()
+    if args.scene_v7_train32_receipt is not None:
+        args.scene_v7_train32_receipt = args.scene_v7_train32_receipt.expanduser()
+    validate_scene_v7_train32_receipt_scope(
+        evaluation_contract=args.evaluation_contract,
+        receipt_path=args.scene_v7_train32_receipt,
+    )
     conditions = selected_conditions(args.conditions)
     if args.max_new_tokens <= 0:
         raise ValueError("--max-new-tokens must be positive")
@@ -3137,13 +3302,27 @@ def main() -> None:
         args.memory_dir, args.expected_memory_layer_count
     )
     memory_architecture = memory_architecture_contract(args.memory_dir)
-    candidate_lineage = (
-        None
-        if args.evaluation_contract == "generic"
-        else scene_v6_training_lineage(args.memory_dir)
-    )
+    scene_v7_train32_authorization = None
+    if args.scene_v7_train32_receipt is not None:
+        scene_v7_train32_authorization = (
+            validate_scene_v7_train32_hard32_authorization(
+                args.scene_v7_train32_receipt,
+                memory_dir=args.memory_dir,
+            )
+        )
+        candidate_lineage = {
+            "lineage_kind": SCENE_V7_TRAIN32_AUTHORIZATION_KIND,
+            "authorization": scene_v7_train32_authorization,
+        }
+    else:
+        candidate_lineage = (
+            None
+            if args.evaluation_contract == "generic"
+            else scene_v6_training_lineage(args.memory_dir)
+        )
     if (
         args.evaluation_contract == "scene_v6_identity_hard32"
+        and scene_v7_train32_authorization is None
         and candidate_lineage.get("lineage_kind")
         != "identity_checkpoint_receipt"
     ):
@@ -3314,6 +3493,7 @@ def main() -> None:
         "evaluation_contract": evaluation_contract,
         "candidate_lineage": candidate_lineage,
         "hard32_receipt_authorization": hard32_receipt_authorization,
+        "scene_v7_train32_authorization": scene_v7_train32_authorization,
         "max_new_tokens": args.max_new_tokens,
         "device": args.device,
         "dtype": args.dtype,

@@ -1,0 +1,66 @@
+{
+  "artifacts": {
+    "bundle_manifest": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/manifest.json",
+      "sha256": "d5e2152dde19cbb1d3840fecc3540a1c057b85af2dfac26dd96b399d19cb1578"
+    },
+    "tiny2": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/tiny2.jsonl",
+      "sha256": "b809fd4e0df1baaa7a71b9aa93586c1eb1ebcc9c2ebe6272da7e96be8f4e8d1f"
+    },
+    "tiny2_pair_manifest": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/tiny2_pair_manifest.json",
+      "sha256": "1a0d527e473c495f95bb30ad3bf8fde43a30cc76433abd1e1e3a01940a862171"
+    },
+    "tiny2_rows": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/tiny2_rows.jsonl",
+      "sha256": "f546d89b7134346f44ff0e87adce38df558667fcb6fa949efab91398598de0bd"
+    },
+    "tiny2_source_manifest": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/tiny2_source_manifest.json",
+      "sha256": "b5067d6852b87c5a6e96cae26928d27dcc6489464485ecafb2d2da448dd03f44"
+    },
+    "train32": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/train32.jsonl",
+      "sha256": "20d395bc99a9e2e502d2ed86169664ea0162638c07a7b52a4b4d293c171dc7b9"
+    },
+    "train32_pair_manifest": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/train32_pair_manifest.json",
+      "sha256": "13555da56823d9597bf061d51ec6575db25cde49c044cab378f2050373fd78b6"
+    },
+    "train32_rows": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/train32_rows.jsonl",
+      "sha256": "af80b1938196319e6595a0e6d0e2f2c9a6009963a82fea520d608e060a4fe957"
+    },
+    "train32_source_manifest": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/train32_source_manifest.json",
+      "sha256": "57626d3629e055a5f7900ed2a8526d357890d63730aa55d56ee72bd56a05017b"
+    }
+  },
+  "base_train_pool": {
+    "candidate_selection_sha256": "0fb9595ee8587508390157189dc49184ff024cbc37590a4bb0ffbf3be85717b5",
+    "manifest_sha256": "44c9836cd8433cf352ff606b3fa36e9fc7c7453ed51d3b8b3bc7727770bb9eeb",
+    "records_sha256": "853d52aca502e431479a07ac62b5973354720a9c623cd4109ec2332059d52b18",
+    "scope": "complete_predeclared_candidate64",
+    "summary_sha256": "51cf7d902a20f92dbea33b456b88a6a49a53ed9ce474dda3196a04797cde3c87"
+  },
+  "fixed_hard32": {
+    "base_records_sha256": "4740695691bad3ba6c808cc29d734022bf25b0a58ce301a02d551905ec27b4a1",
+    "data_sha256": "b5b1137de89f82eee4b3ae3e3c7b5305240699ec7b65e84b61cb415a7a000d4a",
+    "selection_sha256": "76d510e5f02c30f2cf3a0262cc4c97d69ef8f52861e9ced855d530b233d916db"
+  },
+  "lock_sha256": "05722bc1c0884683208839fe3195d80cc58cd58e8e95cd639cc8888d8f23cc49",
+  "pairing_quotas": {
+    "tiny2": {
+      "cross_cardinality_value": 0,
+      "presence": 0,
+      "same_cardinality_value": 2
+    },
+    "train32": {
+      "cross_cardinality_value": 4,
+      "presence": 18,
+      "same_cardinality_value": 10
+    }
+  },
+  "schema": "rwkv_ms_scene_memory_v7_source_lock.v1"
+}
