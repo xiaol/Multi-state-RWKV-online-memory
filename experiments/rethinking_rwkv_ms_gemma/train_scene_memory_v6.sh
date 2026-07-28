@@ -35,7 +35,11 @@ SMOKE_AUTH_ATTEMPT="${SMOKE_AUTH_ATTEMPT:-run1}"
 DRY_RUN="${DRY_RUN:-0}"
 
 fail() {
-  printf 'ERROR: %s\n' "$1" >&2
+  if [[ -n "${LOG_FILE:-}" && -f "${LOG_FILE}" ]]; then
+    printf 'ERROR: %s\n' "$1" | tee -a "${LOG_FILE}" >&2
+  else
+    printf 'ERROR: %s\n' "$1" >&2
+  fi
   exit 2
 }
 
@@ -344,13 +348,17 @@ if (( train_status != 0 || tee_status != 0 )); then
 fi
 
 if [[ "${RUN_MODE}" == "prepare" ]]; then
-  "${PYTHON_BIN}" "${RUN_AUDIT_TOOL}" audit-prepare \
-    --run-root "${OUTPUT_DIR}" \
-    --source-lock "${SOURCE_LOCK}" \
-    --receipt "${PREPARE_RECEIPT}"
+  printf 'scene_memory_v6 identity prepare process exited successfully; final audit pending.\n' \
+    | tee -a "${LOG_FILE}"
+  if ! "${PYTHON_BIN}" "${RUN_AUDIT_TOOL}" audit-prepare \
+      --run-root "${OUTPUT_DIR}" \
+      --source-lock "${SOURCE_LOCK}" \
+      --receipt "${PREPARE_RECEIPT}"; then
+    fail "prepare_audit_failed path=${PREPARE_RECEIPT}"
+  fi
   [[ -s "${PREPARE_RECEIPT}" ]] \
     || fail "prepare_receipt_missing path=${PREPARE_RECEIPT}"
-  printf 'Prepare-only identity proof completed: %s\n' "${PREPARE_RECEIPT}" | tee -a "${LOG_FILE}"
+  printf 'Prepare-only identity proof completed: %s\n' "${PREPARE_RECEIPT}"
   exit 0
 fi
 
@@ -365,14 +373,18 @@ for checkpoint_step in $(seq "${SAVE_STEPS}" "${SAVE_STEPS}" "${MAX_STEPS}"); do
 done
 [[ -s "${OUTPUT_DIR}/training_summary.json" ]] \
   || fail "training_summary_missing_after_completed_run"
-"${PYTHON_BIN}" "${RUN_AUDIT_TOOL}" audit-run \
-  --run-mode "${RUN_MODE}" \
-  --run-root "${OUTPUT_DIR}" \
-  --log-file "${LOG_FILE}" \
-  --source-lock "${SOURCE_LOCK}" \
-  --receipt "${RUN_AUDIT_RECEIPT}" \
-  --trainer-exit-code "${train_status}" \
-  --tee-exit-code "${tee_status}"
+printf 'scene_memory_v6 identity %s trainer exited successfully; final audit pending.\n' \
+  "${RUN_MODE}" | tee -a "${LOG_FILE}"
+if ! "${PYTHON_BIN}" "${RUN_AUDIT_TOOL}" audit-run \
+    --run-mode "${RUN_MODE}" \
+    --run-root "${OUTPUT_DIR}" \
+    --log-file "${LOG_FILE}" \
+    --source-lock "${SOURCE_LOCK}" \
+    --receipt "${RUN_AUDIT_RECEIPT}" \
+    --trainer-exit-code "${train_status}" \
+    --tee-exit-code "${tee_status}"; then
+  fail "run_audit_failed mode=${RUN_MODE} path=${RUN_AUDIT_RECEIPT}"
+fi
 [[ -s "${RUN_AUDIT_RECEIPT}" ]] \
   || fail "run_audit_receipt_missing path=${RUN_AUDIT_RECEIPT}"
-printf 'scene_memory_v6 identity %s completed successfully.\n' "${RUN_MODE}" | tee -a "${LOG_FILE}"
+printf 'scene_memory_v6 identity %s completed successfully.\n' "${RUN_MODE}"

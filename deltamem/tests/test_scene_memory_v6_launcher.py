@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -717,6 +720,274 @@ def test_launcher_is_the_failure32_v2_identity_proof() -> None:
     assert "--delta-heads q,o" in source
     assert "--target-layers" in source
     assert "validated_smoke_receipt_missing" in source
+    pending = (
+        "scene_memory_v6 identity %s trainer exited successfully; "
+        "final audit pending."
+    )
+    success = "scene_memory_v6 identity %s completed successfully."
+    assert source.index(pending) < source.index('"${RUN_AUDIT_TOOL}" audit-run')
+    assert source.index('"${RUN_AUDIT_TOOL}" audit-run') < source.index(success)
+    post_receipt = source[source.index('[[ -s "${RUN_AUDIT_RECEIPT}" ]]') :]
+    assert 'tee -a "${LOG_FILE}"' not in post_receipt
+    prepare_success = "Prepare-only identity proof completed: %s"
+    prepare_receipt = source[source.index('[[ -s "${PREPARE_RECEIPT}" ]]') :]
+    assert source.index('"${RUN_AUDIT_TOOL}" audit-prepare') < source.index(
+        prepare_success
+    )
+    assert 'tee -a "${LOG_FILE}"' not in prepare_receipt.split("exit 0", 1)[0]
+
+
+@pytest.mark.parametrize("audit_failure", [False, True], ids=["success", "audit-failure"])
+def test_smoke_launcher_log_lifecycle_is_receipt_stable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    audit_failure: bool,
+) -> None:
+    repo = tmp_path / "repo"
+    script_dir = repo / "experiments/rethinking_rwkv_ms_gemma"
+    script_dir.mkdir(parents=True)
+    pair_root = tmp_path / "pairs"
+    pair_root.mkdir()
+    pair_manifest = pair_root / "manifest.json"
+    train_file = pair_root / "train.jsonl"
+    pair_manifest.write_text("{}\n", encoding="utf-8")
+    train_file.write_text('{}\n', encoding="utf-8")
+    model = tmp_path / "model"
+    model.mkdir()
+    external = tmp_path / "external"
+    run_root = external / "delta_mem_outputs/novel_rwkv_ms_memory"
+    run_root.mkdir(parents=True)
+    prepare_root = run_root / (
+        "scene_memory_v6_identityproof_all42_qo_r4_fail32_s32_run1_prepare"
+    )
+    prepare_root.mkdir()
+    (prepare_root / "prepare_receipt.json").write_text("{}\n", encoding="utf-8")
+
+    fake_python = tmp_path / "fake_python"
+    objective_json = json.dumps(dict(audit.OBJECTIVE_PROTOCOL), sort_keys=True)
+    fake_python.write_text(
+        f'''#!/usr/bin/env python3
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+import time
+
+ARGS = sys.argv[1:]
+OBJECTIVE = json.loads({objective_json!r})
+
+def value(flag):
+    return ARGS[ARGS.index(flag) + 1]
+
+def canonical(payload):
+    return hashlib.sha256(json.dumps(
+        payload,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+
+def write_json(path, payload):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\\n")
+
+if ARGS[:2] == ["-m", "deltamem.train.delta_sft"]:
+    if "--help" in ARGS:
+        print(" ".join([
+            "--prepare-only", "--initial-adapter-output-dir",
+            "--scene-state-identity-margin", "--scene-state-source-manifest",
+            "--expected-scene-state-source-manifest-sha256",
+            "--scene-boundary-payload-ce-weight", "--train-sampler-seed",
+            "--rwkv-ms-semantics-version", "--delta-heads", "--target-layers",
+        ]))
+    else:
+        root = Path(value("--output-dir"))
+        write_json(root / "trainer/checkpoint-1/checkpoint_receipt.json", {{"complete": True}})
+        write_json(root / "training_summary.json", {{"complete": True}})
+        print("synthetic trainer completed")
+elif Path(ARGS[0]).name == "scene_memory_v6_data_contract.py":
+    if "--summary" in ARGS:
+        print("synthetic-data-contract")
+    else:
+        write_json(value("--output"), {{"complete": True}})
+elif Path(ARGS[0]).name == "scene_memory_v6_launch_contract.py":
+    if ARGS[1] == "write-launch-manifest":
+        write_json(value("--launch-manifest"), {{"complete": True}})
+elif Path(ARGS[0]).name == "scene_memory_v6_run_audit.py":
+    action = ARGS[1]
+    if action == "watch-checkpoints":
+        checkpoint = Path(value("--run-root")) / "trainer/checkpoint-1/checkpoint_receipt.json"
+        deadline = time.time() + 5
+        while not checkpoint.is_file() and time.time() < deadline:
+            time.sleep(0.01)
+        if not checkpoint.is_file():
+            raise SystemExit(2)
+    elif action == "audit-run":
+        if os.environ.get("FAKE_AUDIT_FAILURE") == "1":
+            print("synthetic audit failure", file=sys.stderr)
+            raise SystemExit(2)
+        root = Path(value("--run-root")).resolve()
+        log = Path(value("--log-file")).resolve()
+        receipt = Path(value("--receipt"))
+        log_record = {{
+            "path": str(log),
+            "bytes": log.stat().st_size,
+            "file_sha256": hashlib.sha256(log.read_bytes()).hexdigest(),
+        }}
+        checkpoint_history = {{"synthetic": True}}
+        checkpoint_change = {{"synthetic": True}}
+        payload = {{
+            "schema": {audit.RUN_RECEIPT_SCHEMA!r},
+            "experiment": {audit.EXPERIMENT!r},
+            "run_mode": "smoke",
+            "run_root": str(root),
+            "complete": True,
+            "trainer_exit_code": 0,
+            "tee_exit_code": 0,
+            "training_processes_active": [],
+            "hard32_only": True,
+            "full170_authorized": False,
+            "test_forbidden": True,
+            "auditor": {{}},
+            "launch": {{}},
+            "data_contract": {{}},
+            "source_lock": {{}},
+            "pair_manifest": {{}},
+            "identity_pairing_manifest": {{}},
+            "log": log_record,
+            "initial_adapter": {{
+                "manifest": {{}}, "adapter": {{}}, "config": {{}}, "protocol": {{}},
+            }},
+            "checkpoints": [{{
+                "step": 1,
+                "receipt": {{
+                    "path": str(root / "trainer/checkpoint-1/checkpoint_receipt.json"),
+                }},
+                "history": checkpoint_history,
+                "adapter_change": checkpoint_change,
+            }}],
+            "completed_artifacts": {{
+                "adapter": {{}}, "config": {{}}, "protocol": {{}},
+                "training_summary": {{}},
+            }},
+            "objective": OBJECTIVE,
+        }}
+        payload["receipt_sha256"] = canonical(payload)
+        write_json(receipt, payload)
+        print("synthetic run audit completed")
+''',
+        encoding="utf-8",
+    )
+    fake_python.chmod(0o755)
+
+    launcher = script_dir / LAUNCHER.name
+    source = LAUNCHER.read_text(encoding="utf-8")
+    replacements = {
+        'REPO="/home/xiaol/X/Multi-state-RWKV-online-memory"': f'REPO="{repo}"',
+        'PYTHON_BIN="/home/xiaol/X/delta-Mem/.venv/bin/python"': (
+            f'PYTHON_BIN="{fake_python}"'
+        ),
+        'VALIDATION_PYTHON_BIN="python3"': (
+            f'VALIDATION_PYTHON_BIN="{fake_python}"'
+        ),
+        'MODEL_PATH="/run/media/xiaol/B214449214445C0B/models/gemma/gemma-4-E4B-it"': (
+            f'MODEL_PATH="{model}"'
+        ),
+        'PAIR_ROOT="/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1"': (
+            f'PAIR_ROOT="{pair_root}"'
+        ),
+        'PAIR_MANIFEST_SHA256="2ceb291b9c21063164e30ca0b8b052798f8ba42d9a089a5abc78d1cb321dc008"': (
+            f'PAIR_MANIFEST_SHA256="{launch.sha256_file(pair_manifest)}"'
+        ),
+        'TRAIN_SHA256="5f35f6ed41a2edaf88afee83626f17c34da38f5cb61cf4b6796a03eaae38f897"': (
+            f'TRAIN_SHA256="{launch.sha256_file(train_file)}"'
+        ),
+        'EXTERNAL_ROOT="/run/media/xiaol/B214449214445C0B"': (
+            f'EXTERNAL_ROOT="{external}"'
+        ),
+    }
+    for original, replacement in replacements.items():
+        assert original in source
+        source = source.replace(original, replacement, 1)
+    launcher.write_text(source, encoding="utf-8")
+    launcher.chmod(0o755)
+    for filename in (
+        "scene_memory_v6_source_lock.json",
+        "scene_memory_v6_tokenized_cache_lock.json",
+        "scene_memory_v6_data_contract.py",
+        "scene_memory_v6_launch_contract.py",
+        "scene_memory_v6_run_audit.py",
+    ):
+        path = script_dir / filename
+        if not path.exists():
+            path.write_text("stub\n", encoding="utf-8")
+
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "RUN_MODE": "smoke",
+            "RUN_ATTEMPT": "run1",
+            "PREPARE_AUTH_ATTEMPT": "run1",
+            "DRY_RUN": "0",
+            "FAKE_AUDIT_FAILURE": "1" if audit_failure else "0",
+        }
+    )
+    completed = subprocess.run(
+        [str(launcher)],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    run_name = "scene_memory_v6_identityproof_all42_qo_r4_fail32_smoke1_run1"
+    output = run_root / run_name
+    log = run_root / f"{run_name}.log"
+    receipt_path = output / "run_audit_receipt.json"
+    if audit_failure:
+        assert completed.returncode == 2
+        assert not receipt_path.exists()
+        assert "completed successfully" not in completed.stdout
+        assert log.read_text(encoding="utf-8").endswith(
+            f"ERROR: run_audit_failed mode=smoke path={receipt_path}\n"
+        )
+        return
+
+    assert completed.returncode == 0, completed.stderr
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    bound_log_bytes = log.read_bytes()
+    assert receipt["log"]["bytes"] == len(bound_log_bytes)
+    assert receipt["log"]["file_sha256"] == hashlib.sha256(
+        bound_log_bytes
+    ).hexdigest()
+    assert "completed successfully" in completed.stdout
+    assert "completed successfully" not in log.read_text(encoding="utf-8")
+    assert log.read_text(encoding="utf-8").endswith("final audit pending.\n")
+
+    real_validate_file_record = audit._validate_file_record
+
+    def validate_only_bound_log(record: object, *, description: str) -> None:
+        if description == "run log":
+            real_validate_file_record(record, description=description)
+
+    monkeypatch.setattr(audit, "_validate_file_record", validate_only_bound_log)
+    monkeypatch.setattr(
+        audit,
+        "validate_existing_checkpoint_receipt",
+        lambda *args, **kwargs: {
+            "history": {"synthetic": True},
+            "adapter_change": {"synthetic": True},
+        },
+    )
+    assert audit.validate_existing_run_receipt(
+        receipt_path,
+        expected_run_mode="smoke",
+        expected_run_root=output,
+    ) == receipt
+    assert log.read_bytes() == bound_log_bytes
 
 
 def test_launch_manifest_copies_selected_overlap_evidence(
