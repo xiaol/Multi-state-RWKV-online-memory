@@ -7,6 +7,7 @@ import sys
 
 import pytest
 import torch
+from datasets import Dataset
 from torch import nn
 
 from deltamem.core.delta import HFDeltaMemConfig
@@ -358,7 +359,7 @@ def test_seeded_initial_adapter_snapshot_cleans_failed_atomic_write_and_rng(
     )
 
 
-def test_prepare_only_main_returns_before_training_construction(
+def test_prepare_only_main_persists_scene_pairing_before_training_construction(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -371,6 +372,7 @@ def test_prepare_only_main_returns_before_training_construction(
         "--prepare-only",
         "--no-tokenized-cache",
     )
+    args.memory_loss_mode = "scene_state_identity_ce"
     monkeypatch.setattr(experimental_train, "parse_args", lambda: args)
     monkeypatch.setattr(
         experimental_train,
@@ -400,19 +402,30 @@ def test_prepare_only_main_returns_before_training_construction(
         lambda *unused_args, **unused_kwargs: tokenizer,
     )
 
-    class FakeDataset:
-        _fingerprint = "prepare-only-test"
+    def scene_row(label_token: int, write_length: int) -> dict[str, object]:
+        write_ids = [label_token] * write_length
+        return {
+            "input_ids": [7, 8, label_token, 99],
+            "attention_mask": [1, 1, 1, 1],
+            "labels": [-100, -100, label_token, 99],
+            "scene_state_semantic_mask": [False, False, True, True],
+            "scene_state_boundary_count": 1,
+            "write_input_ids": write_ids,
+            "write_attention_mask": [1] * write_length,
+            "write_message_ids": [0] * write_length,
+            "write_sentence_ids": [0] * write_length,
+        }
 
-        def __len__(self) -> int:
-            return 1
-
-    dataset = FakeDataset()
+    dataset = Dataset.from_list([scene_row(10, 2), scene_row(20, 3)])
     monkeypatch.setattr(
         experimental_train,
         "load_or_prepare_tokenized_dataset",
         lambda *unused_args, **unused_kwargs: (
             dataset,
-            {"training_mode": "episode"},
+            {
+                "training_mode": "episode",
+                "tokenized_dataset_sha256": "b" * 64,
+            },
         ),
     )
     monkeypatch.setattr(
@@ -445,12 +458,18 @@ def test_prepare_only_main_returns_before_training_construction(
         "compute_warmup_steps",
         lambda **unused_kwargs: 0,
     )
+    protocol_inputs: dict[str, object] = {}
+
+    def fake_build_training_protocol(*unused_args, **kwargs):
+        protocol_inputs.update(kwargs)
+        return {
+            "tokenized_fingerprint": "prepare-only-test",
+        }
+
     monkeypatch.setattr(
         experimental_train,
         "build_training_protocol",
-        lambda *unused_args, **unused_kwargs: {
-            "tokenized_fingerprint": "prepare-only-test",
-        },
+        fake_build_training_protocol,
     )
 
     def fake_snapshot(*unused_args, **unused_kwargs):
@@ -491,3 +510,18 @@ def test_prepare_only_main_returns_before_training_construction(
 
     assert snapshot_dir.is_dir()
     assert not (args.output_dir / "trainer").exists()
+    pairing_path = (
+        args.output_dir / experimental_train._SCENE_STATE_IDENTITY_PAIRING_FILENAME
+    )
+    persisted_pairing = json.loads(pairing_path.read_text(encoding="utf-8"))
+    materialized_pairing = protocol_inputs["scene_state_identity_pairing_manifest"]
+    assert persisted_pairing == materialized_pairing
+    assert persisted_pairing["objective_version"] == "scene_state_identity_ce_v2"
+    assert persisted_pairing["splits"]["train"]["pairs_sha256"] == (
+        experimental_train._canonical_json_sha256(
+            persisted_pairing["splits"]["train"]["pairs"]
+        )
+    )
+    unsigned = dict(persisted_pairing)
+    manifest_sha256 = unsigned.pop("manifest_sha256")
+    assert manifest_sha256 == experimental_train._canonical_json_sha256(unsigned)

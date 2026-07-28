@@ -9997,6 +9997,52 @@ def build_scene_state_identity_pairing_manifest(
     return manifest
 
 
+def persist_scene_state_identity_pairing_manifest(
+    output_dir: Path,
+    manifest: dict[str, object],
+) -> Path:
+    unsigned = dict(manifest)
+    recorded_sha256 = unsigned.pop("manifest_sha256", None)
+    actual_sha256 = _canonical_json_sha256(unsigned)
+    if recorded_sha256 != actual_sha256:
+        raise ValueError(
+            "Scene-state identity pairing manifest checksum differs: "
+            f"expected={recorded_sha256} actual={actual_sha256}"
+        )
+
+    output_dir = Path(output_dir).expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / _SCENE_STATE_IDENTITY_PAIRING_FILENAME
+    if path.exists():
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(
+                "Scene-state identity pairing manifest path is not a regular file: "
+                f"{path}"
+            )
+        persisted = _load_json_object(
+            path,
+            description="scene-state identity pairing manifest",
+        )
+        if persisted != manifest:
+            raise ValueError(
+                "Existing scene-state identity pairing manifest differs from the "
+                "materialized training pairing"
+            )
+        return path
+
+    _write_json_atomic(path, manifest)
+    persisted = _load_json_object(
+        path,
+        description="scene-state identity pairing manifest",
+    )
+    if persisted != manifest:
+        raise RuntimeError(
+            "Persisted scene-state identity pairing manifest differs from the "
+            "materialized training pairing"
+        )
+    return path
+
+
 def _scene_state_identity_protocol_pairing_summary(
     manifest: dict[str, object],
 ) -> dict[str, object]:
@@ -11204,6 +11250,10 @@ def main() -> None:
                 eval_manifest=eval_scene_pairing_manifest,
             )
         )
+        persist_scene_state_identity_pairing_manifest(
+            args.output_dir,
+            scene_state_identity_pairing_manifest,
+        )
     effective_group_by_length = args.group_by_length and effective_training_mode != "episode"
     if args.group_by_length and not effective_group_by_length and local_rank in (-1, 0):
         print(
@@ -11553,14 +11603,6 @@ def main() -> None:
         if content_contrast_pairing_manifest is not None:
             (args.output_dir / _CONTENT_CONTRAST_PAIRING_FILENAME).write_text(
                 json.dumps(content_contrast_pairing_manifest, indent=2, sort_keys=True)
-            )
-        if scene_state_identity_pairing_manifest is not None:
-            (args.output_dir / _SCENE_STATE_IDENTITY_PAIRING_FILENAME).write_text(
-                json.dumps(
-                    scene_state_identity_pairing_manifest,
-                    indent=2,
-                    sort_keys=True,
-                )
             )
         if active_lineage is not None:
             (
