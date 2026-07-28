@@ -475,7 +475,12 @@ payload = {
         "launcher_sha256": launcher_sha256,
     },
     "memory_mitigation": {
-        "mode": "pre_backward_unused_graph_release_v1",
+        "mode": "pre_backward_release_plus_target_selected_shared_ce_v1",
+        "generation_ce_materialization": (
+            "target_selected_before_fp32_cast_scatter_v1"
+        ),
+        "generation_margin_materialization": "separate_target_decision_v1",
+        "objective_math_changed": False,
         "branch_order_changed": False,
         "saved_tensor_cpu_offload": False,
         "allocator": "expandable_segments:True",

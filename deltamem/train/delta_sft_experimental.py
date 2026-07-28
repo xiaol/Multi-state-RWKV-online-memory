@@ -5263,7 +5263,9 @@ class DeltaMemTrainer(Trainer):
         target_mask: torch.Tensor,
         *,
         description: str,
-    ) -> tuple[torch.Tensor, int]:
+        token_ce: torch.Tensor | None = None,
+        ce_target_mask: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, int, torch.Tensor]:
         target_mask = target_mask.to(device=labels.device, dtype=torch.bool)
         supervised = labels.ne(-100) & attention_mask.ne(0)
         if target_mask.shape != labels.shape or bool(target_mask[:, 0].any()) or bool(
@@ -5278,15 +5280,30 @@ class DeltaMemTrainer(Trainer):
             raise ValueError(
                 f"Scene-state generation {description} mask misses a batch row"
             )
-        shift_logits = logits[:, :-1].float()
         shift_labels = labels[:, 1:]
-        token_ce = F.cross_entropy(
-            shift_logits.reshape(-1, shift_logits.size(-1)),
-            shift_labels.reshape(-1),
-            reduction="none",
-            ignore_index=-100,
-        ).view_as(shift_labels)
-        return (token_ce * shift_mask).sum(dim=1) / counts, int(counts.sum().item())
+        if token_ce is None:
+            if ce_target_mask is None:
+                raise ValueError("Scene-state generation CE target mask is required")
+            shift_ce_target_mask = ce_target_mask.to(
+                device=labels.device,
+                dtype=torch.bool,
+            )[:, 1:]
+            selected_shift_logits = logits[:, :-1][shift_ce_target_mask].float()
+            selected_token_ce = F.cross_entropy(
+                selected_shift_logits,
+                shift_labels[shift_ce_target_mask],
+                reduction="none",
+                ignore_index=-100,
+            )
+            token_ce = selected_token_ce.new_zeros(shift_labels.shape).masked_scatter(
+                shift_ce_target_mask,
+                selected_token_ce,
+            )
+        return (
+            (token_ce * shift_mask).sum(dim=1) / counts,
+            int(counts.sum().item()),
+            token_ce,
+        )
 
     @staticmethod
     def _scene_state_generation_gold_margins(
@@ -5390,35 +5407,34 @@ class DeltaMemTrainer(Trainer):
             raise ValueError(
                 "Scene-state generation pair target must select one decision token per row"
             )
-        schema_row_ce, schema_count = self._scene_state_generation_token_ce(
+        schema_row_ce, schema_count, token_ce = self._scene_state_generation_token_ce(
             logits,
             labels,
             attention_mask,
             masks["schema"],
             description="schema",
+            ce_target_mask=masks["target"],
         )
-        decision_row_ce, decision_count = self._scene_state_generation_token_ce(
-            logits,
-            labels,
-            attention_mask,
-            masks["decision"],
-            description="decision",
+        decision_row_ce, decision_count, token_ce = (
+            self._scene_state_generation_token_ce(
+                logits,
+                labels,
+                attention_mask,
+                masks["decision"],
+                description="decision",
+                token_ce=token_ce,
+            )
         )
-        termination_row_ce, termination_count = self._scene_state_generation_token_ce(
-            logits,
-            labels,
-            attention_mask,
-            masks["termination"],
-            description="termination",
+        termination_row_ce, termination_count, token_ce = (
+            self._scene_state_generation_token_ce(
+                logits,
+                labels,
+                attention_mask,
+                masks["termination"],
+                description="termination",
+                token_ce=token_ce,
+            )
         )
-        shift_logits = logits[:, :-1].float()
-        shift_labels = labels[:, 1:]
-        token_ce = F.cross_entropy(
-            shift_logits.reshape(-1, shift_logits.size(-1)),
-            shift_labels.reshape(-1),
-            reduction="none",
-            ignore_index=-100,
-        ).view_as(shift_labels)
         token_weights = (
             masks["schema"][:, 1:].float()
             * _SCENE_STATE_GENERATION_SCHEMA_WEIGHT

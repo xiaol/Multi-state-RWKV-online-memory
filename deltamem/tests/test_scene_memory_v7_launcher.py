@@ -232,9 +232,13 @@ def test_launcher_hard_locks_all_mutable_paths_to_the_2t_ssd() -> None:
     assert "source_lock_self_hash_differs" in source
     assert "locked_artifact_hash_differs" in source
     assert "resume_checkpoint_is_not_a_completed_horizon" in source
+    assert '"mode": "pre_backward_release_plus_target_selected_shared_ce_v1"' in source
+    assert '"target_selected_before_fp32_cast_scatter_v1"' in source
+    assert '"generation_margin_materialization": "separate_target_decision_v1"' in source
+    assert '"objective_math_changed": False' in source
 
 
-def test_non_dry_launcher_preserves_fresh_output_for_initial_snapshot(
+def test_non_dry_launcher_writes_only_execution_receipt_before_trainer(
     tmp_path: Path,
 ) -> None:
     run_name = f"pytest_nondry_{uuid.uuid4().hex}"
@@ -248,8 +252,9 @@ import sys
 
 args = sys.argv[1:]
 output = Path(args[args.index("--output-dir") + 1])
-if list(output.iterdir()):
-    raise SystemExit("training output was not fresh at trainer entry")
+entries = sorted(path.name for path in output.iterdir())
+if entries != ["execution_metadata.json"]:
+    raise SystemExit(f"unexpected files at trainer entry: {entries}")
 max_steps = args[args.index("--max-steps") + 1]
 (output / "training_summary.json").write_text("{}\\n", encoding="utf-8")
 (output / "trainer" / f"checkpoint-{max_steps}").mkdir(parents=True)

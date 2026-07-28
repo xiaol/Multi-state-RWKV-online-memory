@@ -63,6 +63,289 @@ def _model_inputs() -> dict[str, torch.Tensor]:
     }
 
 
+def _legacy_generation_ce_metrics(
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+    *,
+    schema_mask: torch.Tensor,
+    decision_mask: torch.Tensor,
+    termination_mask: torch.Tensor,
+) -> dict[str, torch.Tensor | int]:
+    shift_labels = labels[:, 1:]
+
+    def masked_row_ce(mask: torch.Tensor) -> tuple[torch.Tensor, int]:
+        shift_logits = logits[:, :-1].float()
+        token_ce = F.cross_entropy(
+            shift_logits.reshape(-1, shift_logits.size(-1)),
+            shift_labels.reshape(-1),
+            reduction="none",
+            ignore_index=-100,
+        ).view_as(shift_labels)
+        shift_mask = mask[:, 1:]
+        counts = shift_mask.sum(dim=1)
+        return (
+            (token_ce * shift_mask).sum(dim=1) / counts,
+            int(counts.sum().item()),
+        )
+
+    schema_row_ce, schema_count = masked_row_ce(schema_mask)
+    decision_row_ce, decision_count = masked_row_ce(decision_mask)
+    termination_row_ce, termination_count = masked_row_ce(termination_mask)
+    shift_logits = logits[:, :-1].float()
+    token_ce = F.cross_entropy(
+        shift_logits.reshape(-1, shift_logits.size(-1)),
+        shift_labels.reshape(-1),
+        reduction="none",
+        ignore_index=-100,
+    ).view_as(shift_labels)
+    token_weights = (
+        schema_mask[:, 1:].float()
+        * experimental_train._SCENE_STATE_GENERATION_SCHEMA_WEIGHT
+        + decision_mask[:, 1:].float()
+        * experimental_train._SCENE_STATE_GENERATION_DECISION_WEIGHT
+        + termination_mask[:, 1:].float()
+        * experimental_train._SCENE_STATE_GENERATION_TERMINATION_WEIGHT
+    )
+    weighted_generation_row_ce = (token_ce * token_weights).sum(dim=1) / (
+        token_weights.sum(dim=1)
+    )
+    return {
+        "token_ce": token_ce,
+        "weighted_generation_row_ce": weighted_generation_row_ce,
+        "schema_row_ce": schema_row_ce,
+        "decision_row_ce": decision_row_ce,
+        "termination_row_ce": termination_row_ce,
+        "schema_token_count": schema_count,
+        "decision_token_count": decision_count,
+        "termination_token_count": termination_count,
+    }
+
+
+def _production_generation_ce_case(
+    shifted_token_count: int,
+    target_positions: tuple[int, ...],
+) -> dict[str, torch.Tensor]:
+    device = torch.device("cuda")
+    sequence_length = shifted_token_count + 1
+    labels = torch.full(
+        (1, sequence_length),
+        -100,
+        device=device,
+        dtype=torch.long,
+    )
+    attention_mask = torch.ones_like(labels)
+    masks = {
+        name: torch.zeros(
+            (1, sequence_length),
+            device=device,
+            dtype=torch.bool,
+        )
+        for name in ("target", "schema", "decision", "termination")
+    }
+    position_tensor = torch.tensor(target_positions, device=device)
+    labels[0, position_tensor] = (
+        torch.arange(len(target_positions), device=device) * 7919 + 17
+    ) % 262144
+    masks["target"][0, position_tensor] = True
+    masks["schema"][0, position_tensor[:2]] = True
+    masks["decision"][0, position_tensor[2:-1]] = True
+    masks["termination"][0, position_tensor[-1:]] = True
+    return {
+        "labels": labels,
+        "attention_mask": attention_mask,
+        "target_mask": masks["target"],
+        "schema_mask": masks["schema"],
+        "decision_mask": masks["decision"],
+        "termination_mask": masks["termination"],
+    }
+
+
+def test_generation_metrics_shared_token_ce_matches_legacy_reference() -> None:
+    model_inputs = _model_inputs()
+    masks = _generation_masks()
+    generator = torch.Generator().manual_seed(20260729)
+    base_logits = torch.randn(1, 6, 4, generator=generator, dtype=torch.float64)
+    legacy_logits = base_logits.clone().requires_grad_()
+    shared_logits = base_logits.clone().requires_grad_()
+    legacy = _legacy_generation_ce_metrics(
+        legacy_logits,
+        model_inputs["labels"],
+        schema_mask=masks["schema_mask"],
+        decision_mask=masks["decision_mask"],
+        termination_mask=masks["termination_mask"],
+    )
+    shared = _trainer()._scene_state_generation_metrics(
+        shared_logits,
+        model_inputs["labels"],
+        model_inputs["attention_mask"],
+        **masks,
+        donor_target_token_ids=torch.tensor([1]),
+    )
+
+    for key in (
+        "weighted_generation_row_ce",
+        "schema_row_ce",
+        "decision_row_ce",
+        "termination_row_ce",
+    ):
+        torch.testing.assert_close(shared[key], legacy[key], rtol=0.0, atol=0.0)
+    for key in (
+        "schema_token_count",
+        "decision_token_count",
+        "termination_token_count",
+    ):
+        assert shared[key] == legacy[key]
+
+    shared_loss = shared["weighted_generation_row_ce"].mean()
+    legacy_loss = legacy["weighted_generation_row_ce"].mean()
+    torch.testing.assert_close(shared_loss, legacy_loss, rtol=0.0, atol=0.0)
+    shared_loss.backward()
+    legacy_loss.backward()
+    torch.testing.assert_close(
+        shared_logits.grad,
+        legacy_logits.grad,
+        rtol=0.0,
+        atol=0.0,
+    )
+
+
+def test_generation_metrics_computes_selected_token_ce_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model_inputs = _model_inputs()
+    token_ce_inputs: list[tuple[torch.Size, torch.dtype]] = []
+    original_cross_entropy = experimental_train.F.cross_entropy
+
+    def tracked_cross_entropy(*args, **kwargs):
+        token_ce_inputs.append((args[0].shape, args[0].dtype))
+        return original_cross_entropy(*args, **kwargs)
+
+    monkeypatch.setattr(experimental_train.F, "cross_entropy", tracked_cross_entropy)
+    _trainer()._scene_state_generation_metrics(
+        torch.randn(1, 6, 4),
+        model_inputs["labels"],
+        model_inputs["attention_mask"],
+        **_generation_masks(),
+        donor_target_token_ids=torch.tensor([1]),
+    )
+
+    assert token_ce_inputs == [(torch.Size([4, 4]), torch.float32)]
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is required")
+@pytest.mark.parametrize(
+    ("shifted_token_count", "target_positions"),
+    [
+        (65, (1, 4, 9, 17, 28, 41, 53, 65)),
+        (69, (2, 5, 8, 13, 19, 26, 34, 43, 51, 58, 64, 69)),
+    ],
+)
+def test_generation_selected_ce_matches_legacy_at_production_shape(
+    monkeypatch: pytest.MonkeyPatch,
+    shifted_token_count: int,
+    target_positions: tuple[int, ...],
+) -> None:
+    case = _production_generation_ce_case(
+        shifted_token_count,
+        target_positions,
+    )
+    generator = torch.Generator(device="cuda").manual_seed(
+        20260729 + shifted_token_count
+    )
+    base_logits = torch.randn(
+        1,
+        shifted_token_count + 1,
+        262144,
+        generator=generator,
+        device="cuda",
+        dtype=torch.bfloat16,
+    )
+    legacy_logits = base_logits.clone().requires_grad_()
+    selected_logits = base_logits.clone().requires_grad_()
+    del base_logits
+    legacy = _legacy_generation_ce_metrics(
+        legacy_logits,
+        case["labels"],
+        schema_mask=case["schema_mask"],
+        decision_mask=case["decision_mask"],
+        termination_mask=case["termination_mask"],
+    )
+    token_ce_inputs: list[tuple[torch.Size, torch.dtype]] = []
+    original_cross_entropy = experimental_train.F.cross_entropy
+
+    def tracked_cross_entropy(*args, **kwargs):
+        token_ce_inputs.append((args[0].shape, args[0].dtype))
+        return original_cross_entropy(*args, **kwargs)
+
+    monkeypatch.setattr(experimental_train.F, "cross_entropy", tracked_cross_entropy)
+    trainer = _trainer()
+    schema_row_ce, schema_count, token_ce = (
+        trainer._scene_state_generation_token_ce(
+            selected_logits,
+            case["labels"],
+            case["attention_mask"],
+            case["schema_mask"],
+            description="schema",
+            ce_target_mask=case["target_mask"],
+        )
+    )
+    decision_row_ce, decision_count, token_ce = (
+        trainer._scene_state_generation_token_ce(
+            selected_logits,
+            case["labels"],
+            case["attention_mask"],
+            case["decision_mask"],
+            description="decision",
+            token_ce=token_ce,
+        )
+    )
+    termination_row_ce, termination_count, token_ce = (
+        trainer._scene_state_generation_token_ce(
+            selected_logits,
+            case["labels"],
+            case["attention_mask"],
+            case["termination_mask"],
+            description="termination",
+            token_ce=token_ce,
+        )
+    )
+    token_weights = (
+        case["schema_mask"][:, 1:].float()
+        * experimental_train._SCENE_STATE_GENERATION_SCHEMA_WEIGHT
+        + case["decision_mask"][:, 1:].float()
+        * experimental_train._SCENE_STATE_GENERATION_DECISION_WEIGHT
+        + case["termination_mask"][:, 1:].float()
+        * experimental_train._SCENE_STATE_GENERATION_TERMINATION_WEIGHT
+    )
+    weighted_generation_row_ce = (token_ce * token_weights).sum(dim=1) / (
+        token_weights.sum(dim=1)
+    )
+
+    torch.testing.assert_close(token_ce, legacy["token_ce"], rtol=0.0, atol=0.0)
+    for actual, key in (
+        (weighted_generation_row_ce, "weighted_generation_row_ce"),
+        (schema_row_ce, "schema_row_ce"),
+        (decision_row_ce, "decision_row_ce"),
+        (termination_row_ce, "termination_row_ce"),
+    ):
+        torch.testing.assert_close(actual, legacy[key], rtol=0.0, atol=0.0)
+    assert schema_count == legacy["schema_token_count"]
+    assert decision_count == legacy["decision_token_count"]
+    assert termination_count == legacy["termination_token_count"]
+    assert token_ce_inputs == [
+        (torch.Size([len(target_positions), 262144]), torch.float32)
+    ]
+
+    weighted_generation_row_ce.mean().backward()
+    legacy["weighted_generation_row_ce"].mean().backward()
+    torch.testing.assert_close(
+        selected_logits.grad,
+        legacy_logits.grad,
+        rtol=0.0,
+        atol=0.0,
+    )
+
+
 def test_generation_token_masks_use_exact_generation_prompt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
