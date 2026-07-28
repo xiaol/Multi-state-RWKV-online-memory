@@ -61,7 +61,8 @@ if [[ -n "${RESUME_FROM_CHECKPOINT}" || -n "${RESUME_MODE}" ]]; then
 fi
 
 OUTPUT_DIR="${RUN_ROOT}/scene_memory_v7_${DATASET_KIND}_${RUN_NAME}"
-LOG_FILE="${OUTPUT_DIR}/train.log"
+LOG_DIR="${RUN_ROOT}/logs"
+LOG_FILE="${LOG_DIR}/scene_memory_v7_${DATASET_KIND}_${RUN_NAME}.log"
 HF_HOME_LOCKED="${CACHE_ROOT}/huggingface"
 HF_CACHE_DIR="${HF_HOME_LOCKED}/datasets"
 XDG_CACHE_HOME_LOCKED="${CACHE_ROOT}/xdg"
@@ -77,13 +78,15 @@ require_ssd_path() {
 }
 
 for locked_path in \
-  "${MODEL_PATH}" "${OUTPUT_DIR}" "${LOG_FILE}" "${HF_HOME_LOCKED}" \
+  "${MODEL_PATH}" "${OUTPUT_DIR}" "${LOG_DIR}" "${LOG_FILE}" "${HF_HOME_LOCKED}" \
   "${HF_CACHE_DIR}" "${XDG_CACHE_HOME_LOCKED}" "${TOKENIZED_DATASET_ROOT}" \
   "${TMPDIR_LOCKED}" "${TORCH_CACHE_ROOT}"; do
   require_ssd_path "${locked_path}"
 done
 [[ ! -e "${OUTPUT_DIR}" ]] \
   || fail "fresh_output_collision path=${OUTPUT_DIR}"
+[[ ! -e "${LOG_FILE}" ]] \
+  || fail "fresh_log_collision path=${LOG_FILE}"
 
 export PYTHONPATH="${REPO}${PYTHONPATH:+:${PYTHONPATH}}"
 export CUDA_VISIBLE_DEVICES=0
@@ -415,7 +418,7 @@ if [[ "${DRY_RUN}" == "1" ]]; then
 fi
 
 mkdir -p \
-  "${RUN_ROOT}" "${HF_CACHE_DIR}" "${HF_HUB_CACHE}" \
+  "${RUN_ROOT}" "${LOG_DIR}" "${HF_CACHE_DIR}" "${HF_HUB_CACHE}" \
   "${XDG_CACHE_HOME}" "${TOKENIZED_DATASET_ROOT}" "${TMPDIR}" \
   "${TORCH_EXTENSIONS_DIR}" "${TRITON_CACHE_DIR}"
 mkdir "${OUTPUT_DIR}"

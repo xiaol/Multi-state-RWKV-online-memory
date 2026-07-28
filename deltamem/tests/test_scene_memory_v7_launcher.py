@@ -222,7 +222,8 @@ def test_launcher_hard_locks_all_mutable_paths_to_the_2t_ssd() -> None:
     source = LAUNCHER.read_text(encoding="utf-8")
 
     assert 'SSD_ROOT="/run/media/xiaol/B214449214445C0B"' in source
-    assert 'LOG_FILE="${OUTPUT_DIR}/train.log"' in source
+    assert 'LOG_DIR="${RUN_ROOT}/logs"' in source
+    assert 'LOG_FILE="${LOG_DIR}/scene_memory_v7_${DATASET_KIND}_${RUN_NAME}.log"' in source
     assert 'HF_HOME_LOCKED="${CACHE_ROOT}/huggingface"' in source
     assert 'XDG_CACHE_HOME_LOCKED="${CACHE_ROOT}/xdg"' in source
     assert 'TOKENIZED_DATASET_ROOT="${CACHE_ROOT}/tokenized"' in source
@@ -231,3 +232,42 @@ def test_launcher_hard_locks_all_mutable_paths_to_the_2t_ssd() -> None:
     assert "source_lock_self_hash_differs" in source
     assert "locked_artifact_hash_differs" in source
     assert "resume_checkpoint_is_not_a_completed_horizon" in source
+
+
+def test_non_dry_launcher_preserves_fresh_output_for_initial_snapshot(
+    tmp_path: Path,
+) -> None:
+    run_name = f"pytest_nondry_{uuid.uuid4().hex}"
+    output = RUN_ROOT / f"scene_memory_v7_tiny2_{run_name}"
+    log = RUN_ROOT / "logs" / f"scene_memory_v7_tiny2_{run_name}.log"
+    fake_python = tmp_path / "fake_python"
+    fake_python.write_text(
+        """#!/usr/bin/env python3
+from pathlib import Path
+import sys
+
+args = sys.argv[1:]
+output = Path(args[args.index("--output-dir") + 1])
+if list(output.iterdir()):
+    raise SystemExit("training output was not fresh at trainer entry")
+max_steps = args[args.index("--max-steps") + 1]
+(output / "training_summary.json").write_text("{}\\n", encoding="utf-8")
+(output / "trainer" / f"checkpoint-{max_steps}").mkdir(parents=True)
+""",
+        encoding="utf-8",
+    )
+    fake_python.chmod(0o755)
+    environment = _launcher_environment("tiny2", run_name)
+    environment.update({"DRY_RUN": "0", "PYTHON_BIN": str(fake_python)})
+
+    try:
+        result = _run_launcher(environment)
+
+        assert result.returncode == 0, result.stderr
+        assert (output / "training_summary.json").is_file()
+        assert (output / "trainer/checkpoint-32").is_dir()
+        assert log.is_file()
+        assert log.parent != output
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
+        log.unlink(missing_ok=True)
