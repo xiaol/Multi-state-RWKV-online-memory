@@ -21,6 +21,7 @@ import math
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import time
 from typing import Any, Iterable
@@ -64,6 +65,58 @@ TASK_NAME = "scene-v4-current"
 DEFAULT_MAX_NEW_TOKENS = 128
 MAX_SELECTED_ROWS = 32
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+HISTORICAL_V6_HARD32_CONTRACT = "scene_historical_v6_hard32_three_condition"
+HISTORICAL_V6_HARD32_CONDITIONS = (
+    "base_full",
+    "no_write_full",
+    "normal_full",
+)
+HISTORICAL_V6_HARD32_RECEIPT_SCHEMA = (
+    "rwkv_ms_scene_historical_v6_hard32_screen.v1"
+)
+HISTORICAL_V6_HARD32_AUTHORIZATION_SCOPE = (
+    "diagnostic_fixed_hard32_only_no_full170_no_test"
+)
+HISTORICAL_V6_LINEAGE_LIMITATION = (
+    "This historical training run predates commit-bound source locks and atomic "
+    "checkpoint receipts. Exact adapter, config, and trainer-state hashes prove "
+    "the screened artifact identity, but cannot retrospectively prove its training "
+    "source commit or a receipt-bound data lineage."
+)
+HISTORICAL_V6_CHECKPOINT = Path(
+    "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/"
+    "novel_rwkv_ms_memory/"
+    "v6_semantics2_all_l0_23_r4_n32_ceonly_gain02_lr1e3_e21_cont640/"
+    "trainer/checkpoint-672"
+)
+HISTORICAL_V6_CHECKPOINT_ARTIFACT_SHA256 = {
+    "delta_mem_adapter.pt": (
+        "79bbe9c300be0eb894bd10808e9f1f08783b4f96a29713fa9d262b4a89786de6"
+    ),
+    "delta_mem_config.json": (
+        "da66ada98c4fc0f83ad36c0e749f5a9b52f0f88f2b516d004027f58052182288"
+    ),
+    "trainer_state.json": (
+        "de158d601787d7913fe89a8d7e46cf73a7d33e433d7dfca3791a3d9268c93d53"
+    ),
+}
+HISTORICAL_V6_EXPECTED_GLOBAL_STEP = 672
+HISTORICAL_V6_EXPECTED_LAYER_COUNT = 24
+HISTORICAL_V6_BASE_MODEL = Path(
+    "/run/media/xiaol/B214449214445C0B/models/gemma/gemma-4-E4B-it"
+)
+HISTORICAL_V6_HARD32_ROOT = Path(
+    "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/"
+    "pairs_candidate64_failure32_holdout32_v1"
+)
+HISTORICAL_V6_HARD32_HOLDOUT = HISTORICAL_V6_HARD32_ROOT / "holdout.jsonl"
+HISTORICAL_V6_HARD32_SELECTION = (
+    HISTORICAL_V6_HARD32_ROOT / "holdout_source_indices.json"
+)
+HISTORICAL_V6_OFFICIAL_VAL = Path(
+    "/run/media/xiaol/B214449214445C0B/datasets/novel-agent-sft-dataset/"
+    "training/v4-scene-boundary-detection/val.jsonl"
+)
 DONOR_RULE_CYCLIC = "next_selected_row_cyclic"
 DONOR_RULE_LENGTH_MATCHED = "length_matched_label_distinct_symmetric_pair_v1"
 DONOR_RULE_LENGTH_MATCHED_LEGACY = "write_token_length_matched_label_distinct_pairs_v1"
@@ -107,6 +160,7 @@ EVALUATION_CONTRACTS = (
     "generic",
     "scene_v6_identity_hard32",
     "scene_v6_matched_donor_validation",
+    HISTORICAL_V6_HARD32_CONTRACT,
 )
 OFFICIAL_SCENE_V4_DATASET_REVISION = "5d3040d21f51b3ce90b9396b058e552c47f43cd5"
 OFFICIAL_SCENE_V4_VAL_SHA256 = (
@@ -331,6 +385,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--attn-implementation", default="sdpa")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help=(
+            "Validate the protected historical-V6 checkpoint and Hard32 bindings "
+            "without loading a model or creating output files."
+        ),
+    )
+    parser.add_argument(
         "--evaluation-contract",
         choices=EVALUATION_CONTRACTS,
         default="generic",
@@ -475,6 +537,401 @@ def selected_conditions(raw: str) -> list[str]:
     return conditions
 
 
+def _reject_symlink_components(path: Path, *, description: str) -> None:
+    absolute = path.expanduser().absolute()
+    current = Path(absolute.anchor)
+    for component in absolute.parts[1:]:
+        current /= component
+        if current.is_symlink():
+            raise ValueError(
+                f"Historical V6 contract forbids symlinks for {description}: {current}"
+            )
+
+
+def require_historical_tracked_worktree_clean() -> dict[str, Any]:
+    try:
+        status = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=PROJECT_ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError(
+            "Historical V6 contract cannot verify the tracked worktree"
+        ) from exc
+    if status:
+        raise ValueError(
+            "Historical V6 protected evaluation requires a clean tracked worktree"
+        )
+    return {
+        "repository": str(PROJECT_ROOT),
+        "tracked_worktree_clean": True,
+        "untracked_files_ignored": True,
+    }
+
+
+def _historical_exact_path(
+    path: Path,
+    *,
+    expected: Path,
+    description: str,
+    directory: bool = False,
+) -> Path:
+    _reject_symlink_components(path, description=description)
+    _reject_symlink_components(expected, description=f"expected {description}")
+    try:
+        resolved = path.expanduser().resolve(strict=True)
+        expected_resolved = expected.expanduser().resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise ValueError(
+            f"Historical V6 {description} is missing: {exc.filename}"
+        ) from exc
+    if resolved != expected_resolved:
+        raise ValueError(
+            f"Historical V6 {description} path differs: "
+            f"expected={expected_resolved} actual={resolved}"
+        )
+    correct_kind = resolved.is_dir() if directory else resolved.is_file()
+    if not correct_kind:
+        kind = "directory" if directory else "regular file"
+        raise ValueError(f"Historical V6 {description} must be a {kind}: {resolved}")
+    return resolved
+
+
+def _historical_artifact_binding(
+    path: Path,
+    *,
+    description: str,
+    expected_sha256: str,
+) -> dict[str, Any]:
+    _reject_symlink_components(path, description=description)
+    if not path.is_file():
+        raise ValueError(f"Historical V6 {description} is missing: {path}")
+    actual_sha256 = sha256_file(path)
+    if actual_sha256 != expected_sha256:
+        raise ValueError(
+            f"Historical V6 {description} SHA-256 differs: "
+            f"expected={expected_sha256} actual={actual_sha256}"
+        )
+    resolved = path.resolve(strict=True)
+    return {
+        "path": str(resolved),
+        "bytes": resolved.stat().st_size,
+        "sha256": actual_sha256,
+    }
+
+
+def validate_historical_v6_checkpoint(memory_dir: Path) -> dict[str, Any]:
+    checkpoint = _historical_exact_path(
+        memory_dir,
+        expected=HISTORICAL_V6_CHECKPOINT,
+        description="checkpoint",
+        directory=True,
+    )
+    artifacts = {
+        name: _historical_artifact_binding(
+            checkpoint / name,
+            description=f"checkpoint {name}",
+            expected_sha256=digest,
+        )
+        for name, digest in HISTORICAL_V6_CHECKPOINT_ARTIFACT_SHA256.items()
+    }
+    try:
+        trainer_state = json.loads(
+            (checkpoint / "trainer_state.json").read_text(encoding="utf-8")
+        )
+    except json.JSONDecodeError as exc:
+        raise ValueError("Historical V6 trainer_state.json is invalid JSON") from exc
+    if not isinstance(trainer_state, dict):
+        raise ValueError("Historical V6 trainer_state.json must contain an object")
+    if (
+        trainer_state.get("global_step") != HISTORICAL_V6_EXPECTED_GLOBAL_STEP
+        or trainer_state.get("max_steps") != HISTORICAL_V6_EXPECTED_GLOBAL_STEP
+    ):
+        raise ValueError(
+            "Historical V6 trainer state must bind global_step=max_steps="
+            f"{HISTORICAL_V6_EXPECTED_GLOBAL_STEP}"
+        )
+    return {
+        "lineage_kind": "historical_artifact_identity_without_source_receipt",
+        "checkpoint_step": HISTORICAL_V6_EXPECTED_GLOBAL_STEP,
+        "memory_dir": str(checkpoint),
+        "artifacts": artifacts,
+        "training_source_commit": None,
+        "training_source_lock_receipt": None,
+        "lineage_limitation": HISTORICAL_V6_LINEAGE_LIMITATION,
+    }
+
+
+def _nonblank_raw_jsonl_rows(path: Path) -> list[str]:
+    rows: list[str] = []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        for raw_line in handle:
+            raw = raw_line.rstrip("\r\n")
+            if raw.strip():
+                rows.append(raw)
+    return rows
+
+
+def validate_historical_v6_hard32_artifacts(
+    *,
+    dataset_file: Path,
+    selection_file: Path,
+) -> dict[str, Any]:
+    dataset = _historical_exact_path(
+        dataset_file,
+        expected=HISTORICAL_V6_OFFICIAL_VAL,
+        description="official scene-v4 validation dataset",
+    )
+    selection = _historical_exact_path(
+        selection_file,
+        expected=HISTORICAL_V6_HARD32_SELECTION,
+        description="Hard32 source-index selection",
+    )
+    holdout = _historical_exact_path(
+        HISTORICAL_V6_HARD32_HOLDOUT,
+        expected=HISTORICAL_V6_HARD32_HOLDOUT,
+        description="frozen Hard32 holdout",
+    )
+    bindings = {
+        "dataset": _historical_artifact_binding(
+            dataset,
+            description="official scene-v4 validation dataset",
+            expected_sha256=OFFICIAL_SCENE_V4_VAL_SHA256,
+        ),
+        "selection": _historical_artifact_binding(
+            selection,
+            description="Hard32 source-index selection",
+            expected_sha256=HARD32_SELECTION_SHA256,
+        ),
+        "holdout": _historical_artifact_binding(
+            holdout,
+            description="frozen Hard32 holdout",
+            expected_sha256=HARD32_HOLDOUT_SHA256,
+        ),
+    }
+    raw_selection = selection.read_text(encoding="utf-8")
+    row_indices, expected_hashes = parse_selection_manifest(raw_selection)
+    if row_indices != list(HARD32_ROW_INDICES):
+        raise ValueError(
+            "Historical V6 Hard32 selection source indices differ from the frozen order"
+        )
+    if expected_hashes != HARD32_ROW_HASHES:
+        raise ValueError(
+            "Historical V6 Hard32 selection row hashes differ from the frozen rows"
+        )
+    selection_dataset = parse_selection_dataset_contract(raw_selection)
+    if selection_dataset is None:
+        raise ValueError("Historical V6 Hard32 selection is not dataset-bound")
+    validate_selection_dataset_contract(dataset, selection_dataset)
+
+    official_rows = _nonblank_raw_jsonl_rows(dataset)
+    if max(row_indices) >= len(official_rows):
+        raise ValueError("Historical V6 Hard32 selection exceeds the official dataset")
+    selected_rows = [official_rows[index] for index in row_indices]
+    if any(
+        sha256_text(raw) != expected_hashes[index]
+        for index, raw in zip(row_indices, selected_rows, strict=True)
+    ):
+        raise ValueError(
+            "Historical V6 selected official rows do not reproduce the frozen row hashes"
+        )
+    holdout_rows = _nonblank_raw_jsonl_rows(holdout)
+    if len(holdout_rows) != len(HARD32_ROW_INDICES):
+        raise ValueError("Historical V6 frozen Hard32 holdout must contain exactly 32 rows")
+    if selected_rows != holdout_rows:
+        raise ValueError(
+            "Historical V6 official-val selection does not byte-reproduce the frozen "
+            "Hard32 holdout rows"
+        )
+    bindings["official_selection_reproduction"] = {
+        "rows": len(selected_rows),
+        "source_indices": list(row_indices),
+        "row_hashes": [expected_hashes[index] for index in row_indices],
+        "raw_rows_match_frozen_holdout": True,
+        "frozen_holdout_sha256": HARD32_HOLDOUT_SHA256,
+    }
+    return bindings
+
+
+def validate_historical_v6_run_preflight(
+    args: argparse.Namespace,
+    *,
+    conditions: list[str],
+) -> dict[str, Any] | None:
+    if args.evaluation_contract != HISTORICAL_V6_HARD32_CONTRACT:
+        return None
+    if conditions != list(HISTORICAL_V6_HARD32_CONDITIONS):
+        raise ValueError(
+            f"{HISTORICAL_V6_HARD32_CONTRACT} requires conditions in exact order: "
+            + ",".join(HISTORICAL_V6_HARD32_CONDITIONS)
+        )
+    if args.overwrite:
+        raise ValueError("Historical V6 protected evaluation forbids --overwrite")
+    if args.row_indices is not None or args.row_indices_file is None:
+        raise ValueError(
+            "Historical V6 protected evaluation requires the exact source-index "
+            "selection file; inline row indices are forbidden"
+        )
+    output_dir = args.output_dir.expanduser().absolute()
+    _reject_symlink_components(output_dir, description="output directory")
+    if output_dir.exists():
+        raise ValueError(
+            "Historical V6 protected evaluation requires a fresh, nonexistent output "
+            f"directory: {output_dir}"
+        )
+    tracked_worktree = require_historical_tracked_worktree_clean()
+    base_model = _historical_exact_path(
+        Path(args.base_model),
+        expected=HISTORICAL_V6_BASE_MODEL,
+        description="base model",
+        directory=True,
+    )
+    checkpoint_lineage = validate_historical_v6_checkpoint(args.memory_dir)
+    hard32 = validate_historical_v6_hard32_artifacts(
+        dataset_file=args.dataset_file,
+        selection_file=args.row_indices_file,
+    )
+    return {
+        "checkpoint": checkpoint_lineage,
+        "hard32": hard32,
+        "base_model": str(base_model),
+        "tracked_worktree": tracked_worktree,
+        "authorization_scope": HISTORICAL_V6_HARD32_AUTHORIZATION_SCOPE,
+        "full170_authorized": False,
+        "test_authorized": False,
+    }
+
+
+def validate_historical_v6_hard32_contract(
+    *,
+    row_indices: list[int],
+    expected_hashes: dict[int, str],
+    selection_dataset_contract: dict[str, str] | None,
+    conditions: list[str],
+    donor_rule: str,
+    max_new_tokens: int,
+    normal_fusion_profile: str,
+    expected_memory_layer_count: int,
+    memory_target_layers: list[int],
+    memory_delta_heads: list[str],
+    memory_rank: int,
+    rwkv_ms_semantics_version: int,
+    memory_backend: str,
+    selection_manifest_sha256: str | None,
+) -> dict[str, Any]:
+    if row_indices != list(HARD32_ROW_INDICES):
+        raise ValueError(
+            "Historical V6 Hard32 contract requires the exact frozen official-val "
+            "source indices in order"
+        )
+    if expected_hashes != HARD32_ROW_HASHES:
+        raise ValueError(
+            "Historical V6 Hard32 contract requires every frozen official-val row hash"
+        )
+    if selection_manifest_sha256 != HARD32_SELECTION_SHA256:
+        raise ValueError(
+            "Historical V6 Hard32 contract requires the exact source-index selection file"
+        )
+    if selection_dataset_contract is None:
+        raise ValueError(
+            "Historical V6 Hard32 contract requires a dataset-bound selection manifest"
+        )
+    if selection_dataset_contract.get("split") != "val":
+        raise ValueError("Historical V6 Hard32 contract requires split=val")
+    if selection_dataset_contract.get("sha256") != OFFICIAL_SCENE_V4_VAL_SHA256:
+        raise ValueError(
+            "Historical V6 Hard32 contract requires the exact official scene-v4 val file"
+        )
+    declared_dataset = Path(selection_dataset_contract.get("path", "")).expanduser()
+    if declared_dataset.resolve() != HISTORICAL_V6_OFFICIAL_VAL.expanduser().resolve():
+        raise ValueError(
+            "Historical V6 Hard32 contract selection declares a different dataset path"
+        )
+    if conditions != list(HISTORICAL_V6_HARD32_CONDITIONS):
+        raise ValueError(
+            f"{HISTORICAL_V6_HARD32_CONTRACT} requires conditions in exact order: "
+            + ",".join(HISTORICAL_V6_HARD32_CONDITIONS)
+        )
+    if donor_rule != DONOR_RULE_CYCLIC:
+        raise ValueError(
+            "Historical V6 Hard32 contract requires the inert default donor rule; "
+            "donor conditions are forbidden"
+        )
+    if max_new_tokens != DEFAULT_MAX_NEW_TOKENS:
+        raise ValueError(
+            "Historical V6 Hard32 contract requires max_new_tokens="
+            f"{DEFAULT_MAX_NEW_TOKENS}"
+        )
+    if normal_fusion_profile != "native":
+        raise ValueError(
+            "Historical V6 Hard32 contract requires normal_fusion_profile=native"
+        )
+    if expected_memory_layer_count != HISTORICAL_V6_EXPECTED_LAYER_COUNT:
+        raise ValueError(
+            "Historical V6 Hard32 contract requires expected_memory_layer_count="
+            f"{HISTORICAL_V6_EXPECTED_LAYER_COUNT}"
+        )
+    if memory_target_layers != list(range(HISTORICAL_V6_EXPECTED_LAYER_COUNT)):
+        raise ValueError(
+            "Historical V6 Hard32 contract requires checkpoint target_layers=0..23"
+        )
+    if memory_delta_heads != ["q", "o"]:
+        raise ValueError(
+            "Historical V6 Hard32 contract requires checkpoint delta_heads=q,o"
+        )
+    if memory_rank != 4:
+        raise ValueError("Historical V6 Hard32 contract requires checkpoint rank=4")
+    if rwkv_ms_semantics_version != 2:
+        raise ValueError(
+            "Historical V6 Hard32 contract requires checkpoint "
+            "rwkv_ms_semantics_version=2"
+        )
+    if memory_backend != "rwkv_ms":
+        raise ValueError(
+            "Historical V6 Hard32 contract requires checkpoint memory_backend=rwkv_ms"
+        )
+    return {
+        "name": HISTORICAL_V6_HARD32_CONTRACT,
+        "phase": "historical_checkpoint_diagnostic",
+        "split": "val",
+        "task": TASK_NAME,
+        "rows": len(HARD32_ROW_INDICES),
+        "conditions": list(HISTORICAL_V6_HARD32_CONDITIONS),
+        "donor_conditions": [],
+        "semantic_nll_conditions": [],
+        "max_new_tokens": DEFAULT_MAX_NEW_TOKENS,
+        "normal_fusion_profile": "native",
+        "expected_memory_layer_count": HISTORICAL_V6_EXPECTED_LAYER_COUNT,
+        "memory_target_layers": list(range(HISTORICAL_V6_EXPECTED_LAYER_COUNT)),
+        "memory_delta_heads": ["q", "o"],
+        "memory_rank": 4,
+        "rwkv_ms_semantics_version": 2,
+        "memory_backend": "rwkv_ms",
+        "official_dataset_revision": OFFICIAL_SCENE_V4_DATASET_REVISION,
+        "official_dataset_path": str(HISTORICAL_V6_OFFICIAL_VAL.resolve()),
+        "official_dataset_sha256": OFFICIAL_SCENE_V4_VAL_SHA256,
+        "authoritative_selection_path": str(
+            HISTORICAL_V6_HARD32_SELECTION.resolve()
+        ),
+        "authoritative_selection_sha256": HARD32_SELECTION_SHA256,
+        "authoritative_holdout_path": str(HISTORICAL_V6_HARD32_HOLDOUT.resolve()),
+        "authoritative_holdout_sha256": HARD32_HOLDOUT_SHA256,
+        "checkpoint_path": str(HISTORICAL_V6_CHECKPOINT.resolve()),
+        "checkpoint_artifact_sha256": dict(
+            HISTORICAL_V6_CHECKPOINT_ARTIFACT_SHA256
+        ),
+        "checkpoint_step": HISTORICAL_V6_EXPECTED_GLOBAL_STEP,
+        "lineage_status": "artifact_identity_only_pre_receipt",
+        "lineage_limitation": HISTORICAL_V6_LINEAGE_LIMITATION,
+        "authorization_scope": HISTORICAL_V6_HARD32_AUTHORIZATION_SCOPE,
+        "full170_authorized": False,
+        "test_authorized": False,
+        "checkpoint_selection_authorized": False,
+    }
+
+
 def validate_scene_v6_matched_donor_contract(
     *,
     contract: str,
@@ -498,6 +955,23 @@ def validate_scene_v6_matched_donor_contract(
         raise ValueError(f"Unsupported scene-state evaluation contract: {contract}")
     if contract == "generic":
         return {"name": "generic", "phase": "focused_diagnostic"}
+    if contract == HISTORICAL_V6_HARD32_CONTRACT:
+        return validate_historical_v6_hard32_contract(
+            row_indices=row_indices,
+            expected_hashes=expected_hashes,
+            selection_dataset_contract=selection_dataset_contract,
+            conditions=conditions,
+            donor_rule=donor_rule,
+            max_new_tokens=max_new_tokens,
+            normal_fusion_profile=normal_fusion_profile,
+            expected_memory_layer_count=expected_memory_layer_count,
+            memory_target_layers=memory_target_layers,
+            memory_delta_heads=memory_delta_heads,
+            memory_rank=memory_rank,
+            rwkv_ms_semantics_version=rwkv_ms_semantics_version,
+            memory_backend=memory_backend,
+            selection_manifest_sha256=selection_manifest_sha256,
+        )
     if contract == "scene_v6_identity_hard32":
         if row_indices != list(HARD32_ROW_INDICES):
             raise ValueError(
@@ -1920,6 +2394,222 @@ def build_comparisons(summaries: dict[str, dict[str, Any]]) -> dict[str, Any]:
     return comparisons
 
 
+def _strict_exact_record(record: dict[str, Any]) -> bool:
+    score = record.get("score_strict")
+    return bool(
+        isinstance(score, dict)
+        and score.get("schema_valid") is True
+        and score.get("fp") == 0
+        and score.get("fn") == 0
+    )
+
+
+def _recovered_exact_record(record: dict[str, Any]) -> bool:
+    score = record.get("score_recovered")
+    return bool(
+        isinstance(score, dict)
+        and score.get("schema_recovered") is True
+        and score.get("fp") == 0
+        and score.get("fn") == 0
+    )
+
+
+def build_historical_v6_hard32_evidence(
+    ordered_records: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    required = list(HISTORICAL_V6_HARD32_CONDITIONS)
+    if set(ordered_records) != set(required):
+        raise ValueError(
+            "Historical V6 evidence requires exactly base_full, no_write_full, and "
+            "normal_full"
+        )
+    expected_order = list(HARD32_ROW_INDICES)
+    for condition in required:
+        records = ordered_records[condition]
+        if [int(record["source_index"]) for record in records] != expected_order:
+            raise ValueError(
+                f"Historical V6 {condition} result order differs from frozen Hard32"
+            )
+    for records in zip(*(ordered_records[condition] for condition in required), strict=True):
+        identities = {
+            (
+                int(record["source_index"]),
+                str(record["row_sha256"]),
+                json.dumps(record["gold"], sort_keys=True, separators=(",", ":")),
+            )
+            for record in records
+        }
+        if len(identities) != 1:
+            raise ValueError(
+                "Historical V6 condition outputs differ in row identity or gold label"
+            )
+
+    reference_by_source = {
+        int(record["source_index"]): record
+        for record in ordered_records["base_full"]
+    }
+    stratum_by_source: dict[int, str] = {}
+    for left_index, right_index in HARD32_FROZEN_DONOR_PAIRS:
+        left_gold = reference_by_source[left_index]["score_strict"]["gold_boundaries"]
+        right_gold = reference_by_source[right_index]["score_strict"]["gold_boundaries"]
+        left_count = len(left_gold)
+        right_count = len(right_gold)
+        if (left_count == 0) != (right_count == 0):
+            stratum = "presence"
+        elif left_count == right_count:
+            stratum = "same_cardinality_value"
+        else:
+            stratum = "cross_cardinality_value"
+        stratum_by_source[left_index] = stratum
+        stratum_by_source[right_index] = stratum
+    if set(stratum_by_source) != set(HARD32_ROW_INDICES):
+        raise ValueError("Historical V6 Hard32 strata do not cover every frozen row")
+    observed_strata = {
+        name: sum(value == name for value in stratum_by_source.values())
+        for name in (
+            "presence",
+            "same_cardinality_value",
+            "cross_cardinality_value",
+        )
+    }
+    expected_strata = {
+        "presence": HARD32_FROZEN_DONOR_STRATUM_ROWS["empty_vs_nonempty"],
+        "same_cardinality_value": HARD32_FROZEN_DONOR_STRATUM_ROWS[
+            "nonempty_same_cardinality"
+        ],
+        "cross_cardinality_value": HARD32_FROZEN_DONOR_STRATUM_ROWS[
+            "nonempty_different_cardinality"
+        ],
+    }
+    if observed_strata != expected_strata:
+        raise ValueError(
+            "Historical V6 Hard32 observed label-cardinality strata differ from the "
+            "frozen contract"
+        )
+
+    records_by_condition = {
+        condition: {
+            int(record["source_index"]): record
+            for record in ordered_records[condition]
+        }
+        for condition in required
+    }
+
+    def generation_differences(indices: list[int]) -> dict[str, Any]:
+        comparisons: dict[str, Any] = {}
+        for name, left, right in (
+            ("normal_full_vs_base_full", "normal_full", "base_full"),
+            ("normal_full_vs_no_write_full", "normal_full", "no_write_full"),
+            ("no_write_full_vs_base_full", "no_write_full", "base_full"),
+        ):
+            left_rows = records_by_condition[left]
+            right_rows = records_by_condition[right]
+            comparisons[name] = {
+                "raw_generation_different_rows": sum(
+                    left_rows[index]["raw_generation"]
+                    != right_rows[index]["raw_generation"]
+                    for index in indices
+                ),
+                "parsed_json_different_rows": sum(
+                    left_rows[index]["parsed_json"] != right_rows[index]["parsed_json"]
+                    for index in indices
+                ),
+                "left_strict_exact_right_not_rows": sum(
+                    _strict_exact_record(left_rows[index])
+                    and not _strict_exact_record(right_rows[index])
+                    for index in indices
+                ),
+                "right_strict_exact_left_not_rows": sum(
+                    _strict_exact_record(right_rows[index])
+                    and not _strict_exact_record(left_rows[index])
+                    for index in indices
+                ),
+            }
+        return comparisons
+
+    def summarize_indices(indices: list[int]) -> dict[str, Any]:
+        condition_summaries: dict[str, Any] = {}
+        for condition in required:
+            records = [records_by_condition[condition][index] for index in indices]
+            condition_summaries[condition] = {
+                "strict_exact_rows": sum(_strict_exact_record(record) for record in records),
+                "recovered_exact_rows": sum(
+                    _recovered_exact_record(record) for record in records
+                ),
+                "summary": summarize_records(records),
+            }
+        strict_metrics = {
+            condition: float(
+                condition_summaries[condition]["summary"]["strict"]["primary_metric"]
+            )
+            for condition in required
+        }
+        recovered_metrics = {
+            condition: float(
+                condition_summaries[condition]["summary"]["format_recovered"][
+                    "primary_metric"
+                ]
+            )
+            for condition in required
+        }
+        strongest_strict = max(
+            strict_metrics["base_full"], strict_metrics["no_write_full"]
+        )
+        strongest_recovered = max(
+            recovered_metrics["base_full"], recovered_metrics["no_write_full"]
+        )
+        return {
+            "rows": len(indices),
+            "source_indices": list(indices),
+            "conditions": condition_summaries,
+            "strict_uplift": {
+                "metric_name": BENCHMARK_SCENE_METRIC_NAME,
+                "normal_full": strict_metrics["normal_full"],
+                "base_full": strict_metrics["base_full"],
+                "no_write_full": strict_metrics["no_write_full"],
+                "strongest_control": strongest_strict,
+                "normal_full_minus_strongest_control": (
+                    strict_metrics["normal_full"] - strongest_strict
+                ),
+            },
+            "format_recovered_uplift": {
+                "metric_name": "format_recovered_micro_f1",
+                "normal_full": recovered_metrics["normal_full"],
+                "base_full": recovered_metrics["base_full"],
+                "no_write_full": recovered_metrics["no_write_full"],
+                "strongest_control": strongest_recovered,
+                "normal_full_minus_strongest_control": (
+                    recovered_metrics["normal_full"] - strongest_recovered
+                ),
+            },
+            "generation_differences": generation_differences(indices),
+        }
+
+    overall_indices = list(HARD32_ROW_INDICES)
+    return {
+        "schema": "rwkv_ms_scene_historical_v6_hard32_evidence.v1",
+        "interpretation": (
+            "normal_full - max(base_full, no_write_full) measures benchmark uplift "
+            "for this frozen diagnostic slice; normal_full - no_write_full isolates "
+            "the contribution of online writes while the full prompt remains visible."
+        ),
+        "overall": summarize_indices(overall_indices),
+        "strata": {
+            stratum: summarize_indices(
+                [
+                    index
+                    for index in overall_indices
+                    if stratum_by_source[index] == stratum
+                ]
+            )
+            for stratum in expected_strata
+        },
+        "observed_stratum_rows": observed_strata,
+        "full170_authorized": False,
+        "test_authorized": False,
+    }
+
+
 def build_semantic_decision_evidence(
     ordered_records: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
@@ -2443,9 +3133,11 @@ def build_scene_v6_matched_donor_gate(
     comparisons: dict[str, Any],
     contract: dict[str, Any],
 ) -> dict[str, Any]:
-    if contract.get("name") == "generic":
-        return {"status": "not_requested", "contract": contract}
-    if contract.get("name") == "scene_v6_identity_hard32":
+    if contract.get("name") in {
+        "generic",
+        "scene_v6_identity_hard32",
+        HISTORICAL_V6_HARD32_CONTRACT,
+    }:
         return {"status": "not_requested", "contract": contract}
     if contract.get("name") != "scene_v6_matched_donor_validation":
         raise ValueError("Unsupported matched-donor gate contract")
@@ -2484,6 +3176,245 @@ def file_binding(path: Path) -> dict[str, Any]:
         "path": str(resolved),
         "bytes": resolved.stat().st_size,
         "sha256": sha256_file(resolved),
+    }
+
+
+def _historical_result_binding(path: Path, *, description: str) -> dict[str, Any]:
+    _reject_symlink_components(path, description=description)
+    if not path.is_file():
+        raise ValueError(f"Historical V6 result artifact is missing: {path}")
+    resolved = path.resolve(strict=True)
+    return {
+        "path": str(resolved),
+        "bytes": resolved.stat().st_size,
+        "sha256": sha256_file(resolved),
+    }
+
+
+def build_historical_v6_hard32_receipt(
+    *,
+    output_dir: Path,
+    fingerprint: str,
+    contract: dict[str, Any],
+    candidate_lineage: dict[str, Any],
+    code_fingerprint: dict[str, Any],
+    repository_revision: dict[str, Any],
+    base_model: Path,
+    base_model_binding: dict[str, Any],
+    dataset_file: Path,
+    selection_file: Path,
+    memory_dir: Path,
+    conditions: list[str],
+    evidence: dict[str, Any],
+) -> dict[str, Any]:
+    if contract.get("name") != HISTORICAL_V6_HARD32_CONTRACT:
+        raise ValueError("Historical V6 receipt requires its protected contract")
+    if conditions != list(HISTORICAL_V6_HARD32_CONDITIONS):
+        raise ValueError("Historical V6 receipt requires exactly three protected conditions")
+    if (
+        contract.get("full170_authorized") is not False
+        or contract.get("test_authorized") is not False
+        or contract.get("checkpoint_selection_authorized") is not False
+    ):
+        raise ValueError("Historical V6 receipt contract must not authorize escalation")
+    current_lineage = validate_historical_v6_checkpoint(memory_dir)
+    if candidate_lineage != current_lineage:
+        raise ValueError("Historical V6 checkpoint lineage changed during evaluation")
+    hard32_bindings = validate_historical_v6_hard32_artifacts(
+        dataset_file=dataset_file,
+        selection_file=selection_file,
+    )
+    evaluator_sha256 = sha256_file(Path(__file__))
+    if (
+        code_fingerprint.get("evaluator_sha256") != evaluator_sha256
+        or code_fingerprint != scene_state_code_fingerprint(PROJECT_ROOT)
+    ):
+        raise ValueError("Historical V6 runtime code changed during evaluation")
+    current_base_model_binding = historical_base_model_binding(base_model)
+    if base_model_binding != current_base_model_binding:
+        raise ValueError("Historical V6 base-model artifacts changed during evaluation")
+    current_revision = git_revision(PROJECT_ROOT)
+    commit = repository_revision.get("commit")
+    if (
+        not isinstance(commit, str)
+        or re.fullmatch(r"[0-9a-f]{40,64}", commit) is None
+        or repository_revision != current_revision
+    ):
+        raise ValueError("Historical V6 repository revision changed during evaluation")
+    if evidence.get("schema") != "rwkv_ms_scene_historical_v6_hard32_evidence.v1":
+        raise ValueError("Historical V6 receipt evidence schema differs")
+    tracked_worktree = require_historical_tracked_worktree_clean()
+    output_bindings = {
+        "manifest": _historical_result_binding(
+            output_dir / "manifest.json", description="evaluation manifest"
+        ),
+        "summary": _historical_result_binding(
+            output_dir / "summary.json", description="evaluation summary"
+        ),
+        "progress": _historical_result_binding(
+            output_dir / "progress.json", description="evaluation progress"
+        ),
+        "conditions": {
+            condition: _historical_result_binding(
+                output_dir / f"{condition}.jsonl",
+                description=f"{condition} results",
+            )
+            for condition in conditions
+        },
+    }
+    receipt = {
+        "schema": HISTORICAL_V6_HARD32_RECEIPT_SCHEMA,
+        "issued_at": utc_now(),
+        "status": "complete_diagnostic",
+        "authorization_scope": HISTORICAL_V6_HARD32_AUTHORIZATION_SCOPE,
+        "full170_authorized": False,
+        "test_authorized": False,
+        "checkpoint_selection_authorized": False,
+        "evaluation_fingerprint": fingerprint,
+        "contract": contract,
+        "checkpoint": current_lineage,
+        "base_model": current_base_model_binding,
+        "lineage_limitation": HISTORICAL_V6_LINEAGE_LIMITATION,
+        "dataset_and_selection": hard32_bindings,
+        "code": {
+            "repository_revision": repository_revision,
+            "tracked_worktree": tracked_worktree,
+            "artifacts": code_fingerprint,
+        },
+        "outputs": output_bindings,
+        "evidence": evidence,
+    }
+    receipt["receipt_sha256"] = fingerprint_payload_sha256(receipt)
+    return receipt
+
+
+def _validate_historical_receipt_bound_file(
+    record: Any,
+    *,
+    description: str,
+) -> None:
+    if not isinstance(record, dict):
+        raise ValueError(f"Historical V6 receipt {description} binding is missing")
+    raw_path = record.get("path")
+    digest = record.get("sha256")
+    byte_count = record.get("bytes")
+    if (
+        not isinstance(raw_path, str)
+        or not isinstance(digest, str)
+        or isinstance(byte_count, bool)
+        or not isinstance(byte_count, int)
+        or byte_count < 0
+    ):
+        raise ValueError(f"Historical V6 receipt {description} binding is invalid")
+    path = Path(raw_path)
+    _reject_symlink_components(path, description=f"receipt-bound {description}")
+    if (
+        not path.is_file()
+        or path.stat().st_size != byte_count
+        or sha256_file(path) != digest
+    ):
+        raise ValueError(f"Historical V6 receipt {description} artifact differs")
+
+
+def validate_historical_v6_hard32_receipt(
+    receipt_path: Path,
+    *,
+    fingerprint: str,
+    memory_dir: Path,
+    base_model: Path,
+    base_model_binding: dict[str, Any],
+    dataset_file: Path,
+    selection_file: Path,
+    code_fingerprint: dict[str, Any],
+    repository_revision: dict[str, Any],
+    evidence: dict[str, Any],
+) -> dict[str, Any]:
+    _reject_symlink_components(receipt_path, description="historical receipt")
+    if not receipt_path.is_file():
+        raise ValueError(f"Historical V6 receipt is missing: {receipt_path}")
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError("Historical V6 receipt is invalid JSON") from exc
+    if not isinstance(receipt, dict):
+        raise ValueError("Historical V6 receipt must contain an object")
+    unsigned = dict(receipt)
+    recorded_sha256 = unsigned.pop("receipt_sha256", None)
+    if recorded_sha256 != fingerprint_payload_sha256(unsigned):
+        raise ValueError("Historical V6 receipt checksum differs")
+    if (
+        receipt.get("schema") != HISTORICAL_V6_HARD32_RECEIPT_SCHEMA
+        or receipt.get("status") != "complete_diagnostic"
+        or receipt.get("authorization_scope")
+        != HISTORICAL_V6_HARD32_AUTHORIZATION_SCOPE
+        or receipt.get("full170_authorized") is not False
+        or receipt.get("test_authorized") is not False
+        or receipt.get("checkpoint_selection_authorized") is not False
+        or receipt.get("evaluation_fingerprint") != fingerprint
+    ):
+        raise ValueError("Historical V6 receipt scope or fingerprint differs")
+    contract = receipt.get("contract")
+    if (
+        not isinstance(contract, dict)
+        or contract.get("name") != HISTORICAL_V6_HARD32_CONTRACT
+        or contract.get("conditions") != list(HISTORICAL_V6_HARD32_CONDITIONS)
+        or contract.get("rows") != len(HARD32_ROW_INDICES)
+    ):
+        raise ValueError("Historical V6 receipt contract differs")
+    if receipt.get("checkpoint") != validate_historical_v6_checkpoint(memory_dir):
+        raise ValueError("Historical V6 receipt checkpoint binding differs")
+    current_base_model_binding = historical_base_model_binding(base_model)
+    if (
+        base_model_binding != current_base_model_binding
+        or receipt.get("base_model") != current_base_model_binding
+    ):
+        raise ValueError("Historical V6 receipt base-model binding differs")
+    if receipt.get("dataset_and_selection") != validate_historical_v6_hard32_artifacts(
+        dataset_file=dataset_file,
+        selection_file=selection_file,
+    ):
+        raise ValueError("Historical V6 receipt dataset binding differs")
+    if receipt.get("lineage_limitation") != HISTORICAL_V6_LINEAGE_LIMITATION:
+        raise ValueError("Historical V6 receipt lineage limitation differs")
+    code = receipt.get("code")
+    tracked_worktree = require_historical_tracked_worktree_clean()
+    if (
+        not isinstance(code, dict)
+        or code.get("artifacts") != code_fingerprint
+        or code_fingerprint.get("evaluator_sha256") != sha256_file(Path(__file__))
+        or code_fingerprint != scene_state_code_fingerprint(PROJECT_ROOT)
+        or code.get("repository_revision") != repository_revision
+        or repository_revision != git_revision(PROJECT_ROOT)
+        or code.get("tracked_worktree") != tracked_worktree
+    ):
+        raise ValueError("Historical V6 receipt code binding differs")
+    if receipt.get("evidence") != evidence:
+        raise ValueError("Historical V6 receipt evidence differs")
+    outputs = receipt.get("outputs")
+    if not isinstance(outputs, dict):
+        raise ValueError("Historical V6 receipt output bindings are missing")
+    for name in ("manifest", "summary", "progress"):
+        _validate_historical_receipt_bound_file(
+            outputs.get(name), description=name
+        )
+    condition_outputs = outputs.get("conditions")
+    if (
+        not isinstance(condition_outputs, dict)
+        or list(condition_outputs) != list(HISTORICAL_V6_HARD32_CONDITIONS)
+    ):
+        raise ValueError("Historical V6 receipt condition outputs differ")
+    for condition in HISTORICAL_V6_HARD32_CONDITIONS:
+        _validate_historical_receipt_bound_file(
+            condition_outputs[condition], description=f"{condition} output"
+        )
+    return {
+        "path": str(receipt_path.resolve()),
+        "file_sha256": sha256_file(receipt_path),
+        "payload_sha256": recorded_sha256,
+        "evaluation_fingerprint": fingerprint,
+        "authorization_scope": HISTORICAL_V6_HARD32_AUTHORIZATION_SCOPE,
+        "full170_authorized": False,
+        "test_authorized": False,
     }
 
 
@@ -3278,8 +4209,66 @@ def load_base_model(args: argparse.Namespace):
     )
 
 
+def scene_state_code_fingerprint(delta_mem_root: Path) -> dict[str, str]:
+    return {
+        "evaluator_sha256": sha256_file(Path(__file__)),
+        "common_sha256": sha256_file(SCRIPT_DIR / "common.py"),
+        "novel_agent_runner_sha256": sha256_file(
+            SCRIPT_DIR / "run_novel_agent_eval.py"
+        ),
+        "scene_recovery_sha256": sha256_file(
+            SCRIPT_DIR / "analyze_novel_agent_eval.py"
+        ),
+        "chat_templates_sha256": sha256_file(
+            delta_mem_root / "deltamem" / "chat_templates.py"
+        ),
+        "delta_api_sha256": sha256_file(
+            delta_mem_root / "deltamem" / "core" / "delta.py"
+        ),
+        "delta_impl_sha256": sha256_file(
+            delta_mem_root / "deltamem" / "core" / "delta_impl.py"
+        ),
+        "hrm_rwkv7_sha256": sha256_file(
+            delta_mem_root / "deltamem" / "core" / "hrm_rwkv7.py"
+        ),
+        "backbone_compat_sha256": sha256_file(
+            delta_mem_root / "deltamem" / "core" / "backbone_compat.py"
+        ),
+        "write_segmentation_sha256": sha256_file(
+            delta_mem_root / "deltamem" / "core" / "write_segmentation.py"
+        ),
+        "runtime_session_sha256": sha256_file(
+            delta_mem_root / "deltamem" / "runtime" / "session.py"
+        ),
+        "model_loading_sha256": sha256_file(
+            delta_mem_root / "deltamem" / "model_loading.py"
+        ),
+    }
+
+
+def historical_base_model_binding(base_model: Path) -> dict[str, Any]:
+    resolved = _historical_exact_path(
+        base_model,
+        expected=HISTORICAL_V6_BASE_MODEL,
+        description="base model",
+        directory=True,
+    )
+    return {
+        "path": str(resolved),
+        "weights": base_model_weight_identity(resolved),
+        "prompt_artifacts": base_model_prompt_identity(resolved),
+    }
+
+
 def main() -> None:
     args = parse_args()
+    if args.preflight_only and args.evaluation_contract != HISTORICAL_V6_HARD32_CONTRACT:
+        raise ValueError("--preflight-only is restricted to the historical V6 contract")
+    conditions = selected_conditions(args.conditions)
+    historical_preflight = validate_historical_v6_run_preflight(
+        args,
+        conditions=conditions,
+    )
     args.memory_dir = args.memory_dir.expanduser().resolve()
     args.output_dir = args.output_dir.expanduser().resolve()
     if args.row_indices_file is not None:
@@ -3292,7 +4281,6 @@ def main() -> None:
         evaluation_contract=args.evaluation_contract,
         receipt_path=args.scene_v7_train32_receipt,
     )
-    conditions = selected_conditions(args.conditions)
     if args.max_new_tokens <= 0:
         raise ValueError("--max-new-tokens must be positive")
     dataset_file = resolve_validation_dataset_file(args.dataset_file)
@@ -3314,6 +4302,10 @@ def main() -> None:
             "lineage_kind": SCENE_V7_TRAIN32_AUTHORIZATION_KIND,
             "authorization": scene_v7_train32_authorization,
         }
+    elif args.evaluation_contract == HISTORICAL_V6_HARD32_CONTRACT:
+        if historical_preflight is None:
+            raise AssertionError("Historical V6 preflight result is missing")
+        candidate_lineage = historical_preflight["checkpoint"]
     else:
         candidate_lineage = (
             None
@@ -3378,6 +4370,25 @@ def main() -> None:
         row_indices,
         expected_hashes=expected_hashes,
     )
+    if args.preflight_only:
+        print(
+            json.dumps(
+                {
+                    "status": "preflight_pass",
+                    "model_loaded": False,
+                    "output_created": False,
+                    "selected_rows": len(samples),
+                    "evaluation_contract": evaluation_contract,
+                    "artifact_preflight": historical_preflight,
+                    "repository_revision": git_revision(PROJECT_ROOT),
+                },
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+        return
     base_model_path = Path(args.base_model).expanduser().resolve()
     args.base_model = str(base_model_path)
     selected_by_index = {sample["source_index"]: sample for sample in samples}
@@ -3422,39 +4433,11 @@ def main() -> None:
             f"expected={PROJECT_ROOT} actual={delta_mem_root}"
         )
     args.delta_mem_root = str(delta_mem_root)
-    code_fingerprint = {
-        "evaluator_sha256": sha256_file(Path(__file__)),
-        "common_sha256": sha256_file(SCRIPT_DIR / "common.py"),
-        "novel_agent_runner_sha256": sha256_file(
-            SCRIPT_DIR / "run_novel_agent_eval.py"
-        ),
-        "scene_recovery_sha256": sha256_file(
-            SCRIPT_DIR / "analyze_novel_agent_eval.py"
-        ),
-        "chat_templates_sha256": sha256_file(
-            delta_mem_root / "deltamem" / "chat_templates.py"
-        ),
-        "delta_api_sha256": sha256_file(
-            delta_mem_root / "deltamem" / "core" / "delta.py"
-        ),
-        "delta_impl_sha256": sha256_file(
-            delta_mem_root / "deltamem" / "core" / "delta_impl.py"
-        ),
-        "hrm_rwkv7_sha256": sha256_file(
-            delta_mem_root / "deltamem" / "core" / "hrm_rwkv7.py"
-        ),
-        "backbone_compat_sha256": sha256_file(
-            delta_mem_root / "deltamem" / "core" / "backbone_compat.py"
-        ),
-        "write_segmentation_sha256": sha256_file(
-            delta_mem_root / "deltamem" / "core" / "write_segmentation.py"
-        ),
-        "runtime_session_sha256": sha256_file(
-            delta_mem_root / "deltamem" / "runtime" / "session.py"
-        ),
-        "model_loading_sha256": sha256_file(
-            delta_mem_root / "deltamem" / "model_loading.py"
-        ),
+    code_fingerprint = scene_state_code_fingerprint(delta_mem_root)
+    base_model_binding = {
+        "path": str(base_model_path),
+        "weights": base_model_weight_identity(base_model_path),
+        "prompt_artifacts": base_model_prompt_identity(base_model_path),
     }
     selection_source = (
         {"kind": "inline_indices"}
@@ -3474,8 +4457,8 @@ def main() -> None:
         "runtime_packages": runtime_package_versions(),
         "delta_mem_root": str(delta_mem_root),
         "base_model": str(base_model_path),
-        "base_model_weights": base_model_weight_identity(base_model_path),
-        "base_model_prompt_artifacts": base_model_prompt_identity(base_model_path),
+        "base_model_weights": base_model_binding["weights"],
+        "base_model_prompt_artifacts": base_model_binding["prompt_artifacts"],
         "memory_dir": str(args.memory_dir),
         "memory_config_sha256": sha256_file(args.memory_dir / "delta_mem_config.json"),
         "memory_adapter_sha256": sha256_file(args.memory_dir / "delta_mem_adapter.pt"),
@@ -3494,6 +4477,7 @@ def main() -> None:
         "candidate_lineage": candidate_lineage,
         "hard32_receipt_authorization": hard32_receipt_authorization,
         "scene_v7_train32_authorization": scene_v7_train32_authorization,
+        "historical_v6_preflight": historical_preflight,
         "max_new_tokens": args.max_new_tokens,
         "device": args.device,
         "dtype": args.dtype,
@@ -3501,12 +4485,13 @@ def main() -> None:
         **profile_fields,
     }
     fingerprint = fingerprint_payload_sha256(fingerprint_payload)
+    repository_revision = git_revision(PROJECT_ROOT)
     manifest = {
         "created_at": utc_now(),
         "fingerprint": fingerprint,
         "fingerprint_payload": fingerprint_payload,
         "code": {
-            "rwkv_repo": git_revision(PROJECT_ROOT),
+            "rwkv_repo": repository_revision,
             **code_fingerprint,
         },
         "evaluation_kind": "focused state-isolating scene-boundary diagnostic",
@@ -3517,13 +4502,17 @@ def main() -> None:
         ),
     }
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.output_dir.mkdir(
+        parents=True,
+        exist_ok=args.evaluation_contract != HISTORICAL_V6_HARD32_CONTRACT,
+    )
     output_paths = [
         *(args.output_dir / f"{condition}.jsonl" for condition in conditions),
         args.output_dir / "manifest.json",
         args.output_dir / "progress.json",
         args.output_dir / "summary.json",
         args.output_dir / "hard32_receipt.json",
+        args.output_dir / "historical_v6_hard32_receipt.json",
     ]
     if args.overwrite:
         for path in output_paths:
@@ -3676,6 +4665,11 @@ def main() -> None:
         if args.evaluation_contract == "scene_v6_identity_hard32"
         else {"status": "not_requested", "contract": evaluation_contract}
     )
+    historical_v6_evidence = (
+        build_historical_v6_hard32_evidence(ordered_records)
+        if args.evaluation_contract == HISTORICAL_V6_HARD32_CONTRACT
+        else None
+    )
     summary = {
         "schema_version": 1,
         "created_at": utc_now(),
@@ -3693,6 +4687,7 @@ def main() -> None:
         "semantic_decision_evidence": semantic_evidence,
         "base_outcome_evidence": base_outcome_evidence,
         "scene_v6_identity_hard32_gate": hard32_gate,
+        "historical_v6_hard32_evidence": historical_v6_evidence,
         "scene_v6_matched_donor_gate": build_scene_v6_matched_donor_gate(
             comparisons,
             evaluation_contract,
@@ -3713,6 +4708,16 @@ def main() -> None:
         },
     }
     write_json_atomic(args.output_dir / "summary.json", summary)
+    write_json_atomic(
+        args.output_dir / "progress.json",
+        {
+            "fingerprint": fingerprint,
+            "completed": len(samples) * len(conditions),
+            "expected": len(samples) * len(conditions),
+            "complete": True,
+            "updated_at": utc_now(),
+        },
+    )
     if args.evaluation_contract == "scene_v6_identity_hard32":
         if args.row_indices_file is None:
             raise AssertionError("Protected hard32 contract requires a selection file")
@@ -3732,16 +4737,38 @@ def main() -> None:
             conditions=conditions,
         )
         write_json_atomic(args.output_dir / "hard32_receipt.json", receipt)
-    write_json_atomic(
-        args.output_dir / "progress.json",
-        {
-            "fingerprint": fingerprint,
-            "completed": len(samples) * len(conditions),
-            "expected": len(samples) * len(conditions),
-            "complete": True,
-            "updated_at": utc_now(),
-        },
-    )
+    elif args.evaluation_contract == HISTORICAL_V6_HARD32_CONTRACT:
+        if args.row_indices_file is None or historical_v6_evidence is None:
+            raise AssertionError("Historical V6 receipt inputs are incomplete")
+        receipt_path = args.output_dir / "historical_v6_hard32_receipt.json"
+        receipt = build_historical_v6_hard32_receipt(
+            output_dir=args.output_dir,
+            fingerprint=fingerprint,
+            contract=evaluation_contract,
+            candidate_lineage=candidate_lineage,
+            code_fingerprint=code_fingerprint,
+            repository_revision=repository_revision,
+            base_model=base_model_path,
+            base_model_binding=base_model_binding,
+            dataset_file=dataset_file,
+            selection_file=args.row_indices_file,
+            memory_dir=args.memory_dir,
+            conditions=conditions,
+            evidence=historical_v6_evidence,
+        )
+        write_json_atomic(receipt_path, receipt)
+        validate_historical_v6_hard32_receipt(
+            receipt_path,
+            fingerprint=fingerprint,
+            memory_dir=args.memory_dir,
+            base_model=base_model_path,
+            base_model_binding=base_model_binding,
+            dataset_file=dataset_file,
+            selection_file=args.row_indices_file,
+            code_fingerprint=code_fingerprint,
+            repository_revision=repository_revision,
+            evidence=historical_v6_evidence,
+        )
     print(json.dumps(summary, ensure_ascii=False, indent=2), flush=True)
 
 

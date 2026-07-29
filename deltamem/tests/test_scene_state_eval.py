@@ -455,6 +455,161 @@ def test_scene_v6_identity_hard32_contract_binds_authoritative_selection() -> No
         )
 
 
+def historical_v6_contract_values() -> dict:
+    return {
+        "row_indices": list(evaluator.HARD32_ROW_INDICES),
+        "expected_hashes": dict(evaluator.HARD32_ROW_HASHES),
+        "selection_dataset_contract": {
+            "split": "val",
+            "path": str(evaluator.HISTORICAL_V6_OFFICIAL_VAL),
+            "sha256": evaluator.OFFICIAL_SCENE_V4_VAL_SHA256,
+        },
+        "conditions": list(evaluator.HISTORICAL_V6_HARD32_CONDITIONS),
+        "donor_rule": evaluator.DONOR_RULE_CYCLIC,
+        "max_new_tokens": evaluator.DEFAULT_MAX_NEW_TOKENS,
+        "normal_fusion_profile": "native",
+        "expected_memory_layer_count": 24,
+        "memory_target_layers": list(range(24)),
+        "memory_delta_heads": ["q", "o"],
+        "memory_rank": 4,
+        "rwkv_ms_semantics_version": 2,
+        "memory_backend": "rwkv_ms",
+        "selection_manifest_sha256": evaluator.HARD32_SELECTION_SHA256,
+    }
+
+
+def test_historical_v6_hard32_contract_is_three_condition_and_non_authorizing() -> None:
+    contract = evaluator.validate_historical_v6_hard32_contract(
+        **historical_v6_contract_values()
+    )
+
+    assert contract["conditions"] == [
+        "base_full",
+        "no_write_full",
+        "normal_full",
+    ]
+    assert contract["rows"] == 32
+    assert contract["expected_memory_layer_count"] == 24
+    assert contract["checkpoint_artifact_sha256"] == (
+        evaluator.HISTORICAL_V6_CHECKPOINT_ARTIFACT_SHA256
+    )
+    assert contract["full170_authorized"] is False
+    assert contract["test_authorized"] is False
+    assert contract["checkpoint_selection_authorized"] is False
+    assert "predates commit-bound source locks" in contract["lineage_limitation"]
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ({"row_indices": list(evaluator.HARD32_ROW_INDICES[:-1])}, "source indices"),
+        ({"expected_hashes": {}}, "row hash"),
+        ({"selection_manifest_sha256": "0" * 64}, "selection file"),
+        ({"conditions": ["base_full", "normal_full"]}, "exact order"),
+        ({"expected_memory_layer_count": 42}, "expected_memory_layer_count=24"),
+        ({"memory_target_layers": list(range(23))}, "target_layers=0..23"),
+        ({"memory_delta_heads": ["o"]}, "delta_heads=q,o"),
+        ({"normal_fusion_profile": "native_gate_open"}, "profile=native"),
+        (
+            {
+                "selection_dataset_contract": {
+                    "split": "val",
+                    "path": str(evaluator.HISTORICAL_V6_OFFICIAL_VAL),
+                    "sha256": "0" * 64,
+                }
+            },
+            "official scene-v4 val",
+        ),
+    ],
+)
+def test_historical_v6_hard32_contract_fails_closed(
+    mutation: dict,
+    message: str,
+) -> None:
+    values = historical_v6_contract_values()
+    values.update(mutation)
+
+    with pytest.raises(ValueError, match=message):
+        evaluator.validate_historical_v6_hard32_contract(**values)
+
+
+def test_historical_v6_artifact_binding_rejects_hash_drift_and_symlink(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "adapter.pt"
+    artifact.write_bytes(b"adapter")
+    digest = evaluator.sha256_file(artifact)
+    assert evaluator._historical_artifact_binding(
+        artifact,
+        description="adapter",
+        expected_sha256=digest,
+    )["sha256"] == digest
+
+    with pytest.raises(ValueError, match="SHA-256 differs"):
+        evaluator._historical_artifact_binding(
+            artifact,
+            description="adapter",
+            expected_sha256="0" * 64,
+        )
+    symlink = tmp_path / "adapter-link.pt"
+    symlink.symlink_to(artifact)
+    with pytest.raises(ValueError, match="forbids symlinks"):
+        evaluator._historical_artifact_binding(
+            symlink,
+            description="adapter",
+            expected_sha256=digest,
+        )
+
+
+def test_historical_v6_contract_requires_clean_tracked_worktree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        evaluator.subprocess,
+        "check_output",
+        lambda *args, **kwargs: "",
+    )
+    assert evaluator.require_historical_tracked_worktree_clean()[
+        "tracked_worktree_clean"
+    ] is True
+
+    monkeypatch.setattr(
+        evaluator.subprocess,
+        "check_output",
+        lambda *args, **kwargs: " M deltamem/core/delta.py\n",
+    )
+    with pytest.raises(ValueError, match="clean tracked worktree"):
+        evaluator.require_historical_tracked_worktree_clean()
+
+
+def test_historical_v6_preflight_rejects_overwrite_and_output_collision(
+    tmp_path: Path,
+) -> None:
+    args = SimpleNamespace(
+        evaluation_contract=evaluator.HISTORICAL_V6_HARD32_CONTRACT,
+        overwrite=True,
+        row_indices=None,
+        row_indices_file=tmp_path / "selection.json",
+        output_dir=tmp_path / "fresh-eval",
+        base_model=str(tmp_path / "model"),
+        memory_dir=tmp_path / "checkpoint-672",
+        dataset_file=tmp_path / "val.jsonl",
+    )
+    with pytest.raises(ValueError, match="forbids --overwrite"):
+        evaluator.validate_historical_v6_run_preflight(
+            args,
+            conditions=list(evaluator.HISTORICAL_V6_HARD32_CONDITIONS),
+        )
+
+    args.overwrite = False
+    args.output_dir.mkdir()
+    with pytest.raises(ValueError, match="fresh, nonexistent output"):
+        evaluator.validate_historical_v6_run_preflight(
+            args,
+            conditions=list(evaluator.HISTORICAL_V6_HARD32_CONDITIONS),
+        )
+
+
 def test_full170_contract_requires_passed_hard32_authorization() -> None:
     row_indices = list(range(170))
     with pytest.raises(ValueError, match="passed hard32 receipt"):
@@ -1219,6 +1374,76 @@ def hard32_semantic_evidence(
     }
 
 
+def historical_v6_record(
+    source_index: int,
+    *,
+    condition: str,
+    gold_boundaries: list[int],
+    predicted_boundaries: list[int],
+) -> dict:
+    gold = {"boundaries": gold_boundaries}
+    parsed = {"boundaries": predicted_boundaries}
+    return {
+        "source_index": source_index,
+        "row_sha256": f"{source_index:064x}",
+        "gold": gold,
+        "condition": condition,
+        "raw_generation": json.dumps(parsed, sort_keys=True),
+        "parsed_json": parsed,
+        "score_strict": evaluator.score_prediction("scene", parsed, gold),
+        "score_recovered": evaluator.recovered_scene_score(parsed, gold),
+        "hit_max_new_tokens": False,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "elapsed_seconds": 0.01,
+    }
+
+
+def test_historical_v6_evidence_reports_stratum_uplift_and_differences() -> None:
+    gold_by_index: dict[int, list[int]] = {}
+    for pair_ordinal, (left, right) in enumerate(evaluator.HARD32_FROZEN_DONOR_PAIRS):
+        if pair_ordinal < 9:
+            gold_by_index[left] = []
+            gold_by_index[right] = [2]
+        elif pair_ordinal < 14:
+            gold_by_index[left] = [2]
+            gold_by_index[right] = [3]
+        else:
+            gold_by_index[left] = [2]
+            gold_by_index[right] = [2, 4]
+
+    records: dict[str, list[dict]] = {}
+    for condition in evaluator.HISTORICAL_V6_HARD32_CONDITIONS:
+        records[condition] = [
+            historical_v6_record(
+                index,
+                condition=condition,
+                gold_boundaries=gold_by_index[index],
+                predicted_boundaries=(
+                    gold_by_index[index] if condition == "normal_full" else []
+                ),
+            )
+            for index in evaluator.HARD32_ROW_INDICES
+        ]
+
+    evidence = evaluator.build_historical_v6_hard32_evidence(records)
+
+    assert evidence["observed_stratum_rows"] == {
+        "presence": 18,
+        "same_cardinality_value": 10,
+        "cross_cardinality_value": 4,
+    }
+    assert evidence["overall"]["conditions"]["normal_full"]["strict_exact_rows"] == 32
+    assert evidence["overall"]["strict_uplift"][
+        "normal_full_minus_strongest_control"
+    ] == pytest.approx(1.0)
+    assert evidence["overall"]["generation_differences"][
+        "normal_full_vs_no_write_full"
+    ]["raw_generation_different_rows"] == 23
+    assert evidence["strata"]["same_cardinality_value"]["rows"] == 10
+    assert evidence["full170_authorized"] is False
+
+
 def test_hard32_gate_requires_identity_causality_task_and_format() -> None:
     summaries = {
         "base_full": hard32_summary(0.10),
@@ -1745,6 +1970,166 @@ def test_hard32_receipt_is_atomic_self_hashing_and_checkpoint_bound(
     receipt_path.write_text(json.dumps(tampered), encoding="utf-8")
     with pytest.raises(ValueError, match="checksum differs"):
         evaluator.validate_hard32_pass_receipt(receipt_path, memory_dir=memory_dir)
+
+
+def test_historical_v6_receipt_self_hashes_and_binds_three_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_dir = tmp_path / "eval"
+    output_dir.mkdir()
+    for name in ("manifest.json", "summary.json", "progress.json"):
+        (output_dir / name).write_text("{}\n", encoding="utf-8")
+    for condition in evaluator.HISTORICAL_V6_HARD32_CONDITIONS:
+        (output_dir / f"{condition}.jsonl").write_text("{}\n", encoding="utf-8")
+    lineage = {
+        "lineage_kind": "historical_artifact_identity_without_source_receipt",
+        "lineage_limitation": evaluator.HISTORICAL_V6_LINEAGE_LIMITATION,
+    }
+    hard32 = {"holdout": {"sha256": evaluator.HARD32_HOLDOUT_SHA256}}
+    revision = {"commit": "a" * 40, "dirty": False}
+    monkeypatch.setattr(
+        evaluator, "validate_historical_v6_checkpoint", lambda path: lineage
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "validate_historical_v6_hard32_artifacts",
+        lambda **kwargs: hard32,
+    )
+    monkeypatch.setattr(evaluator, "git_revision", lambda path: revision)
+    base_model_binding = {"path": "/model", "weights": {}, "prompt_artifacts": {}}
+    monkeypatch.setattr(
+        evaluator,
+        "historical_base_model_binding",
+        lambda path: base_model_binding,
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "scene_state_code_fingerprint",
+        lambda path: code,
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "require_historical_tracked_worktree_clean",
+        lambda: {
+            "repository": str(evaluator.PROJECT_ROOT),
+            "tracked_worktree_clean": True,
+            "untracked_files_ignored": True,
+        },
+    )
+    code = {"evaluator_sha256": evaluator.sha256_file(Path(evaluator.__file__))}
+    contract = {
+        "name": evaluator.HISTORICAL_V6_HARD32_CONTRACT,
+        "rows": 32,
+        "conditions": list(evaluator.HISTORICAL_V6_HARD32_CONDITIONS),
+        "full170_authorized": False,
+        "test_authorized": False,
+        "checkpoint_selection_authorized": False,
+    }
+    evidence = {
+        "schema": "rwkv_ms_scene_historical_v6_hard32_evidence.v1",
+        "full170_authorized": False,
+        "test_authorized": False,
+    }
+    fingerprint = "f" * 64
+    receipt = evaluator.build_historical_v6_hard32_receipt(
+        output_dir=output_dir,
+        fingerprint=fingerprint,
+        contract=contract,
+        candidate_lineage=lineage,
+        code_fingerprint=code,
+        repository_revision=revision,
+        base_model=tmp_path / "model",
+        base_model_binding=base_model_binding,
+        dataset_file=tmp_path / "val.jsonl",
+        selection_file=tmp_path / "selection.json",
+        memory_dir=tmp_path / "checkpoint-672",
+        conditions=list(evaluator.HISTORICAL_V6_HARD32_CONDITIONS),
+        evidence=evidence,
+    )
+    unsigned = dict(receipt)
+    recorded_sha256 = unsigned.pop("receipt_sha256")
+    assert recorded_sha256 == evaluator.fingerprint_payload_sha256(unsigned)
+    assert receipt["full170_authorized"] is False
+    receipt_path = output_dir / "historical_v6_hard32_receipt.json"
+    evaluator.write_json_atomic(receipt_path, receipt)
+
+    validated = evaluator.validate_historical_v6_hard32_receipt(
+        receipt_path,
+        fingerprint=fingerprint,
+        memory_dir=tmp_path / "checkpoint-672",
+        base_model=tmp_path / "model",
+        base_model_binding=base_model_binding,
+        dataset_file=tmp_path / "val.jsonl",
+        selection_file=tmp_path / "selection.json",
+        code_fingerprint=code,
+        repository_revision=revision,
+        evidence=evidence,
+    )
+    assert validated["payload_sha256"] == recorded_sha256
+    assert validated["full170_authorized"] is False
+
+    monkeypatch.setattr(
+        evaluator,
+        "historical_base_model_binding",
+        lambda path: {**base_model_binding, "weights": {"changed": True}},
+    )
+    with pytest.raises(ValueError, match="base-model binding differs"):
+        evaluator.validate_historical_v6_hard32_receipt(
+            receipt_path,
+            fingerprint=fingerprint,
+            memory_dir=tmp_path / "checkpoint-672",
+            base_model=tmp_path / "model",
+            base_model_binding=base_model_binding,
+            dataset_file=tmp_path / "val.jsonl",
+            selection_file=tmp_path / "selection.json",
+            code_fingerprint=code,
+            repository_revision=revision,
+            evidence=evidence,
+        )
+    monkeypatch.setattr(
+        evaluator,
+        "historical_base_model_binding",
+        lambda path: base_model_binding,
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "scene_state_code_fingerprint",
+        lambda path: {**code, "common_sha256": "0" * 64},
+    )
+    with pytest.raises(ValueError, match="code binding differs"):
+        evaluator.validate_historical_v6_hard32_receipt(
+            receipt_path,
+            fingerprint=fingerprint,
+            memory_dir=tmp_path / "checkpoint-672",
+            base_model=tmp_path / "model",
+            base_model_binding=base_model_binding,
+            dataset_file=tmp_path / "val.jsonl",
+            selection_file=tmp_path / "selection.json",
+            code_fingerprint=code,
+            repository_revision=revision,
+            evidence=evidence,
+        )
+    monkeypatch.setattr(
+        evaluator,
+        "scene_state_code_fingerprint",
+        lambda path: code,
+    )
+
+    (output_dir / "normal_full.jsonl").write_text("tampered\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="normal_full output artifact differs"):
+        evaluator.validate_historical_v6_hard32_receipt(
+            receipt_path,
+            fingerprint=fingerprint,
+            memory_dir=tmp_path / "checkpoint-672",
+            base_model=tmp_path / "model",
+            base_model_binding=base_model_binding,
+            dataset_file=tmp_path / "val.jsonl",
+            selection_file=tmp_path / "selection.json",
+            code_fingerprint=code,
+            repository_revision=revision,
+            evidence=evidence,
+        )
 
 
 def test_read_resume_records_repairs_only_partial_final_line(tmp_path: Path) -> None:
