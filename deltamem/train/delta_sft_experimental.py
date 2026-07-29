@@ -20,7 +20,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch import nn
 from torch.utils.checkpoint import checkpoint
-from torch.utils.data import RandomSampler
+from torch.utils.data import RandomSampler, Sampler
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments, set_seed
 from transformers.utils import is_sagemaker_mp_enabled
@@ -63,6 +63,21 @@ from deltamem.chat_templates import (
 )
 from deltamem.model_loading import resolve_attn_implementation
 from deltamem.core.write_segmentation import split_text_into_sentence_token_chunks
+from deltamem.train.scene_state_generation_alignment import (
+    clone_detached_online_state,
+    generated_unlikelihood_positions,
+)
+from experiments.rethinking_rwkv_ms_gemma.scene_memory_v8_warm_start import (
+    DEFAULT_LOCK_PATH as SCENE_V8_WARM_START_LOCK_PATH,
+    REQUIRED_SOURCE_ARTIFACTS as SCENE_V8_REQUIRED_WARM_START_ARTIFACTS,
+    RECEIPT_SCHEMA as SCENE_V8_WARM_START_RECEIPT_SCHEMA,
+    WARM_START_MODE as SCENE_V8_WARM_START_MODE,
+    V8FreshStartContract,
+    V8WarmStartContext,
+    apply_v8_v7_checkpoint256_adapter_only_warm_start,
+    load_v8_warm_start_lock,
+    prepare_v8_v7_checkpoint256_warm_start,
+)
 
 
 class FrozenMLPActivationCheckpointWrapper(nn.Module):
@@ -249,8 +264,12 @@ def _promote_trainable_parameters_to_fp32(model) -> None:
 _RESUME_LATEST_VALUES = frozenset({"auto", "latest"})
 _RESUME_MODES = ("exact", "extend", "placement_ablation", "objective_ablation")
 _ABLATION_RESUME_MODES = frozenset({"placement_ablation", "objective_ablation"})
-_WARM_START_MODES = ("residual_hybrid_w8_ablation",)
+_WARM_START_MODES = (
+    "residual_hybrid_w8_ablation",
+    SCENE_V8_WARM_START_MODE,
+)
 _RESIDUAL_HYBRID_W8_WARM_START_MODE = _WARM_START_MODES[0]
+_SCENE_V8_WARM_START_MODE = _WARM_START_MODES[1]
 _CONTINUATION_SCHEDULERS = frozenset({"constant", "constant_with_warmup"})
 _REPRESENTATION_CAPTURE_FUSION_PLACEMENTS = frozenset(
     {"attention_output", "post_attention_residual_hybrid"}
@@ -329,11 +348,25 @@ _SCENE_STATE_GENERATION_OBJECTIVE_VERSION = "scene_state_generation_ce_v1"
 _SCENE_STATE_GENERATION_BACKWARD_MODE = (
     "sequential_replayed_donor_zero_detached_generation_first_v1"
 )
+_SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION = 11
+_SCENE_STATE_GENERATED_UNLIKELIHOOD_BACKWARD_MODE = (
+    "v7_sequential_then_edit_aligned_correct_state_reprime_unlikelihood_v2"
+)
 _SCENE_STATE_GENERATION_SCHEMA_WEIGHT = 2.0
 _SCENE_STATE_GENERATION_DECISION_WEIGHT = 4.0
 _SCENE_STATE_GENERATION_TERMINATION_WEIGHT = 1.0
 _SCENE_STATE_GENERATION_TOP1_MARGIN = 0.2
 _SCENE_STATE_GENERATION_ZERO_MARGIN = 0.2
+_SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION = (
+    "scene_state_generation_ce_generated_prefix_unlikelihood_v2"
+)
+_SCENE_STATE_GENERATED_UNLIKELIHOOD_WEIGHT = 0.5
+_SCENE_STATE_GENERATED_UNLIKELIHOOD_MAX_WRONG_TOKENS = 4
+_SCENE_STATE_GENERATED_ROLLOUT_EXTRA_TOKENS = 4
+_SCENE_STATE_GENERATED_ROLLOUT_MAX_TOKENS = 24
+_SCENE_STATE_GENERATED_UNLIKELIHOOD_MODE = (
+    "greedy_correct_state_edit_aligned_wrong_tokens_v2"
+)
 _SCENE_STATE_GENERATION_MASK_MODE = (
     "exact_system_only_generation_prefix_content_schema_decision_termination_v1"
 )
@@ -346,6 +379,18 @@ _SCENE_STATE_PAIRED_MEMORY_LOSS_MODES = {
 }
 _SEEDED_TRAIN_SAMPLER_MODE = "torch_random_sampler_seed_equals_data_seed_v1"
 _DEFAULT_TRAIN_SAMPLER_MODE = "transformers_trainer_default_v1"
+_FIXED_TRAIN_SCHEDULE_SAMPLER_MODE = "explicit_ordered_train_row_ordinal_v1"
+_SCENE_MEMORY_V8_WARMUP_STEPS = 4
+_SCENE_MEMORY_V8_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v8_source.v1"
+_SCENE_MEMORY_V8_CURRICULUM_SCHEMA = (
+    "rwkv_ms_scene_memory_v8_curriculum_binding.v1"
+)
+_SCENE_MEMORY_V8_SCHEDULE_ENTRY_SCHEMA = (
+    "rwkv_ms_scene_memory_v8_schedule_entry.v1"
+)
+_SCENE_MEMORY_V8_SCHEDULE_MANIFEST_SCHEMA = (
+    "rwkv_ms_scene_memory_v8_schedule_manifest.v1"
+)
 _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
 _INITIAL_ADAPTER_DIRNAME = "initial_adapter"
 _INITIAL_ADAPTER_MANIFEST_FILENAME = "initial_adapter_manifest.json"
@@ -441,6 +486,8 @@ class AdapterWarmStartContext:
     source_protocol: dict[str, object]
     source_config: HFDeltaMemConfig
     manifest: dict[str, object]
+    scene_v8_context: V8WarmStartContext | None = None
+    scene_v8_fresh_start: V8FreshStartContract | None = None
 
 
 def _sha256_file(path: Path) -> str:
@@ -876,6 +923,8 @@ def _protocol_sha256(protocol: dict[str, object]) -> str:
 
 def resolve_adapter_warm_start_checkpoint(
     warm_start_from_checkpoint: str | Path | None,
+    *,
+    warm_start_mode: str | None = None,
 ) -> str | None:
     if warm_start_from_checkpoint is None:
         return None
@@ -884,22 +933,25 @@ def resolve_adapter_warm_start_checkpoint(
         raise ValueError("--warm-start-from-checkpoint must not be empty")
     if raw_checkpoint.lower() in _RESUME_LATEST_VALUES:
         raise ValueError(
-            "--warm-start-from-checkpoint requires an explicit checkpoint-416 path"
+            "--warm-start-from-checkpoint requires an explicit checkpoint path"
         )
     checkpoint = Path(raw_checkpoint).expanduser()
     if not checkpoint.is_dir():
         raise FileNotFoundError(
             f"Warm-start checkpoint directory does not exist: {checkpoint}"
         )
-    required_files = (
-        "delta_mem_adapter.pt",
-        "delta_mem_config.json",
-        "optimizer.pt",
-        "scheduler.pt",
-        "trainer_state.json",
-        _TRAINING_PROTOCOL_FILENAME,
-        _CONTENT_CONTRAST_PAIRING_FILENAME,
-    )
+    if warm_start_mode == _SCENE_V8_WARM_START_MODE:
+        required_files = SCENE_V8_REQUIRED_WARM_START_ARTIFACTS
+    else:
+        required_files = (
+            "delta_mem_adapter.pt",
+            "delta_mem_config.json",
+            "optimizer.pt",
+            "scheduler.pt",
+            "trainer_state.json",
+            _TRAINING_PROTOCOL_FILENAME,
+            _CONTENT_CONTRAST_PAIRING_FILENAME,
+        )
     missing = [name for name in required_files if not (checkpoint / name).is_file()]
     rng_files = sorted(path for path in checkpoint.glob("rng_state*.pth") if path.is_file())
     if not rng_files:
@@ -960,6 +1012,68 @@ def _validate_residual_hybrid_w8_warm_start_args(args: argparse.Namespace) -> No
         )
 
 
+def _validate_scene_v8_warm_start_args(args: argparse.Namespace) -> None:
+    if args.warm_start_mode != _SCENE_V8_WARM_START_MODE:
+        raise ValueError(
+            "Scene V8 warm start requires "
+            f"--warm-start-mode {_SCENE_V8_WARM_START_MODE}"
+        )
+    if args.resume_from_checkpoint is not None:
+        raise ValueError("Scene V8 adapter warm start cannot restore checkpoint state")
+    if args.resume_mode != "exact":
+        raise ValueError("Scene V8 adapter warm start requires --resume-mode exact")
+    mismatches = []
+    if args.memory_loss_mode != "scene_state_generation_ce":
+        mismatches.append("memory_loss_mode")
+    if parse_layer_indices(args.target_layers) != tuple(range(42)):
+        mismatches.append("target_layers")
+    if parse_delta_heads(args.delta_heads) != ("q", "o"):
+        mismatches.append("delta_heads")
+    expected_values = {
+        "rank": 4,
+        "alpha": 8.0,
+        "memory_backend": "rwkv_ms",
+        "rwkv_ms_num_states": 4,
+        "rwkv_ms_chunk_size": 128,
+        "rwkv_ms_semantics_version": 2,
+        "output_init": "base_slice_fixed",
+        "base_slice_ref_width": 8,
+        "online_gain": 0.2,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "trainable_delta_scale": True,
+        "delta_scale_init": 0.1,
+        "delta_scale_max": 0.5,
+        "delta_scale_granularity": "head",
+        "delta_scale_parameterization": "alpha_over_rank",
+        "memory_readout_mode": "delta",
+        "memory_write_source": "learned_hidden",
+        "memory_write_granularity": "token",
+    }
+    mismatches.extend(
+        name
+        for name, expected in expected_values.items()
+        if getattr(args, name) != expected
+    )
+    if mismatches:
+        raise ValueError(
+            "Scene V8 warm-start target topology differs for: "
+            + ", ".join(sorted(set(mismatches)))
+        )
+
+
+def _validate_adapter_warm_start_args(args: argparse.Namespace) -> None:
+    if args.warm_start_mode == _RESIDUAL_HYBRID_W8_WARM_START_MODE:
+        _validate_residual_hybrid_w8_warm_start_args(args)
+        return
+    if args.warm_start_mode == _SCENE_V8_WARM_START_MODE:
+        _validate_scene_v8_warm_start_args(args)
+        return
+    raise ValueError(f"Unsupported adapter warm-start mode: {args.warm_start_mode}")
+
+
 def _validate_residual_hybrid_w8_source_protocol(
     source_protocol: dict[str, object],
 ) -> None:
@@ -1014,16 +1128,40 @@ def prepare_adapter_warm_start(
 ) -> AdapterWarmStartContext | None:
     if warm_start_from_checkpoint is None:
         return None
-    _validate_residual_hybrid_w8_warm_start_args(args)
+    _validate_adapter_warm_start_args(args)
     checkpoint = Path(warm_start_from_checkpoint).resolve()
+    target_output_dir = Path(args.output_dir).expanduser().resolve()
+    if target_output_dir.exists() and any(target_output_dir.iterdir()):
+        raise ValueError("Adapter warm start requires a fresh, empty --output-dir")
+
+    if args.warm_start_mode == _SCENE_V8_WARM_START_MODE:
+        pinned_context = prepare_v8_v7_checkpoint256_warm_start(checkpoint)
+        source_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+        return AdapterWarmStartContext(
+            checkpoint=checkpoint,
+            mode=_SCENE_V8_WARM_START_MODE,
+            source_protocol=pinned_context.source_training_protocol,
+            source_config=source_config,
+            manifest={
+                "schema_version": _WARM_START_LINEAGE_SCHEMA_VERSION,
+                "mode": _SCENE_V8_WARM_START_MODE,
+                "source_checkpoint": str(checkpoint),
+            },
+            scene_v8_context=pinned_context,
+            scene_v8_fresh_start=V8FreshStartContract(
+                resume_from_checkpoint=None,
+                initial_global_step=0,
+                optimizer_created=False,
+                scheduler_created=False,
+                trainer_state_imported=False,
+                rng_state_imported=False,
+                optim=args.optim,
+            ),
+        )
+
     if checkpoint.name != f"checkpoint-{_RESIDUAL_HYBRID_W8_SOURCE_GLOBAL_STEP}":
         raise ValueError(
             "residual_hybrid_w8_ablation source must be checkpoint-416"
-        )
-    target_output_dir = Path(args.output_dir).expanduser().resolve()
-    if target_output_dir.exists() and any(target_output_dir.iterdir()):
-        raise ValueError(
-            "residual_hybrid_w8_ablation requires a fresh, empty --output-dir"
         )
 
     source_protocol = _load_json_object(
@@ -1291,19 +1429,34 @@ def _normalize_train_sampler_protocol(
             raise ValueError(
                 "Training protocol train_sampler_seed must satisfy 0 <= seed <= 2^63 - 1"
             )
+    train_schedule = normalized.get("train_schedule")
+    if train_schedule is not None and not isinstance(train_schedule, dict):
+        raise ValueError("Training protocol train_schedule must be an object or null")
     expected_mode = (
-        _DEFAULT_TRAIN_SAMPLER_MODE
-        if seed is None
-        else _SEEDED_TRAIN_SAMPLER_MODE
+        _FIXED_TRAIN_SCHEDULE_SAMPLER_MODE
+        if train_schedule is not None
+        else (
+            _DEFAULT_TRAIN_SAMPLER_MODE
+            if seed is None
+            else _SEEDED_TRAIN_SAMPLER_MODE
+        )
     )
     mode_present = "train_sampler_mode" in normalized
-    if seed is not None and not mode_present:
-        raise ValueError("Seeded training protocol is missing its train_sampler_mode")
+    if (seed is not None or train_schedule is not None) and not mode_present:
+        qualifier = "Fixed-schedule" if train_schedule is not None else "Seeded"
+        raise ValueError(
+            f"{qualifier} training protocol is missing its train_sampler_mode"
+        )
     mode = normalized.get("train_sampler_mode", expected_mode)
     if mode != expected_mode:
-        raise ValueError("Training protocol train_sampler_mode does not match its seed")
+        raise ValueError(
+            "Training protocol train_sampler_mode does not match its seed/schedule"
+        )
+    if train_schedule is not None and seed is not None:
+        raise ValueError("Fixed training schedule cannot also bind a sampler seed")
     normalized["train_sampler_seed"] = seed
     normalized["train_sampler_mode"] = mode
+    normalized["train_schedule"] = train_schedule
     return normalized
 
 
@@ -1769,6 +1922,44 @@ def apply_adapter_warm_start(
     target_config: HFDeltaMemConfig,
     trainable_names: list[str],
 ) -> dict[str, object]:
+    if context.mode == _SCENE_V8_WARM_START_MODE:
+        if (
+            context.scene_v8_context is None
+            or context.scene_v8_fresh_start is None
+        ):
+            raise ValueError("Scene V8 warm-start context is incomplete")
+        source_config = context.source_config.to_dict()
+        target_config_payload = target_config.to_dict()
+        config_mismatches = sorted(
+            key
+            for key in set(source_config) | set(target_config_payload)
+            if source_config.get(key) != target_config_payload.get(key)
+        )
+        if config_mismatches:
+            raise ValueError(
+                "Scene V8 requires topology-exact V7/V8 Delta-Mem config; differs for: "
+                + ", ".join(config_mismatches)
+            )
+        receipt = apply_v8_v7_checkpoint256_adapter_only_warm_start(
+            model,
+            context.scene_v8_context,
+            fresh_start=context.scene_v8_fresh_start,
+        )
+        receipt.update(
+            {
+                "target_delta_config_sha256": _protocol_sha256(
+                    target_config_payload
+                ),
+                "target_trainable_tensor_count": len(trainable_names),
+                "target_trainable_names_sha256": _protocol_sha256(
+                    {"ordered_trainable_names": trainable_names}
+                ),
+            }
+        )
+        receipt_without_hash = dict(receipt)
+        receipt_without_hash.pop("receipt_sha256", None)
+        receipt["receipt_sha256"] = _canonical_json_sha256(receipt_without_hash)
+        return receipt
     if context.mode != _RESIDUAL_HYBRID_W8_WARM_START_MODE:
         raise ValueError(f"Unsupported adapter warm-start mode: {context.mode}")
     _validate_residual_hybrid_w8_delta_config_transition(
@@ -1926,6 +2117,385 @@ def _lineage_manifest_filename(manifest: dict[str, object]) -> str:
     if manifest.get("mode") in _ABLATION_RESUME_MODES:
         return _ABLATION_LINEAGE_FILENAME
     return _CONTINUATION_MANIFEST_FILENAME
+
+
+def _scene_memory_v8_checkpoint_steps(
+    checkpoint_steps: object,
+) -> tuple[int, ...]:
+    if not isinstance(checkpoint_steps, (list, tuple)):
+        raise ValueError("Scene-memory V8 checkpoint endpoints must be a list or tuple")
+    normalized = tuple(checkpoint_steps)
+    if (
+        len(normalized) < 2
+        or any(
+            isinstance(step, bool) or not isinstance(step, int) or step <= 0
+            for step in normalized
+        )
+        or tuple(sorted(set(normalized))) != normalized
+    ):
+        raise ValueError(
+            "Scene-memory V8 checkpoint endpoints must be unique increasing integers"
+        )
+    return normalized
+
+
+def _validate_scene_memory_v8_resume_endpoint(
+    *,
+    source_global_step: object,
+    target_max_steps: object,
+    checkpoint_steps: object,
+) -> None:
+    endpoints = _scene_memory_v8_checkpoint_steps(checkpoint_steps)
+    if isinstance(source_global_step, bool) or not isinstance(source_global_step, int):
+        raise ValueError("Scene-memory V8 resume source step must be an integer")
+    if isinstance(target_max_steps, bool) or not isinstance(target_max_steps, int):
+        raise ValueError("Scene-memory V8 resume target step must be an integer")
+    if source_global_step not in endpoints:
+        raise ValueError(
+            "Scene-memory V8 resume source is not a locked checkpoint endpoint"
+        )
+    source_position = endpoints.index(source_global_step)
+    if source_position + 1 >= len(endpoints):
+        raise ValueError("Scene-memory V8 final checkpoint has no resume endpoint")
+    expected_target = endpoints[source_position + 1]
+    if target_max_steps != expected_target:
+        raise ValueError(
+            "Scene-memory V8 resume must advance to the immediate next locked "
+            f"endpoint: checkpoint-{source_global_step} -> {expected_target}"
+        )
+
+
+def _scene_memory_v8_protocol_checkpoint_steps(
+    protocol: dict[str, object] | None,
+) -> tuple[int, ...] | None:
+    if protocol is None:
+        return None
+    schedule = protocol.get("train_schedule")
+    if not isinstance(schedule, dict) or schedule.get("schema") != (
+        _SCENE_MEMORY_V8_CURRICULUM_SCHEMA
+    ):
+        return None
+    return _scene_memory_v8_checkpoint_steps(schedule.get("checkpoint_steps"))
+
+
+def _validate_scene_memory_v8_warm_start_lineage(
+    manifest: dict[str, object],
+    *,
+    target_training_protocol_sha256: str,
+) -> str:
+    if (
+        manifest.get("schema") != SCENE_V8_WARM_START_RECEIPT_SCHEMA
+        or manifest.get("schema_version") != _WARM_START_LINEAGE_SCHEMA_VERSION
+        or manifest.get("mode") != _SCENE_V8_WARM_START_MODE
+    ):
+        raise ValueError("Scene-memory V8 warm-start lineage schema or mode differs")
+    unsigned = dict(manifest)
+    receipt_sha256 = unsigned.pop("receipt_sha256", None)
+    if not _is_sha256(receipt_sha256) or receipt_sha256 != (
+        _canonical_json_sha256(unsigned)
+    ):
+        raise ValueError("Scene-memory V8 warm-start lineage receipt hash differs")
+    if (
+        not _is_sha256(target_training_protocol_sha256)
+        or manifest.get("target_training_protocol_sha256")
+        != target_training_protocol_sha256
+    ):
+        raise ValueError(
+            "Scene-memory V8 warm-start lineage target protocol hash differs"
+        )
+    lock = load_v8_warm_start_lock(SCENE_V8_WARM_START_LOCK_PATH)
+    source_lock = manifest.get("source_lock")
+    if not isinstance(source_lock, dict):
+        raise ValueError("Scene-memory V8 warm-start lineage source lock is missing")
+    expected_source = Path(str(lock.get("source_checkpoint", ""))).expanduser().resolve()
+    recorded_source = Path(str(manifest.get("source_checkpoint", ""))).expanduser().resolve()
+    if (
+        recorded_source != expected_source
+        or recorded_source.name != "checkpoint-256"
+        or manifest.get("source_global_step") != 256
+        or Path(str(source_lock.get("path", ""))).expanduser().resolve()
+        != SCENE_V8_WARM_START_LOCK_PATH.resolve()
+        or source_lock.get("lock_sha256") != lock.get("lock_sha256")
+        or manifest.get("source_state_imports") != lock.get("source_state_imports")
+        or manifest.get("source_artifacts") != lock.get("artifacts")
+        or manifest.get("post_load_bit_equal") is not True
+    ):
+        raise ValueError("Scene-memory V8 warm-start lineage is not pinned to V7-256")
+    expected_evidence = {
+        "trainer_resume_from_checkpoint": None,
+        "target_initial_global_step": 0,
+        "pre_train_global_step": 0,
+        "fresh_optimizer_created": True,
+        "fresh_optimizer_state_entries_before_train": 0,
+        "fresh_scheduler_created_before_train": False,
+    }
+    evidence_drift = [
+        name
+        for name, expected in expected_evidence.items()
+        if manifest.get(name) != expected
+    ]
+    if evidence_drift:
+        raise ValueError(
+            "Scene-memory V8 warm-start fresh-state evidence differs for: "
+            + ", ".join(evidence_drift)
+        )
+    expected_fresh_start = {
+        "initial_global_step": 0,
+        "optimizer_implementation": "adamw_torch_fused",
+        "optimizer_created_after_adapter_load": True,
+        "optimizer_state": "fresh",
+        "scheduler_state": "fresh",
+        "trainer_state": "fresh",
+        "rng_state": "fresh_from_v8_seed",
+    }
+    optimizer_class = manifest.get("fresh_optimizer_class")
+    if (
+        manifest.get("target_fresh_start") != expected_fresh_start
+        or not isinstance(optimizer_class, str)
+        or not optimizer_class.endswith(".AdamW")
+    ):
+        raise ValueError("Scene-memory V8 warm-start optimizer receipt differs")
+    return receipt_sha256
+
+
+def _scene_memory_v8_checkpoint_lineage(
+    checkpoint: Path,
+    *,
+    checkpoint_steps: object,
+    visited: set[Path] | None = None,
+) -> dict[str, object]:
+    requested = checkpoint.expanduser()
+    if requested.is_symlink():
+        raise ValueError("Scene-memory V8 lineage checkpoint must not be a symlink")
+    resolved = requested.resolve()
+    if not resolved.is_dir():
+        raise FileNotFoundError(
+            f"Scene-memory V8 lineage checkpoint does not exist: {resolved}"
+        )
+    active_visited = set() if visited is None else visited
+    if resolved in active_visited:
+        raise ValueError("Scene-memory V8 continuation lineage contains a cycle")
+    active_visited.add(resolved)
+    endpoints = _scene_memory_v8_checkpoint_steps(checkpoint_steps)
+    checkpoint_suffix = resolved.name.removeprefix("checkpoint-")
+    if not resolved.name.startswith("checkpoint-") or not checkpoint_suffix.isdigit():
+        raise ValueError("Scene-memory V8 lineage source must be checkpoint-N")
+    checkpoint_step = int(checkpoint_suffix)
+    if checkpoint_step not in endpoints:
+        raise ValueError("Scene-memory V8 lineage source is not a locked endpoint")
+    trainer_state = _load_json_object(
+        resolved / "trainer_state.json",
+        description="Scene-memory V8 lineage trainer state",
+    )
+    protocol = _load_json_object(
+        resolved / _TRAINING_PROTOCOL_FILENAME,
+        description="Scene-memory V8 lineage training protocol",
+    )
+    try:
+        state_step = int(trainer_state["global_step"])
+        state_max_steps = int(trainer_state["max_steps"])
+        protocol_max_steps = int(protocol["max_steps"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "Scene-memory V8 lineage checkpoint horizon is invalid"
+        ) from exc
+    if checkpoint_step != state_step or state_step != state_max_steps or (
+        state_step != protocol_max_steps
+    ):
+        raise ValueError("Scene-memory V8 lineage checkpoint is not a completed horizon")
+    protocol_sha256 = _protocol_sha256(protocol)
+    if _scene_memory_v8_protocol_checkpoint_steps(protocol) != endpoints:
+        raise ValueError("Scene-memory V8 lineage protocol curriculum differs")
+    expected_filename = (
+        _WARM_START_LINEAGE_FILENAME
+        if checkpoint_step == endpoints[0]
+        else _CONTINUATION_MANIFEST_FILENAME
+    )
+    lineage_candidates = (
+        _WARM_START_LINEAGE_FILENAME,
+        _CONTINUATION_MANIFEST_FILENAME,
+        _ABLATION_LINEAGE_FILENAME,
+    )
+    present = [
+        filename for filename in lineage_candidates if (resolved / filename).is_file()
+    ]
+    if present != [expected_filename]:
+        raise ValueError(
+            "Scene-memory V8 checkpoint must contain exactly its expected lineage file"
+        )
+    lineage_path = resolved / expected_filename
+    if lineage_path.is_symlink():
+        raise ValueError("Scene-memory V8 lineage file must not be a symlink")
+    lineage = _load_json_object(
+        lineage_path,
+        description="Scene-memory V8 checkpoint lineage",
+    )
+    lineage_file_sha256 = _sha256_file(lineage_path)
+    if checkpoint_step == endpoints[0]:
+        root_receipt_sha256 = _validate_scene_memory_v8_warm_start_lineage(
+            lineage,
+            target_training_protocol_sha256=protocol_sha256,
+        )
+    else:
+        if (
+            lineage.get("schema_version") != _CONTINUATION_MANIFEST_SCHEMA_VERSION
+            or lineage.get("mode") != "extend"
+        ):
+            raise ValueError(
+                "Scene-memory V8 continuation lineage schema or mode differs"
+            )
+        unsigned = dict(lineage)
+        manifest_sha256 = unsigned.pop("manifest_sha256", None)
+        if not _is_sha256(manifest_sha256) or manifest_sha256 != (
+            _canonical_json_sha256(unsigned)
+        ):
+            raise ValueError("Scene-memory V8 continuation lineage self-hash differs")
+        source_step = lineage.get("source_global_step")
+        _validate_scene_memory_v8_resume_endpoint(
+            source_global_step=source_step,
+            target_max_steps=checkpoint_step,
+            checkpoint_steps=endpoints,
+        )
+        if (
+            lineage.get("target_max_steps") != checkpoint_step
+            or lineage.get("target_training_protocol_sha256") != protocol_sha256
+        ):
+            raise ValueError(
+                "Scene-memory V8 continuation target horizon or protocol differs"
+            )
+        source_checkpoint = Path(
+            str(lineage.get("source_checkpoint", ""))
+        ).expanduser().resolve()
+        if lineage.get("source_checkpoint") != str(source_checkpoint):
+            raise ValueError(
+                "Scene-memory V8 continuation source checkpoint is not canonical"
+            )
+        source_lineage = _scene_memory_v8_checkpoint_lineage(
+            source_checkpoint,
+            checkpoint_steps=endpoints,
+            visited=active_visited,
+        )
+        expected_source_filename = source_lineage["lineage_filename"]
+        if (
+            source_lineage["checkpoint_step"] != source_step
+            or lineage.get("source_lineage_filename") != expected_source_filename
+            or lineage.get("source_lineage_file_sha256")
+            != source_lineage["lineage_file_sha256"]
+            or lineage.get("source_training_protocol_sha256")
+            != source_lineage["training_protocol_sha256"]
+            or lineage.get("root_warm_start_receipt_sha256")
+            != source_lineage["root_warm_start_receipt_sha256"]
+        ):
+            raise ValueError(
+                "Scene-memory V8 continuation immediate-source lineage differs"
+            )
+        root_receipt_sha256 = str(
+            source_lineage["root_warm_start_receipt_sha256"]
+        )
+    active_visited.remove(resolved)
+    return {
+        "checkpoint": str(resolved),
+        "checkpoint_step": checkpoint_step,
+        "lineage_filename": expected_filename,
+        "lineage_file_sha256": lineage_file_sha256,
+        "training_protocol_sha256": protocol_sha256,
+        "root_warm_start_receipt_sha256": root_receipt_sha256,
+    }
+
+
+def prepare_scene_memory_v8_training_continuation(
+    continuation_manifest: dict[str, object] | None,
+    *,
+    resume_from_checkpoint: str | Path,
+    checkpoint_steps: object,
+) -> dict[str, object]:
+    if continuation_manifest is None or continuation_manifest.get("mode") != "extend":
+        raise ValueError("Scene-memory V8 resume requires an extend continuation manifest")
+    source_checkpoint = Path(resume_from_checkpoint).expanduser().resolve()
+    source_lineage = _scene_memory_v8_checkpoint_lineage(
+        source_checkpoint,
+        checkpoint_steps=checkpoint_steps,
+    )
+    source_step = source_lineage["checkpoint_step"]
+    _validate_scene_memory_v8_resume_endpoint(
+        source_global_step=source_step,
+        target_max_steps=continuation_manifest.get("target_max_steps"),
+        checkpoint_steps=checkpoint_steps,
+    )
+    recorded_source_checkpoint = continuation_manifest.get("source_checkpoint")
+    if (
+        recorded_source_checkpoint != str(source_checkpoint)
+        or continuation_manifest.get("source_global_step") != source_step
+        or continuation_manifest.get("source_training_protocol_sha256")
+        != source_lineage["training_protocol_sha256"]
+    ):
+        raise ValueError("Scene-memory V8 continuation source checkpoint differs")
+    prepared = dict(continuation_manifest)
+    prepared.update(
+        {
+            "root_warm_start_receipt_sha256": source_lineage[
+                "root_warm_start_receipt_sha256"
+            ],
+            "source_lineage_filename": source_lineage["lineage_filename"],
+            "source_lineage_file_sha256": source_lineage[
+                "lineage_file_sha256"
+            ],
+        }
+    )
+    prepared.pop("target_training_protocol_sha256", None)
+    prepared.pop("manifest_sha256", None)
+    return prepared
+
+
+def finalize_scene_memory_v8_training_continuation(
+    continuation_manifest: dict[str, object],
+    *,
+    target_training_protocol: dict[str, object],
+) -> None:
+    target_training_protocol_sha256 = _protocol_sha256(target_training_protocol)
+    continuation_manifest["target_training_protocol_sha256"] = (
+        target_training_protocol_sha256
+    )
+    unsigned = dict(continuation_manifest)
+    unsigned.pop("manifest_sha256", None)
+    continuation_manifest["manifest_sha256"] = _canonical_json_sha256(unsigned)
+
+
+def validate_scene_memory_v8_active_continuation(
+    continuation_manifest: dict[str, object] | None,
+    *,
+    resume_from_checkpoint: str | Path,
+    target_training_protocol: dict[str, object],
+    checkpoint_steps: object,
+) -> None:
+    if continuation_manifest is None:
+        raise ValueError("Scene-memory V8 Trainer resume lineage is missing")
+    unsigned = dict(continuation_manifest)
+    manifest_sha256 = unsigned.pop("manifest_sha256", None)
+    if not _is_sha256(manifest_sha256) or manifest_sha256 != (
+        _canonical_json_sha256(unsigned)
+    ):
+        raise ValueError("Scene-memory V8 active continuation self-hash differs")
+    prepared = prepare_scene_memory_v8_training_continuation(
+        continuation_manifest,
+        resume_from_checkpoint=resume_from_checkpoint,
+        checkpoint_steps=checkpoint_steps,
+    )
+    expected = dict(prepared)
+    expected["target_training_protocol_sha256"] = _protocol_sha256(
+        target_training_protocol
+    )
+    expected_unsigned = dict(expected)
+    expected_unsigned.pop("manifest_sha256", None)
+    expected["manifest_sha256"] = _canonical_json_sha256(expected_unsigned)
+    if continuation_manifest != expected:
+        raise ValueError("Scene-memory V8 active continuation lineage differs")
+    try:
+        target_max_steps = int(target_training_protocol["max_steps"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Scene-memory V8 target protocol max_steps is invalid") from exc
+    if continuation_manifest.get("target_max_steps") != target_max_steps:
+        raise ValueError("Scene-memory V8 continuation target protocol horizon differs")
 
 
 def prepare_training_continuation(
@@ -2202,7 +2772,21 @@ def compute_warmup_steps(
     num_train_epochs: float,
     max_steps: int,
     warmup_ratio: float,
+    explicit_warmup_steps: int | None = None,
 ) -> int:
+    if explicit_warmup_steps is not None:
+        if isinstance(explicit_warmup_steps, bool) or not isinstance(
+            explicit_warmup_steps,
+            int,
+        ):
+            raise ValueError("Explicit warmup steps must be an integer or null")
+        if explicit_warmup_steps < 0:
+            raise ValueError("Explicit warmup steps must be non-negative")
+        if warmup_ratio != 0.0:
+            raise ValueError(
+                "--warmup-steps requires --warmup-ratio 0 to avoid an ambiguous schedule"
+            )
+        return explicit_warmup_steps
     if warmup_ratio <= 0.0:
         return 0
     if max_steps > 0:
@@ -2247,6 +2831,81 @@ def finalize_adapter_warm_start_lineage(
     )
 
 
+def finalize_scene_v8_warm_start_lineage(
+    context: AdapterWarmStartContext,
+    *,
+    target_training_protocol_sha256: str,
+    target_pairing_manifest: dict[str, object],
+) -> None:
+    if context.mode != _SCENE_V8_WARM_START_MODE:
+        raise ValueError("Scene V8 lineage finalizer received another warm-start mode")
+    pairing_sha256 = target_pairing_manifest.get("manifest_sha256")
+    if not _is_sha256(target_training_protocol_sha256) or not _is_sha256(
+        pairing_sha256
+    ):
+        raise ValueError(
+            "Scene V8 target protocol and pairing hashes must be SHA256 values"
+        )
+    context.manifest.update(
+        {
+            "target_training_protocol_sha256": target_training_protocol_sha256,
+            "target_scene_state_pairing_manifest_sha256": pairing_sha256,
+            "trainer_resume_from_checkpoint": None,
+            "target_initial_global_step": 0,
+            "fresh_adamw_creation_required_after_adapter_load": True,
+        }
+    )
+    unsigned = dict(context.manifest)
+    unsigned.pop("receipt_sha256", None)
+    context.manifest["receipt_sha256"] = _canonical_json_sha256(unsigned)
+
+
+def record_scene_v8_fresh_optimizer_lineage(
+    trainer,
+    warm_start_context: AdapterWarmStartContext,
+) -> None:
+    if warm_start_context.mode != _SCENE_V8_WARM_START_MODE:
+        raise ValueError("Scene V8 optimizer evidence requires its warm-start mode")
+    if trainer.state.global_step != 0:
+        raise RuntimeError("Scene V8 Trainer did not initialize at global step 0")
+    if trainer.optimizer is not None or trainer.lr_scheduler is not None:
+        raise RuntimeError(
+            "Scene V8 Trainer imported optimizer or scheduler state before creation"
+        )
+    trainer.create_optimizer()
+    if not isinstance(trainer.optimizer, torch.optim.AdamW):
+        raise RuntimeError("Scene V8 requires a freshly created torch AdamW")
+    if trainer.optimizer.state:
+        raise RuntimeError("Scene V8 fresh AdamW unexpectedly contains state")
+    warm_start_context.manifest.update(
+        {
+            "pre_train_global_step": 0,
+            "fresh_optimizer_created": True,
+            "fresh_optimizer_class": (
+                f"{trainer.optimizer.__class__.__module__}."
+                f"{trainer.optimizer.__class__.__qualname__}"
+            ),
+            "fresh_optimizer_state_entries_before_train": 0,
+            "fresh_scheduler_created_before_train": False,
+        }
+    )
+    unsigned_warm_start_receipt = dict(warm_start_context.manifest)
+    unsigned_warm_start_receipt.pop("receipt_sha256", None)
+    warm_start_context.manifest["receipt_sha256"] = _canonical_json_sha256(
+        unsigned_warm_start_receipt
+    )
+    trainer.continuation_manifest = dict(warm_start_context.manifest)
+
+
+def _training_lineage_summary(trainer) -> dict[str, object]:
+    active = getattr(trainer, "continuation_manifest", None)
+    snapshot = None if active is None else dict(active)
+    return {
+        "continuation": snapshot,
+        "resume_lineage": snapshot,
+    }
+
+
 def _build_ddp_training_kwargs(
     *,
     distributed: bool,
@@ -2266,6 +2925,32 @@ def _build_ddp_training_kwargs(
 @dataclass
 class SFTExample:
     messages: list[dict[str, str]]
+
+
+class FixedIndexSampler(Sampler[int]):
+    def __init__(self, dataset, indices: tuple[int, ...]) -> None:
+        dataset_length = len(dataset)
+        if not indices:
+            raise ValueError("Fixed train schedule must contain at least one index")
+        invalid = [
+            index
+            for index in indices
+            if isinstance(index, bool)
+            or not isinstance(index, int)
+            or not 0 <= index < dataset_length
+        ]
+        if invalid:
+            raise ValueError(
+                "Fixed train schedule contains out-of-range dataset indices: "
+                f"{invalid[:8]}"
+            )
+        self.indices = indices
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __len__(self) -> int:
+        return len(self.indices)
 
 
 class DeltaMemTrainer(Trainer):
@@ -2299,6 +2984,18 @@ class DeltaMemTrainer(Trainer):
         memory_base_kl_weight: float = 0.0,
         scene_boundary_payload_ce_weight: float = 0.0,
         train_sampler_seed: int | None = None,
+        train_schedule_indices: tuple[int, ...] | None = None,
+        train_schedule_binding: dict[str, object] | None = None,
+        scene_state_generated_unlikelihood_weight: float = 0.0,
+        scene_state_generated_unlikelihood_max_wrong_tokens: int = (
+            _SCENE_STATE_GENERATED_UNLIKELIHOOD_MAX_WRONG_TOKENS
+        ),
+        scene_state_generated_rollout_extra_tokens: int = (
+            _SCENE_STATE_GENERATED_ROLLOUT_EXTRA_TOKENS
+        ),
+        scene_state_generated_rollout_max_tokens: int = (
+            _SCENE_STATE_GENERATED_ROLLOUT_MAX_TOKENS
+        ),
         episode_read_write_enabled: bool = False,
         context_ablation_mode: str = "mixed",
         context_ablation_no_state_prob: float = 0.2,
@@ -2390,11 +3087,77 @@ class DeltaMemTrainer(Trainer):
             if not 0 <= train_sampler_seed <= torch.iinfo(torch.int64).max:
                 raise ValueError("train_sampler_seed must satisfy 0 <= seed <= 2^63 - 1")
         self.train_sampler_seed = train_sampler_seed
+        self.train_schedule_indices = (
+            None
+            if train_schedule_indices is None
+            else tuple(train_schedule_indices)
+        )
+        self.train_schedule_binding = (
+            None
+            if train_schedule_binding is None
+            else dict(train_schedule_binding)
+        )
+        if self.train_schedule_indices is not None:
+            if train_sampler_seed is not None:
+                raise ValueError(
+                    "Fixed train schedule is mutually exclusive with train_sampler_seed"
+                )
+            if self.train_schedule_binding is None:
+                raise ValueError("Fixed train schedule requires its audited binding")
+            if self.train_dataset is None:
+                raise ValueError("Fixed train schedule requires a train dataset")
+            FixedIndexSampler(self.train_dataset, self.train_schedule_indices)
+            if self.train_schedule_binding.get("total_steps") != len(
+                self.train_schedule_indices
+            ):
+                raise ValueError(
+                    "Fixed train schedule length differs from its audited binding"
+                )
+        elif self.train_schedule_binding is not None:
+            raise ValueError("Train schedule binding requires fixed schedule indices")
         if (
             train_sampler_seed is not None
             and getattr(self.args, "data_seed", None) != train_sampler_seed
         ):
             raise ValueError("train_sampler_seed must equal TrainingArguments.data_seed")
+        if (
+            not math.isfinite(scene_state_generated_unlikelihood_weight)
+            or scene_state_generated_unlikelihood_weight < 0.0
+        ):
+            raise ValueError(
+                "scene_state_generated_unlikelihood_weight must be finite and "
+                "non-negative"
+            )
+        if scene_state_generated_unlikelihood_max_wrong_tokens <= 0:
+            raise ValueError(
+                "scene_state_generated_unlikelihood_max_wrong_tokens must be positive"
+            )
+        if scene_state_generated_rollout_extra_tokens < 0:
+            raise ValueError(
+                "scene_state_generated_rollout_extra_tokens must be non-negative"
+            )
+        if scene_state_generated_rollout_max_tokens <= 0:
+            raise ValueError("scene_state_generated_rollout_max_tokens must be positive")
+        if (
+            scene_state_generated_unlikelihood_weight > 0.0
+            and memory_loss_mode != "scene_state_generation_ce"
+        ):
+            raise ValueError(
+                "scene_state_generated_unlikelihood_weight requires "
+                "memory_loss_mode=scene_state_generation_ce"
+            )
+        self.scene_state_generated_unlikelihood_weight = (
+            scene_state_generated_unlikelihood_weight
+        )
+        self.scene_state_generated_unlikelihood_max_wrong_tokens = int(
+            scene_state_generated_unlikelihood_max_wrong_tokens
+        )
+        self.scene_state_generated_rollout_extra_tokens = int(
+            scene_state_generated_rollout_extra_tokens
+        )
+        self.scene_state_generated_rollout_max_tokens = int(
+            scene_state_generated_rollout_max_tokens
+        )
         self.episode_read_write_enabled = episode_read_write_enabled
         if memory_loss_mode == "content_contrast_ce":
             if episode_read_write_enabled:
@@ -2560,6 +3323,13 @@ class DeltaMemTrainer(Trainer):
         self._last_scene_generation_schema_token_count = 0.0
         self._last_scene_generation_decision_token_count = 0.0
         self._last_scene_generation_termination_token_count = 0.0
+        self._last_scene_generation_generated_unlikelihood_loss = 0.0
+        self._last_scene_generation_generated_unlikelihood_weighted_loss = 0.0
+        self._last_scene_generation_generated_unlikelihood_applied = 0.0
+        self._last_scene_generation_generated_wrong_token_count = 0.0
+        self._last_scene_generation_generated_rollout_token_count = 0.0
+        self._last_scene_generation_generated_first_divergence = 0.0
+        self._last_scene_generation_generated_exact_fraction = 0.0
         self._last_memory_teacher_loss = 0.0
         self._last_scene_boundary_full_ce_loss = 0.0
         self._last_scene_boundary_payload_ce_loss = 0.0
@@ -2590,6 +3360,10 @@ class DeltaMemTrainer(Trainer):
         self._ddp_static_graph_initialized = False
 
     def _get_train_sampler(self, train_dataset=None):
+        active_dataset = self.train_dataset if train_dataset is None else train_dataset
+        train_schedule_indices = getattr(self, "train_schedule_indices", None)
+        if train_schedule_indices is not None:
+            return FixedIndexSampler(active_dataset, train_schedule_indices)
         default_sampler = super()._get_train_sampler(train_dataset)
         if self.train_sampler_seed is None or default_sampler is None:
             return default_sampler
@@ -2597,7 +3371,6 @@ class DeltaMemTrainer(Trainer):
             raise ValueError(
                 "train_sampler_seed requires Transformers random train sampling"
             )
-        active_dataset = self.train_dataset if train_dataset is None else train_dataset
         generator = torch.Generator()
         generator.manual_seed(self.train_sampler_seed)
         return RandomSampler(active_dataset, generator=generator)
@@ -5318,48 +6091,66 @@ class DeltaMemTrainer(Trainer):
         torch.Tensor,
     ]:
         shift_mask = target_mask[:, 1:].to(dtype=torch.bool)
-        shift_logits = logits[:, :-1].float()
         shift_labels = labels[:, 1:]
-        safe_labels = shift_labels.clamp_min(0)
-        gold_logits = shift_logits.gather(-1, safe_labels.unsqueeze(-1)).squeeze(-1)
-        top_values, top_indices = shift_logits.topk(k=2, dim=-1)
+        counts = shift_mask.sum(dim=1)
+        if not bool(counts.gt(0).all()):
+            raise ValueError("Scene-state generation margin mask misses a batch row")
+
+        # Gather in the source dtype before promoting to FP32. At production
+        # vocabulary size, promoting every sequence position needlessly keeps a
+        # much larger tensor alive than the selected generation targets.
+        selected_logits = logits[:, :-1][shift_mask].float()
+        selected_labels = shift_labels[shift_mask]
+        gold_logits = selected_logits.gather(
+            -1,
+            selected_labels.unsqueeze(-1),
+        ).squeeze(-1)
+        top_values, top_indices = selected_logits.topk(k=2, dim=-1)
         max_other = torch.where(
-            top_indices[..., 0].eq(safe_labels),
+            top_indices[..., 0].eq(selected_labels),
             top_values[..., 1],
             top_values[..., 0],
         )
         margins = gold_logits - max_other
         predictions = top_indices[..., 0]
-        correct = predictions.eq(safe_labels) & shift_mask
-        counts = shift_mask.sum(dim=1)
-        row_margin = (margins * shift_mask).sum(dim=1) / counts
-        row_accuracy = correct.sum(dim=1).float() / counts
+        correct = predictions.eq(selected_labels)
+        row_margins: list[torch.Tensor] = []
+        row_accuracies: list[torch.Tensor] = []
         first_error_losses: list[torch.Tensor] = []
         first_error_ordinals: list[float] = []
         solved: list[float] = []
+        offset = 0
         for row_index in range(logits.size(0)):
-            positions = shift_mask[row_index].nonzero(as_tuple=False).flatten()
-            row_wrong = ~correct[row_index].index_select(0, positions)
+            row_count = int(counts[row_index].item())
+            row_slice = slice(offset, offset + row_count)
+            row_margin_values = margins[row_slice]
+            row_correct = correct[row_slice]
+            row_margins.append(row_margin_values.mean())
+            row_accuracies.append(row_correct.float().mean())
+            row_wrong = ~row_correct
             wrong_ordinals = row_wrong.nonzero(as_tuple=False).flatten()
             if wrong_ordinals.numel() == 0:
-                first_error_losses.append(logits[row_index].sum() * 0.0)
-                first_error_ordinals.append(float(positions.numel()))
+                first_error_losses.append(row_margin_values.sum() * 0.0)
+                first_error_ordinals.append(float(row_count))
                 solved.append(1.0)
-                continue
-            ordinal = int(wrong_ordinals[0].item())
-            position = int(positions[ordinal].item())
-            first_error_losses.append(
-                F.relu(
-                    _SCENE_STATE_GENERATION_TOP1_MARGIN
-                    + max_other[row_index, position]
-                    - gold_logits[row_index, position]
+            else:
+                ordinal = int(wrong_ordinals[0].item())
+                selected_index = offset + ordinal
+                first_error_losses.append(
+                    F.relu(
+                        _SCENE_STATE_GENERATION_TOP1_MARGIN
+                        + max_other[selected_index]
+                        - gold_logits[selected_index]
+                    )
                 )
-            )
-            first_error_ordinals.append(float(ordinal))
-            solved.append(0.0)
+                first_error_ordinals.append(float(ordinal))
+                solved.append(0.0)
+            offset += row_count
+        if offset != selected_logits.size(0):
+            raise RuntimeError("Scene-state generation margin row accounting differs")
         return (
-            row_margin,
-            row_accuracy,
+            torch.stack(row_margins),
+            torch.stack(row_accuracies),
             torch.stack(first_error_losses),
             logits.new_tensor(first_error_ordinals),
             logits.new_tensor(solved),
@@ -5842,6 +6633,321 @@ class DeltaMemTrainer(Trainer):
                     f"Sequential scene-state generation donor replay differs: {field}"
                 )
 
+    @staticmethod
+    def _scene_state_generated_wrong_positions(
+        generated_token_ids: torch.Tensor,
+        gold_token_ids: torch.Tensor,
+        *,
+        max_wrong_tokens: int,
+    ) -> tuple[int, torch.Tensor]:
+        return generated_unlikelihood_positions(
+            generated_token_ids,
+            gold_token_ids,
+            max_wrong_tokens=max_wrong_tokens,
+        )
+
+    def _scene_state_generated_rollout_inputs(
+        self,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        target_mask: torch.Tensor,
+        termination_mask: torch.Tensor,
+    ) -> dict[str, torch.Tensor | int]:
+        input_ids = model_inputs["input_ids"]
+        attention_mask = model_inputs["attention_mask"]
+        labels = model_inputs["labels"]
+        if input_ids.ndim != 2 or input_ids.size(0) != 1:
+            raise ValueError(
+                "Generated-prefix unlikelihood currently requires batch size 1"
+            )
+        if not (
+            input_ids.shape
+            == attention_mask.shape
+            == labels.shape
+            == target_mask.shape
+            == termination_mask.shape
+        ):
+            raise ValueError("Generated-prefix rollout tensors must have matching shapes")
+        normalized_target = target_mask.to(device=input_ids.device, dtype=torch.bool)
+        normalized_termination = termination_mask.to(
+            device=input_ids.device,
+            dtype=torch.bool,
+        )
+        target_positions = normalized_target[0].nonzero(as_tuple=False).flatten()
+        termination_positions = normalized_termination[0].nonzero(
+            as_tuple=False
+        ).flatten()
+        if target_positions.numel() == 0 or termination_positions.numel() == 0:
+            raise ValueError(
+                "Generated-prefix rollout requires target and termination tokens"
+            )
+        generation_start = int(target_positions[0].item())
+        generation_end = int(target_positions[-1].item())
+        if generation_start <= 0 or not torch.equal(
+            target_positions,
+            torch.arange(
+                generation_start,
+                generation_end + 1,
+                device=target_positions.device,
+            ),
+        ):
+            raise ValueError(
+                "Generated-prefix rollout target must be one causal suffix"
+            )
+        if bool((normalized_termination & ~normalized_target).any()):
+            raise ValueError(
+                "Generated-prefix termination mask must be a target subset"
+            )
+        first_termination = int(termination_positions[0].item())
+        if first_termination < generation_start:
+            raise ValueError("Generated-prefix termination precedes the suffix")
+        if not torch.equal(
+            labels[0, target_positions],
+            input_ids[0, target_positions],
+        ):
+            raise ValueError(
+                "Generated-prefix gold labels must equal the supplied suffix token IDs"
+            )
+        prompt_attention_mask = attention_mask[:, :generation_start]
+        if not bool(prompt_attention_mask.ne(0).all()):
+            raise ValueError(
+                "Generated-prefix rollout does not support padding inside the prompt"
+            )
+        full_gold_token_ids = input_ids[0, generation_start : generation_end + 1]
+        # Greedy generation stops on the first termination token. Tokens rendered
+        # after it by a full chat template are teacher-forcing targets, not part
+        # of the benchmark generation that the hard negative must match.
+        benchmark_gold_token_ids = input_ids[
+            0,
+            generation_start : first_termination + 1,
+        ]
+        rollout_max_new_tokens = min(
+            int(full_gold_token_ids.numel())
+            + self.scene_state_generated_rollout_extra_tokens,
+            self.scene_state_generated_rollout_max_tokens,
+        )
+        return {
+            "prompt_input_ids": input_ids[:, :generation_start],
+            "prompt_attention_mask": prompt_attention_mask,
+            "gold_token_ids": benchmark_gold_token_ids,
+            "full_gold_token_count": int(full_gold_token_ids.numel()),
+            "generation_start": generation_start,
+            "rollout_max_new_tokens": rollout_max_new_tokens,
+        }
+
+    def _scene_state_generated_greedy_rollout(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        online_state_snapshot: dict[str, torch.Tensor],
+        target_mask: torch.Tensor,
+        termination_mask: torch.Tensor,
+    ) -> dict[str, torch.Tensor | int | bool]:
+        rollout = self._scene_state_generated_rollout_inputs(
+            model_inputs,
+            target_mask=target_mask,
+            termination_mask=termination_mask,
+        )
+        prompt_input_ids = rollout["prompt_input_ids"]
+        prompt_attention_mask = rollout["prompt_attention_mask"]
+        was_training = model.training
+        rollout_rng_state = _capture_torch_rng_state()
+        model.eval()
+        try:
+            with torch.no_grad():
+                self._reset_online_state(model)
+                load_delta_mem_online_state(
+                    model,
+                    clone_detached_online_state(online_state_snapshot),
+                )
+                set_delta_mem_write_enabled(model, False)
+                set_delta_mem_read_context_mask(
+                    model,
+                    prompt_attention_mask.to(dtype=torch.bool),
+                )
+                generated_sequences = model.generate(
+                    input_ids=prompt_input_ids,
+                    attention_mask=prompt_attention_mask,
+                    do_sample=False,
+                    max_new_tokens=int(rollout["rollout_max_new_tokens"]),
+                    use_cache=True,
+                )
+        finally:
+            _restore_torch_rng_state(rollout_rng_state)
+            model.train(was_training)
+        if not isinstance(generated_sequences, torch.Tensor) or (
+            generated_sequences.ndim != 2 or generated_sequences.size(0) != 1
+        ):
+            raise RuntimeError("Greedy generated-prefix rollout returned invalid sequences")
+        prompt_length = int(prompt_input_ids.size(1))
+        if generated_sequences.size(1) <= prompt_length or not torch.equal(
+            generated_sequences[:, :prompt_length],
+            prompt_input_ids,
+        ):
+            raise RuntimeError(
+                "Greedy generated-prefix rollout did not preserve the exact prompt"
+            )
+        generated_token_ids = generated_sequences[0, prompt_length:].detach()
+        gold_token_ids = rollout["gold_token_ids"]
+        first_divergence, wrong_positions = (
+            self._scene_state_generated_wrong_positions(
+                generated_token_ids,
+                gold_token_ids,
+                max_wrong_tokens=(
+                    self.scene_state_generated_unlikelihood_max_wrong_tokens
+                ),
+            )
+        )
+        rollout.update(
+            {
+                "generated_token_ids": generated_token_ids,
+                "wrong_positions": wrong_positions,
+                "first_divergence": first_divergence,
+                "exact_through_termination": bool(
+                    torch.equal(generated_token_ids, gold_token_ids)
+                ),
+            }
+        )
+        return rollout
+
+    @staticmethod
+    def _scene_state_generated_unlikelihood_from_logits(
+        selected_logits: torch.Tensor,
+        wrong_token_ids: torch.Tensor,
+    ) -> torch.Tensor:
+        if selected_logits.ndim != 2 or selected_logits.size(0) == 0:
+            raise ValueError(
+                "Generated-prefix unlikelihood requires selected vocabulary logits"
+            )
+        if (
+            wrong_token_ids.ndim != 1
+            or wrong_token_ids.numel() != selected_logits.size(0)
+        ):
+            raise ValueError(
+                "Generated-prefix wrong token IDs must align with selected logits"
+            )
+        fp32_logits = selected_logits.float()
+        normalized_wrong_ids = wrong_token_ids.to(
+            device=fp32_logits.device,
+            dtype=torch.long,
+        )
+        wrong_logits = fp32_logits.gather(
+            1,
+            normalized_wrong_ids.unsqueeze(1),
+        ).squeeze(1)
+        other_logits = fp32_logits.clone()
+        other_logits.scatter_(
+            1,
+            normalized_wrong_ids.unsqueeze(1),
+            -torch.inf,
+        )
+        other_logsumexp = torch.logsumexp(other_logits, dim=1)
+        return F.softplus(wrong_logits - other_logsumexp).mean()
+
+    def _scene_state_generated_unlikelihood_branch(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        online_state_snapshot: dict[str, torch.Tensor],
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+        target_mask: torch.Tensor,
+        termination_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor | None, dict[str, float]]:
+        rollout = self._scene_state_generated_greedy_rollout(
+            model,
+            model_inputs,
+            online_state_snapshot=online_state_snapshot,
+            target_mask=target_mask,
+            termination_mask=termination_mask,
+        )
+        generated_token_ids = rollout["generated_token_ids"]
+        wrong_positions = rollout["wrong_positions"]
+        stats = {
+            "scene_generation_generated_unlikelihood_loss": 0.0,
+            "scene_generation_generated_unlikelihood_applied": float(
+                wrong_positions.numel() > 0
+            ),
+            "scene_generation_generated_wrong_token_count": float(
+                wrong_positions.numel()
+            ),
+            "scene_generation_generated_rollout_token_count": float(
+                generated_token_ids.numel()
+            ),
+            "scene_generation_generated_first_divergence": float(
+                rollout["first_divergence"]
+            ),
+            "scene_generation_generated_exact_fraction": float(
+                rollout["exact_through_termination"]
+            ),
+        }
+        if wrong_positions.numel() == 0:
+            return None, stats
+
+        prompt_input_ids = rollout["prompt_input_ids"]
+        prompt_attention_mask = rollout["prompt_attention_mask"]
+        replay_input_ids = torch.cat(
+            (prompt_input_ids, generated_token_ids.unsqueeze(0)),
+            dim=1,
+        )
+        replay_attention_mask = torch.cat(
+            (
+                prompt_attention_mask,
+                torch.ones(
+                    (1, generated_token_ids.numel()),
+                    device=prompt_attention_mask.device,
+                    dtype=prompt_attention_mask.dtype,
+                ),
+            ),
+            dim=1,
+        )
+        self._reset_online_state(model)
+        self._prime_episode_state(
+            model,
+            write_input_ids=write_input_ids,
+            write_attention_mask=write_attention_mask,
+            batch_size=1,
+            write_message_ids=write_message_ids,
+            write_sentence_ids=write_sentence_ids,
+        )
+        set_delta_mem_write_enabled(model, False)
+        set_delta_mem_read_context_mask(
+            model,
+            replay_attention_mask.to(dtype=torch.bool),
+        )
+        replay_outputs = model(
+            input_ids=replay_input_ids,
+            attention_mask=replay_attention_mask,
+            use_cache=False,
+        )
+        replay_logits = (
+            replay_outputs["logits"]
+            if isinstance(replay_outputs, dict)
+            else replay_outputs.logits
+        )
+        predictor_positions = (
+            wrong_positions
+            + int(rollout["generation_start"])
+            - 1
+        )
+        selected_logits = replay_logits[0].index_select(
+            0,
+            predictor_positions,
+        )
+        wrong_token_ids = generated_token_ids.index_select(0, wrong_positions)
+        unlikelihood_loss = self._scene_state_generated_unlikelihood_from_logits(
+            selected_logits,
+            wrong_token_ids,
+        )
+        stats["scene_generation_generated_unlikelihood_loss"] = float(
+            unlikelihood_loss.detach().item()
+        )
+        return unlikelihood_loss, stats
+
     def _scene_state_generation_sequential_backward(
         self,
         model,
@@ -5867,6 +6973,19 @@ class DeltaMemTrainer(Trainer):
         gradient_scale: float,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         self._validate_scene_state_generation_sequential_runtime()
+        generated_unlikelihood_weight = float(
+            getattr(self, "scene_state_generated_unlikelihood_weight", 0.0)
+        )
+        normalized_strata = target_stratum_codes.detach().to(dtype=torch.long)
+        if generated_unlikelihood_weight > 0.0 and normalized_strata.numel() != 1:
+            raise ValueError(
+                "Generated-prefix unlikelihood requires batch size 1"
+            )
+        presence_code = _SCENE_STATE_IDENTITY_TARGET_STRATUM_CODES["presence"]
+        generated_unlikelihood_eligible = (
+            generated_unlikelihood_weight > 0.0
+            and int(normalized_strata.item()) != presence_code
+        )
         branch_kwargs = {
             "model_inputs": model_inputs,
             "loss_kwargs": loss_kwargs,
@@ -5918,6 +7037,11 @@ class DeltaMemTrainer(Trainer):
                 write_message_ids=write_message_ids,
                 write_sentence_ids=write_sentence_ids,
                 **branch_kwargs,
+            )
+        generated_online_state_snapshot = None
+        if generated_unlikelihood_eligible:
+            generated_online_state_snapshot = clone_detached_online_state(
+                self._capture_live_online_state(model)
             )
         objective_probe = self._scene_state_generation_objective(
             correct,
@@ -5971,6 +7095,46 @@ class DeltaMemTrainer(Trainer):
         del donor_pair_ce, donor_outputs, donor
         self.accelerator.backward(donor_backward_root)
         del donor_backward_root
+
+        generated_unlikelihood_stats = {
+            "scene_generation_generated_unlikelihood_loss": 0.0,
+            "scene_generation_generated_unlikelihood_applied": 0.0,
+            "scene_generation_generated_wrong_token_count": 0.0,
+            "scene_generation_generated_rollout_token_count": 0.0,
+            "scene_generation_generated_first_divergence": 0.0,
+            "scene_generation_generated_exact_fraction": 0.0,
+        }
+        generated_unlikelihood_value = zero["decision_margin_row"].new_zeros(())
+        if generated_unlikelihood_eligible:
+            if generated_online_state_snapshot is None:
+                raise RuntimeError(
+                    "Generated-prefix unlikelihood lost its correct-state snapshot"
+                )
+            with self.compute_loss_context_manager():
+                generated_unlikelihood_loss, generated_unlikelihood_stats = (
+                    self._scene_state_generated_unlikelihood_branch(
+                        model,
+                        model_inputs,
+                        online_state_snapshot=generated_online_state_snapshot,
+                        write_input_ids=write_input_ids,
+                        write_attention_mask=write_attention_mask,
+                        write_message_ids=write_message_ids,
+                        write_sentence_ids=write_sentence_ids,
+                        target_mask=target_mask,
+                        termination_mask=termination_mask,
+                    )
+                )
+            if generated_unlikelihood_loss is not None:
+                generated_unlikelihood_value = generated_unlikelihood_loss.detach()
+                generated_unlikelihood_root = (
+                    generated_unlikelihood_loss
+                    * generated_unlikelihood_weight
+                    * gradient_scale
+                )
+                del generated_unlikelihood_loss
+                self.accelerator.backward(generated_unlikelihood_root)
+                del generated_unlikelihood_root
+            del generated_online_state_snapshot
         objective = self._scene_state_generation_objective(
             correct_values,
             donor_values,
@@ -5983,9 +7147,21 @@ class DeltaMemTrainer(Trainer):
             objective=objective,
             target_stratum_codes=target_stratum_codes,
         )
+        weighted_generated_unlikelihood = (
+            generated_unlikelihood_value
+            * generated_unlikelihood_weight
+        )
+        reported_total_loss = objective["total_loss"] + weighted_generated_unlikelihood
+        memory_stats.update(generated_unlikelihood_stats)
+        memory_stats["scene_generation_generated_unlikelihood_weighted_loss"] = float(
+            weighted_generated_unlikelihood.detach().item()
+        )
+        memory_stats["scene_generation_total_loss"] = float(
+            reported_total_loss.detach().item()
+        )
         set_delta_mem_read_context_mask(model, None)
         set_delta_mem_write_enabled(model, True)
-        return objective["total_loss"] * gradient_scale, memory_stats
+        return reported_total_loss * gradient_scale, memory_stats
 
     def _record_memory_stats(self, model, memory_stats: dict[str, float]) -> None:
         partition_route_stats = collect_delta_mem_partition_route_stats(model)
@@ -6177,6 +7353,36 @@ class DeltaMemTrainer(Trainer):
         )
         self._last_scene_generation_zero_margin_loss = memory_stats.get(
             "scene_generation_zero_margin_loss",
+            0.0,
+        )
+        self._last_scene_generation_generated_unlikelihood_loss = memory_stats.get(
+            "scene_generation_generated_unlikelihood_loss",
+            0.0,
+        )
+        self._last_scene_generation_generated_unlikelihood_weighted_loss = (
+            memory_stats.get(
+                "scene_generation_generated_unlikelihood_weighted_loss",
+                0.0,
+            )
+        )
+        self._last_scene_generation_generated_unlikelihood_applied = memory_stats.get(
+            "scene_generation_generated_unlikelihood_applied",
+            0.0,
+        )
+        self._last_scene_generation_generated_wrong_token_count = memory_stats.get(
+            "scene_generation_generated_wrong_token_count",
+            0.0,
+        )
+        self._last_scene_generation_generated_rollout_token_count = memory_stats.get(
+            "scene_generation_generated_rollout_token_count",
+            0.0,
+        )
+        self._last_scene_generation_generated_first_divergence = memory_stats.get(
+            "scene_generation_generated_first_divergence",
+            0.0,
+        )
+        self._last_scene_generation_generated_exact_fraction = memory_stats.get(
+            "scene_generation_generated_exact_fraction",
             0.0,
         )
         self._last_scene_generation_gold_top1_accuracy = memory_stats.get(
@@ -7175,6 +8381,27 @@ class DeltaMemTrainer(Trainer):
                     "delta/scene_generation_zero_margin_loss": (
                         self._last_scene_generation_zero_margin_loss
                     ),
+                    "delta/scene_generation_generated_unlikelihood_loss": (
+                        self._last_scene_generation_generated_unlikelihood_loss
+                    ),
+                    "delta/scene_generation_generated_unlikelihood_weighted_loss": (
+                        self._last_scene_generation_generated_unlikelihood_weighted_loss
+                    ),
+                    "delta/scene_generation_generated_unlikelihood_applied": (
+                        self._last_scene_generation_generated_unlikelihood_applied
+                    ),
+                    "delta/scene_generation_generated_wrong_token_count": (
+                        self._last_scene_generation_generated_wrong_token_count
+                    ),
+                    "delta/scene_generation_generated_rollout_token_count": (
+                        self._last_scene_generation_generated_rollout_token_count
+                    ),
+                    "delta/scene_generation_generated_first_divergence": (
+                        self._last_scene_generation_generated_first_divergence
+                    ),
+                    "delta/scene_generation_generated_exact_fraction": (
+                        self._last_scene_generation_generated_exact_fraction
+                    ),
                     "delta/scene_generation_gold_top1_accuracy": (
                         self._last_scene_generation_gold_top1_accuracy
                     ),
@@ -7832,7 +9059,7 @@ class DeltaMemTrainer(Trainer):
                     sort_keys=True,
                 )
             )
-        continuation_manifest = getattr(self, "continuation_manifest", None)
+        continuation_manifest = _training_lineage_summary(self)["continuation"]
         if continuation_manifest is not None:
             (output_path / _lineage_manifest_filename(continuation_manifest)).write_text(
                 json.dumps(continuation_manifest, indent=2, sort_keys=True)
@@ -7908,6 +9135,16 @@ class DeltaMemTrainer(Trainer):
                 is not None
             ),
         )
+        checkpoint_steps = _scene_memory_v8_protocol_checkpoint_steps(
+            getattr(self, "training_protocol", None)
+        )
+        if checkpoint_steps is not None:
+            validate_scene_memory_v8_active_continuation(
+                getattr(self, "continuation_manifest", None),
+                resume_from_checkpoint=checkpoint,
+                target_training_protocol=self.training_protocol,
+                checkpoint_steps=checkpoint_steps,
+            )
         if self.delta_config is None:
             raise ValueError("DeltaMemTrainer checkpoint loading requires delta_config")
         checkpoint_config = HFDeltaMemConfig.from_pretrained(checkpoint)
@@ -8052,6 +9289,280 @@ def _scene_state_source_manifest_identity(
     }
 
 
+def _scene_state_v8_curriculum_binding(
+    args: argparse.Namespace,
+) -> dict[str, object] | None:
+    source_identity = _scene_state_source_manifest_identity(args)
+    if source_identity is None or source_identity.get("schema") != (
+        _SCENE_MEMORY_V8_SOURCE_SCHEMA
+    ):
+        return None
+    source_manifest_path = Path(str(source_identity["path"]))
+    source_manifest = _load_json_object(
+        source_manifest_path,
+        description="scene-state V8 source manifest",
+    )
+    unsigned_source = dict(source_manifest)
+    declared_source_hash = unsigned_source.pop("manifest_sha256", None)
+    if declared_source_hash != _canonical_json_sha256(unsigned_source):
+        raise ValueError("Scene-state V8 source-manifest canonical SHA-256 differs")
+    curriculum = source_manifest.get("v8_curriculum")
+    if not isinstance(curriculum, dict) or curriculum.get("schema") != (
+        _SCENE_MEMORY_V8_CURRICULUM_SCHEMA
+    ):
+        raise ValueError("Scene-state V8 source manifest has no valid curriculum")
+    if curriculum.get("parent_train32_sha256") != source_identity.get(
+        "train_file_sha256"
+    ):
+        raise ValueError("Scene-state V8 curriculum binds a different Train32")
+    train_rows = source_identity.get("train_rows")
+    if isinstance(train_rows, bool) or not isinstance(train_rows, int) or train_rows <= 0:
+        raise ValueError("Scene-state V8 source train-row count is invalid")
+
+    def resolve_artifact(
+        record: object,
+        *,
+        description: str,
+    ) -> tuple[Path, str]:
+        if not isinstance(record, dict):
+            raise ValueError(f"Scene-state V8 curriculum omits {description}")
+        raw_path = Path(str(record.get("path", ""))).expanduser()
+        path = (
+            raw_path
+            if raw_path.is_absolute()
+            else source_manifest_path.parent / raw_path
+        ).resolve()
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"Scene-state V8 {description} is invalid: {path}")
+        actual_sha256 = _sha256_file(path)
+        if record.get("sha256") != actual_sha256:
+            raise ValueError(f"Scene-state V8 {description} file SHA-256 differs")
+        return path, actual_sha256
+
+    schedule_record = curriculum.get("schedule")
+    schedule_path, schedule_file_sha256 = resolve_artifact(
+        schedule_record,
+        description="schedule",
+    )
+    if not isinstance(schedule_record, dict):
+        raise AssertionError("validated schedule record changed type")
+    schedule_lines = schedule_path.read_text(encoding="utf-8").splitlines()
+    if not schedule_lines or any(not line.strip() for line in schedule_lines):
+        raise ValueError("Scene-state V8 schedule contains blank rows")
+    schedule_entries: list[dict[str, object]] = []
+    schedule_indices: list[int] = []
+    for schedule_index, line in enumerate(schedule_lines):
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise ValueError(
+                f"Scene-state V8 schedule row {schedule_index} is invalid JSON"
+            ) from error
+        if not isinstance(entry, dict) or entry.get("schema") != (
+            _SCENE_MEMORY_V8_SCHEDULE_ENTRY_SCHEMA
+        ):
+            raise ValueError(
+                f"Scene-state V8 schedule row {schedule_index} schema differs"
+            )
+        unsigned_entry = dict(entry)
+        declared_entry_hash = unsigned_entry.pop("entry_sha256", None)
+        if declared_entry_hash != _canonical_json_sha256(unsigned_entry):
+            raise ValueError(
+                f"Scene-state V8 schedule row {schedule_index} SHA-256 differs"
+            )
+        ordinal = entry.get("train_row_ordinal")
+        if (
+            entry.get("schedule_index") != schedule_index
+            or entry.get("step") != schedule_index + 1
+            or isinstance(ordinal, bool)
+            or not isinstance(ordinal, int)
+            or not 0 <= ordinal < train_rows
+        ):
+            raise ValueError(
+                f"Scene-state V8 schedule row {schedule_index} indexing differs"
+            )
+        if entry.get("phase") not in {"value14", "balanced"} or entry.get(
+            "target_stratum"
+        ) not in _SCENE_STATE_IDENTITY_TARGET_STRATA:
+            raise ValueError(
+                f"Scene-state V8 schedule row {schedule_index} category differs"
+            )
+        schedule_entries.append(entry)
+        schedule_indices.append(ordinal)
+    entries_sha256 = _canonical_json_sha256(schedule_entries)
+    if (
+        schedule_record.get("rows") != len(schedule_entries)
+        or schedule_record.get("entries_sha256") != entries_sha256
+        or curriculum.get("total_steps") != len(schedule_entries)
+    ):
+        raise ValueError("Scene-state V8 schedule length or entries SHA-256 differs")
+
+    schedule_manifest_record = curriculum.get("schedule_manifest")
+    schedule_manifest_path, schedule_manifest_file_sha256 = resolve_artifact(
+        schedule_manifest_record,
+        description="schedule manifest",
+    )
+    if not isinstance(schedule_manifest_record, dict):
+        raise AssertionError("validated schedule-manifest record changed type")
+    schedule_manifest = _load_json_object(
+        schedule_manifest_path,
+        description="scene-state V8 schedule manifest",
+    )
+    if schedule_manifest.get("schema") != _SCENE_MEMORY_V8_SCHEDULE_MANIFEST_SCHEMA:
+        raise ValueError("Scene-state V8 schedule-manifest schema differs")
+    unsigned_manifest = dict(schedule_manifest)
+    declared_manifest_hash = unsigned_manifest.pop("manifest_sha256", None)
+    actual_manifest_hash = _canonical_json_sha256(unsigned_manifest)
+    if (
+        declared_manifest_hash != actual_manifest_hash
+        or schedule_manifest_record.get("manifest_sha256") != actual_manifest_hash
+    ):
+        raise ValueError("Scene-state V8 schedule-manifest canonical SHA-256 differs")
+    manifest_schedule = schedule_manifest.get("schedule")
+    manifest_curriculum = schedule_manifest.get("curriculum")
+    if (
+        not isinstance(manifest_schedule, dict)
+        or manifest_schedule.get("sha256") != schedule_file_sha256
+        or manifest_schedule.get("entries_sha256") != entries_sha256
+        or manifest_schedule.get("rows") != len(schedule_entries)
+        or not isinstance(manifest_curriculum, dict)
+        or manifest_curriculum.get("entries_sha256") != entries_sha256
+        or manifest_curriculum.get("total_steps") != len(schedule_entries)
+        or manifest_curriculum.get("checkpoint_steps")
+        != curriculum.get("checkpoint_steps")
+    ):
+        raise ValueError("Scene-state V8 schedule manifest differs from its binding")
+    return {
+        "schema": _SCENE_MEMORY_V8_CURRICULUM_SCHEMA,
+        "source_manifest_path": str(source_manifest_path),
+        "source_manifest_file_sha256": source_identity["file_sha256"],
+        "schedule_path": str(schedule_path),
+        "schedule_file_sha256": schedule_file_sha256,
+        "schedule_entries_sha256": entries_sha256,
+        "schedule_manifest_path": str(schedule_manifest_path),
+        "schedule_manifest_file_sha256": schedule_manifest_file_sha256,
+        "schedule_manifest_sha256": actual_manifest_hash,
+        "ordered_train_row_ordinals_sha256": manifest_schedule.get(
+            "ordered_train_row_ordinals_sha256"
+        ),
+        "total_steps": len(schedule_entries),
+        "checkpoint_steps": list(curriculum.get("checkpoint_steps", [])),
+        "value14_ordinals": list(curriculum.get("value14_ordinals", [])),
+        "indices": tuple(schedule_indices),
+    }
+
+
+def _scene_state_v8_curriculum_protocol_summary(
+    binding: dict[str, object],
+) -> dict[str, object]:
+    return {
+        key: value
+        for key, value in binding.items()
+        if key != "indices"
+    }
+
+
+def _validate_scene_state_v8_locked_training_args(
+    args: argparse.Namespace,
+    curriculum_binding: dict[str, object],
+) -> None:
+    expected_values = {
+        "training_mode": "episode",
+        "assistant_loss_mode": "final_assistant_only",
+        "episode_recent_messages": 0,
+        "max_length": 256,
+        "max_write_length": 2048,
+        "episode_read_write_enabled": False,
+        "memory_loss_mode": "scene_state_generation_ce",
+        "scene_state_generated_unlikelihood_weight": (
+            _SCENE_STATE_GENERATED_UNLIKELIHOOD_WEIGHT
+        ),
+        "scene_state_generated_unlikelihood_max_wrong_tokens": (
+            _SCENE_STATE_GENERATED_UNLIKELIHOOD_MAX_WRONG_TOKENS
+        ),
+        "scene_state_generated_rollout_extra_tokens": (
+            _SCENE_STATE_GENERATED_ROLLOUT_EXTRA_TOKENS
+        ),
+        "scene_state_generated_rollout_max_tokens": (
+            _SCENE_STATE_GENERATED_ROLLOUT_MAX_TOKENS
+        ),
+        "scene_boundary_payload_ce_weight": 0.0,
+        "memory_dropout_no_memory_prob": 0.0,
+        "memory_dropout_state_only_prob": 0.0,
+        "memory_base_kl_weight": 0.0,
+        "memory_contrast_weight": 0.0,
+        "memory_representation_weight": 0.0,
+        "memory_kl_weight": 0.0,
+        "memory_causal_weight": 0.0,
+        "memory_anchor_weight": 0.0,
+        "memory_recover_weight": 0.0,
+        "write_sparsity_weight": 0.0,
+        "memory_partition_alignment_weight": 0.0,
+        "memory_partition_entropy_weight": 0.0,
+        "memory_partition_balance_weight": 0.0,
+        "per_device_train_batch_size": 1,
+        "per_device_eval_batch_size": 1,
+        "gradient_accumulation_steps": 1,
+        "learning_rate": 2e-4,
+        "lr_scheduler_type": "constant_with_warmup",
+        "warmup_ratio": 0.0,
+        "warmup_steps": _SCENE_MEMORY_V8_WARMUP_STEPS,
+        "weight_decay": 0.0,
+        "optim": "adamw_torch_fused",
+        "num_train_epochs": 1.0,
+        "logging_steps": 1,
+        "save_total_limit": 1,
+        "validation_split_ratio": 0.0,
+        "load_best_model_at_end": False,
+        "dataset_num_proc": 1,
+        "dataloader_num_workers": 0,
+        "frozen_mlp_activation_checkpointing": True,
+        "seed": 42,
+        "data_seed": 42,
+        "train_sampler_seed": None,
+        "group_by_length": False,
+        "initial_adapter_output_dir": None,
+        "prepare_only": False,
+    }
+    mismatches = [
+        name
+        for name, expected in expected_values.items()
+        if getattr(args, name) != expected
+    ]
+    checkpoint_steps = curriculum_binding.get("checkpoint_steps")
+    if not isinstance(checkpoint_steps, list) or not checkpoint_steps:
+        raise ValueError("Scene-memory V8 curriculum has no checkpoint endpoints")
+    allowed_horizons = {1, *(int(step) for step in checkpoint_steps)}
+    if args.max_steps not in allowed_horizons:
+        mismatches.append("max_steps")
+    expected_save_steps = 1 if args.max_steps == 1 else 14
+    if args.save_steps != expected_save_steps:
+        mismatches.append("save_steps")
+
+    is_resume = args.resume_from_checkpoint is not None
+    if is_resume:
+        if args.warm_start_from_checkpoint is not None:
+            mismatches.append("warm_start_from_checkpoint")
+        if args.warm_start_mode is not None:
+            mismatches.append("warm_start_mode")
+        if args.resume_mode != "extend" or args.max_steps == 1:
+            mismatches.append("resume_mode")
+    else:
+        if args.warm_start_from_checkpoint is None:
+            mismatches.append("warm_start_from_checkpoint")
+        if args.warm_start_mode != _SCENE_V8_WARM_START_MODE:
+            mismatches.append("warm_start_mode")
+        if args.resume_mode != "exact":
+            mismatches.append("resume_mode")
+        if args.max_steps not in {1, int(checkpoint_steps[0])}:
+            mismatches.append("max_steps")
+    if mismatches:
+        raise ValueError(
+            "Scene-memory V8 locked training contract differs for: "
+            + ", ".join(sorted(set(mismatches)))
+        )
+
+
 def _scene_state_generation_pairing_binding(
     args: argparse.Namespace,
 ) -> dict[str, object]:
@@ -8065,10 +9576,12 @@ def _scene_state_generation_pairing_binding(
         source_manifest_path,
         description="scene-state V7 source manifest",
     )
-    if source_manifest.get("schema") != "rwkv_ms_scene_memory_v7_source.v1":
+    if source_manifest.get("schema") not in {
+        "rwkv_ms_scene_memory_v7_source.v1",
+        _SCENE_MEMORY_V8_SOURCE_SCHEMA,
+    }:
         raise ValueError(
-            "scene_state_generation_ce requires schema "
-            "rwkv_ms_scene_memory_v7_source.v1"
+            "scene_state_generation_ce requires a V7 or V8 scene-memory source schema"
         )
     binding = source_manifest.get("v7_pairing")
     if not isinstance(binding, dict) or binding.get("schema") != (
@@ -8569,6 +10082,30 @@ def parse_args() -> argparse.Namespace:
         help="Exact SHA-256 lock for --scene-state-source-manifest.",
     )
     parser.add_argument(
+        "--scene-state-generated-unlikelihood-weight",
+        type=float,
+        default=0.0,
+        help=(
+            "Weight for correct-state greedy generated-prefix unlikelihood on "
+            "same/cross-cardinality scene rows."
+        ),
+    )
+    parser.add_argument(
+        "--scene-state-generated-unlikelihood-max-wrong-tokens",
+        type=int,
+        default=_SCENE_STATE_GENERATED_UNLIKELIHOOD_MAX_WRONG_TOKENS,
+    )
+    parser.add_argument(
+        "--scene-state-generated-rollout-extra-tokens",
+        type=int,
+        default=_SCENE_STATE_GENERATED_ROLLOUT_EXTRA_TOKENS,
+    )
+    parser.add_argument(
+        "--scene-state-generated-rollout-max-tokens",
+        type=int,
+        default=_SCENE_STATE_GENERATED_ROLLOUT_MAX_TOKENS,
+    )
+    parser.add_argument(
         "--scene-boundary-payload-ce-weight",
         type=float,
         default=0.0,
@@ -8608,6 +10145,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--lr-scheduler-type", default="cosine")
     parser.add_argument("--warmup-ratio", type=float, default=0.10)
+    parser.add_argument(
+        "--warmup-steps",
+        type=int,
+        default=None,
+        help=(
+            "Use an exact number of optimizer warmup steps. Set --warmup-ratio 0 "
+            "when this override is supplied."
+        ),
+    )
     parser.add_argument("--weight-decay", type=float, default=0.0)
     parser.add_argument("--optim", default=default_optim)
     parser.add_argument("--num-train-epochs", type=float, default=1.0)
@@ -8744,6 +10290,41 @@ def parse_args() -> argparse.Namespace:
         or args.memory_representation_margin <= 0.0
     ):
         raise ValueError("memory-representation-margin must be finite and positive")
+    if (
+        not math.isfinite(args.scene_state_generated_unlikelihood_weight)
+        or args.scene_state_generated_unlikelihood_weight < 0.0
+    ):
+        raise ValueError(
+            "scene-state-generated-unlikelihood-weight must be finite and non-negative"
+        )
+    if args.scene_state_generated_unlikelihood_max_wrong_tokens <= 0:
+        raise ValueError(
+            "scene-state-generated-unlikelihood-max-wrong-tokens must be positive"
+        )
+    if args.scene_state_generated_rollout_extra_tokens < 0:
+        raise ValueError(
+            "scene-state-generated-rollout-extra-tokens must be non-negative"
+        )
+    if args.scene_state_generated_rollout_max_tokens <= 0:
+        raise ValueError(
+            "scene-state-generated-rollout-max-tokens must be positive"
+        )
+    if (
+        args.scene_state_generated_unlikelihood_weight > 0.0
+        and args.memory_loss_mode != "scene_state_generation_ce"
+    ):
+        raise ValueError(
+            "scene-state-generated-unlikelihood-weight requires "
+            "memory-loss-mode=scene_state_generation_ce"
+        )
+    if (
+        args.scene_state_generated_unlikelihood_weight > 0.0
+        and args.per_device_train_batch_size != 1
+    ):
+        raise ValueError(
+            "scene-state generated-prefix unlikelihood requires "
+            "per-device-train-batch-size=1"
+        )
     if args.rwkv_ms_output_init_scale < 0.0:
         raise ValueError("rwkv-ms-output-init-scale must be non-negative")
     if args.memory_base_kl_weight > 0.0 and args.memory_loss_mode != "context_dropout_ce":
@@ -12424,11 +14005,50 @@ def build_training_protocol(
     warmup_steps: int,
     content_contrast_pairing_manifest: dict[str, object] | None = None,
     scene_state_identity_pairing_manifest: dict[str, object] | None = None,
+    train_schedule_binding: dict[str, object] | None = None,
     tokenized_cache_identity: dict[str, object] | None = None,
 ) -> dict[str, object]:
     is_content_contrast = args.memory_loss_mode == "content_contrast_ce"
     is_scene_state_identity = args.memory_loss_mode == "scene_state_identity_ce"
     is_scene_state_generation = args.memory_loss_mode == "scene_state_generation_ce"
+    generated_unlikelihood_weight = float(
+        getattr(args, "scene_state_generated_unlikelihood_weight", 0.0)
+    )
+    generated_unlikelihood_max_wrong_tokens = int(
+        getattr(
+            args,
+            "scene_state_generated_unlikelihood_max_wrong_tokens",
+            _SCENE_STATE_GENERATED_UNLIKELIHOOD_MAX_WRONG_TOKENS,
+        )
+    )
+    generated_rollout_extra_tokens = int(
+        getattr(
+            args,
+            "scene_state_generated_rollout_extra_tokens",
+            _SCENE_STATE_GENERATED_ROLLOUT_EXTRA_TOKENS,
+        )
+    )
+    generated_rollout_max_tokens = int(
+        getattr(
+            args,
+            "scene_state_generated_rollout_max_tokens",
+            _SCENE_STATE_GENERATED_ROLLOUT_MAX_TOKENS,
+        )
+    )
+    uses_generated_unlikelihood = (
+        is_scene_state_generation
+        and generated_unlikelihood_weight > 0.0
+    )
+    scene_generation_schema_version = (
+        _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
+        if uses_generated_unlikelihood
+        else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+    )
+    scene_generation_objective_version = (
+        _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION
+        if uses_generated_unlikelihood
+        else _SCENE_STATE_GENERATION_OBJECTIVE_VERSION
+    )
     if tokenized_cache_identity is not None:
         if tokenized_cache_identity.get("rows") != len(tokenized):
             raise ValueError("Tokenized cache identity row count differs from the dataset")
@@ -12448,7 +14068,7 @@ def build_training_protocol(
                 _SCENE_STATE_IDENTITY_TRAINING_PROTOCOL_SCHEMA_VERSION
                 if is_scene_state_identity
                 else (
-                    _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+                    scene_generation_schema_version
                     if is_scene_state_generation
                     else _TRAINING_PROTOCOL_SCHEMA_VERSION
                 )
@@ -12461,7 +14081,7 @@ def build_training_protocol(
                 _SCENE_STATE_IDENTITY_OBJECTIVE_VERSION
                 if is_scene_state_identity
                 else (
-                    _SCENE_STATE_GENERATION_OBJECTIVE_VERSION
+                    scene_generation_objective_version
                     if is_scene_state_generation
                     else _MEMORY_OBJECTIVE_VERSION
                 )
@@ -12537,9 +14157,20 @@ def build_training_protocol(
         "data_seed": args.data_seed,
         "train_sampler_seed": getattr(args, "train_sampler_seed", None),
         "train_sampler_mode": (
-            _DEFAULT_TRAIN_SAMPLER_MODE
-            if getattr(args, "train_sampler_seed", None) is None
-            else _SEEDED_TRAIN_SAMPLER_MODE
+            _FIXED_TRAIN_SCHEDULE_SAMPLER_MODE
+            if train_schedule_binding is not None
+            else (
+                _DEFAULT_TRAIN_SAMPLER_MODE
+                if getattr(args, "train_sampler_seed", None) is None
+                else _SEEDED_TRAIN_SAMPLER_MODE
+            )
+        ),
+        "train_schedule": (
+            None
+            if train_schedule_binding is None
+            else _scene_state_v8_curriculum_protocol_summary(
+                train_schedule_binding
+            )
         ),
         "per_device_train_batch_size": args.per_device_train_batch_size,
         "per_device_eval_batch_size": (
@@ -12706,9 +14337,18 @@ def build_training_protocol(
                     "correct_source_vs_donor_two_token_ce + "
                     "donor_donor_vs_source_two_token_ce + "
                     "correct_vs_detached_zero_decision_margin_hinge(0.2)"
+                    + (
+                        " + "
+                        f"{generated_unlikelihood_weight} * "
+                        "correct_state_generated_prefix_unlikelihood"
+                        if uses_generated_unlikelihood
+                        else ""
+                    )
                 ),
                 "scene_generation_backward_mode": (
-                    _SCENE_STATE_GENERATION_BACKWARD_MODE
+                    _SCENE_STATE_GENERATED_UNLIKELIHOOD_BACKWARD_MODE
+                    if uses_generated_unlikelihood
+                    else _SCENE_STATE_GENERATION_BACKWARD_MODE
                 ),
                 "scene_generation_read_protocol": (
                     "exact_system_only_generation_prefix_same_read_correct_donor_zero_v1"
@@ -12731,6 +14371,39 @@ def build_training_protocol(
                 ),
                 "scene_generation_top1_margin": _SCENE_STATE_GENERATION_TOP1_MARGIN,
                 "scene_generation_zero_margin": _SCENE_STATE_GENERATION_ZERO_MARGIN,
+                "scene_generation_generated_unlikelihood_weight": (
+                    generated_unlikelihood_weight
+                ),
+                "scene_generation_generated_unlikelihood_mode": (
+                    _SCENE_STATE_GENERATED_UNLIKELIHOOD_MODE
+                    if uses_generated_unlikelihood
+                    else None
+                ),
+                "scene_generation_generated_unlikelihood_scope": (
+                    "same_and_cross_cardinality_value_rows_v1"
+                    if uses_generated_unlikelihood
+                    else None
+                ),
+                "scene_generation_generated_unlikelihood_max_wrong_tokens": (
+                    generated_unlikelihood_max_wrong_tokens
+                ),
+                "scene_generation_generated_rollout_extra_tokens": (
+                    generated_rollout_extra_tokens
+                ),
+                "scene_generation_generated_rollout_max_tokens": (
+                    generated_rollout_max_tokens
+                ),
+                "scene_generation_generated_rollout_decoding": (
+                    "greedy_use_cache_true_exact_system_only_prompt_v1"
+                    if uses_generated_unlikelihood
+                    else None
+                ),
+                "scene_generation_generated_replay_state_gradient": (
+                    True if uses_generated_unlikelihood else None
+                ),
+                "scene_generation_generated_replay_read_path_gradient": (
+                    True if uses_generated_unlikelihood else None
+                ),
                 "scene_generation_assistant_role_labels": False,
                 "scene_generation_zero_gradient": False,
                 "scene_generation_zero_affects_correct_gradient": True,
@@ -13457,10 +15130,28 @@ def build_data_collator(training_mode: str, tokenizer):
 
 def main() -> None:
     args = parse_args()
+    train_schedule_binding = _scene_state_v8_curriculum_binding(args)
+    if train_schedule_binding is not None:
+        _validate_scene_state_v8_locked_training_args(
+            args,
+            train_schedule_binding,
+        )
+        if args.train_sampler_seed is not None:
+            raise ValueError(
+                "Scene-memory V8 fixed curriculum forbids train-sampler-seed"
+            )
+        if args.group_by_length:
+            raise ValueError(
+                "Scene-memory V8 fixed curriculum forbids group-by-length"
+            )
+        if not 0 < args.max_steps <= int(train_schedule_binding["total_steps"]):
+            raise ValueError(
+                "Scene-memory V8 max-steps must stay within the locked curriculum"
+            )
     # Adapter and RWKV-core parameters are initialized before Trainer exists.
     set_seed(args.seed)
     if args.warm_start_from_checkpoint is not None:
-        _validate_residual_hybrid_w8_warm_start_args(args)
+        _validate_adapter_warm_start_args(args)
     if args.gradient_checkpointing:
         raise ValueError(
             "Gradient checkpointing is currently incompatible with Delta-Mem's stateful token updates. "
@@ -13490,7 +15181,8 @@ def main() -> None:
         ),
     )
     warm_start_from_checkpoint = resolve_adapter_warm_start_checkpoint(
-        args.warm_start_from_checkpoint
+        args.warm_start_from_checkpoint,
+        warm_start_mode=args.warm_start_mode,
     )
     warm_start_context = prepare_adapter_warm_start(
         args,
@@ -13501,12 +15193,22 @@ def main() -> None:
         if warm_start_context is not None
         else prepare_training_continuation(args, resume_from_checkpoint)
     )
+    if train_schedule_binding is not None and resume_from_checkpoint is not None:
+        continuation_manifest = prepare_scene_memory_v8_training_continuation(
+            continuation_manifest,
+            resume_from_checkpoint=resume_from_checkpoint,
+            checkpoint_steps=train_schedule_binding["checkpoint_steps"],
+        )
     dtype = get_dtype(args.dtype)
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     distributed = world_size > 1
     local_rank = int(os.environ.get("LOCAL_RANK", str(args.local_rank)))
     if args.train_sampler_seed is not None and distributed:
         raise ValueError("train-sampler-seed currently requires a single-process run")
+    if train_schedule_binding is not None and distributed:
+        raise ValueError(
+            "Scene-memory V8 fixed curriculum currently requires a single-process run"
+        )
     initial_adapter_output_dir = resolve_initial_adapter_output_dir(
         args,
         resume_from_checkpoint=resume_from_checkpoint,
@@ -13735,13 +15437,23 @@ def main() -> None:
         num_train_epochs=args.num_train_epochs,
         max_steps=args.max_steps,
         warmup_ratio=args.warmup_ratio,
+        explicit_warmup_steps=args.warmup_steps,
     )
     warmup_steps = resolve_resume_warmup_steps(
         warmup_steps,
         resume_from_checkpoint,
     )
     if (
+        train_schedule_binding is not None
+        and warmup_steps != _SCENE_MEMORY_V8_WARMUP_STEPS
+    ):
+        raise ValueError(
+            "Scene-memory V8 fixed curriculum requires exactly "
+            f"{_SCENE_MEMORY_V8_WARMUP_STEPS} warmup steps"
+        )
+    if (
         warm_start_context is not None
+        and warm_start_context.mode == _RESIDUAL_HYBRID_W8_WARM_START_MODE
         and warmup_steps != _RESIDUAL_HYBRID_W8_TARGET_WARMUP_STEPS
     ):
         raise ValueError("Residual-hybrid W8 warm start requires exactly 2 warmup steps")
@@ -13756,22 +15468,47 @@ def main() -> None:
         scene_state_identity_pairing_manifest=(
             scene_state_identity_pairing_manifest
         ),
+        train_schedule_binding=train_schedule_binding,
         tokenized_cache_identity=tokenized_meta.get("tokenized_cache_identity"),
     )
     training_protocol_sha256 = hashlib.sha256(
         json.dumps(training_protocol, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     if warm_start_context is not None:
-        validate_residual_hybrid_w8_target_protocol(
-            warm_start_context.source_protocol,
-            training_protocol,
-        )
-        if content_contrast_pairing_manifest is None:
-            raise RuntimeError("Residual-hybrid W8 warm start requires target pairing metadata")
-        finalize_adapter_warm_start_lineage(
-            warm_start_context,
-            target_training_protocol_sha256=training_protocol_sha256,
-            target_pairing_manifest=content_contrast_pairing_manifest,
+        if warm_start_context.mode == _RESIDUAL_HYBRID_W8_WARM_START_MODE:
+            validate_residual_hybrid_w8_target_protocol(
+                warm_start_context.source_protocol,
+                training_protocol,
+            )
+            if content_contrast_pairing_manifest is None:
+                raise RuntimeError(
+                    "Residual-hybrid W8 warm start requires target pairing metadata"
+                )
+            finalize_adapter_warm_start_lineage(
+                warm_start_context,
+                target_training_protocol_sha256=training_protocol_sha256,
+                target_pairing_manifest=content_contrast_pairing_manifest,
+            )
+        elif warm_start_context.mode == _SCENE_V8_WARM_START_MODE:
+            if scene_state_identity_pairing_manifest is None:
+                raise RuntimeError(
+                    "Scene V8 warm start requires scene-state pairing metadata"
+                )
+            finalize_scene_v8_warm_start_lineage(
+                warm_start_context,
+                target_training_protocol_sha256=training_protocol_sha256,
+                target_pairing_manifest=scene_state_identity_pairing_manifest,
+            )
+        else:
+            raise RuntimeError(
+                f"Unsupported adapter warm-start mode: {warm_start_context.mode}"
+            )
+    if train_schedule_binding is not None and resume_from_checkpoint is not None:
+        if continuation_manifest is None:
+            raise RuntimeError("Scene V8 resume continuation lineage is missing")
+        finalize_scene_memory_v8_training_continuation(
+            continuation_manifest,
+            target_training_protocol=training_protocol,
         )
     trainer_resume_from_checkpoint = resolve_trainer_resume_checkpoint(
         resume_from_checkpoint,
@@ -13922,6 +15659,24 @@ def main() -> None:
         memory_base_kl_weight=args.memory_base_kl_weight,
         scene_boundary_payload_ce_weight=args.scene_boundary_payload_ce_weight,
         train_sampler_seed=args.train_sampler_seed,
+        train_schedule_indices=(
+            None
+            if train_schedule_binding is None
+            else train_schedule_binding["indices"]
+        ),
+        train_schedule_binding=train_schedule_binding,
+        scene_state_generated_unlikelihood_weight=(
+            args.scene_state_generated_unlikelihood_weight
+        ),
+        scene_state_generated_unlikelihood_max_wrong_tokens=(
+            args.scene_state_generated_unlikelihood_max_wrong_tokens
+        ),
+        scene_state_generated_rollout_extra_tokens=(
+            args.scene_state_generated_rollout_extra_tokens
+        ),
+        scene_state_generated_rollout_max_tokens=(
+            args.scene_state_generated_rollout_max_tokens
+        ),
         episode_read_write_enabled=args.episode_read_write_enabled,
         context_ablation_mode=args.context_ablation_mode,
         context_ablation_no_state_prob=args.context_ablation_no_state_prob,
@@ -13936,6 +15691,14 @@ def main() -> None:
         continuation_manifest=continuation_manifest,
     )
     trainer.log_delta_debug_stats = args.log_delta_debug_stats
+    if (
+        warm_start_context is not None
+        and warm_start_context.mode == _SCENE_V8_WARM_START_MODE
+    ):
+        record_scene_v8_fresh_optimizer_lineage(
+            trainer,
+            warm_start_context,
+        )
     cuda_memory_device = None
     cuda_memory_baseline = None
     if torch.cuda.is_available():
@@ -13971,7 +15734,8 @@ def main() -> None:
 
     base_model = trainer.accelerator.unwrap_model(trainer.model)
     if trainer.is_world_process_zero():
-        active_lineage = getattr(trainer, "continuation_manifest", None)
+        lineage_summary = _training_lineage_summary(trainer)
+        active_lineage = lineage_summary["continuation"]
         save_delta_mem_adapter(base_model, args.output_dir, delta_config)
         (args.output_dir / _TRAINING_PROTOCOL_FILENAME).write_text(
             json.dumps(training_protocol, indent=2, sort_keys=True)
@@ -14002,8 +15766,7 @@ def main() -> None:
                 if initial_adapter_manifest is None
                 else initial_adapter_manifest["manifest_sha256"]
             ),
-            "continuation": active_lineage,
-            "resume_lineage": active_lineage,
+            **lineage_summary,
             "num_replaced_modules": len(replaced),
             "num_trainable_tensors": len(trainable_names),
             "num_checkpointed_frozen_mlps": len(checkpointed_frozen_mlps),
@@ -14017,6 +15780,7 @@ def main() -> None:
             "assistant_loss_mode": args.assistant_loss_mode,
             "train_sampler_seed": args.train_sampler_seed,
             "train_sampler_mode": training_protocol["train_sampler_mode"],
+            "train_schedule": training_protocol.get("train_schedule"),
             "episode_recent_messages": args.episode_recent_messages,
             "max_write_length": args.max_write_length,
             "episode_read_write_enabled": args.episode_read_write_enabled,
@@ -14073,6 +15837,18 @@ def main() -> None:
             "memory_dropout_no_memory_prob": args.memory_dropout_no_memory_prob,
             "memory_dropout_state_only_prob": args.memory_dropout_state_only_prob,
             "memory_base_kl_weight": args.memory_base_kl_weight,
+            "scene_state_generated_unlikelihood_weight": (
+                args.scene_state_generated_unlikelihood_weight
+            ),
+            "scene_state_generated_unlikelihood_max_wrong_tokens": (
+                args.scene_state_generated_unlikelihood_max_wrong_tokens
+            ),
+            "scene_state_generated_rollout_extra_tokens": (
+                args.scene_state_generated_rollout_extra_tokens
+            ),
+            "scene_state_generated_rollout_max_tokens": (
+                args.scene_state_generated_rollout_max_tokens
+            ),
             "context_ablation_mode": args.context_ablation_mode,
             "context_ablation_no_state_prob": args.context_ablation_no_state_prob,
             "context_ablation_state_only_prob": args.context_ablation_state_only_prob,

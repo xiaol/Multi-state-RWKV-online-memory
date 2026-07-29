@@ -1,0 +1,102 @@
+{
+  "benchmark": {
+    "memory_relevant_task_family": "scene_boundary_detection",
+    "selected_task": "scene-v4-current",
+    "selection_rule": "lowest_base_strict_f1_among_schema_compatible_scene_tasks",
+    "task_kind": "scene"
+  },
+  "hardest_task_evidence": {
+    "excluded_schema_incompatible_tasks": {
+      "attribution-v3.2": "different_output_schema_not_paired_to_scene_memory_training",
+      "narrative-v3.2": "different_output_schema_not_paired_to_scene_memory_training"
+    },
+    "full_evaluation_summary": {
+      "complete": true,
+      "evaluation_fingerprint": "319b969492f02cbae7880af177ea1b5bb443435c1854a799fef1b7bd402a7111",
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/eval_novel_agent_native_full_v1/summary.json",
+      "sha256": "c6f6d5f5ccb45d84f041f68fd7464015a2287fad81ecefc6f6373e8358e6ca48"
+    },
+    "schema_compatible_scene_tasks": {
+      "scene-v3.2": {
+        "base_strict_f1": 0.3111111111111111,
+        "normal_strict_f1": 0.14285714285714285
+      },
+      "scene-v4-current": {
+        "base_strict_f1": 0.03571428571428571,
+        "normal_strict_f1": 0.07228915662650602,
+        "rows": 149
+      }
+    }
+  },
+  "protected_benchmark": {
+    "authorization_scope": "fixed_scene_v4_current_hard32_only_no_full170_no_test_no_other_benchmarks",
+    "full170_authorized": false,
+    "holdout_path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/holdout.jsonl",
+    "holdout_sha256": "b5b1137de89f82eee4b3ae3e3c7b5305240699ec7b65e84b61cb415a7a000d4a",
+    "official_dataset_revision": "5d3040d21f51b3ce90b9396b058e552c47f43cd5",
+    "official_val_path": "/run/media/xiaol/B214449214445C0B/datasets/novel-agent-sft-dataset/training/v4-scene-boundary-detection/val.jsonl",
+    "official_val_sha256": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513",
+    "other_benchmarks_authorized": false,
+    "pair_manifest_sha256": "2ceb291b9c21063164e30ca0b8b052798f8ba42d9a089a5abc78d1cb321dc008",
+    "rows": 32,
+    "selection_path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/pairs_candidate64_failure32_holdout32_v1/holdout_source_indices.json",
+    "selection_sha256": "76d510e5f02c30f2cf3a0262cc4c97d69ef8f52861e9ced855d530b233d916db",
+    "split": "val",
+    "test_authorized": false
+  },
+  "root_checkpoint_train32_baseline": {
+    "checkpoint_step": 256,
+    "role": "warm_start_baseline_that_cannot_pass_v8_gate",
+    "train32": {
+      "state_only_strict_exact_rows": 12,
+      "state_only_strict_f1": 0.21428571428571427,
+      "state_only_donor_current_strict_f1": 0.07142857142857142,
+      "state_only_no_write_strict_f1": 0.0
+    },
+    "v7_checkpoint_lock_path": "/home/xiaol/X/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/scene_memory_v8_v7_checkpoint256_lock.json",
+    "v7_checkpoint_lock_sha256": "530d192a03b2be977df77df6c0f337cd4dd5331d84a91457dfea1199d09c4d3c",
+    "value14": {
+      "ordinals": [
+        1,
+        3,
+        5,
+        9,
+        10,
+        14,
+        19,
+        20,
+        22,
+        23,
+        24,
+        26,
+        28,
+        31
+      ],
+      "state_only_fn": 16,
+      "state_only_fp": 12,
+      "state_only_strict_exact_rows": 2,
+      "state_only_strict_f1": 0.17647058823529413,
+      "state_only_tp": 3,
+      "state_only_donor_current_strict_exact_rows": 1,
+      "state_only_no_write_strict_exact_rows": 0
+    }
+  },
+  "schema": "rwkv_ms_scene_memory_v8_benchmark_selection_lock.v1",
+  "training_pairing": {
+    "criterion": "canonical_greedy_generation_plus_first_pair_distinguishing_token_identity",
+    "first_authorizable_checkpoint_step": 56,
+    "locked_checkpoint_steps": [
+      14,
+      28,
+      42,
+      56,
+      80,
+      104,
+      128,
+      152
+    ],
+    "train_rows": 32,
+    "value14_steps_before_first_gate": 56
+  },
+  "lock_sha256": "a96c79426c61f64e04566ac6c10fb0bc38c7a1cea1a64d31ab4c8966f8c22da8"
+}

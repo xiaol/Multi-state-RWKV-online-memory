@@ -1193,9 +1193,14 @@ def test_teacher_forced_semantic_nll_scores_only_decision_targets(
     ]
     assert result["pair_target"]["selected_target_token_ids"] == [ord("2")]
     assert result["pair_target"]["donor_target_token_ids"] == [ord("3")]
+    assert result["pair_target"]["alternative_target_token_ids"] == [ord("3")]
     assert result["pair_target"]["first_differing_semantic_ordinal"] == 1
     assert result["all_semantic"]["mean_nll"] < 0.1
     assert result["pair_target"]["mean_nll"] < 0.1
+    assert result["pair_target"]["alternative_target_mean_nll"] > 7.0
+    assert (
+        result["pair_target"]["selected_over_alternative_logprob_margin"] > 7.0
+    )
 
 
 def test_pair_target_rejects_an_earlier_nonsemantic_prefix_difference() -> None:

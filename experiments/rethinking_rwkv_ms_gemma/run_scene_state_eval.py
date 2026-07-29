@@ -24,7 +24,7 @@ import re
 import subprocess
 import sys
 import time
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -76,6 +76,11 @@ HISTORICAL_V6_HARD32_RECEIPT_SCHEMA = (
 )
 HISTORICAL_V6_HARD32_AUTHORIZATION_SCOPE = (
     "diagnostic_fixed_hard32_only_no_full170_no_test"
+)
+SCENE_V8_HARD32_CONTRACT = "scene_v8_authorized_hard32"
+SCENE_V8_TRAIN32_AUTHORIZATION_KIND = "scene_memory_v8_train32_gate_receipt"
+SCENE_V8_HARD32_AUTHORIZATION_SCOPE = (
+    "fixed_scene_v4_current_hard32_only_no_full170_no_test_no_other_benchmarks"
 )
 HISTORICAL_V6_LINEAGE_LIMITATION = (
     "This historical training run predates commit-bound source locks and atomic "
@@ -159,6 +164,7 @@ HARD32_FROZEN_DONOR_STRATUM_ROWS = {
 EVALUATION_CONTRACTS = (
     "generic",
     "scene_v6_identity_hard32",
+    SCENE_V8_HARD32_CONTRACT,
     "scene_v6_matched_donor_validation",
     HISTORICAL_V6_HARD32_CONTRACT,
 )
@@ -237,6 +243,22 @@ SCENE_V7_HARD32_OBJECTIVE_INTERPRETATION = {
     "donor_training_role": "two_token_source_donor_identity_classification",
     "zero_training_role": "detached_decision_margin_hinge",
     "hard32_role": "fixed_confirmatory_evaluation_only",
+}
+SCENE_V8_HARD32_OBJECTIVE_INTERPRETATION = {
+    "objective_version": (
+        "scene_state_generation_ce_generated_prefix_unlikelihood_v2"
+    ),
+    "training_objective": (
+        "weighted_generation_plus_pair_identity_zero_causal_plus_"
+        "edit_aligned_generated_prefix_unlikelihood"
+    ),
+    "train32_gate": (
+        "value14_canonical_generation_and_first_pair_distinguishing_token_identity"
+    ),
+    "hard32_role": "fixed_confirmatory_evaluation_only",
+    "full170_authorized": False,
+    "test_authorized": False,
+    "other_benchmarks_authorized": False,
 }
 HARD32_GATE_REQUIREMENTS = {
     "semantic_advantage_positive_rows": 20,
@@ -413,6 +435,15 @@ def parse_args() -> argparse.Namespace:
             "checkpoint for the fixed scene_v6_identity_hard32 evaluation only."
         ),
     )
+    parser.add_argument(
+        "--scene-v8-train32-receipt",
+        type=Path,
+        help=(
+            "Passed Scene-Memory V8 Train32 value/causal gate receipt required "
+            "for scene_v8_authorized_hard32. It authorizes only the exact "
+            "checkpoint and frozen Hard32."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -429,6 +460,27 @@ def validate_scene_v7_train32_receipt_scope(
             "--scene-v7-train32-receipt is accepted only by "
             "scene_v6_identity_hard32"
         )
+
+
+def validate_scene_v8_train32_receipt_scope(
+    *,
+    evaluation_contract: str,
+    receipt_path: Path | None,
+) -> None:
+    if receipt_path is not None and evaluation_contract != SCENE_V8_HARD32_CONTRACT:
+        raise ValueError(
+            "--scene-v8-train32-receipt is accepted only by "
+            f"{SCENE_V8_HARD32_CONTRACT}"
+        )
+    if evaluation_contract == SCENE_V8_HARD32_CONTRACT and receipt_path is None:
+        raise ValueError(
+            f"{SCENE_V8_HARD32_CONTRACT} requires --scene-v8-train32-receipt"
+        )
+
+
+def is_identity_hard32_contract(contract: str | Mapping[str, Any]) -> bool:
+    name = contract.get("name") if isinstance(contract, Mapping) else contract
+    return name in {"scene_v6_identity_hard32", SCENE_V8_HARD32_CONTRACT}
 
 
 def parse_row_indices(raw: str) -> list[int]:
@@ -950,6 +1002,7 @@ def validate_scene_v6_matched_donor_contract(
     memory_backend: str,
     selection_manifest_sha256: str | None = None,
     hard32_receipt_authorization: dict[str, Any] | None = None,
+    scene_v8_train32_authorization: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if contract not in EVALUATION_CONTRACTS:
         raise ValueError(f"Unsupported scene-state evaluation contract: {contract}")
@@ -972,19 +1025,20 @@ def validate_scene_v6_matched_donor_contract(
             memory_backend=memory_backend,
             selection_manifest_sha256=selection_manifest_sha256,
         )
-    if contract == "scene_v6_identity_hard32":
+    identity_hard32 = is_identity_hard32_contract(contract)
+    if identity_hard32:
         if row_indices != list(HARD32_ROW_INDICES):
             raise ValueError(
-                "scene_v6_identity_hard32 requires the authoritative fixed 32-row "
+                f"{contract} requires the authoritative fixed 32-row "
                 "validation selection in source order"
             )
         if expected_hashes != HARD32_ROW_HASHES:
             raise ValueError(
-                "scene_v6_identity_hard32 requires every authoritative fixed row hash"
+                f"{contract} requires every authoritative fixed row hash"
             )
         if selection_manifest_sha256 != HARD32_SELECTION_SHA256:
             raise ValueError(
-                "scene_v6_identity_hard32 requires the authoritative selection manifest"
+                f"{contract} requires the authoritative selection manifest"
             )
     elif row_indices != list(range(170)):
         raise ValueError(
@@ -1008,7 +1062,7 @@ def validate_scene_v6_matched_donor_contract(
         )
     expected_conditions = (
         list(CONDITIONS)
-        if contract == "scene_v6_identity_hard32"
+        if identity_hard32
         else ["state_only", "state_only_donor"]
     )
     if conditions != expected_conditions:
@@ -1065,12 +1119,17 @@ def validate_scene_v6_matched_donor_contract(
             "scene_v6_matched_donor_validation requires a passed hard32 receipt "
             "binding this checkpoint"
         )
+    if contract == SCENE_V8_HARD32_CONTRACT and scene_v8_train32_authorization is None:
+        raise ValueError(
+            f"{SCENE_V8_HARD32_CONTRACT} requires a passing V8 Train32 gate "
+            "receipt binding this checkpoint"
+        )
     return {
         "name": contract,
         "phase": "validation_selection",
         "split": "val",
         "task": TASK_NAME,
-        "rows": 32 if contract == "scene_v6_identity_hard32" else 170,
+        "rows": 32 if identity_hard32 else 170,
         "conditions": list(conditions),
         "donor_rule": donor_rule,
         "max_new_tokens": DEFAULT_MAX_NEW_TOKENS,
@@ -1086,25 +1145,35 @@ def validate_scene_v6_matched_donor_contract(
         "test_selection_forbidden": True,
         "authoritative_selection_sha256": (
             HARD32_SELECTION_SHA256
-            if contract == "scene_v6_identity_hard32"
+            if identity_hard32
             else None
         ),
         "authoritative_holdout_sha256": (
             HARD32_HOLDOUT_SHA256
-            if contract == "scene_v6_identity_hard32"
+            if identity_hard32
             else None
         ),
         "authoritative_pair_manifest_sha256": (
             HARD32_PAIR_MANIFEST_SHA256
-            if contract == "scene_v6_identity_hard32"
+            if identity_hard32
             else None
         ),
         "gate_requirements": (
             dict(HARD32_GATE_REQUIREMENTS)
-            if contract == "scene_v6_identity_hard32"
+            if identity_hard32
             else None
         ),
         "hard32_receipt_authorization": hard32_receipt_authorization,
+        "scene_v8_train32_authorization": scene_v8_train32_authorization,
+        "authorization_scope": (
+            SCENE_V8_HARD32_AUTHORIZATION_SCOPE
+            if contract == SCENE_V8_HARD32_CONTRACT
+            else None
+        ),
+        "full170_authorized": False if contract == SCENE_V8_HARD32_CONTRACT else None,
+        "other_benchmarks_authorized": (
+            False if contract == SCENE_V8_HARD32_CONTRACT else None
+        ),
     }
 
 
@@ -1821,6 +1890,7 @@ def semantic_decision_nll_from_current_state(
         *,
         mask_mode: str,
         normalization: str,
+        alternative_target_token_ids: list[int] | None = None,
         extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         target_positions = torch.tensor(positions, device=logits.device)
@@ -1834,6 +1904,37 @@ def semantic_decision_nll_from_current_state(
         )
         if not bool(torch.isfinite(token_nll).all().item()):
             raise ValueError("Scene semantic decision NLL is non-finite")
+        alternative_metrics: dict[str, Any] = {}
+        if alternative_target_token_ids is not None:
+            if len(alternative_target_token_ids) != len(positions) or any(
+                isinstance(value, bool) or not isinstance(value, int) or value < 0
+                for value in alternative_target_token_ids
+            ):
+                raise ValueError(
+                    "Scene semantic alternative targets do not align to selected logits"
+                )
+            alternative_targets = torch.tensor(
+                alternative_target_token_ids,
+                dtype=selected_targets.dtype,
+                device=selected_targets.device,
+            )
+            alternative_nll = F.cross_entropy(
+                selected_logits,
+                alternative_targets,
+                reduction="none",
+            )
+            if not bool(torch.isfinite(alternative_nll).all().item()):
+                raise ValueError("Scene semantic alternative-target NLL is non-finite")
+            alternative_metrics = {
+                "alternative_target_token_ids": list(alternative_target_token_ids),
+                "alternative_target_nll_sum": float(alternative_nll.sum().item()),
+                "alternative_target_mean_nll": float(
+                    alternative_nll.mean().item()
+                ),
+                "selected_over_alternative_logprob_margin": float(
+                    (alternative_nll - token_nll).mean().item()
+                ),
+            }
         return {
             "mask_mode": mask_mode,
             "normalization": normalization,
@@ -1845,6 +1946,7 @@ def semantic_decision_nll_from_current_state(
             "nll_sum": float(token_nll.sum().item()),
             "mean_nll": float(token_nll.mean().item()),
             "read_rendered_sha256": sha256_text(features["rendered"]),
+            **alternative_metrics,
             **(extra or {}),
         }
 
@@ -1855,10 +1957,12 @@ def semantic_decision_nll_from_current_state(
     )
     pair_positions = pair_target.pop("selected_target_positions")
     pair_target.pop("selected_target_token_ids")
+    donor_target_token_ids = list(pair_target["donor_target_token_ids"])
     pair = selected_nll(
         pair_positions,
         mask_mode=PAIR_TARGET_DECISION_MASK_MODE,
         normalization=PAIR_TARGET_DECISION_NLL_NORMALIZATION,
+        alternative_target_token_ids=donor_target_token_ids,
         extra=pair_target,
     )
     return {"all_semantic": all_semantic, "pair_target": pair}
@@ -2966,8 +3070,9 @@ def build_scene_v6_identity_hard32_gate(
     semantic_evidence: dict[str, Any],
     contract: dict[str, Any],
 ) -> dict[str, Any]:
-    if contract.get("name") != "scene_v6_identity_hard32":
+    if not is_identity_hard32_contract(contract):
         return {"status": "not_requested", "contract": contract}
+    fixed_scope_only = contract.get("name") == SCENE_V8_HARD32_CONTRACT
     state = summaries["state_only"]
     normal = summaries["normal_full"]
     base = summaries["base_full"]
@@ -3124,7 +3229,11 @@ def build_scene_v6_identity_hard32_gate(
             for condition in CONDITIONS
         },
         "all_gates_passed": passed,
-        "full170_authorized_for_bound_checkpoint": passed,
+        "full170_authorized_for_bound_checkpoint": passed and not fixed_scope_only,
+        "authorization_scope": (
+            SCENE_V8_HARD32_AUTHORIZATION_SCOPE if fixed_scope_only else None
+        ),
+        "other_benchmarks_authorized": False if fixed_scope_only else None,
         "test_selection_forbidden": True,
     }
 
@@ -3136,6 +3245,7 @@ def build_scene_v6_matched_donor_gate(
     if contract.get("name") in {
         "generic",
         "scene_v6_identity_hard32",
+        SCENE_V8_HARD32_CONTRACT,
         HISTORICAL_V6_HARD32_CONTRACT,
     }:
         return {"status": "not_requested", "contract": contract}
@@ -3434,7 +3544,7 @@ def build_hard32_receipt(
     memory_dir: Path,
     conditions: list[str],
 ) -> dict[str, Any]:
-    if contract.get("name") != "scene_v6_identity_hard32":
+    if not is_identity_hard32_contract(contract):
         raise ValueError("Hard32 receipt requires the protected hard32 contract")
     if conditions != list(CONDITIONS):
         raise ValueError("Hard32 receipt requires all six protected conditions")
@@ -3447,10 +3557,19 @@ def build_hard32_receipt(
         candidate_lineage.get("lineage_kind")
         == SCENE_V7_TRAIN32_AUTHORIZATION_KIND
     )
+    is_v8_authorized = (
+        candidate_lineage.get("lineage_kind")
+        == SCENE_V8_TRAIN32_AUTHORIZATION_KIND
+    )
     receipt_gate = copy.deepcopy(gate)
-    if is_v7_authorized:
+    if is_v7_authorized or is_v8_authorized:
         receipt_gate["full170_authorized_for_bound_checkpoint"] = False
-        receipt_gate["authorization_scope"] = "fixed_hard32_only_no_full170"
+        receipt_gate["authorization_scope"] = (
+            SCENE_V8_HARD32_AUTHORIZATION_SCOPE
+            if is_v8_authorized
+            else "fixed_hard32_only_no_full170"
+        )
+        receipt_gate["other_benchmarks_authorized"] = False
     output_bindings = {
         "manifest": file_binding(output_dir / "manifest.json"),
         "summary": file_binding(output_dir / "summary.json"),
@@ -3472,18 +3591,31 @@ def build_hard32_receipt(
             "candidate_lineage": candidate_lineage,
         },
         "objective_interpretation": (
-            SCENE_V7_HARD32_OBJECTIVE_INTERPRETATION
-            if is_v7_authorized
-            else SCENE_V6_IDENTITY_OBJECTIVE_INTERPRETATION
+            SCENE_V8_HARD32_OBJECTIVE_INTERPRETATION
+            if is_v8_authorized
+            else (
+                SCENE_V7_HARD32_OBJECTIVE_INTERPRETATION
+                if is_v7_authorized
+                else SCENE_V6_IDENTITY_OBJECTIVE_INTERPRETATION
+            )
         ),
         **(
             {
-                "authorization_scope": "fixed_hard32_only_no_full170",
-                "upstream_authorization_kind": (
-                    SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+                "authorization_scope": (
+                    SCENE_V8_HARD32_AUTHORIZATION_SCOPE
+                    if is_v8_authorized
+                    else "fixed_hard32_only_no_full170"
                 ),
+                "upstream_authorization_kind": (
+                    SCENE_V8_TRAIN32_AUTHORIZATION_KIND
+                    if is_v8_authorized
+                    else SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+                ),
+                "full170_authorized": False,
+                "test_authorized": False,
+                "other_benchmarks_authorized": False,
             }
-            if is_v7_authorized
+            if is_v7_authorized or is_v8_authorized
             else {}
         ),
         "dataset": {
@@ -3627,6 +3759,74 @@ def validate_scene_v7_train32_hard32_authorization(
     }
 
 
+def validate_scene_v8_train32_hard32_authorization(
+    receipt_path: Path,
+    *,
+    memory_dir: Path,
+    dataset_file: Path,
+    selection_file: Path | None,
+) -> dict[str, Any]:
+    """Authorize only fixed Hard32 after the exact V8 checkpoint gate passes.
+
+    Receipt and checkpoint validation intentionally happens before any call that
+    resolves, opens, or hashes the official validation/Hard32 artifacts.
+    """
+
+    from experiments.rethinking_rwkv_ms_gemma import (  # lazy circular import
+        run_scene_memory_v8_gate as v8,
+    )
+
+    validated = v8.validate_gate_receipt_for_checkpoint(
+        receipt_path,
+        memory_dir=memory_dir,
+    )
+    if selection_file is None:
+        raise ValueError(
+            f"{SCENE_V8_HARD32_CONTRACT} requires the frozen selection file"
+        )
+
+    # Protected files are touched only after all train-derived authorization
+    # evidence above has passed.
+    hard32 = validate_historical_v6_hard32_artifacts(
+        dataset_file=dataset_file,
+        selection_file=selection_file,
+    )
+    protected = validated["benchmark_selection_lock"]["protected_benchmark"]
+    expected = {
+        "official_val_sha256": OFFICIAL_SCENE_V4_VAL_SHA256,
+        "selection_sha256": HARD32_SELECTION_SHA256,
+        "holdout_sha256": HARD32_HOLDOUT_SHA256,
+        "pair_manifest_sha256": HARD32_PAIR_MANIFEST_SHA256,
+        "rows": 32,
+        "authorization_scope": SCENE_V8_HARD32_AUTHORIZATION_SCOPE,
+        "full170_authorized": False,
+        "test_authorized": False,
+        "other_benchmarks_authorized": False,
+    }
+    mismatches = [name for name, value in expected.items() if protected.get(name) != value]
+    if mismatches:
+        raise ValueError(
+            "V8 receipt frozen Hard32 binding differs: " + ", ".join(mismatches)
+        )
+    return {
+        "authorization_kind": SCENE_V8_TRAIN32_AUTHORIZATION_KIND,
+        "contract": v8.GATE_CONTRACT,
+        "scope": SCENE_V8_HARD32_AUTHORIZATION_SCOPE,
+        "receipt": {
+            "path": validated["receipt_path"],
+            "file_sha256": validated["receipt_file_sha256"],
+            "payload_sha256": validated["receipt_sha256"],
+            "evaluation_fingerprint": validated["evaluation_fingerprint"],
+        },
+        "checkpoint": validated["checkpoint"],
+        "benchmark_selection_lock": validated["benchmark_selection_lock"],
+        "frozen_hard32": hard32,
+        "full170_authorized": False,
+        "test_authorized": False,
+        "other_benchmarks_authorized": False,
+    }
+
+
 def validate_hard32_pass_receipt(
     receipt_path: Path,
     *,
@@ -3647,15 +3847,22 @@ def validate_hard32_pass_receipt(
         checkpoint.get("candidate_lineage") if isinstance(checkpoint, dict) else None
     )
     if (
-        receipt.get("authorization_scope") == "fixed_hard32_only_no_full170"
+        receipt.get("authorization_scope")
+        in {
+            "fixed_hard32_only_no_full170",
+            SCENE_V8_HARD32_AUTHORIZATION_SCOPE,
+        }
         or (
             isinstance(candidate_lineage, dict)
             and candidate_lineage.get("lineage_kind")
-            == SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+            in {
+                SCENE_V7_TRAIN32_AUTHORIZATION_KIND,
+                SCENE_V8_TRAIN32_AUTHORIZATION_KIND,
+            }
         )
     ):
         raise ValueError(
-            "A V7 Train32-authorized Hard32 receipt does not authorize full170"
+            "A Train32-authorized fixed-Hard32 receipt does not authorize full170"
         )
     if (
         receipt.get("objective_interpretation")
@@ -4271,16 +4478,35 @@ def main() -> None:
     )
     args.memory_dir = args.memory_dir.expanduser().resolve()
     args.output_dir = args.output_dir.expanduser().resolve()
-    if args.row_indices_file is not None:
+    v8_hard32_requested = args.evaluation_contract == SCENE_V8_HARD32_CONTRACT
+    if args.row_indices_file is not None and not v8_hard32_requested:
         args.row_indices_file = args.row_indices_file.expanduser().resolve()
     if args.hard32_receipt is not None:
         args.hard32_receipt = args.hard32_receipt.expanduser().resolve()
     if args.scene_v7_train32_receipt is not None:
         args.scene_v7_train32_receipt = args.scene_v7_train32_receipt.expanduser()
+    if args.scene_v8_train32_receipt is not None:
+        args.scene_v8_train32_receipt = args.scene_v8_train32_receipt.expanduser()
     validate_scene_v7_train32_receipt_scope(
         evaluation_contract=args.evaluation_contract,
         receipt_path=args.scene_v7_train32_receipt,
     )
+    validate_scene_v8_train32_receipt_scope(
+        evaluation_contract=args.evaluation_contract,
+        receipt_path=args.scene_v8_train32_receipt,
+    )
+    scene_v8_train32_authorization = None
+    if v8_hard32_requested:
+        scene_v8_train32_authorization = (
+            validate_scene_v8_train32_hard32_authorization(
+                args.scene_v8_train32_receipt,
+                memory_dir=args.memory_dir,
+                dataset_file=args.dataset_file,
+                selection_file=args.row_indices_file,
+            )
+        )
+        if args.row_indices_file is not None:
+            args.row_indices_file = args.row_indices_file.expanduser().resolve()
     if args.max_new_tokens <= 0:
         raise ValueError("--max-new-tokens must be positive")
     dataset_file = resolve_validation_dataset_file(args.dataset_file)
@@ -4291,7 +4517,12 @@ def main() -> None:
     )
     memory_architecture = memory_architecture_contract(args.memory_dir)
     scene_v7_train32_authorization = None
-    if args.scene_v7_train32_receipt is not None:
+    if scene_v8_train32_authorization is not None:
+        candidate_lineage = {
+            "lineage_kind": SCENE_V8_TRAIN32_AUTHORIZATION_KIND,
+            "authorization": scene_v8_train32_authorization,
+        }
+    elif args.scene_v7_train32_receipt is not None:
         scene_v7_train32_authorization = (
             validate_scene_v7_train32_hard32_authorization(
                 args.scene_v7_train32_receipt,
@@ -4359,6 +4590,7 @@ def main() -> None:
         memory_backend=memory_architecture["memory_backend"],
         selection_manifest_sha256=selection_manifest_sha256,
         hard32_receipt_authorization=hard32_receipt_authorization,
+        scene_v8_train32_authorization=scene_v8_train32_authorization,
     )
     if args.evaluation_contract == "generic" and len(row_indices) > MAX_SELECTED_ROWS:
         raise ValueError(
@@ -4405,7 +4637,7 @@ def main() -> None:
             )
             annotate_write_token_counts(samples, donor_tokenizer)
             del donor_tokenizer
-            if args.evaluation_contract == "scene_v6_identity_hard32":
+            if is_identity_hard32_contract(args.evaluation_contract):
                 donor_by_index = build_frozen_hard32_donor_mapping(samples)
             else:
                 donor_by_index = build_length_matched_label_distinct_donor_mapping(
@@ -4545,7 +4777,7 @@ def main() -> None:
             fingerprint=fingerprint,
             max_new_tokens=args.max_new_tokens,
             require_semantic_nll=(
-                args.evaluation_contract == "scene_v6_identity_hard32"
+                is_identity_hard32_contract(args.evaluation_contract)
             ),
         )
 
@@ -4588,8 +4820,7 @@ def main() -> None:
                         max_new_tokens=args.max_new_tokens,
                         device=args.device,
                         collect_semantic_nll=(
-                            args.evaluation_contract
-                            == "scene_v6_identity_hard32"
+                            is_identity_hard32_contract(args.evaluation_contract)
                         ),
                     )
                     record = {
@@ -4647,12 +4878,12 @@ def main() -> None:
     comparisons = build_comparisons(summaries)
     semantic_evidence = (
         build_semantic_decision_evidence(ordered_records)
-        if args.evaluation_contract == "scene_v6_identity_hard32"
+        if is_identity_hard32_contract(args.evaluation_contract)
         else None
     )
     base_outcome_evidence = (
         build_base_outcome_evidence(ordered_records)
-        if args.evaluation_contract == "scene_v6_identity_hard32"
+        if is_identity_hard32_contract(args.evaluation_contract)
         else None
     )
     hard32_gate = (
@@ -4662,7 +4893,7 @@ def main() -> None:
             semantic_evidence=semantic_evidence,
             contract=evaluation_contract,
         )
-        if args.evaluation_contract == "scene_v6_identity_hard32"
+        if is_identity_hard32_contract(args.evaluation_contract)
         else {"status": "not_requested", "contract": evaluation_contract}
     )
     historical_v6_evidence = (
@@ -4718,7 +4949,7 @@ def main() -> None:
             "updated_at": utc_now(),
         },
     )
-    if args.evaluation_contract == "scene_v6_identity_hard32":
+    if is_identity_hard32_contract(args.evaluation_contract):
         if args.row_indices_file is None:
             raise AssertionError("Protected hard32 contract requires a selection file")
         receipt = build_hard32_receipt(

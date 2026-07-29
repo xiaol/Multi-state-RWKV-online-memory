@@ -1854,6 +1854,26 @@ def test_warm_start_uses_fresh_step_zero_optimizer_and_two_step_warmup(
     ) == 2
 
 
+def test_explicit_warmup_steps_are_horizon_independent() -> None:
+    common = {
+        "train_samples": 32,
+        "per_device_train_batch_size": 1,
+        "world_size": 1,
+        "gradient_accumulation_steps": 1,
+        "num_train_epochs": 1.0,
+        "warmup_ratio": 0.0,
+        "explicit_warmup_steps": 4,
+    }
+
+    assert experimental_train.compute_warmup_steps(max_steps=1, **common) == 4
+    assert experimental_train.compute_warmup_steps(max_steps=152, **common) == 4
+    with pytest.raises(ValueError, match="warmup-ratio 0"):
+        experimental_train.compute_warmup_steps(
+            max_steps=1,
+            **{**common, "warmup_ratio": 0.1},
+        )
+
+
 def test_content_contrast_representation_allows_only_output_and_residual_hybrid() -> None:
     trainer = object.__new__(experimental_train.DeltaMemTrainer)
     trainer.episode_read_write_enabled = False

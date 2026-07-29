@@ -1,0 +1,163 @@
+{
+  "schema": "rwkv_ms_scene_memory_v8_v7_warm_start_lock.v1",
+  "source_checkpoint": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v7/scene_memory_v7_train32_causalproof_s256_run2ext9_cefix1/trainer/checkpoint-256",
+  "artifacts": {
+    "continuation_manifest.json": {
+      "bytes": 649,
+      "sha256": "3876641dfd37d1cd5f1484e08c066b16d9a18db7c677adcab3aaa612f2bcf8d6"
+    },
+    "delta_mem_adapter.pt": {
+      "bytes": 9490515,
+      "sha256": "317e22311a2a763ae59936b16e3fe7a04bc049ba501cd38eebd83b83eb9beef7"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2432,
+      "sha256": "86e1bbb1a258cb591c9167935317a2374cf9edc79e5a3a77b0f903dc38483931"
+    },
+    "optimizer.pt": {
+      "bytes": 14776109,
+      "sha256": "11eb8ff77fbaa25d00b08827a08cc97922bc9d60843116c71f87e411f57cf776"
+    },
+    "rng_state.pth": {
+      "bytes": 14645,
+      "sha256": "fdc37bbd2e979f041dfbbb004a5c74bab6cdda159cb18116df728588515a9ef6"
+    },
+    "scene_state_identity_pairing_manifest.json": {
+      "bytes": 81003,
+      "sha256": "1f41e79eb82cbfa4ff39915b4d1bf730645379327843a2cfa78decd1f2b9872d"
+    },
+    "scheduler.pt": {
+      "bytes": 1465,
+      "sha256": "4f359c2dc390ef517053a58efe33a32f759ebb1775beac0e1942a4c5c273fdf5"
+    },
+    "trainer_state.json": {
+      "bytes": 1971671,
+      "sha256": "f8c9b9c27c9cf1dc2c3f3f78bcac3bef30a6927abc3a05c26dc5110bbf66ef83"
+    },
+    "training_protocol.json": {
+      "bytes": 9205,
+      "sha256": "005d5aa3fe08c9bda7f795f6b7ad8517405bae9caa6d24fd91af39b761fa540c"
+    }
+  },
+  "adapter_topology": {
+    "sha256": "a8b72bc0ce82d7ecaafbfb76cdf8500465ab2b63771915840620f28c3cabbc77",
+    "tensor_count": 1344,
+    "tensor_elements": 2789808
+  },
+  "expected_delta_config": {
+    "rank": 4,
+    "alpha": 8.0,
+    "memory_backend": "rwkv_ms",
+    "output_init": "base_slice_fixed",
+    "base_slice_ref_width": 8,
+    "online_gain": 0.2,
+    "target_modules": [
+      "self_attn"
+    ],
+    "target_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41
+    ],
+    "delta_heads": [
+      "q",
+      "o"
+    ],
+    "memory_fusion_mode": "add",
+    "memory_fusion_placement": "attention_output",
+    "memory_fusion_residual_scale": 1.0,
+    "memory_fusion_residual_scale_max": 1.0,
+    "trainable_delta_scale": true,
+    "delta_scale_init": 0.1,
+    "delta_scale_max": 0.5,
+    "delta_scale_granularity": "head",
+    "delta_scale_parameterization": "alpha_over_rank",
+    "rwkv_ms_num_states": 4,
+    "rwkv_ms_chunk_size": 128,
+    "rwkv_ms_boundary_mode": "fixed_chunk",
+    "rwkv_ms_semantics_version": 2
+  },
+  "expected_trainer_state": {
+    "global_step": 256,
+    "max_steps": 256,
+    "epoch": 8.0,
+    "num_train_epochs": 8,
+    "train_batch_size": 1,
+    "best_model_checkpoint": null
+  },
+  "expected_training_protocol": {
+    "schema_version": 10,
+    "memory_objective_version": "scene_state_generation_ce_v1",
+    "memory_loss_mode": "scene_state_generation_ce",
+    "training_mode": "episode",
+    "assistant_loss_mode": "final_assistant_only",
+    "train_samples": 32,
+    "max_steps": 256,
+    "per_device_train_batch_size": 1,
+    "gradient_accumulation_steps": 1,
+    "learning_rate": 0.0005,
+    "optim": "adamw_torch_fused",
+    "lr_scheduler_type": "constant_with_warmup",
+    "warmup_steps": 2,
+    "rwkv_ms_semantics_version": 2,
+    "frozen_mlp_activation_checkpointing": true
+  },
+  "source_pairing_manifest_sha256": "2558735b57088b1202da2efb2f7fb283820391f38576fdaf8eb9333fcd18a704",
+  "source_state_imports": {
+    "adapter": true,
+    "optimizer": false,
+    "scheduler": false,
+    "trainer_state": false,
+    "rng": false,
+    "global_step": false
+  },
+  "target_fresh_start": {
+    "global_step": 0,
+    "optimizer_created_after_adapter_load": true,
+    "optimizer_family": "AdamW",
+    "optimizer_state": "fresh",
+    "scheduler_state": "fresh",
+    "trainer_state": "fresh",
+    "rng_state": "fresh_from_v8_seed"
+  },
+  "lock_sha256": "e2d0ed1f65dca7ac419c3b5f87870a30e3b8c76b89801e082569bb53f7318e35"
+}
