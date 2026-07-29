@@ -102,6 +102,10 @@ V8_OBJECTIVE = {
     "causal_control": "same_checkpoint_adapter_active_no_write_state_reset",
     "donor_control": "predeclared_symmetric_train32_donor_state",
 }
+# The pairing manifest describes how source/donor targets were materialized.
+# Generated-prefix unlikelihood extends the training loss without changing that
+# pairing contract, so its version remains the base generation objective.
+V8_PAIRING_OBJECTIVE_VERSION = "scene_state_generation_ce_v1"
 ROOT_VALUE14_BASELINE = {
     "strict_exact_rows": 2,
     "strict_micro_f1": 0.17647058823529413,
@@ -574,7 +578,7 @@ def _validate_pairing_checkpoint(
     _validate_self_hash(pairing, field="manifest_sha256")
     _require(pairing.get("schema_version") == 2, "V8 checkpoint pairing schema differs")
     _require(
-        pairing.get("objective_version") == V8_OBJECTIVE["training_objective_version"],
+        pairing.get("objective_version") == V8_PAIRING_OBJECTIVE_VERSION,
         "V8 checkpoint pairing objective differs",
     )
     _require(set(pairing.get("splits", {})) == {"train"}, "V8 pairing splits differ")

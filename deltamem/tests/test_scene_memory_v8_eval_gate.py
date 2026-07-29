@@ -286,7 +286,7 @@ def _checkpoint_pairing(input_contract: dict[str, Any]) -> dict[str, Any]:
     return _self_hashed(
         {
             "schema_version": 2,
-            "objective_version": gate.V8_OBJECTIVE["training_objective_version"],
+            "objective_version": gate.V8_PAIRING_OBJECTIVE_VERSION,
             "target_stratum_row_counts": counts,
             "splits": {"train": train},
         },
@@ -493,6 +493,19 @@ def test_checkpoint_gate_rejects_pre56_missing_and_drifted_lineage(
     validated = gate.validate_v8_checkpoint(checkpoints[56], input_contract=inputs)
     assert validated["global_step"] == 56
     assert [row["step"] for row in validated["lineage"]["chain"]] == [14, 28, 42, 56]
+    pairing = json.loads(
+        (
+            checkpoints[56] / "scene_state_identity_pairing_manifest.json"
+        ).read_text(encoding="utf-8")
+    )
+    protocol = json.loads(
+        (checkpoints[56] / "training_protocol.json").read_text(encoding="utf-8")
+    )
+    assert pairing["objective_version"] == gate.V8_PAIRING_OBJECTIVE_VERSION
+    assert (
+        protocol["memory_objective_version"]
+        == gate.V8_OBJECTIVE["training_objective_version"]
+    )
     with pytest.raises(gate.V8EvaluationContractError, match="unavailable before step56"):
         gate.validate_v8_checkpoint(checkpoints[42], input_contract=inputs)
 
@@ -506,6 +519,28 @@ def test_checkpoint_gate_rejects_pre56_missing_and_drifted_lineage(
     payload["source_training_protocol_sha256"] = "9" * 64
     _write_json(lineage_path, payload)
     with pytest.raises(gate.V8EvaluationContractError, match="manifest_sha256 differs"):
+        gate.validate_v8_checkpoint(checkpoints[56], input_contract=inputs)
+
+
+def test_checkpoint_gate_rejects_training_loss_version_as_pairing_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _input_contract(tmp_path)
+    checkpoints = _build_checkpoint_chain(tmp_path, inputs, monkeypatch)
+    pairing_path = checkpoints[56] / "scene_state_identity_pairing_manifest.json"
+    pairing = json.loads(pairing_path.read_text(encoding="utf-8"))
+    pairing["objective_version"] = gate.V8_OBJECTIVE["training_objective_version"]
+    pairing["manifest_sha256"] = gate.self_hash_payload(
+        pairing,
+        hash_field="manifest_sha256",
+    )
+    _write_json(pairing_path, pairing)
+
+    with pytest.raises(
+        gate.V8EvaluationContractError,
+        match="checkpoint pairing objective differs",
+    ):
         gate.validate_v8_checkpoint(checkpoints[56], input_contract=inputs)
 
 
@@ -640,4 +675,3 @@ def test_train_input_preflight_never_resolves_opens_or_hashes_hard32(
 
     result = gate.validate_v8_train_inputs()
     assert result["value14_ordinals"] == list(gate.VALUE14_ORDINALS)
-
