@@ -475,7 +475,8 @@ payload = {
         "launcher_sha256": launcher_sha256,
     },
     "memory_mitigation": {
-        "mode": "pre_backward_release_plus_target_selected_shared_ce_v1",
+        "mode": "no_builtin_ce_plus_target_selected_shared_ce_v1",
+        "model_builtin_causal_lm_loss": "disabled_labels_omitted_v1",
         "generation_ce_materialization": (
             "target_selected_before_fp32_cast_scatter_v1"
         ),

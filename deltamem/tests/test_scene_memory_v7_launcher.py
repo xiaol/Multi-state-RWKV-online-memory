@@ -232,7 +232,11 @@ def test_launcher_hard_locks_all_mutable_paths_to_the_2t_ssd() -> None:
     assert "source_lock_self_hash_differs" in source
     assert "locked_artifact_hash_differs" in source
     assert "resume_checkpoint_is_not_a_completed_horizon" in source
-    assert '"mode": "pre_backward_release_plus_target_selected_shared_ce_v1"' in source
+    assert '"mode": "no_builtin_ce_plus_target_selected_shared_ce_v1"' in source
+    assert (
+        '"model_builtin_causal_lm_loss": "disabled_labels_omitted_v1"'
+        in source
+    )
     assert '"target_selected_before_fp32_cast_scatter_v1"' in source
     assert '"generation_margin_materialization": "separate_target_decision_v1"' in source
     assert '"objective_math_changed": False' in source

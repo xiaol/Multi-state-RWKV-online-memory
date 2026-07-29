@@ -675,6 +675,44 @@ class _SceneGenerationModel(torch.nn.Module):
         return {"loss": logits.sum() * 0.0, "logits": logits}
 
 
+_MODEL_LABELS_NOT_PROVIDED = object()
+
+
+class _BuiltInLossTrackingSceneGenerationModel(_SceneGenerationModel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.label_forward_calls: list[bool] = []
+        self.built_in_loss_calls = 0
+
+    def forward(
+        self,
+        input_ids,
+        attention_mask,
+        labels=_MODEL_LABELS_NOT_PROVIDED,
+        **kwargs,
+    ):
+        outputs = super().forward(
+            input_ids,
+            attention_mask,
+            labels=None,
+            **kwargs,
+        )
+        labels_were_provided = labels is not _MODEL_LABELS_NOT_PROVIDED
+        self.label_forward_calls.append(labels_were_provided)
+        if not labels_were_provided:
+            outputs.pop("loss")
+            return outputs
+        self.built_in_loss_calls += 1
+        shift_logits = outputs["logits"][:, :-1].float()
+        shift_labels = labels[:, 1:]
+        outputs["loss"] = F.cross_entropy(
+            shift_logits.reshape(-1, shift_logits.size(-1)),
+            shift_labels.reshape(-1),
+            ignore_index=-100,
+        )
+        return outputs
+
+
 def _bind_state_controls(
     trainer: experimental_train.DeltaMemTrainer,
     monkeypatch: pytest.MonkeyPatch,
@@ -719,6 +757,126 @@ def _branch_kwargs() -> dict[str, torch.Tensor | None]:
             ]
         ),
     }
+
+
+def _legacy_generation_objective_with_model_labels(
+    trainer: experimental_train.DeltaMemTrainer,
+    model: _BuiltInLossTrackingSceneGenerationModel,
+) -> dict[str, torch.Tensor]:
+    model_inputs = _model_inputs()
+    masks = _generation_masks()
+
+    def branch(write_token: int | None) -> dict[str, torch.Tensor | int]:
+        trainer._reset_online_state(model)
+        if write_token is not None:
+            trainer._prime_episode_state(
+                model,
+                write_input_ids=torch.tensor([[write_token]]),
+                write_attention_mask=torch.ones(1, 1, dtype=torch.long),
+                batch_size=1,
+                write_message_ids=None,
+                write_sentence_ids=None,
+            )
+        experimental_train.set_delta_mem_write_enabled(model, False)
+        experimental_train.set_delta_mem_read_context_mask(
+            model,
+            trainer._build_read_context_mask(model_inputs),
+        )
+        outputs = model(**model_inputs)
+        return trainer._scene_state_generation_metrics(
+            outputs["logits"],
+            model_inputs["labels"],
+            model_inputs["attention_mask"],
+            **masks,
+            donor_target_token_ids=torch.tensor([1]),
+        )
+
+    correct = branch(10)
+    donor = branch(20)
+    with torch.no_grad():
+        zero = branch(None)
+    return trainer._scene_state_generation_objective(correct, donor, zero)
+
+
+def test_generation_sequential_omits_builtin_ce_from_every_branch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    trainer = _trainer()
+    model = _BuiltInLossTrackingSceneGenerationModel()
+    _bind_state_controls(trainer, monkeypatch)
+
+    trainer._scene_state_generation_sequential_backward(
+        model,
+        _model_inputs(),
+        loss_kwargs={},
+        gradient_scale=1.0,
+        **_branch_kwargs(),
+    )
+
+    assert model.read_calls == [
+        (False, 20),
+        (False, None),
+        (True, 10),
+        (True, 20),
+    ]
+    assert model.label_forward_calls == [False, False, False, False]
+    assert model.built_in_loss_calls == 0
+
+
+def test_generation_label_suppression_preserves_custom_loss_and_gradient(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    legacy_trainer = _trainer()
+    legacy_model = _BuiltInLossTrackingSceneGenerationModel()
+    _bind_state_controls(legacy_trainer, monkeypatch)
+    legacy_objective = _legacy_generation_objective_with_model_labels(
+        legacy_trainer,
+        legacy_model,
+    )
+    legacy_objective["total_loss"].backward()
+    legacy_gradient = legacy_model.parameter.grad.detach().clone()
+
+    trainer = _trainer()
+    model = _BuiltInLossTrackingSceneGenerationModel()
+    _bind_state_controls(trainer, monkeypatch)
+    loss, outputs, stats = trainer._compute_scene_state_generation_ce(
+        model,
+        _model_inputs(),
+        loss_kwargs={},
+        **_branch_kwargs(),
+    )
+    loss.backward()
+
+    assert legacy_model.read_calls == [(True, 10), (True, 20), (False, None)]
+    assert legacy_model.label_forward_calls == [True, True, True]
+    assert legacy_model.built_in_loss_calls == 3
+    assert model.read_calls == legacy_model.read_calls
+    assert model.label_forward_calls == [False, False, False]
+    assert model.built_in_loss_calls == 0
+    torch.testing.assert_close(
+        loss,
+        legacy_objective["total_loss"],
+        rtol=0.0,
+        atol=0.0,
+    )
+    torch.testing.assert_close(
+        model.parameter.grad,
+        legacy_gradient,
+        rtol=0.0,
+        atol=0.0,
+    )
+    torch.testing.assert_close(outputs["loss"], loss, rtol=0.0, atol=0.0)
+    for objective_key, stat_key in (
+        ("generation_ce", "scene_generation_weighted_ce"),
+        ("first_error_loss", "scene_generation_first_error_loss"),
+        ("correct_pair_ce", "scene_generation_pair_correct_ce"),
+        ("donor_pair_ce", "scene_generation_pair_donor_ce"),
+        ("zero_margin_loss", "scene_generation_zero_margin_loss"),
+    ):
+        assert stats[stat_key] == pytest.approx(
+            legacy_objective[objective_key].detach().item(),
+            abs=1e-7,
+        )
 
 
 def test_generation_sequential_replay_matches_joint_and_zero_is_no_grad(

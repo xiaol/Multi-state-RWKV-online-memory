@@ -5551,7 +5551,9 @@ class DeltaMemTrainer(Trainer):
             model,
             self._build_read_context_mask(model_inputs),
         )
-        outputs = model(**model_inputs, **loss_kwargs)
+        forward_inputs = dict(model_inputs)
+        labels = forward_inputs.pop("labels")
+        outputs = model(**forward_inputs, **loss_kwargs)
         if not isinstance(outputs, dict):
             outputs = {
                 "loss": outputs.loss if hasattr(outputs, "loss") else outputs[0],
@@ -5559,7 +5561,7 @@ class DeltaMemTrainer(Trainer):
             }
         metrics = self._scene_state_generation_metrics(
             outputs["logits"],
-            model_inputs["labels"],
+            labels,
             model_inputs["attention_mask"],
             target_mask=target_mask,
             content_mask=content_mask,
