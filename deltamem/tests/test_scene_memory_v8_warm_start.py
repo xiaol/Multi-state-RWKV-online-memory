@@ -458,11 +458,18 @@ def test_repository_lock_validates_authoritative_checkpoint_when_present() -> No
         checkpoint,
         lock_path=REAL_LOCK_PATH,
     )
+    source_state = warm_start._load_pinned_adapter_state(context)
+    topology, topology_sha256, tensor_elements = (
+        warm_start.ordered_adapter_topology(source_state)
+    )
 
     assert context.source_trainer_state["global_step"] == 256
     assert context.source_trainer_state["epoch"] == 8.0
     assert context.source_config["target_layers"] == list(range(42))
     assert context.source_config["delta_heads"] == ["q", "o"]
+    assert len(topology) == context.lock["adapter_topology"]["tensor_count"]
+    assert tensor_elements == context.lock["adapter_topology"]["tensor_elements"]
+    assert topology_sha256 == context.lock["adapter_topology"]["sha256"]
 
 
 def test_trainer_resolves_and_prepares_authoritative_scene_v8_source_when_present(

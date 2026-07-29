@@ -301,7 +301,14 @@ def ordered_adapter_topology(
         )
         tensor_elements += tensor.numel()
     _require(bool(topology), "Adapter state dictionary must not be empty")
-    return topology, canonical_sha256(topology), tensor_elements
+    topology_sha256 = hashlib.sha256(
+        json.dumps(
+            topology,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    return topology, topology_sha256, tensor_elements
 
 
 def validate_ordered_adapter_topology(
