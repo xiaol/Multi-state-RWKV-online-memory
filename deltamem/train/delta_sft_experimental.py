@@ -65,6 +65,7 @@ from deltamem.model_loading import resolve_attn_implementation
 from deltamem.core.write_segmentation import split_text_into_sentence_token_chunks
 from deltamem.train.scene_state_generation_alignment import (
     clone_detached_online_state,
+    generated_correction_events,
     generated_unlikelihood_positions,
 )
 from experiments.rethinking_rwkv_ms_gemma.scene_memory_v8_warm_start import (
@@ -77,6 +78,20 @@ from experiments.rethinking_rwkv_ms_gemma.scene_memory_v8_warm_start import (
     apply_v8_v7_checkpoint256_adapter_only_warm_start,
     load_v8_warm_start_lock,
     prepare_v8_v7_checkpoint256_warm_start,
+)
+from experiments.rethinking_rwkv_ms_gemma.scene_memory_v9_warm_start import (
+    DEFAULT_LOCK_PATH as SCENE_V9_WARM_START_LOCK_PATH,
+    REQUIRED_SOURCE_ARTIFACTS as SCENE_V9_REQUIRED_WARM_START_ARTIFACTS,
+    WARM_START_MODE as SCENE_V9_WARM_START_MODE,
+    V9FreshStartContract,
+    V9WarmStartContext,
+    apply_v9_v8_checkpoint56_adapter_only_warm_start,
+    prepare_v9_v8_checkpoint56_warm_start,
+)
+from experiments.rethinking_rwkv_ms_gemma.scene_memory_v9_launch_contract import (
+    validate_checkpoint_contract as validate_v9_checkpoint_contract,
+    validate_data_contract as validate_v9_data_contract,
+    validate_warm_start_contract as validate_v9_warm_start_contract,
 )
 
 
@@ -267,9 +282,11 @@ _ABLATION_RESUME_MODES = frozenset({"placement_ablation", "objective_ablation"})
 _WARM_START_MODES = (
     "residual_hybrid_w8_ablation",
     SCENE_V8_WARM_START_MODE,
+    SCENE_V9_WARM_START_MODE,
 )
 _RESIDUAL_HYBRID_W8_WARM_START_MODE = _WARM_START_MODES[0]
 _SCENE_V8_WARM_START_MODE = _WARM_START_MODES[1]
+_SCENE_V9_WARM_START_MODE = _WARM_START_MODES[2]
 _CONTINUATION_SCHEDULERS = frozenset({"constant", "constant_with_warmup"})
 _REPRESENTATION_CAPTURE_FUSION_PLACEMENTS = frozenset(
     {"attention_output", "post_attention_residual_hybrid"}
@@ -367,6 +384,54 @@ _SCENE_STATE_GENERATED_ROLLOUT_MAX_TOKENS = 24
 _SCENE_STATE_GENERATED_UNLIKELIHOOD_MODE = (
     "greedy_correct_state_edit_aligned_wrong_tokens_v2"
 )
+_SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION = (
+    "scene_state_generation_ce_symmetric_full_gold_selected_vocab_aligned_prefix_v3"
+)
+_SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION = 12
+_SCENE_STATE_SYMMETRIC_BACKWARD_MODE = (
+    "sequential_pair_zero_probe_teacher_then_aligned_replay_v3"
+)
+_SCENE_STATE_SYMMETRIC_GENERATED_MODE = (
+    "levenshtein_raw_generated_prefix_gold_ce_wrong_unlikelihood_v3"
+)
+_SCENE_STATE_SYMMETRIC_PREFIX_CORRECTION_WEIGHT = 0.5
+_SCENE_STATE_SYMMETRIC_LOG_METRICS = (
+    "scene_generation_v9_objective_total_loss",
+    "scene_generation_v9_objective_teacher_loss",
+    "scene_generation_v9_objective_prefix_weighted_loss",
+    "scene_generation_v9_pair_mean_weighted_suffix_ce",
+    "scene_generation_v9_pair_mean_selected_full_vocab_ce",
+    "scene_generation_v9_pair_mean_selected_top_competitor_hinge",
+    "scene_generation_v9_pair_mean_selected_correct_vs_zero_hinge",
+    "scene_generation_v9_pair_mean_prefix_positive_gold_ce",
+    "scene_generation_v9_pair_mean_prefix_wrong_token_unlikelihood",
+    "scene_generation_v9_pair_mean_selected_gold_vs_top_competitor_margin",
+    "scene_generation_v9_pair_mean_selected_zero_minus_correct_nll",
+    "scene_generation_v9_pair_mean_selected_top1_fraction",
+    "scene_generation_v9_pair_mean_selected_correct_beats_zero_fraction",
+    "scene_generation_v9_pair_mean_prefix_correction_applied_fraction",
+    "scene_generation_v9_pair_mean_prefix_correction_event_count",
+    "scene_generation_v9_pair_mean_prefix_positive_event_count",
+    "scene_generation_v9_pair_mean_prefix_negative_event_count",
+    "scene_generation_v9_pair_mean_prefix_substitution_count",
+    "scene_generation_v9_pair_mean_prefix_insertion_count",
+    "scene_generation_v9_pair_mean_prefix_deletion_count",
+    "scene_generation_v9_pair_mean_generated_rollout_token_count",
+    "scene_generation_v9_pair_mean_generated_first_divergence",
+    "scene_generation_v9_pair_mean_generated_exact_fraction",
+    "scene_generation_v9_source_weighted_suffix_ce",
+    "scene_generation_v9_source_selected_full_vocab_ce",
+    "scene_generation_v9_source_selected_top_competitor_hinge",
+    "scene_generation_v9_source_selected_correct_vs_zero_hinge",
+    "scene_generation_v9_source_prefix_positive_gold_ce",
+    "scene_generation_v9_source_prefix_wrong_token_unlikelihood",
+    "scene_generation_v9_donor_weighted_suffix_ce",
+    "scene_generation_v9_donor_selected_full_vocab_ce",
+    "scene_generation_v9_donor_selected_top_competitor_hinge",
+    "scene_generation_v9_donor_selected_correct_vs_zero_hinge",
+    "scene_generation_v9_donor_prefix_positive_gold_ce",
+    "scene_generation_v9_donor_prefix_wrong_token_unlikelihood",
+)
 _SCENE_STATE_GENERATION_MASK_MODE = (
     "exact_system_only_generation_prefix_content_schema_decision_termination_v1"
 )
@@ -380,6 +445,9 @@ _SCENE_STATE_PAIRED_MEMORY_LOSS_MODES = {
 _SEEDED_TRAIN_SAMPLER_MODE = "torch_random_sampler_seed_equals_data_seed_v1"
 _DEFAULT_TRAIN_SAMPLER_MODE = "transformers_trainer_default_v1"
 _FIXED_TRAIN_SCHEDULE_SAMPLER_MODE = "explicit_ordered_train_row_ordinal_v1"
+_V9_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
+    "explicit_ordered_v9_canonical_low_pair_v1"
+)
 _SCENE_MEMORY_V8_WARMUP_STEPS = 4
 _SCENE_MEMORY_V8_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v8_source.v1"
 _SCENE_MEMORY_V8_CURRICULUM_SCHEMA = (
@@ -390,6 +458,16 @@ _SCENE_MEMORY_V8_SCHEDULE_ENTRY_SCHEMA = (
 )
 _SCENE_MEMORY_V8_SCHEDULE_MANIFEST_SCHEMA = (
     "rwkv_ms_scene_memory_v8_schedule_manifest.v1"
+)
+_SCENE_MEMORY_V9_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v9_source.v1"
+_SCENE_MEMORY_V9_CURRICULUM_SCHEMA = (
+    "rwkv_ms_scene_memory_v9_pair_curriculum_binding.v1"
+)
+_SCENE_MEMORY_V9_SCHEDULE_ENTRY_SCHEMA = (
+    "rwkv_ms_scene_memory_v9_pair_schedule_entry.v1"
+)
+_SCENE_MEMORY_V9_SCHEDULE_MANIFEST_SCHEMA = (
+    "rwkv_ms_scene_memory_v9_pair_schedule_manifest.v1"
 )
 _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
 _INITIAL_ADAPTER_DIRNAME = "initial_adapter"
@@ -488,6 +566,8 @@ class AdapterWarmStartContext:
     manifest: dict[str, object]
     scene_v8_context: V8WarmStartContext | None = None
     scene_v8_fresh_start: V8FreshStartContract | None = None
+    scene_v9_context: V9WarmStartContext | None = None
+    scene_v9_fresh_start: V9FreshStartContract | None = None
 
 
 def _sha256_file(path: Path) -> str:
@@ -942,6 +1022,8 @@ def resolve_adapter_warm_start_checkpoint(
         )
     if warm_start_mode == _SCENE_V8_WARM_START_MODE:
         required_files = SCENE_V8_REQUIRED_WARM_START_ARTIFACTS
+    elif warm_start_mode == _SCENE_V9_WARM_START_MODE:
+        required_files = SCENE_V9_REQUIRED_WARM_START_ARTIFACTS
     else:
         required_files = (
             "delta_mem_adapter.pt",
@@ -1064,12 +1146,89 @@ def _validate_scene_v8_warm_start_args(args: argparse.Namespace) -> None:
         )
 
 
+def _validate_scene_v9_warm_start_args(args: argparse.Namespace) -> None:
+    if args.warm_start_mode != _SCENE_V9_WARM_START_MODE:
+        raise ValueError(
+            "Scene V9 warm start requires "
+            f"--warm-start-mode {_SCENE_V9_WARM_START_MODE}"
+        )
+    if args.resume_from_checkpoint is not None:
+        raise ValueError("Scene V9 adapter warm start cannot restore checkpoint state")
+    if args.resume_mode != "exact":
+        raise ValueError("Scene V9 adapter warm start requires --resume-mode exact")
+    mismatches = []
+    if args.memory_loss_mode != "scene_state_generation_ce":
+        mismatches.append("memory_loss_mode")
+    if args.scene_state_generation_objective_version != (
+        _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+    ):
+        mismatches.append("scene_state_generation_objective_version")
+    if args.scene_state_generated_prefix_correction_weight != (
+        _SCENE_STATE_SYMMETRIC_PREFIX_CORRECTION_WEIGHT
+    ):
+        mismatches.append("scene_state_generated_prefix_correction_weight")
+    if args.scene_state_generated_unlikelihood_weight != 0.0:
+        mismatches.append("scene_state_generated_unlikelihood_weight")
+    if parse_layer_indices(args.target_layers) != tuple(range(42)):
+        mismatches.append("target_layers")
+    if parse_delta_heads(args.delta_heads) != ("q", "o"):
+        mismatches.append("delta_heads")
+    expected_values = {
+        "rank": 4,
+        "alpha": 8.0,
+        "memory_backend": "rwkv_ms",
+        "rwkv_ms_num_states": 4,
+        "rwkv_ms_chunk_size": 128,
+        "rwkv_ms_semantics_version": 2,
+        "output_init": "base_slice_fixed",
+        "base_slice_ref_width": 8,
+        "online_gain": 0.2,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "trainable_delta_scale": True,
+        "delta_scale_init": 0.1,
+        "delta_scale_max": 0.5,
+        "delta_scale_granularity": "head",
+        "delta_scale_parameterization": "alpha_over_rank",
+        "memory_readout_mode": "delta",
+        "memory_write_source": "learned_hidden",
+        "memory_write_granularity": "token",
+        "per_device_train_batch_size": 1,
+        "gradient_accumulation_steps": 1,
+        "learning_rate": 2e-4,
+        "lr_scheduler_type": "constant_with_warmup",
+        "warmup_ratio": 0.0,
+        "warmup_steps": _SCENE_MEMORY_V8_WARMUP_STEPS,
+        "optim": "adamw_torch_fused",
+        "num_train_epochs": 1.0,
+        "validation_split_ratio": 0.0,
+        "load_best_model_at_end": False,
+        "seed": 42,
+        "data_seed": 42,
+    }
+    mismatches.extend(
+        name
+        for name, expected in expected_values.items()
+        if getattr(args, name) != expected
+    )
+    if mismatches:
+        raise ValueError(
+            "Scene V9 warm-start target contract differs for: "
+            + ", ".join(sorted(set(mismatches)))
+        )
+
+
 def _validate_adapter_warm_start_args(args: argparse.Namespace) -> None:
     if args.warm_start_mode == _RESIDUAL_HYBRID_W8_WARM_START_MODE:
         _validate_residual_hybrid_w8_warm_start_args(args)
         return
     if args.warm_start_mode == _SCENE_V8_WARM_START_MODE:
         _validate_scene_v8_warm_start_args(args)
+        return
+    if args.warm_start_mode == _SCENE_V9_WARM_START_MODE:
+        _validate_scene_v9_warm_start_args(args)
         return
     raise ValueError(f"Unsupported adapter warm-start mode: {args.warm_start_mode}")
 
@@ -1149,6 +1308,34 @@ def prepare_adapter_warm_start(
             },
             scene_v8_context=pinned_context,
             scene_v8_fresh_start=V8FreshStartContract(
+                resume_from_checkpoint=None,
+                initial_global_step=0,
+                optimizer_created=False,
+                scheduler_created=False,
+                trainer_state_imported=False,
+                rng_state_imported=False,
+                optim=args.optim,
+            ),
+        )
+
+    if args.warm_start_mode == _SCENE_V9_WARM_START_MODE:
+        pinned_context = prepare_v9_v8_checkpoint56_warm_start(
+            checkpoint,
+            lock_path=SCENE_V9_WARM_START_LOCK_PATH,
+        )
+        source_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+        return AdapterWarmStartContext(
+            checkpoint=checkpoint,
+            mode=_SCENE_V9_WARM_START_MODE,
+            source_protocol=pinned_context.source_training_protocol,
+            source_config=source_config,
+            manifest={
+                "schema_version": _WARM_START_LINEAGE_SCHEMA_VERSION,
+                "mode": _SCENE_V9_WARM_START_MODE,
+                "source_checkpoint": str(checkpoint),
+            },
+            scene_v9_context=pinned_context,
+            scene_v9_fresh_start=V9FreshStartContract(
                 resume_from_checkpoint=None,
                 initial_global_step=0,
                 optimizer_created=False,
@@ -1432,8 +1619,14 @@ def _normalize_train_sampler_protocol(
     train_schedule = normalized.get("train_schedule")
     if train_schedule is not None and not isinstance(train_schedule, dict):
         raise ValueError("Training protocol train_schedule must be an object or null")
+    fixed_schedule_mode = (
+        _V9_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+        if isinstance(train_schedule, dict)
+        and train_schedule.get("schema") == _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
+        else _FIXED_TRAIN_SCHEDULE_SAMPLER_MODE
+    )
     expected_mode = (
-        _FIXED_TRAIN_SCHEDULE_SAMPLER_MODE
+        fixed_schedule_mode
         if train_schedule is not None
         else (
             _DEFAULT_TRAIN_SAMPLER_MODE
@@ -1960,6 +2153,44 @@ def apply_adapter_warm_start(
         receipt_without_hash.pop("receipt_sha256", None)
         receipt["receipt_sha256"] = _canonical_json_sha256(receipt_without_hash)
         return receipt
+    if context.mode == _SCENE_V9_WARM_START_MODE:
+        if (
+            context.scene_v9_context is None
+            or context.scene_v9_fresh_start is None
+        ):
+            raise ValueError("Scene V9 warm-start context is incomplete")
+        source_config = context.source_config.to_dict()
+        target_config_payload = target_config.to_dict()
+        config_mismatches = sorted(
+            key
+            for key in set(source_config) | set(target_config_payload)
+            if source_config.get(key) != target_config_payload.get(key)
+        )
+        if config_mismatches:
+            raise ValueError(
+                "Scene V9 requires topology-exact V8/V9 Delta-Mem config; differs for: "
+                + ", ".join(config_mismatches)
+            )
+        receipt = apply_v9_v8_checkpoint56_adapter_only_warm_start(
+            model,
+            context.scene_v9_context,
+            fresh_start=context.scene_v9_fresh_start,
+        )
+        receipt.update(
+            {
+                "target_delta_config_sha256": _protocol_sha256(
+                    target_config_payload
+                ),
+                "target_trainable_tensor_count": len(trainable_names),
+                "target_trainable_names_sha256": _protocol_sha256(
+                    {"ordered_trainable_names": trainable_names}
+                ),
+            }
+        )
+        receipt_without_hash = dict(receipt)
+        receipt_without_hash.pop("receipt_sha256", None)
+        receipt["receipt_sha256"] = _canonical_json_sha256(receipt_without_hash)
+        return receipt
     if context.mode != _RESIDUAL_HYBRID_W8_WARM_START_MODE:
         raise ValueError(f"Unsupported adapter warm-start mode: {context.mode}")
     _validate_residual_hybrid_w8_delta_config_transition(
@@ -2176,6 +2407,22 @@ def _scene_memory_v8_protocol_checkpoint_steps(
     ):
         return None
     return _scene_memory_v8_checkpoint_steps(schedule.get("checkpoint_steps"))
+
+
+def _scene_memory_v9_protocol_checkpoint_steps(
+    protocol: dict[str, object] | None,
+) -> tuple[int, ...] | None:
+    if protocol is None:
+        return None
+    schedule = protocol.get("train_schedule")
+    if not isinstance(schedule, dict) or schedule.get("schema") != (
+        _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
+    ):
+        return None
+    endpoints = _scene_memory_v8_checkpoint_steps(schedule.get("checkpoint_steps"))
+    if endpoints != (7, 14, 21, 28):
+        raise ValueError("Scene-memory V9 protocol checkpoint endpoints differ")
+    return endpoints
 
 
 def _validate_scene_memory_v8_warm_start_lineage(
@@ -2496,6 +2743,109 @@ def validate_scene_memory_v8_active_continuation(
         raise ValueError("Scene-memory V8 target protocol max_steps is invalid") from exc
     if continuation_manifest.get("target_max_steps") != target_max_steps:
         raise ValueError("Scene-memory V8 continuation target protocol horizon differs")
+
+
+def prepare_scene_memory_v9_training_continuation(
+    continuation_manifest: dict[str, object] | None,
+    *,
+    resume_from_checkpoint: str | Path,
+    checkpoint_steps: object,
+) -> dict[str, object]:
+    if continuation_manifest is None or continuation_manifest.get("mode") != "extend":
+        raise ValueError("Scene-memory V9 resume requires an extend continuation manifest")
+    endpoints = _scene_memory_v8_checkpoint_steps(checkpoint_steps)
+    if endpoints != (7, 14, 21, 28):
+        raise ValueError("Scene-memory V9 checkpoint endpoints differ")
+    data = validate_v9_data_contract()
+    warm = validate_v9_warm_start_contract()
+    source_checkpoint = Path(resume_from_checkpoint).expanduser().resolve()
+    source_lineage = validate_v9_checkpoint_contract(
+        source_checkpoint,
+        data=data,
+        warm=warm,
+    )
+    source_step = source_lineage["checkpoint_step"]
+    if source_step not in endpoints:
+        raise ValueError("Scene-memory V9 resume source is not a locked endpoint")
+    source_position = endpoints.index(source_step)
+    if source_position + 1 >= len(endpoints):
+        raise ValueError("Scene-memory V9 final checkpoint has no resume endpoint")
+    if continuation_manifest.get("target_max_steps") != endpoints[source_position + 1]:
+        raise ValueError(
+            "Scene-memory V9 resume must advance to the immediate next locked endpoint"
+        )
+    if (
+        continuation_manifest.get("source_checkpoint") != str(source_checkpoint)
+        or continuation_manifest.get("source_global_step") != source_step
+        or continuation_manifest.get("source_training_protocol_sha256")
+        != source_lineage["training_protocol_sha256"]
+    ):
+        raise ValueError("Scene-memory V9 continuation source checkpoint differs")
+    prepared = dict(continuation_manifest)
+    prepared.update(
+        {
+            "root_warm_start_receipt_sha256": source_lineage[
+                "root_warm_start_receipt_sha256"
+            ],
+            "source_lineage_filename": source_lineage["lineage_filename"],
+            "source_lineage_file_sha256": source_lineage[
+                "lineage_file_sha256"
+            ],
+        }
+    )
+    prepared.pop("target_training_protocol_sha256", None)
+    prepared.pop("manifest_sha256", None)
+    return prepared
+
+
+def finalize_scene_memory_v9_training_continuation(
+    continuation_manifest: dict[str, object],
+    *,
+    target_training_protocol: dict[str, object],
+) -> None:
+    continuation_manifest["target_training_protocol_sha256"] = _protocol_sha256(
+        target_training_protocol
+    )
+    unsigned = dict(continuation_manifest)
+    unsigned.pop("manifest_sha256", None)
+    continuation_manifest["manifest_sha256"] = _canonical_json_sha256(unsigned)
+
+
+def validate_scene_memory_v9_active_continuation(
+    continuation_manifest: dict[str, object] | None,
+    *,
+    resume_from_checkpoint: str | Path,
+    target_training_protocol: dict[str, object],
+    checkpoint_steps: object,
+) -> None:
+    if continuation_manifest is None:
+        raise ValueError("Scene-memory V9 Trainer resume lineage is missing")
+    unsigned = dict(continuation_manifest)
+    manifest_sha256 = unsigned.pop("manifest_sha256", None)
+    if not _is_sha256(manifest_sha256) or manifest_sha256 != (
+        _canonical_json_sha256(unsigned)
+    ):
+        raise ValueError("Scene-memory V9 active continuation self-hash differs")
+    prepared = prepare_scene_memory_v9_training_continuation(
+        continuation_manifest,
+        resume_from_checkpoint=resume_from_checkpoint,
+        checkpoint_steps=checkpoint_steps,
+    )
+    expected = dict(prepared)
+    expected["target_training_protocol_sha256"] = _protocol_sha256(
+        target_training_protocol
+    )
+    expected_unsigned = dict(expected)
+    expected_unsigned.pop("manifest_sha256", None)
+    expected["manifest_sha256"] = _canonical_json_sha256(expected_unsigned)
+    if continuation_manifest != expected:
+        raise ValueError("Scene-memory V9 active continuation lineage differs")
+    try:
+        target_max_steps = int(target_training_protocol["max_steps"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Scene-memory V9 target protocol max_steps is invalid") from exc
+    if continuation_manifest.get("target_max_steps") != target_max_steps:
+        raise ValueError("Scene-memory V9 continuation target protocol horizon differs")
 
 
 def prepare_training_continuation(
@@ -2860,6 +3210,35 @@ def finalize_scene_v8_warm_start_lineage(
     context.manifest["receipt_sha256"] = _canonical_json_sha256(unsigned)
 
 
+def finalize_scene_v9_warm_start_lineage(
+    context: AdapterWarmStartContext,
+    *,
+    target_training_protocol_sha256: str,
+    target_pairing_manifest: dict[str, object],
+) -> None:
+    if context.mode != _SCENE_V9_WARM_START_MODE:
+        raise ValueError("Scene V9 lineage finalizer received another warm-start mode")
+    pairing_sha256 = target_pairing_manifest.get("manifest_sha256")
+    if not _is_sha256(target_training_protocol_sha256) or not _is_sha256(
+        pairing_sha256
+    ):
+        raise ValueError(
+            "Scene V9 target protocol and pairing hashes must be SHA256 values"
+        )
+    context.manifest.update(
+        {
+            "target_training_protocol_sha256": target_training_protocol_sha256,
+            "target_scene_state_pairing_manifest_sha256": pairing_sha256,
+            "trainer_resume_from_checkpoint": None,
+            "target_initial_global_step": 0,
+            "fresh_adamw_creation_required_after_adapter_load": True,
+        }
+    )
+    unsigned = dict(context.manifest)
+    unsigned.pop("receipt_sha256", None)
+    context.manifest["receipt_sha256"] = _canonical_json_sha256(unsigned)
+
+
 def record_scene_v8_fresh_optimizer_lineage(
     trainer,
     warm_start_context: AdapterWarmStartContext,
@@ -2877,6 +3256,43 @@ def record_scene_v8_fresh_optimizer_lineage(
         raise RuntimeError("Scene V8 requires a freshly created torch AdamW")
     if trainer.optimizer.state:
         raise RuntimeError("Scene V8 fresh AdamW unexpectedly contains state")
+    warm_start_context.manifest.update(
+        {
+            "pre_train_global_step": 0,
+            "fresh_optimizer_created": True,
+            "fresh_optimizer_class": (
+                f"{trainer.optimizer.__class__.__module__}."
+                f"{trainer.optimizer.__class__.__qualname__}"
+            ),
+            "fresh_optimizer_state_entries_before_train": 0,
+            "fresh_scheduler_created_before_train": False,
+        }
+    )
+    unsigned_warm_start_receipt = dict(warm_start_context.manifest)
+    unsigned_warm_start_receipt.pop("receipt_sha256", None)
+    warm_start_context.manifest["receipt_sha256"] = _canonical_json_sha256(
+        unsigned_warm_start_receipt
+    )
+    trainer.continuation_manifest = dict(warm_start_context.manifest)
+
+
+def record_scene_v9_fresh_optimizer_lineage(
+    trainer,
+    warm_start_context: AdapterWarmStartContext,
+) -> None:
+    if warm_start_context.mode != _SCENE_V9_WARM_START_MODE:
+        raise ValueError("Scene V9 optimizer evidence requires its warm-start mode")
+    if trainer.state.global_step != 0:
+        raise RuntimeError("Scene V9 Trainer did not initialize at global step 0")
+    if trainer.optimizer is not None or trainer.lr_scheduler is not None:
+        raise RuntimeError(
+            "Scene V9 Trainer imported optimizer or scheduler state before creation"
+        )
+    trainer.create_optimizer()
+    if not isinstance(trainer.optimizer, torch.optim.AdamW):
+        raise RuntimeError("Scene V9 requires a freshly created torch AdamW")
+    if trainer.optimizer.state:
+        raise RuntimeError("Scene V9 fresh AdamW unexpectedly contains state")
     warm_start_context.manifest.update(
         {
             "pre_train_global_step": 0,
@@ -2987,6 +3403,8 @@ class DeltaMemTrainer(Trainer):
         train_schedule_indices: tuple[int, ...] | None = None,
         train_schedule_binding: dict[str, object] | None = None,
         scene_state_generated_unlikelihood_weight: float = 0.0,
+        scene_state_generation_objective_version: str | None = None,
+        scene_state_generated_prefix_correction_weight: float = 0.0,
         scene_state_generated_unlikelihood_max_wrong_tokens: int = (
             _SCENE_STATE_GENERATED_UNLIKELIHOOD_MAX_WRONG_TOKENS
         ),
@@ -3146,6 +3564,56 @@ class DeltaMemTrainer(Trainer):
                 "scene_state_generated_unlikelihood_weight requires "
                 "memory_loss_mode=scene_state_generation_ce"
             )
+        if (
+            not math.isfinite(scene_state_generated_prefix_correction_weight)
+            or scene_state_generated_prefix_correction_weight < 0.0
+        ):
+            raise ValueError(
+                "scene_state_generated_prefix_correction_weight must be finite and "
+                "non-negative"
+            )
+        derived_generation_objective = (
+            _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION
+            if scene_state_generated_unlikelihood_weight > 0.0
+            else _SCENE_STATE_GENERATION_OBJECTIVE_VERSION
+        )
+        normalized_generation_objective = (
+            derived_generation_objective
+            if scene_state_generation_objective_version is None
+            else str(scene_state_generation_objective_version)
+        )
+        supported_generation_objectives = {
+            _SCENE_STATE_GENERATION_OBJECTIVE_VERSION,
+            _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION,
+            _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
+        }
+        if normalized_generation_objective not in supported_generation_objectives:
+            raise ValueError(
+                "Unsupported scene-state generation objective version: "
+                f"{normalized_generation_objective}"
+            )
+        if normalized_generation_objective == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION:
+            if memory_loss_mode != "scene_state_generation_ce":
+                raise ValueError(
+                    "The symmetric scene-state objective requires "
+                    "memory_loss_mode=scene_state_generation_ce"
+                )
+            if scene_state_generated_unlikelihood_weight != 0.0:
+                raise ValueError(
+                    "The symmetric scene-state objective replaces legacy generated "
+                    "unlikelihood"
+                )
+        elif scene_state_generated_prefix_correction_weight != 0.0:
+            raise ValueError(
+                "scene_state_generated_prefix_correction_weight requires the "
+                "symmetric scene-state objective"
+            )
+        self.scene_state_generation_objective_version = (
+            normalized_generation_objective
+        )
+        self.scene_state_generated_prefix_correction_weight = float(
+            scene_state_generated_prefix_correction_weight
+        )
         self.scene_state_generated_unlikelihood_weight = (
             scene_state_generated_unlikelihood_weight
         )
@@ -3330,6 +3798,7 @@ class DeltaMemTrainer(Trainer):
         self._last_scene_generation_generated_rollout_token_count = 0.0
         self._last_scene_generation_generated_first_divergence = 0.0
         self._last_scene_generation_generated_exact_fraction = 0.0
+        self._last_scene_generation_objective_logs: dict[str, float] = {}
         self._last_memory_teacher_loss = 0.0
         self._last_scene_boundary_full_ce_loss = 0.0
         self._last_scene_boundary_payload_ce_loss = 0.0
@@ -6365,6 +6834,71 @@ class DeltaMemTrainer(Trainer):
         return outputs, metrics
 
     @staticmethod
+    def _scene_state_symmetric_selected_metrics(
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        pair_target_mask: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        normalized_mask = pair_target_mask.to(
+            device=labels.device,
+            dtype=torch.bool,
+        )
+        if normalized_mask.shape != labels.shape or not bool(
+            normalized_mask.sum(dim=1).eq(1).all()
+        ):
+            raise ValueError(
+                "Symmetric scene-state selected mask must choose one token per row"
+            )
+        positions = normalized_mask.long().argmax(dim=1)
+        if bool(positions.le(0).any()):
+            raise ValueError(
+                "Symmetric scene-state selected targets must have causal predictors"
+            )
+        batch_indices = torch.arange(logits.size(0), device=logits.device)
+        selected_logits = logits[
+            batch_indices,
+            positions - 1,
+        ].float()
+        target_ids = labels[batch_indices, positions]
+        selected_ce = F.cross_entropy(
+            selected_logits,
+            target_ids,
+            reduction="none",
+        )
+        gold_logits = selected_logits.gather(
+            1,
+            target_ids.unsqueeze(1),
+        ).squeeze(1)
+        top_values, top_indices = selected_logits.topk(k=2, dim=1)
+        max_other = torch.where(
+            top_indices[:, 0].eq(target_ids),
+            top_values[:, 1],
+            top_values[:, 0],
+        )
+        gold_margin = gold_logits - max_other
+        return {
+            "selected_ce_row": selected_ce,
+            "selected_gold_margin_row": gold_margin,
+            "selected_top_hinge_row": F.relu(
+                _SCENE_STATE_GENERATION_TOP1_MARGIN - gold_margin
+            ),
+            "selected_top1_row": top_indices[:, 0].eq(target_ids).float(),
+            "selected_logits": selected_logits,
+            "selected_target_ids": target_ids,
+        }
+
+    @staticmethod
+    def _scene_state_symmetric_zero_hinge(
+        selected_ce_row: torch.Tensor,
+        zero_ce_row: torch.Tensor,
+    ) -> torch.Tensor:
+        return F.relu(
+            _SCENE_STATE_GENERATION_ZERO_MARGIN
+            + selected_ce_row
+            - zero_ce_row.detach()
+        )
+
+    @staticmethod
     def _scene_state_generation_objective(
         correct: dict[str, torch.Tensor | int],
         donor: dict[str, torch.Tensor | int],
@@ -6948,6 +7482,720 @@ class DeltaMemTrainer(Trainer):
         )
         return unlikelihood_loss, stats
 
+    def _scene_state_generated_prefix_correction_branch(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        online_state_snapshot: dict[str, torch.Tensor],
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+        target_mask: torch.Tensor,
+        termination_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor | None, dict[str, float]]:
+        rollout = self._scene_state_generated_greedy_rollout(
+            model,
+            model_inputs,
+            online_state_snapshot=online_state_snapshot,
+            target_mask=target_mask,
+            termination_mask=termination_mask,
+        )
+        generated_token_ids = rollout["generated_token_ids"]
+        gold_token_ids = rollout["gold_token_ids"]
+        events = generated_correction_events(
+            generated_token_ids,
+            gold_token_ids,
+            max_events=self.scene_state_generated_unlikelihood_max_wrong_tokens,
+        )
+        positive_events = [
+            event for event in events if event.positive_token_id is not None
+        ]
+        negative_events = [
+            event for event in events if event.negative_token_id is not None
+        ]
+        stats = {
+            "scene_generation_prefix_positive_ce": 0.0,
+            "scene_generation_prefix_negative_unlikelihood": 0.0,
+            "scene_generation_prefix_correction_applied": float(bool(events)),
+            "scene_generation_prefix_correction_event_count": float(len(events)),
+            "scene_generation_prefix_positive_event_count": float(
+                len(positive_events)
+            ),
+            "scene_generation_prefix_negative_event_count": float(
+                len(negative_events)
+            ),
+            "scene_generation_prefix_substitution_count": float(
+                sum(event.kind == "substitution" for event in events)
+            ),
+            "scene_generation_prefix_insertion_count": float(
+                sum(event.kind == "generated_insertion" for event in events)
+            ),
+            "scene_generation_prefix_deletion_count": float(
+                sum(event.kind == "gold_deletion" for event in events)
+            ),
+            "scene_generation_generated_rollout_token_count": float(
+                generated_token_ids.numel()
+            ),
+            "scene_generation_generated_first_divergence": float(
+                rollout["first_divergence"]
+            ),
+            "scene_generation_generated_exact_fraction": float(
+                rollout["exact_through_termination"]
+            ),
+        }
+        if not events:
+            return None, stats
+        prompt_input_ids = rollout["prompt_input_ids"]
+        prompt_attention_mask = rollout["prompt_attention_mask"]
+        replay_input_ids = torch.cat(
+            (prompt_input_ids, generated_token_ids.unsqueeze(0)),
+            dim=1,
+        )
+        replay_attention_mask = torch.cat(
+            (
+                prompt_attention_mask,
+                torch.ones(
+                    (1, generated_token_ids.numel()),
+                    device=prompt_attention_mask.device,
+                    dtype=prompt_attention_mask.dtype,
+                ),
+            ),
+            dim=1,
+        )
+        self._reset_online_state(model)
+        self._prime_episode_state(
+            model,
+            write_input_ids=write_input_ids,
+            write_attention_mask=write_attention_mask,
+            batch_size=1,
+            write_message_ids=write_message_ids,
+            write_sentence_ids=write_sentence_ids,
+        )
+        set_delta_mem_write_enabled(model, False)
+        set_delta_mem_read_context_mask(
+            model,
+            replay_attention_mask.to(dtype=torch.bool),
+        )
+        replay_outputs = model(
+            input_ids=replay_input_ids,
+            attention_mask=replay_attention_mask,
+            use_cache=False,
+        )
+        replay_logits = (
+            replay_outputs["logits"]
+            if isinstance(replay_outputs, dict)
+            else replay_outputs.logits
+        )
+        prompt_length = int(prompt_input_ids.size(1))
+        predictor_positions = torch.tensor(
+            [
+                prompt_length + event.generated_cursor - 1
+                for event in events
+            ],
+            device=replay_logits.device,
+            dtype=torch.long,
+        )
+        if bool(predictor_positions.lt(0).any()) or bool(
+            predictor_positions.ge(replay_logits.size(1)).any()
+        ):
+            raise ValueError(
+                "Generated-prefix correction predictor escapes replay logits"
+            )
+        event_logits = replay_logits[0].index_select(0, predictor_positions)
+        positive_loss = event_logits.sum() * 0.0
+        if positive_events:
+            positive_indices = torch.tensor(
+                [
+                    index
+                    for index, event in enumerate(events)
+                    if event.positive_token_id is not None
+                ],
+                device=event_logits.device,
+                dtype=torch.long,
+            )
+            positive_ids = torch.tensor(
+                [
+                    int(event.positive_token_id)
+                    for event in positive_events
+                ],
+                device=event_logits.device,
+                dtype=torch.long,
+            )
+            positive_loss = F.cross_entropy(
+                event_logits.index_select(0, positive_indices).float(),
+                positive_ids,
+            )
+        negative_loss = event_logits.sum() * 0.0
+        if negative_events:
+            negative_indices = torch.tensor(
+                [
+                    index
+                    for index, event in enumerate(events)
+                    if event.negative_token_id is not None
+                ],
+                device=event_logits.device,
+                dtype=torch.long,
+            )
+            negative_ids = torch.tensor(
+                [
+                    int(event.negative_token_id)
+                    for event in negative_events
+                ],
+                device=event_logits.device,
+                dtype=torch.long,
+            )
+            negative_loss = self._scene_state_generated_unlikelihood_from_logits(
+                event_logits.index_select(0, negative_indices),
+                negative_ids,
+            )
+        stats["scene_generation_prefix_positive_ce"] = float(
+            positive_loss.detach().item()
+        )
+        stats["scene_generation_prefix_negative_unlikelihood"] = float(
+            negative_loss.detach().item()
+        )
+        return positive_loss + negative_loss, stats
+
+    def _scene_state_generation_symmetric_sequential_backward(
+        self,
+        model,
+        source_model_inputs: dict[str, torch.Tensor],
+        donor_model_inputs: dict[str, torch.Tensor],
+        *,
+        loss_kwargs: dict[str, torch.Tensor],
+        source_write_input_ids: torch.Tensor,
+        source_write_attention_mask: torch.Tensor,
+        source_write_message_ids: torch.Tensor | None,
+        source_write_sentence_ids: torch.Tensor | None,
+        donor_write_input_ids: torch.Tensor,
+        donor_write_attention_mask: torch.Tensor,
+        donor_write_message_ids: torch.Tensor | None,
+        donor_write_sentence_ids: torch.Tensor | None,
+        source_target_mask: torch.Tensor,
+        source_content_mask: torch.Tensor,
+        source_schema_mask: torch.Tensor,
+        source_decision_mask: torch.Tensor,
+        source_termination_mask: torch.Tensor,
+        source_pair_target_mask: torch.Tensor,
+        donor_target_mask: torch.Tensor,
+        donor_content_mask: torch.Tensor,
+        donor_schema_mask: torch.Tensor,
+        donor_decision_mask: torch.Tensor,
+        donor_termination_mask: torch.Tensor,
+        donor_pair_target_mask: torch.Tensor,
+        gradient_scale: float,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
+        self._validate_scene_state_generation_sequential_runtime()
+        if (
+            source_model_inputs["input_ids"].size(0) != 1
+            or donor_model_inputs["input_ids"].size(0) != 1
+        ):
+            raise ValueError(
+                "Symmetric scene-state objective requires physical batch size 1"
+            )
+        source_positions = source_pair_target_mask.long().argmax(dim=1)
+        donor_positions = donor_pair_target_mask.long().argmax(dim=1)
+        source_target_ids = source_model_inputs["labels"].gather(
+            1,
+            source_positions.unsqueeze(1),
+        ).squeeze(1)
+        donor_target_ids = donor_model_inputs["labels"].gather(
+            1,
+            donor_positions.unsqueeze(1),
+        ).squeeze(1)
+        if bool(source_target_ids.eq(donor_target_ids).any()):
+            raise ValueError(
+                "Symmetric scene-state pair targets must be distinct"
+            )
+        source_branch_kwargs = {
+            "model_inputs": source_model_inputs,
+            "loss_kwargs": loss_kwargs,
+            "target_mask": source_target_mask,
+            "content_mask": source_content_mask,
+            "schema_mask": source_schema_mask,
+            "decision_mask": source_decision_mask,
+            "termination_mask": source_termination_mask,
+            "pair_target_mask": source_pair_target_mask,
+            "donor_target_token_ids": donor_target_ids,
+        }
+        with torch.no_grad(), self.compute_loss_context_manager():
+            zero_outputs, _ = self._scene_state_generation_branch(
+                model,
+                prime_writes=False,
+                write_input_ids=None,
+                write_attention_mask=None,
+                write_message_ids=None,
+                write_sentence_ids=None,
+                **source_branch_kwargs,
+            )
+            zero_selected = self._scene_state_symmetric_selected_metrics(
+                zero_outputs["logits"],
+                source_model_inputs["labels"],
+                source_pair_target_mask,
+            )
+            zero_source_nll = zero_selected["selected_ce_row"].detach()
+            zero_donor_nll = F.cross_entropy(
+                zero_selected["selected_logits"],
+                donor_target_ids,
+                reduction="none",
+            ).detach()
+        del zero_outputs, zero_selected
+
+        def run_side(
+            *,
+            side: str,
+            model_inputs: dict[str, torch.Tensor],
+            branch_kwargs: dict[str, object],
+            write_input_ids: torch.Tensor,
+            write_attention_mask: torch.Tensor,
+            write_message_ids: torch.Tensor | None,
+            write_sentence_ids: torch.Tensor | None,
+            pair_target_mask: torch.Tensor,
+            termination_mask: torch.Tensor,
+            zero_nll: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor, dict[str, float]]:
+            with self.compute_loss_context_manager():
+                outputs, branch_metrics = self._scene_state_generation_branch(
+                    model,
+                    prime_writes=True,
+                    write_input_ids=write_input_ids,
+                    write_attention_mask=write_attention_mask,
+                    write_message_ids=write_message_ids,
+                    write_sentence_ids=write_sentence_ids,
+                    **branch_kwargs,
+                )
+                selected = self._scene_state_symmetric_selected_metrics(
+                    outputs["logits"],
+                    model_inputs["labels"],
+                    pair_target_mask,
+                )
+                online_state_snapshot = clone_detached_online_state(
+                    self._capture_live_online_state(model)
+                )
+                full_ce = branch_metrics["weighted_generation_row_ce"].mean()
+                selected_ce = selected["selected_ce_row"].mean()
+                selected_top_hinge = selected[
+                    "selected_top_hinge_row"
+                ].mean()
+                zero_hinge = self._scene_state_symmetric_zero_hinge(
+                    selected["selected_ce_row"],
+                    zero_nll,
+                ).mean()
+                teacher_loss = (
+                    full_ce
+                    + selected_ce
+                    + selected_top_hinge
+                    + zero_hinge
+                )
+            teacher_value = teacher_loss.detach()
+            side_stats = {
+                f"scene_generation_{side}_full_gold_ce": float(
+                    full_ce.detach().item()
+                ),
+                f"scene_generation_{side}_selected_vocab_ce": float(
+                    selected_ce.detach().item()
+                ),
+                f"scene_generation_{side}_selected_top_hinge": float(
+                    selected_top_hinge.detach().item()
+                ),
+                f"scene_generation_{side}_selected_gold_margin": float(
+                    selected["selected_gold_margin_row"].mean().detach().item()
+                ),
+                f"scene_generation_{side}_selected_top1": float(
+                    selected["selected_top1_row"].mean().detach().item()
+                ),
+                f"scene_generation_{side}_zero_hinge": float(
+                    zero_hinge.detach().item()
+                ),
+                f"scene_generation_{side}_zero_minus_correct_selected_nll": float(
+                    (zero_nll - selected["selected_ce_row"])
+                    .mean()
+                    .detach()
+                    .item()
+                ),
+            }
+            teacher_root = teacher_loss * 0.5 * gradient_scale
+            del outputs, branch_metrics, selected, teacher_loss
+            self.accelerator.backward(teacher_root)
+            del teacher_root
+
+            correction_value = teacher_value.new_zeros(())
+            prefix_weight = float(
+                self.scene_state_generated_prefix_correction_weight
+            )
+            correction_stats: dict[str, float] = {}
+            if prefix_weight > 0.0:
+                with self.compute_loss_context_manager():
+                    correction_loss, correction_stats = (
+                        self._scene_state_generated_prefix_correction_branch(
+                            model,
+                            model_inputs,
+                            online_state_snapshot=online_state_snapshot,
+                            write_input_ids=write_input_ids,
+                            write_attention_mask=write_attention_mask,
+                            write_message_ids=write_message_ids,
+                            write_sentence_ids=write_sentence_ids,
+                            target_mask=branch_kwargs["target_mask"],
+                            termination_mask=termination_mask,
+                        )
+                    )
+                if correction_loss is not None:
+                    correction_value = correction_loss.detach()
+                    correction_root = (
+                        correction_loss
+                        * prefix_weight
+                        * 0.5
+                        * gradient_scale
+                    )
+                    del correction_loss
+                    self.accelerator.backward(correction_root)
+                    del correction_root
+            del online_state_snapshot
+            for key, value in correction_stats.items():
+                side_stats[f"{key}_{side}"] = value
+            return teacher_value, correction_value, side_stats
+
+        source_teacher, source_correction, source_stats = run_side(
+            side="source",
+            model_inputs=source_model_inputs,
+            branch_kwargs=source_branch_kwargs,
+            write_input_ids=source_write_input_ids,
+            write_attention_mask=source_write_attention_mask,
+            write_message_ids=source_write_message_ids,
+            write_sentence_ids=source_write_sentence_ids,
+            pair_target_mask=source_pair_target_mask,
+            termination_mask=source_termination_mask,
+            zero_nll=zero_source_nll,
+        )
+        donor_branch_kwargs = {
+            "model_inputs": donor_model_inputs,
+            "loss_kwargs": loss_kwargs,
+            "target_mask": donor_target_mask,
+            "content_mask": donor_content_mask,
+            "schema_mask": donor_schema_mask,
+            "decision_mask": donor_decision_mask,
+            "termination_mask": donor_termination_mask,
+            "pair_target_mask": donor_pair_target_mask,
+            "donor_target_token_ids": source_target_ids,
+        }
+        donor_teacher, donor_correction, donor_stats = run_side(
+            side="donor",
+            model_inputs=donor_model_inputs,
+            branch_kwargs=donor_branch_kwargs,
+            write_input_ids=donor_write_input_ids,
+            write_attention_mask=donor_write_attention_mask,
+            write_message_ids=donor_write_message_ids,
+            write_sentence_ids=donor_write_sentence_ids,
+            pair_target_mask=donor_pair_target_mask,
+            termination_mask=donor_termination_mask,
+            zero_nll=zero_donor_nll,
+        )
+        prefix_weight = float(self.scene_state_generated_prefix_correction_weight)
+        reported_total = 0.5 * (source_teacher + donor_teacher) + (
+            0.5 * prefix_weight * (source_correction + donor_correction)
+        )
+        symmetric_full_gold_ce = 0.5 * (
+            source_stats["scene_generation_source_full_gold_ce"]
+            + donor_stats["scene_generation_donor_full_gold_ce"]
+        )
+        symmetric_selected_vocab_ce = 0.5 * (
+            source_stats["scene_generation_source_selected_vocab_ce"]
+            + donor_stats["scene_generation_donor_selected_vocab_ce"]
+        )
+        symmetric_selected_top_hinge = 0.5 * (
+            source_stats["scene_generation_source_selected_top_hinge"]
+            + donor_stats["scene_generation_donor_selected_top_hinge"]
+        )
+        symmetric_selected_gold_margin = 0.5 * (
+            source_stats["scene_generation_source_selected_gold_margin"]
+            + donor_stats["scene_generation_donor_selected_gold_margin"]
+        )
+        symmetric_selected_top1 = 0.5 * (
+            source_stats["scene_generation_source_selected_top1"]
+            + donor_stats["scene_generation_donor_selected_top1"]
+        )
+        symmetric_zero_hinge = 0.5 * (
+            source_stats["scene_generation_source_zero_hinge"]
+            + donor_stats["scene_generation_donor_zero_hinge"]
+        )
+        symmetric_zero_nll_gap = 0.5 * (
+            source_stats[
+                "scene_generation_source_zero_minus_correct_selected_nll"
+            ]
+            + donor_stats[
+                "scene_generation_donor_zero_minus_correct_selected_nll"
+            ]
+        )
+
+        def prefix_mean(metric: str) -> float:
+            return 0.5 * (
+                source_stats.get(f"scene_generation_prefix_{metric}_source", 0.0)
+                + donor_stats.get(f"scene_generation_prefix_{metric}_donor", 0.0)
+            )
+
+        def generated_mean(metric: str) -> float:
+            return 0.5 * (
+                source_stats.get(f"scene_generation_generated_{metric}_source", 0.0)
+                + donor_stats.get(f"scene_generation_generated_{metric}_donor", 0.0)
+            )
+
+        symmetric_prefix_correction_loss = float(
+            (0.5 * (source_correction + donor_correction)).item()
+        )
+        symmetric_teacher_loss = float(
+            (0.5 * (source_teacher + donor_teacher)).item()
+        )
+        memory_stats = {
+            **source_stats,
+            **donor_stats,
+            "keep_loss": float(
+                0.5
+                * (
+                    source_stats["scene_generation_source_full_gold_ce"]
+                    + donor_stats["scene_generation_donor_full_gold_ce"]
+                )
+            ),
+            "reset_loss": 0.0,
+            "corrupt_loss": 0.0,
+            "teacher_loss": 0.0,
+            "margin_loss": float(
+                0.5
+                * (
+                    source_stats["scene_generation_source_zero_hinge"]
+                    + donor_stats["scene_generation_donor_zero_hinge"]
+                )
+            ),
+            "causal_loss": float(
+                0.5 * prefix_weight * (source_correction + donor_correction)
+            ),
+            "anchor_loss": float(
+                0.5
+                * (
+                    source_stats["scene_generation_source_selected_vocab_ce"]
+                    + donor_stats["scene_generation_donor_selected_vocab_ce"]
+                    + source_stats["scene_generation_source_selected_top_hinge"]
+                    + donor_stats["scene_generation_donor_selected_top_hinge"]
+                )
+            ),
+            "full_ce_loss": float(
+                0.5
+                * (
+                    source_stats["scene_generation_source_full_gold_ce"]
+                    + donor_stats["scene_generation_donor_full_gold_ce"]
+                )
+            ),
+            "kl_loss": 0.0,
+            "reset_kl_loss": 0.0,
+            "margin_gap": float(
+                0.5
+                * (
+                    source_stats[
+                        "scene_generation_source_zero_minus_correct_selected_nll"
+                    ]
+                    + donor_stats[
+                        "scene_generation_donor_zero_minus_correct_selected_nll"
+                    ]
+                )
+            ),
+            "wmem": 1.0,
+            "probe_keep_loss": 0.0,
+            "probe_reset_loss": 0.0,
+            "probe_margin_loss": 0.0,
+            "probe_gap": 0.0,
+            "probe_kl": 0.0,
+            "probe_ce": 0.0,
+            "scene_generation_total_loss": float(reported_total.item()),
+            "scene_generation_weighted_ce": float(symmetric_full_gold_ce),
+            "scene_generation_zero_margin_loss": float(symmetric_zero_hinge),
+            "scene_generation_symmetric_full_gold_ce": float(
+                symmetric_full_gold_ce
+            ),
+            "scene_generation_symmetric_selected_vocab_ce": float(
+                symmetric_selected_vocab_ce
+            ),
+            "scene_generation_symmetric_selected_top_hinge": float(
+                symmetric_selected_top_hinge
+            ),
+            "scene_generation_symmetric_selected_gold_margin": float(
+                symmetric_selected_gold_margin
+            ),
+            "scene_generation_symmetric_selected_top1_fraction": float(
+                symmetric_selected_top1
+            ),
+            "scene_generation_symmetric_zero_hinge": float(symmetric_zero_hinge),
+            "scene_generation_symmetric_zero_minus_correct_selected_nll": float(
+                symmetric_zero_nll_gap
+            ),
+            "scene_generation_symmetric_zero_positive_fraction": float(
+                0.5
+                * (
+                    float(
+                        source_stats[
+                            "scene_generation_source_zero_minus_correct_selected_nll"
+                        ]
+                        > 0.0
+                    )
+                    + float(
+                        donor_stats[
+                            "scene_generation_donor_zero_minus_correct_selected_nll"
+                        ]
+                        > 0.0
+                    )
+                )
+            ),
+            "scene_generation_symmetric_prefix_correction_loss": (
+                symmetric_prefix_correction_loss
+            ),
+            "scene_generation_symmetric_prefix_correction_weighted_loss": (
+                prefix_weight * symmetric_prefix_correction_loss
+            ),
+            "scene_generation_symmetric_prefix_positive_ce": prefix_mean(
+                "positive_ce"
+            ),
+            "scene_generation_symmetric_prefix_negative_unlikelihood": prefix_mean(
+                "negative_unlikelihood"
+            ),
+            "scene_generation_symmetric_prefix_correction_applied_fraction": (
+                prefix_mean("correction_applied")
+            ),
+            "scene_generation_symmetric_prefix_correction_event_count": (
+                source_stats.get(
+                    "scene_generation_prefix_correction_event_count_source",
+                    0.0,
+                )
+                + donor_stats.get(
+                    "scene_generation_prefix_correction_event_count_donor",
+                    0.0,
+                )
+            ),
+            "scene_generation_v9_objective_total_loss": float(
+                reported_total.item()
+            ),
+            "scene_generation_v9_objective_teacher_loss": symmetric_teacher_loss,
+            "scene_generation_v9_objective_prefix_weighted_loss": (
+                prefix_weight * symmetric_prefix_correction_loss
+            ),
+            "scene_generation_v9_pair_mean_weighted_suffix_ce": float(
+                symmetric_full_gold_ce
+            ),
+            "scene_generation_v9_pair_mean_selected_full_vocab_ce": float(
+                symmetric_selected_vocab_ce
+            ),
+            "scene_generation_v9_pair_mean_selected_top_competitor_hinge": float(
+                symmetric_selected_top_hinge
+            ),
+            "scene_generation_v9_pair_mean_selected_correct_vs_zero_hinge": float(
+                symmetric_zero_hinge
+            ),
+            "scene_generation_v9_pair_mean_prefix_positive_gold_ce": prefix_mean(
+                "positive_ce"
+            ),
+            "scene_generation_v9_pair_mean_prefix_wrong_token_unlikelihood": (
+                prefix_mean("negative_unlikelihood")
+            ),
+            "scene_generation_v9_pair_mean_selected_gold_vs_top_competitor_margin": float(
+                symmetric_selected_gold_margin
+            ),
+            "scene_generation_v9_pair_mean_selected_zero_minus_correct_nll": float(
+                symmetric_zero_nll_gap
+            ),
+            "scene_generation_v9_pair_mean_selected_top1_fraction": float(
+                symmetric_selected_top1
+            ),
+            "scene_generation_v9_pair_mean_selected_correct_beats_zero_fraction": float(
+                0.5
+                * (
+                    float(
+                        source_stats[
+                            "scene_generation_source_zero_minus_correct_selected_nll"
+                        ]
+                        > 0.0
+                    )
+                    + float(
+                        donor_stats[
+                            "scene_generation_donor_zero_minus_correct_selected_nll"
+                        ]
+                        > 0.0
+                    )
+                )
+            ),
+            "scene_generation_v9_pair_mean_prefix_correction_applied_fraction": (
+                prefix_mean("correction_applied")
+            ),
+            "scene_generation_v9_pair_mean_prefix_correction_event_count": prefix_mean(
+                "correction_event_count"
+            ),
+            "scene_generation_v9_pair_mean_prefix_positive_event_count": prefix_mean(
+                "positive_event_count"
+            ),
+            "scene_generation_v9_pair_mean_prefix_negative_event_count": prefix_mean(
+                "negative_event_count"
+            ),
+            "scene_generation_v9_pair_mean_prefix_substitution_count": prefix_mean(
+                "substitution_count"
+            ),
+            "scene_generation_v9_pair_mean_prefix_insertion_count": prefix_mean(
+                "insertion_count"
+            ),
+            "scene_generation_v9_pair_mean_prefix_deletion_count": prefix_mean(
+                "deletion_count"
+            ),
+            "scene_generation_v9_pair_mean_generated_rollout_token_count": generated_mean(
+                "rollout_token_count"
+            ),
+            "scene_generation_v9_pair_mean_generated_first_divergence": generated_mean(
+                "first_divergence"
+            ),
+            "scene_generation_v9_pair_mean_generated_exact_fraction": generated_mean(
+                "exact_fraction"
+            ),
+            "scene_generation_v9_source_weighted_suffix_ce": source_stats[
+                "scene_generation_source_full_gold_ce"
+            ],
+            "scene_generation_v9_source_selected_full_vocab_ce": source_stats[
+                "scene_generation_source_selected_vocab_ce"
+            ],
+            "scene_generation_v9_source_selected_top_competitor_hinge": source_stats[
+                "scene_generation_source_selected_top_hinge"
+            ],
+            "scene_generation_v9_source_selected_correct_vs_zero_hinge": source_stats[
+                "scene_generation_source_zero_hinge"
+            ],
+            "scene_generation_v9_source_prefix_positive_gold_ce": source_stats.get(
+                "scene_generation_prefix_positive_ce_source",
+                0.0,
+            ),
+            "scene_generation_v9_source_prefix_wrong_token_unlikelihood": source_stats.get(
+                "scene_generation_prefix_negative_unlikelihood_source",
+                0.0,
+            ),
+            "scene_generation_v9_donor_weighted_suffix_ce": donor_stats[
+                "scene_generation_donor_full_gold_ce"
+            ],
+            "scene_generation_v9_donor_selected_full_vocab_ce": donor_stats[
+                "scene_generation_donor_selected_vocab_ce"
+            ],
+            "scene_generation_v9_donor_selected_top_competitor_hinge": donor_stats[
+                "scene_generation_donor_selected_top_hinge"
+            ],
+            "scene_generation_v9_donor_selected_correct_vs_zero_hinge": donor_stats[
+                "scene_generation_donor_zero_hinge"
+            ],
+            "scene_generation_v9_donor_prefix_positive_gold_ce": donor_stats.get(
+                "scene_generation_prefix_positive_ce_donor",
+                0.0,
+            ),
+            "scene_generation_v9_donor_prefix_wrong_token_unlikelihood": donor_stats.get(
+                "scene_generation_prefix_negative_unlikelihood_donor",
+                0.0,
+            ),
+        }
+        set_delta_mem_read_context_mask(model, None)
+        set_delta_mem_write_enabled(model, True)
+        return reported_total * gradient_scale, memory_stats
+
     def _scene_state_generation_sequential_backward(
         self,
         model,
@@ -7162,6 +8410,16 @@ class DeltaMemTrainer(Trainer):
         set_delta_mem_read_context_mask(model, None)
         set_delta_mem_write_enabled(model, True)
         return reported_total_loss * gradient_scale, memory_stats
+
+    @staticmethod
+    def _scene_state_generation_log_metrics(
+        memory_stats: dict[str, float],
+    ) -> dict[str, float]:
+        return {
+            f"delta/{key}": float(value)
+            for key, value in memory_stats.items()
+            if key.startswith("scene_generation_")
+        }
 
     def _record_memory_stats(self, model, memory_stats: dict[str, float]) -> None:
         partition_route_stats = collect_delta_mem_partition_route_stats(model)
@@ -7384,6 +8642,9 @@ class DeltaMemTrainer(Trainer):
         self._last_scene_generation_generated_exact_fraction = memory_stats.get(
             "scene_generation_generated_exact_fraction",
             0.0,
+        )
+        self._last_scene_generation_objective_logs = (
+            self._scene_state_generation_log_metrics(memory_stats)
         )
         self._last_scene_generation_gold_top1_accuracy = memory_stats.get(
             "scene_generation_gold_top1_accuracy",
@@ -8452,6 +9713,9 @@ class DeltaMemTrainer(Trainer):
                     ),
                 }
             )
+            enriched_logs.update(
+                getattr(self, "_last_scene_generation_objective_logs", {})
+            )
         if self.model is not None and getattr(self, "log_delta_debug_stats", False):
             gate_stats = collect_delta_mem_gate_stats(self.model)
             output_ratio_stats = collect_delta_mem_output_ratio_stats(self.model)
@@ -8665,6 +9929,18 @@ class DeltaMemTrainer(Trainer):
                     "scene_state_generation_schema_mask",
                     "scene_state_generation_decision_mask",
                     "scene_state_generation_termination_mask",
+                    "scene_state_donor_input_ids",
+                    "scene_state_donor_attention_mask",
+                    "scene_state_donor_labels",
+                    "scene_state_donor_generation_target_mask",
+                    "scene_state_donor_generation_content_mask",
+                    "scene_state_donor_generation_schema_mask",
+                    "scene_state_donor_generation_decision_mask",
+                    "scene_state_donor_generation_termination_mask",
+                    "scene_state_donor_identity_target_mask",
+                    "scene_state_generation_symmetric_full_pair",
+                    "scene_state_source_index",
+                    "scene_state_donor_index",
                 )
             }
             for key in (
@@ -8719,42 +9995,153 @@ class DeltaMemTrainer(Trainer):
                 and self.compute_loss_func is None
             ):
                 gradient_scale /= self.current_gradient_accumulation_steps
-            loss, memory_stats = self._scene_state_generation_sequential_backward(
-                model,
-                model_inputs,
-                loss_kwargs=loss_kwargs,
-                write_input_ids=payload["write_input_ids"],
-                write_attention_mask=payload["write_attention_mask"],
-                write_message_ids=payload["write_message_ids"],
-                write_sentence_ids=payload["write_sentence_ids"],
-                donor_write_input_ids=payload[
-                    "scene_state_donor_write_input_ids"
-                ],
-                donor_write_attention_mask=payload[
-                    "scene_state_donor_write_attention_mask"
-                ],
-                donor_write_message_ids=payload[
-                    "scene_state_donor_write_message_ids"
-                ],
-                donor_write_sentence_ids=payload[
-                    "scene_state_donor_write_sentence_ids"
-                ],
-                target_mask=payload["scene_state_generation_target_mask"],
-                content_mask=payload["scene_state_generation_content_mask"],
-                schema_mask=payload["scene_state_generation_schema_mask"],
-                decision_mask=payload["scene_state_generation_decision_mask"],
-                termination_mask=payload[
-                    "scene_state_generation_termination_mask"
-                ],
-                pair_target_mask=payload["scene_state_identity_target_mask"],
-                donor_target_token_ids=payload[
-                    "scene_state_identity_donor_target_token_id"
-                ],
-                target_stratum_codes=payload[
-                    "scene_state_identity_target_stratum"
-                ],
-                gradient_scale=gradient_scale,
+            symmetric_objective = (
+                self.scene_state_generation_objective_version
+                == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
             )
+            if symmetric_objective:
+                symmetric_required = (
+                    "scene_state_donor_input_ids",
+                    "scene_state_donor_attention_mask",
+                    "scene_state_donor_labels",
+                    "scene_state_donor_generation_target_mask",
+                    "scene_state_donor_generation_content_mask",
+                    "scene_state_donor_generation_schema_mask",
+                    "scene_state_donor_generation_decision_mask",
+                    "scene_state_donor_generation_termination_mask",
+                    "scene_state_donor_identity_target_mask",
+                    "scene_state_generation_symmetric_full_pair",
+                    "scene_state_source_index",
+                    "scene_state_donor_index",
+                )
+                symmetric_missing = [
+                    key for key in symmetric_required if payload[key] is None
+                ]
+                if symmetric_missing:
+                    raise ValueError(
+                        "Symmetric scene-state generation requires reciprocal full "
+                        "metadata: " + ", ".join(symmetric_missing)
+                    )
+                if not bool(
+                    payload["scene_state_generation_symmetric_full_pair"]
+                    .to(dtype=torch.bool)
+                    .all()
+                ) or not bool(
+                    (
+                        payload["scene_state_source_index"]
+                        < payload["scene_state_donor_index"]
+                    ).all()
+                ):
+                    raise ValueError(
+                        "Symmetric scene-state batch is not canonical-low"
+                    )
+                donor_model_inputs = {
+                    "input_ids": payload["scene_state_donor_input_ids"],
+                    "attention_mask": payload[
+                        "scene_state_donor_attention_mask"
+                    ],
+                    "labels": payload["scene_state_donor_labels"],
+                }
+                loss, memory_stats = (
+                    self._scene_state_generation_symmetric_sequential_backward(
+                        model,
+                        model_inputs,
+                        donor_model_inputs,
+                        loss_kwargs=loss_kwargs,
+                        source_write_input_ids=payload["write_input_ids"],
+                        source_write_attention_mask=payload[
+                            "write_attention_mask"
+                        ],
+                        source_write_message_ids=payload["write_message_ids"],
+                        source_write_sentence_ids=payload["write_sentence_ids"],
+                        donor_write_input_ids=payload[
+                            "scene_state_donor_write_input_ids"
+                        ],
+                        donor_write_attention_mask=payload[
+                            "scene_state_donor_write_attention_mask"
+                        ],
+                        donor_write_message_ids=payload[
+                            "scene_state_donor_write_message_ids"
+                        ],
+                        donor_write_sentence_ids=payload[
+                            "scene_state_donor_write_sentence_ids"
+                        ],
+                        source_target_mask=payload[
+                            "scene_state_generation_target_mask"
+                        ],
+                        source_content_mask=payload[
+                            "scene_state_generation_content_mask"
+                        ],
+                        source_schema_mask=payload[
+                            "scene_state_generation_schema_mask"
+                        ],
+                        source_decision_mask=payload[
+                            "scene_state_generation_decision_mask"
+                        ],
+                        source_termination_mask=payload[
+                            "scene_state_generation_termination_mask"
+                        ],
+                        source_pair_target_mask=payload[
+                            "scene_state_identity_target_mask"
+                        ],
+                        donor_target_mask=payload[
+                            "scene_state_donor_generation_target_mask"
+                        ],
+                        donor_content_mask=payload[
+                            "scene_state_donor_generation_content_mask"
+                        ],
+                        donor_schema_mask=payload[
+                            "scene_state_donor_generation_schema_mask"
+                        ],
+                        donor_decision_mask=payload[
+                            "scene_state_donor_generation_decision_mask"
+                        ],
+                        donor_termination_mask=payload[
+                            "scene_state_donor_generation_termination_mask"
+                        ],
+                        donor_pair_target_mask=payload[
+                            "scene_state_donor_identity_target_mask"
+                        ],
+                        gradient_scale=gradient_scale,
+                    )
+                )
+            else:
+                loss, memory_stats = self._scene_state_generation_sequential_backward(
+                    model,
+                    model_inputs,
+                    loss_kwargs=loss_kwargs,
+                    write_input_ids=payload["write_input_ids"],
+                    write_attention_mask=payload["write_attention_mask"],
+                    write_message_ids=payload["write_message_ids"],
+                    write_sentence_ids=payload["write_sentence_ids"],
+                    donor_write_input_ids=payload[
+                        "scene_state_donor_write_input_ids"
+                    ],
+                    donor_write_attention_mask=payload[
+                        "scene_state_donor_write_attention_mask"
+                    ],
+                    donor_write_message_ids=payload[
+                        "scene_state_donor_write_message_ids"
+                    ],
+                    donor_write_sentence_ids=payload[
+                        "scene_state_donor_write_sentence_ids"
+                    ],
+                    target_mask=payload["scene_state_generation_target_mask"],
+                    content_mask=payload["scene_state_generation_content_mask"],
+                    schema_mask=payload["scene_state_generation_schema_mask"],
+                    decision_mask=payload["scene_state_generation_decision_mask"],
+                    termination_mask=payload[
+                        "scene_state_generation_termination_mask"
+                    ],
+                    pair_target_mask=payload["scene_state_identity_target_mask"],
+                    donor_target_token_ids=payload[
+                        "scene_state_identity_donor_target_token_id"
+                    ],
+                    target_stratum_codes=payload[
+                        "scene_state_identity_target_stratum"
+                    ],
+                    gradient_scale=gradient_scale,
+                )
             self._last_memory_partition_alignment_loss = 0.0
             self._last_memory_partition_entropy_loss = 0.0
             self._last_memory_partition_balance_loss = 0.0
@@ -9135,10 +10522,21 @@ class DeltaMemTrainer(Trainer):
                 is not None
             ),
         )
+        active_protocol = getattr(self, "training_protocol", None)
         checkpoint_steps = _scene_memory_v8_protocol_checkpoint_steps(
-            getattr(self, "training_protocol", None)
+            active_protocol
         )
-        if checkpoint_steps is not None:
+        v9_checkpoint_steps = _scene_memory_v9_protocol_checkpoint_steps(
+            active_protocol
+        )
+        if v9_checkpoint_steps is not None:
+            validate_scene_memory_v9_active_continuation(
+                getattr(self, "continuation_manifest", None),
+                resume_from_checkpoint=checkpoint,
+                target_training_protocol=self.training_protocol,
+                checkpoint_steps=v9_checkpoint_steps,
+            )
+        elif checkpoint_steps is not None:
             validate_scene_memory_v8_active_continuation(
                 getattr(self, "continuation_manifest", None),
                 resume_from_checkpoint=checkpoint,
@@ -9462,6 +10860,168 @@ def _scene_state_v8_curriculum_protocol_summary(
     }
 
 
+def _scene_state_v9_curriculum_binding(
+    args: argparse.Namespace,
+) -> dict[str, object] | None:
+    source_identity = _scene_state_source_manifest_identity(args)
+    if source_identity is None or source_identity.get("schema") != (
+        _SCENE_MEMORY_V9_SOURCE_SCHEMA
+    ):
+        return None
+    source_manifest_path = Path(str(source_identity["path"]))
+    source_manifest = _load_json_object(
+        source_manifest_path,
+        description="scene-state V9 source manifest",
+    )
+    unsigned_source = dict(source_manifest)
+    declared_source_hash = unsigned_source.pop("manifest_sha256", None)
+    if declared_source_hash != _canonical_json_sha256(unsigned_source):
+        raise ValueError("Scene-state V9 source-manifest canonical SHA-256 differs")
+    curriculum = source_manifest.get("v9_pair_curriculum")
+    if not isinstance(curriculum, dict) or curriculum.get("schema") != (
+        _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
+    ):
+        raise ValueError("Scene-state V9 source manifest has no valid curriculum")
+    if curriculum.get("train32_sha256") != source_identity.get(
+        "train_file_sha256"
+    ):
+        raise ValueError("Scene-state V9 curriculum binds a different Train32")
+
+    def resolve_artifact(record: object, *, description: str) -> tuple[Path, str]:
+        if not isinstance(record, dict):
+            raise ValueError(f"Scene-state V9 curriculum omits {description}")
+        raw_path = Path(str(record.get("path", ""))).expanduser()
+        path = (
+            raw_path
+            if raw_path.is_absolute()
+            else source_manifest_path.parent / raw_path
+        ).resolve()
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"Scene-state V9 {description} is invalid: {path}")
+        actual_sha256 = _sha256_file(path)
+        if record.get("sha256") != actual_sha256:
+            raise ValueError(f"Scene-state V9 {description} SHA-256 differs")
+        return path, actual_sha256
+
+    schedule_record = curriculum.get("pair_schedule")
+    schedule_path, schedule_file_sha256 = resolve_artifact(
+        schedule_record,
+        description="pair schedule",
+    )
+    if not isinstance(schedule_record, dict):
+        raise AssertionError("validated V9 schedule record changed type")
+    schedule_entries = []
+    schedule_indices = []
+    schedule_pairs = []
+    for schedule_index, line in enumerate(
+        schedule_path.read_text(encoding="utf-8").splitlines()
+    ):
+        if not line.strip():
+            raise ValueError("Scene-state V9 pair schedule contains a blank row")
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise ValueError(
+                f"Scene-state V9 pair schedule row {schedule_index} is invalid JSON"
+            ) from error
+        if not isinstance(entry, dict) or entry.get("schema") != (
+            _SCENE_MEMORY_V9_SCHEDULE_ENTRY_SCHEMA
+        ):
+            raise ValueError(
+                f"Scene-state V9 pair schedule row {schedule_index} schema differs"
+            )
+        unsigned_entry = dict(entry)
+        declared_entry_hash = unsigned_entry.pop("entry_sha256", None)
+        if declared_entry_hash != _canonical_json_sha256(unsigned_entry):
+            raise ValueError(
+                f"Scene-state V9 pair schedule row {schedule_index} SHA-256 differs"
+            )
+        pair = entry.get("canonical_pair_ordinals")
+        members = entry.get("members")
+        if (
+            entry.get("schedule_index") != schedule_index
+            or entry.get("step") != schedule_index + 1
+            or entry.get("phase") != "value14_pair"
+            or entry.get("pair_batch_size") != 2
+            or not isinstance(pair, list)
+            or len(pair) != 2
+            or any(isinstance(value, bool) or not isinstance(value, int) for value in pair)
+            or pair[0] >= pair[1]
+            or not isinstance(members, list)
+            or len(members) != 2
+            or not isinstance(members[0], dict)
+            or not isinstance(members[1], dict)
+            or members[0].get("train_row_ordinal") != pair[0]
+            or members[0].get("donor_train_row_ordinal") != pair[1]
+            or members[1].get("train_row_ordinal") != pair[1]
+            or members[1].get("donor_train_row_ordinal") != pair[0]
+        ):
+            raise ValueError(
+                f"Scene-state V9 pair schedule row {schedule_index} differs"
+            )
+        schedule_entries.append(entry)
+        schedule_indices.append(pair[0])
+        schedule_pairs.append(pair)
+    entries_sha256 = _canonical_json_sha256(schedule_entries)
+    ordered_pairs_sha256 = _canonical_json_sha256(schedule_pairs)
+    if (
+        schedule_record.get("rows") != len(schedule_entries)
+        or schedule_record.get("entries_sha256") != entries_sha256
+        or schedule_record.get("ordered_pairs_sha256") != ordered_pairs_sha256
+        or curriculum.get("pair_steps") != len(schedule_entries)
+    ):
+        raise ValueError("Scene-state V9 pair schedule binding differs")
+    canonical_pairs = curriculum.get("canonical_value14_pairs")
+    if not isinstance(canonical_pairs, list) or any(
+        pair not in canonical_pairs for pair in schedule_pairs
+    ):
+        raise ValueError("Scene-state V9 pair schedule escapes canonical Value14")
+
+    manifest_record = curriculum.get("pair_schedule_manifest")
+    manifest_path, manifest_file_sha256 = resolve_artifact(
+        manifest_record,
+        description="pair schedule manifest",
+    )
+    if not isinstance(manifest_record, dict):
+        raise AssertionError("validated V9 schedule-manifest record changed type")
+    schedule_manifest = _load_json_object(
+        manifest_path,
+        description="scene-state V9 pair schedule manifest",
+    )
+    if schedule_manifest.get("schema") != _SCENE_MEMORY_V9_SCHEDULE_MANIFEST_SCHEMA:
+        raise ValueError("Scene-state V9 pair schedule-manifest schema differs")
+    unsigned_manifest = dict(schedule_manifest)
+    declared_manifest_hash = unsigned_manifest.pop("manifest_sha256", None)
+    actual_manifest_hash = _canonical_json_sha256(unsigned_manifest)
+    manifest_schedule = schedule_manifest.get("schedule")
+    if (
+        declared_manifest_hash != actual_manifest_hash
+        or manifest_record.get("manifest_sha256") != actual_manifest_hash
+        or not isinstance(manifest_schedule, dict)
+        or manifest_schedule.get("sha256") != schedule_file_sha256
+        or manifest_schedule.get("entries_sha256") != entries_sha256
+        or manifest_schedule.get("ordered_pairs_sha256") != ordered_pairs_sha256
+    ):
+        raise ValueError("Scene-state V9 pair schedule manifest differs")
+    return {
+        "schema": _SCENE_MEMORY_V9_CURRICULUM_SCHEMA,
+        "source_manifest_path": str(source_manifest_path),
+        "source_manifest_file_sha256": source_identity["file_sha256"],
+        "schedule_path": str(schedule_path),
+        "schedule_file_sha256": schedule_file_sha256,
+        "schedule_entries_sha256": entries_sha256,
+        "schedule_manifest_path": str(manifest_path),
+        "schedule_manifest_file_sha256": manifest_file_sha256,
+        "schedule_manifest_sha256": actual_manifest_hash,
+        "ordered_pairs_sha256": ordered_pairs_sha256,
+        "canonical_value14_pairs": canonical_pairs,
+        "total_steps": len(schedule_entries),
+        "checkpoint_steps": list(curriculum.get("checkpoint_steps", [])),
+        "pair_indices": tuple(tuple(pair) for pair in schedule_pairs),
+        "indices": tuple(schedule_indices),
+    }
+
+
 def _validate_scene_state_v8_locked_training_args(
     args: argparse.Namespace,
     curriculum_binding: dict[str, object],
@@ -9579,9 +11139,10 @@ def _scene_state_generation_pairing_binding(
     if source_manifest.get("schema") not in {
         "rwkv_ms_scene_memory_v7_source.v1",
         _SCENE_MEMORY_V8_SOURCE_SCHEMA,
+        _SCENE_MEMORY_V9_SOURCE_SCHEMA,
     }:
         raise ValueError(
-            "scene_state_generation_ce requires a V7 or V8 scene-memory source schema"
+            "scene_state_generation_ce requires a V7, V8, or V9 scene-memory source schema"
         )
     binding = source_manifest.get("v7_pairing")
     if not isinstance(binding, dict) or binding.get("schema") != (
@@ -10091,6 +11652,20 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--scene-state-generation-objective-version",
+        choices=(
+            _SCENE_STATE_GENERATION_OBJECTIVE_VERSION,
+            _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION,
+            _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
+        ),
+        default=None,
+    )
+    parser.add_argument(
+        "--scene-state-generated-prefix-correction-weight",
+        type=float,
+        default=0.0,
+    )
+    parser.add_argument(
         "--scene-state-generated-unlikelihood-max-wrong-tokens",
         type=int,
         default=_SCENE_STATE_GENERATED_UNLIKELIHOOD_MAX_WRONG_TOKENS,
@@ -10297,6 +11872,34 @@ def parse_args() -> argparse.Namespace:
         raise ValueError(
             "scene-state-generated-unlikelihood-weight must be finite and non-negative"
         )
+    if (
+        not math.isfinite(args.scene_state_generated_prefix_correction_weight)
+        or args.scene_state_generated_prefix_correction_weight < 0.0
+    ):
+        raise ValueError(
+            "scene-state-generated-prefix-correction-weight must be finite and "
+            "non-negative"
+        )
+    symmetric_scene_objective = (
+        args.scene_state_generation_objective_version
+        == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+    )
+    if symmetric_scene_objective:
+        if args.memory_loss_mode != "scene_state_generation_ce":
+            raise ValueError(
+                "The symmetric scene-state objective requires "
+                "memory-loss-mode=scene_state_generation_ce"
+            )
+        if args.scene_state_generated_unlikelihood_weight != 0.0:
+            raise ValueError(
+                "The symmetric scene-state objective replaces legacy generated "
+                "unlikelihood"
+            )
+    elif args.scene_state_generated_prefix_correction_weight != 0.0:
+        raise ValueError(
+            "scene-state-generated-prefix-correction-weight requires the symmetric "
+            "scene-state objective"
+        )
     if args.scene_state_generated_unlikelihood_max_wrong_tokens <= 0:
         raise ValueError(
             "scene-state-generated-unlikelihood-max-wrong-tokens must be positive"
@@ -10318,11 +11921,14 @@ def parse_args() -> argparse.Namespace:
             "memory-loss-mode=scene_state_generation_ce"
         )
     if (
-        args.scene_state_generated_unlikelihood_weight > 0.0
+        (
+            args.scene_state_generated_unlikelihood_weight > 0.0
+            or symmetric_scene_objective
+        )
         and args.per_device_train_batch_size != 1
     ):
         raise ValueError(
-            "scene-state generated-prefix unlikelihood requires "
+            "scene-state generated-prefix training requires "
             "per-device-train-batch-size=1"
         )
     if args.rwkv_ms_output_init_scale < 0.0:
@@ -13281,6 +14887,7 @@ def materialize_scene_state_generation_pairs(
     *,
     split_name: str,
     pairing_binding: dict[str, object],
+    symmetric_full_pair: bool = False,
 ) -> tuple[Dataset, dict[str, object]]:
     if split_name != "train":
         raise ValueError(
@@ -13312,6 +14919,23 @@ def materialize_scene_state_generation_pairs(
         "scene_state_source_write_sha256",
         "scene_state_donor_write_sha256",
     }
+    if symmetric_full_pair:
+        materialized_columns.update(
+            {
+                "scene_state_donor_input_ids",
+                "scene_state_donor_attention_mask",
+                "scene_state_donor_labels",
+                "scene_state_donor_generation_target_mask",
+                "scene_state_donor_generation_content_mask",
+                "scene_state_donor_generation_schema_mask",
+                "scene_state_donor_generation_decision_mask",
+                "scene_state_donor_generation_termination_mask",
+                "scene_state_donor_identity_target_mask",
+                "scene_state_donor_identity_target_mask_sha256",
+                "scene_state_generation_symmetric_full_pair",
+                "scene_state_pair_canonical_low",
+            }
+        )
     collisions = sorted(materialized_columns.intersection(split.column_names))
     if collisions:
         raise ValueError(
@@ -13408,6 +15032,13 @@ def materialize_scene_state_generation_pairs(
                 f"Scene-state V7 tokenized pairing differs at row {source_index}: "
                 f"{mismatches}"
             )
+        if symmetric_full_pair and rows[source_index]["input_ids"][
+            :source_generation_start
+        ] != rows[donor_index]["input_ids"][:donor_generation_start]:
+            raise ValueError(
+                f"Scene-state symmetric pair generation prompts differ at row "
+                f"{source_index}"
+            )
         target_mask, target_metadata = (
             _select_scene_state_identity_target_with_metadata(
                 rows[source_index],
@@ -13473,6 +15104,17 @@ def materialize_scene_state_generation_pairs(
         )
     if any(donor_indices[donor] != source for source, donor in enumerate(donor_indices)):
         raise ValueError("Scene-state V7 tokenized donor map is not symmetric")
+    if symmetric_full_pair:
+        for source_index, donor_index in enumerate(donor_indices):
+            source_position = target_masks[source_index].index(True)
+            donor_position = target_masks[donor_index].index(True)
+            if rows[source_index]["input_ids"][:source_position] != rows[donor_index][
+                "input_ids"
+            ][:donor_position]:
+                raise ValueError(
+                    "Scene-state symmetric pair selected causal prefixes differ at "
+                    f"row {source_index}"
+                )
 
     paired = split
     for column, values in donor_columns.items():
@@ -13496,6 +15138,48 @@ def materialize_scene_state_generation_pairs(
     )
     paired = paired.add_column("scene_state_source_index", list(range(len(rows))))
     paired = paired.add_column("scene_state_donor_index", donor_indices)
+    if symmetric_full_pair:
+        donor_read_columns = {
+            "scene_state_donor_input_ids": "input_ids",
+            "scene_state_donor_attention_mask": "attention_mask",
+            "scene_state_donor_labels": "labels",
+            "scene_state_donor_generation_target_mask": (
+                "scene_state_generation_target_mask"
+            ),
+            "scene_state_donor_generation_content_mask": (
+                "scene_state_generation_content_mask"
+            ),
+            "scene_state_donor_generation_schema_mask": (
+                "scene_state_generation_schema_mask"
+            ),
+            "scene_state_donor_generation_decision_mask": (
+                "scene_state_generation_decision_mask"
+            ),
+            "scene_state_donor_generation_termination_mask": (
+                "scene_state_generation_termination_mask"
+            ),
+        }
+        for column, source_column in donor_read_columns.items():
+            paired = paired.add_column(
+                column,
+                [rows[index][source_column] for index in donor_indices],
+            )
+        paired = paired.add_column(
+            "scene_state_donor_identity_target_mask",
+            [target_masks[index] for index in donor_indices],
+        )
+        paired = paired.add_column(
+            "scene_state_donor_identity_target_mask_sha256",
+            [target_mask_hashes[index] for index in donor_indices],
+        )
+        paired = paired.add_column(
+            "scene_state_generation_symmetric_full_pair",
+            [True] * len(rows),
+        )
+        paired = paired.add_column(
+            "scene_state_pair_canonical_low",
+            [source < donor for source, donor in enumerate(donor_indices)],
+        )
     paired = paired.add_column(
         "scene_state_source_official_index",
         [int(entry["official_source_index"]) for entry in entries],
@@ -13559,6 +15243,8 @@ def materialize_scene_state_generation_pairs(
         "pairs_sha256": _canonical_json_sha256(pair_audit),
         "pairs": pair_audit,
     }
+    if symmetric_full_pair:
+        split_manifest["symmetric_full_pair_materialized"] = True
     split_manifest["manifest_sha256"] = _canonical_json_sha256(split_manifest)
     return paired, split_manifest
 
@@ -14039,15 +15725,37 @@ def build_training_protocol(
         is_scene_state_generation
         and generated_unlikelihood_weight > 0.0
     )
+    requested_generation_objective = getattr(
+        args,
+        "scene_state_generation_objective_version",
+        None,
+    )
+    uses_symmetric_generation = (
+        is_scene_state_generation
+        and requested_generation_objective
+        == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+    )
     scene_generation_schema_version = (
-        _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
-        if uses_generated_unlikelihood
-        else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+        _SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION
+        if uses_symmetric_generation
+        else (
+            _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
+            if uses_generated_unlikelihood
+            else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+        )
     )
     scene_generation_objective_version = (
-        _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION
-        if uses_generated_unlikelihood
-        else _SCENE_STATE_GENERATION_OBJECTIVE_VERSION
+        _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+        if uses_symmetric_generation
+        else (
+            str(requested_generation_objective)
+            if requested_generation_objective is not None
+            else (
+                _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION
+                if uses_generated_unlikelihood
+                else _SCENE_STATE_GENERATION_OBJECTIVE_VERSION
+            )
+        )
     )
     if tokenized_cache_identity is not None:
         if tokenized_cache_identity.get("rows") != len(tokenized):
@@ -14157,7 +15865,12 @@ def build_training_protocol(
         "data_seed": args.data_seed,
         "train_sampler_seed": getattr(args, "train_sampler_seed", None),
         "train_sampler_mode": (
-            _FIXED_TRAIN_SCHEDULE_SAMPLER_MODE
+            (
+                _V9_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                if train_schedule_binding.get("schema")
+                == _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
+                else _FIXED_TRAIN_SCHEDULE_SAMPLER_MODE
+            )
             if train_schedule_binding is not None
             else (
                 _DEFAULT_TRAIN_SAMPLER_MODE
@@ -14435,6 +16148,47 @@ def build_training_protocol(
                 ),
             }
         )
+        if uses_symmetric_generation:
+            prefix_correction_weight = float(
+                getattr(
+                    args,
+                    "scene_state_generated_prefix_correction_weight",
+                    0.0,
+                )
+            )
+            protocol.update(
+                {
+                    "scene_generation_objective_formula": (
+                        "symmetric_pair_mean(weighted_full_gold_ce(schema=2,"
+                        "decision=4,termination=1) + selected_full_vocab_ce + "
+                        "selected_top_competitor_hinge(0.2) + "
+                        "selected_correct_vs_detached_zero_nll_hinge(0.2) + "
+                        f"{prefix_correction_weight} * "
+                        "generated_prefix(aligned_gold_ce + safe_wrong_unlikelihood))"
+                    ),
+                    "scene_generation_backward_mode": (
+                        _SCENE_STATE_SYMMETRIC_BACKWARD_MODE
+                    ),
+                    "scene_generation_zero_protocol": (
+                        "shared_exact_selected_causal_prefix_adapter_active_reset_"
+                        "state_detached_v2"
+                    ),
+                    "scene_generation_generated_prefix_correction_weight": (
+                        prefix_correction_weight
+                    ),
+                    "scene_generation_generated_prefix_correction_mode": (
+                        _SCENE_STATE_SYMMETRIC_GENERATED_MODE
+                    ),
+                    "scene_generation_generated_prefix_max_correction_events": (
+                        generated_unlikelihood_max_wrong_tokens
+                    ),
+                    "scene_generation_pair_unit": (
+                        "canonical_low_with_reciprocal_full_payload_v1"
+                    ),
+                    "scene_generation_pair_physical_batch_size": 1,
+                    "scene_generation_pair_directional_exposures": 2,
+                }
+            )
     return protocol
 
 
@@ -14971,6 +16725,202 @@ class EpisodeCausalLMCollator(DialogueCausalLMCollator):
                 batch["scene_state_identity_donor_target_token_id"] = (
                     donor_target_ids
                 )
+                symmetric_pair_presence = [
+                    bool(
+                        feature.get(
+                            "scene_state_generation_symmetric_full_pair",
+                            False,
+                        )
+                    )
+                    for feature in features
+                ]
+                if any(symmetric_pair_presence) and not all(
+                    symmetric_pair_presence
+                ):
+                    raise ValueError(
+                        "Episode batch mixes symmetric and directed scene-state pairs"
+                    )
+                if all(symmetric_pair_presence):
+                    if len(features) != 1:
+                        raise ValueError(
+                            "Symmetric scene-state training requires physical batch size 1"
+                        )
+                    donor_read_columns = (
+                        "scene_state_donor_input_ids",
+                        "scene_state_donor_attention_mask",
+                        "scene_state_donor_labels",
+                        "scene_state_donor_generation_target_mask",
+                        "scene_state_donor_generation_content_mask",
+                        "scene_state_donor_generation_schema_mask",
+                        "scene_state_donor_generation_decision_mask",
+                        "scene_state_donor_generation_termination_mask",
+                        "scene_state_donor_identity_target_mask",
+                        "scene_state_donor_identity_target_mask_sha256",
+                        "scene_state_pair_canonical_low",
+                    )
+                    missing_donor_read_columns = [
+                        column
+                        for column in donor_read_columns
+                        if any(column not in feature for feature in features)
+                    ]
+                    if missing_donor_read_columns:
+                        raise ValueError(
+                            "Symmetric scene-state examples omit reciprocal full tensors: "
+                            + ", ".join(missing_donor_read_columns)
+                        )
+                    feature = features[0]
+                    source_index = int(feature["scene_state_source_index"])
+                    donor_index = int(feature["scene_state_donor_index"])
+                    if (
+                        not bool(feature["scene_state_pair_canonical_low"])
+                        or source_index >= donor_index
+                    ):
+                        raise ValueError(
+                            "Symmetric scene-state schedule must select canonical-low rows"
+                        )
+                    donor_input_ids = _pad_sequences(
+                        [feature["scene_state_donor_input_ids"]],
+                        pad_token_id,
+                    )
+                    donor_attention_mask = _pad_sequences(
+                        [feature["scene_state_donor_attention_mask"]],
+                        0,
+                    )
+                    donor_labels = _pad_sequences(
+                        [feature["scene_state_donor_labels"]],
+                        -100,
+                    )
+                    if (
+                        donor_input_ids is None
+                        or donor_attention_mask is None
+                        or donor_labels is None
+                    ):
+                        raise ValueError(
+                            "Symmetric scene-state donor read tensors must be non-empty"
+                        )
+                    donor_masks = {
+                        name: _pad_sequences(
+                            [feature[f"scene_state_donor_generation_{name}_mask"]],
+                            False,
+                        )
+                        for name in (
+                            "target",
+                            "content",
+                            "schema",
+                            "decision",
+                            "termination",
+                        )
+                    }
+                    donor_pair_mask = _pad_sequences(
+                        [feature["scene_state_donor_identity_target_mask"]],
+                        False,
+                    )
+                    if donor_pair_mask is None or any(
+                        mask is None for mask in donor_masks.values()
+                    ):
+                        raise ValueError(
+                            "Symmetric scene-state donor masks must be non-empty"
+                        )
+                    normalized_donor_masks = {
+                        name: mask.to(dtype=torch.bool)
+                        for name, mask in donor_masks.items()
+                        if mask is not None
+                    }
+                    donor_pair_mask = donor_pair_mask.to(dtype=torch.bool)
+                    if not torch.equal(
+                        normalized_donor_masks["target"],
+                        normalized_donor_masks["content"]
+                        | normalized_donor_masks["termination"],
+                    ) or not torch.equal(
+                        normalized_donor_masks["content"],
+                        normalized_donor_masks["schema"]
+                        | normalized_donor_masks["decision"],
+                    ):
+                        raise ValueError(
+                            "Symmetric scene-state donor generation partition differs"
+                        )
+                    if not torch.equal(
+                        normalized_donor_masks["target"],
+                        donor_labels.ne(-100),
+                    ):
+                        raise ValueError(
+                            "Symmetric scene-state donor labels differ from targets"
+                        )
+                    if (
+                        donor_pair_mask.sum().item() != 1
+                        or bool(
+                            (
+                                donor_pair_mask
+                                & ~normalized_donor_masks["decision"]
+                            ).any()
+                        )
+                    ):
+                        raise ValueError(
+                            "Symmetric scene-state donor pair target is invalid"
+                        )
+                    donor_pair_hash = _canonical_json_sha256(
+                        [
+                            bool(value)
+                            for value in feature[
+                                "scene_state_donor_identity_target_mask"
+                            ]
+                        ]
+                    )
+                    if donor_pair_hash != str(
+                        feature[
+                            "scene_state_donor_identity_target_mask_sha256"
+                        ]
+                    ):
+                        raise ValueError(
+                            "Symmetric scene-state donor target hash differs"
+                        )
+                    source_pair_position = int(
+                        batch["scene_state_identity_target_mask"][0]
+                        .nonzero(as_tuple=False)
+                        .item()
+                    )
+                    donor_pair_position = int(
+                        donor_pair_mask[0].nonzero(as_tuple=False).item()
+                    )
+                    if not torch.equal(
+                        batch["input_ids"][0, :source_pair_position],
+                        donor_input_ids[0, :donor_pair_position],
+                    ):
+                        raise ValueError(
+                            "Symmetric scene-state selected causal prefixes differ"
+                        )
+                    source_target_id = batch["labels"][
+                        0,
+                        source_pair_position,
+                    ]
+                    donor_target_id = donor_labels[0, donor_pair_position]
+                    if source_target_id.eq(donor_target_id):
+                        raise ValueError(
+                            "Symmetric scene-state selected targets must differ"
+                        )
+                    batch["scene_state_donor_input_ids"] = donor_input_ids
+                    batch["scene_state_donor_attention_mask"] = (
+                        donor_attention_mask
+                    )
+                    batch["scene_state_donor_labels"] = donor_labels
+                    for name, mask in normalized_donor_masks.items():
+                        batch[
+                            f"scene_state_donor_generation_{name}_mask"
+                        ] = mask
+                    batch["scene_state_donor_identity_target_mask"] = (
+                        donor_pair_mask
+                    )
+                    batch["scene_state_generation_symmetric_full_pair"] = (
+                        torch.ones(1, dtype=torch.bool)
+                    )
+                    batch["scene_state_source_index"] = torch.tensor(
+                        [source_index],
+                        dtype=torch.long,
+                    )
+                    batch["scene_state_donor_index"] = torch.tensor(
+                        [donor_index],
+                        dtype=torch.long,
+                    )
 
         teacher_input_ids = _pad_sequences(
             [feature["teacher_input_ids"] for feature in features],
@@ -15130,8 +17080,16 @@ def build_data_collator(training_mode: str, tokenizer):
 
 def main() -> None:
     args = parse_args()
-    train_schedule_binding = _scene_state_v8_curriculum_binding(args)
-    if train_schedule_binding is not None:
+    v8_schedule_binding = _scene_state_v8_curriculum_binding(args)
+    v9_schedule_binding = _scene_state_v9_curriculum_binding(args)
+    if v8_schedule_binding is not None and v9_schedule_binding is not None:
+        raise ValueError("Scene-state source manifest binds both V8 and V9 schedules")
+    train_schedule_binding = (
+        v8_schedule_binding
+        if v8_schedule_binding is not None
+        else v9_schedule_binding
+    )
+    if v8_schedule_binding is not None:
         _validate_scene_state_v8_locked_training_args(
             args,
             train_schedule_binding,
@@ -15147,6 +17105,23 @@ def main() -> None:
         if not 0 < args.max_steps <= int(train_schedule_binding["total_steps"]):
             raise ValueError(
                 "Scene-memory V8 max-steps must stay within the locked curriculum"
+            )
+    elif v9_schedule_binding is not None:
+        if args.scene_state_generation_objective_version != (
+            _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+        ):
+            raise ValueError(
+                "Scene-memory V9 requires the symmetric generation objective"
+            )
+        if args.per_device_train_batch_size != 1:
+            raise ValueError("Scene-memory V9 requires physical train batch size 1")
+        if args.train_sampler_seed is not None or args.group_by_length:
+            raise ValueError(
+                "Scene-memory V9 fixed pair curriculum forbids random or length sampling"
+            )
+        if not 0 < args.max_steps <= int(train_schedule_binding["total_steps"]):
+            raise ValueError(
+                "Scene-memory V9 max-steps must stay within the locked pair curriculum"
             )
     # Adapter and RWKV-core parameters are initialized before Trainer exists.
     set_seed(args.seed)
@@ -15194,11 +17169,18 @@ def main() -> None:
         else prepare_training_continuation(args, resume_from_checkpoint)
     )
     if train_schedule_binding is not None and resume_from_checkpoint is not None:
-        continuation_manifest = prepare_scene_memory_v8_training_continuation(
-            continuation_manifest,
-            resume_from_checkpoint=resume_from_checkpoint,
-            checkpoint_steps=train_schedule_binding["checkpoint_steps"],
-        )
+        if v9_schedule_binding is not None:
+            continuation_manifest = prepare_scene_memory_v9_training_continuation(
+                continuation_manifest,
+                resume_from_checkpoint=resume_from_checkpoint,
+                checkpoint_steps=train_schedule_binding["checkpoint_steps"],
+            )
+        else:
+            continuation_manifest = prepare_scene_memory_v8_training_continuation(
+                continuation_manifest,
+                resume_from_checkpoint=resume_from_checkpoint,
+                checkpoint_steps=train_schedule_binding["checkpoint_steps"],
+            )
     dtype = get_dtype(args.dtype)
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     distributed = world_size > 1
@@ -15207,7 +17189,7 @@ def main() -> None:
         raise ValueError("train-sampler-seed currently requires a single-process run")
     if train_schedule_binding is not None and distributed:
         raise ValueError(
-            "Scene-memory V8 fixed curriculum currently requires a single-process run"
+            "Scene-memory fixed curriculum currently requires a single-process run"
         )
     initial_adapter_output_dir = resolve_initial_adapter_output_dir(
         args,
@@ -15310,6 +17292,10 @@ def main() -> None:
                 train_dataset,
                 split_name="train",
                 pairing_binding=generation_pairing_binding,
+                symmetric_full_pair=(
+                    args.scene_state_generation_objective_version
+                    == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+                ),
             )
         )
         if eval_dataset is not None:
@@ -15448,7 +17434,7 @@ def main() -> None:
         and warmup_steps != _SCENE_MEMORY_V8_WARMUP_STEPS
     ):
         raise ValueError(
-            "Scene-memory V8 fixed curriculum requires exactly "
+            "Scene-memory fixed curriculum requires exactly "
             f"{_SCENE_MEMORY_V8_WARMUP_STEPS} warmup steps"
         )
     if (
@@ -15499,17 +17485,33 @@ def main() -> None:
                 target_training_protocol_sha256=training_protocol_sha256,
                 target_pairing_manifest=scene_state_identity_pairing_manifest,
             )
+        elif warm_start_context.mode == _SCENE_V9_WARM_START_MODE:
+            if scene_state_identity_pairing_manifest is None:
+                raise RuntimeError(
+                    "Scene V9 warm start requires scene-state pairing metadata"
+                )
+            finalize_scene_v9_warm_start_lineage(
+                warm_start_context,
+                target_training_protocol_sha256=training_protocol_sha256,
+                target_pairing_manifest=scene_state_identity_pairing_manifest,
+            )
         else:
             raise RuntimeError(
                 f"Unsupported adapter warm-start mode: {warm_start_context.mode}"
             )
     if train_schedule_binding is not None and resume_from_checkpoint is not None:
         if continuation_manifest is None:
-            raise RuntimeError("Scene V8 resume continuation lineage is missing")
-        finalize_scene_memory_v8_training_continuation(
-            continuation_manifest,
-            target_training_protocol=training_protocol,
-        )
+            raise RuntimeError("Scene-memory resume continuation lineage is missing")
+        if v9_schedule_binding is not None:
+            finalize_scene_memory_v9_training_continuation(
+                continuation_manifest,
+                target_training_protocol=training_protocol,
+            )
+        else:
+            finalize_scene_memory_v8_training_continuation(
+                continuation_manifest,
+                target_training_protocol=training_protocol,
+            )
     trainer_resume_from_checkpoint = resolve_trainer_resume_checkpoint(
         resume_from_checkpoint,
         warm_start_context,
@@ -15668,6 +17670,12 @@ def main() -> None:
         scene_state_generated_unlikelihood_weight=(
             args.scene_state_generated_unlikelihood_weight
         ),
+        scene_state_generation_objective_version=(
+            args.scene_state_generation_objective_version
+        ),
+        scene_state_generated_prefix_correction_weight=(
+            args.scene_state_generated_prefix_correction_weight
+        ),
         scene_state_generated_unlikelihood_max_wrong_tokens=(
             args.scene_state_generated_unlikelihood_max_wrong_tokens
         ),
@@ -15696,6 +17704,14 @@ def main() -> None:
         and warm_start_context.mode == _SCENE_V8_WARM_START_MODE
     ):
         record_scene_v8_fresh_optimizer_lineage(
+            trainer,
+            warm_start_context,
+        )
+    elif (
+        warm_start_context is not None
+        and warm_start_context.mode == _SCENE_V9_WARM_START_MODE
+    ):
+        record_scene_v9_fresh_optimizer_lineage(
             trainer,
             warm_start_context,
         )

@@ -1,0 +1,307 @@
+{
+  "schema": "rwkv_ms_scene_memory_v9_v8_checkpoint56_warm_start_lock.v1",
+  "source_checkpoint": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v8/scene_memory_v8_production_v8_value56_20260729_1931_step56/trainer/checkpoint-56",
+  "artifacts": {
+    "continuation_manifest.json": {
+      "bytes": 1110,
+      "sha256": "558d74de875333435999f5f41ff684727e5da066c5e96e43aff7b1a63aef0852"
+    },
+    "delta_mem_adapter.pt": {
+      "bytes": 9490515,
+      "sha256": "b45e8d101278b0ee8d702ce9f529ceed57d1dbbf2158102389de0e4fdd0d8cb1"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2432,
+      "sha256": "86e1bbb1a258cb591c9167935317a2374cf9edc79e5a3a77b0f903dc38483931"
+    },
+    "optimizer.pt": {
+      "bytes": 14776109,
+      "sha256": "8baae6fa85dc4f11b03c904ea71d73447fe92e12d072e8ae4e9b7032b01d7aeb"
+    },
+    "rng_state.pth": {
+      "bytes": 14645,
+      "sha256": "61c19bab1174704a4a4441475683bf1270277af15d2e2c95e964789128e482c4"
+    },
+    "scene_state_identity_pairing_manifest.json": {
+      "bytes": 81003,
+      "sha256": "658ebb2abfb04ba88fae443ab10eb575c8a34fb600cdbf4ff1feaff4bc1d934e"
+    },
+    "scheduler.pt": {
+      "bytes": 1465,
+      "sha256": "d4e0894e2c00625b010da1515c02aa329b913afb7fcc8d5bbc3a79680118b8c0"
+    },
+    "trainer_state.json": {
+      "bytes": 460023,
+      "sha256": "bc4981861dc8fb8a407b5a6988734afadb2276fbdd015ae74975363cb68a7070"
+    },
+    "training_protocol.json": {
+      "bytes": 11406,
+      "sha256": "6a6a887c5aa0a3bdb972fb0458f852542a0b055fce55ab2080908dc7d9e4a964"
+    }
+  },
+  "continuation_lineage": [
+    {
+      "step": 14,
+      "checkpoint": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v8/scene_memory_v8_production_v8_value14_20260729_183417_step14/trainer/checkpoint-14",
+      "lineage_filename": "warm_start_lineage_manifest.json",
+      "epoch": 0.09210526315789473,
+      "delta_config_canonical_sha256": "1a8ed670e22ca92b62e250282eac9efc0faa30dee28d5f75d05b6f20de5e249b",
+      "training_protocol_canonical_sha256": "3e70c190daff6792d0f8e2bcb898bf405dcc6b83d3047659bbd04c3bdde183af",
+      "artifacts": {
+        "delta_mem_config.json": {
+          "bytes": 2432,
+          "sha256": "86e1bbb1a258cb591c9167935317a2374cf9edc79e5a3a77b0f903dc38483931"
+        },
+        "trainer_state.json": {
+          "bytes": 115503,
+          "sha256": "6fb58b2a0054221b92c89faf77efdf7cde93e0eaff1ef4403d11bdb835422f58"
+        },
+        "training_protocol.json": {
+          "bytes": 11406,
+          "sha256": "c35322ccb971bcdbebdef23f9ebdd6131d21fc6aed2bac6d7a3fa4f9897eb452"
+        },
+        "scene_state_identity_pairing_manifest.json": {
+          "bytes": 81003,
+          "sha256": "658ebb2abfb04ba88fae443ab10eb575c8a34fb600cdbf4ff1feaff4bc1d934e"
+        },
+        "warm_start_lineage_manifest.json": {
+          "bytes": 3776,
+          "sha256": "2091aeac654436d1126bca34c076e72191dc03a4551c58d6639f0b4a42ad401b"
+        }
+      }
+    },
+    {
+      "step": 28,
+      "checkpoint": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v8/scene_memory_v8_production_v8_value28_20260729_1852_step28/trainer/checkpoint-28",
+      "lineage_filename": "continuation_manifest.json",
+      "epoch": 0.18421052631578946,
+      "delta_config_canonical_sha256": "1a8ed670e22ca92b62e250282eac9efc0faa30dee28d5f75d05b6f20de5e249b",
+      "training_protocol_canonical_sha256": "4c3880cdcef3c6a323c27e11785b925765bb268d9cdbc43dfc63df2148af5659",
+      "artifacts": {
+        "delta_mem_config.json": {
+          "bytes": 2432,
+          "sha256": "86e1bbb1a258cb591c9167935317a2374cf9edc79e5a3a77b0f903dc38483931"
+        },
+        "trainer_state.json": {
+          "bytes": 230272,
+          "sha256": "a24f527f7b49164a8c24f2f4837b32ff8b5c61360a27313169fd6d54b1c6a5a4"
+        },
+        "training_protocol.json": {
+          "bytes": 11406,
+          "sha256": "ada4445ee32c3b8ac17fec46ed28875ad1b79c11bc29c747414197a91f738c54"
+        },
+        "scene_state_identity_pairing_manifest.json": {
+          "bytes": 81003,
+          "sha256": "658ebb2abfb04ba88fae443ab10eb575c8a34fb600cdbf4ff1feaff4bc1d934e"
+        },
+        "continuation_manifest.json": {
+          "bytes": 1118,
+          "sha256": "c89c2c42a4901c6a39bcde2105ac663f8829ee9f0f3fb5041e45d98fac268299"
+        }
+      }
+    },
+    {
+      "step": 42,
+      "checkpoint": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v8/scene_memory_v8_production_v8_value42_20260729_1911_step42/trainer/checkpoint-42",
+      "lineage_filename": "continuation_manifest.json",
+      "epoch": 0.27631578947368424,
+      "delta_config_canonical_sha256": "1a8ed670e22ca92b62e250282eac9efc0faa30dee28d5f75d05b6f20de5e249b",
+      "training_protocol_canonical_sha256": "8ff285d8688f037037857367cb2eb0e4eb33fb1e093e80cc9447c12a33680c66",
+      "artifacts": {
+        "delta_mem_config.json": {
+          "bytes": 2432,
+          "sha256": "86e1bbb1a258cb591c9167935317a2374cf9edc79e5a3a77b0f903dc38483931"
+        },
+        "trainer_state.json": {
+          "bytes": 345164,
+          "sha256": "b3620a4f71589a195ef8293f0c0a7325a9c622b73190c0296f2d6247896f3307"
+        },
+        "training_protocol.json": {
+          "bytes": 11406,
+          "sha256": "e728f1206e7a3f3847b0494d92f1c106d18e6a481a522a470e490b9a4b7baed1"
+        },
+        "scene_state_identity_pairing_manifest.json": {
+          "bytes": 81003,
+          "sha256": "658ebb2abfb04ba88fae443ab10eb575c8a34fb600cdbf4ff1feaff4bc1d934e"
+        },
+        "continuation_manifest.json": {
+          "bytes": 1110,
+          "sha256": "456ac46334669184fa021fefb77d7c7ba4152f321978e41058240c759ee76da2"
+        }
+      }
+    },
+    {
+      "step": 56,
+      "checkpoint": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v8/scene_memory_v8_production_v8_value56_20260729_1931_step56/trainer/checkpoint-56",
+      "lineage_filename": "continuation_manifest.json",
+      "epoch": 0.3684210526315789,
+      "delta_config_canonical_sha256": "1a8ed670e22ca92b62e250282eac9efc0faa30dee28d5f75d05b6f20de5e249b",
+      "training_protocol_canonical_sha256": "a45e03a0db9ce5eafc14fc3b2eb22be33aad80296fff3218593d6ab050e8f2d4",
+      "artifacts": {
+        "delta_mem_config.json": {
+          "bytes": 2432,
+          "sha256": "86e1bbb1a258cb591c9167935317a2374cf9edc79e5a3a77b0f903dc38483931"
+        },
+        "trainer_state.json": {
+          "bytes": 460023,
+          "sha256": "bc4981861dc8fb8a407b5a6988734afadb2276fbdd015ae74975363cb68a7070"
+        },
+        "training_protocol.json": {
+          "bytes": 11406,
+          "sha256": "6a6a887c5aa0a3bdb972fb0458f852542a0b055fce55ab2080908dc7d9e4a964"
+        },
+        "scene_state_identity_pairing_manifest.json": {
+          "bytes": 81003,
+          "sha256": "658ebb2abfb04ba88fae443ab10eb575c8a34fb600cdbf4ff1feaff4bc1d934e"
+        },
+        "continuation_manifest.json": {
+          "bytes": 1110,
+          "sha256": "558d74de875333435999f5f41ff684727e5da066c5e96e43aff7b1a63aef0852"
+        }
+      }
+    }
+  ],
+  "adapter_topology": {
+    "sha256": "a8b72bc0ce82d7ecaafbfb76cdf8500465ab2b63771915840620f28c3cabbc77",
+    "tensor_count": 1344,
+    "tensor_elements": 2789808
+  },
+  "expected_delta_config": {
+    "rank": 4,
+    "alpha": 8.0,
+    "memory_backend": "rwkv_ms",
+    "state_update_mode": "standard",
+    "rankwise_gates": true,
+    "output_init": "base_slice_fixed",
+    "base_slice_ref_width": 8,
+    "online_gain": 0.2,
+    "target_modules": [
+      "self_attn"
+    ],
+    "target_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41
+    ],
+    "delta_heads": [
+      "q",
+      "o"
+    ],
+    "memory_fusion_mode": "add",
+    "memory_fusion_placement": "attention_output",
+    "memory_fusion_residual_scale": 1.0,
+    "memory_fusion_residual_scale_max": 1.0,
+    "trainable_delta_scale": true,
+    "delta_scale_init": 0.1,
+    "delta_scale_max": 0.5,
+    "delta_scale_granularity": "head",
+    "delta_scale_parameterization": "alpha_over_rank",
+    "memory_readout_mode": "delta",
+    "memory_write_source": "learned_hidden",
+    "memory_write_granularity": "token",
+    "rwkv_ms_num_states": 4,
+    "rwkv_ms_chunk_size": 128,
+    "rwkv_ms_semantics_version": 2
+  },
+  "expected_training_protocol": {
+    "schema_version": 11,
+    "memory_objective_version": "scene_state_generation_ce_generated_prefix_unlikelihood_v2",
+    "memory_loss_mode": "scene_state_generation_ce",
+    "assistant_loss_mode": "final_assistant_only",
+    "training_mode": "episode",
+    "train_sampler_mode": "explicit_ordered_train_row_ordinal_v1",
+    "data_seed": 42,
+    "train_samples": 32,
+    "tokenized_samples": 32,
+    "max_length": 256,
+    "gradient_accumulation_steps": 1,
+    "learning_rate": 0.0002,
+    "lr_scheduler_type": "constant_with_warmup",
+    "warmup_steps": 4,
+    "weight_decay": 0.0,
+    "bf16": true
+  },
+  "expected_pairing_manifest": {
+    "schema_version": 2,
+    "objective_version": "scene_state_generation_ce_v1",
+    "pairing_version": "predeclared_directed_scene_v7_v1",
+    "pairing_scope": "predeclared_bound_train_order",
+    "pairing_refinement": "predeclared_quota_locked_v1",
+    "pairing_refinement_applied": false,
+    "target_mode": "first_pair_distinguishing_semantic_token_v1",
+    "target_token_count": 32,
+    "tokenized_dataset_sha256": "b600699eab24d1e3d3313e0bce2840f8c5dd84f71d5c4ad01997c395b39a3ad5",
+    "tokenized_fingerprint": "c0062d1870d85b36"
+  },
+  "source_pairing_manifest_sha256": "eb99016a1bd17d05acf4313d78cb42cced802ec8d430546cddda78239d1a8920",
+  "root_warm_start_receipt_sha256": "4a50c5617adf6b555a7a4bd676da2f6fb2f9a9c203bdf6c3752fda29727bad90",
+  "root_warm_start": {
+    "schema": "rwkv_ms_scene_memory_v8_adapter_warm_start_receipt.v1",
+    "schema_version": 1,
+    "mode": "scene_memory_v8_v7_checkpoint256_adapter_only",
+    "source_checkpoint": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v7/scene_memory_v7_train32_causalproof_s256_run2ext9_cefix1/trainer/checkpoint-256",
+    "source_lock": {
+      "lock_sha256": "e2d0ed1f65dca7ac419c3b5f87870a30e3b8c76b89801e082569bb53f7318e35",
+      "path": "/home/xiaol/X/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/scene_memory_v8_v7_checkpoint256_lock.json"
+    },
+    "source_global_step": 256,
+    "source_epoch": 8.0
+  },
+  "source_state_imports": {
+    "adapter": true,
+    "optimizer": false,
+    "scheduler": false,
+    "trainer_state": false,
+    "rng": false,
+    "global_step": false
+  },
+  "target_fresh_start": {
+    "global_step": 0,
+    "optimizer_created_after_adapter_load": true,
+    "optimizer_family": "AdamW",
+    "optimizer_state": "fresh",
+    "scheduler_state": "fresh",
+    "trainer_state": "fresh",
+    "rng_state": "fresh_from_v9_seed"
+  },
+  "lock_sha256": "223a8a0c7acf6bc8d6d23da8e11954d29aba772b038bdd368f35dc4a83df1af2"
+}

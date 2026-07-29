@@ -13,6 +13,12 @@ TokenEditKind = Literal[
     "gold_deletion",
 ]
 
+GeneratedCorrectionKind = Literal[
+    "substitution",
+    "generated_insertion",
+    "gold_deletion",
+]
+
 
 @dataclass(frozen=True)
 class TokenEdit:
@@ -27,6 +33,15 @@ class GeneratedTokenAlignment:
     edit_distance: int
     edits: tuple[TokenEdit, ...]
     wrong_generated_positions: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class GeneratedCorrectionEvent:
+    kind: GeneratedCorrectionKind
+    generated_cursor: int
+    gold_index: int | None
+    positive_token_id: int | None
+    negative_token_id: int | None
 
 
 def _token_list(values: Sequence[int] | torch.Tensor, *, description: str) -> list[int]:
@@ -220,6 +235,82 @@ def generated_unlikelihood_positions(
     )
 
 
+def generated_correction_events(
+    generated_token_ids: Sequence[int] | torch.Tensor,
+    gold_token_ids: Sequence[int] | torch.Tensor,
+    *,
+    max_events: int,
+) -> tuple[GeneratedCorrectionEvent, ...]:
+    if max_events <= 0:
+        raise ValueError("Generated-prefix correction-event limit must be positive")
+    generated = _token_list(generated_token_ids, description="Generated")
+    gold = _token_list(gold_token_ids, description="Gold")
+    alignment = align_generated_token_ids(generated, gold)
+    generated_cursor = 0
+    gold_cursor = 0
+    deletion_blocked_cursor: int | None = None
+    events: list[GeneratedCorrectionEvent] = []
+    for edit in alignment.edits:
+        if edit.kind == "match":
+            generated_cursor += 1
+            gold_cursor += 1
+            deletion_blocked_cursor = None
+            continue
+        if edit.kind == "gold_deletion":
+            if deletion_blocked_cursor != generated_cursor:
+                events.append(
+                    GeneratedCorrectionEvent(
+                        kind="gold_deletion",
+                        generated_cursor=generated_cursor,
+                        gold_index=gold_cursor,
+                        positive_token_id=gold[gold_cursor],
+                        negative_token_id=None,
+                    )
+                )
+                deletion_blocked_cursor = generated_cursor
+            gold_cursor += 1
+        elif edit.kind == "generated_insertion":
+            if deletion_blocked_cursor != generated_cursor:
+                positive_token_id = (
+                    gold[gold_cursor] if gold_cursor < len(gold) else None
+                )
+                negative_token_id = generated[generated_cursor]
+                if positive_token_id == negative_token_id:
+                    negative_token_id = None
+                events.append(
+                    GeneratedCorrectionEvent(
+                        kind="generated_insertion",
+                        generated_cursor=generated_cursor,
+                        gold_index=(
+                            gold_cursor if positive_token_id is not None else None
+                        ),
+                        positive_token_id=positive_token_id,
+                        negative_token_id=negative_token_id,
+                    )
+                )
+            generated_cursor += 1
+            deletion_blocked_cursor = None
+        elif edit.kind == "substitution":
+            if deletion_blocked_cursor != generated_cursor:
+                events.append(
+                    GeneratedCorrectionEvent(
+                        kind="substitution",
+                        generated_cursor=generated_cursor,
+                        gold_index=gold_cursor,
+                        positive_token_id=gold[gold_cursor],
+                        negative_token_id=generated[generated_cursor],
+                    )
+                )
+            generated_cursor += 1
+            gold_cursor += 1
+            deletion_blocked_cursor = None
+        else:
+            raise RuntimeError("Generated-prefix alignment returned an unknown edit")
+        if len(events) >= max_events:
+            break
+    return tuple(events)
+
+
 def clone_detached_online_state(
     online_state: Mapping[str, torch.Tensor],
 ) -> dict[str, torch.Tensor]:
@@ -236,9 +327,11 @@ def clone_detached_online_state(
 
 
 __all__ = [
+    "GeneratedCorrectionEvent",
     "GeneratedTokenAlignment",
     "TokenEdit",
     "align_generated_token_ids",
     "clone_detached_online_state",
+    "generated_correction_events",
     "generated_unlikelihood_positions",
 ]
