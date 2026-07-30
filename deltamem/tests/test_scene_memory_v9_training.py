@@ -32,6 +32,7 @@ def _trainer() -> experimental_train.DeltaMemTrainer:
 
     class Accelerator:
         distributed_type = SimpleNamespace(name="NO")
+        gradient_accumulation_steps = 1
 
         def __init__(self) -> None:
             self.backward_calls = 0

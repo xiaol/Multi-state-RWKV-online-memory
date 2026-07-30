@@ -88,6 +88,14 @@ from experiments.rethinking_rwkv_ms_gemma.scene_memory_v9_warm_start import (
     apply_v9_v8_checkpoint56_adapter_only_warm_start,
     prepare_v9_v8_checkpoint56_warm_start,
 )
+from experiments.rethinking_rwkv_ms_gemma.scene_memory_v10_warm_start import (
+    RECEIPT_SCHEMA as SCENE_V10_WARM_START_RECEIPT_SCHEMA,
+    V10FreshStartContract,
+    V10WarmStartContext,
+    WARM_START_MODE as SCENE_V10_WARM_START_MODE,
+    apply_v10_v8_checkpoint56_adapter_only_warm_start,
+    prepare_v10_v8_checkpoint56_warm_start,
+)
 from experiments.rethinking_rwkv_ms_gemma.scene_memory_v9_launch_contract import (
     validate_checkpoint_contract as validate_v9_checkpoint_contract,
     validate_data_contract as validate_v9_data_contract,
@@ -283,10 +291,12 @@ _WARM_START_MODES = (
     "residual_hybrid_w8_ablation",
     SCENE_V8_WARM_START_MODE,
     SCENE_V9_WARM_START_MODE,
+    SCENE_V10_WARM_START_MODE,
 )
 _RESIDUAL_HYBRID_W8_WARM_START_MODE = _WARM_START_MODES[0]
 _SCENE_V8_WARM_START_MODE = _WARM_START_MODES[1]
 _SCENE_V9_WARM_START_MODE = _WARM_START_MODES[2]
+_SCENE_V10_WARM_START_MODE = _WARM_START_MODES[3]
 _CONTINUATION_SCHEDULERS = frozenset({"constant", "constant_with_warmup"})
 _REPRESENTATION_CAPTURE_FUSION_PLACEMENTS = frozenset(
     {"attention_output", "post_attention_residual_hybrid"}
@@ -432,6 +442,83 @@ _SCENE_STATE_SYMMETRIC_LOG_METRICS = (
     "scene_generation_v9_donor_prefix_positive_gold_ce",
     "scene_generation_v9_donor_prefix_wrong_token_unlikelihood",
 )
+_SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION = (
+    "scene_state_generation_ce_symmetric_cycle_retention_v4"
+)
+_SCENE_STATE_CYCLE_RETENTION_TRAINING_PROTOCOL_SCHEMA_VERSION = 13
+_SCENE_STATE_CYCLE_RETENTION_BACKWARD_MODE = (
+    "sequential_pair_zero_probe_full_gold_first_error_all_target_retention_"
+    "then_per_event_mean_aligned_replay_v5"
+)
+_SCENE_STATE_CYCLE_RETENTION_GENERATED_MODE = (
+    "levenshtein_raw_generated_prefix_per_event_mean_gold_ce_safe_wrong_"
+    "unlikelihood_v4"
+)
+_SCENE_STATE_CYCLE_RETENTION_MODE = (
+    "teacher_forced_all_target_top1_margin_detached_competitor_v1"
+)
+_SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_FORMULA = (
+    "symmetric_pair_mean(weighted_full_gold_ce(schema=2,decision=4,termination=1) "
+    "+ first_error_top1_hinge(0.2) + "
+    "all_target_top1_retention_hinge(0.2) + "
+    "selected_top_competitor_hinge(0.2) + "
+    "selected_correct_vs_detached_zero_nll_hinge(0.2) + 0.5 * "
+    "generated_prefix_per_event_mean(aligned_gold_ce + safe_wrong_unlikelihood)); "
+    "selected_full_vocab_ce=telemetry_only"
+)
+_SCENE_STATE_CYCLE_RETENTION_LOG_METRICS = (
+    "scene_generation_v10_objective_total_loss",
+    "scene_generation_v10_objective_teacher_loss",
+    "scene_generation_v10_objective_prefix_weighted_loss",
+    "scene_generation_v10_pair_mean_weighted_suffix_ce",
+    "scene_generation_v10_pair_mean_first_error_top1_hinge",
+    "scene_generation_v10_pair_mean_all_target_top1_retention_hinge",
+    "scene_generation_v10_pair_mean_selected_full_vocab_ce_telemetry_only",
+    "scene_generation_v10_pair_mean_selected_top_competitor_hinge",
+    "scene_generation_v10_pair_mean_selected_correct_vs_zero_hinge",
+    "scene_generation_v10_pair_mean_prefix_positive_gold_ce",
+    "scene_generation_v10_pair_mean_prefix_wrong_token_unlikelihood",
+    "scene_generation_v10_pair_mean_all_target_gold_vs_top_competitor_margin",
+    "scene_generation_v10_pair_mean_all_target_top1_fraction",
+    "scene_generation_v10_pair_mean_selected_gold_vs_top_competitor_margin",
+    "scene_generation_v10_pair_mean_selected_zero_minus_correct_nll",
+    "scene_generation_v10_pair_mean_selected_top1_fraction",
+    "scene_generation_v10_pair_mean_selected_correct_beats_zero_fraction",
+    "scene_generation_v10_pair_mean_prefix_correction_applied_fraction",
+    "scene_generation_v10_pair_mean_prefix_correction_event_count",
+    "scene_generation_v10_pair_mean_prefix_positive_event_count",
+    "scene_generation_v10_pair_mean_prefix_negative_event_count",
+    "scene_generation_v10_pair_mean_prefix_substitution_count",
+    "scene_generation_v10_pair_mean_prefix_insertion_count",
+    "scene_generation_v10_pair_mean_prefix_deletion_count",
+    "scene_generation_v10_pair_mean_generated_rollout_token_count",
+    "scene_generation_v10_pair_mean_generated_first_divergence",
+    "scene_generation_v10_pair_mean_generated_exact_fraction",
+    "scene_generation_v10_source_weighted_suffix_ce",
+    "scene_generation_v10_source_first_error_top1_hinge",
+    "scene_generation_v10_source_all_target_top1_retention_hinge",
+    "scene_generation_v10_source_selected_full_vocab_ce_telemetry_only",
+    "scene_generation_v10_source_selected_top_competitor_hinge",
+    "scene_generation_v10_source_selected_correct_vs_zero_hinge",
+    "scene_generation_v10_source_prefix_positive_gold_ce",
+    "scene_generation_v10_source_prefix_wrong_token_unlikelihood",
+    "scene_generation_v10_donor_weighted_suffix_ce",
+    "scene_generation_v10_donor_first_error_top1_hinge",
+    "scene_generation_v10_donor_all_target_top1_retention_hinge",
+    "scene_generation_v10_donor_selected_full_vocab_ce_telemetry_only",
+    "scene_generation_v10_donor_selected_top_competitor_hinge",
+    "scene_generation_v10_donor_selected_correct_vs_zero_hinge",
+    "scene_generation_v10_donor_prefix_positive_gold_ce",
+    "scene_generation_v10_donor_prefix_wrong_token_unlikelihood",
+)
+_SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS = frozenset(
+    {
+        _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
+        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
+    }
+)
+_SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS = 7
+_SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS = (1, 2, 3, 4)
 _SCENE_STATE_GENERATION_MASK_MODE = (
     "exact_system_only_generation_prefix_content_schema_decision_termination_v1"
 )
@@ -447,6 +534,9 @@ _DEFAULT_TRAIN_SAMPLER_MODE = "transformers_trainer_default_v1"
 _FIXED_TRAIN_SCHEDULE_SAMPLER_MODE = "explicit_ordered_train_row_ordinal_v1"
 _V9_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
     "explicit_ordered_v9_canonical_low_pair_v1"
+)
+_V10_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
+    "explicit_ordered_v10_canonical_seven_pair_cycle_v1"
 )
 _SCENE_MEMORY_V8_WARMUP_STEPS = 4
 _SCENE_MEMORY_V8_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v8_source.v1"
@@ -568,6 +658,8 @@ class AdapterWarmStartContext:
     scene_v8_fresh_start: V8FreshStartContract | None = None
     scene_v9_context: V9WarmStartContext | None = None
     scene_v9_fresh_start: V9FreshStartContract | None = None
+    scene_v10_context: V10WarmStartContext | None = None
+    scene_v10_fresh_start: V10FreshStartContract | None = None
 
 
 def _sha256_file(path: Path) -> str:
@@ -1022,7 +1114,10 @@ def resolve_adapter_warm_start_checkpoint(
         )
     if warm_start_mode == _SCENE_V8_WARM_START_MODE:
         required_files = SCENE_V8_REQUIRED_WARM_START_ARTIFACTS
-    elif warm_start_mode == _SCENE_V9_WARM_START_MODE:
+    elif warm_start_mode in {
+        _SCENE_V9_WARM_START_MODE,
+        _SCENE_V10_WARM_START_MODE,
+    }:
         required_files = SCENE_V9_REQUIRED_WARM_START_ARTIFACTS
     else:
         required_files = (
@@ -1220,6 +1315,116 @@ def _validate_scene_v9_warm_start_args(args: argparse.Namespace) -> None:
         )
 
 
+def _validate_scene_v10_warm_start_args(args: argparse.Namespace) -> None:
+    if args.warm_start_mode != _SCENE_V10_WARM_START_MODE:
+        raise ValueError(
+            "Scene V10 warm start requires "
+            f"--warm-start-mode {_SCENE_V10_WARM_START_MODE}"
+        )
+    if args.resume_from_checkpoint is not None:
+        raise ValueError("Scene V10 adapter warm start cannot restore checkpoint state")
+    if args.resume_mode != "exact":
+        raise ValueError("Scene V10 adapter warm start requires --resume-mode exact")
+    mismatches = []
+    if args.memory_loss_mode != "scene_state_generation_ce":
+        mismatches.append("memory_loss_mode")
+    if args.scene_state_generation_objective_version != (
+        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+    ):
+        mismatches.append("scene_state_generation_objective_version")
+    if args.scene_state_generated_prefix_correction_weight != (
+        _SCENE_STATE_SYMMETRIC_PREFIX_CORRECTION_WEIGHT
+    ):
+        mismatches.append("scene_state_generated_prefix_correction_weight")
+    if args.scene_state_generated_unlikelihood_weight != 0.0:
+        mismatches.append("scene_state_generated_unlikelihood_weight")
+    if parse_layer_indices(args.target_layers) != tuple(range(42)):
+        mismatches.append("target_layers")
+    if parse_delta_heads(args.delta_heads) != ("q", "o"):
+        mismatches.append("delta_heads")
+    expected_values = {
+        "rank": 4,
+        "alpha": 8.0,
+        "memory_backend": "rwkv_ms",
+        "rwkv_ms_num_states": 4,
+        "rwkv_ms_chunk_size": 128,
+        "rwkv_ms_semantics_version": 2,
+        "output_init": "base_slice_fixed",
+        "base_slice_ref_width": 8,
+        "online_gain": 0.2,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "trainable_delta_scale": True,
+        "delta_scale_init": 0.1,
+        "delta_scale_max": 0.5,
+        "delta_scale_granularity": "head",
+        "delta_scale_parameterization": "alpha_over_rank",
+        "memory_readout_mode": "delta",
+        "memory_write_source": "learned_hidden",
+        "memory_write_granularity": "token",
+        "per_device_train_batch_size": 1,
+        "gradient_accumulation_steps": (
+            _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+        ),
+        "ignore_data_skip": False,
+        "learning_rate": 2e-4,
+        "lr_scheduler_type": "constant",
+        "warmup_ratio": 0.0,
+        "warmup_steps": 0,
+        "optim": "adamw_torch_fused",
+        "num_train_epochs": 1.0,
+        "max_steps": 1,
+        "logging_steps": 1,
+        "save_steps": 1,
+        "save_total_limit": 1,
+        "eval_steps": 1000,
+        "validation_split_ratio": 0.0,
+        "load_best_model_at_end": False,
+        "dataset_num_proc": 1,
+        "dataloader_num_workers": 0,
+        "frozen_mlp_activation_checkpointing": True,
+        "max_length": 256,
+        "max_write_length": 2048,
+        "per_device_eval_batch_size": 1,
+        "weight_decay": 0.0,
+        "dtype": "bfloat16",
+        "bf16": True,
+        "tf32": True,
+        "scene_state_generated_unlikelihood_max_wrong_tokens": 4,
+        "scene_state_generated_rollout_extra_tokens": 4,
+        "scene_state_generated_rollout_max_tokens": 24,
+        "scene_boundary_payload_ce_weight": 0.0,
+        "memory_dropout_no_memory_prob": 0.0,
+        "memory_dropout_state_only_prob": 0.0,
+        "memory_base_kl_weight": 0.0,
+        "memory_contrast_weight": 0.0,
+        "memory_representation_weight": 0.0,
+        "memory_kl_weight": 0.0,
+        "memory_causal_weight": 0.0,
+        "memory_anchor_weight": 0.0,
+        "memory_recover_weight": 0.0,
+        "write_sparsity_weight": 0.0,
+        "memory_partition_alignment_weight": 0.0,
+        "memory_partition_entropy_weight": 0.0,
+        "memory_partition_balance_weight": 0.0,
+        "train_sampler_seed": None,
+        "seed": 42,
+        "data_seed": 42,
+    }
+    mismatches.extend(
+        name
+        for name, expected in expected_values.items()
+        if getattr(args, name) != expected
+    )
+    if mismatches:
+        raise ValueError(
+            "Scene V10 warm-start target contract differs for: "
+            + ", ".join(sorted(set(mismatches)))
+        )
+
+
 def _validate_adapter_warm_start_args(args: argparse.Namespace) -> None:
     if args.warm_start_mode == _RESIDUAL_HYBRID_W8_WARM_START_MODE:
         _validate_residual_hybrid_w8_warm_start_args(args)
@@ -1229,6 +1434,9 @@ def _validate_adapter_warm_start_args(args: argparse.Namespace) -> None:
         return
     if args.warm_start_mode == _SCENE_V9_WARM_START_MODE:
         _validate_scene_v9_warm_start_args(args)
+        return
+    if args.warm_start_mode == _SCENE_V10_WARM_START_MODE:
+        _validate_scene_v10_warm_start_args(args)
         return
     raise ValueError(f"Unsupported adapter warm-start mode: {args.warm_start_mode}")
 
@@ -1336,6 +1544,34 @@ def prepare_adapter_warm_start(
             },
             scene_v9_context=pinned_context,
             scene_v9_fresh_start=V9FreshStartContract(
+                resume_from_checkpoint=None,
+                initial_global_step=0,
+                optimizer_created=False,
+                scheduler_created=False,
+                trainer_state_imported=False,
+                rng_state_imported=False,
+                optim=args.optim,
+            ),
+        )
+
+    if args.warm_start_mode == _SCENE_V10_WARM_START_MODE:
+        pinned_context = prepare_v10_v8_checkpoint56_warm_start(
+            checkpoint,
+            lock_path=SCENE_V9_WARM_START_LOCK_PATH,
+        )
+        source_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+        return AdapterWarmStartContext(
+            checkpoint=checkpoint,
+            mode=_SCENE_V10_WARM_START_MODE,
+            source_protocol=pinned_context.source_training_protocol,
+            source_config=source_config,
+            manifest={
+                "schema_version": _WARM_START_LINEAGE_SCHEMA_VERSION,
+                "mode": _SCENE_V10_WARM_START_MODE,
+                "source_checkpoint": str(checkpoint),
+            },
+            scene_v10_context=pinned_context,
+            scene_v10_fresh_start=V10FreshStartContract(
                 resume_from_checkpoint=None,
                 initial_global_step=0,
                 optimizer_created=False,
@@ -2191,6 +2427,44 @@ def apply_adapter_warm_start(
         receipt_without_hash.pop("receipt_sha256", None)
         receipt["receipt_sha256"] = _canonical_json_sha256(receipt_without_hash)
         return receipt
+    if context.mode == _SCENE_V10_WARM_START_MODE:
+        if (
+            context.scene_v10_context is None
+            or context.scene_v10_fresh_start is None
+        ):
+            raise ValueError("Scene V10 warm-start context is incomplete")
+        source_config = context.source_config.to_dict()
+        target_config_payload = target_config.to_dict()
+        config_mismatches = sorted(
+            key
+            for key in set(source_config) | set(target_config_payload)
+            if source_config.get(key) != target_config_payload.get(key)
+        )
+        if config_mismatches:
+            raise ValueError(
+                "Scene V10 requires topology-exact V8/V10 Delta-Mem config; differs for: "
+                + ", ".join(config_mismatches)
+            )
+        receipt = apply_v10_v8_checkpoint56_adapter_only_warm_start(
+            model,
+            context.scene_v10_context,
+            fresh_start=context.scene_v10_fresh_start,
+        )
+        receipt.update(
+            {
+                "target_delta_config_sha256": _protocol_sha256(
+                    target_config_payload
+                ),
+                "target_trainable_tensor_count": len(trainable_names),
+                "target_trainable_names_sha256": _protocol_sha256(
+                    {"ordered_trainable_names": trainable_names}
+                ),
+            }
+        )
+        receipt_without_hash = dict(receipt)
+        receipt_without_hash.pop("receipt_sha256", None)
+        receipt["receipt_sha256"] = _canonical_json_sha256(receipt_without_hash)
+        return receipt
     if context.mode != _RESIDUAL_HYBRID_W8_WARM_START_MODE:
         raise ValueError(f"Unsupported adapter warm-start mode: {context.mode}")
     _validate_residual_hybrid_w8_delta_config_transition(
@@ -2414,6 +2688,10 @@ def _scene_memory_v9_protocol_checkpoint_steps(
 ) -> tuple[int, ...] | None:
     if protocol is None:
         return None
+    if protocol.get("memory_objective_version") == (
+        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+    ):
+        return None
     schedule = protocol.get("train_schedule")
     if not isinstance(schedule, dict) or schedule.get("schema") != (
         _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
@@ -2423,6 +2701,39 @@ def _scene_memory_v9_protocol_checkpoint_steps(
     if endpoints != (7, 14, 21, 28):
         raise ValueError("Scene-memory V9 protocol checkpoint endpoints differ")
     return endpoints
+
+
+def _scene_memory_v10_protocol_checkpoint_steps(
+    protocol: dict[str, object] | None,
+) -> tuple[int, ...] | None:
+    if protocol is None:
+        return None
+    if protocol.get("memory_objective_version") != (
+        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+    ):
+        return None
+    schedule = protocol.get("train_schedule")
+    if not isinstance(schedule, dict) or schedule.get("schema") != (
+        _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
+    ):
+        raise ValueError("Scene-memory V10 cycle protocol schedule differs")
+    if (
+        schedule.get("checkpoint_steps") != [7, 14, 21, 28]
+        or schedule.get("optimizer_checkpoint_steps")
+        != list(_SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS)
+        or schedule.get("microbatch_cycle_size")
+        != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+        or schedule.get("resume_schedule_cursor_formula")
+        != "global_step_times_7_v1"
+        or protocol.get("gradient_accumulation_steps")
+        != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+        or protocol.get("train_sampler_mode")
+        != _V10_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+        or protocol.get("ignore_data_skip") is not False
+        or protocol.get("logging_steps") != 1
+    ):
+        raise ValueError("Scene-memory V10 cycle protocol differs")
+    return _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS
 
 
 def _validate_scene_memory_v8_warm_start_lineage(
@@ -2502,6 +2813,102 @@ def _validate_scene_memory_v8_warm_start_lineage(
         or not optimizer_class.endswith(".AdamW")
     ):
         raise ValueError("Scene-memory V8 warm-start optimizer receipt differs")
+    return receipt_sha256
+
+
+def _validate_scene_memory_v10_warm_start_lineage(
+    manifest: dict[str, object],
+    *,
+    target_training_protocol_sha256: str,
+) -> str:
+    if (
+        manifest.get("schema") != SCENE_V10_WARM_START_RECEIPT_SCHEMA
+        or manifest.get("schema_version") != _WARM_START_LINEAGE_SCHEMA_VERSION
+        or manifest.get("mode") != _SCENE_V10_WARM_START_MODE
+    ):
+        raise ValueError("Scene-memory V10 warm-start lineage schema or mode differs")
+    unsigned = dict(manifest)
+    receipt_sha256 = unsigned.pop("receipt_sha256", None)
+    if not _is_sha256(receipt_sha256) or receipt_sha256 != (
+        _canonical_json_sha256(unsigned)
+    ):
+        raise ValueError("Scene-memory V10 warm-start lineage receipt hash differs")
+    if (
+        not _is_sha256(target_training_protocol_sha256)
+        or manifest.get("target_training_protocol_sha256")
+        != target_training_protocol_sha256
+    ):
+        raise ValueError(
+            "Scene-memory V10 warm-start lineage target protocol hash differs"
+        )
+    source_checkpoint = Path(
+        str(manifest.get("source_checkpoint", ""))
+    ).expanduser().resolve()
+    pinned = prepare_v10_v8_checkpoint56_warm_start(
+        source_checkpoint,
+        lock_path=SCENE_V9_WARM_START_LOCK_PATH,
+    )
+    source_lock = manifest.get("source_lock")
+    expected_evidence = {
+        "trainer_resume_from_checkpoint": None,
+        "target_initial_global_step": 0,
+        "pre_train_global_step": 0,
+        "fresh_optimizer_created": True,
+        "fresh_optimizer_state_entries_before_train": 0,
+        "fresh_scheduler_created_before_train": False,
+    }
+    if (
+        not isinstance(source_lock, dict)
+        or source_checkpoint != pinned.checkpoint
+        or manifest.get("source_global_step") != 56
+        or Path(str(source_lock.get("path", ""))).expanduser().resolve()
+        != pinned.lock_path
+        or source_lock.get("lock_sha256") != pinned.lock.get("lock_sha256")
+        or manifest.get("source_state_imports")
+        != pinned.lock.get("source_state_imports")
+        or manifest.get("source_artifacts") != pinned.lock.get("artifacts")
+        or manifest.get("post_load_bit_equal") is not True
+        or any(
+            manifest.get(name) != expected
+            for name, expected in expected_evidence.items()
+        )
+    ):
+        raise ValueError("Scene-memory V10 warm-start lineage source binding differs")
+    optimizer_class = manifest.get("fresh_optimizer_class")
+    target_fresh_start = manifest.get("target_fresh_start")
+    expected_target_fresh_start = {
+        "initial_global_step": 0,
+        "optimizer_implementation": "adamw_torch_fused",
+        "optimizer_created_after_adapter_load": True,
+        "optimizer_state": "fresh",
+        "scheduler_state": "fresh",
+        "trainer_state": "fresh",
+        "rng_state": "fresh_from_v10_seed",
+    }
+    expected_source_imports = {
+        "adapter": True,
+        "optimizer": False,
+        "scheduler": False,
+        "trainer_state": False,
+        "rng": False,
+        "global_step": False,
+    }
+    expected_not_imported = [
+        "optimizer.pt",
+        "scheduler.pt",
+        "rng_state.pth",
+        "trainer_state.json",
+    ]
+    if (
+        target_fresh_start != expected_target_fresh_start
+        or manifest.get("source_state_imports") != expected_source_imports
+        or manifest.get("loaded_source_artifacts") != ["delta_mem_adapter.pt"]
+        or manifest.get("validated_not_imported_source_artifacts")
+        != expected_not_imported
+        or not isinstance(optimizer_class, str)
+        or not optimizer_class.endswith(".AdamW")
+    ):
+        raise ValueError("Scene-memory V10 warm-start fresh-state evidence differs")
     return receipt_sha256
 
 
@@ -2798,6 +3205,242 @@ def prepare_scene_memory_v9_training_continuation(
     return prepared
 
 
+def _scene_memory_v10_checkpoint_lineage(
+    checkpoint: Path,
+    *,
+    visited: set[Path] | None = None,
+) -> dict[str, object]:
+    resolved = _validate_resume_checkpoint(
+        checkpoint,
+        require_training_protocol=True,
+        require_scene_state_identity_pairing=True,
+    )
+    active_visited = set() if visited is None else visited
+    if resolved in active_visited:
+        raise ValueError("Scene-memory V10 continuation lineage contains a cycle")
+    active_visited.add(resolved)
+    checkpoint_suffix = resolved.name.removeprefix("checkpoint-")
+    if not resolved.name.startswith("checkpoint-") or not checkpoint_suffix.isdigit():
+        raise ValueError("Scene-memory V10 lineage source must be checkpoint-N")
+    checkpoint_step = int(checkpoint_suffix)
+    if checkpoint_step not in _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS:
+        raise ValueError("Scene-memory V10 source is not a cycle endpoint")
+    trainer_state = _load_json_object(
+        resolved / "trainer_state.json",
+        description="Scene-memory V10 trainer state",
+    )
+    protocol = _load_json_object(
+        resolved / _TRAINING_PROTOCOL_FILENAME,
+        description="Scene-memory V10 training protocol",
+    )
+    if (
+        trainer_state.get("global_step") != checkpoint_step
+        or trainer_state.get("max_steps") != checkpoint_step
+        or protocol.get("max_steps") != checkpoint_step
+        or _scene_memory_v10_protocol_checkpoint_steps(protocol)
+        != _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS
+    ):
+        raise ValueError("Scene-memory V10 checkpoint is not a completed cycle horizon")
+    protocol_sha256 = _protocol_sha256(protocol)
+    expected_lineage_filename = (
+        _WARM_START_LINEAGE_FILENAME
+        if checkpoint_step == _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS[0]
+        else _CONTINUATION_MANIFEST_FILENAME
+    )
+    lineage_candidates = (
+        _WARM_START_LINEAGE_FILENAME,
+        _CONTINUATION_MANIFEST_FILENAME,
+        _ABLATION_LINEAGE_FILENAME,
+    )
+    present = [
+        name for name in lineage_candidates if (resolved / name).is_file()
+    ]
+    if present != [expected_lineage_filename]:
+        raise ValueError(
+            "Scene-memory V10 checkpoint must contain exactly its expected lineage"
+        )
+    lineage_path = resolved / expected_lineage_filename
+    if lineage_path.is_symlink():
+        raise ValueError("Scene-memory V10 lineage file must not be a symlink")
+    lineage = _load_json_object(
+        lineage_path,
+        description="Scene-memory V10 checkpoint lineage",
+    )
+    if checkpoint_step == _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS[0]:
+        config = _load_json_object(
+            resolved / "delta_mem_config.json",
+            description="Scene-memory V10 Delta-Mem config",
+        )
+        pairing = _load_json_object(
+            resolved / _SCENE_STATE_IDENTITY_PAIRING_FILENAME,
+            description="Scene-memory V10 pairing manifest",
+        )
+        pairing_unsigned = dict(pairing)
+        pairing_sha256 = pairing_unsigned.pop("manifest_sha256", None)
+        if (
+            not _is_sha256(pairing_sha256)
+            or pairing_sha256 != _canonical_json_sha256(pairing_unsigned)
+            or lineage.get("target_delta_config_sha256")
+            != _protocol_sha256(config)
+            or lineage.get("target_scene_state_pairing_manifest_sha256")
+            != pairing_sha256
+        ):
+            raise ValueError("Scene-memory V10 warm-start target binding differs")
+        root_receipt_sha256 = _validate_scene_memory_v10_warm_start_lineage(
+            lineage,
+            target_training_protocol_sha256=protocol_sha256,
+        )
+    else:
+        unsigned = dict(lineage)
+        manifest_sha256 = unsigned.pop("manifest_sha256", None)
+        source_step = checkpoint_step - 1
+        if (
+            lineage.get("schema_version")
+            != _CONTINUATION_MANIFEST_SCHEMA_VERSION
+            or lineage.get("mode") != "extend"
+            or not _is_sha256(manifest_sha256)
+            or manifest_sha256 != _canonical_json_sha256(unsigned)
+            or lineage.get("source_global_step") != source_step
+            or lineage.get("target_max_steps") != checkpoint_step
+            or lineage.get("source_schedule_cursor")
+            != source_step
+            * _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            or lineage.get("target_schedule_cursor")
+            != checkpoint_step
+            * _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            or lineage.get("target_training_protocol_sha256") != protocol_sha256
+        ):
+            raise ValueError("Scene-memory V10 continuation horizon differs")
+        source_checkpoint = Path(
+            str(lineage.get("source_checkpoint", ""))
+        ).expanduser().resolve()
+        source_lineage = _scene_memory_v10_checkpoint_lineage(
+            source_checkpoint,
+            visited=active_visited,
+        )
+        if (
+            source_lineage["checkpoint_step"] != source_step
+            or lineage.get("source_training_protocol_sha256")
+            != source_lineage["training_protocol_sha256"]
+            or lineage.get("source_lineage_filename")
+            != source_lineage["lineage_filename"]
+            or lineage.get("source_lineage_file_sha256")
+            != source_lineage["lineage_file_sha256"]
+            or lineage.get("root_warm_start_receipt_sha256")
+            != source_lineage["root_warm_start_receipt_sha256"]
+        ):
+            raise ValueError("Scene-memory V10 continuation source lineage differs")
+        root_receipt_sha256 = str(
+            source_lineage["root_warm_start_receipt_sha256"]
+        )
+    active_visited.remove(resolved)
+    return {
+        "checkpoint": str(resolved),
+        "checkpoint_step": checkpoint_step,
+        "lineage_filename": expected_lineage_filename,
+        "lineage_file_sha256": _sha256_file(lineage_path),
+        "training_protocol_sha256": protocol_sha256,
+        "root_warm_start_receipt_sha256": root_receipt_sha256,
+        "schedule_cursor": (
+            checkpoint_step
+            * _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+        ),
+    }
+
+
+def prepare_scene_memory_v10_training_continuation(
+    continuation_manifest: dict[str, object] | None,
+    *,
+    resume_from_checkpoint: str | Path,
+) -> dict[str, object]:
+    if continuation_manifest is None or continuation_manifest.get("mode") != "extend":
+        raise ValueError("Scene-memory V10 resume requires an extend manifest")
+    source_checkpoint = Path(resume_from_checkpoint).expanduser().resolve()
+    source_lineage = _scene_memory_v10_checkpoint_lineage(source_checkpoint)
+    source_step = int(source_lineage["checkpoint_step"])
+    target_step = source_step + 1
+    if target_step not in _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS:
+        raise ValueError("Scene-memory V10 final cycle has no resume endpoint")
+    if (
+        continuation_manifest.get("source_checkpoint") != str(source_checkpoint)
+        or continuation_manifest.get("source_global_step") != source_step
+        or continuation_manifest.get("target_max_steps") != target_step
+        or continuation_manifest.get("source_schedule_cursor")
+        != source_lineage["schedule_cursor"]
+        or continuation_manifest.get("target_schedule_cursor")
+        != target_step
+        * _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+        or continuation_manifest.get("source_training_protocol_sha256")
+        != source_lineage["training_protocol_sha256"]
+    ):
+        raise ValueError("Scene-memory V10 continuation source binding differs")
+    prepared = dict(continuation_manifest)
+    prepared.update(
+        {
+            "root_warm_start_receipt_sha256": source_lineage[
+                "root_warm_start_receipt_sha256"
+            ],
+            "source_lineage_filename": source_lineage["lineage_filename"],
+            "source_lineage_file_sha256": source_lineage[
+                "lineage_file_sha256"
+            ],
+        }
+    )
+    prepared.pop("target_training_protocol_sha256", None)
+    prepared.pop("manifest_sha256", None)
+    return prepared
+
+
+def finalize_scene_memory_v10_training_continuation(
+    continuation_manifest: dict[str, object],
+    *,
+    target_training_protocol: dict[str, object],
+) -> None:
+    continuation_manifest["target_training_protocol_sha256"] = _protocol_sha256(
+        target_training_protocol
+    )
+    unsigned = dict(continuation_manifest)
+    unsigned.pop("manifest_sha256", None)
+    continuation_manifest["manifest_sha256"] = _canonical_json_sha256(unsigned)
+
+
+def validate_scene_memory_v10_active_continuation(
+    continuation_manifest: dict[str, object] | None,
+    *,
+    resume_from_checkpoint: str | Path,
+    target_training_protocol: dict[str, object],
+) -> None:
+    if continuation_manifest is None:
+        raise ValueError("Scene-memory V10 Trainer resume lineage is missing")
+    unsigned = dict(continuation_manifest)
+    manifest_sha256 = unsigned.pop("manifest_sha256", None)
+    if not _is_sha256(manifest_sha256) or manifest_sha256 != (
+        _canonical_json_sha256(unsigned)
+    ):
+        raise ValueError("Scene-memory V10 active continuation self-hash differs")
+    prepared = prepare_scene_memory_v10_training_continuation(
+        continuation_manifest,
+        resume_from_checkpoint=resume_from_checkpoint,
+    )
+    expected = dict(prepared)
+    expected["target_training_protocol_sha256"] = _protocol_sha256(
+        target_training_protocol
+    )
+    expected_unsigned = dict(expected)
+    expected_unsigned.pop("manifest_sha256", None)
+    expected["manifest_sha256"] = _canonical_json_sha256(expected_unsigned)
+    if continuation_manifest != expected:
+        raise ValueError("Scene-memory V10 active continuation lineage differs")
+    target_step = int(target_training_protocol["max_steps"])
+    if (
+        continuation_manifest.get("target_max_steps") != target_step
+        or continuation_manifest.get("target_schedule_cursor")
+        != target_step
+        * _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+    ):
+        raise ValueError("Scene-memory V10 target continuation horizon differs")
+
+
 def finalize_scene_memory_v9_training_continuation(
     continuation_manifest: dict[str, object],
     *,
@@ -3031,6 +3674,21 @@ def prepare_training_continuation(
         "lr_scheduler_type": str(source_protocol["lr_scheduler_type"]),
         "warmup_steps": int(source_protocol["warmup_steps"]),
     }
+    if source_protocol.get("memory_objective_version") == (
+        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+    ):
+        manifest.update(
+            {
+                "source_schedule_cursor": (
+                    global_step
+                    * _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                ),
+                "target_schedule_cursor": (
+                    int(args.max_steps)
+                    * _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                ),
+            }
+        )
     if source_epoch is not None:
         manifest["source_epoch"] = source_epoch
     if args.resume_mode == "placement_ablation":
@@ -3239,6 +3897,35 @@ def finalize_scene_v9_warm_start_lineage(
     context.manifest["receipt_sha256"] = _canonical_json_sha256(unsigned)
 
 
+def finalize_scene_v10_warm_start_lineage(
+    context: AdapterWarmStartContext,
+    *,
+    target_training_protocol_sha256: str,
+    target_pairing_manifest: dict[str, object],
+) -> None:
+    if context.mode != _SCENE_V10_WARM_START_MODE:
+        raise ValueError("Scene V10 lineage finalizer received another warm-start mode")
+    pairing_sha256 = target_pairing_manifest.get("manifest_sha256")
+    if not _is_sha256(target_training_protocol_sha256) or not _is_sha256(
+        pairing_sha256
+    ):
+        raise ValueError(
+            "Scene V10 target protocol and pairing hashes must be SHA256 values"
+        )
+    context.manifest.update(
+        {
+            "target_training_protocol_sha256": target_training_protocol_sha256,
+            "target_scene_state_pairing_manifest_sha256": pairing_sha256,
+            "trainer_resume_from_checkpoint": None,
+            "target_initial_global_step": 0,
+            "fresh_adamw_creation_required_after_adapter_load": True,
+        }
+    )
+    unsigned = dict(context.manifest)
+    unsigned.pop("receipt_sha256", None)
+    context.manifest["receipt_sha256"] = _canonical_json_sha256(unsigned)
+
+
 def record_scene_v8_fresh_optimizer_lineage(
     trainer,
     warm_start_context: AdapterWarmStartContext,
@@ -3293,6 +3980,43 @@ def record_scene_v9_fresh_optimizer_lineage(
         raise RuntimeError("Scene V9 requires a freshly created torch AdamW")
     if trainer.optimizer.state:
         raise RuntimeError("Scene V9 fresh AdamW unexpectedly contains state")
+    warm_start_context.manifest.update(
+        {
+            "pre_train_global_step": 0,
+            "fresh_optimizer_created": True,
+            "fresh_optimizer_class": (
+                f"{trainer.optimizer.__class__.__module__}."
+                f"{trainer.optimizer.__class__.__qualname__}"
+            ),
+            "fresh_optimizer_state_entries_before_train": 0,
+            "fresh_scheduler_created_before_train": False,
+        }
+    )
+    unsigned_warm_start_receipt = dict(warm_start_context.manifest)
+    unsigned_warm_start_receipt.pop("receipt_sha256", None)
+    warm_start_context.manifest["receipt_sha256"] = _canonical_json_sha256(
+        unsigned_warm_start_receipt
+    )
+    trainer.continuation_manifest = dict(warm_start_context.manifest)
+
+
+def record_scene_v10_fresh_optimizer_lineage(
+    trainer,
+    warm_start_context: AdapterWarmStartContext,
+) -> None:
+    if warm_start_context.mode != _SCENE_V10_WARM_START_MODE:
+        raise ValueError("Scene V10 optimizer evidence requires its warm-start mode")
+    if trainer.state.global_step != 0:
+        raise RuntimeError("Scene V10 Trainer did not initialize at global step 0")
+    if trainer.optimizer is not None or trainer.lr_scheduler is not None:
+        raise RuntimeError(
+            "Scene V10 Trainer imported optimizer or scheduler state before creation"
+        )
+    trainer.create_optimizer()
+    if not isinstance(trainer.optimizer, torch.optim.AdamW):
+        raise RuntimeError("Scene V10 requires a freshly created torch AdamW")
+    if trainer.optimizer.state:
+        raise RuntimeError("Scene V10 fresh AdamW unexpectedly contains state")
     warm_start_context.manifest.update(
         {
             "pre_train_global_step": 0,
@@ -3586,22 +4310,35 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_GENERATION_OBJECTIVE_VERSION,
             _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION,
             _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
+            _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
         }
         if normalized_generation_objective not in supported_generation_objectives:
             raise ValueError(
                 "Unsupported scene-state generation objective version: "
                 f"{normalized_generation_objective}"
             )
-        if normalized_generation_objective == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION:
+        if normalized_generation_objective in (
+            _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
+        ):
             if memory_loss_mode != "scene_state_generation_ce":
                 raise ValueError(
-                    "The symmetric scene-state objective requires "
+                    "The reciprocal scene-state objective requires "
                     "memory_loss_mode=scene_state_generation_ce"
                 )
             if scene_state_generated_unlikelihood_weight != 0.0:
                 raise ValueError(
-                    "The symmetric scene-state objective replaces legacy generated "
+                    "The reciprocal scene-state objective replaces legacy generated "
                     "unlikelihood"
+                )
+            if (
+                normalized_generation_objective
+                == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+                and scene_state_generated_prefix_correction_weight
+                != _SCENE_STATE_SYMMETRIC_PREFIX_CORRECTION_WEIGHT
+            ):
+                raise ValueError(
+                    "The V10 cycle-retention objective requires generated-prefix "
+                    "correction weight 0.5"
                 )
         elif scene_state_generated_prefix_correction_weight != 0.0:
             raise ValueError(
@@ -3799,6 +4536,8 @@ class DeltaMemTrainer(Trainer):
         self._last_scene_generation_generated_first_divergence = 0.0
         self._last_scene_generation_generated_exact_fraction = 0.0
         self._last_scene_generation_objective_logs: dict[str, float] = {}
+        self._scene_state_cycle_retention_metric_sums: dict[str, float] = {}
+        self._scene_state_cycle_retention_metric_presentations = 0
         self._last_memory_teacher_loss = 0.0
         self._last_scene_boundary_full_ce_loss = 0.0
         self._last_scene_boundary_payload_ce_loss = 0.0
@@ -6464,10 +7203,41 @@ class DeltaMemTrainer(Trainer):
         accumulation_steps = int(
             getattr(self, "current_gradient_accumulation_steps", 1)
         )
-        if accumulation_steps != 1:
+        objective_version = getattr(
+            self,
+            "scene_state_generation_objective_version",
+            _SCENE_STATE_GENERATION_OBJECTIVE_VERSION,
+        )
+        expected_accumulation_steps = (
+            _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            if objective_version == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            else 1
+        )
+        if accumulation_steps != expected_accumulation_steps:
             raise ValueError(
                 "scene_state_generation_ce sequential backward requires "
-                "gradient_accumulation_steps=1"
+                "gradient_accumulation_steps="
+                f"{expected_accumulation_steps} for objective {objective_version}"
+            )
+        if (
+            objective_version == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            and bool(getattr(getattr(self, "args", None), "ignore_data_skip", False))
+        ):
+            raise ValueError(
+                "V10 cycle-retention runtime requires ignore_data_skip=False"
+            )
+        if (
+            objective_version == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            and getattr(
+                getattr(self, "accelerator", None),
+                "gradient_accumulation_steps",
+                None,
+            )
+            != 1
+        ):
+            raise ValueError(
+                "V10 cycle-retention runtime requires the Trainer-managed "
+                "accelerator accumulation factor to remain 1"
             )
         optimizer_name = str(
             getattr(getattr(self, "args", None), "optim", "")
@@ -6496,6 +7266,26 @@ class DeltaMemTrainer(Trainer):
                 "scene_state_generation_ce sequential backward does not support "
                 "SageMaker model parallelism"
             )
+
+    def _scene_state_generation_sequential_gradient_scale(
+        self,
+        *,
+        num_items_in_batch: torch.Tensor | None,
+    ) -> float:
+        accumulation_steps = int(self.current_gradient_accumulation_steps)
+        objective_version = getattr(
+            self,
+            "scene_state_generation_objective_version",
+            _SCENE_STATE_GENERATION_OBJECTIVE_VERSION,
+        )
+        if objective_version == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION:
+            return 1.0 / accumulation_steps
+        if (
+            (not self.model_accepts_loss_kwargs or num_items_in_batch is None)
+            and self.compute_loss_func is None
+        ):
+            return 1.0 / accumulation_steps
+        return 1.0
 
     @staticmethod
     def _scene_state_generation_token_ce(
@@ -6886,6 +7676,74 @@ class DeltaMemTrainer(Trainer):
             "selected_logits": selected_logits,
             "selected_target_ids": target_ids,
         }
+
+    @staticmethod
+    def _scene_state_all_target_top1_retention_metrics(
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        target_mask: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        normalized_mask = target_mask.to(device=labels.device, dtype=torch.bool)
+        if normalized_mask.shape != labels.shape or bool(normalized_mask[:, 0].any()):
+            raise ValueError(
+                "Cycle-retention target mask must align with causal labels"
+            )
+        if bool((normalized_mask & labels.eq(-100)).any()):
+            raise ValueError(
+                "Cycle-retention target mask selects an unsupervised label"
+            )
+        shift_mask = normalized_mask[:, 1:]
+        row_counts = shift_mask.sum(dim=1)
+        if not bool(row_counts.gt(0).all()):
+            raise ValueError("Cycle-retention target mask misses a batch row")
+        selected_logits = logits[:, :-1][shift_mask].float()
+        selected_labels = labels[:, 1:][shift_mask]
+        gold_logits = selected_logits.gather(
+            1,
+            selected_labels.unsqueeze(1),
+        ).squeeze(1)
+        top_values, top_indices = selected_logits.topk(k=2, dim=1)
+        max_other = torch.where(
+            top_indices[:, 0].eq(selected_labels),
+            top_values[:, 1],
+            top_values[:, 0],
+        )
+        margins = gold_logits - max_other
+        retention_hinges = F.relu(
+            _SCENE_STATE_GENERATION_TOP1_MARGIN
+            + max_other.detach()
+            - gold_logits
+        )
+        top1 = top_indices[:, 0].eq(selected_labels).float()
+        split_sizes = [int(count) for count in row_counts.detach().cpu().tolist()]
+        return {
+            "retention_hinge_row": torch.stack(
+                [values.mean() for values in retention_hinges.split(split_sizes)]
+            ),
+            "gold_margin_row": torch.stack(
+                [values.mean() for values in margins.split(split_sizes)]
+            ),
+            "top1_fraction_row": torch.stack(
+                [values.mean() for values in top1.split(split_sizes)]
+            ),
+        }
+
+    @staticmethod
+    def _scene_state_cycle_retention_teacher_loss(
+        *,
+        full_gold_ce: torch.Tensor,
+        first_error_top1_hinge: torch.Tensor,
+        all_target_top1_retention_hinge: torch.Tensor,
+        selected_top_competitor_hinge: torch.Tensor,
+        selected_correct_vs_zero_hinge: torch.Tensor,
+    ) -> torch.Tensor:
+        return (
+            full_gold_ce
+            + first_error_top1_hinge
+            + all_target_top1_retention_hinge
+            + selected_top_competitor_hinge
+            + selected_correct_vs_zero_hinge
+        )
 
     @staticmethod
     def _scene_state_symmetric_zero_hinge(
@@ -7379,6 +8237,85 @@ class DeltaMemTrainer(Trainer):
         other_logsumexp = torch.logsumexp(other_logits, dim=1)
         return F.softplus(wrong_logits - other_logsumexp).mean()
 
+    @staticmethod
+    def _scene_state_generated_unlikelihood_values_from_logits(
+        selected_logits: torch.Tensor,
+        wrong_token_ids: torch.Tensor,
+    ) -> torch.Tensor:
+        if selected_logits.ndim != 2 or selected_logits.size(0) == 0:
+            raise ValueError(
+                "Generated-prefix unlikelihood requires selected vocabulary logits"
+            )
+        if (
+            wrong_token_ids.ndim != 1
+            or wrong_token_ids.numel() != selected_logits.size(0)
+        ):
+            raise ValueError(
+                "Generated-prefix wrong token IDs must align with selected logits"
+            )
+        fp32_logits = selected_logits.float()
+        normalized_wrong_ids = wrong_token_ids.to(
+            device=fp32_logits.device,
+            dtype=torch.long,
+        )
+        wrong_logits = fp32_logits.gather(
+            1,
+            normalized_wrong_ids.unsqueeze(1),
+        ).squeeze(1)
+        other_logits = fp32_logits.clone()
+        other_logits.scatter_(
+            1,
+            normalized_wrong_ids.unsqueeze(1),
+            -torch.inf,
+        )
+        other_logsumexp = torch.logsumexp(other_logits, dim=1)
+        return F.softplus(wrong_logits - other_logsumexp)
+
+    @staticmethod
+    def _scene_state_cycle_retention_prefix_event_loss(
+        event_logits: torch.Tensor,
+        *,
+        positive_indices: torch.Tensor,
+        positive_token_ids: torch.Tensor,
+        negative_indices: torch.Tensor,
+        negative_token_ids: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        if event_logits.ndim != 2 or event_logits.size(0) == 0:
+            raise ValueError("V10 prefix correction requires event logits")
+        event_losses = event_logits.float().sum(dim=1) * 0.0
+        positive_values = event_losses.new_zeros((0,))
+        if positive_indices.numel() > 0:
+            positive_values = F.cross_entropy(
+                event_logits.index_select(0, positive_indices).float(),
+                positive_token_ids,
+                reduction="none",
+            )
+            event_losses = event_losses.index_add(
+                0,
+                positive_indices,
+                positive_values,
+            )
+        negative_values = event_losses.new_zeros((0,))
+        if negative_indices.numel() > 0:
+            negative_values = (
+                DeltaMemTrainer._scene_state_generated_unlikelihood_values_from_logits(
+                    event_logits.index_select(0, negative_indices),
+                    negative_token_ids,
+                )
+            )
+            event_losses = event_losses.index_add(
+                0,
+                negative_indices,
+                negative_values,
+            )
+        zero = event_losses.sum() * 0.0
+        event_count = event_losses.new_tensor(float(event_losses.numel()))
+        return (
+            event_losses.mean(),
+            positive_values.sum() / event_count if positive_values.numel() else zero,
+            negative_values.sum() / event_count if negative_values.numel() else zero,
+        )
+
     def _scene_state_generated_unlikelihood_branch(
         self,
         model,
@@ -7604,6 +8541,13 @@ class DeltaMemTrainer(Trainer):
                 "Generated-prefix correction predictor escapes replay logits"
             )
         event_logits = replay_logits[0].index_select(0, predictor_positions)
+        empty_indices = torch.empty(
+            0,
+            device=event_logits.device,
+            dtype=torch.long,
+        )
+        positive_indices = empty_indices
+        positive_ids = empty_indices
         positive_loss = event_logits.sum() * 0.0
         if positive_events:
             positive_indices = torch.tensor(
@@ -7628,6 +8572,8 @@ class DeltaMemTrainer(Trainer):
                 positive_ids,
             )
         negative_loss = event_logits.sum() * 0.0
+        negative_indices = empty_indices
+        negative_ids = empty_indices
         if negative_events:
             negative_indices = torch.tensor(
                 [
@@ -7650,13 +8596,29 @@ class DeltaMemTrainer(Trainer):
                 event_logits.index_select(0, negative_indices),
                 negative_ids,
             )
+        if getattr(
+            self,
+            "scene_state_generation_objective_version",
+            _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
+        ) == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION:
+            correction_loss, positive_loss, negative_loss = (
+                self._scene_state_cycle_retention_prefix_event_loss(
+                    event_logits,
+                    positive_indices=positive_indices,
+                    positive_token_ids=positive_ids,
+                    negative_indices=negative_indices,
+                    negative_token_ids=negative_ids,
+                )
+            )
+        else:
+            correction_loss = positive_loss + negative_loss
         stats["scene_generation_prefix_positive_ce"] = float(
             positive_loss.detach().item()
         )
         stats["scene_generation_prefix_negative_unlikelihood"] = float(
             negative_loss.detach().item()
         )
-        return positive_loss + negative_loss, stats
+        return correction_loss, stats
 
     def _scene_state_generation_symmetric_sequential_backward(
         self,
@@ -7688,6 +8650,14 @@ class DeltaMemTrainer(Trainer):
         gradient_scale: float,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         self._validate_scene_state_generation_sequential_runtime()
+        cycle_retention_objective = (
+            getattr(
+                self,
+                "scene_state_generation_objective_version",
+                _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
+            )
+            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+        )
         if (
             source_model_inputs["input_ids"].size(0) != 1
             or donor_model_inputs["input_ids"].size(0) != 1
@@ -7783,12 +8753,46 @@ class DeltaMemTrainer(Trainer):
                     selected["selected_ce_row"],
                     zero_nll,
                 ).mean()
-                teacher_loss = (
-                    full_ce
-                    + selected_ce
-                    + selected_top_hinge
-                    + zero_hinge
-                )
+                first_error_top1_hinge = full_ce.new_zeros(())
+                all_target_top1_retention_hinge = full_ce.new_zeros(())
+                all_target_gold_margin = full_ce.new_zeros(())
+                all_target_top1_fraction = full_ce.new_zeros(())
+                if cycle_retention_objective:
+                    all_target_retention = (
+                        self._scene_state_all_target_top1_retention_metrics(
+                            outputs["logits"],
+                            model_inputs["labels"],
+                            branch_kwargs["target_mask"],
+                        )
+                    )
+                    first_error_top1_hinge = branch_metrics[
+                        "first_error_row_loss"
+                    ].mean()
+                    all_target_top1_retention_hinge = all_target_retention[
+                        "retention_hinge_row"
+                    ].mean()
+                    all_target_gold_margin = all_target_retention[
+                        "gold_margin_row"
+                    ].mean()
+                    all_target_top1_fraction = all_target_retention[
+                        "top1_fraction_row"
+                    ].mean()
+                    teacher_loss = self._scene_state_cycle_retention_teacher_loss(
+                        full_gold_ce=full_ce,
+                        first_error_top1_hinge=first_error_top1_hinge,
+                        all_target_top1_retention_hinge=(
+                            all_target_top1_retention_hinge
+                        ),
+                        selected_top_competitor_hinge=selected_top_hinge,
+                        selected_correct_vs_zero_hinge=zero_hinge,
+                    )
+                else:
+                    teacher_loss = (
+                        full_ce
+                        + selected_ce
+                        + selected_top_hinge
+                        + zero_hinge
+                    )
             teacher_value = teacher_loss.detach()
             side_stats = {
                 f"scene_generation_{side}_full_gold_ce": float(
@@ -7816,6 +8820,23 @@ class DeltaMemTrainer(Trainer):
                     .item()
                 ),
             }
+            if cycle_retention_objective:
+                side_stats.update(
+                    {
+                        f"scene_generation_{side}_first_error_top1_hinge": float(
+                            first_error_top1_hinge.detach().item()
+                        ),
+                        f"scene_generation_{side}_all_target_top1_retention_hinge": float(
+                            all_target_top1_retention_hinge.detach().item()
+                        ),
+                        f"scene_generation_{side}_all_target_gold_margin": float(
+                            all_target_gold_margin.detach().item()
+                        ),
+                        f"scene_generation_{side}_all_target_top1_fraction": float(
+                            all_target_top1_fraction.detach().item()
+                        ),
+                    }
+                )
             teacher_root = teacher_loss * 0.5 * gradient_scale
             del outputs, branch_metrics, selected, teacher_loss
             self.accelerator.backward(teacher_root)
@@ -7928,6 +8949,31 @@ class DeltaMemTrainer(Trainer):
                 "scene_generation_donor_zero_minus_correct_selected_nll"
             ]
         )
+        symmetric_first_error_top1_hinge = 0.0
+        symmetric_all_target_top1_retention_hinge = 0.0
+        symmetric_all_target_gold_margin = 0.0
+        symmetric_all_target_top1_fraction = 0.0
+        if cycle_retention_objective:
+            symmetric_first_error_top1_hinge = 0.5 * (
+                source_stats["scene_generation_source_first_error_top1_hinge"]
+                + donor_stats["scene_generation_donor_first_error_top1_hinge"]
+            )
+            symmetric_all_target_top1_retention_hinge = 0.5 * (
+                source_stats[
+                    "scene_generation_source_all_target_top1_retention_hinge"
+                ]
+                + donor_stats[
+                    "scene_generation_donor_all_target_top1_retention_hinge"
+                ]
+            )
+            symmetric_all_target_gold_margin = 0.5 * (
+                source_stats["scene_generation_source_all_target_gold_margin"]
+                + donor_stats["scene_generation_donor_all_target_gold_margin"]
+            )
+            symmetric_all_target_top1_fraction = 0.5 * (
+                source_stats["scene_generation_source_all_target_top1_fraction"]
+                + donor_stats["scene_generation_donor_all_target_top1_fraction"]
+            )
 
         def prefix_mean(metric: str) -> float:
             return 0.5 * (
@@ -7973,8 +9019,16 @@ class DeltaMemTrainer(Trainer):
             "anchor_loss": float(
                 0.5
                 * (
-                    source_stats["scene_generation_source_selected_vocab_ce"]
-                    + donor_stats["scene_generation_donor_selected_vocab_ce"]
+                    (
+                        0.0
+                        if cycle_retention_objective
+                        else source_stats[
+                            "scene_generation_source_selected_vocab_ce"
+                        ]
+                        + donor_stats[
+                            "scene_generation_donor_selected_vocab_ce"
+                        ]
+                    )
                     + source_stats["scene_generation_source_selected_top_hinge"]
                     + donor_stats["scene_generation_donor_selected_top_hinge"]
                 )
@@ -8192,6 +9246,186 @@ class DeltaMemTrainer(Trainer):
                 0.0,
             ),
         }
+        if cycle_retention_objective:
+            for metric_name in _SCENE_STATE_SYMMETRIC_LOG_METRICS:
+                memory_stats.pop(metric_name)
+            memory_stats.update(
+                {
+                    "scene_generation_first_error_loss": float(
+                        symmetric_first_error_top1_hinge
+                    ),
+                    "scene_generation_symmetric_first_error_top1_hinge": float(
+                        symmetric_first_error_top1_hinge
+                    ),
+                    "scene_generation_symmetric_all_target_top1_retention_hinge": float(
+                        symmetric_all_target_top1_retention_hinge
+                    ),
+                    "scene_generation_symmetric_all_target_gold_margin": float(
+                        symmetric_all_target_gold_margin
+                    ),
+                    "scene_generation_symmetric_all_target_top1_fraction": float(
+                        symmetric_all_target_top1_fraction
+                    ),
+                    "scene_generation_v10_objective_total_loss": float(
+                        reported_total.item()
+                    ),
+                    "scene_generation_v10_objective_teacher_loss": (
+                        symmetric_teacher_loss
+                    ),
+                    "scene_generation_v10_objective_prefix_weighted_loss": (
+                        prefix_weight * symmetric_prefix_correction_loss
+                    ),
+                    "scene_generation_v10_pair_mean_weighted_suffix_ce": float(
+                        symmetric_full_gold_ce
+                    ),
+                    "scene_generation_v10_pair_mean_first_error_top1_hinge": float(
+                        symmetric_first_error_top1_hinge
+                    ),
+                    "scene_generation_v10_pair_mean_all_target_top1_retention_hinge": float(
+                        symmetric_all_target_top1_retention_hinge
+                    ),
+                    "scene_generation_v10_pair_mean_selected_full_vocab_ce_telemetry_only": float(
+                        symmetric_selected_vocab_ce
+                    ),
+                    "scene_generation_v10_pair_mean_selected_top_competitor_hinge": float(
+                        symmetric_selected_top_hinge
+                    ),
+                    "scene_generation_v10_pair_mean_selected_correct_vs_zero_hinge": float(
+                        symmetric_zero_hinge
+                    ),
+                    "scene_generation_v10_pair_mean_prefix_positive_gold_ce": prefix_mean(
+                        "positive_ce"
+                    ),
+                    "scene_generation_v10_pair_mean_prefix_wrong_token_unlikelihood": prefix_mean(
+                        "negative_unlikelihood"
+                    ),
+                    "scene_generation_v10_pair_mean_all_target_gold_vs_top_competitor_margin": float(
+                        symmetric_all_target_gold_margin
+                    ),
+                    "scene_generation_v10_pair_mean_all_target_top1_fraction": float(
+                        symmetric_all_target_top1_fraction
+                    ),
+                    "scene_generation_v10_pair_mean_selected_gold_vs_top_competitor_margin": float(
+                        symmetric_selected_gold_margin
+                    ),
+                    "scene_generation_v10_pair_mean_selected_zero_minus_correct_nll": float(
+                        symmetric_zero_nll_gap
+                    ),
+                    "scene_generation_v10_pair_mean_selected_top1_fraction": float(
+                        symmetric_selected_top1
+                    ),
+                    "scene_generation_v10_pair_mean_selected_correct_beats_zero_fraction": float(
+                        0.5
+                        * (
+                            float(
+                                source_stats[
+                                    "scene_generation_source_zero_minus_correct_selected_nll"
+                                ]
+                                > 0.0
+                            )
+                            + float(
+                                donor_stats[
+                                    "scene_generation_donor_zero_minus_correct_selected_nll"
+                                ]
+                                > 0.0
+                            )
+                        )
+                    ),
+                    "scene_generation_v10_pair_mean_prefix_correction_applied_fraction": prefix_mean(
+                        "correction_applied"
+                    ),
+                    "scene_generation_v10_pair_mean_prefix_correction_event_count": prefix_mean(
+                        "correction_event_count"
+                    ),
+                    "scene_generation_v10_pair_mean_prefix_positive_event_count": prefix_mean(
+                        "positive_event_count"
+                    ),
+                    "scene_generation_v10_pair_mean_prefix_negative_event_count": prefix_mean(
+                        "negative_event_count"
+                    ),
+                    "scene_generation_v10_pair_mean_prefix_substitution_count": prefix_mean(
+                        "substitution_count"
+                    ),
+                    "scene_generation_v10_pair_mean_prefix_insertion_count": prefix_mean(
+                        "insertion_count"
+                    ),
+                    "scene_generation_v10_pair_mean_prefix_deletion_count": prefix_mean(
+                        "deletion_count"
+                    ),
+                    "scene_generation_v10_pair_mean_generated_rollout_token_count": generated_mean(
+                        "rollout_token_count"
+                    ),
+                    "scene_generation_v10_pair_mean_generated_first_divergence": generated_mean(
+                        "first_divergence"
+                    ),
+                    "scene_generation_v10_pair_mean_generated_exact_fraction": generated_mean(
+                        "exact_fraction"
+                    ),
+                    "scene_generation_v10_source_weighted_suffix_ce": source_stats[
+                        "scene_generation_source_full_gold_ce"
+                    ],
+                    "scene_generation_v10_source_first_error_top1_hinge": source_stats[
+                        "scene_generation_source_first_error_top1_hinge"
+                    ],
+                    "scene_generation_v10_source_all_target_top1_retention_hinge": source_stats[
+                        "scene_generation_source_all_target_top1_retention_hinge"
+                    ],
+                    "scene_generation_v10_source_selected_full_vocab_ce_telemetry_only": source_stats[
+                        "scene_generation_source_selected_vocab_ce"
+                    ],
+                    "scene_generation_v10_source_selected_top_competitor_hinge": source_stats[
+                        "scene_generation_source_selected_top_hinge"
+                    ],
+                    "scene_generation_v10_source_selected_correct_vs_zero_hinge": source_stats[
+                        "scene_generation_source_zero_hinge"
+                    ],
+                    "scene_generation_v10_source_prefix_positive_gold_ce": source_stats.get(
+                        "scene_generation_prefix_positive_ce_source",
+                        0.0,
+                    ),
+                    "scene_generation_v10_source_prefix_wrong_token_unlikelihood": source_stats.get(
+                        "scene_generation_prefix_negative_unlikelihood_source",
+                        0.0,
+                    ),
+                    "scene_generation_v10_donor_weighted_suffix_ce": donor_stats[
+                        "scene_generation_donor_full_gold_ce"
+                    ],
+                    "scene_generation_v10_donor_first_error_top1_hinge": donor_stats[
+                        "scene_generation_donor_first_error_top1_hinge"
+                    ],
+                    "scene_generation_v10_donor_all_target_top1_retention_hinge": donor_stats[
+                        "scene_generation_donor_all_target_top1_retention_hinge"
+                    ],
+                    "scene_generation_v10_donor_selected_full_vocab_ce_telemetry_only": donor_stats[
+                        "scene_generation_donor_selected_vocab_ce"
+                    ],
+                    "scene_generation_v10_donor_selected_top_competitor_hinge": donor_stats[
+                        "scene_generation_donor_selected_top_hinge"
+                    ],
+                    "scene_generation_v10_donor_selected_correct_vs_zero_hinge": donor_stats[
+                        "scene_generation_donor_zero_hinge"
+                    ],
+                    "scene_generation_v10_donor_prefix_positive_gold_ce": donor_stats.get(
+                        "scene_generation_prefix_positive_ce_donor",
+                        0.0,
+                    ),
+                    "scene_generation_v10_donor_prefix_wrong_token_unlikelihood": donor_stats.get(
+                        "scene_generation_prefix_negative_unlikelihood_donor",
+                        0.0,
+                    ),
+                }
+            )
+            nonfinite_metrics = [
+                metric_name
+                for metric_name in _SCENE_STATE_CYCLE_RETENTION_LOG_METRICS
+                if metric_name not in memory_stats
+                or not math.isfinite(float(memory_stats[metric_name]))
+            ]
+            if nonfinite_metrics:
+                raise FloatingPointError(
+                    "V10 cycle-retention telemetry is missing or non-finite: "
+                    + ", ".join(nonfinite_metrics)
+                )
         set_delta_mem_read_context_mask(model, None)
         set_delta_mem_write_enabled(model, True)
         return reported_total * gradient_scale, memory_stats
@@ -8421,7 +9655,63 @@ class DeltaMemTrainer(Trainer):
             if key.startswith("scene_generation_")
         }
 
+    def _scene_state_cycle_retention_aggregate_memory_stats(
+        self,
+        memory_stats: dict[str, float],
+    ) -> dict[str, float]:
+        if getattr(
+            self,
+            "scene_state_generation_objective_version",
+            None,
+        ) != _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION:
+            return memory_stats
+        expected_presentations = (
+            _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+        )
+        sums = getattr(self, "_scene_state_cycle_retention_metric_sums", None)
+        count = int(
+            getattr(self, "_scene_state_cycle_retention_metric_presentations", 0)
+        )
+        if sums is None:
+            sums = {}
+        if count < 0 or count >= expected_presentations:
+            raise RuntimeError("V10 cycle telemetry accumulator escaped its bounds")
+        numeric_stats = {
+            key: float(value)
+            for key, value in memory_stats.items()
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+        }
+        nonfinite = [
+            key for key, value in numeric_stats.items() if not math.isfinite(value)
+        ]
+        if nonfinite:
+            raise FloatingPointError(
+                "V10 cycle telemetry contains non-finite values: "
+                + ", ".join(nonfinite)
+            )
+        if count > 0 and set(numeric_stats) != set(sums):
+            raise RuntimeError("V10 cycle telemetry keys changed within a pair cycle")
+        for key, value in numeric_stats.items():
+            sums[key] = sums.get(key, 0.0) + value
+        count += 1
+        self._scene_state_cycle_retention_metric_sums = sums
+        self._scene_state_cycle_retention_metric_presentations = count
+        if count < expected_presentations:
+            return memory_stats
+        averaged = {
+            key: value / expected_presentations for key, value in sums.items()
+        }
+        averaged["scene_generation_v10_cycle_pair_presentations"] = float(
+            expected_presentations
+        )
+        self._scene_state_cycle_retention_metric_sums = {}
+        self._scene_state_cycle_retention_metric_presentations = 0
+        return averaged
+
     def _record_memory_stats(self, model, memory_stats: dict[str, float]) -> None:
+        memory_stats = self._scene_state_cycle_retention_aggregate_memory_stats(
+            memory_stats
+        )
         partition_route_stats = collect_delta_mem_partition_route_stats(model)
         self._last_partition_enabled_modules = partition_route_stats["enabled_modules"]
         self._last_partition_tied_read_write_modules = partition_route_stats[
@@ -9541,6 +10831,35 @@ class DeltaMemTrainer(Trainer):
         return (loss, outputs) if return_outputs else loss
 
     def log(self, logs: dict[str, float], start_time: float | None = None) -> None:
+        if (
+            "loss" in logs
+            and getattr(
+                self,
+                "scene_state_generation_objective_version",
+                None,
+            )
+            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+        ):
+            pending_presentations = int(
+                getattr(
+                    self,
+                    "_scene_state_cycle_retention_metric_presentations",
+                    0,
+                )
+            )
+            cycle_presentations = getattr(
+                self,
+                "_last_scene_generation_objective_logs",
+                {},
+            ).get(
+                "delta/scene_generation_v10_cycle_pair_presentations"
+            )
+            if pending_presentations != 0 or cycle_presentations != float(
+                _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            ):
+                raise RuntimeError(
+                    "V10 loss logging requires one complete seven-pair telemetry cycle"
+                )
         enriched_logs = dict(logs)
         if getattr(self, "scene_boundary_payload_ce_weight", 0.0) > 0.0:
             enriched_logs.update(
@@ -9989,15 +11308,12 @@ class DeltaMemTrainer(Trainer):
             loss_kwargs = {}
             if self.model_accepts_loss_kwargs and num_items_in_batch is not None:
                 loss_kwargs["num_items_in_batch"] = num_items_in_batch
-            gradient_scale = 1.0
-            if (
-                (not self.model_accepts_loss_kwargs or num_items_in_batch is None)
-                and self.compute_loss_func is None
-            ):
-                gradient_scale /= self.current_gradient_accumulation_steps
+            gradient_scale = self._scene_state_generation_sequential_gradient_scale(
+                num_items_in_batch=num_items_in_batch,
+            )
             symmetric_objective = (
                 self.scene_state_generation_objective_version
-                == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+                in _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
             )
             if symmetric_objective:
                 symmetric_required = (
@@ -10523,13 +11839,22 @@ class DeltaMemTrainer(Trainer):
             ),
         )
         active_protocol = getattr(self, "training_protocol", None)
+        v10_checkpoint_steps = _scene_memory_v10_protocol_checkpoint_steps(
+            active_protocol
+        )
         checkpoint_steps = _scene_memory_v8_protocol_checkpoint_steps(
             active_protocol
         )
         v9_checkpoint_steps = _scene_memory_v9_protocol_checkpoint_steps(
             active_protocol
         )
-        if v9_checkpoint_steps is not None:
+        if v10_checkpoint_steps is not None:
+            validate_scene_memory_v10_active_continuation(
+                getattr(self, "continuation_manifest", None),
+                resume_from_checkpoint=checkpoint,
+                target_training_protocol=self.training_protocol,
+            )
+        elif v9_checkpoint_steps is not None:
             validate_scene_memory_v9_active_continuation(
                 getattr(self, "continuation_manifest", None),
                 resume_from_checkpoint=checkpoint,
@@ -11020,6 +12345,38 @@ def _scene_state_v9_curriculum_binding(
         "pair_indices": tuple(tuple(pair) for pair in schedule_pairs),
         "indices": tuple(schedule_indices),
     }
+
+
+def _validate_scene_state_v10_cycle_schedule(
+    curriculum_binding: dict[str, object],
+) -> None:
+    canonical_pairs_raw = curriculum_binding.get("canonical_value14_pairs")
+    pair_indices_raw = curriculum_binding.get("pair_indices")
+    if not isinstance(canonical_pairs_raw, list) or not isinstance(
+        pair_indices_raw,
+        tuple,
+    ):
+        raise ValueError("Scene-memory V10 cycle schedule metadata is missing")
+    canonical_pairs = tuple(tuple(pair) for pair in canonical_pairs_raw)
+    pair_indices = tuple(tuple(pair) for pair in pair_indices_raw)
+    cycle_size = _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+    if (
+        len(canonical_pairs) != cycle_size
+        or len(set(canonical_pairs)) != cycle_size
+        or len(pair_indices)
+        != cycle_size * len(_SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS)
+        or curriculum_binding.get("checkpoint_steps") != [7, 14, 21, 28]
+    ):
+        raise ValueError("Scene-memory V10 cycle schedule cardinality differs")
+    expected_pairs = frozenset(canonical_pairs)
+    for cycle_index in range(len(_SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS)):
+        start = cycle_index * cycle_size
+        cycle = pair_indices[start : start + cycle_size]
+        if len(set(cycle)) != cycle_size or frozenset(cycle) != expected_pairs:
+            raise ValueError(
+                "Scene-memory V10 cycle does not contain each canonical pair exactly "
+                f"once: cycle={cycle_index + 1}"
+            )
 
 
 def _validate_scene_state_v8_locked_training_args(
@@ -11657,6 +13014,7 @@ def parse_args() -> argparse.Namespace:
             _SCENE_STATE_GENERATION_OBJECTIVE_VERSION,
             _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION,
             _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
+            _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
         ),
         default=None,
     )
@@ -11705,6 +13063,11 @@ def parse_args() -> argparse.Namespace:
         help="Evaluation batch size. Defaults to --per-device-train-batch-size.",
     )
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
+    parser.add_argument(
+        "--ignore-data-skip",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--data-seed", type=int, default=42)
@@ -11880,20 +13243,30 @@ def parse_args() -> argparse.Namespace:
             "scene-state-generated-prefix-correction-weight must be finite and "
             "non-negative"
         )
-    symmetric_scene_objective = (
+    reciprocal_scene_objective = (
         args.scene_state_generation_objective_version
-        == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+        in _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
     )
-    if symmetric_scene_objective:
+    if reciprocal_scene_objective:
         if args.memory_loss_mode != "scene_state_generation_ce":
             raise ValueError(
-                "The symmetric scene-state objective requires "
+                "The reciprocal scene-state objective requires "
                 "memory-loss-mode=scene_state_generation_ce"
             )
         if args.scene_state_generated_unlikelihood_weight != 0.0:
             raise ValueError(
-                "The symmetric scene-state objective replaces legacy generated "
+                "The reciprocal scene-state objective replaces legacy generated "
                 "unlikelihood"
+            )
+        if (
+            args.scene_state_generation_objective_version
+            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            and args.scene_state_generated_prefix_correction_weight
+            != _SCENE_STATE_SYMMETRIC_PREFIX_CORRECTION_WEIGHT
+        ):
+            raise ValueError(
+                "The V10 cycle-retention objective requires "
+                "scene-state-generated-prefix-correction-weight=0.5"
             )
     elif args.scene_state_generated_prefix_correction_weight != 0.0:
         raise ValueError(
@@ -11921,9 +13294,17 @@ def parse_args() -> argparse.Namespace:
             "memory-loss-mode=scene_state_generation_ce"
         )
     if (
+        args.scene_state_generation_objective_version
+        == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+        and args.ignore_data_skip
+    ):
+        raise ValueError(
+            "V10 cycle-retention training requires ignore-data-skip=false"
+        )
+    if (
         (
             args.scene_state_generated_unlikelihood_weight > 0.0
-            or symmetric_scene_objective
+            or reciprocal_scene_objective
         )
         and args.per_device_train_batch_size != 1
     ):
@@ -12042,9 +13423,20 @@ def parse_args() -> argparse.Namespace:
             raise ValueError(
                 "scene_state_generation_ce requires representation loss to be disabled"
             )
-        if args.gradient_accumulation_steps != 1:
+        expected_generation_accumulation_steps = (
+            _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            if args.scene_state_generation_objective_version
+            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            else 1
+        )
+        if (
+            args.gradient_accumulation_steps
+            != expected_generation_accumulation_steps
+        ):
             raise ValueError(
-                "scene_state_generation_ce requires gradient-accumulation-steps=1"
+                "scene_state_generation_ce requires gradient-accumulation-steps="
+                f"{expected_generation_accumulation_steps} for objective "
+                f"{args.scene_state_generation_objective_version}"
             )
         if args.validation_split_ratio != 0.0:
             raise ValueError(
@@ -15730,22 +17122,31 @@ def build_training_protocol(
         "scene_state_generation_objective_version",
         None,
     )
+    uses_cycle_retention_generation = (
+        is_scene_state_generation
+        and requested_generation_objective
+        == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+    )
     uses_symmetric_generation = (
         is_scene_state_generation
         and requested_generation_objective
-        == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+        in _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
     )
     scene_generation_schema_version = (
-        _SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION
-        if uses_symmetric_generation
+        _SCENE_STATE_CYCLE_RETENTION_TRAINING_PROTOCOL_SCHEMA_VERSION
+        if uses_cycle_retention_generation
         else (
-            _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
-            if uses_generated_unlikelihood
-            else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+            _SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION
+            if uses_symmetric_generation
+            else (
+                _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
+                if uses_generated_unlikelihood
+                else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+            )
         )
     )
     scene_generation_objective_version = (
-        _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+        str(requested_generation_objective)
         if uses_symmetric_generation
         else (
             str(requested_generation_objective)
@@ -15866,7 +17267,11 @@ def build_training_protocol(
         "train_sampler_seed": getattr(args, "train_sampler_seed", None),
         "train_sampler_mode": (
             (
-                _V9_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                (
+                    _V10_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                    if uses_cycle_retention_generation
+                    else _V9_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                )
                 if train_schedule_binding.get("schema")
                 == _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
                 else _FIXED_TRAIN_SCHEDULE_SAMPLER_MODE
@@ -15909,6 +17314,35 @@ def build_training_protocol(
     protocol["frozen_mlp_activation_checkpointing"] = bool(
         getattr(args, "frozen_mlp_activation_checkpointing", False)
     )
+    if uses_cycle_retention_generation:
+        protocol["ignore_data_skip"] = False
+        protocol.update(
+            {
+                "logging_steps": args.logging_steps,
+                "save_total_limit": args.save_total_limit,
+                "load_best_model_at_end": args.load_best_model_at_end,
+                "dataset_num_proc": args.dataset_num_proc,
+                "dataloader_num_workers": args.dataloader_num_workers,
+                "memory_contrast_weight": args.memory_contrast_weight,
+                "memory_causal_weight": args.memory_causal_weight,
+                "memory_anchor_weight": args.memory_anchor_weight,
+                "memory_recover_weight": args.memory_recover_weight,
+            }
+        )
+        schedule_protocol = protocol.get("train_schedule")
+        if not isinstance(schedule_protocol, dict):
+            raise ValueError("V10 cycle-retention protocol requires a fixed pair schedule")
+        schedule_protocol.update(
+            {
+                "optimizer_checkpoint_steps": list(
+                    _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS
+                ),
+                "microbatch_cycle_size": (
+                    _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                ),
+                "resume_schedule_cursor_formula": "global_step_times_7_v1",
+            }
+        )
     if is_content_contrast:
         if content_contrast_pairing_manifest is None:
             raise ValueError("content_contrast_ce requires a post-split pairing manifest")
@@ -16108,14 +17542,27 @@ def build_training_protocol(
                 ),
                 "scene_generation_generated_rollout_decoding": (
                     "greedy_use_cache_true_exact_system_only_prompt_v1"
-                    if uses_generated_unlikelihood
+                    if (
+                        uses_generated_unlikelihood
+                        or uses_cycle_retention_generation
+                    )
                     else None
                 ),
                 "scene_generation_generated_replay_state_gradient": (
-                    True if uses_generated_unlikelihood else None
+                    True
+                    if (
+                        uses_generated_unlikelihood
+                        or uses_cycle_retention_generation
+                    )
+                    else None
                 ),
                 "scene_generation_generated_replay_read_path_gradient": (
-                    True if uses_generated_unlikelihood else None
+                    True
+                    if (
+                        uses_generated_unlikelihood
+                        or uses_cycle_retention_generation
+                    )
+                    else None
                 ),
                 "scene_generation_assistant_role_labels": False,
                 "scene_generation_zero_gradient": False,
@@ -16156,19 +17603,29 @@ def build_training_protocol(
                     0.0,
                 )
             )
+            if uses_cycle_retention_generation:
+                reciprocal_objective_formula = (
+                    _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_FORMULA
+                )
+                reciprocal_backward_mode = (
+                    _SCENE_STATE_CYCLE_RETENTION_BACKWARD_MODE
+                )
+            else:
+                reciprocal_objective_formula = (
+                    "symmetric_pair_mean(weighted_full_gold_ce(schema=2,"
+                    "decision=4,termination=1) + selected_full_vocab_ce + "
+                    "selected_top_competitor_hinge(0.2) + "
+                    "selected_correct_vs_detached_zero_nll_hinge(0.2) + "
+                    f"{prefix_correction_weight} * "
+                    "generated_prefix(aligned_gold_ce + safe_wrong_unlikelihood))"
+                )
+                reciprocal_backward_mode = _SCENE_STATE_SYMMETRIC_BACKWARD_MODE
             protocol.update(
                 {
                     "scene_generation_objective_formula": (
-                        "symmetric_pair_mean(weighted_full_gold_ce(schema=2,"
-                        "decision=4,termination=1) + selected_full_vocab_ce + "
-                        "selected_top_competitor_hinge(0.2) + "
-                        "selected_correct_vs_detached_zero_nll_hinge(0.2) + "
-                        f"{prefix_correction_weight} * "
-                        "generated_prefix(aligned_gold_ce + safe_wrong_unlikelihood))"
+                        reciprocal_objective_formula
                     ),
-                    "scene_generation_backward_mode": (
-                        _SCENE_STATE_SYMMETRIC_BACKWARD_MODE
-                    ),
+                    "scene_generation_backward_mode": reciprocal_backward_mode,
                     "scene_generation_zero_protocol": (
                         "shared_exact_selected_causal_prefix_adapter_active_reset_"
                         "state_detached_v2"
@@ -16177,7 +17634,9 @@ def build_training_protocol(
                         prefix_correction_weight
                     ),
                     "scene_generation_generated_prefix_correction_mode": (
-                        _SCENE_STATE_SYMMETRIC_GENERATED_MODE
+                        _SCENE_STATE_CYCLE_RETENTION_GENERATED_MODE
+                        if uses_cycle_retention_generation
+                        else _SCENE_STATE_SYMMETRIC_GENERATED_MODE
                     ),
                     "scene_generation_generated_prefix_max_correction_events": (
                         generated_unlikelihood_max_wrong_tokens
@@ -16189,6 +17648,27 @@ def build_training_protocol(
                     "scene_generation_pair_directional_exposures": 2,
                 }
             )
+            if uses_cycle_retention_generation:
+                protocol.update(
+                    {
+                        "scene_generation_first_error_top1_hinge_weight": 1.0,
+                        "scene_generation_all_target_top1_retention_weight": 1.0,
+                        "scene_generation_all_target_top1_retention_margin": (
+                            _SCENE_STATE_GENERATION_TOP1_MARGIN
+                        ),
+                        "scene_generation_selected_full_vocab_ce_in_total": False,
+                        "scene_generation_selected_full_vocab_ce_optimization_weight": 0.0,
+                        "scene_generation_cycle_retention_mode": (
+                            _SCENE_STATE_CYCLE_RETENTION_MODE
+                        ),
+                        "scene_generation_cycle_pair_presentations": (
+                            _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                        ),
+                        "scene_generation_gradient_accumulation_pair_cycle": (
+                            _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                        ),
+                    }
+                )
     return protocol
 
 
@@ -17107,21 +18587,34 @@ def main() -> None:
                 "Scene-memory V8 max-steps must stay within the locked curriculum"
             )
     elif v9_schedule_binding is not None:
-        if args.scene_state_generation_objective_version != (
-            _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+        if args.scene_state_generation_objective_version not in (
+            _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
         ):
             raise ValueError(
-                "Scene-memory V9 requires the symmetric generation objective"
+                "Scene-memory fixed pair training requires a reciprocal generation "
+                "objective"
             )
         if args.per_device_train_batch_size != 1:
             raise ValueError("Scene-memory V9 requires physical train batch size 1")
+        if (
+            args.scene_state_generation_objective_version
+            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+        ):
+            _validate_scene_state_v10_cycle_schedule(v9_schedule_binding)
         if args.train_sampler_seed is not None or args.group_by_length:
             raise ValueError(
                 "Scene-memory V9 fixed pair curriculum forbids random or length sampling"
             )
-        if not 0 < args.max_steps <= int(train_schedule_binding["total_steps"]):
+        max_pair_training_steps = (
+            len(_SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS)
+            if args.scene_state_generation_objective_version
+            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            else int(train_schedule_binding["total_steps"])
+        )
+        if not 0 < args.max_steps <= max_pair_training_steps:
             raise ValueError(
-                "Scene-memory V9 max-steps must stay within the locked pair curriculum"
+                "Scene-memory fixed-pair max-steps must stay within the locked "
+                "optimizer-step curriculum"
             )
     # Adapter and RWKV-core parameters are initialized before Trainer exists.
     set_seed(args.seed)
@@ -17170,11 +18663,21 @@ def main() -> None:
     )
     if train_schedule_binding is not None and resume_from_checkpoint is not None:
         if v9_schedule_binding is not None:
-            continuation_manifest = prepare_scene_memory_v9_training_continuation(
-                continuation_manifest,
-                resume_from_checkpoint=resume_from_checkpoint,
-                checkpoint_steps=train_schedule_binding["checkpoint_steps"],
-            )
+            if args.scene_state_generation_objective_version == (
+                _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            ):
+                continuation_manifest = (
+                    prepare_scene_memory_v10_training_continuation(
+                        continuation_manifest,
+                        resume_from_checkpoint=resume_from_checkpoint,
+                    )
+                )
+            else:
+                continuation_manifest = prepare_scene_memory_v9_training_continuation(
+                    continuation_manifest,
+                    resume_from_checkpoint=resume_from_checkpoint,
+                    checkpoint_steps=train_schedule_binding["checkpoint_steps"],
+                )
         else:
             continuation_manifest = prepare_scene_memory_v8_training_continuation(
                 continuation_manifest,
@@ -17294,7 +18797,7 @@ def main() -> None:
                 pairing_binding=generation_pairing_binding,
                 symmetric_full_pair=(
                     args.scene_state_generation_objective_version
-                    == _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION
+                    in _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
                 ),
             )
         )
@@ -17429,13 +18932,19 @@ def main() -> None:
         warmup_steps,
         resume_from_checkpoint,
     )
+    expected_scene_schedule_warmup_steps = (
+        0
+        if args.scene_state_generation_objective_version
+        == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+        else _SCENE_MEMORY_V8_WARMUP_STEPS
+    )
     if (
         train_schedule_binding is not None
-        and warmup_steps != _SCENE_MEMORY_V8_WARMUP_STEPS
+        and warmup_steps != expected_scene_schedule_warmup_steps
     ):
         raise ValueError(
             "Scene-memory fixed curriculum requires exactly "
-            f"{_SCENE_MEMORY_V8_WARMUP_STEPS} warmup steps"
+            f"{expected_scene_schedule_warmup_steps} warmup steps"
         )
     if (
         warm_start_context is not None
@@ -17495,6 +19004,16 @@ def main() -> None:
                 target_training_protocol_sha256=training_protocol_sha256,
                 target_pairing_manifest=scene_state_identity_pairing_manifest,
             )
+        elif warm_start_context.mode == _SCENE_V10_WARM_START_MODE:
+            if scene_state_identity_pairing_manifest is None:
+                raise RuntimeError(
+                    "Scene V10 warm start requires scene-state pairing metadata"
+                )
+            finalize_scene_v10_warm_start_lineage(
+                warm_start_context,
+                target_training_protocol_sha256=training_protocol_sha256,
+                target_pairing_manifest=scene_state_identity_pairing_manifest,
+            )
         else:
             raise RuntimeError(
                 f"Unsupported adapter warm-start mode: {warm_start_context.mode}"
@@ -17503,10 +19022,18 @@ def main() -> None:
         if continuation_manifest is None:
             raise RuntimeError("Scene-memory resume continuation lineage is missing")
         if v9_schedule_binding is not None:
-            finalize_scene_memory_v9_training_continuation(
-                continuation_manifest,
-                target_training_protocol=training_protocol,
-            )
+            if args.scene_state_generation_objective_version == (
+                _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            ):
+                finalize_scene_memory_v10_training_continuation(
+                    continuation_manifest,
+                    target_training_protocol=training_protocol,
+                )
+            else:
+                finalize_scene_memory_v9_training_continuation(
+                    continuation_manifest,
+                    target_training_protocol=training_protocol,
+                )
         else:
             finalize_scene_memory_v8_training_continuation(
                 continuation_manifest,
@@ -17574,6 +19101,7 @@ def main() -> None:
             else args.per_device_train_batch_size
         ),
         gradient_accumulation_steps=args.gradient_accumulation_steps,
+        ignore_data_skip=args.ignore_data_skip,
         learning_rate=args.learning_rate,
         seed=args.seed,
         data_seed=args.data_seed,
@@ -17712,6 +19240,14 @@ def main() -> None:
         and warm_start_context.mode == _SCENE_V9_WARM_START_MODE
     ):
         record_scene_v9_fresh_optimizer_lineage(
+            trainer,
+            warm_start_context,
+        )
+    elif (
+        warm_start_context is not None
+        and warm_start_context.mode == _SCENE_V10_WARM_START_MODE
+    ):
+        record_scene_v10_fresh_optimizer_lineage(
             trainer,
             warm_start_context,
         )
