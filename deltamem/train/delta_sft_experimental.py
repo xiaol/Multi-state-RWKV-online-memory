@@ -120,6 +120,14 @@ from experiments.rethinking_rwkv_ms_gemma.scene_memory_v12_warm_start import (
     apply_v12_v8_checkpoint56_adapter_only_warm_start,
     prepare_v12_v8_checkpoint56_warm_start,
 )
+from experiments.rethinking_rwkv_ms_gemma.scene_memory_v13_warm_start import (
+    RECEIPT_SCHEMA as SCENE_V13_WARM_START_RECEIPT_SCHEMA,
+    V13FreshStartContract,
+    V13WarmStartContext,
+    WARM_START_MODE as SCENE_V13_WARM_START_MODE,
+    apply_v13_v8_checkpoint56_adapter_only_warm_start,
+    prepare_v13_v8_checkpoint56_warm_start,
+)
 from experiments.rethinking_rwkv_ms_gemma.scene_memory_v9_launch_contract import (
     validate_checkpoint_contract as validate_v9_checkpoint_contract,
     validate_data_contract as validate_v9_data_contract,
@@ -318,6 +326,7 @@ _WARM_START_MODES = (
     SCENE_V10_WARM_START_MODE,
     SCENE_V11_WARM_START_MODE,
     SCENE_V12_WARM_START_MODE,
+    SCENE_V13_WARM_START_MODE,
 )
 _RESIDUAL_HYBRID_W8_WARM_START_MODE = _WARM_START_MODES[0]
 _SCENE_V8_WARM_START_MODE = _WARM_START_MODES[1]
@@ -325,6 +334,7 @@ _SCENE_V9_WARM_START_MODE = _WARM_START_MODES[2]
 _SCENE_V10_WARM_START_MODE = _WARM_START_MODES[3]
 _SCENE_V11_WARM_START_MODE = _WARM_START_MODES[4]
 _SCENE_V12_WARM_START_MODE = _WARM_START_MODES[5]
+_SCENE_V13_WARM_START_MODE = _WARM_START_MODES[6]
 _CONTINUATION_SCHEDULERS = frozenset({"constant", "constant_with_warmup"})
 _REPRESENTATION_CAPTURE_FUSION_PLACEMENTS = frozenset(
     {"attention_output", "post_attention_residual_hybrid"}
@@ -639,11 +649,46 @@ _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_FORMULA = (
 )
 _SCENE_STATE_V12_ROW_AUDIT_FILENAME = "scene_memory_v12_row_objective.json"
 _SCENE_STATE_V12_ROW_AUDIT_SCHEMA = "rwkv_ms_scene_memory_v12_row_objective.v1"
+_SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION = (
+    "scene_state_generation_ce_symmetric_dense_boundary_v13"
+)
+_SCENE_STATE_DENSE_SEMANTIC_TRAINING_PROTOCOL_SCHEMA_VERSION = 16
+_SCENE_STATE_DENSE_SEMANTIC_BACKWARD_MODE = (
+    "sequential_pair_zero_probe_dense_boundary_teacher_then_failed_first_semantic_"
+    "actual_prefix_replay_v9"
+)
+_SCENE_STATE_DENSE_SEMANTIC_MODE = (
+    "all_boundary_decision_ce_full_vocab_top1_retention_failed_first_semantic_"
+    "actual_greedy_decision_only_repair_v2"
+)
+_SCENE_STATE_DENSE_SEMANTIC_FAILED_ALIGNMENT_MODE = (
+    "first_boundary_semantic_effect_edit_mapped_to_decision_mask_only_v1"
+)
+_SCENE_STATE_DENSE_SEMANTIC_DECISION_TOKEN_OVERLAP_POLICY = (
+    "supervise_whole_token_if_any_character_overlaps_boundary_decision_char_v1"
+)
+_SCENE_STATE_DENSE_SEMANTIC_RETENTION_HINGE_MODE = (
+    "dense_gold_vs_detached_top_competitor_hinge_v1"
+)
+_SCENE_STATE_DENSE_SEMANTIC_MARGIN_VALUE = _SCENE_STATE_SEMANTIC_MARGIN_VALUE
+_SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_FORMULA = (
+    "symmetric_pair_mean(all_boundary_decision_full_vocab_ce + "
+    "all_boundary_decision_full_vocab_top1_retention_hinge(1.0) + "
+    "selected_top_competitor_hinge(0.2) + "
+    "selected_correct_vs_detached_zero_nll_hinge(0.2) + "
+    "if(parsed_boundary_failed,first_actual_prefix_semantic_ce+"
+    "actual_greedy_competitor_hinge(1.0),0)); "
+    "standalone_schema_partition_footer_and_chat_termination_ce=0; "
+    "decision_overlap_tokens_are_supervised_as_whole_tokens"
+)
+_SCENE_STATE_V13_ROW_AUDIT_FILENAME = "scene_memory_v13_row_objective.json"
+_SCENE_STATE_V13_ROW_AUDIT_SCHEMA = "rwkv_ms_scene_memory_v13_row_objective.v1"
 _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS = frozenset(
     {
         _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
         _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION,
         _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+        _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
     }
 )
 _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS = frozenset(
@@ -652,6 +697,7 @@ _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS = frozenset(
         _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
         _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION,
         _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+        _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
     }
 )
 _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS = 7
@@ -662,6 +708,9 @@ _SCENE_STATE_SUFFIX_REPAIR_CONTINUATION_POLICY = "forbidden"
 _SCENE_STATE_SEMANTIC_MARGIN_CHECKPOINT_STEPS = (1, 2)
 _SCENE_STATE_SEMANTIC_MARGIN_PRESENTATION_CHECKPOINT_STEPS = (7, 14)
 _SCENE_STATE_SEMANTIC_MARGIN_CONTINUATION_POLICY = "forbidden"
+_SCENE_STATE_DENSE_SEMANTIC_CHECKPOINT_STEPS = (1, 2, 3, 4)
+_SCENE_STATE_DENSE_SEMANTIC_PRESENTATION_CHECKPOINT_STEPS = (7, 14, 21, 28)
+_SCENE_STATE_DENSE_SEMANTIC_CONTINUATION_POLICY = "forbidden"
 _SCENE_STATE_GENERATION_MASK_MODE = (
     "exact_system_only_generation_prefix_content_schema_decision_termination_v1"
 )
@@ -687,6 +736,9 @@ _V11_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
 _V12_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
     "explicit_ordered_v12_two_canonical_seven_pair_cycles_v1"
 )
+_V13_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
+    "explicit_ordered_v13_four_canonical_seven_pair_cycles_v1"
+)
 _SCENE_STATE_V11_FIRST_CYCLE_PAIRS = (
     (3, 24),
     (19, 28),
@@ -704,6 +756,23 @@ _SCENE_STATE_V12_TWO_CYCLE_PAIRS = (
     (3, 24),
     (20, 31),
     (10, 23),
+    (1, 14),
+)
+_SCENE_STATE_V13_FOUR_CYCLE_PAIRS = (
+    *_SCENE_STATE_V12_TWO_CYCLE_PAIRS,
+    (1, 14),
+    (19, 28),
+    (22, 26),
+    (20, 31),
+    (10, 23),
+    (5, 9),
+    (3, 24),
+    (22, 26),
+    (19, 28),
+    (10, 23),
+    (3, 24),
+    (20, 31),
+    (5, 9),
     (1, 14),
 )
 _SCENE_MEMORY_V8_WARMUP_STEPS = 4
@@ -832,6 +901,8 @@ class AdapterWarmStartContext:
     scene_v11_fresh_start: V11FreshStartContract | None = None
     scene_v12_context: V12WarmStartContext | None = None
     scene_v12_fresh_start: V12FreshStartContract | None = None
+    scene_v13_context: V13WarmStartContext | None = None
+    scene_v13_fresh_start: V13FreshStartContract | None = None
 
 
 def _sha256_file(path: Path) -> str:
@@ -1301,6 +1372,7 @@ def resolve_adapter_warm_start_checkpoint(
         _SCENE_V10_WARM_START_MODE,
         _SCENE_V11_WARM_START_MODE,
         _SCENE_V12_WARM_START_MODE,
+        _SCENE_V13_WARM_START_MODE,
     }:
         required_files = SCENE_V9_REQUIRED_WARM_START_ARTIFACTS
     else:
@@ -1678,6 +1750,49 @@ def _validate_scene_v12_warm_start_args(args: argparse.Namespace) -> None:
         )
 
 
+def _validate_scene_v13_warm_start_args(args: argparse.Namespace) -> None:
+    expected_values = {
+        "warm_start_mode": _SCENE_V13_WARM_START_MODE,
+        "scene_state_generation_objective_version": (
+            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+        ),
+        "scene_state_generated_prefix_correction_weight": 0.0,
+        "scene_state_generated_unlikelihood_max_wrong_tokens": 0,
+        "learning_rate": 1e-4,
+        "lr_scheduler_type": "constant",
+        "warmup_ratio": 0.0,
+        "warmup_steps": 0,
+        "max_steps": 4,
+        "max_grad_norm": 1.0,
+        "logging_steps": 1,
+        "save_steps": 1,
+        "save_total_limit": 4,
+    }
+    mismatches = [
+        name
+        for name, expected in expected_values.items()
+        if getattr(args, name) != expected
+    ]
+    normalized = argparse.Namespace(**vars(args))
+    normalized.warm_start_mode = _SCENE_V10_WARM_START_MODE
+    normalized.scene_state_generation_objective_version = (
+        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+    )
+    normalized.scene_state_generated_prefix_correction_weight = (
+        _SCENE_STATE_SYMMETRIC_PREFIX_CORRECTION_WEIGHT
+    )
+    normalized.scene_state_generated_unlikelihood_max_wrong_tokens = 4
+    normalized.learning_rate = 2e-4
+    normalized.max_steps = 1
+    normalized.save_total_limit = 1
+    _validate_scene_v10_warm_start_args(normalized)
+    if mismatches:
+        raise ValueError(
+            "Scene V13 warm-start target contract differs for: "
+            + ", ".join(sorted(set(mismatches)))
+        )
+
+
 def _validate_adapter_warm_start_args(args: argparse.Namespace) -> None:
     if args.warm_start_mode == _RESIDUAL_HYBRID_W8_WARM_START_MODE:
         _validate_residual_hybrid_w8_warm_start_args(args)
@@ -1696,6 +1811,9 @@ def _validate_adapter_warm_start_args(args: argparse.Namespace) -> None:
         return
     if args.warm_start_mode == _SCENE_V12_WARM_START_MODE:
         _validate_scene_v12_warm_start_args(args)
+        return
+    if args.warm_start_mode == _SCENE_V13_WARM_START_MODE:
+        _validate_scene_v13_warm_start_args(args)
         return
     raise ValueError(f"Unsupported adapter warm-start mode: {args.warm_start_mode}")
 
@@ -1775,6 +1893,34 @@ def prepare_adapter_warm_start(
             },
             scene_v8_context=pinned_context,
             scene_v8_fresh_start=V8FreshStartContract(
+                resume_from_checkpoint=None,
+                initial_global_step=0,
+                optimizer_created=False,
+                scheduler_created=False,
+                trainer_state_imported=False,
+                rng_state_imported=False,
+                optim=args.optim,
+            ),
+        )
+
+    if args.warm_start_mode == _SCENE_V13_WARM_START_MODE:
+        pinned_context = prepare_v13_v8_checkpoint56_warm_start(
+            checkpoint,
+            lock_path=SCENE_V9_WARM_START_LOCK_PATH,
+        )
+        source_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+        return AdapterWarmStartContext(
+            checkpoint=checkpoint,
+            mode=_SCENE_V13_WARM_START_MODE,
+            source_protocol=pinned_context.source_training_protocol,
+            source_config=source_config,
+            manifest={
+                "schema_version": _WARM_START_LINEAGE_SCHEMA_VERSION,
+                "mode": _SCENE_V13_WARM_START_MODE,
+                "source_checkpoint": str(checkpoint),
+            },
+            scene_v13_context=pinned_context,
+            scene_v13_fresh_start=V13FreshStartContract(
                 resume_from_checkpoint=None,
                 initial_global_step=0,
                 optimizer_created=False,
@@ -2856,6 +3002,44 @@ def apply_adapter_warm_start(
         receipt_without_hash.pop("receipt_sha256", None)
         receipt["receipt_sha256"] = _canonical_json_sha256(receipt_without_hash)
         return receipt
+    if context.mode == _SCENE_V13_WARM_START_MODE:
+        if (
+            context.scene_v13_context is None
+            or context.scene_v13_fresh_start is None
+        ):
+            raise ValueError("Scene V13 warm-start context is incomplete")
+        source_config = context.source_config.to_dict()
+        target_config_payload = target_config.to_dict()
+        config_mismatches = sorted(
+            key
+            for key in set(source_config) | set(target_config_payload)
+            if source_config.get(key) != target_config_payload.get(key)
+        )
+        if config_mismatches:
+            raise ValueError(
+                "Scene V13 requires topology-exact V8/V13 Delta-Mem config; differs for: "
+                + ", ".join(config_mismatches)
+            )
+        receipt = apply_v13_v8_checkpoint56_adapter_only_warm_start(
+            model,
+            context.scene_v13_context,
+            fresh_start=context.scene_v13_fresh_start,
+        )
+        receipt.update(
+            {
+                "target_delta_config_sha256": _protocol_sha256(
+                    target_config_payload
+                ),
+                "target_trainable_tensor_count": len(trainable_names),
+                "target_trainable_names_sha256": _protocol_sha256(
+                    {"ordered_trainable_names": trainable_names}
+                ),
+            }
+        )
+        receipt_without_hash = dict(receipt)
+        receipt_without_hash.pop("receipt_sha256", None)
+        receipt["receipt_sha256"] = _canonical_json_sha256(receipt_without_hash)
+        return receipt
     if context.mode != _RESIDUAL_HYBRID_W8_WARM_START_MODE:
         raise ValueError(f"Unsupported adapter warm-start mode: {context.mode}")
     _validate_residual_hybrid_w8_delta_config_transition(
@@ -3107,6 +3291,90 @@ def _scene_memory_v10_protocol_checkpoint_steps(
         _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
     ):
         raise ValueError("Scene-memory V10 cycle protocol schedule differs")
+    if objective_version == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION:
+        if (
+            protocol.get("schema_version")
+            != _SCENE_STATE_DENSE_SEMANTIC_TRAINING_PROTOCOL_SCHEMA_VERSION
+            or schedule.get("checkpoint_steps")
+            != list(_SCENE_STATE_DENSE_SEMANTIC_PRESENTATION_CHECKPOINT_STEPS)
+            or schedule.get("optimizer_checkpoint_steps")
+            != list(_SCENE_STATE_DENSE_SEMANTIC_CHECKPOINT_STEPS)
+            or schedule.get("microbatch_cycle_size")
+            != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            or schedule.get("continuation_policy")
+            != _SCENE_STATE_DENSE_SEMANTIC_CONTINUATION_POLICY
+            or "resume_schedule_cursor_formula" in schedule
+            or protocol.get("max_steps") != 4
+            or protocol.get("gradient_accumulation_steps")
+            != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            or protocol.get("train_sampler_mode")
+            != _V13_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+            or protocol.get("ignore_data_skip") is not False
+            or protocol.get("learning_rate") != 1e-4
+            or protocol.get("lr_scheduler_type") != "constant"
+            or protocol.get("warmup_steps") != 0
+            or protocol.get("save_steps") != 1
+            or protocol.get("save_total_limit") != 4
+            or protocol.get("scene_generation_generated_prefix_correction_weight")
+            != 0.0
+            or protocol.get(
+                "scene_generation_generated_unlikelihood_max_wrong_tokens"
+            )
+            != 0
+            or protocol.get(
+                "scene_generation_generated_prefix_max_correction_events"
+            )
+            != 0
+            or protocol.get("scene_generation_parsed_exactness_mode")
+            != "parsed_json_literal_boundary_equality_v1"
+            or protocol.get("scene_generation_failed_replay_mode")
+            != "detached_actual_greedy_prefix_differentiable_replay_v1"
+            or protocol.get("scene_generation_failed_decision_alignment")
+            != _SCENE_STATE_DENSE_SEMANTIC_FAILED_ALIGNMENT_MODE
+            or protocol.get("scene_generation_dense_semantic_mode")
+            != _SCENE_STATE_DENSE_SEMANTIC_MODE
+            or protocol.get("scene_generation_dense_decision_scope")
+            != "all_boundary_decision_mask_tokens_v1"
+            or protocol.get("scene_generation_dense_decision_token_overlap_policy")
+            != _SCENE_STATE_DENSE_SEMANTIC_DECISION_TOKEN_OVERLAP_POLICY
+            or protocol.get("scene_generation_dense_decision_ce_weight") != 1.0
+            or protocol.get("scene_generation_dense_top1_retention_hinge_weight")
+            != 1.0
+            or protocol.get("scene_generation_dense_top1_retention_hinge_mode")
+            != _SCENE_STATE_DENSE_SEMANTIC_RETENTION_HINGE_MODE
+            or protocol.get("scene_generation_dense_top1_retention_margin")
+            != _SCENE_STATE_DENSE_SEMANTIC_MARGIN_VALUE
+            or protocol.get("scene_generation_failed_semantic_repair_ce_weight")
+            != 1.0
+            or protocol.get("scene_generation_failed_semantic_repair_hinge_weight")
+            != 1.0
+            or protocol.get("scene_generation_failed_semantic_repair_margin")
+            != _SCENE_STATE_SEMANTIC_MARGIN_VALUE
+            or protocol.get("scene_generation_raw_token_exact_optimization_weight")
+            != 0.0
+            or protocol.get("scene_generation_full_answer_ce_optimization_weight")
+            != 0.0
+            or protocol.get("scene_generation_schema_ce_optimization_weight")
+            != 0.0
+            or protocol.get("scene_generation_schema_ce_optimization_scope")
+            != "standalone_schema_mask_partition_only_v1"
+            or protocol.get("scene_generation_footer_ce_optimization_weight")
+            != 0.0
+            or protocol.get("scene_generation_termination_ce_optimization_weight")
+            != 0.0
+            or protocol.get("scene_generation_selected_full_vocab_ce_in_total")
+            is not False
+            or protocol.get(
+                "scene_generation_selected_full_vocab_ce_optimization_weight"
+            )
+            != 0.0
+            or protocol.get("scene_generation_row_objective_audit_filename")
+            != _SCENE_STATE_V13_ROW_AUDIT_FILENAME
+            or protocol.get("scene_generation_row_objective_audit_schema")
+            != _SCENE_STATE_V13_ROW_AUDIT_SCHEMA
+        ):
+            raise ValueError("Scene-memory V13 dense semantic protocol differs")
+        return _SCENE_STATE_DENSE_SEMANTIC_CHECKPOINT_STEPS
     if objective_version == _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION:
         if (
             protocol.get("schema_version")
@@ -4454,6 +4722,35 @@ def finalize_scene_v12_warm_start_lineage(
     context.manifest["receipt_sha256"] = _canonical_json_sha256(unsigned)
 
 
+def finalize_scene_v13_warm_start_lineage(
+    context: AdapterWarmStartContext,
+    *,
+    target_training_protocol_sha256: str,
+    target_pairing_manifest: dict[str, object],
+) -> None:
+    if context.mode != _SCENE_V13_WARM_START_MODE:
+        raise ValueError("Scene V13 lineage finalizer received another warm-start mode")
+    pairing_sha256 = target_pairing_manifest.get("manifest_sha256")
+    if not _is_sha256(target_training_protocol_sha256) or not _is_sha256(
+        pairing_sha256
+    ):
+        raise ValueError(
+            "Scene V13 target protocol and pairing hashes must be SHA256 values"
+        )
+    context.manifest.update(
+        {
+            "target_training_protocol_sha256": target_training_protocol_sha256,
+            "target_scene_state_pairing_manifest_sha256": pairing_sha256,
+            "trainer_resume_from_checkpoint": None,
+            "target_initial_global_step": 0,
+            "fresh_adamw_creation_required_after_adapter_load": True,
+        }
+    )
+    unsigned = dict(context.manifest)
+    unsigned.pop("receipt_sha256", None)
+    context.manifest["receipt_sha256"] = _canonical_json_sha256(unsigned)
+
+
 def record_scene_v8_fresh_optimizer_lineage(
     trainer,
     warm_start_context: AdapterWarmStartContext,
@@ -4619,6 +4916,43 @@ def record_scene_v12_fresh_optimizer_lineage(
         raise RuntimeError("Scene V12 requires a freshly created torch AdamW")
     if trainer.optimizer.state:
         raise RuntimeError("Scene V12 fresh AdamW unexpectedly contains state")
+    warm_start_context.manifest.update(
+        {
+            "pre_train_global_step": 0,
+            "fresh_optimizer_created": True,
+            "fresh_optimizer_class": (
+                f"{trainer.optimizer.__class__.__module__}."
+                f"{trainer.optimizer.__class__.__qualname__}"
+            ),
+            "fresh_optimizer_state_entries_before_train": 0,
+            "fresh_scheduler_created_before_train": False,
+        }
+    )
+    unsigned_warm_start_receipt = dict(warm_start_context.manifest)
+    unsigned_warm_start_receipt.pop("receipt_sha256", None)
+    warm_start_context.manifest["receipt_sha256"] = _canonical_json_sha256(
+        unsigned_warm_start_receipt
+    )
+    trainer.continuation_manifest = dict(warm_start_context.manifest)
+
+
+def record_scene_v13_fresh_optimizer_lineage(
+    trainer,
+    warm_start_context: AdapterWarmStartContext,
+) -> None:
+    if warm_start_context.mode != _SCENE_V13_WARM_START_MODE:
+        raise ValueError("Scene V13 optimizer evidence requires its warm-start mode")
+    if trainer.state.global_step != 0:
+        raise RuntimeError("Scene V13 Trainer did not initialize at global step 0")
+    if trainer.optimizer is not None or trainer.lr_scheduler is not None:
+        raise RuntimeError(
+            "Scene V13 Trainer imported optimizer or scheduler state before creation"
+        )
+    trainer.create_optimizer()
+    if not isinstance(trainer.optimizer, torch.optim.AdamW):
+        raise RuntimeError("Scene V13 requires a freshly created torch AdamW")
+    if trainer.optimizer.state:
+        raise RuntimeError("Scene V13 fresh AdamW unexpectedly contains state")
     warm_start_context.manifest.update(
         {
             "pre_train_global_step": 0,
@@ -4873,10 +5207,10 @@ class DeltaMemTrainer(Trainer):
                 "scene_state_generated_unlikelihood_weight must be finite and "
                 "non-negative"
             )
-        permits_zero_correction_events = (
-            scene_state_generation_objective_version
-            == _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION
-        )
+        permits_zero_correction_events = scene_state_generation_objective_version in {
+            _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
+        }
         if (
             scene_state_generated_unlikelihood_max_wrong_tokens < 0
             or (
@@ -4927,6 +5261,7 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
             _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION,
             _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
         }
         if normalized_generation_objective not in supported_generation_objectives:
             raise ValueError(
@@ -4965,6 +5300,15 @@ class DeltaMemTrainer(Trainer):
                     "The V12 semantic-margin objective performs its own rollout and "
                     "requires generated-prefix correction weight 0"
                 )
+            if (
+                normalized_generation_objective
+                == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+                and scene_state_generated_prefix_correction_weight != 0.0
+            ):
+                raise ValueError(
+                    "The V13 dense semantic objective performs its own rollout and "
+                    "requires generated-prefix correction weight 0"
+                )
         elif scene_state_generated_prefix_correction_weight != 0.0:
             raise ValueError(
                 "scene_state_generated_prefix_correction_weight requires the "
@@ -4994,6 +5338,13 @@ class DeltaMemTrainer(Trainer):
         ) and not callable(getattr(scene_state_generation_tokenizer, "decode", None)):
             raise ValueError(
                 "The V12 semantic-margin objective requires an explicit tokenizer "
+                "with decode()"
+            )
+        if self.scene_state_generation_objective_version == (
+            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+        ) and not callable(getattr(scene_state_generation_tokenizer, "decode", None)):
+            raise ValueError(
+                "The V13 dense semantic objective requires an explicit tokenizer "
                 "with decode()"
             )
         self.episode_read_write_enabled = episode_read_write_enabled
@@ -5111,6 +5462,10 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION
         ):
             self._validate_scene_state_v12_trainer_contract()
+        elif self.scene_state_generation_objective_version == (
+            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+        ):
+            self._validate_scene_state_v13_trainer_contract()
         self.memory_dropout_counts = {"both": 0, "state_only": 0, "no_memory": 0}
         self._last_write_sparsity_loss = 0.0
         self._last_memory_keep_loss = 0.0
@@ -5183,6 +5538,10 @@ class DeltaMemTrainer(Trainer):
         self._scene_state_v12_cycle_pairs: list[tuple[int, int]] = []
         self._scene_state_v12_completed_cycles = 0
         self._scene_state_v12_row_observations: list[dict[str, object]] = []
+        self._scene_state_v13_cycle_pairs: list[tuple[int, int]] = []
+        self._scene_state_v13_completed_cycles = 0
+        self._scene_state_v13_row_observations: list[dict[str, object]] = []
+        self._scene_state_v13_pair_observations: list[dict[str, object]] = []
         self._last_memory_teacher_loss = 0.0
         self._last_scene_boundary_full_ce_loss = 0.0
         self._last_scene_boundary_payload_ce_loss = 0.0
@@ -8019,6 +8378,77 @@ class DeltaMemTrainer(Trainer):
                 + ", ".join(sorted(set(mismatches)))
             )
 
+    def _validate_scene_state_v13_trainer_contract(self) -> None:
+        protocol = self.training_protocol
+        lineage = self.continuation_manifest
+        schedule_binding = self.train_schedule_binding
+        schedule_indices = self.train_schedule_indices
+        mismatches: list[str] = []
+        if self.resume_mode != "exact":
+            mismatches.append("resume_mode")
+        if (
+            self.args.max_steps != 4
+            or self.args.gradient_accumulation_steps
+            != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            or self.args.max_grad_norm != 1.0
+            or self.args.save_steps != 1
+            or self.args.save_total_limit != 4
+        ):
+            mismatches.append("training_horizon")
+        if not isinstance(protocol, dict):
+            mismatches.append("training_protocol")
+        else:
+            try:
+                checkpoint_steps = _scene_memory_v10_protocol_checkpoint_steps(
+                    protocol
+                )
+            except ValueError:
+                mismatches.append("training_protocol")
+            else:
+                if checkpoint_steps != _SCENE_STATE_DENSE_SEMANTIC_CHECKPOINT_STEPS:
+                    mismatches.append("training_protocol")
+        if not isinstance(lineage, dict):
+            mismatches.append("fresh_v13_warm_start")
+        else:
+            fresh_start = lineage.get("target_fresh_start")
+            if (
+                lineage.get("schema") != SCENE_V13_WARM_START_RECEIPT_SCHEMA
+                or lineage.get("mode") != _SCENE_V13_WARM_START_MODE
+                or lineage.get("source_global_step") != 56
+                or lineage.get("trainer_resume_from_checkpoint") is not None
+                or lineage.get("target_initial_global_step") != 0
+                or not isinstance(fresh_start, dict)
+                or fresh_start.get("initial_global_step") != 0
+                or fresh_start.get("optimizer_state") != "fresh"
+                or fresh_start.get("scheduler_state") != "fresh"
+                or fresh_start.get("trainer_state") != "fresh"
+                or fresh_start.get("rng_state") != "fresh_from_v13_seed"
+            ):
+                mismatches.append("fresh_v13_warm_start")
+        if not isinstance(schedule_binding, dict):
+            mismatches.append("four_cycle_schedule")
+        else:
+            pair_indices = schedule_binding.get("pair_indices")
+            if (
+                schedule_binding.get("schema") != _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
+                or schedule_binding.get("total_steps") != 28
+                or not isinstance(pair_indices, tuple)
+                or tuple(tuple(pair) for pair in pair_indices)
+                != _SCENE_STATE_V13_FOUR_CYCLE_PAIRS
+            ):
+                mismatches.append("four_cycle_schedule")
+        if (
+            not isinstance(schedule_indices, tuple)
+            or schedule_indices
+            != tuple(low for low, _ in _SCENE_STATE_V13_FOUR_CYCLE_PAIRS)
+        ):
+            mismatches.append("four_cycle_schedule")
+        if mismatches:
+            raise ValueError(
+                "V13 trainer contract differs for: "
+                + ", ".join(sorted(set(mismatches)))
+            )
+
     def _validate_scene_state_generation_runtime(self) -> None:
         if self.episode_read_write_enabled:
             raise ValueError(
@@ -8581,6 +9011,83 @@ class DeltaMemTrainer(Trainer):
         }
 
     @staticmethod
+    def _scene_state_v13_dense_decision_metrics(
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        decision_mask: torch.Tensor,
+    ) -> dict[str, torch.Tensor | int]:
+        if logits.ndim != 3 or labels.ndim != 2 or logits.shape[:2] != labels.shape:
+            raise ValueError("V13 dense decision logits and labels must align")
+        normalized_mask = decision_mask.to(device=labels.device, dtype=torch.bool)
+        if normalized_mask.shape != labels.shape or bool(normalized_mask[:, 0].any()):
+            raise ValueError(
+                "V13 dense decision mask must align with causal labels"
+            )
+        if bool((normalized_mask & labels.eq(-100)).any()):
+            raise ValueError(
+                "V13 dense decision mask selects an unsupervised label"
+            )
+        shifted_mask = normalized_mask[:, 1:]
+        row_counts = shifted_mask.sum(dim=1)
+        if not bool(row_counts.gt(0).all()):
+            raise ValueError("V13 dense decision mask misses a batch row")
+        selected_logits = logits[:, :-1][shifted_mask].float()
+        selected_labels = labels[:, 1:][shifted_mask]
+        token_ce = F.cross_entropy(
+            selected_logits,
+            selected_labels,
+            reduction="none",
+        )
+        gold_logits = selected_logits.gather(
+            1,
+            selected_labels.unsqueeze(1),
+        ).squeeze(1)
+        top_values, top_indices = selected_logits.topk(k=2, dim=1)
+        max_other = torch.where(
+            top_indices[:, 0].eq(selected_labels),
+            top_values[:, 1],
+            top_values[:, 0],
+        )
+        margins = gold_logits - max_other
+        retention_hinges = F.relu(
+            _SCENE_STATE_DENSE_SEMANTIC_MARGIN_VALUE
+            + max_other.detach()
+            - gold_logits
+        )
+        top1 = top_indices[:, 0].eq(selected_labels).float()
+        split_sizes = [int(count) for count in row_counts.detach().cpu().tolist()]
+        return {
+            "decision_ce_row": torch.stack(
+                [values.mean() for values in token_ce.split(split_sizes)]
+            ),
+            "retention_hinge_row": torch.stack(
+                [values.mean() for values in retention_hinges.split(split_sizes)]
+            ),
+            "gold_margin_row": torch.stack(
+                [values.mean() for values in margins.split(split_sizes)]
+            ),
+            "top1_fraction_row": torch.stack(
+                [values.mean() for values in top1.split(split_sizes)]
+            ),
+            "decision_token_count": int(shifted_mask.sum().item()),
+        }
+
+    @staticmethod
+    def _scene_state_v13_teacher_loss(
+        *,
+        dense_decision_ce: torch.Tensor,
+        dense_decision_top1_retention_hinge: torch.Tensor,
+        selected_top_competitor_hinge: torch.Tensor,
+        selected_correct_vs_zero_hinge: torch.Tensor,
+    ) -> torch.Tensor:
+        return (
+            dense_decision_ce
+            + dense_decision_top1_retention_hinge
+            + selected_top_competitor_hinge
+            + selected_correct_vs_zero_hinge
+        )
+
+    @staticmethod
     def _scene_state_cycle_retention_teacher_loss(
         *,
         full_gold_ce: torch.Tensor,
@@ -9035,11 +9542,12 @@ class DeltaMemTrainer(Trainer):
         generated_token_ids = generated_sequences[0, prompt_length:].detach()
         gold_token_ids = rollout["gold_token_ids"]
         wrong_position_cap = self.scene_state_generated_unlikelihood_max_wrong_tokens
-        if self.scene_state_generation_objective_version == (
-            _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION
-        ):
-            # V12 locks the legacy correction count to zero because it does not use
-            # that loss. Alignment still needs a positive internal cap for telemetry.
+        if self.scene_state_generation_objective_version in {
+            _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
+        }:
+            # Semantic rollout objectives lock the legacy correction count to zero.
+            # Alignment still needs a positive internal cap for telemetry.
             wrong_position_cap = max(
                 1,
                 int(generated_token_ids.numel() + gold_token_ids.numel()),
@@ -9405,12 +9913,14 @@ class DeltaMemTrainer(Trainer):
         generated_token_ids: torch.Tensor,
         gold_token_ids: torch.Tensor,
         tokenizer=None,
+        include_first_termination: bool = True,
     ) -> dict[str, torch.Tensor | int]:
         eligible = DeltaMemTrainer._scene_state_v12_eligible_decisions(
             labels,
             decision_mask,
             termination_mask,
             generation_start=generation_start,
+            include_first_termination=include_first_termination,
         )
         positions = eligible["positions"]
         relative_positions = eligible["relative_positions"]
@@ -9905,6 +10415,48 @@ class DeltaMemTrainer(Trainer):
             tokenizer=tokenizer,
         )
 
+    def _scene_state_v13_rollout_semantics(
+        self,
+        model_inputs: dict[str, torch.Tensor],
+        rollout: dict[str, torch.Tensor | int | bool],
+        *,
+        decision_mask: torch.Tensor,
+        termination_mask: torch.Tensor,
+    ) -> tuple[bool, dict[str, torch.Tensor | int] | None]:
+        generated_token_ids = rollout["generated_token_ids"]
+        gold_token_ids = rollout["gold_token_ids"]
+        if not isinstance(generated_token_ids, torch.Tensor) or not isinstance(
+            gold_token_ids,
+            torch.Tensor,
+        ):
+            raise TypeError("V13 rollout semantics requires tensor token IDs")
+        tokenizer = self.scene_state_generation_tokenizer
+        generated_text = tokenizer.decode(
+            generated_token_ids.detach().cpu().tolist(),
+            skip_special_tokens=True,
+        )
+        gold_text = tokenizer.decode(
+            gold_token_ids.detach().cpu().tolist(),
+            skip_special_tokens=True,
+        )
+        parsed_prediction = extract_json(generated_text)
+        parsed_gold = extract_json(gold_text)
+        if literal_boundaries(parsed_gold) is None:
+            raise ValueError("V13 gold rollout is not valid benchmark boundary JSON")
+        parsed_exact = strict_boundary_exact(parsed_prediction, parsed_gold)
+        if parsed_exact:
+            return True, None
+        return False, self._scene_state_v12_failed_decision_alignment(
+            model_inputs["labels"],
+            decision_mask,
+            termination_mask,
+            generation_start=int(rollout["generation_start"]),
+            generated_token_ids=generated_token_ids,
+            gold_token_ids=gold_token_ids,
+            tokenizer=tokenizer,
+            include_first_termination=False,
+        )
+
     def _scene_state_v12_semantic_margin_branch(
         self,
         model_inputs: dict[str, torch.Tensor],
@@ -10006,6 +10558,66 @@ class DeltaMemTrainer(Trainer):
             ),
         }
         return decision["loss"], stats
+
+    def _scene_state_v13_failed_semantic_repair_branch(
+        self,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        rollout: dict[str, torch.Tensor | int | bool],
+        decision_mask: torch.Tensor,
+        termination_mask: torch.Tensor,
+        failed_alignment: dict[str, torch.Tensor | int],
+        failed_replay_logits: torch.Tensor,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
+        repair_loss, v12_stats = self._scene_state_v12_semantic_margin_branch(
+            model_inputs,
+            None,
+            rollout=rollout,
+            decision_mask=decision_mask,
+            termination_mask=termination_mask,
+            parsed_boundary_exact=False,
+            failed_alignment=failed_alignment,
+            failed_replay_logits=failed_replay_logits,
+        )
+        return repair_loss, {
+            "scene_generation_v13_failed_semantic_repair_applied": 1.0,
+            "scene_generation_v13_failed_semantic_repair_loss": float(
+                repair_loss.detach().item()
+            ),
+            "scene_generation_v13_failed_semantic_ce": v12_stats[
+                "scene_generation_v12_selected_ce"
+            ],
+            "scene_generation_v13_failed_semantic_competitor_hinge": v12_stats[
+                "scene_generation_v12_selected_hinge"
+            ],
+            "scene_generation_v13_failed_semantic_gold_vs_competitor_margin": (
+                v12_stats["scene_generation_v12_gold_vs_top_competitor_margin"]
+            ),
+            "scene_generation_v13_failed_semantic_decision_ordinal": v12_stats[
+                "scene_generation_v12_selected_decision_ordinal"
+            ],
+            "scene_generation_v13_failed_semantic_label_position": v12_stats[
+                "scene_generation_v12_selected_label_position"
+            ],
+            "scene_generation_v13_failed_semantic_gold_token_id": v12_stats[
+                "scene_generation_v12_gold_token_id"
+            ],
+            "scene_generation_v13_failed_semantic_competitor_id": v12_stats[
+                "scene_generation_v12_top_competitor_id"
+            ],
+            "scene_generation_v13_failed_semantic_competitor_is_actual_greedy": (
+                v12_stats["scene_generation_v12_competitor_is_actual_greedy"]
+            ),
+            "scene_generation_v13_failed_semantic_replay_generated_cursor": v12_stats[
+                "scene_generation_v12_failed_replay_generated_cursor"
+            ],
+            "scene_generation_v13_failed_semantic_alignment_kind_code": v12_stats[
+                "scene_generation_v12_failed_alignment_kind_code"
+            ],
+            "scene_generation_v13_failed_semantic_is_termination": v12_stats[
+                "scene_generation_v12_selected_is_termination"
+            ],
+        }
 
     @staticmethod
     def _scene_state_generated_unlikelihood_values_from_logits(
@@ -10439,6 +11051,12 @@ class DeltaMemTrainer(Trainer):
         semantic_margin_objective = (
             objective_version == _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION
         )
+        dense_semantic_objective = (
+            objective_version == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+        )
+        semantic_rollout_objective = (
+            semantic_margin_objective or dense_semantic_objective
+        )
         if (
             source_model_inputs["input_ids"].size(0) != 1
             or donor_model_inputs["input_ids"].size(0) != 1
@@ -10510,7 +11128,7 @@ class DeltaMemTrainer(Trainer):
             rollout: dict[str, torch.Tensor | int | bool] | None = None
             parsed_boundary_exact = False
             failed_alignment: dict[str, torch.Tensor | int] | None = None
-            if semantic_margin_objective:
+            if semantic_rollout_objective:
                 # Resolve the discrete rollout branch before retaining any training
                 # graph. The subsequent exact teacher pass or failed-prefix replay
                 # re-primes the same history with gradients enabled.
@@ -10534,15 +11152,56 @@ class DeltaMemTrainer(Trainer):
                         target_mask=branch_kwargs["target_mask"],
                         termination_mask=termination_mask,
                     )
-                    parsed_boundary_exact, failed_alignment = (
-                        self._scene_state_v12_rollout_semantics(
-                            model_inputs,
-                            rollout,
-                            decision_mask=branch_kwargs["decision_mask"],
-                            termination_mask=termination_mask,
-                        )
+                    rollout_semantics = (
+                        self._scene_state_v13_rollout_semantics
+                        if dense_semantic_objective
+                        else self._scene_state_v12_rollout_semantics
+                    )
+                    parsed_boundary_exact, failed_alignment = rollout_semantics(
+                        model_inputs,
+                        rollout,
+                        decision_mask=branch_kwargs["decision_mask"],
+                        termination_mask=termination_mask,
                     )
                 del probe_state
+
+                if dense_semantic_objective:
+                    if rollout is None:
+                        raise RuntimeError("V13 semantic rollout probe is missing")
+                    semantic_stats = {
+                        "scene_generation_v13_parsed_boundary_exact": float(
+                            parsed_boundary_exact
+                        ),
+                        "scene_generation_v13_raw_token_exact": float(
+                            bool(rollout["exact_through_termination"])
+                        ),
+                        "scene_generation_v13_first_divergence": float(
+                            int(rollout["first_divergence"])
+                        ),
+                        "scene_generation_v13_rollout_token_count": float(
+                            rollout["generated_token_ids"].numel()
+                        ),
+                        "scene_generation_v13_dense_top1_margin": (
+                            _SCENE_STATE_DENSE_SEMANTIC_MARGIN_VALUE
+                        ),
+                        "scene_generation_v13_full_answer_ce_optimization_weight": 0.0,
+                        "scene_generation_v13_schema_ce_optimization_weight": 0.0,
+                        "scene_generation_v13_footer_ce_optimization_weight": 0.0,
+                        "scene_generation_v13_termination_ce_optimization_weight": 0.0,
+                        "scene_generation_v13_failed_semantic_repair_applied": 0.0,
+                        "scene_generation_v13_failed_semantic_repair_loss": 0.0,
+                        "scene_generation_v13_failed_semantic_ce": 0.0,
+                        "scene_generation_v13_failed_semantic_competitor_hinge": 0.0,
+                        "scene_generation_v13_failed_semantic_gold_vs_competitor_margin": 0.0,
+                        "scene_generation_v13_failed_semantic_decision_ordinal": -1.0,
+                        "scene_generation_v13_failed_semantic_label_position": -1.0,
+                        "scene_generation_v13_failed_semantic_gold_token_id": -1.0,
+                        "scene_generation_v13_failed_semantic_competitor_id": -1.0,
+                        "scene_generation_v13_failed_semantic_competitor_is_actual_greedy": 0.0,
+                        "scene_generation_v13_failed_semantic_replay_generated_cursor": -1.0,
+                        "scene_generation_v13_failed_semantic_alignment_kind_code": -1.0,
+                        "scene_generation_v13_failed_semantic_is_termination": 0.0,
+                    }
 
             with self.compute_loss_context_manager():
                 outputs, branch_metrics = self._scene_state_generation_branch(
@@ -10561,7 +11220,7 @@ class DeltaMemTrainer(Trainer):
                 )
                 online_state_snapshot = (
                     None
-                    if semantic_margin_objective
+                    if semantic_rollout_objective
                     else clone_detached_online_state(
                         self._capture_live_online_state(model)
                     )
@@ -10579,7 +11238,8 @@ class DeltaMemTrainer(Trainer):
                 all_target_top1_retention_hinge = full_ce.new_zeros(())
                 all_target_gold_margin = full_ce.new_zeros(())
                 all_target_top1_fraction = full_ce.new_zeros(())
-                semantic_stats: dict[str, float] = {}
+                if not dense_semantic_objective:
+                    semantic_stats = {}
                 if semantic_margin_objective:
                     if rollout is None:
                         raise RuntimeError("V12 semantic rollout probe is missing")
@@ -10600,6 +11260,52 @@ class DeltaMemTrainer(Trainer):
                     else:
                         semantic_loss = selected_ce.new_zeros(())
                         teacher_loss = selected_top_hinge + zero_hinge
+                elif dense_semantic_objective:
+                    dense_decision = self._scene_state_v13_dense_decision_metrics(
+                        outputs["logits"],
+                        model_inputs["labels"],
+                        branch_kwargs["decision_mask"],
+                    )
+                    dense_decision_ce = dense_decision["decision_ce_row"].mean()
+                    dense_decision_top1_hinge = dense_decision[
+                        "retention_hinge_row"
+                    ].mean()
+                    dense_decision_gold_margin = dense_decision[
+                        "gold_margin_row"
+                    ].mean()
+                    dense_decision_top1_fraction = dense_decision[
+                        "top1_fraction_row"
+                    ].mean()
+                    teacher_loss = self._scene_state_v13_teacher_loss(
+                        dense_decision_ce=dense_decision_ce,
+                        dense_decision_top1_retention_hinge=(
+                            dense_decision_top1_hinge
+                        ),
+                        selected_top_competitor_hinge=selected_top_hinge,
+                        selected_correct_vs_zero_hinge=zero_hinge,
+                    )
+                    semantic_stats.update(
+                        {
+                            "scene_generation_v13_dense_decision_ce": float(
+                                dense_decision_ce.detach().item()
+                            ),
+                            "scene_generation_v13_dense_decision_top1_retention_hinge": float(
+                                dense_decision_top1_hinge.detach().item()
+                            ),
+                            "scene_generation_v13_dense_decision_gold_vs_top_competitor_margin": float(
+                                dense_decision_gold_margin.detach().item()
+                            ),
+                            "scene_generation_v13_dense_decision_top1_fraction": float(
+                                dense_decision_top1_fraction.detach().item()
+                            ),
+                            "scene_generation_v13_dense_decision_token_count": float(
+                                dense_decision["decision_token_count"]
+                            ),
+                            "scene_generation_v13_dense_teacher_loss": float(
+                                teacher_loss.detach().item()
+                            ),
+                        }
+                    )
                 elif cycle_retention_objective:
                     all_target_retention = (
                         self._scene_state_all_target_top1_retention_metrics(
@@ -10680,7 +11386,7 @@ class DeltaMemTrainer(Trainer):
                         ),
                     }
                 )
-            if semantic_margin_objective:
+            if semantic_rollout_objective:
                 side_stats.update(
                     {
                         f"{key}_{side}": value
@@ -10692,9 +11398,9 @@ class DeltaMemTrainer(Trainer):
             self.accelerator.backward(teacher_root)
             del teacher_root
 
-            if semantic_margin_objective and not parsed_boundary_exact:
+            if semantic_rollout_objective and not parsed_boundary_exact:
                 if rollout is None or failed_alignment is None:
-                    raise RuntimeError("V12 failed rollout alignment is missing")
+                    raise RuntimeError("Semantic failed rollout alignment is missing")
                 with self.compute_loss_context_manager():
                     failed_replay_logits = self._scene_state_v12_failed_replay_logits(
                         model,
@@ -10705,18 +11411,31 @@ class DeltaMemTrainer(Trainer):
                         write_message_ids=write_message_ids,
                         write_sentence_ids=write_sentence_ids,
                     )
-                    semantic_loss, semantic_stats = (
-                        self._scene_state_v12_semantic_margin_branch(
-                            model_inputs,
-                            None,
-                            rollout=rollout,
-                            decision_mask=branch_kwargs["decision_mask"],
-                            termination_mask=termination_mask,
-                            parsed_boundary_exact=False,
-                            failed_alignment=failed_alignment,
-                            failed_replay_logits=failed_replay_logits,
+                    if dense_semantic_objective:
+                        semantic_loss, repair_stats = (
+                            self._scene_state_v13_failed_semantic_repair_branch(
+                                model_inputs,
+                                rollout=rollout,
+                                decision_mask=branch_kwargs["decision_mask"],
+                                termination_mask=termination_mask,
+                                failed_alignment=failed_alignment,
+                                failed_replay_logits=failed_replay_logits,
+                            )
                         )
-                    )
+                        semantic_stats.update(repair_stats)
+                    else:
+                        semantic_loss, semantic_stats = (
+                            self._scene_state_v12_semantic_margin_branch(
+                                model_inputs,
+                                None,
+                                rollout=rollout,
+                                decision_mask=branch_kwargs["decision_mask"],
+                                termination_mask=termination_mask,
+                                parsed_boundary_exact=False,
+                                failed_alignment=failed_alignment,
+                                failed_replay_logits=failed_replay_logits,
+                            )
+                        )
                 semantic_value = semantic_loss.detach()
                 semantic_root = semantic_loss * 0.5 * gradient_scale
                 del failed_replay_logits, semantic_loss
@@ -10724,7 +11443,11 @@ class DeltaMemTrainer(Trainer):
                 del semantic_root
                 teacher_value = teacher_value + semantic_value
 
-            if semantic_margin_objective:
+            if semantic_rollout_objective:
+                if dense_semantic_objective:
+                    semantic_stats["scene_generation_v13_total_side_loss"] = float(
+                        teacher_value.detach().item()
+                    )
                 side_stats.update(
                     {
                         f"{key}_{side}": value
@@ -10825,6 +11548,150 @@ class DeltaMemTrainer(Trainer):
         reported_total = 0.5 * (source_teacher + donor_teacher) + (
             0.5 * prefix_weight * (source_correction + donor_correction)
         )
+        if dense_semantic_objective:
+            if (
+                source_indices is None
+                or donor_indices is None
+                or source_row_sha256 is None
+                or donor_row_sha256 is None
+            ):
+                raise ValueError(
+                    "V13 symmetric training requires row ordinals and row hashes"
+                )
+
+            def v13_side(side: str, metric: str) -> float:
+                stats = source_stats if side == "source" else donor_stats
+                return float(stats[f"scene_generation_v13_{metric}_{side}"])
+
+            def v13_mean(metric: str) -> float:
+                return 0.5 * (
+                    v13_side("source", metric) + v13_side("donor", metric)
+                )
+
+            dense_decision_ce = v13_mean("dense_decision_ce")
+            dense_decision_hinge = v13_mean(
+                "dense_decision_top1_retention_hinge"
+            )
+            failed_repair_loss = v13_mean("failed_semantic_repair_loss")
+            failed_repair_ce = v13_mean("failed_semantic_ce")
+            failed_repair_hinge = v13_mean(
+                "failed_semantic_competitor_hinge"
+            )
+            dense_teacher_loss = v13_mean("dense_teacher_loss")
+            total_side_loss = v13_mean("total_side_loss")
+            selected_top_hinge = 0.5 * (
+                source_stats["scene_generation_source_selected_top_hinge"]
+                + donor_stats["scene_generation_donor_selected_top_hinge"]
+            )
+            zero_hinge = 0.5 * (
+                source_stats["scene_generation_source_zero_hinge"]
+                + donor_stats["scene_generation_donor_zero_hinge"]
+            )
+            zero_nll_gap = 0.5 * (
+                source_stats[
+                    "scene_generation_source_zero_minus_correct_selected_nll"
+                ]
+                + donor_stats[
+                    "scene_generation_donor_zero_minus_correct_selected_nll"
+                ]
+            )
+            memory_stats = {
+                **source_stats,
+                **donor_stats,
+                "keep_loss": dense_decision_ce,
+                "reset_loss": 0.0,
+                "corrupt_loss": 0.0,
+                "teacher_loss": float(reported_total.item()),
+                "margin_loss": dense_decision_hinge,
+                "causal_loss": zero_hinge,
+                "anchor_loss": selected_top_hinge,
+                "full_ce_loss": 0.0,
+                "kl_loss": 0.0,
+                "reset_kl_loss": 0.0,
+                "margin_gap": zero_nll_gap,
+                "wmem": 1.0,
+                "probe_keep_loss": 0.0,
+                "probe_reset_loss": 0.0,
+                "probe_margin_loss": 0.0,
+                "probe_gap": 0.0,
+                "probe_kl": 0.0,
+                "probe_ce": 0.0,
+                "scene_generation_total_loss": float(reported_total.item()),
+                "scene_generation_weighted_ce": dense_decision_ce,
+                "scene_generation_zero_margin_loss": zero_hinge,
+                "scene_generation_v13_objective_total_loss": float(
+                    reported_total.item()
+                ),
+                "scene_generation_v13_pair_mean_dense_decision_ce": (
+                    dense_decision_ce
+                ),
+                "scene_generation_v13_pair_mean_dense_decision_top1_retention_hinge": (
+                    dense_decision_hinge
+                ),
+                "scene_generation_v13_pair_mean_dense_decision_gold_vs_top_competitor_margin": v13_mean(
+                    "dense_decision_gold_vs_top_competitor_margin"
+                ),
+                "scene_generation_v13_pair_mean_dense_decision_top1_fraction": v13_mean(
+                    "dense_decision_top1_fraction"
+                ),
+                "scene_generation_v13_pair_mean_dense_decision_token_count": v13_mean(
+                    "dense_decision_token_count"
+                ),
+                "scene_generation_v13_pair_mean_selected_top_competitor_hinge": (
+                    selected_top_hinge
+                ),
+                "scene_generation_v13_pair_mean_selected_correct_vs_zero_hinge": (
+                    zero_hinge
+                ),
+                "scene_generation_v13_pair_mean_selected_zero_minus_correct_nll": (
+                    zero_nll_gap
+                ),
+                "scene_generation_v13_pair_mean_selected_top1_fraction": 0.5
+                * (
+                    source_stats["scene_generation_source_selected_top1"]
+                    + donor_stats["scene_generation_donor_selected_top1"]
+                ),
+                "scene_generation_v13_pair_mean_failed_semantic_repair_applied_fraction": v13_mean(
+                    "failed_semantic_repair_applied"
+                ),
+                "scene_generation_v13_pair_mean_failed_semantic_repair_loss": (
+                    failed_repair_loss
+                ),
+                "scene_generation_v13_pair_mean_failed_semantic_ce": failed_repair_ce,
+                "scene_generation_v13_pair_mean_failed_semantic_competitor_hinge": (
+                    failed_repair_hinge
+                ),
+                "scene_generation_v13_pair_mean_dense_teacher_loss": (
+                    dense_teacher_loss
+                ),
+                "scene_generation_v13_pair_mean_total_side_loss": total_side_loss,
+                "scene_generation_v13_recomputed_objective_total_loss": (
+                    dense_teacher_loss + failed_repair_loss
+                ),
+                "scene_generation_v13_pair_mean_parsed_boundary_exact_fraction": v13_mean(
+                    "parsed_boundary_exact"
+                ),
+                "scene_generation_v13_pair_mean_raw_token_exact_fraction": v13_mean(
+                    "raw_token_exact"
+                ),
+                "scene_generation_v13_pair_mean_dense_top1_margin": v13_mean(
+                    "dense_top1_margin"
+                ),
+                "scene_generation_v13_full_answer_ce_optimization_weight": 0.0,
+                "scene_generation_v13_schema_ce_optimization_weight": 0.0,
+                "scene_generation_v13_footer_ce_optimization_weight": 0.0,
+                "scene_generation_v13_termination_ce_optimization_weight": 0.0,
+            }
+            self._scene_state_v13_record_pair_presentation(
+                source_indices,
+                donor_indices,
+                source_row_sha256,
+                donor_row_sha256,
+                memory_stats,
+            )
+            set_delta_mem_read_context_mask(model, None)
+            set_delta_mem_write_enabled(model, True)
+            return reported_total * gradient_scale, memory_stats
         if semantic_margin_objective:
             if (
                 source_indices is None
@@ -12164,6 +13031,482 @@ class DeltaMemTrainer(Trainer):
             "rows": [by_row[row_ordinal] for row_ordinal in row_order],
         }
 
+    @staticmethod
+    def _scene_state_v13_audit_number(
+        memory_stats: dict[str, float],
+        key: str,
+        *,
+        integer: bool = False,
+    ) -> int | float:
+        if key not in memory_stats:
+            raise RuntimeError(f"V13 row audit is missing telemetry: {key}")
+        value = float(memory_stats[key])
+        if not math.isfinite(value):
+            raise FloatingPointError(f"V13 row audit telemetry is non-finite: {key}")
+        if integer:
+            normalized = int(value)
+            if float(normalized) != value:
+                raise RuntimeError(f"V13 row audit telemetry is not integral: {key}")
+            return normalized
+        return value
+
+    def _scene_state_v13_record_pair_presentation(
+        self,
+        source_indices: torch.Tensor,
+        donor_indices: torch.Tensor,
+        source_row_sha256: torch.Tensor,
+        donor_row_sha256: torch.Tensor,
+        memory_stats: dict[str, float],
+    ) -> None:
+        if self.scene_state_generation_objective_version != (
+            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+        ):
+            return
+        normalized_source = source_indices.detach().reshape(-1).cpu()
+        normalized_donor = donor_indices.detach().reshape(-1).cpu()
+        if normalized_source.numel() != 1 or normalized_donor.numel() != 1:
+            raise ValueError("V13 pair telemetry requires physical batch size one")
+        pair = (
+            int(normalized_source[0].item()),
+            int(normalized_donor[0].item()),
+        )
+        normalized_source_hash = source_row_sha256.detach().reshape(-1).cpu()
+        normalized_donor_hash = donor_row_sha256.detach().reshape(-1).cpu()
+        if (
+            normalized_source_hash.numel() != 32
+            or normalized_donor_hash.numel() != 32
+        ):
+            raise ValueError("V13 row hashes must contain exactly 32 bytes per row")
+        source_hash = bytes(int(value) for value in normalized_source_hash).hex()
+        donor_hash = bytes(int(value) for value in normalized_donor_hash).hex()
+        observed_pairs = getattr(self, "_scene_state_v13_cycle_pairs", None)
+        row_observations = getattr(
+            self,
+            "_scene_state_v13_row_observations",
+            None,
+        )
+        pair_observations = getattr(
+            self,
+            "_scene_state_v13_pair_observations",
+            None,
+        )
+        completed_cycles = int(
+            getattr(self, "_scene_state_v13_completed_cycles", -1)
+        )
+        if not all(
+            isinstance(value, list)
+            for value in (observed_pairs, row_observations, pair_observations)
+        ):
+            raise RuntimeError("V13 row telemetry accumulators are missing")
+        cycle_size = _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+        if not 0 <= completed_cycles < 4 or len(observed_pairs) >= cycle_size:
+            raise RuntimeError("V13 pair telemetry escaped the four-cycle boundary")
+        presentation_index = completed_cycles * cycle_size + len(observed_pairs)
+        expected = _SCENE_STATE_V13_FOUR_CYCLE_PAIRS[presentation_index]
+        if pair != expected:
+            raise ValueError(
+                "V13 pair telemetry order differs: "
+                f"position={presentation_index} expected={expected} actual={pair}"
+            )
+        pairing_manifest = getattr(
+            self,
+            "scene_state_identity_pairing_manifest",
+            None,
+        )
+        try:
+            manifest_pairs = pairing_manifest["splits"]["train"]["pairs"]
+            source_binding = manifest_pairs[pair[0]]
+        except (IndexError, KeyError, TypeError) as error:
+            raise RuntimeError(
+                "V13 row audit cannot resolve the bound training pair"
+            ) from error
+        bound_source_ordinal = source_binding.get(
+            "source_index",
+            source_binding.get("train_row_ordinal"),
+        )
+        bound_donor_ordinal = source_binding.get(
+            "donor_index",
+            source_binding.get("donor_train_row_ordinal"),
+        )
+        if (
+            bound_source_ordinal != pair[0]
+            or bound_donor_ordinal != pair[1]
+            or source_binding.get("source_row_sha256") != source_hash
+            or source_binding.get("donor_row_sha256") != donor_hash
+        ):
+            raise ValueError("V13 row audit differs from the bound pairing manifest")
+        if pair in observed_pairs:
+            raise ValueError(
+                f"V13 pair telemetry contains a duplicate within cycle: {pair}"
+            )
+        observed_pairs.append(pair)
+        phase = f"cycle{completed_cycles + 1}_input"
+
+        def number(key: str, *, integer: bool = False) -> int | float:
+            return self._scene_state_v13_audit_number(
+                memory_stats,
+                key,
+                integer=integer,
+            )
+
+        for role, row_ordinal, paired_ordinal in (
+            ("source", pair[0], pair[1]),
+            ("donor", pair[1], pair[0]),
+        ):
+            v13_key = lambda metric: f"scene_generation_v13_{metric}_{role}"
+            common_key = lambda metric: f"scene_generation_{role}_{metric}"
+            repair_applied = bool(
+                number(v13_key("failed_semantic_repair_applied"), integer=True)
+            )
+            parsed_exact = bool(
+                number(v13_key("parsed_boundary_exact"), integer=True)
+            )
+            observation: dict[str, object] = {
+                "phase": phase,
+                "cycle": completed_cycles + 1,
+                "adapter_optimizer_step_before_update": completed_cycles,
+                "presentation": presentation_index + 1,
+                "pair_role": role,
+                "row_ordinal": row_ordinal,
+                "paired_row_ordinal": paired_ordinal,
+                "row_sha256": source_hash if role == "source" else donor_hash,
+                "paired_row_sha256": donor_hash if role == "source" else source_hash,
+                "parsed_boundary_exact": parsed_exact,
+                "raw_token_exact": bool(
+                    number(v13_key("raw_token_exact"), integer=True)
+                ),
+                "first_divergence": number(
+                    v13_key("first_divergence"),
+                    integer=True,
+                ),
+                "rollout_token_count": number(
+                    v13_key("rollout_token_count"),
+                    integer=True,
+                ),
+                "dense_decision_token_count": number(
+                    v13_key("dense_decision_token_count"),
+                    integer=True,
+                ),
+                "dense_decision_ce": number(v13_key("dense_decision_ce")),
+                "dense_decision_top1_retention_hinge": number(
+                    v13_key("dense_decision_top1_retention_hinge")
+                ),
+                "dense_decision_gold_vs_top_competitor_margin": number(
+                    v13_key("dense_decision_gold_vs_top_competitor_margin")
+                ),
+                "dense_decision_top1_fraction": number(
+                    v13_key("dense_decision_top1_fraction")
+                ),
+                "dense_top1_margin": number(v13_key("dense_top1_margin")),
+                "selected_top_competitor_hinge": number(
+                    common_key("selected_top_hinge")
+                ),
+                "selected_correct_vs_zero_hinge": number(
+                    common_key("zero_hinge")
+                ),
+                "selected_zero_minus_correct_nll": number(
+                    common_key("zero_minus_correct_selected_nll")
+                ),
+                "selected_top1": bool(
+                    number(common_key("selected_top1"), integer=True)
+                ),
+                "failed_semantic_repair_applied": repair_applied,
+                "failed_semantic_repair_ce": number(
+                    v13_key("failed_semantic_ce")
+                ),
+                "failed_semantic_repair_competitor_hinge": number(
+                    v13_key("failed_semantic_competitor_hinge")
+                ),
+                "failed_semantic_repair_loss": number(
+                    v13_key("failed_semantic_repair_loss")
+                ),
+                "failed_semantic_gold_vs_competitor_margin": number(
+                    v13_key("failed_semantic_gold_vs_competitor_margin")
+                ),
+                "failed_semantic_decision_ordinal": number(
+                    v13_key("failed_semantic_decision_ordinal"),
+                    integer=True,
+                ),
+                "failed_semantic_label_position": number(
+                    v13_key("failed_semantic_label_position"),
+                    integer=True,
+                ),
+                "failed_semantic_gold_token_id": number(
+                    v13_key("failed_semantic_gold_token_id"),
+                    integer=True,
+                ),
+                "failed_semantic_competitor_id": number(
+                    v13_key("failed_semantic_competitor_id"),
+                    integer=True,
+                ),
+                "failed_semantic_competitor_is_actual_greedy": bool(
+                    number(
+                        v13_key(
+                            "failed_semantic_competitor_is_actual_greedy"
+                        ),
+                        integer=True,
+                    )
+                ),
+                "failed_semantic_replay_generated_cursor": number(
+                    v13_key("failed_semantic_replay_generated_cursor"),
+                    integer=True,
+                ),
+                "failed_semantic_alignment_kind_code": number(
+                    v13_key("failed_semantic_alignment_kind_code"),
+                    integer=True,
+                ),
+                "failed_semantic_is_termination": bool(
+                    number(
+                        v13_key("failed_semantic_is_termination"),
+                        integer=True,
+                    )
+                ),
+                "dense_teacher_loss": number(v13_key("dense_teacher_loss")),
+                "total_side_loss": number(v13_key("total_side_loss")),
+            }
+            dense_teacher = (
+                float(observation["dense_decision_ce"])
+                + float(observation["dense_decision_top1_retention_hinge"])
+                + float(observation["selected_top_competitor_hinge"])
+                + float(observation["selected_correct_vs_zero_hinge"])
+            )
+            repair_loss = float(observation["failed_semantic_repair_loss"])
+            if not math.isclose(
+                float(observation["dense_teacher_loss"]),
+                dense_teacher,
+                rel_tol=1e-5,
+                abs_tol=1e-6,
+            ) or not math.isclose(
+                float(observation["total_side_loss"]),
+                dense_teacher + repair_loss,
+                rel_tol=1e-5,
+                abs_tol=1e-6,
+            ):
+                raise RuntimeError("V13 row audit loss arithmetic differs")
+            if parsed_exact == repair_applied:
+                raise RuntimeError("V13 repair branch differs from parsed exactness")
+            repair_sentinels = (
+                int(observation["failed_semantic_decision_ordinal"]),
+                int(observation["failed_semantic_label_position"]),
+                int(observation["failed_semantic_gold_token_id"]),
+                int(observation["failed_semantic_competitor_id"]),
+                int(observation["failed_semantic_replay_generated_cursor"]),
+                int(observation["failed_semantic_alignment_kind_code"]),
+            )
+            if parsed_exact:
+                if (
+                    repair_sentinels != (-1, -1, -1, -1, -1, -1)
+                    or repair_loss != 0.0
+                    or bool(
+                        observation[
+                            "failed_semantic_competitor_is_actual_greedy"
+                        ]
+                    )
+                ):
+                    raise RuntimeError("V13 exact row invented a repair event")
+            elif (
+                repair_sentinels[0] < 0
+                or repair_sentinels[1] <= 0
+                or repair_sentinels[2] < 0
+                or repair_sentinels[3] < 0
+                or repair_sentinels[4] < 0
+                or repair_sentinels[5] not in {0, 1, 2}
+                or not bool(
+                    observation["failed_semantic_competitor_is_actual_greedy"]
+                )
+            ):
+                raise RuntimeError("V13 failed row repair telemetry is incomplete")
+            if bool(observation["failed_semantic_is_termination"]):
+                raise RuntimeError("V13 failed repair escaped the decision mask")
+            identity = (phase, row_ordinal)
+            if any(
+                (item.get("phase"), item.get("row_ordinal")) == identity
+                for item in row_observations
+            ):
+                raise RuntimeError(
+                    f"V13 row audit contains a duplicate phase/row: {identity}"
+                )
+            row_observations.append(observation)
+
+        pair_keys = {
+            "pair_mean_dense_decision_ce": (
+                "scene_generation_v13_pair_mean_dense_decision_ce"
+            ),
+            "pair_mean_dense_decision_top1_retention_hinge": (
+                "scene_generation_v13_pair_mean_dense_decision_top1_retention_hinge"
+            ),
+            "pair_mean_selected_top_competitor_hinge": (
+                "scene_generation_v13_pair_mean_selected_top_competitor_hinge"
+            ),
+            "pair_mean_selected_correct_vs_zero_hinge": (
+                "scene_generation_v13_pair_mean_selected_correct_vs_zero_hinge"
+            ),
+            "pair_mean_failed_semantic_repair_applied_fraction": (
+                "scene_generation_v13_pair_mean_failed_semantic_repair_applied_fraction"
+            ),
+            "pair_mean_failed_semantic_ce": (
+                "scene_generation_v13_pair_mean_failed_semantic_ce"
+            ),
+            "pair_mean_failed_semantic_competitor_hinge": (
+                "scene_generation_v13_pair_mean_failed_semantic_competitor_hinge"
+            ),
+            "pair_mean_failed_semantic_repair_loss": (
+                "scene_generation_v13_pair_mean_failed_semantic_repair_loss"
+            ),
+            "pair_mean_dense_teacher_loss": (
+                "scene_generation_v13_pair_mean_dense_teacher_loss"
+            ),
+            "pair_mean_total_side_loss": (
+                "scene_generation_v13_pair_mean_total_side_loss"
+            ),
+            "reported_objective_total_loss": (
+                "scene_generation_v13_objective_total_loss"
+            ),
+            "recomputed_objective_total_loss": (
+                "scene_generation_v13_recomputed_objective_total_loss"
+            ),
+        }
+        pair_observation: dict[str, object] = {
+            "phase": phase,
+            "cycle": completed_cycles + 1,
+            "adapter_optimizer_step_before_update": completed_cycles,
+            "presentation": presentation_index + 1,
+            "source_row_ordinal": pair[0],
+            "donor_row_ordinal": pair[1],
+            "source_row_sha256": source_hash,
+            "donor_row_sha256": donor_hash,
+            **{
+                audit_key: number(telemetry_key)
+                for audit_key, telemetry_key in pair_keys.items()
+            },
+        }
+        recomputed_teacher = (
+            float(pair_observation["pair_mean_dense_decision_ce"])
+            + float(
+                pair_observation[
+                    "pair_mean_dense_decision_top1_retention_hinge"
+                ]
+            )
+            + float(
+                pair_observation["pair_mean_selected_top_competitor_hinge"]
+            )
+            + float(
+                pair_observation["pair_mean_selected_correct_vs_zero_hinge"]
+            )
+        )
+        recomputed_repair = (
+            float(pair_observation["pair_mean_failed_semantic_ce"])
+            + float(
+                pair_observation[
+                    "pair_mean_failed_semantic_competitor_hinge"
+                ]
+            )
+        )
+        recomputed_total = recomputed_teacher + recomputed_repair
+        arithmetic = (
+            (
+                float(pair_observation["pair_mean_dense_teacher_loss"]),
+                recomputed_teacher,
+            ),
+            (
+                float(
+                    pair_observation["pair_mean_failed_semantic_repair_loss"]
+                ),
+                recomputed_repair,
+            ),
+            (
+                float(pair_observation["pair_mean_total_side_loss"]),
+                recomputed_total,
+            ),
+            (
+                float(pair_observation["reported_objective_total_loss"]),
+                recomputed_total,
+            ),
+            (
+                float(pair_observation["recomputed_objective_total_loss"]),
+                recomputed_total,
+            ),
+        )
+        if any(
+            not math.isclose(actual, expected, rel_tol=1e-5, abs_tol=1e-6)
+            for actual, expected in arithmetic
+        ):
+            raise RuntimeError("V13 pair audit loss arithmetic differs")
+        pair_observations.append(pair_observation)
+
+    def _scene_state_v13_row_audit_payload(self) -> dict[str, object]:
+        completed_cycles = int(
+            getattr(self, "_scene_state_v13_completed_cycles", -1)
+        )
+        row_observations = getattr(
+            self,
+            "_scene_state_v13_row_observations",
+            None,
+        )
+        pair_observations = getattr(
+            self,
+            "_scene_state_v13_pair_observations",
+            None,
+        )
+        observed_pairs = getattr(self, "_scene_state_v13_cycle_pairs", None)
+        if (
+            completed_cycles not in {1, 2, 3, 4}
+            or not isinstance(row_observations, list)
+            or not isinstance(pair_observations, list)
+            or not isinstance(observed_pairs, list)
+            or observed_pairs
+            or len(row_observations) != completed_cycles * 14
+            or len(pair_observations) != completed_cycles * 7
+        ):
+            raise RuntimeError(
+                "V13 checkpoint requires one through four complete seven-pair "
+                "audit cycles"
+            )
+        row_order: list[int] = []
+        by_row: dict[int, dict[str, object]] = {}
+        for observation in row_observations:
+            row_ordinal = int(observation["row_ordinal"])
+            phase = str(observation["phase"])
+            if row_ordinal not in by_row:
+                row_order.append(row_ordinal)
+                by_row[row_ordinal] = {"row_ordinal": row_ordinal}
+            if phase in by_row[row_ordinal]:
+                raise RuntimeError(
+                    f"V13 row audit contains duplicate {phase}: {row_ordinal}"
+                )
+            by_row[row_ordinal][phase] = dict(observation)
+        required_phases = [
+            f"cycle{cycle_index}_input"
+            for cycle_index in range(1, completed_cycles + 1)
+        ]
+        expected_row_order = [
+            ordinal
+            for pair in _SCENE_STATE_V11_FIRST_CYCLE_PAIRS
+            for ordinal in pair
+        ]
+        if row_order != expected_row_order or any(
+            not all(phase in row_payload for phase in required_phases)
+            for row_payload in by_row.values()
+        ):
+            raise RuntimeError("V13 row audit does not cover every phase and row")
+        return {
+            "schema": _SCENE_STATE_V13_ROW_AUDIT_SCHEMA,
+            "memory_objective_version": (
+                _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+            ),
+            "checkpoint_optimizer_step": completed_cycles,
+            "completed_pair_presentations": completed_cycles * 7,
+            "phases": required_phases,
+            "pair_schedule": [
+                {"source_row_ordinal": low, "donor_row_ordinal": high}
+                for low, high in _SCENE_STATE_V13_FOUR_CYCLE_PAIRS[
+                    : completed_cycles * 7
+                ]
+            ],
+            "pair_presentations": [dict(item) for item in pair_observations],
+            "rows": [by_row[row_ordinal] for row_ordinal in row_order],
+        }
+
     def _scene_state_cycle_retention_aggregate_memory_stats(
         self,
         memory_stats: dict[str, float],
@@ -12188,6 +13531,7 @@ class DeltaMemTrainer(Trainer):
             raise RuntimeError("Cycle telemetry accumulator escaped its bounds")
         observed_v11_pairs = getattr(self, "_scene_state_v11_cycle_pairs", [])
         observed_v12_pairs = getattr(self, "_scene_state_v12_cycle_pairs", [])
+        observed_v13_pairs = getattr(self, "_scene_state_v13_cycle_pairs", [])
         if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION and (
             not isinstance(observed_v11_pairs, list)
             or len(observed_v11_pairs) != count + 1
@@ -12201,6 +13545,13 @@ class DeltaMemTrainer(Trainer):
         ):
             raise RuntimeError(
                 "V12 cycle telemetry is missing its ordered pair presentation"
+            )
+        if objective_version == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION and (
+            not isinstance(observed_v13_pairs, list)
+            or len(observed_v13_pairs) != count + 1
+        ):
+            raise RuntimeError(
+                "V13 cycle telemetry is missing its ordered pair presentation"
             )
         numeric_stats = {
             key: float(value)
@@ -12230,6 +13581,7 @@ class DeltaMemTrainer(Trainer):
         cycle_prefix = {
             _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION: "scene_generation_v11",
             _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION: "scene_generation_v12",
+            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION: "scene_generation_v13",
         }.get(objective_version, "scene_generation_v10")
         averaged[f"{cycle_prefix}_cycle_pair_presentations"] = float(
             expected_presentations
@@ -12271,12 +13623,39 @@ class DeltaMemTrainer(Trainer):
                     f"scene_generation_v12_cycle_pair_{pair_index}_high_ordinal"
                 ] = float(high_ordinal)
             self._scene_state_v12_completed_cycles = completed_cycles + 1
+        if objective_version == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION:
+            completed_cycles = int(
+                getattr(self, "_scene_state_v13_completed_cycles", -1)
+            )
+            if completed_cycles not in {0, 1, 2, 3}:
+                raise RuntimeError("V13 completed-cycle telemetry escaped its bounds")
+            expected_pairs = _SCENE_STATE_V13_FOUR_CYCLE_PAIRS[
+                completed_cycles * expected_presentations :
+                (completed_cycles + 1) * expected_presentations
+            ]
+            if tuple(observed_v13_pairs) != tuple(expected_pairs):
+                raise RuntimeError("V13 completed cycle pair order differs")
+            averaged["scene_generation_v13_cycle_index"] = float(
+                completed_cycles + 1
+            )
+            for pair_index, (low_ordinal, high_ordinal) in enumerate(
+                observed_v13_pairs
+            ):
+                averaged[
+                    f"scene_generation_v13_cycle_pair_{pair_index}_low_ordinal"
+                ] = float(low_ordinal)
+                averaged[
+                    f"scene_generation_v13_cycle_pair_{pair_index}_high_ordinal"
+                ] = float(high_ordinal)
+            self._scene_state_v13_completed_cycles = completed_cycles + 1
         self._scene_state_cycle_retention_metric_sums = {}
         self._scene_state_cycle_retention_metric_presentations = 0
         if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION:
             self._scene_state_v11_cycle_pairs = []
         if objective_version == _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION:
             self._scene_state_v12_cycle_pairs = []
+        if objective_version == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION:
+            self._scene_state_v13_cycle_pairs = []
         return averaged
 
     def _record_memory_stats(self, model, memory_stats: dict[str, float]) -> None:
@@ -13422,6 +14801,7 @@ class DeltaMemTrainer(Trainer):
             cycle_prefix = {
                 _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION: "scene_generation_v11",
                 _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION: "scene_generation_v12",
+                _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION: "scene_generation_v13",
             }.get(objective_version, "scene_generation_v10")
             cycle_presentations = getattr(
                 self,
@@ -13908,9 +15288,10 @@ class DeltaMemTrainer(Trainer):
                     "scene_state_source_index",
                     "scene_state_donor_index",
                 )
-                if self.scene_state_generation_objective_version == (
-                    _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION
-                ):
+                if self.scene_state_generation_objective_version in {
+                    _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+                    _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
+                }:
                     symmetric_required += (
                         "scene_state_source_row_sha256",
                         "scene_state_donor_row_sha256",
@@ -14341,6 +15722,13 @@ class DeltaMemTrainer(Trainer):
         ) == _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION:
             # Validate the complete V12 cycle before creating a partial checkpoint.
             audit_payload = self._scene_state_v12_row_audit_payload()
+        elif getattr(
+            self,
+            "scene_state_generation_objective_version",
+            None,
+        ) == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION:
+            # Validate the complete V13 cycle before creating a partial checkpoint.
+            audit_payload = self._scene_state_v13_row_audit_payload()
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         model = self.accelerator.unwrap_model(self.model)
@@ -14350,7 +15738,13 @@ class DeltaMemTrainer(Trainer):
                 json.dumps(self.training_protocol, indent=2, sort_keys=True)
             )
         if audit_payload is not None:
-            (output_path / _SCENE_STATE_V12_ROW_AUDIT_FILENAME).write_text(
+            audit_filename = (
+                _SCENE_STATE_V13_ROW_AUDIT_FILENAME
+                if self.scene_state_generation_objective_version
+                == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+                else _SCENE_STATE_V12_ROW_AUDIT_FILENAME
+            )
+            (output_path / audit_filename).write_text(
                 json.dumps(audit_payload, indent=2, sort_keys=True)
             )
         if self.content_contrast_pairing_manifest is not None:
@@ -15016,6 +16410,23 @@ def _validate_scene_state_v12_two_cycle_schedule(
         raise ValueError("Scene-memory V12 first two cycle order differs")
 
 
+def _validate_scene_state_v13_four_cycle_schedule(
+    curriculum_binding: dict[str, object],
+) -> None:
+    _validate_scene_state_v10_cycle_schedule(curriculum_binding)
+    pair_indices = curriculum_binding.get("pair_indices")
+    schedule_indices = curriculum_binding.get("indices")
+    if (
+        not isinstance(pair_indices, tuple)
+        or tuple(tuple(pair) for pair in pair_indices)
+        != _SCENE_STATE_V13_FOUR_CYCLE_PAIRS
+        or not isinstance(schedule_indices, tuple)
+        or schedule_indices
+        != tuple(low for low, _ in _SCENE_STATE_V13_FOUR_CYCLE_PAIRS)
+    ):
+        raise ValueError("Scene-memory V13 four-cycle order differs")
+
+
 def _validate_scene_state_v8_locked_training_args(
     args: argparse.Namespace,
     curriculum_binding: dict[str, object],
@@ -15654,6 +17065,7 @@ def parse_args() -> argparse.Namespace:
             _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
             _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION,
             _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
         ),
         default=None,
     )
@@ -15922,6 +17334,15 @@ def parse_args() -> argparse.Namespace:
                 "The V12 semantic-margin objective requires "
                 "scene-state-generated-prefix-correction-weight=0"
             )
+        if (
+            args.scene_state_generation_objective_version
+            == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+            and args.scene_state_generated_prefix_correction_weight != 0.0
+        ):
+            raise ValueError(
+                "The V13 dense semantic objective requires "
+                "scene-state-generated-prefix-correction-weight=0"
+            )
     elif args.scene_state_generated_prefix_correction_weight != 0.0:
         raise ValueError(
             "scene-state-generated-prefix-correction-weight requires the symmetric "
@@ -15969,17 +17390,35 @@ def parse_args() -> argparse.Namespace:
                 "The V12 semantic-margin objective forbids checkpoint continuation"
             )
         _validate_scene_v12_warm_start_args(args)
+    if args.scene_state_generation_objective_version == (
+        _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+    ):
+        if (
+            args.warm_start_mode != _SCENE_V13_WARM_START_MODE
+            or args.warm_start_from_checkpoint is None
+        ):
+            raise ValueError(
+                "The V13 dense semantic objective requires its fresh V13 warm start"
+            )
+        if args.resume_from_checkpoint is not None or args.resume_mode != "exact":
+            raise ValueError(
+                "The V13 dense semantic objective forbids checkpoint continuation"
+            )
+        _validate_scene_v13_warm_start_args(args)
     if (
         args.scene_state_generated_unlikelihood_max_wrong_tokens < 0
         or (
             args.scene_state_generated_unlikelihood_max_wrong_tokens == 0
             and args.scene_state_generation_objective_version
-            != _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION
+            not in {
+                _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+                _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
+            }
         )
     ):
         raise ValueError(
             "scene-state-generated-unlikelihood-max-wrong-tokens must be positive "
-            "outside the V12 semantic objective"
+            "outside the V12/V13 semantic objectives"
         )
     if args.scene_state_generated_rollout_extra_tokens < 0:
         raise ValueError(
@@ -19836,6 +21275,14 @@ def build_training_protocol(
         and requested_generation_objective
         == _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION
     )
+    uses_dense_semantic_generation = (
+        is_scene_state_generation
+        and requested_generation_objective
+        == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+    )
+    uses_semantic_rollout_generation = (
+        uses_semantic_margin_generation or uses_dense_semantic_generation
+    )
     uses_cycle_retention_generation = (
         is_scene_state_generation
         and requested_generation_objective
@@ -19847,21 +21294,25 @@ def build_training_protocol(
         in _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
     )
     scene_generation_schema_version = (
-        _SCENE_STATE_SEMANTIC_MARGIN_TRAINING_PROTOCOL_SCHEMA_VERSION
-        if uses_semantic_margin_generation
+        _SCENE_STATE_DENSE_SEMANTIC_TRAINING_PROTOCOL_SCHEMA_VERSION
+        if uses_dense_semantic_generation
         else (
-            _SCENE_STATE_SUFFIX_REPAIR_TRAINING_PROTOCOL_SCHEMA_VERSION
-            if uses_suffix_repair_generation
+            _SCENE_STATE_SEMANTIC_MARGIN_TRAINING_PROTOCOL_SCHEMA_VERSION
+            if uses_semantic_margin_generation
             else (
-                _SCENE_STATE_CYCLE_RETENTION_TRAINING_PROTOCOL_SCHEMA_VERSION
-                if uses_cycle_retention_generation
+                _SCENE_STATE_SUFFIX_REPAIR_TRAINING_PROTOCOL_SCHEMA_VERSION
+                if uses_suffix_repair_generation
                 else (
-                    _SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION
-                    if uses_symmetric_generation
+                    _SCENE_STATE_CYCLE_RETENTION_TRAINING_PROTOCOL_SCHEMA_VERSION
+                    if uses_cycle_retention_generation
                     else (
-                        _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
-                        if uses_generated_unlikelihood
-                        else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+                        _SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION
+                        if uses_symmetric_generation
+                        else (
+                            _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
+                            if uses_generated_unlikelihood
+                            else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+                        )
                     )
                 )
             )
@@ -19991,12 +21442,16 @@ def build_training_protocol(
             (
                 (
                     (
-                        _V12_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
-                        if uses_semantic_margin_generation
+                        _V13_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                        if uses_dense_semantic_generation
                         else (
-                            _V11_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
-                            if uses_suffix_repair_generation
-                            else _V10_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                            _V12_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                            if uses_semantic_margin_generation
+                            else (
+                                _V11_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                                if uses_suffix_repair_generation
+                                else _V10_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                            )
                         )
                     )
                     if uses_cycle_retention_generation
@@ -20059,12 +21514,30 @@ def build_training_protocol(
                 "memory_recover_weight": args.memory_recover_weight,
             }
         )
-        if uses_suffix_repair_generation or uses_semantic_margin_generation:
+        if uses_suffix_repair_generation or uses_semantic_rollout_generation:
             protocol["max_grad_norm"] = args.max_grad_norm
         schedule_protocol = protocol.get("train_schedule")
         if not isinstance(schedule_protocol, dict):
             raise ValueError("V10 cycle-retention protocol requires a fixed pair schedule")
-        if uses_semantic_margin_generation:
+        if uses_dense_semantic_generation:
+            schedule_protocol["checkpoint_steps"] = list(
+                _SCENE_STATE_DENSE_SEMANTIC_PRESENTATION_CHECKPOINT_STEPS
+            )
+            schedule_protocol.update(
+                {
+                    "optimizer_checkpoint_steps": list(
+                        _SCENE_STATE_DENSE_SEMANTIC_CHECKPOINT_STEPS
+                    ),
+                    "microbatch_cycle_size": (
+                        _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                    ),
+                    "continuation_policy": (
+                        _SCENE_STATE_DENSE_SEMANTIC_CONTINUATION_POLICY
+                    ),
+                }
+            )
+            schedule_protocol.pop("resume_schedule_cursor_formula", None)
+        elif uses_semantic_margin_generation:
             schedule_protocol["checkpoint_steps"] = list(
                 _SCENE_STATE_SEMANTIC_MARGIN_PRESENTATION_CHECKPOINT_STEPS
             )
@@ -20372,7 +21845,12 @@ def build_training_protocol(
                     0.0,
                 )
             )
-            if uses_semantic_margin_generation:
+            if uses_dense_semantic_generation:
+                reciprocal_objective_formula = (
+                    _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_FORMULA
+                )
+                reciprocal_backward_mode = _SCENE_STATE_DENSE_SEMANTIC_BACKWARD_MODE
+            elif uses_semantic_margin_generation:
                 reciprocal_objective_formula = (
                     _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_FORMULA
                 )
@@ -20413,21 +21891,25 @@ def build_training_protocol(
                         prefix_correction_weight
                     ),
                     "scene_generation_generated_prefix_correction_mode": (
-                        _SCENE_STATE_SEMANTIC_MARGIN_MODE
-                        if uses_semantic_margin_generation
+                        _SCENE_STATE_DENSE_SEMANTIC_MODE
+                        if uses_dense_semantic_generation
                         else (
-                            _SCENE_STATE_SUFFIX_REPAIR_GENERATED_MODE
-                            if uses_suffix_repair_generation
+                            _SCENE_STATE_SEMANTIC_MARGIN_MODE
+                            if uses_semantic_margin_generation
                             else (
-                                _SCENE_STATE_CYCLE_RETENTION_GENERATED_MODE
-                                if uses_cycle_retention_generation
-                                else _SCENE_STATE_SYMMETRIC_GENERATED_MODE
+                                _SCENE_STATE_SUFFIX_REPAIR_GENERATED_MODE
+                                if uses_suffix_repair_generation
+                                else (
+                                    _SCENE_STATE_CYCLE_RETENTION_GENERATED_MODE
+                                    if uses_cycle_retention_generation
+                                    else _SCENE_STATE_SYMMETRIC_GENERATED_MODE
+                                )
                             )
                         )
                     ),
                     "scene_generation_generated_prefix_max_correction_events": (
                         0
-                        if uses_semantic_margin_generation
+                        if uses_semantic_rollout_generation
                         else 1
                         if uses_suffix_repair_generation
                         else generated_unlikelihood_max_wrong_tokens
@@ -20439,7 +21921,75 @@ def build_training_protocol(
                     "scene_generation_pair_directional_exposures": 2,
                 }
             )
-            if uses_semantic_margin_generation:
+            if uses_dense_semantic_generation:
+                protocol.update(
+                    {
+                        "scene_generation_parsed_exactness": (
+                            "benchmark_literal_boundary_set_equality_v1"
+                        ),
+                        "scene_generation_parsed_exactness_mode": (
+                            "parsed_json_literal_boundary_equality_v1"
+                        ),
+                        "scene_generation_raw_token_exactness_role": "telemetry_only",
+                        "scene_generation_raw_token_exact_optimization_weight": 0.0,
+                        "scene_generation_failed_decision_alignment": (
+                            _SCENE_STATE_DENSE_SEMANTIC_FAILED_ALIGNMENT_MODE
+                        ),
+                        "scene_generation_failed_prefix_replay": (
+                            "detached_actual_greedy_prefix_reprime_history_with_gradient_v1"
+                        ),
+                        "scene_generation_failed_replay_mode": (
+                            "detached_actual_greedy_prefix_differentiable_replay_v1"
+                        ),
+                        "scene_generation_dense_semantic_mode": (
+                            _SCENE_STATE_DENSE_SEMANTIC_MODE
+                        ),
+                        "scene_generation_dense_decision_scope": (
+                            "all_boundary_decision_mask_tokens_v1"
+                        ),
+                        "scene_generation_dense_decision_token_overlap_policy": (
+                            _SCENE_STATE_DENSE_SEMANTIC_DECISION_TOKEN_OVERLAP_POLICY
+                        ),
+                        "scene_generation_dense_decision_ce_weight": 1.0,
+                        "scene_generation_dense_top1_retention_hinge_weight": 1.0,
+                        "scene_generation_dense_top1_retention_hinge_mode": (
+                            _SCENE_STATE_DENSE_SEMANTIC_RETENTION_HINGE_MODE
+                        ),
+                        "scene_generation_dense_top1_retention_margin": (
+                            _SCENE_STATE_DENSE_SEMANTIC_MARGIN_VALUE
+                        ),
+                        "scene_generation_failed_semantic_repair_ce_weight": 1.0,
+                        "scene_generation_failed_semantic_repair_hinge_weight": 1.0,
+                        "scene_generation_failed_semantic_repair_margin": (
+                            _SCENE_STATE_SEMANTIC_MARGIN_VALUE
+                        ),
+                        "scene_generation_full_answer_ce_optimization_weight": 0.0,
+                        "scene_generation_schema_ce_optimization_weight": 0.0,
+                        "scene_generation_schema_ce_optimization_scope": (
+                            "standalone_schema_mask_partition_only_v1"
+                        ),
+                        "scene_generation_footer_ce_optimization_weight": 0.0,
+                        "scene_generation_termination_ce_optimization_weight": 0.0,
+                        "scene_generation_selected_full_vocab_ce_in_total": False,
+                        "scene_generation_selected_full_vocab_ce_optimization_weight": 0.0,
+                        "scene_generation_cycle_pair_presentations": (
+                            _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                        ),
+                        "scene_generation_gradient_accumulation_pair_cycle": (
+                            _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                        ),
+                        "scene_generation_cycle_retention_mode": (
+                            _SCENE_STATE_CYCLE_RETENTION_MODE
+                        ),
+                        "scene_generation_row_objective_audit_filename": (
+                            _SCENE_STATE_V13_ROW_AUDIT_FILENAME
+                        ),
+                        "scene_generation_row_objective_audit_schema": (
+                            _SCENE_STATE_V13_ROW_AUDIT_SCHEMA
+                        ),
+                    }
+                )
+            elif uses_semantic_margin_generation:
                 protocol.update(
                     {
                         "scene_generation_parsed_exactness": (
@@ -21488,6 +23038,10 @@ def main() -> None:
             in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
         ):
             if args.scene_state_generation_objective_version == (
+                _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+            ):
+                _validate_scene_state_v13_four_cycle_schedule(v9_schedule_binding)
+            elif args.scene_state_generation_objective_version == (
                 _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION
             ):
                 _validate_scene_state_v12_two_cycle_schedule(v9_schedule_binding)
@@ -21497,13 +23051,19 @@ def main() -> None:
             raise ValueError(
                 "Scene-memory V9 fixed pair curriculum forbids random or length sampling"
             )
-        max_pair_training_steps = (
-            len(
+        cycle_checkpoint_steps = (
+            _SCENE_STATE_DENSE_SEMANTIC_CHECKPOINT_STEPS
+            if args.scene_state_generation_objective_version
+            == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
+            else (
                 _SCENE_STATE_SEMANTIC_MARGIN_CHECKPOINT_STEPS
                 if args.scene_state_generation_objective_version
                 == _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION
                 else _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS
             )
+        )
+        max_pair_training_steps = (
+            len(cycle_checkpoint_steps)
             if args.scene_state_generation_objective_version
             in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
             else int(train_schedule_binding["total_steps"])
@@ -21935,6 +23495,16 @@ def main() -> None:
                 target_training_protocol_sha256=training_protocol_sha256,
                 target_pairing_manifest=scene_state_identity_pairing_manifest,
             )
+        elif warm_start_context.mode == _SCENE_V13_WARM_START_MODE:
+            if scene_state_identity_pairing_manifest is None:
+                raise RuntimeError(
+                    "Scene V13 warm start requires scene-state pairing metadata"
+                )
+            finalize_scene_v13_warm_start_lineage(
+                warm_start_context,
+                target_training_protocol_sha256=training_protocol_sha256,
+                target_pairing_manifest=scene_state_identity_pairing_manifest,
+            )
         else:
             raise RuntimeError(
                 f"Unsupported adapter warm-start mode: {warm_start_context.mode}"
@@ -22187,6 +23757,14 @@ def main() -> None:
         and warm_start_context.mode == _SCENE_V12_WARM_START_MODE
     ):
         record_scene_v12_fresh_optimizer_lineage(
+            trainer,
+            warm_start_context,
+        )
+    elif (
+        warm_start_context is not None
+        and warm_start_context.mode == _SCENE_V13_WARM_START_MODE
+    ):
+        record_scene_v13_fresh_optimizer_lineage(
             trainer,
             warm_start_context,
         )
