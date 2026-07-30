@@ -96,6 +96,14 @@ from experiments.rethinking_rwkv_ms_gemma.scene_memory_v10_warm_start import (
     apply_v10_v8_checkpoint56_adapter_only_warm_start,
     prepare_v10_v8_checkpoint56_warm_start,
 )
+from experiments.rethinking_rwkv_ms_gemma.scene_memory_v11_warm_start import (
+    RECEIPT_SCHEMA as SCENE_V11_WARM_START_RECEIPT_SCHEMA,
+    V11FreshStartContract,
+    V11WarmStartContext,
+    WARM_START_MODE as SCENE_V11_WARM_START_MODE,
+    apply_v11_v8_checkpoint56_adapter_only_warm_start,
+    prepare_v11_v8_checkpoint56_warm_start,
+)
 from experiments.rethinking_rwkv_ms_gemma.scene_memory_v9_launch_contract import (
     validate_checkpoint_contract as validate_v9_checkpoint_contract,
     validate_data_contract as validate_v9_data_contract,
@@ -292,11 +300,13 @@ _WARM_START_MODES = (
     SCENE_V8_WARM_START_MODE,
     SCENE_V9_WARM_START_MODE,
     SCENE_V10_WARM_START_MODE,
+    SCENE_V11_WARM_START_MODE,
 )
 _RESIDUAL_HYBRID_W8_WARM_START_MODE = _WARM_START_MODES[0]
 _SCENE_V8_WARM_START_MODE = _WARM_START_MODES[1]
 _SCENE_V9_WARM_START_MODE = _WARM_START_MODES[2]
 _SCENE_V10_WARM_START_MODE = _WARM_START_MODES[3]
+_SCENE_V11_WARM_START_MODE = _WARM_START_MODES[4]
 _CONTINUATION_SCHEDULERS = frozenset({"constant", "constant_with_warmup"})
 _REPRESENTATION_CAPTURE_FUSION_PLACEMENTS = frozenset(
     {"attention_output", "post_attention_residual_hybrid"}
@@ -511,14 +521,91 @@ _SCENE_STATE_CYCLE_RETENTION_LOG_METRICS = (
     "scene_generation_v10_donor_prefix_positive_gold_ce",
     "scene_generation_v10_donor_prefix_wrong_token_unlikelihood",
 )
+_SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION = (
+    "scene_state_generation_ce_symmetric_cycle_suffix_repair_v5"
+)
+_SCENE_STATE_SUFFIX_REPAIR_TRAINING_PROTOCOL_SCHEMA_VERSION = 14
+_SCENE_STATE_SUFFIX_REPAIR_BACKWARD_MODE = (
+    "sequential_pair_zero_probe_full_gold_first_error_all_target_retention_"
+    "then_first_divergence_gold_suffix_replay_v6"
+)
+_SCENE_STATE_SUFFIX_REPAIR_GENERATED_MODE = (
+    "first_raw_token_divergence_common_prefix_weighted_gold_suffix_ce_first_"
+    "generated_wrong_unlikelihood_v5"
+)
+_SCENE_STATE_SUFFIX_REPAIR_MODE = _SCENE_STATE_SUFFIX_REPAIR_GENERATED_MODE
+_SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_FORMULA = (
+    "symmetric_pair_mean(weighted_full_gold_ce(schema=2,decision=4,termination=1) "
+    "+ first_error_top1_hinge(0.2) + "
+    "all_target_top1_retention_hinge(0.2) + "
+    "selected_top_competitor_hinge(0.2) + "
+    "selected_correct_vs_detached_zero_nll_hinge(0.2) + 0.5 * "
+    "first_divergence_suffix_repair(weighted_gold_suffix_ce(schema=2,decision=4,"
+    "termination=1) + first_generated_wrong_unlikelihood)); "
+    "selected_full_vocab_ce=telemetry_only"
+)
+_SCENE_STATE_SUFFIX_REPAIR_LOG_METRICS = (
+    "scene_generation_v11_objective_total_loss",
+    "scene_generation_v11_objective_teacher_loss",
+    "scene_generation_v11_objective_suffix_repair_weighted_loss",
+    "scene_generation_v11_pair_mean_weighted_suffix_ce",
+    "scene_generation_v11_pair_mean_first_error_top1_hinge",
+    "scene_generation_v11_pair_mean_all_target_top1_retention_hinge",
+    "scene_generation_v11_pair_mean_selected_full_vocab_ce_telemetry_only",
+    "scene_generation_v11_pair_mean_selected_top_competitor_hinge",
+    "scene_generation_v11_pair_mean_selected_correct_vs_zero_hinge",
+    "scene_generation_v11_pair_mean_repair_weighted_suffix_ce",
+    "scene_generation_v11_pair_mean_repair_first_wrong_unlikelihood",
+    "scene_generation_v11_pair_mean_repair_first_divergence",
+    "scene_generation_v11_pair_mean_repair_tail_token_count",
+    "scene_generation_v11_pair_mean_generated_exact_fraction",
+    "scene_generation_v11_pair_mean_all_target_gold_vs_top_competitor_margin",
+    "scene_generation_v11_pair_mean_all_target_top1_fraction",
+    "scene_generation_v11_pair_mean_selected_gold_vs_top_competitor_margin",
+    "scene_generation_v11_pair_mean_selected_zero_minus_correct_nll",
+    "scene_generation_v11_pair_mean_selected_top1_fraction",
+    "scene_generation_v11_pair_mean_selected_correct_beats_zero_fraction",
+    "scene_generation_v11_source_weighted_suffix_ce",
+    "scene_generation_v11_source_first_error_top1_hinge",
+    "scene_generation_v11_source_all_target_top1_retention_hinge",
+    "scene_generation_v11_source_selected_full_vocab_ce_telemetry_only",
+    "scene_generation_v11_source_selected_top_competitor_hinge",
+    "scene_generation_v11_source_selected_correct_vs_zero_hinge",
+    "scene_generation_v11_source_repair_weighted_suffix_ce",
+    "scene_generation_v11_source_repair_first_wrong_unlikelihood",
+    "scene_generation_v11_source_repair_first_divergence",
+    "scene_generation_v11_source_repair_tail_token_count",
+    "scene_generation_v11_source_generated_exact_fraction",
+    "scene_generation_v11_donor_weighted_suffix_ce",
+    "scene_generation_v11_donor_first_error_top1_hinge",
+    "scene_generation_v11_donor_all_target_top1_retention_hinge",
+    "scene_generation_v11_donor_selected_full_vocab_ce_telemetry_only",
+    "scene_generation_v11_donor_selected_top_competitor_hinge",
+    "scene_generation_v11_donor_selected_correct_vs_zero_hinge",
+    "scene_generation_v11_donor_repair_weighted_suffix_ce",
+    "scene_generation_v11_donor_repair_first_wrong_unlikelihood",
+    "scene_generation_v11_donor_repair_first_divergence",
+    "scene_generation_v11_donor_repair_tail_token_count",
+    "scene_generation_v11_donor_generated_exact_fraction",
+)
+_SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS = frozenset(
+    {
+        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
+        _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION,
+    }
+)
 _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS = frozenset(
     {
         _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
         _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
+        _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION,
     }
 )
 _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS = 7
 _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS = (1, 2, 3, 4)
+_SCENE_STATE_SUFFIX_REPAIR_CHECKPOINT_STEPS = (1,)
+_SCENE_STATE_SUFFIX_REPAIR_PRESENTATION_CHECKPOINT_STEPS = (7,)
+_SCENE_STATE_SUFFIX_REPAIR_CONTINUATION_POLICY = "forbidden"
 _SCENE_STATE_GENERATION_MASK_MODE = (
     "exact_system_only_generation_prefix_content_schema_decision_termination_v1"
 )
@@ -537,6 +624,18 @@ _V9_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
 )
 _V10_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
     "explicit_ordered_v10_canonical_seven_pair_cycle_v1"
+)
+_V11_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
+    "explicit_ordered_v11_canonical_seven_pair_cycle_v1"
+)
+_SCENE_STATE_V11_FIRST_CYCLE_PAIRS = (
+    (3, 24),
+    (19, 28),
+    (20, 31),
+    (10, 23),
+    (1, 14),
+    (5, 9),
+    (22, 26),
 )
 _SCENE_MEMORY_V8_WARMUP_STEPS = 4
 _SCENE_MEMORY_V8_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v8_source.v1"
@@ -660,6 +759,8 @@ class AdapterWarmStartContext:
     scene_v9_fresh_start: V9FreshStartContract | None = None
     scene_v10_context: V10WarmStartContext | None = None
     scene_v10_fresh_start: V10FreshStartContract | None = None
+    scene_v11_context: V11WarmStartContext | None = None
+    scene_v11_fresh_start: V11FreshStartContract | None = None
 
 
 def _sha256_file(path: Path) -> str:
@@ -1117,6 +1218,7 @@ def resolve_adapter_warm_start_checkpoint(
     elif warm_start_mode in {
         _SCENE_V9_WARM_START_MODE,
         _SCENE_V10_WARM_START_MODE,
+        _SCENE_V11_WARM_START_MODE,
     }:
         required_files = SCENE_V9_REQUIRED_WARM_START_ARTIFACTS
     else:
@@ -1425,6 +1527,32 @@ def _validate_scene_v10_warm_start_args(args: argparse.Namespace) -> None:
         )
 
 
+def _validate_scene_v11_warm_start_args(args: argparse.Namespace) -> None:
+    mismatches = []
+    if args.warm_start_mode != _SCENE_V11_WARM_START_MODE:
+        mismatches.append("warm_start_mode")
+    if args.scene_state_generation_objective_version != (
+        _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
+    ):
+        mismatches.append("scene_state_generation_objective_version")
+    if args.scene_state_generated_unlikelihood_max_wrong_tokens != 1:
+        mismatches.append("scene_state_generated_unlikelihood_max_wrong_tokens")
+    if args.max_grad_norm != 1.0:
+        mismatches.append("max_grad_norm")
+    normalized = argparse.Namespace(**vars(args))
+    normalized.warm_start_mode = _SCENE_V10_WARM_START_MODE
+    normalized.scene_state_generation_objective_version = (
+        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+    )
+    normalized.scene_state_generated_unlikelihood_max_wrong_tokens = 4
+    _validate_scene_v10_warm_start_args(normalized)
+    if mismatches:
+        raise ValueError(
+            "Scene V11 warm-start target contract differs for: "
+            + ", ".join(sorted(set(mismatches)))
+        )
+
+
 def _validate_adapter_warm_start_args(args: argparse.Namespace) -> None:
     if args.warm_start_mode == _RESIDUAL_HYBRID_W8_WARM_START_MODE:
         _validate_residual_hybrid_w8_warm_start_args(args)
@@ -1437,6 +1565,9 @@ def _validate_adapter_warm_start_args(args: argparse.Namespace) -> None:
         return
     if args.warm_start_mode == _SCENE_V10_WARM_START_MODE:
         _validate_scene_v10_warm_start_args(args)
+        return
+    if args.warm_start_mode == _SCENE_V11_WARM_START_MODE:
+        _validate_scene_v11_warm_start_args(args)
         return
     raise ValueError(f"Unsupported adapter warm-start mode: {args.warm_start_mode}")
 
@@ -1516,6 +1647,34 @@ def prepare_adapter_warm_start(
             },
             scene_v8_context=pinned_context,
             scene_v8_fresh_start=V8FreshStartContract(
+                resume_from_checkpoint=None,
+                initial_global_step=0,
+                optimizer_created=False,
+                scheduler_created=False,
+                trainer_state_imported=False,
+                rng_state_imported=False,
+                optim=args.optim,
+            ),
+        )
+
+    if args.warm_start_mode == _SCENE_V11_WARM_START_MODE:
+        pinned_context = prepare_v11_v8_checkpoint56_warm_start(
+            checkpoint,
+            lock_path=SCENE_V9_WARM_START_LOCK_PATH,
+        )
+        source_config = HFDeltaMemConfig.from_pretrained(checkpoint)
+        return AdapterWarmStartContext(
+            checkpoint=checkpoint,
+            mode=_SCENE_V11_WARM_START_MODE,
+            source_protocol=pinned_context.source_training_protocol,
+            source_config=source_config,
+            manifest={
+                "schema_version": _WARM_START_LINEAGE_SCHEMA_VERSION,
+                "mode": _SCENE_V11_WARM_START_MODE,
+                "source_checkpoint": str(checkpoint),
+            },
+            scene_v11_context=pinned_context,
+            scene_v11_fresh_start=V11FreshStartContract(
                 resume_from_checkpoint=None,
                 initial_global_step=0,
                 optimizer_created=False,
@@ -2465,6 +2624,44 @@ def apply_adapter_warm_start(
         receipt_without_hash.pop("receipt_sha256", None)
         receipt["receipt_sha256"] = _canonical_json_sha256(receipt_without_hash)
         return receipt
+    if context.mode == _SCENE_V11_WARM_START_MODE:
+        if (
+            context.scene_v11_context is None
+            or context.scene_v11_fresh_start is None
+        ):
+            raise ValueError("Scene V11 warm-start context is incomplete")
+        source_config = context.source_config.to_dict()
+        target_config_payload = target_config.to_dict()
+        config_mismatches = sorted(
+            key
+            for key in set(source_config) | set(target_config_payload)
+            if source_config.get(key) != target_config_payload.get(key)
+        )
+        if config_mismatches:
+            raise ValueError(
+                "Scene V11 requires topology-exact V8/V11 Delta-Mem config; differs for: "
+                + ", ".join(config_mismatches)
+            )
+        receipt = apply_v11_v8_checkpoint56_adapter_only_warm_start(
+            model,
+            context.scene_v11_context,
+            fresh_start=context.scene_v11_fresh_start,
+        )
+        receipt.update(
+            {
+                "target_delta_config_sha256": _protocol_sha256(
+                    target_config_payload
+                ),
+                "target_trainable_tensor_count": len(trainable_names),
+                "target_trainable_names_sha256": _protocol_sha256(
+                    {"ordered_trainable_names": trainable_names}
+                ),
+            }
+        )
+        receipt_without_hash = dict(receipt)
+        receipt_without_hash.pop("receipt_sha256", None)
+        receipt["receipt_sha256"] = _canonical_json_sha256(receipt_without_hash)
+        return receipt
     if context.mode != _RESIDUAL_HYBRID_W8_WARM_START_MODE:
         raise ValueError(f"Unsupported adapter warm-start mode: {context.mode}")
     _validate_residual_hybrid_w8_delta_config_transition(
@@ -2688,8 +2885,8 @@ def _scene_memory_v9_protocol_checkpoint_steps(
 ) -> tuple[int, ...] | None:
     if protocol is None:
         return None
-    if protocol.get("memory_objective_version") == (
-        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+    if protocol.get("memory_objective_version") in (
+        _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
     ):
         return None
     schedule = protocol.get("train_schedule")
@@ -2708,15 +2905,35 @@ def _scene_memory_v10_protocol_checkpoint_steps(
 ) -> tuple[int, ...] | None:
     if protocol is None:
         return None
-    if protocol.get("memory_objective_version") != (
-        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
-    ):
+    objective_version = protocol.get("memory_objective_version")
+    if objective_version not in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS:
         return None
     schedule = protocol.get("train_schedule")
     if not isinstance(schedule, dict) or schedule.get("schema") != (
         _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
     ):
         raise ValueError("Scene-memory V10 cycle protocol schedule differs")
+    if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION:
+        if (
+            schedule.get("checkpoint_steps")
+            != list(_SCENE_STATE_SUFFIX_REPAIR_PRESENTATION_CHECKPOINT_STEPS)
+            or schedule.get("optimizer_checkpoint_steps")
+            != list(_SCENE_STATE_SUFFIX_REPAIR_CHECKPOINT_STEPS)
+            or schedule.get("microbatch_cycle_size")
+            != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            or schedule.get("continuation_policy")
+            != _SCENE_STATE_SUFFIX_REPAIR_CONTINUATION_POLICY
+            or "resume_schedule_cursor_formula" in schedule
+            or protocol.get("max_steps") != 1
+            or protocol.get("gradient_accumulation_steps")
+            != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            or protocol.get("train_sampler_mode")
+            != _V11_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+            or protocol.get("ignore_data_skip") is not False
+            or protocol.get("logging_steps") != 1
+        ):
+            raise ValueError("Scene-memory V11 cycle protocol differs")
+        return _SCENE_STATE_SUFFIX_REPAIR_CHECKPOINT_STEPS
     if (
         schedule.get("checkpoint_steps") != [7, 14, 21, 28]
         or schedule.get("optimizer_checkpoint_steps")
@@ -3674,8 +3891,8 @@ def prepare_training_continuation(
         "lr_scheduler_type": str(source_protocol["lr_scheduler_type"]),
         "warmup_steps": int(source_protocol["warmup_steps"]),
     }
-    if source_protocol.get("memory_objective_version") == (
-        _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+    if source_protocol.get("memory_objective_version") in (
+        _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
     ):
         manifest.update(
             {
@@ -3926,6 +4143,35 @@ def finalize_scene_v10_warm_start_lineage(
     context.manifest["receipt_sha256"] = _canonical_json_sha256(unsigned)
 
 
+def finalize_scene_v11_warm_start_lineage(
+    context: AdapterWarmStartContext,
+    *,
+    target_training_protocol_sha256: str,
+    target_pairing_manifest: dict[str, object],
+) -> None:
+    if context.mode != _SCENE_V11_WARM_START_MODE:
+        raise ValueError("Scene V11 lineage finalizer received another warm-start mode")
+    pairing_sha256 = target_pairing_manifest.get("manifest_sha256")
+    if not _is_sha256(target_training_protocol_sha256) or not _is_sha256(
+        pairing_sha256
+    ):
+        raise ValueError(
+            "Scene V11 target protocol and pairing hashes must be SHA256 values"
+        )
+    context.manifest.update(
+        {
+            "target_training_protocol_sha256": target_training_protocol_sha256,
+            "target_scene_state_pairing_manifest_sha256": pairing_sha256,
+            "trainer_resume_from_checkpoint": None,
+            "target_initial_global_step": 0,
+            "fresh_adamw_creation_required_after_adapter_load": True,
+        }
+    )
+    unsigned = dict(context.manifest)
+    unsigned.pop("receipt_sha256", None)
+    context.manifest["receipt_sha256"] = _canonical_json_sha256(unsigned)
+
+
 def record_scene_v8_fresh_optimizer_lineage(
     trainer,
     warm_start_context: AdapterWarmStartContext,
@@ -4017,6 +4263,43 @@ def record_scene_v10_fresh_optimizer_lineage(
         raise RuntimeError("Scene V10 requires a freshly created torch AdamW")
     if trainer.optimizer.state:
         raise RuntimeError("Scene V10 fresh AdamW unexpectedly contains state")
+    warm_start_context.manifest.update(
+        {
+            "pre_train_global_step": 0,
+            "fresh_optimizer_created": True,
+            "fresh_optimizer_class": (
+                f"{trainer.optimizer.__class__.__module__}."
+                f"{trainer.optimizer.__class__.__qualname__}"
+            ),
+            "fresh_optimizer_state_entries_before_train": 0,
+            "fresh_scheduler_created_before_train": False,
+        }
+    )
+    unsigned_warm_start_receipt = dict(warm_start_context.manifest)
+    unsigned_warm_start_receipt.pop("receipt_sha256", None)
+    warm_start_context.manifest["receipt_sha256"] = _canonical_json_sha256(
+        unsigned_warm_start_receipt
+    )
+    trainer.continuation_manifest = dict(warm_start_context.manifest)
+
+
+def record_scene_v11_fresh_optimizer_lineage(
+    trainer,
+    warm_start_context: AdapterWarmStartContext,
+) -> None:
+    if warm_start_context.mode != _SCENE_V11_WARM_START_MODE:
+        raise ValueError("Scene V11 optimizer evidence requires its warm-start mode")
+    if trainer.state.global_step != 0:
+        raise RuntimeError("Scene V11 Trainer did not initialize at global step 0")
+    if trainer.optimizer is not None or trainer.lr_scheduler is not None:
+        raise RuntimeError(
+            "Scene V11 Trainer imported optimizer or scheduler state before creation"
+        )
+    trainer.create_optimizer()
+    if not isinstance(trainer.optimizer, torch.optim.AdamW):
+        raise RuntimeError("Scene V11 requires a freshly created torch AdamW")
+    if trainer.optimizer.state:
+        raise RuntimeError("Scene V11 fresh AdamW unexpectedly contains state")
     warm_start_context.manifest.update(
         {
             "pre_train_global_step": 0,
@@ -4311,6 +4594,7 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION,
             _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
             _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
+            _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION,
         }
         if normalized_generation_objective not in supported_generation_objectives:
             raise ValueError(
@@ -4332,12 +4616,12 @@ class DeltaMemTrainer(Trainer):
                 )
             if (
                 normalized_generation_objective
-                == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+                in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
                 and scene_state_generated_prefix_correction_weight
                 != _SCENE_STATE_SYMMETRIC_PREFIX_CORRECTION_WEIGHT
             ):
                 raise ValueError(
-                    "The V10 cycle-retention objective requires generated-prefix "
+                    "The cycle generation objective requires generated-prefix "
                     "correction weight 0.5"
                 )
         elif scene_state_generated_prefix_correction_weight != 0.0:
@@ -4470,6 +4754,10 @@ class DeltaMemTrainer(Trainer):
         self.continuation_manifest = (
             None if continuation_manifest is None else dict(continuation_manifest)
         )
+        if self.scene_state_generation_objective_version == (
+            _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
+        ):
+            self._validate_scene_state_v11_trainer_contract()
         self.memory_dropout_counts = {"both": 0, "state_only": 0, "no_memory": 0}
         self._last_write_sparsity_loss = 0.0
         self._last_memory_keep_loss = 0.0
@@ -4538,6 +4826,7 @@ class DeltaMemTrainer(Trainer):
         self._last_scene_generation_objective_logs: dict[str, float] = {}
         self._scene_state_cycle_retention_metric_sums: dict[str, float] = {}
         self._scene_state_cycle_retention_metric_presentations = 0
+        self._scene_state_v11_cycle_pairs: list[tuple[int, int]] = []
         self._last_memory_teacher_loss = 0.0
         self._last_scene_boundary_full_ce_loss = 0.0
         self._last_scene_boundary_payload_ce_loss = 0.0
@@ -7167,6 +7456,93 @@ class DeltaMemTrainer(Trainer):
         set_delta_mem_write_enabled(model, True)
         return objective_values[0] * gradient_scale, memory_stats
 
+    def _validate_scene_state_v11_trainer_contract(self) -> None:
+        protocol = self.training_protocol
+        lineage = self.continuation_manifest
+        schedule_binding = self.train_schedule_binding
+        schedule_indices = self.train_schedule_indices
+        mismatches: list[str] = []
+        if self.resume_mode != "exact":
+            mismatches.append("resume_mode")
+        if (
+            self.args.max_steps != 1
+            or self.args.gradient_accumulation_steps
+            != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+            or self.args.max_grad_norm != 1.0
+        ):
+            mismatches.append("training_horizon")
+        if not isinstance(protocol, dict):
+            mismatches.append("training_protocol")
+        else:
+            schedule = protocol.get("train_schedule")
+            if (
+                protocol.get("schema_version")
+                != _SCENE_STATE_SUFFIX_REPAIR_TRAINING_PROTOCOL_SCHEMA_VERSION
+                or protocol.get("memory_objective_version")
+                != _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
+                or protocol.get("max_steps") != 1
+                or protocol.get("gradient_accumulation_steps")
+                != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                or protocol.get("max_grad_norm") != 1.0
+                or protocol.get("train_sampler_mode")
+                != _V11_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                or protocol.get("ignore_data_skip") is not False
+                or not isinstance(schedule, dict)
+                or schedule.get("schema") != _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
+                or schedule.get("checkpoint_steps")
+                != list(_SCENE_STATE_SUFFIX_REPAIR_PRESENTATION_CHECKPOINT_STEPS)
+                or schedule.get("optimizer_checkpoint_steps")
+                != list(_SCENE_STATE_SUFFIX_REPAIR_CHECKPOINT_STEPS)
+                or schedule.get("microbatch_cycle_size")
+                != _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                or schedule.get("continuation_policy")
+                != _SCENE_STATE_SUFFIX_REPAIR_CONTINUATION_POLICY
+                or "resume_schedule_cursor_formula" in schedule
+            ):
+                mismatches.append("training_protocol")
+        if not isinstance(lineage, dict):
+            mismatches.append("fresh_v11_warm_start")
+        else:
+            fresh_start = lineage.get("target_fresh_start")
+            if (
+                lineage.get("schema") != SCENE_V11_WARM_START_RECEIPT_SCHEMA
+                or lineage.get("mode") != _SCENE_V11_WARM_START_MODE
+                or lineage.get("source_global_step") != 56
+                or lineage.get("trainer_resume_from_checkpoint") is not None
+                or lineage.get("target_initial_global_step") != 0
+                or not isinstance(fresh_start, dict)
+                or fresh_start.get("initial_global_step") != 0
+                or fresh_start.get("optimizer_state") != "fresh"
+                or fresh_start.get("scheduler_state") != "fresh"
+                or fresh_start.get("trainer_state") != "fresh"
+                or fresh_start.get("rng_state") != "fresh_from_v11_seed"
+            ):
+                mismatches.append("fresh_v11_warm_start")
+        if not isinstance(schedule_binding, dict):
+            mismatches.append("one_cycle_schedule")
+        else:
+            pair_indices = schedule_binding.get("pair_indices")
+            if (
+                schedule_binding.get("schema") != _SCENE_MEMORY_V9_CURRICULUM_SCHEMA
+                or schedule_binding.get("total_steps") != 28
+                or not isinstance(pair_indices, tuple)
+                or tuple(tuple(pair) for pair in pair_indices[:7])
+                != _SCENE_STATE_V11_FIRST_CYCLE_PAIRS
+            ):
+                mismatches.append("one_cycle_schedule")
+        if (
+            not isinstance(schedule_indices, tuple)
+            or len(schedule_indices) != 28
+            or tuple(schedule_indices[:7])
+            != tuple(low for low, _ in _SCENE_STATE_V11_FIRST_CYCLE_PAIRS)
+        ):
+            mismatches.append("one_cycle_schedule")
+        if mismatches:
+            raise ValueError(
+                "V11 trainer contract differs for: "
+                + ", ".join(sorted(set(mismatches)))
+            )
+
     def _validate_scene_state_generation_runtime(self) -> None:
         if self.episode_read_write_enabled:
             raise ValueError(
@@ -7210,7 +7586,7 @@ class DeltaMemTrainer(Trainer):
         )
         expected_accumulation_steps = (
             _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
-            if objective_version == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            if objective_version in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
             else 1
         )
         if accumulation_steps != expected_accumulation_steps:
@@ -7220,14 +7596,14 @@ class DeltaMemTrainer(Trainer):
                 f"{expected_accumulation_steps} for objective {objective_version}"
             )
         if (
-            objective_version == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            objective_version in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
             and bool(getattr(getattr(self, "args", None), "ignore_data_skip", False))
         ):
             raise ValueError(
-                "V10 cycle-retention runtime requires ignore_data_skip=False"
+                "Cycle generation runtime requires ignore_data_skip=False"
             )
         if (
-            objective_version == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            objective_version in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
             and getattr(
                 getattr(self, "accelerator", None),
                 "gradient_accumulation_steps",
@@ -7236,7 +7612,7 @@ class DeltaMemTrainer(Trainer):
             != 1
         ):
             raise ValueError(
-                "V10 cycle-retention runtime requires the Trainer-managed "
+                "Cycle generation runtime requires the Trainer-managed "
                 "accelerator accumulation factor to remain 1"
             )
         optimizer_name = str(
@@ -7278,7 +7654,7 @@ class DeltaMemTrainer(Trainer):
             "scene_state_generation_objective_version",
             _SCENE_STATE_GENERATION_OBJECTIVE_VERSION,
         )
-        if objective_version == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION:
+        if objective_version in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS:
             return 1.0 / accumulation_steps
         if (
             (not self.model_accepts_loss_kwargs or num_items_in_batch is None)
@@ -8237,6 +8613,224 @@ class DeltaMemTrainer(Trainer):
         other_logsumexp = torch.logsumexp(other_logits, dim=1)
         return F.softplus(wrong_logits - other_logsumexp).mean()
 
+    def _scene_state_generated_suffix_repair_branch(
+        self,
+        model,
+        model_inputs: dict[str, torch.Tensor],
+        *,
+        online_state_snapshot: dict[str, torch.Tensor],
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        write_message_ids: torch.Tensor | None,
+        write_sentence_ids: torch.Tensor | None,
+        target_mask: torch.Tensor,
+        schema_mask: torch.Tensor,
+        decision_mask: torch.Tensor,
+        termination_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor | None, dict[str, float]]:
+        rollout = self._scene_state_generated_greedy_rollout(
+            model,
+            model_inputs,
+            online_state_snapshot=online_state_snapshot,
+            target_mask=target_mask,
+            termination_mask=termination_mask,
+        )
+        generated_token_ids = rollout["generated_token_ids"]
+        gold_token_ids = rollout["gold_token_ids"]
+        first_divergence = int(rollout["first_divergence"])
+        exact = bool(rollout["exact_through_termination"])
+        stats = {
+            "scene_generation_suffix_repair_weighted_ce": 0.0,
+            "scene_generation_suffix_repair_first_wrong_unlikelihood": 0.0,
+            "scene_generation_suffix_repair_first_divergence": float(
+                first_divergence
+            ),
+            "scene_generation_suffix_repair_repaired_tail_token_count": 0.0,
+            "scene_generation_suffix_repair_exact_fraction": float(exact),
+            "scene_generation_suffix_repair_rollout_token_count": float(
+                generated_token_ids.numel()
+            ),
+        }
+        if exact:
+            return None, stats
+        if generated_token_ids.ndim != 1 or gold_token_ids.ndim != 1:
+            raise ValueError("V11 suffix repair requires one-dimensional token IDs")
+        common_length = min(
+            int(generated_token_ids.numel()),
+            int(gold_token_ids.numel()),
+        )
+        if not 0 <= first_divergence <= common_length:
+            raise ValueError("V11 suffix-repair divergence escapes the raw sequences")
+        if not torch.equal(
+            generated_token_ids[:first_divergence],
+            gold_token_ids[:first_divergence],
+        ):
+            raise ValueError("V11 suffix-repair prefix is not the raw common prefix")
+        if (
+            first_divergence < common_length
+            and generated_token_ids[first_divergence].eq(
+                gold_token_ids[first_divergence]
+            )
+        ):
+            raise ValueError("V11 suffix-repair divergence tokens unexpectedly match")
+        gold_count = int(gold_token_ids.numel())
+        if first_divergence >= gold_count:
+            raise ValueError(
+                "V11 suffix repair requires a non-empty gold tail through termination"
+            )
+        repaired_token_ids = torch.cat(
+            (
+                generated_token_ids[:first_divergence],
+                gold_token_ids[first_divergence:],
+            )
+        )
+        if not torch.equal(repaired_token_ids, gold_token_ids):
+            raise RuntimeError("V11 suffix-repair replay differs from the gold repair")
+
+        generation_start = int(rollout["generation_start"])
+        input_ids = model_inputs["input_ids"]
+        attention_mask = model_inputs["attention_mask"]
+        normalized_masks = {
+            "target": target_mask.to(device=input_ids.device, dtype=torch.bool),
+            "schema": schema_mask.to(device=input_ids.device, dtype=torch.bool),
+            "decision": decision_mask.to(device=input_ids.device, dtype=torch.bool),
+            "termination": termination_mask.to(
+                device=input_ids.device,
+                dtype=torch.bool,
+            ),
+        }
+        if any(mask.shape != input_ids.shape for mask in normalized_masks.values()):
+            raise ValueError("V11 suffix-repair masks must align with model inputs")
+        gold_end = generation_start + gold_count
+        if gold_end > input_ids.size(1):
+            raise ValueError("V11 suffix-repair gold tail escapes model inputs")
+        gold_masks = {
+            name: mask[0, generation_start:gold_end]
+            for name, mask in normalized_masks.items()
+        }
+        if not bool(gold_masks["target"].all()) or not torch.equal(
+            gold_masks["target"],
+            gold_masks["schema"]
+            | gold_masks["decision"]
+            | gold_masks["termination"],
+        ):
+            raise ValueError("V11 suffix-repair gold masks do not partition the tail")
+        if bool(
+            (gold_masks["schema"] & gold_masks["decision"]).any()
+            or (gold_masks["schema"] & gold_masks["termination"]).any()
+            or (gold_masks["decision"] & gold_masks["termination"]).any()
+        ):
+            raise ValueError("V11 suffix-repair gold masks overlap")
+        tail_slice = slice(first_divergence, gold_count)
+        tail_weights = (
+            gold_masks["schema"][tail_slice].float()
+            * _SCENE_STATE_GENERATION_SCHEMA_WEIGHT
+            + gold_masks["decision"][tail_slice].float()
+            * _SCENE_STATE_GENERATION_DECISION_WEIGHT
+            + gold_masks["termination"][tail_slice].float()
+            * _SCENE_STATE_GENERATION_TERMINATION_WEIGHT
+        )
+        if tail_weights.numel() == 0 or not bool(tail_weights.gt(0.0).all()):
+            raise ValueError("V11 suffix-repair tail weights must be positive")
+
+        prompt_input_ids = rollout["prompt_input_ids"]
+        prompt_attention_mask = rollout["prompt_attention_mask"]
+        replay_input_ids = torch.cat(
+            (prompt_input_ids, repaired_token_ids.unsqueeze(0)),
+            dim=1,
+        )
+        replay_attention_mask = torch.cat(
+            (
+                prompt_attention_mask,
+                torch.ones(
+                    (1, repaired_token_ids.numel()),
+                    device=prompt_attention_mask.device,
+                    dtype=prompt_attention_mask.dtype,
+                ),
+            ),
+            dim=1,
+        )
+        self._reset_online_state(model)
+        self._prime_episode_state(
+            model,
+            write_input_ids=write_input_ids,
+            write_attention_mask=write_attention_mask,
+            batch_size=1,
+            write_message_ids=write_message_ids,
+            write_sentence_ids=write_sentence_ids,
+        )
+        set_delta_mem_write_enabled(model, False)
+        set_delta_mem_read_context_mask(
+            model,
+            replay_attention_mask.to(dtype=torch.bool),
+        )
+        replay_outputs = model(
+            input_ids=replay_input_ids,
+            attention_mask=replay_attention_mask,
+            use_cache=False,
+        )
+        replay_logits = (
+            replay_outputs["logits"]
+            if isinstance(replay_outputs, dict)
+            else replay_outputs.logits
+        )
+        prompt_length = int(prompt_input_ids.size(1))
+        predictor_positions = torch.arange(
+            prompt_length + first_divergence - 1,
+            prompt_length + gold_count - 1,
+            device=replay_logits.device,
+            dtype=torch.long,
+        )
+        if bool(predictor_positions.lt(0).any()) or bool(
+            predictor_positions.ge(replay_logits.size(1)).any()
+        ):
+            raise ValueError("V11 suffix-repair predictors escape replay logits")
+        repair_logits = replay_logits[0].index_select(0, predictor_positions)
+        repair_target_ids = gold_token_ids[first_divergence:].to(
+            device=repair_logits.device,
+            dtype=torch.long,
+        )
+        token_ce = F.cross_entropy(
+            repair_logits.float(),
+            repair_target_ids,
+            reduction="none",
+        )
+        normalized_tail_weights = tail_weights.to(
+            device=token_ce.device,
+            dtype=token_ce.dtype,
+        )
+        weighted_suffix_ce = (
+            token_ce * normalized_tail_weights
+        ).sum() / normalized_tail_weights.sum()
+        first_wrong_unlikelihood = weighted_suffix_ce.new_zeros(())
+        if first_divergence < generated_token_ids.numel():
+            first_wrong_id = generated_token_ids[first_divergence].to(
+                device=repair_logits.device,
+                dtype=torch.long,
+            )
+            if first_wrong_id.eq(repair_target_ids[0]):
+                raise ValueError("V11 suffix repair would suppress a gold token")
+            first_wrong_unlikelihood = (
+                self._scene_state_generated_unlikelihood_from_logits(
+                    repair_logits[:1],
+                    first_wrong_id.reshape(1),
+                )
+            )
+        stats.update(
+            {
+                "scene_generation_suffix_repair_weighted_ce": float(
+                    weighted_suffix_ce.detach().item()
+                ),
+                "scene_generation_suffix_repair_first_wrong_unlikelihood": float(
+                    first_wrong_unlikelihood.detach().item()
+                ),
+                "scene_generation_suffix_repair_repaired_tail_token_count": float(
+                    repair_target_ids.numel()
+                ),
+            }
+        )
+        return weighted_suffix_ce + first_wrong_unlikelihood, stats
+
     @staticmethod
     def _scene_state_generated_unlikelihood_values_from_logits(
         selected_logits: torch.Tensor,
@@ -8650,13 +9244,16 @@ class DeltaMemTrainer(Trainer):
         gradient_scale: float,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         self._validate_scene_state_generation_sequential_runtime()
+        objective_version = getattr(
+            self,
+            "scene_state_generation_objective_version",
+            _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
+        )
         cycle_retention_objective = (
-            getattr(
-                self,
-                "scene_state_generation_objective_version",
-                _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
-            )
-            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            objective_version in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
+        )
+        suffix_repair_objective = (
+            objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
         )
         if (
             source_model_inputs["input_ids"].size(0) != 1
@@ -8849,19 +9446,36 @@ class DeltaMemTrainer(Trainer):
             correction_stats: dict[str, float] = {}
             if prefix_weight > 0.0:
                 with self.compute_loss_context_manager():
-                    correction_loss, correction_stats = (
-                        self._scene_state_generated_prefix_correction_branch(
-                            model,
-                            model_inputs,
-                            online_state_snapshot=online_state_snapshot,
-                            write_input_ids=write_input_ids,
-                            write_attention_mask=write_attention_mask,
-                            write_message_ids=write_message_ids,
-                            write_sentence_ids=write_sentence_ids,
-                            target_mask=branch_kwargs["target_mask"],
-                            termination_mask=termination_mask,
+                    if suffix_repair_objective:
+                        correction_loss, correction_stats = (
+                            self._scene_state_generated_suffix_repair_branch(
+                                model,
+                                model_inputs,
+                                online_state_snapshot=online_state_snapshot,
+                                write_input_ids=write_input_ids,
+                                write_attention_mask=write_attention_mask,
+                                write_message_ids=write_message_ids,
+                                write_sentence_ids=write_sentence_ids,
+                                target_mask=branch_kwargs["target_mask"],
+                                schema_mask=branch_kwargs["schema_mask"],
+                                decision_mask=branch_kwargs["decision_mask"],
+                                termination_mask=termination_mask,
+                            )
                         )
-                    )
+                    else:
+                        correction_loss, correction_stats = (
+                            self._scene_state_generated_prefix_correction_branch(
+                                model,
+                                model_inputs,
+                                online_state_snapshot=online_state_snapshot,
+                                write_input_ids=write_input_ids,
+                                write_attention_mask=write_attention_mask,
+                                write_message_ids=write_message_ids,
+                                write_sentence_ids=write_sentence_ids,
+                                target_mask=branch_kwargs["target_mask"],
+                                termination_mask=termination_mask,
+                            )
+                        )
                 if correction_loss is not None:
                     correction_value = correction_loss.detach()
                     correction_root = (
@@ -8985,6 +9599,18 @@ class DeltaMemTrainer(Trainer):
             return 0.5 * (
                 source_stats.get(f"scene_generation_generated_{metric}_source", 0.0)
                 + donor_stats.get(f"scene_generation_generated_{metric}_donor", 0.0)
+            )
+
+        def suffix_repair_mean(metric: str) -> float:
+            return 0.5 * (
+                source_stats.get(
+                    f"scene_generation_suffix_repair_{metric}_source",
+                    0.0,
+                )
+                + donor_stats.get(
+                    f"scene_generation_suffix_repair_{metric}_donor",
+                    0.0,
+                )
             )
 
         symmetric_prefix_correction_loss = float(
@@ -9426,6 +10052,174 @@ class DeltaMemTrainer(Trainer):
                     "V10 cycle-retention telemetry is missing or non-finite: "
                     + ", ".join(nonfinite_metrics)
                 )
+            if suffix_repair_objective:
+                for metric_name in _SCENE_STATE_CYCLE_RETENTION_LOG_METRICS:
+                    memory_stats.pop(metric_name)
+                memory_stats.update(
+                    {
+                        "scene_generation_v11_objective_total_loss": float(
+                            reported_total.item()
+                        ),
+                        "scene_generation_v11_objective_teacher_loss": (
+                            symmetric_teacher_loss
+                        ),
+                        "scene_generation_v11_objective_suffix_repair_weighted_loss": (
+                            prefix_weight * symmetric_prefix_correction_loss
+                        ),
+                        "scene_generation_v11_pair_mean_weighted_suffix_ce": float(
+                            symmetric_full_gold_ce
+                        ),
+                        "scene_generation_v11_pair_mean_first_error_top1_hinge": float(
+                            symmetric_first_error_top1_hinge
+                        ),
+                        "scene_generation_v11_pair_mean_all_target_top1_retention_hinge": float(
+                            symmetric_all_target_top1_retention_hinge
+                        ),
+                        "scene_generation_v11_pair_mean_selected_full_vocab_ce_telemetry_only": float(
+                            symmetric_selected_vocab_ce
+                        ),
+                        "scene_generation_v11_pair_mean_selected_top_competitor_hinge": float(
+                            symmetric_selected_top_hinge
+                        ),
+                        "scene_generation_v11_pair_mean_selected_correct_vs_zero_hinge": float(
+                            symmetric_zero_hinge
+                        ),
+                        "scene_generation_v11_pair_mean_repair_weighted_suffix_ce": suffix_repair_mean(
+                            "weighted_ce"
+                        ),
+                        "scene_generation_v11_pair_mean_repair_first_wrong_unlikelihood": suffix_repair_mean(
+                            "first_wrong_unlikelihood"
+                        ),
+                        "scene_generation_v11_pair_mean_repair_first_divergence": suffix_repair_mean(
+                            "first_divergence"
+                        ),
+                        "scene_generation_v11_pair_mean_repair_tail_token_count": suffix_repair_mean(
+                            "repaired_tail_token_count"
+                        ),
+                        "scene_generation_v11_pair_mean_generated_exact_fraction": suffix_repair_mean(
+                            "exact_fraction"
+                        ),
+                        "scene_generation_v11_pair_mean_all_target_gold_vs_top_competitor_margin": float(
+                            symmetric_all_target_gold_margin
+                        ),
+                        "scene_generation_v11_pair_mean_all_target_top1_fraction": float(
+                            symmetric_all_target_top1_fraction
+                        ),
+                        "scene_generation_v11_pair_mean_selected_gold_vs_top_competitor_margin": float(
+                            symmetric_selected_gold_margin
+                        ),
+                        "scene_generation_v11_pair_mean_selected_zero_minus_correct_nll": float(
+                            symmetric_zero_nll_gap
+                        ),
+                        "scene_generation_v11_pair_mean_selected_top1_fraction": float(
+                            symmetric_selected_top1
+                        ),
+                        "scene_generation_v11_pair_mean_selected_correct_beats_zero_fraction": float(
+                            0.5
+                            * (
+                                float(
+                                    source_stats[
+                                        "scene_generation_source_zero_minus_correct_selected_nll"
+                                    ]
+                                    > 0.0
+                                )
+                                + float(
+                                    donor_stats[
+                                        "scene_generation_donor_zero_minus_correct_selected_nll"
+                                    ]
+                                    > 0.0
+                                )
+                            )
+                        ),
+                        "scene_generation_v11_source_weighted_suffix_ce": source_stats[
+                            "scene_generation_source_full_gold_ce"
+                        ],
+                        "scene_generation_v11_source_first_error_top1_hinge": source_stats[
+                            "scene_generation_source_first_error_top1_hinge"
+                        ],
+                        "scene_generation_v11_source_all_target_top1_retention_hinge": source_stats[
+                            "scene_generation_source_all_target_top1_retention_hinge"
+                        ],
+                        "scene_generation_v11_source_selected_full_vocab_ce_telemetry_only": source_stats[
+                            "scene_generation_source_selected_vocab_ce"
+                        ],
+                        "scene_generation_v11_source_selected_top_competitor_hinge": source_stats[
+                            "scene_generation_source_selected_top_hinge"
+                        ],
+                        "scene_generation_v11_source_selected_correct_vs_zero_hinge": source_stats[
+                            "scene_generation_source_zero_hinge"
+                        ],
+                        "scene_generation_v11_source_repair_weighted_suffix_ce": source_stats.get(
+                            "scene_generation_suffix_repair_weighted_ce_source",
+                            0.0,
+                        ),
+                        "scene_generation_v11_source_repair_first_wrong_unlikelihood": source_stats.get(
+                            "scene_generation_suffix_repair_first_wrong_unlikelihood_source",
+                            0.0,
+                        ),
+                        "scene_generation_v11_source_repair_first_divergence": source_stats.get(
+                            "scene_generation_suffix_repair_first_divergence_source",
+                            0.0,
+                        ),
+                        "scene_generation_v11_source_repair_tail_token_count": source_stats.get(
+                            "scene_generation_suffix_repair_repaired_tail_token_count_source",
+                            0.0,
+                        ),
+                        "scene_generation_v11_source_generated_exact_fraction": source_stats.get(
+                            "scene_generation_suffix_repair_exact_fraction_source",
+                            0.0,
+                        ),
+                        "scene_generation_v11_donor_weighted_suffix_ce": donor_stats[
+                            "scene_generation_donor_full_gold_ce"
+                        ],
+                        "scene_generation_v11_donor_first_error_top1_hinge": donor_stats[
+                            "scene_generation_donor_first_error_top1_hinge"
+                        ],
+                        "scene_generation_v11_donor_all_target_top1_retention_hinge": donor_stats[
+                            "scene_generation_donor_all_target_top1_retention_hinge"
+                        ],
+                        "scene_generation_v11_donor_selected_full_vocab_ce_telemetry_only": donor_stats[
+                            "scene_generation_donor_selected_vocab_ce"
+                        ],
+                        "scene_generation_v11_donor_selected_top_competitor_hinge": donor_stats[
+                            "scene_generation_donor_selected_top_hinge"
+                        ],
+                        "scene_generation_v11_donor_selected_correct_vs_zero_hinge": donor_stats[
+                            "scene_generation_donor_zero_hinge"
+                        ],
+                        "scene_generation_v11_donor_repair_weighted_suffix_ce": donor_stats.get(
+                            "scene_generation_suffix_repair_weighted_ce_donor",
+                            0.0,
+                        ),
+                        "scene_generation_v11_donor_repair_first_wrong_unlikelihood": donor_stats.get(
+                            "scene_generation_suffix_repair_first_wrong_unlikelihood_donor",
+                            0.0,
+                        ),
+                        "scene_generation_v11_donor_repair_first_divergence": donor_stats.get(
+                            "scene_generation_suffix_repair_first_divergence_donor",
+                            0.0,
+                        ),
+                        "scene_generation_v11_donor_repair_tail_token_count": donor_stats.get(
+                            "scene_generation_suffix_repair_repaired_tail_token_count_donor",
+                            0.0,
+                        ),
+                        "scene_generation_v11_donor_generated_exact_fraction": donor_stats.get(
+                            "scene_generation_suffix_repair_exact_fraction_donor",
+                            0.0,
+                        ),
+                    }
+                )
+                nonfinite_metrics = [
+                    metric_name
+                    for metric_name in _SCENE_STATE_SUFFIX_REPAIR_LOG_METRICS
+                    if metric_name not in memory_stats
+                    or not math.isfinite(float(memory_stats[metric_name]))
+                ]
+                if nonfinite_metrics:
+                    raise FloatingPointError(
+                        "V11 suffix-repair telemetry is missing or non-finite: "
+                        + ", ".join(nonfinite_metrics)
+                    )
         set_delta_mem_read_context_mask(model, None)
         set_delta_mem_write_enabled(model, True)
         return reported_total * gradient_scale, memory_stats
@@ -9655,6 +10449,38 @@ class DeltaMemTrainer(Trainer):
             if key.startswith("scene_generation_")
         }
 
+    def _scene_state_v11_record_pair_presentation(
+        self,
+        source_indices: torch.Tensor,
+        donor_indices: torch.Tensor,
+    ) -> None:
+        if self.scene_state_generation_objective_version != (
+            _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
+        ):
+            return
+        normalized_source = source_indices.detach().reshape(-1).cpu()
+        normalized_donor = donor_indices.detach().reshape(-1).cpu()
+        if normalized_source.numel() != 1 or normalized_donor.numel() != 1:
+            raise ValueError("V11 pair telemetry requires physical batch size one")
+        pair = (
+            int(normalized_source[0].item()),
+            int(normalized_donor[0].item()),
+        )
+        observed = getattr(self, "_scene_state_v11_cycle_pairs", None)
+        if not isinstance(observed, list):
+            raise RuntimeError("V11 pair telemetry accumulator is missing")
+        if len(observed) >= len(_SCENE_STATE_V11_FIRST_CYCLE_PAIRS):
+            raise RuntimeError("V11 pair telemetry escaped the one-cycle boundary")
+        if pair in observed:
+            raise ValueError(f"V11 pair telemetry contains a duplicate pair: {pair}")
+        expected = _SCENE_STATE_V11_FIRST_CYCLE_PAIRS[len(observed)]
+        if pair != expected:
+            raise ValueError(
+                "V11 pair telemetry order differs: "
+                f"position={len(observed)} expected={expected} actual={pair}"
+            )
+        observed.append(pair)
+
     def _scene_state_cycle_retention_aggregate_memory_stats(
         self,
         memory_stats: dict[str, float],
@@ -9663,8 +10489,9 @@ class DeltaMemTrainer(Trainer):
             self,
             "scene_state_generation_objective_version",
             None,
-        ) != _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION:
+        ) not in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS:
             return memory_stats
+        objective_version = self.scene_state_generation_objective_version
         expected_presentations = (
             _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
         )
@@ -9675,7 +10502,15 @@ class DeltaMemTrainer(Trainer):
         if sums is None:
             sums = {}
         if count < 0 or count >= expected_presentations:
-            raise RuntimeError("V10 cycle telemetry accumulator escaped its bounds")
+            raise RuntimeError("Cycle telemetry accumulator escaped its bounds")
+        observed_v11_pairs = getattr(self, "_scene_state_v11_cycle_pairs", [])
+        if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION and (
+            not isinstance(observed_v11_pairs, list)
+            or len(observed_v11_pairs) != count + 1
+        ):
+            raise RuntimeError(
+                "V11 cycle telemetry is missing its ordered pair presentation"
+            )
         numeric_stats = {
             key: float(value)
             for key, value in memory_stats.items()
@@ -9686,11 +10521,11 @@ class DeltaMemTrainer(Trainer):
         ]
         if nonfinite:
             raise FloatingPointError(
-                "V10 cycle telemetry contains non-finite values: "
+                "Cycle telemetry contains non-finite values: "
                 + ", ".join(nonfinite)
             )
         if count > 0 and set(numeric_stats) != set(sums):
-            raise RuntimeError("V10 cycle telemetry keys changed within a pair cycle")
+            raise RuntimeError("Cycle telemetry keys changed within a pair cycle")
         for key, value in numeric_stats.items():
             sums[key] = sums.get(key, 0.0) + value
         count += 1
@@ -9701,11 +10536,30 @@ class DeltaMemTrainer(Trainer):
         averaged = {
             key: value / expected_presentations for key, value in sums.items()
         }
-        averaged["scene_generation_v10_cycle_pair_presentations"] = float(
+        cycle_prefix = (
+            "scene_generation_v11"
+            if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
+            else "scene_generation_v10"
+        )
+        averaged[f"{cycle_prefix}_cycle_pair_presentations"] = float(
             expected_presentations
         )
+        if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION:
+            if tuple(observed_v11_pairs) != _SCENE_STATE_V11_FIRST_CYCLE_PAIRS:
+                raise RuntimeError("V11 completed cycle pair order differs")
+            for pair_index, (low_ordinal, high_ordinal) in enumerate(
+                observed_v11_pairs
+            ):
+                averaged[
+                    f"scene_generation_v11_cycle_pair_{pair_index}_low_ordinal"
+                ] = float(low_ordinal)
+                averaged[
+                    f"scene_generation_v11_cycle_pair_{pair_index}_high_ordinal"
+                ] = float(high_ordinal)
         self._scene_state_cycle_retention_metric_sums = {}
         self._scene_state_cycle_retention_metric_presentations = 0
+        if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION:
+            self._scene_state_v11_cycle_pairs = []
         return averaged
 
     def _record_memory_stats(self, model, memory_stats: dict[str, float]) -> None:
@@ -10838,8 +11692,9 @@ class DeltaMemTrainer(Trainer):
                 "scene_state_generation_objective_version",
                 None,
             )
-            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
         ):
+            objective_version = self.scene_state_generation_objective_version
             pending_presentations = int(
                 getattr(
                     self,
@@ -10847,18 +11702,23 @@ class DeltaMemTrainer(Trainer):
                     0,
                 )
             )
+            cycle_prefix = (
+                "scene_generation_v11"
+                if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
+                else "scene_generation_v10"
+            )
             cycle_presentations = getattr(
                 self,
                 "_last_scene_generation_objective_logs",
                 {},
             ).get(
-                "delta/scene_generation_v10_cycle_pair_presentations"
+                f"delta/{cycle_prefix}_cycle_pair_presentations"
             )
             if pending_presentations != 0 or cycle_presentations != float(
                 _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
             ):
                 raise RuntimeError(
-                    "V10 loss logging requires one complete seven-pair telemetry cycle"
+                    "Cycle loss logging requires one complete seven-pair telemetry cycle"
                 )
         enriched_logs = dict(logs)
         if getattr(self, "scene_boundary_payload_ce_weight", 0.0) > 0.0:
@@ -11457,6 +12317,13 @@ class DeltaMemTrainer(Trainer):
                         "scene_state_identity_target_stratum"
                     ],
                     gradient_scale=gradient_scale,
+                )
+            if self.scene_state_generation_objective_version == (
+                _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
+            ):
+                self._scene_state_v11_record_pair_presentation(
+                    payload["scene_state_source_index"],
+                    payload["scene_state_donor_index"],
                 )
             self._last_memory_partition_alignment_loss = 0.0
             self._last_memory_partition_entropy_loss = 0.0
@@ -13015,6 +13882,7 @@ def parse_args() -> argparse.Namespace:
             _SCENE_STATE_GENERATED_UNLIKELIHOOD_OBJECTIVE_VERSION,
             _SCENE_STATE_SYMMETRIC_OBJECTIVE_VERSION,
             _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
+            _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION,
         ),
         default=None,
     )
@@ -13093,6 +13961,7 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--weight-decay", type=float, default=0.0)
+    parser.add_argument("--max-grad-norm", type=float, default=1.0)
     parser.add_argument("--optim", default=default_optim)
     parser.add_argument("--num-train-epochs", type=float, default=1.0)
     parser.add_argument("--max-steps", type=int, default=-1)
@@ -13243,6 +14112,8 @@ def parse_args() -> argparse.Namespace:
             "scene-state-generated-prefix-correction-weight must be finite and "
             "non-negative"
         )
+    if not math.isfinite(args.max_grad_norm) or args.max_grad_norm < 0.0:
+        raise ValueError("max-grad-norm must be finite and non-negative")
     reciprocal_scene_objective = (
         args.scene_state_generation_objective_version
         in _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
@@ -13260,12 +14131,12 @@ def parse_args() -> argparse.Namespace:
             )
         if (
             args.scene_state_generation_objective_version
-            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
             and args.scene_state_generated_prefix_correction_weight
             != _SCENE_STATE_SYMMETRIC_PREFIX_CORRECTION_WEIGHT
         ):
             raise ValueError(
-                "The V10 cycle-retention objective requires "
+                "The cycle generation objective requires "
                 "scene-state-generated-prefix-correction-weight=0.5"
             )
     elif args.scene_state_generated_prefix_correction_weight != 0.0:
@@ -13273,6 +14144,33 @@ def parse_args() -> argparse.Namespace:
             "scene-state-generated-prefix-correction-weight requires the symmetric "
             "scene-state objective"
         )
+    if args.scene_state_generation_objective_version == (
+        _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
+    ):
+        if args.scene_state_generated_unlikelihood_max_wrong_tokens != 1:
+            raise ValueError(
+                "The V11 suffix-repair objective requires "
+                "scene-state-generated-unlikelihood-max-wrong-tokens=1"
+            )
+        if args.max_grad_norm != 1.0:
+            raise ValueError(
+                "The V11 suffix-repair objective requires max-grad-norm=1.0"
+            )
+        if (
+            args.warm_start_mode != _SCENE_V11_WARM_START_MODE
+            or args.warm_start_from_checkpoint is None
+        ):
+            raise ValueError(
+                "The V11 suffix-repair objective requires its fresh V11 warm start"
+            )
+        if args.resume_from_checkpoint is not None or args.resume_mode != "exact":
+            raise ValueError(
+                "The V11 suffix-repair objective forbids checkpoint continuation"
+            )
+        if args.max_steps != 1:
+            raise ValueError(
+                "The V11 suffix-repair objective requires exactly one optimizer step"
+            )
     if args.scene_state_generated_unlikelihood_max_wrong_tokens <= 0:
         raise ValueError(
             "scene-state-generated-unlikelihood-max-wrong-tokens must be positive"
@@ -13295,11 +14193,11 @@ def parse_args() -> argparse.Namespace:
         )
     if (
         args.scene_state_generation_objective_version
-        == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+        in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
         and args.ignore_data_skip
     ):
         raise ValueError(
-            "V10 cycle-retention training requires ignore-data-skip=false"
+            "Cycle generation training requires ignore-data-skip=false"
         )
     if (
         (
@@ -13426,7 +14324,7 @@ def parse_args() -> argparse.Namespace:
         expected_generation_accumulation_steps = (
             _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
             if args.scene_state_generation_objective_version
-            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
             else 1
         )
         if (
@@ -17122,10 +18020,15 @@ def build_training_protocol(
         "scene_state_generation_objective_version",
         None,
     )
+    uses_suffix_repair_generation = (
+        is_scene_state_generation
+        and requested_generation_objective
+        == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION
+    )
     uses_cycle_retention_generation = (
         is_scene_state_generation
         and requested_generation_objective
-        == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+        in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
     )
     uses_symmetric_generation = (
         is_scene_state_generation
@@ -17133,15 +18036,19 @@ def build_training_protocol(
         in _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
     )
     scene_generation_schema_version = (
-        _SCENE_STATE_CYCLE_RETENTION_TRAINING_PROTOCOL_SCHEMA_VERSION
-        if uses_cycle_retention_generation
+        _SCENE_STATE_SUFFIX_REPAIR_TRAINING_PROTOCOL_SCHEMA_VERSION
+        if uses_suffix_repair_generation
         else (
-            _SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION
-            if uses_symmetric_generation
+            _SCENE_STATE_CYCLE_RETENTION_TRAINING_PROTOCOL_SCHEMA_VERSION
+            if uses_cycle_retention_generation
             else (
-                _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
-                if uses_generated_unlikelihood
-                else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+                _SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION
+                if uses_symmetric_generation
+                else (
+                    _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
+                    if uses_generated_unlikelihood
+                    else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+                )
             )
         )
     )
@@ -17268,7 +18175,11 @@ def build_training_protocol(
         "train_sampler_mode": (
             (
                 (
-                    _V10_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                    (
+                        _V11_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                        if uses_suffix_repair_generation
+                        else _V10_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+                    )
                     if uses_cycle_retention_generation
                     else _V9_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
                 )
@@ -17329,20 +18240,41 @@ def build_training_protocol(
                 "memory_recover_weight": args.memory_recover_weight,
             }
         )
+        if uses_suffix_repair_generation:
+            protocol["max_grad_norm"] = args.max_grad_norm
         schedule_protocol = protocol.get("train_schedule")
         if not isinstance(schedule_protocol, dict):
             raise ValueError("V10 cycle-retention protocol requires a fixed pair schedule")
-        schedule_protocol.update(
-            {
-                "optimizer_checkpoint_steps": list(
-                    _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS
-                ),
-                "microbatch_cycle_size": (
-                    _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
-                ),
-                "resume_schedule_cursor_formula": "global_step_times_7_v1",
-            }
-        )
+        if uses_suffix_repair_generation:
+            schedule_protocol["checkpoint_steps"] = list(
+                _SCENE_STATE_SUFFIX_REPAIR_PRESENTATION_CHECKPOINT_STEPS
+            )
+            schedule_protocol.update(
+                {
+                    "optimizer_checkpoint_steps": list(
+                        _SCENE_STATE_SUFFIX_REPAIR_CHECKPOINT_STEPS
+                    ),
+                    "microbatch_cycle_size": (
+                        _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                    ),
+                    "continuation_policy": (
+                        _SCENE_STATE_SUFFIX_REPAIR_CONTINUATION_POLICY
+                    ),
+                }
+            )
+            schedule_protocol.pop("resume_schedule_cursor_formula", None)
+        else:
+            schedule_protocol.update(
+                {
+                    "optimizer_checkpoint_steps": list(
+                        _SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS
+                    ),
+                    "microbatch_cycle_size": (
+                        _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
+                    ),
+                    "resume_schedule_cursor_formula": "global_step_times_7_v1",
+                }
+            )
     if is_content_contrast:
         if content_contrast_pairing_manifest is None:
             raise ValueError("content_contrast_ce requires a post-split pairing manifest")
@@ -17603,7 +18535,12 @@ def build_training_protocol(
                     0.0,
                 )
             )
-            if uses_cycle_retention_generation:
+            if uses_suffix_repair_generation:
+                reciprocal_objective_formula = (
+                    _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_FORMULA
+                )
+                reciprocal_backward_mode = _SCENE_STATE_SUFFIX_REPAIR_BACKWARD_MODE
+            elif uses_cycle_retention_generation:
                 reciprocal_objective_formula = (
                     _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_FORMULA
                 )
@@ -17634,12 +18571,18 @@ def build_training_protocol(
                         prefix_correction_weight
                     ),
                     "scene_generation_generated_prefix_correction_mode": (
-                        _SCENE_STATE_CYCLE_RETENTION_GENERATED_MODE
-                        if uses_cycle_retention_generation
-                        else _SCENE_STATE_SYMMETRIC_GENERATED_MODE
+                        _SCENE_STATE_SUFFIX_REPAIR_GENERATED_MODE
+                        if uses_suffix_repair_generation
+                        else (
+                            _SCENE_STATE_CYCLE_RETENTION_GENERATED_MODE
+                            if uses_cycle_retention_generation
+                            else _SCENE_STATE_SYMMETRIC_GENERATED_MODE
+                        )
                     ),
                     "scene_generation_generated_prefix_max_correction_events": (
-                        generated_unlikelihood_max_wrong_tokens
+                        1
+                        if uses_suffix_repair_generation
+                        else generated_unlikelihood_max_wrong_tokens
                     ),
                     "scene_generation_pair_unit": (
                         "canonical_low_with_reciprocal_full_payload_v1"
@@ -17669,6 +18612,27 @@ def build_training_protocol(
                         ),
                     }
                 )
+                if uses_suffix_repair_generation:
+                    protocol.update(
+                        {
+                            "scene_generation_suffix_repair_mode": (
+                                _SCENE_STATE_SUFFIX_REPAIR_MODE
+                            ),
+                            "scene_generation_suffix_repair_weight": (
+                                prefix_correction_weight
+                            ),
+                            "scene_generation_suffix_repair_divergence": (
+                                "first_raw_token_divergence_including_length_"
+                                "mismatch_v1"
+                            ),
+                            "scene_generation_suffix_repair_gold_weighting": (
+                                "schema_2_decision_4_termination_1_v1"
+                            ),
+                            "scene_generation_suffix_repair_first_wrong_unlikelihood": True,
+                            "scene_generation_suffix_repair_premature_termination_suppression": True,
+                            "scene_generation_suffix_repair_exact_rollout_loss": 0.0,
+                        }
+                    )
     return protocol
 
 
@@ -18598,7 +19562,7 @@ def main() -> None:
             raise ValueError("Scene-memory V9 requires physical train batch size 1")
         if (
             args.scene_state_generation_objective_version
-            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
         ):
             _validate_scene_state_v10_cycle_schedule(v9_schedule_binding)
         if args.train_sampler_seed is not None or args.group_by_length:
@@ -18608,7 +19572,7 @@ def main() -> None:
         max_pair_training_steps = (
             len(_SCENE_STATE_CYCLE_RETENTION_CHECKPOINT_STEPS)
             if args.scene_state_generation_objective_version
-            == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
             else int(train_schedule_binding["total_steps"])
         )
         if not 0 < args.max_steps <= max_pair_training_steps:
@@ -18663,8 +19627,8 @@ def main() -> None:
     )
     if train_schedule_binding is not None and resume_from_checkpoint is not None:
         if v9_schedule_binding is not None:
-            if args.scene_state_generation_objective_version == (
-                _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            if args.scene_state_generation_objective_version in (
+                _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
             ):
                 continuation_manifest = (
                     prepare_scene_memory_v10_training_continuation(
@@ -18935,7 +19899,7 @@ def main() -> None:
     expected_scene_schedule_warmup_steps = (
         0
         if args.scene_state_generation_objective_version
-        == _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+        in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
         else _SCENE_MEMORY_V8_WARMUP_STEPS
     )
     if (
@@ -19014,6 +19978,16 @@ def main() -> None:
                 target_training_protocol_sha256=training_protocol_sha256,
                 target_pairing_manifest=scene_state_identity_pairing_manifest,
             )
+        elif warm_start_context.mode == _SCENE_V11_WARM_START_MODE:
+            if scene_state_identity_pairing_manifest is None:
+                raise RuntimeError(
+                    "Scene V11 warm start requires scene-state pairing metadata"
+                )
+            finalize_scene_v11_warm_start_lineage(
+                warm_start_context,
+                target_training_protocol_sha256=training_protocol_sha256,
+                target_pairing_manifest=scene_state_identity_pairing_manifest,
+            )
         else:
             raise RuntimeError(
                 f"Unsupported adapter warm-start mode: {warm_start_context.mode}"
@@ -19022,8 +19996,8 @@ def main() -> None:
         if continuation_manifest is None:
             raise RuntimeError("Scene-memory resume continuation lineage is missing")
         if v9_schedule_binding is not None:
-            if args.scene_state_generation_objective_version == (
-                _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION
+            if args.scene_state_generation_objective_version in (
+                _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
             ):
                 finalize_scene_memory_v10_training_continuation(
                     continuation_manifest,
@@ -19108,6 +20082,7 @@ def main() -> None:
         lr_scheduler_type=args.lr_scheduler_type,
         warmup_steps=warmup_steps,
         weight_decay=args.weight_decay,
+        max_grad_norm=args.max_grad_norm,
         optim=args.optim,
         num_train_epochs=args.num_train_epochs,
         max_steps=args.max_steps,
@@ -19248,6 +20223,14 @@ def main() -> None:
         and warm_start_context.mode == _SCENE_V10_WARM_START_MODE
     ):
         record_scene_v10_fresh_optimizer_lineage(
+            trainer,
+            warm_start_context,
+        )
+    elif (
+        warm_start_context is not None
+        and warm_start_context.mode == _SCENE_V11_WARM_START_MODE
+    ):
+        record_scene_v11_fresh_optimizer_lineage(
             trainer,
             warm_start_context,
         )
