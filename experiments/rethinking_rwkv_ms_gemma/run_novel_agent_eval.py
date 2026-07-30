@@ -38,6 +38,10 @@ from common import (  # noqa: E402
     reset_delta_state,
 )
 from deltamem.chat_templates import apply_chat_template  # noqa: E402
+from deltamem.scene_boundary import (  # noqa: E402
+    extract_json as _shared_extract_json,
+    literal_boundaries as _shared_literal_boundaries,
+)
 from deltamem.core.delta import iter_delta_mem_modules  # noqa: E402
 
 
@@ -607,22 +611,7 @@ def git_revision(path: Path) -> dict[str, Any]:
 def extract_json(text: str) -> Any | None:
     """Extract the first complete JSON object or array from model text."""
 
-    stripped = text.strip()
-    try:
-        return json.loads(stripped)
-    except json.JSONDecodeError:
-        pass
-    decoder = json.JSONDecoder()
-    for index, character in enumerate(stripped):
-        if character not in "[{":
-            continue
-        try:
-            value, _ = decoder.raw_decode(stripped[index:])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(value, (dict, list)):
-            return value
-    return None
+    return _shared_extract_json(text)
 
 
 def normalized_label_rows(value: Any) -> list[dict[str, Any]] | None:
@@ -634,26 +623,7 @@ def normalized_label_rows(value: Any) -> list[dict[str, Any]] | None:
 
 
 def literal_boundaries(value: Any) -> dict[tuple[str, Any], Any] | None:
-    if not isinstance(value, dict) or not isinstance(value.get("boundaries"), list):
-        return None
-    boundaries: dict[tuple[str, Any], Any] = {}
-    for item in value["boundaries"]:
-        try:
-            hash(item)
-        except TypeError:
-            identity = (
-                "json",
-                json.dumps(
-                    item,
-                    ensure_ascii=False,
-                    sort_keys=True,
-                    separators=(",", ":"),
-                ),
-            )
-        else:
-            identity = ("literal", item)
-        boundaries.setdefault(identity, item)
-    return boundaries
+    return _shared_literal_boundaries(value)
 
 
 def score_prediction(kind: str, prediction: Any, gold: Any) -> dict[str, Any]:
