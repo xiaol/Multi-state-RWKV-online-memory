@@ -4,10 +4,14 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
+import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import subprocess
+import tempfile
 from typing import Any, Mapping, Sequence
 
 from experiments.rethinking_rwkv_ms_gemma import (
@@ -157,6 +161,19 @@ HARD32_ACCESS_POLICY = "forbidden_not_resolved_opened_or_hashed"
 TRAINING_CONTINUATION_POLICY = "forbidden_one_cycle_only_regardless_of_gate_status"
 LAUNCH_RECEIPT_SCHEMA = "rwkv_ms_scene_memory_v11_attached_launch.v1"
 COMPLETION_RECEIPT_SCHEMA = "rwkv_ms_scene_memory_v11_attached_completion.v1"
+RECOVERED_COMPLETION_RECEIPT_SCHEMA = (
+    "rwkv_ms_scene_memory_v11_recovered_completion.v1"
+)
+COMPLETION_RECOVERY_SCHEMA = "rwkv_ms_scene_memory_v11_completion_recovery.v1"
+COMPLETION_RECOVERY_REASON = "git_object_id_validator_length_bug_v1"
+RECOVERY_VALIDATOR_FILES = (
+    "experiments/rethinking_rwkv_ms_gemma/scene_memory_v11_launch_contract.py",
+    "experiments/rethinking_rwkv_ms_gemma/scene_memory_v10_launch_contract.py",
+    "experiments/rethinking_rwkv_ms_gemma/scene_memory_v9_launch_contract.py",
+    "experiments/rethinking_rwkv_ms_gemma/scene_memory_v11_warm_start.py",
+    "experiments/rethinking_rwkv_ms_gemma/scene_memory_v10_warm_start.py",
+    "experiments/rethinking_rwkv_ms_gemma/scene_memory_v9_warm_start.py",
+)
 CRITICAL_TRAINING_FILES = (
     "deltamem/train/delta_sft_experimental.py",
     "deltamem/train/scene_state_generation_alignment.py",
@@ -901,6 +918,190 @@ def critical_training_code_bindings(
     return bindings
 
 
+def require_git_object_id(value: object, *, description: str) -> str:
+    require(
+        isinstance(value, str)
+        and len(value) in (40, 64)
+        and all(character in "0123456789abcdef" for character in value),
+        f"{description}_invalid_git_object_id",
+    )
+    return value
+
+
+def _resolved_project_root(project_root: Path, *, description: str) -> Path:
+    resolved = project_root.expanduser().resolve()
+    require(
+        resolved == PROJECT_ROOT,
+        f"{description}_requires_exact_project_root",
+    )
+    return resolved
+
+
+def _git_output(
+    project_root: Path,
+    arguments: Sequence[str],
+    *,
+    description: str,
+) -> bytes:
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(project_root), *arguments],
+            stderr=subprocess.PIPE,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise LaunchContractError(f"{description}_git_command_failed") from exc
+
+
+def _resolve_git_commit(
+    object_id: object,
+    *,
+    project_root: Path = PROJECT_ROOT,
+    description: str,
+) -> str:
+    candidate = require_git_object_id(object_id, description=description)
+    resolved_root = _resolved_project_root(project_root, description=description)
+    resolved_raw = _git_output(
+        resolved_root,
+        ["rev-parse", "--verify", f"{candidate}^{{commit}}"],
+        description=description,
+    )
+    try:
+        resolved = resolved_raw.decode("ascii").strip()
+    except UnicodeDecodeError as exc:
+        raise LaunchContractError(f"{description}_non_ascii_git_output") from exc
+    resolved = require_git_object_id(resolved, description=description)
+    require(resolved == candidate, f"{description}_does_not_name_commit_exactly")
+    return resolved
+
+
+def _require_git_ancestor(
+    ancestor: object,
+    descendant: object,
+    *,
+    project_root: Path = PROJECT_ROOT,
+    description: str,
+) -> None:
+    resolved_root = _resolved_project_root(project_root, description=description)
+    ancestor_commit = _resolve_git_commit(
+        ancestor,
+        project_root=resolved_root,
+        description=f"{description}_ancestor",
+    )
+    descendant_commit = _resolve_git_commit(
+        descendant,
+        project_root=resolved_root,
+        description=f"{description}_descendant",
+    )
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(resolved_root),
+                "merge-base",
+                "--is-ancestor",
+                ancestor_commit,
+                descendant_commit,
+            ],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as exc:
+        raise LaunchContractError(f"{description}_git_command_failed") from exc
+    require(result.returncode in (0, 1), f"{description}_git_command_failed")
+    require(result.returncode == 0, f"{description}_source_not_ancestor")
+
+
+def _git_file_bindings_at_commit(
+    commit: object,
+    relative_files: Sequence[str],
+    *,
+    project_root: Path = PROJECT_ROOT,
+    description: str,
+) -> dict[str, dict[str, Any]]:
+    resolved_root = _resolved_project_root(project_root, description=description)
+    resolved_commit = _resolve_git_commit(
+        commit,
+        project_root=resolved_root,
+        description=f"{description}_commit",
+    )
+    bindings: dict[str, dict[str, Any]] = {}
+    for relative in relative_files:
+        relative_path = Path(relative)
+        require(
+            not relative_path.is_absolute()
+            and ".." not in relative_path.parts
+            and relative_path.as_posix() == relative,
+            f"{description}_invalid_relative_path path={relative}",
+        )
+        tree_output = _git_output(
+            resolved_root,
+            ["ls-tree", "-z", "--full-tree", resolved_commit, "--", relative],
+            description=f"{description}_{relative}",
+        )
+        records = [record for record in tree_output.split(b"\0") if record]
+        require(
+            len(records) == 1 and b"\t" in records[0],
+            f"{description}_tree_entry_missing path={relative}",
+        )
+        metadata, recorded_path = records[0].split(b"\t", 1)
+        try:
+            mode, object_type, blob_object_id = metadata.decode("ascii").split()
+            decoded_path = recorded_path.decode("utf-8")
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise LaunchContractError(
+                f"{description}_tree_entry_invalid path={relative}"
+            ) from exc
+        require(
+            decoded_path == relative
+            and mode in ("100644", "100755")
+            and object_type == "blob",
+            f"{description}_tree_entry_not_regular_file path={relative}",
+        )
+        blob_object_id = require_git_object_id(
+            blob_object_id,
+            description=f"{description}_{relative}_blob",
+        )
+        blob = _git_output(
+            resolved_root,
+            ["cat-file", "blob", blob_object_id],
+            description=f"{description}_{relative}_blob",
+        )
+        bindings[relative] = {
+            "path": str(resolved_root / relative),
+            "bytes": len(blob),
+            "sha256": hashlib.sha256(blob).hexdigest(),
+        }
+    return bindings
+
+
+def critical_training_code_bindings_at_commit(
+    commit: object,
+    *,
+    project_root: Path = PROJECT_ROOT,
+) -> dict[str, dict[str, Any]]:
+    return _git_file_bindings_at_commit(
+        commit,
+        CRITICAL_TRAINING_FILES,
+        project_root=project_root,
+        description="v11_critical_code_at_commit",
+    )
+
+
+def _tracked_worktree_clean(project_root: Path = PROJECT_ROOT) -> bool:
+    resolved_root = _resolved_project_root(
+        project_root,
+        description="v11_tracked_worktree",
+    )
+    output = _git_output(
+        resolved_root,
+        ["status", "--porcelain", "--untracked-files=no"],
+        description="v11_tracked_worktree",
+    )
+    return not output.strip()
+
+
 def _validate_receipt_self_hash(
     payload: Mapping[str, Any],
     *,
@@ -931,14 +1132,23 @@ def _validate_exact_artifact_binding(
 
 
 def _git_head(project_root: Path = PROJECT_ROOT) -> str:
+    resolved_root = _resolved_project_root(
+        project_root,
+        description="v11_git_head",
+    )
     try:
         value = subprocess.check_output(
-            ["git", "-C", str(project_root), "rev-parse", "HEAD"],
+            ["git", "-C", str(resolved_root), "rev-parse", "HEAD"],
             text=True,
+            stderr=subprocess.PIPE,
         ).strip()
     except (OSError, subprocess.CalledProcessError) as exc:
         raise LaunchContractError("v11_git_head_unavailable") from exc
-    return require_sha256(value, description="v11_git_head")
+    return _resolve_git_commit(
+        value,
+        project_root=resolved_root,
+        description="v11_git_head",
+    )
 
 
 def validate_launch_receipt(
@@ -980,9 +1190,19 @@ def validate_launch_receipt(
         "v11_launch_receipt_mode_or_horizon_differs",
     )
     expected_output = resolved_checkpoint.parents[1]
+    expected_launch_path = (
+        v11_run_root_for(ssd_root)
+        / "logs"
+        / f"{expected_output.name}.launch.json"
+    )
+    expected_log_path = expected_launch_path.with_name(
+        f"{expected_output.name}.log"
+    )
     require(
         payload.get("trainer_output") == str(expected_output)
-        and payload.get("checkpoint") == str(resolved_checkpoint),
+        and payload.get("checkpoint") == str(resolved_checkpoint)
+        and payload.get("log_file") == str(expected_log_path)
+        and path == expected_launch_path,
         "v11_launch_receipt_checkpoint_binding_differs",
     )
     require(
@@ -1006,12 +1226,25 @@ def validate_launch_receipt(
         and payload.get("evaluation_access") == "forbidden",
         "v11_launch_receipt_authorization_differs",
     )
+    source_commit = _resolve_git_commit(
+        payload.get("git_commit"),
+        project_root=project_root,
+        description="v11_launch_receipt_git_commit",
+    )
+    _require_git_ancestor(
+        source_commit,
+        _git_head(project_root),
+        project_root=project_root,
+        description="v11_launch_receipt_lineage",
+    )
     require(
-        payload.get("tracked_worktree_clean") is True
-        and payload.get("git_commit") == _git_head(project_root),
+        payload.get("tracked_worktree_clean") is True,
         "v11_launch_receipt_git_identity_differs",
     )
-    expected_code = critical_training_code_bindings(project_root=project_root)
+    expected_code = critical_training_code_bindings_at_commit(
+        source_commit,
+        project_root=project_root,
+    )
     require(
         payload.get("critical_files") == expected_code,
         "v11_launch_receipt_critical_file_hashes_differ",
@@ -1023,6 +1256,113 @@ def validate_launch_receipt(
     }
 
 
+def _expected_completion_receipt_path(
+    launch: Mapping[str, Any],
+    *,
+    ssd_root: Path,
+) -> Path:
+    launch_artifact = launch.get("artifact")
+    require(
+        isinstance(launch_artifact, Mapping),
+        "v11_completion_launch_artifact_missing",
+    )
+    launch_path = require_v11_run_path(
+        Path(str(launch_artifact.get("path", ""))),
+        description="v11_completion_launch_receipt_path",
+        ssd_root=ssd_root,
+    )
+    require(
+        launch_path.parent == v11_run_root_for(ssd_root) / "logs"
+        and launch_path.name.endswith(".launch.json"),
+        "v11_completion_launch_receipt_path_differs",
+    )
+    return launch_path.with_name(
+        launch_path.name.removesuffix(".launch.json") + ".completion.json"
+    )
+
+
+def _validate_completion_recovery(
+    payload: Mapping[str, Any],
+    *,
+    launch: Mapping[str, Any],
+    project_root: Path,
+) -> dict[str, Any] | None:
+    schema = payload.get("schema")
+    recovery = payload.get("recovery")
+    if schema == COMPLETION_RECEIPT_SCHEMA:
+        require(
+            "recovery" not in payload and "recovered_at" not in payload,
+            "v11_attached_completion_has_recovery_metadata",
+        )
+        return None
+    require(
+        schema == RECOVERED_COMPLETION_RECEIPT_SCHEMA
+        and isinstance(recovery, Mapping),
+        "v11_completion_recovery_schema_differs",
+    )
+    expected_fields = {
+        "schema",
+        "reason",
+        "source_git_commit",
+        "validator_git_commit",
+        "validator_files",
+    }
+    require(
+        set(recovery) == expected_fields
+        and recovery.get("schema") == COMPLETION_RECOVERY_SCHEMA
+        and recovery.get("reason") == COMPLETION_RECOVERY_REASON,
+        "v11_completion_recovery_metadata_differs",
+    )
+    recovered_at = payload.get("recovered_at")
+    require(
+        isinstance(recovered_at, str) and "completed_at" not in payload,
+        "v11_completion_recovery_time_invalid",
+    )
+    _recovery_timestamp(recovered_at)
+    launch_payload = launch.get("payload")
+    require(
+        isinstance(launch_payload, Mapping),
+        "v11_completion_recovery_launch_payload_missing",
+    )
+    source_commit = _resolve_git_commit(
+        recovery.get("source_git_commit"),
+        project_root=project_root,
+        description="v11_completion_recovery_source_commit",
+    )
+    require(
+        source_commit == launch_payload.get("git_commit"),
+        "v11_completion_recovery_source_commit_differs",
+    )
+    validator_commit = _resolve_git_commit(
+        recovery.get("validator_git_commit"),
+        project_root=project_root,
+        description="v11_completion_recovery_validator_commit",
+    )
+    _require_git_ancestor(
+        source_commit,
+        validator_commit,
+        project_root=project_root,
+        description="v11_completion_recovery_lineage",
+    )
+    _require_git_ancestor(
+        validator_commit,
+        _git_head(project_root),
+        project_root=project_root,
+        description="v11_completion_recovery_validator_lineage",
+    )
+    expected_validator_files = _git_file_bindings_at_commit(
+        validator_commit,
+        RECOVERY_VALIDATOR_FILES,
+        project_root=project_root,
+        description="v11_completion_recovery_validator_files",
+    )
+    require(
+        recovery.get("validator_files") == expected_validator_files,
+        "v11_completion_recovery_validator_files_differ",
+    )
+    return dict(recovery)
+
+
 def validate_completion_receipt(
     completion_receipt: Path,
     *,
@@ -1030,6 +1370,8 @@ def validate_completion_receipt(
     checkpoint_contract: Mapping[str, Any],
     launch: Mapping[str, Any],
     ssd_root: Path = SSD_ROOT,
+    project_root: Path = PROJECT_ROOT,
+    _payload: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     resolved_checkpoint = require_v11_run_path(
         checkpoint,
@@ -1041,23 +1383,34 @@ def validate_completion_receipt(
         description="v11_completion_receipt",
         ssd_root=ssd_root,
     )
-    _regular_file(path, description="v11_completion_receipt")
     require(
-        path.parent == v11_run_root_for(ssd_root) / "logs",
-        "v11_completion_receipt_must_be_under_logs",
+        path == _expected_completion_receipt_path(launch, ssd_root=ssd_root),
+        "v11_completion_receipt_path_differs",
     )
-    payload = _load_object(path, description="v11_completion_receipt")
+    if _payload is None:
+        _regular_file(path, description="v11_completion_receipt")
+        payload = _load_object(path, description="v11_completion_receipt")
+    else:
+        require(
+            not path.exists() and isinstance(_payload, Mapping),
+            "v11_completion_preview_requires_absent_receipt",
+        )
+        payload = dict(_payload)
     receipt_sha256 = _validate_receipt_self_hash(
         payload,
         description="v11_completion_receipt",
     )
     require(
-        payload.get("schema") == COMPLETION_RECEIPT_SCHEMA
-        and payload.get("status") == "completed"
+        payload.get("status") == "completed"
         and payload.get("optimizer_step") == 1
         and payload.get("consumed_pair_presentations") == 7
         and payload.get("checkpoint") == str(resolved_checkpoint),
         "v11_completion_receipt_horizon_differs",
+    )
+    recovery = _validate_completion_recovery(
+        payload,
+        launch=launch,
+        project_root=project_root,
     )
     _validate_exact_artifact_binding(
         payload.get("launch_receipt", {}),
@@ -1111,7 +1464,12 @@ def validate_completion_receipt(
     )
     log_binding = payload.get("log")
     require(isinstance(log_binding, Mapping), "v11_completion_log_missing")
-    log_path = Path(str(log_binding.get("path", "")))
+    launch_payload = launch.get("payload")
+    require(
+        isinstance(launch_payload, Mapping),
+        "v11_completion_launch_payload_missing",
+    )
+    log_path = Path(str(launch_payload.get("log_file", "")))
     require(
         log_path.parent == v11_run_root_for(ssd_root) / "logs",
         "v11_completion_log_path_differs",
@@ -1133,11 +1491,16 @@ def validate_completion_receipt(
         "v11_completion_authorization_differs",
     )
     return {
-        "artifact": artifact_binding(path, description="v11_completion_receipt"),
+        "artifact": (
+            artifact_binding(path, description="v11_completion_receipt")
+            if _payload is None
+            else None
+        ),
         "receipt_sha256": receipt_sha256,
         "payload": payload,
         "training_summary": summary_artifact,
         "log": log_artifact,
+        "recovery": recovery,
     }
 
 
@@ -1166,6 +1529,7 @@ def validate_training_provenance(
         checkpoint_contract=checkpoint_contract,
         launch=launch,
         ssd_root=ssd_root,
+        project_root=project_root,
     )
     return {
         "schema": "rwkv_ms_scene_memory_v11_training_provenance.v1",
@@ -1177,6 +1541,7 @@ def validate_training_provenance(
             "artifact": completion["artifact"],
             "receipt_sha256": completion["receipt_sha256"],
         },
+        "completion_recovery": completion["recovery"],
         "git_commit": launch["payload"]["git_commit"],
         "critical_files": launch["payload"]["critical_files"],
         "base_model_identity": launch["payload"]["base_model_identity"],
@@ -1186,6 +1551,299 @@ def validate_training_provenance(
         "cycle_pair_telemetry": checkpoint_contract["cycle_pair_telemetry"],
         "training_summary": completion["training_summary"],
         "log": completion["log"],
+    }
+
+
+def _recovery_timestamp(value: object) -> str:
+    require(isinstance(value, str), "v11_completion_recovery_time_invalid")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise LaunchContractError("v11_completion_recovery_time_invalid") from exc
+    require(
+        parsed.tzinfo is not None
+        and parsed.utcoffset() is not None
+        and parsed.utcoffset().total_seconds() == 0,
+        "v11_completion_recovery_time_not_utc",
+    )
+    return value
+
+
+def _path_matches_file_identity(
+    path: Path,
+    identity: tuple[int, int],
+) -> bool:
+    try:
+        current = path.stat(follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    return (current.st_dev, current.st_ino) == identity
+
+
+def _fsync_directory(path: Path) -> None:
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    directory_fd = os.open(path, flags)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def _unlink_if_matching_file_identity(
+    path: Path,
+    identity: tuple[int, int],
+) -> bool:
+    if not _path_matches_file_identity(path, identity):
+        return False
+    path.unlink()
+    _fsync_directory(path.parent)
+    return True
+
+
+def _atomic_create_json(
+    path: Path,
+    payload: Mapping[str, Any],
+) -> tuple[int, int]:
+    require(not path.exists(), "v11_completion_recovery_receipt_already_exists")
+    encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    temporary_fd, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temporary_path = Path(temporary_name)
+    linked = False
+    identity: tuple[int, int] | None = None
+    try:
+        with os.fdopen(temporary_fd, "wb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary_fd = -1
+        temporary_stat = temporary_path.stat()
+        identity = (temporary_stat.st_dev, temporary_stat.st_ino)
+        os.link(temporary_path, path, follow_symlinks=False)
+        linked = True
+        _fsync_directory(path.parent)
+        return identity
+    except FileExistsError as exc:
+        raise LaunchContractError(
+            "v11_completion_recovery_receipt_already_exists"
+        ) from exc
+    except Exception:
+        if linked and identity is not None:
+            _unlink_if_matching_file_identity(path, identity)
+        raise
+    finally:
+        if temporary_fd >= 0:
+            os.close(temporary_fd)
+        temporary_path.unlink(missing_ok=True)
+
+
+def recover_completion_receipt(
+    *,
+    completion_receipt: Path,
+    launch_receipt: Path,
+    log: Path,
+    training_summary: Path,
+    checkpoint: Path,
+    recovered_at: str,
+    expected_receipt_sha256: str | None = None,
+    write: bool = False,
+    data_root: Path = DATA_ROOT,
+    source_lock_path: Path = SOURCE_LOCK,
+    warm_start_lock_path: Path = WARM_START_LOCK,
+    ssd_root: Path = SSD_ROOT,
+    project_root: Path = PROJECT_ROOT,
+) -> dict[str, Any]:
+    recovery_time = _recovery_timestamp(recovered_at)
+    completion_path = require_v11_run_path(
+        completion_receipt,
+        description="v11_completion_recovery_receipt",
+        ssd_root=ssd_root,
+    )
+    require(
+        completion_path.parent == v11_run_root_for(ssd_root) / "logs"
+        and not completion_path.exists(),
+        "v11_completion_recovery_receipt_path_invalid_or_exists",
+    )
+    resolved_checkpoint = require_v11_run_path(
+        checkpoint,
+        description="v11_completion_recovery_checkpoint",
+        ssd_root=ssd_root,
+    )
+    data = validate_data_contract(
+        data_root=data_root,
+        source_lock_path=source_lock_path,
+        ssd_root=ssd_root,
+    )
+    warm = validate_warm_start_contract(
+        warm_start_lock_path=warm_start_lock_path,
+        ssd_root=ssd_root,
+    )
+    checkpoint_contract = validate_checkpoint_contract(
+        resolved_checkpoint,
+        data=data,
+        warm=warm,
+    )
+    baseline = validate_v10_diagnostic_baseline(ssd_root=ssd_root)
+    launch = validate_launch_receipt(
+        launch_receipt,
+        checkpoint=resolved_checkpoint,
+        baseline=baseline,
+        base_model_identity=baseline["base_model_identity"],
+        ssd_root=ssd_root,
+        project_root=project_root,
+    )
+    require(
+        completion_path
+        == _expected_completion_receipt_path(launch, ssd_root=ssd_root),
+        "v11_completion_recovery_receipt_name_differs",
+    )
+    expected_log = Path(str(launch["payload"]["log_file"]))
+    expected_summary = resolved_checkpoint.parents[1] / "training_summary.json"
+    resolved_log = require_v11_run_path(
+        log,
+        description="v11_completion_recovery_log",
+        ssd_root=ssd_root,
+    )
+    resolved_summary = require_v11_run_path(
+        training_summary,
+        description="v11_completion_recovery_training_summary",
+        ssd_root=ssd_root,
+    )
+    require(
+        resolved_log == expected_log and resolved_summary == expected_summary,
+        "v11_completion_recovery_log_or_summary_path_differs",
+    )
+    require(
+        _tracked_worktree_clean(project_root),
+        "v11_completion_recovery_requires_clean_tracked_worktree",
+    )
+    source_commit = _resolve_git_commit(
+        launch["payload"]["git_commit"],
+        project_root=project_root,
+        description="v11_completion_recovery_source_commit",
+    )
+    validator_commit = _git_head(project_root)
+    _require_git_ancestor(
+        source_commit,
+        validator_commit,
+        project_root=project_root,
+        description="v11_completion_recovery_lineage",
+    )
+    validator_files = _git_file_bindings_at_commit(
+        validator_commit,
+        RECOVERY_VALIDATOR_FILES,
+        project_root=project_root,
+        description="v11_completion_recovery_validator_files",
+    )
+    rng = sorted(resolved_checkpoint.glob("rng_state*.pth"))
+    payload: dict[str, Any] = {
+        "schema": RECOVERED_COMPLETION_RECEIPT_SCHEMA,
+        "recovered_at": recovery_time,
+        "status": "completed",
+        "optimizer_step": 1,
+        "consumed_pair_presentations": checkpoint_contract[
+            "consumed_pair_presentations"
+        ],
+        "launch_receipt": launch["artifact"],
+        "launch_receipt_sha256": launch["receipt_sha256"],
+        "log": artifact_binding(expected_log, description="v11_completion_log"),
+        "training_summary": artifact_binding(
+            expected_summary,
+            description="v11_completion_training_summary",
+        ),
+        "checkpoint": str(resolved_checkpoint),
+        "checkpoint_artifacts": {
+            name: artifact_binding(
+                resolved_checkpoint / name,
+                description=f"v11_completion_checkpoint_{name}",
+            )
+            for name in REQUIRED_CHECKPOINT_ARTIFACTS
+        },
+        "rng_state_artifacts": {
+            path.name: artifact_binding(
+                path,
+                description=f"v11_completion_checkpoint_{path.name}",
+            )
+            for path in rng
+        },
+        "cycle_pair_telemetry": checkpoint_contract["cycle_pair_telemetry"],
+        "training_continuation": TRAINING_CONTINUATION_POLICY,
+        "hard32_access": HARD32_ACCESS_POLICY,
+        "evaluation_access": "forbidden",
+        "recovery": {
+            "schema": COMPLETION_RECOVERY_SCHEMA,
+            "reason": COMPLETION_RECOVERY_REASON,
+            "source_git_commit": source_commit,
+            "validator_git_commit": validator_commit,
+            "validator_files": validator_files,
+        },
+    }
+    payload["receipt_sha256"] = canonical_sha256(payload)
+    preview = validate_completion_receipt(
+        completion_path,
+        checkpoint=resolved_checkpoint,
+        checkpoint_contract=checkpoint_contract,
+        launch=launch,
+        ssd_root=ssd_root,
+        project_root=project_root,
+        _payload=payload,
+    )
+    receipt_sha256 = payload["receipt_sha256"]
+    if expected_receipt_sha256 is not None:
+        require(
+            require_sha256(
+                expected_receipt_sha256,
+                description="v11_completion_recovery_expected_hash",
+            )
+            == receipt_sha256,
+            "v11_completion_recovery_expected_hash_differs",
+        )
+    if not write:
+        return {
+            "written": False,
+            "completion_receipt": str(completion_path),
+            "receipt_sha256": receipt_sha256,
+            "payload": payload,
+            "source_git_commit": source_commit,
+            "validator_git_commit": validator_commit,
+            "checkpoint_contract": checkpoint_contract,
+            "preview_validation": preview,
+        }
+    require(
+        expected_receipt_sha256 is not None,
+        "v11_completion_recovery_write_requires_preview_hash",
+    )
+    created_identity = _atomic_create_json(completion_path, payload)
+    try:
+        provenance = validate_training_provenance(
+            checkpoint=resolved_checkpoint,
+            checkpoint_contract=checkpoint_contract,
+            launch_receipt=launch_receipt,
+            completion_receipt=completion_path,
+            baseline=baseline,
+            base_model_identity=baseline["base_model_identity"],
+            ssd_root=ssd_root,
+            project_root=project_root,
+        )
+        require(
+            _path_matches_file_identity(completion_path, created_identity),
+            "v11_completion_recovery_receipt_replaced_after_create",
+        )
+    except Exception:
+        _unlink_if_matching_file_identity(completion_path, created_identity)
+        raise
+    return {
+        "written": True,
+        "completion_receipt": str(completion_path),
+        "receipt_sha256": receipt_sha256,
+        "payload": payload,
+        "source_git_commit": source_commit,
+        "validator_git_commit": validator_commit,
+        "checkpoint_contract": checkpoint_contract,
+        "training_provenance": provenance,
     }
 
 

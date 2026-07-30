@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import hashlib
 import json
 from pathlib import Path
+import stat
 import subprocess
 from types import SimpleNamespace
 from typing import Any
@@ -35,6 +37,16 @@ def _self_hash(payload: dict[str, Any], field: str) -> dict[str, Any]:
 def _write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _git(repo: Path, *arguments: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo), *arguments],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
 
 
 def _first_cycle_data() -> dict[str, Any]:
@@ -135,6 +147,177 @@ def test_v11_constants_lock_one_fresh_suffix_repair_cycle() -> None:
     for invalid in (-1, 2, True):
         with pytest.raises(contract.LaunchContractError):
             contract.presentation_cursor(invalid)
+
+
+@pytest.mark.parametrize("length", (40, 64))
+def test_git_object_id_accepts_full_sha1_or_sha256(length: int) -> None:
+    value = "a" * length
+    assert contract.require_git_object_id(value, description="test") == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "a" * 39,
+        "a" * 41,
+        "a" * 63,
+        "a" * 65,
+        "A" * 40,
+        "g" * 40,
+        7,
+        None,
+    ),
+)
+def test_git_object_id_rejects_abbreviated_or_non_hex(value: object) -> None:
+    with pytest.raises(contract.LaunchContractError, match="invalid_git_object_id"):
+        contract.require_git_object_id(value, description="test")
+
+
+def test_git_commit_bindings_use_regular_historical_blobs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "--quiet")
+    _git(repo, "config", "user.name", "V11 Test")
+    _git(repo, "config", "user.email", "v11@example.invalid")
+    critical_path = repo / "critical.py"
+    original = b"print('source')\n"
+    critical_path.write_bytes(original)
+    _git(repo, "add", "critical.py")
+    _git(repo, "commit", "--quiet", "-m", "source")
+    source_commit = _git(repo, "rev-parse", "HEAD")
+    monkeypatch.setattr(contract, "PROJECT_ROOT", repo.resolve())
+    monkeypatch.setattr(contract, "CRITICAL_TRAINING_FILES", ("critical.py",))
+    assert contract._git_head(repo) == source_commit
+
+    bindings = contract.critical_training_code_bindings_at_commit(
+        source_commit,
+        project_root=repo,
+    )
+    assert bindings == {
+        "critical.py": {
+            "path": str(critical_path),
+            "bytes": len(original),
+            "sha256": hashlib.sha256(original).hexdigest(),
+        }
+    }
+
+    critical_path.write_bytes(b"print('recovery fix')\n")
+    assert contract.critical_training_code_bindings_at_commit(
+        source_commit,
+        project_root=repo,
+    ) == bindings
+    _git(repo, "add", "critical.py")
+    _git(repo, "commit", "--quiet", "-m", "validator")
+    validator_commit = _git(repo, "rev-parse", "HEAD")
+    contract._require_git_ancestor(
+        source_commit,
+        validator_commit,
+        project_root=repo,
+        description="test_lineage",
+    )
+    with pytest.raises(contract.LaunchContractError, match="source_not_ancestor"):
+        contract._require_git_ancestor(
+            validator_commit,
+            source_commit,
+            project_root=repo,
+            description="test_lineage",
+        )
+
+    blob_object_id = _git(repo, "rev-parse", "HEAD:critical.py")
+    with pytest.raises(contract.LaunchContractError, match="git_command_failed"):
+        contract._resolve_git_commit(
+            blob_object_id,
+            project_root=repo,
+            description="test_blob",
+        )
+
+    critical_path.unlink()
+    critical_path.symlink_to("target.py")
+    _git(repo, "add", "critical.py")
+    _git(repo, "commit", "--quiet", "-m", "symlink")
+    symlink_commit = _git(repo, "rev-parse", "HEAD")
+    with pytest.raises(contract.LaunchContractError, match="not_regular_file"):
+        contract.critical_training_code_bindings_at_commit(
+            symlink_commit,
+            project_root=repo,
+        )
+
+
+def test_recovery_json_creation_is_exclusive_and_directory_synced(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    receipt = tmp_path / "run.completion.json"
+    payload = {"receipt_sha256": "a" * 64}
+    fsync_file_types: list[str] = []
+    real_fsync = contract.os.fsync
+
+    def recording_fsync(file_descriptor: int) -> None:
+        mode = contract.os.fstat(file_descriptor).st_mode
+        fsync_file_types.append("directory" if stat.S_ISDIR(mode) else "file")
+        real_fsync(file_descriptor)
+
+    monkeypatch.setattr(contract.os, "fsync", recording_fsync)
+    identity = contract._atomic_create_json(receipt, payload)
+    original = receipt.read_bytes()
+    assert json.loads(original) == payload
+    assert contract._path_matches_file_identity(receipt, identity)
+    assert fsync_file_types == ["file", "directory"]
+
+    with pytest.raises(contract.LaunchContractError, match="already_exists"):
+        contract._atomic_create_json(receipt, {"receipt_sha256": "b" * 64})
+    assert receipt.read_bytes() == original
+
+    replacement = tmp_path / "replacement.json"
+    replacement.write_text("replacement\n", encoding="utf-8")
+    replacement.replace(receipt)
+    assert not contract._unlink_if_matching_file_identity(receipt, identity)
+    assert receipt.read_text(encoding="utf-8") == "replacement\n"
+
+
+def test_recovery_requires_explicit_timestamp() -> None:
+    with pytest.raises(contract.LaunchContractError, match="time_invalid"):
+        contract.recover_completion_receipt(
+            completion_receipt=Path("/not/opened/completion.json"),
+            launch_receipt=Path("/not/opened/launch.json"),
+            log=Path("/not/opened/run.log"),
+            training_summary=Path("/not/opened/training_summary.json"),
+            checkpoint=Path("/not/opened/checkpoint-1"),
+            recovered_at=None,  # type: ignore[arg-type]
+        )
+
+
+def test_recovery_json_creation_rolls_back_directory_fsync_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    receipt = tmp_path / "run.completion.json"
+
+    def failing_directory_fsync(_path: Path) -> None:
+        raise OSError("directory fsync failed")
+
+    monkeypatch.setattr(
+        contract,
+        "_fsync_directory",
+        failing_directory_fsync,
+    )
+    with pytest.raises(OSError, match="directory fsync failed"):
+        contract._atomic_create_json(receipt, {"receipt_sha256": "a" * 64})
+    assert not receipt.exists()
+    assert not list(tmp_path.glob(".*.tmp"))
+
+
+def test_recovery_validator_files_cover_full_validation_chain() -> None:
+    assert set(contract.RECOVERY_VALIDATOR_FILES) >= {
+        "experiments/rethinking_rwkv_ms_gemma/scene_memory_v11_launch_contract.py",
+        "experiments/rethinking_rwkv_ms_gemma/scene_memory_v10_launch_contract.py",
+        "experiments/rethinking_rwkv_ms_gemma/scene_memory_v9_launch_contract.py",
+        "experiments/rethinking_rwkv_ms_gemma/scene_memory_v11_warm_start.py",
+        "experiments/rethinking_rwkv_ms_gemma/scene_memory_v9_warm_start.py",
+    }
 
 
 def test_v11_suffix_contract_strings_pin_first_divergence_repair() -> None:
@@ -805,11 +988,26 @@ def test_v11_launch_completion_provenance_chain_rejects_telemetry_drift(
         lambda path, **_kwargs: Path(path).resolve(),
     )
     monkeypatch.setattr(contract, "v11_run_root_for", lambda _root: run_root)
-    monkeypatch.setattr(contract, "_git_head", lambda _root=contract.PROJECT_ROOT: "b" * 64)
+    source_commit = "b" * 40
+    validator_commit = "c" * 40
+    ancestry_calls: list[tuple[str, str]] = []
     monkeypatch.setattr(
         contract,
-        "critical_training_code_bindings",
-        lambda **_kwargs: critical,
+        "_resolve_git_commit",
+        lambda value, **_kwargs: str(value),
+    )
+    monkeypatch.setattr(contract, "_git_head", lambda *_args: validator_commit)
+    monkeypatch.setattr(
+        contract,
+        "_require_git_ancestor",
+        lambda ancestor, descendant, **_kwargs: ancestry_calls.append(
+            (str(ancestor), str(descendant))
+        ),
+    )
+    monkeypatch.setattr(
+        contract,
+        "critical_training_code_bindings_at_commit",
+        lambda commit, **_kwargs: critical if commit == source_commit else {},
     )
     launch_payload = {
         "schema": contract.LAUNCH_RECEIPT_SCHEMA,
@@ -820,6 +1018,7 @@ def test_v11_launch_completion_provenance_chain_rejects_telemetry_drift(
         "resume_checkpoint": None,
         "trainer_output": str(checkpoint.parents[1]),
         "checkpoint": str(checkpoint),
+        "log_file": str(log_path),
         "objective": contract.OBJECTIVE_VERSION,
         "gradient_accumulation_steps": 7,
         "max_grad_norm": 1.0,
@@ -832,11 +1031,29 @@ def test_v11_launch_completion_provenance_chain_rejects_telemetry_drift(
         "hard32_access": contract.HARD32_ACCESS_POLICY,
         "evaluation_access": "forbidden",
         "tracked_worktree_clean": True,
-        "git_commit": "b" * 64,
+        "git_commit": source_commit,
         "critical_files": critical,
     }
     launch_payload["receipt_sha256"] = contract.canonical_sha256(launch_payload)
     _write_json(launch_path, launch_payload)
+    rejecting_ancestor = contract._require_git_ancestor
+    monkeypatch.setattr(
+        contract,
+        "_require_git_ancestor",
+        lambda *_args, **_kwargs: contract.require(
+            False,
+            "v11_launch_receipt_lineage_source_not_ancestor",
+        ),
+    )
+    with pytest.raises(contract.LaunchContractError, match="source_not_ancestor"):
+        contract.validate_launch_receipt(
+            launch_path,
+            checkpoint=checkpoint,
+            baseline=baseline,
+            base_model_identity=model_identity,
+            ssd_root=tmp_path,
+        )
+    monkeypatch.setattr(contract, "_require_git_ancestor", rejecting_ancestor)
     launch_validation = contract.validate_launch_receipt(
         launch_path,
         checkpoint=checkpoint,
@@ -844,6 +1061,7 @@ def test_v11_launch_completion_provenance_chain_rejects_telemetry_drift(
         base_model_identity=model_identity,
         ssd_root=tmp_path,
     )
+    assert (source_commit, validator_commit) in ancestry_calls
     telemetry = {
         "schema": "rwkv_ms_scene_memory_v11_cycle_pair_telemetry.v1",
         "pair_presentations": 7,
@@ -851,9 +1069,228 @@ def test_v11_launch_completion_provenance_chain_rejects_telemetry_drift(
         "ordered_pairs_sha256": contract.FIRST_CYCLE_PAIRS_SHA256,
     }
     checkpoint_contract = {
+        "consumed_pair_presentations": 7,
         "training_protocol_sha256": protocol_sha,
         "cycle_pair_telemetry": telemetry,
     }
+    validator_files = {
+        relative: {
+            "path": str(tmp_path / relative),
+            "bytes": 123 + index,
+            "sha256": f"{index + 1:x}" * 64,
+        }
+        for index, relative in enumerate(contract.RECOVERY_VALIDATOR_FILES)
+    }
+    monkeypatch.setattr(contract, "validate_data_contract", lambda **_kwargs: {})
+    monkeypatch.setattr(
+        contract,
+        "validate_warm_start_contract",
+        lambda **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        contract,
+        "validate_checkpoint_contract",
+        lambda *_args, **_kwargs: checkpoint_contract,
+    )
+    monkeypatch.setattr(
+        contract,
+        "validate_v10_diagnostic_baseline",
+        lambda **_kwargs: baseline,
+    )
+    monkeypatch.setattr(contract, "_tracked_worktree_clean", lambda *_args: True)
+    monkeypatch.setattr(
+        contract,
+        "_git_file_bindings_at_commit",
+        lambda commit, *_args, **_kwargs: (
+            validator_files if commit == validator_commit else {}
+        ),
+    )
+    preview = contract.recover_completion_receipt(
+        completion_receipt=completion_path,
+        launch_receipt=launch_path,
+        log=log_path,
+        training_summary=summary_path,
+        checkpoint=checkpoint,
+        recovered_at="2026-07-30T17:00:00+00:00",
+        ssd_root=tmp_path,
+    )
+    assert preview["written"] is False
+    assert not completion_path.exists()
+    assert preview["payload"]["schema"] == (
+        contract.RECOVERED_COMPLETION_RECEIPT_SCHEMA
+    )
+    assert preview["payload"]["recovery"] == {
+        "schema": contract.COMPLETION_RECOVERY_SCHEMA,
+        "reason": contract.COMPLETION_RECOVERY_REASON,
+        "source_git_commit": source_commit,
+        "validator_git_commit": validator_commit,
+        "validator_files": validator_files,
+    }
+    assert (validator_commit, validator_commit) in ancestry_calls
+    future_commit = "d" * 40
+    monkeypatch.setattr(contract, "_git_head", lambda *_args: future_commit)
+    monkeypatch.setattr(
+        contract,
+        "_require_git_ancestor",
+        lambda ancestor, descendant, **_kwargs: contract.require(
+            not (
+                str(ancestor) == validator_commit
+                and str(descendant) == future_commit
+            ),
+            "v11_completion_recovery_validator_lineage_source_not_ancestor",
+        ),
+    )
+    with pytest.raises(contract.LaunchContractError, match="source_not_ancestor"):
+        contract.validate_completion_receipt(
+            completion_path,
+            checkpoint=checkpoint,
+            checkpoint_contract=checkpoint_contract,
+            launch=launch_validation,
+            ssd_root=tmp_path,
+            _payload=preview["payload"],
+        )
+    monkeypatch.setattr(contract, "_git_head", lambda *_args: validator_commit)
+    monkeypatch.setattr(contract, "_require_git_ancestor", rejecting_ancestor)
+    with pytest.raises(contract.LaunchContractError, match="requires_preview_hash"):
+        contract.recover_completion_receipt(
+            completion_receipt=completion_path,
+            launch_receipt=launch_path,
+            log=log_path,
+            training_summary=summary_path,
+            checkpoint=checkpoint,
+            recovered_at="2026-07-30T17:00:00+00:00",
+            write=True,
+            ssd_root=tmp_path,
+        )
+    assert not completion_path.exists()
+    with pytest.raises(contract.LaunchContractError, match="expected_hash_differs"):
+        contract.recover_completion_receipt(
+            completion_receipt=completion_path,
+            launch_receipt=launch_path,
+            log=log_path,
+            training_summary=summary_path,
+            checkpoint=checkpoint,
+            recovered_at="2026-07-30T17:00:00+00:00",
+            expected_receipt_sha256="f" * 64,
+            write=True,
+            ssd_root=tmp_path,
+        )
+    assert not completion_path.exists()
+    validate_provenance = contract.validate_training_provenance
+    replacement = logs / "replacement.completion.json"
+
+    def replace_then_fail(**_kwargs: object) -> None:
+        replacement.write_text("replacement\n", encoding="utf-8")
+        replacement.replace(completion_path)
+        contract.require(
+            False,
+            "v11_completion_recovery_post_create_validation_failed",
+        )
+
+    monkeypatch.setattr(
+        contract,
+        "validate_training_provenance",
+        replace_then_fail,
+    )
+    with pytest.raises(contract.LaunchContractError, match="post_create"):
+        contract.recover_completion_receipt(
+            completion_receipt=completion_path,
+            launch_receipt=launch_path,
+            log=log_path,
+            training_summary=summary_path,
+            checkpoint=checkpoint,
+            recovered_at="2026-07-30T17:00:00+00:00",
+            expected_receipt_sha256=preview["receipt_sha256"],
+            write=True,
+            ssd_root=tmp_path,
+        )
+    assert completion_path.read_text(encoding="utf-8") == "replacement\n"
+    completion_path.unlink()
+    monkeypatch.setattr(
+        contract,
+        "validate_training_provenance",
+        validate_provenance,
+    )
+    written = contract.recover_completion_receipt(
+        completion_receipt=completion_path,
+        launch_receipt=launch_path,
+        log=log_path,
+        training_summary=summary_path,
+        checkpoint=checkpoint,
+        recovered_at="2026-07-30T17:00:00+00:00",
+        expected_receipt_sha256=preview["receipt_sha256"],
+        write=True,
+        ssd_root=tmp_path,
+    )
+    assert written["written"] is True
+    assert written["receipt_sha256"] == preview["receipt_sha256"]
+    assert json.loads(completion_path.read_text(encoding="utf-8")) == preview[
+        "payload"
+    ]
+    assert written["training_provenance"]["completion_recovery"] == preview[
+        "payload"
+    ]["recovery"]
+    with pytest.raises(contract.LaunchContractError, match="invalid_or_exists"):
+        contract.recover_completion_receipt(
+            completion_receipt=completion_path,
+            launch_receipt=launch_path,
+            log=log_path,
+            training_summary=summary_path,
+            checkpoint=checkpoint,
+            recovered_at="2026-07-30T17:00:00+00:00",
+            expected_receipt_sha256=preview["receipt_sha256"],
+            write=True,
+            ssd_root=tmp_path,
+        )
+    completion_path.unlink()
+    drifted_recovery = dict(preview["payload"])
+    drifted_recovery["recovery"] = {
+        **drifted_recovery["recovery"],
+        "source_git_commit": "d" * 40,
+    }
+    drifted_recovery["receipt_sha256"] = contract.canonical_sha256(
+        {
+            key: value
+            for key, value in drifted_recovery.items()
+            if key != "receipt_sha256"
+        }
+    )
+    with pytest.raises(contract.LaunchContractError, match="source_commit_differs"):
+        contract.validate_completion_receipt(
+            completion_path,
+            checkpoint=checkpoint,
+            checkpoint_contract=checkpoint_contract,
+            launch=launch_validation,
+            ssd_root=tmp_path,
+            _payload=drifted_recovery,
+        )
+    invalid_time = dict(preview["payload"])
+    invalid_time["recovered_at"] = "not-a-time"
+    invalid_time["receipt_sha256"] = contract.canonical_sha256(
+        {
+            key: value
+            for key, value in invalid_time.items()
+            if key != "receipt_sha256"
+        }
+    )
+    with pytest.raises(contract.LaunchContractError, match="time_invalid"):
+        contract.validate_completion_receipt(
+            completion_path,
+            checkpoint=checkpoint,
+            checkpoint_contract=checkpoint_contract,
+            launch=launch_validation,
+            ssd_root=tmp_path,
+            _payload=invalid_time,
+        )
+    with pytest.raises(contract.LaunchContractError, match="receipt_path_differs"):
+        contract.validate_completion_receipt(
+            logs / "wrong.completion.json",
+            checkpoint=checkpoint,
+            checkpoint_contract=checkpoint_contract,
+            launch=launch_validation,
+            ssd_root=tmp_path,
+            _payload=preview["payload"],
+        )
     completion_payload = {
         "schema": contract.COMPLETION_RECEIPT_SCHEMA,
         "status": "completed",
