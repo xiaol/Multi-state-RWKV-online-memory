@@ -1,0 +1,201 @@
+{
+  "schema": "rwkv_ms_scene_memory_v14_v13_checkpoint4_adapter_warm_start_lock.v1",
+  "source_checkpoint": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v13/scene_memory_v13_production_value14_dense_20260731_070142_step4/trainer/checkpoint-4",
+  "artifacts": {
+    "delta_mem_adapter.pt": {
+      "bytes": 9490515,
+      "sha256": "9e39522b179067ae6c76076aa1b5aa0b4ceaf40fd97daf6abc7edeef2a1783eb"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2432,
+      "sha256": "86e1bbb1a258cb591c9167935317a2374cf9edc79e5a3a77b0f903dc38483931"
+    },
+    "optimizer.pt": {
+      "bytes": 14776109,
+      "sha256": "e809a90d6c99dab1d5334cdc2d1cf78f8c570f73f24d7dca7052860edfa0d1ef"
+    },
+    "rng_state.pth": {
+      "bytes": 14645,
+      "sha256": "61c19bab1174704a4a4441475683bf1270277af15d2e2c95e964789128e482c4"
+    },
+    "scene_memory_v13_row_objective.json": {
+      "bytes": 139248,
+      "sha256": "0312e40376a5b683ce4fbec93e240af61195838a37a4e7d2da77b0625aac9328"
+    },
+    "scene_state_identity_pairing_manifest.json": {
+      "bytes": 81051,
+      "sha256": "52572b354dc6344a0ceab37251a6301dac7ed2f8c595760948eef042e3f6c11b"
+    },
+    "scheduler.pt": {
+      "bytes": 1465,
+      "sha256": "223126bd1d23551d7364f4680c65664918ec45d6b4913928668e7f27ed97b367"
+    },
+    "trainer_state.json": {
+      "bytes": 70555,
+      "sha256": "ced5bc22624f073ef409fba8db1d6f78da564e765cde309de47b5d09b7e92888"
+    },
+    "training_protocol.json": {
+      "bytes": 15983,
+      "sha256": "00abbed2107253779cb07a403b9c7bebceca5d59b7a4705b32f8540d623039eb"
+    },
+    "warm_start_lineage_manifest.json": {
+      "bytes": 6993,
+      "sha256": "837327373e502c28ad40fae5a5aabc46accd47394952825786864e41268adfd7"
+    }
+  },
+  "adapter_topology": {
+    "sha256": "a8b72bc0ce82d7ecaafbfb76cdf8500465ab2b63771915840620f28c3cabbc77",
+    "tensor_count": 1344,
+    "tensor_elements": 2789808
+  },
+  "expected_delta_config": {
+    "rank": 4,
+    "alpha": 8.0,
+    "memory_backend": "rwkv_ms",
+    "state_update_mode": "standard",
+    "rankwise_gates": true,
+    "output_init": "base_slice_fixed",
+    "base_slice_ref_width": 8,
+    "online_gain": 0.2,
+    "target_modules": [
+      "self_attn"
+    ],
+    "target_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41
+    ],
+    "delta_heads": [
+      "q",
+      "o"
+    ],
+    "memory_fusion_mode": "add",
+    "memory_fusion_placement": "attention_output",
+    "memory_fusion_residual_scale": 1.0,
+    "memory_fusion_residual_scale_max": 1.0,
+    "trainable_delta_scale": true,
+    "delta_scale_init": 0.1,
+    "delta_scale_max": 0.5,
+    "delta_scale_granularity": "head",
+    "delta_scale_parameterization": "alpha_over_rank",
+    "memory_readout_mode": "delta",
+    "memory_write_source": "learned_hidden",
+    "memory_write_granularity": "token",
+    "rwkv_ms_num_states": 4,
+    "rwkv_ms_chunk_size": 128,
+    "rwkv_ms_boundary_mode": "fixed_chunk",
+    "rwkv_ms_semantics_version": 2
+  },
+  "expected_trainer_state": {
+    "global_step": 4,
+    "max_steps": 4,
+    "epoch": 1.0,
+    "num_train_epochs": 1,
+    "train_batch_size": 1,
+    "best_model_checkpoint": null
+  },
+  "expected_training_protocol": {
+    "schema_version": 16,
+    "memory_objective_version": "scene_state_generation_ce_symmetric_dense_boundary_v13",
+    "memory_loss_mode": "scene_state_generation_ce",
+    "training_mode": "episode",
+    "assistant_loss_mode": "final_assistant_only",
+    "train_samples": 32,
+    "max_steps": 4,
+    "per_device_train_batch_size": 1,
+    "gradient_accumulation_steps": 7,
+    "learning_rate": 0.0001,
+    "optim": "adamw_torch_fused",
+    "lr_scheduler_type": "constant",
+    "warmup_steps": 0,
+    "rwkv_ms_semantics_version": 2,
+    "frozen_mlp_activation_checkpointing": true,
+    "train_sampler_mode": "explicit_ordered_v13_four_canonical_seven_pair_cycles_v1",
+    "scene_generation_row_objective_audit_filename": "scene_memory_v13_row_objective.json",
+    "scene_generation_row_objective_audit_schema": "rwkv_ms_scene_memory_v13_row_objective.v1",
+    "scene_generation_parsed_exactness": "benchmark_literal_boundary_set_equality_v1",
+    "scene_generation_parsed_exactness_mode": "parsed_json_literal_boundary_equality_v1"
+  },
+  "expected_pairing_manifest": {
+    "schema_version": 2,
+    "objective_version": "scene_state_generation_ce_v1",
+    "target_mode": "first_pair_distinguishing_semantic_token_v1",
+    "semantic_mask_mode": "top_level_boundaries_nonwhitespace_offset_overlap_v1",
+    "causal_prefix_mode": "exact_input_ids_and_attention_before_pair_target_v1",
+    "pairing_version": "predeclared_directed_scene_v7_v1",
+    "target_token_count": 32,
+    "tokenized_dataset_sha256": "b600699eab24d1e3d3313e0bce2840f8c5dd84f71d5c4ad01997c395b39a3ad5",
+    "manifest_sha256": "a8979d672c03f92d3df4b7d232416bf7e4564126ab8b3d47adec3bbe5226fbe6"
+  },
+  "expected_row_objective_audit": {
+    "schema": "rwkv_ms_scene_memory_v13_row_objective.v1",
+    "memory_objective_version": "scene_state_generation_ce_symmetric_dense_boundary_v13",
+    "checkpoint_optimizer_step": 4,
+    "completed_pair_presentations": 28,
+    "phases": [
+      "cycle1_input",
+      "cycle2_input",
+      "cycle3_input",
+      "cycle4_input"
+    ],
+    "row_count": 14,
+    "pair_presentation_count": 28
+  },
+  "source_state_imports": {
+    "adapter": true,
+    "optimizer": false,
+    "scheduler": false,
+    "trainer_state": false,
+    "rng": false,
+    "global_step": false
+  },
+  "target_fresh_start": {
+    "global_step": 0,
+    "optimizer_created_after_adapter_load": true,
+    "optimizer_family": "AdamW",
+    "optimizer_state": "fresh",
+    "scheduler_state": "fresh",
+    "trainer_state": "fresh",
+    "rng_state": "fresh_from_v14_seed"
+  },
+  "lock_sha256": "fc790b09a496bf12a1e32f6440d8867cc89c764b9aff9c30208c30ba1b38c0fe"
+}
