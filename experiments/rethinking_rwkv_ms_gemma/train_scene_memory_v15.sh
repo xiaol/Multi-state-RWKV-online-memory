@@ -325,6 +325,7 @@ train_args=(
   --memory-recover-weight 0
   --write-sparsity-weight 0
   --per-device-train-batch-size 1
+  --per-device-eval-batch-size 1
   --gradient-accumulation-steps "${GRADIENT_ACCUMULATION_STEPS}"
   --learning-rate 1e-4
   --lr-scheduler-type constant
@@ -338,6 +339,7 @@ train_args=(
   --logging-steps 1
   --save-steps 1
   --save-total-limit "${SAVE_TOTAL_LIMIT}"
+  --eval-steps 1000
   --validation-split-ratio 0
   --no-load-best-model-at-end
   --no-ignore-data-skip

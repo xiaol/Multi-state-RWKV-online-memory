@@ -4,7 +4,9 @@ import os
 import json
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
+import sys
 
 import pytest
 
@@ -14,6 +16,7 @@ from experiments.rethinking_rwkv_ms_gemma import (
 from experiments.rethinking_rwkv_ms_gemma import (
     scene_memory_v15_launch_contract as launch,
 )
+from deltamem.train import delta_sft
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -206,6 +209,28 @@ def test_v15_launcher_dry_run_emits_locked_command_without_starting(
     assert (launch.ONE_PAIR_SMOKE_FLAG in result.stdout) is smoke
     assert "--resume-from-checkpoint" not in result.stdout
     assert "--validation-split-ratio 0" in result.stdout
+    assert "--per-device-eval-batch-size 1" in result.stdout
+    assert "--eval-steps 1000" in result.stdout
+
+
+@pytest.mark.parametrize("smoke", (False, True))
+def test_v15_launcher_command_passes_real_training_argument_validation(
+    smoke: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_name = f"pytest_parse_{'smoke' if smoke else 'production'}"
+    result = _dry_run(run_name, smoke=smoke)
+    assert result.returncode == 0, result.stderr
+    marker = "Validated V15 training command (not started):\n"
+    command = shlex.split(result.stdout.split(marker, 1)[1].splitlines()[0])
+    assert command[1:3] == ["-m", "deltamem.train.delta_sft"]
+    monkeypatch.setattr(sys, "argv", [command[2], *command[3:]])
+
+    parsed = delta_sft.parse_args()
+
+    assert parsed.scene_state_generation_objective_version == launch.OBJECTIVE_VERSION
+    assert parsed.per_device_eval_batch_size == 1
+    assert parsed.eval_steps == 1000
 
 
 def test_v15_launcher_locks_every_cache_and_temp_to_ssd() -> None:
