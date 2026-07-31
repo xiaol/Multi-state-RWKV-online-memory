@@ -83,8 +83,32 @@ SCENE_V8_HARD32_AUTHORIZATION_SCOPE = (
     "fixed_scene_v4_current_hard32_only_no_full170_no_test_no_other_benchmarks"
 )
 SCENE_V14_HARD32_CONTRACT = "scene_v14_authorized_hard32"
-SCENE_V14_VALUE14_AUTHORIZATION_KIND = (
+SCENE_V14_VALUE14_DIAGNOSTIC_RECEIPT_KIND = (
     "scene_memory_v14_value14_gate_receipt"
+)
+# Historical import name; this receipt is diagnostic under the candidate-lock policy.
+SCENE_V14_VALUE14_AUTHORIZATION_KIND = (
+    SCENE_V14_VALUE14_DIAGNOSTIC_RECEIPT_KIND
+)
+SCENE_V14_CANDIDATE_LOCK_SCHEMA = (
+    "rwkv_ms_scene_memory_v14_hard32_candidate_lock.v1"
+)
+SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND = (
+    "scene_memory_v14_benchmark_first_candidate_lock"
+)
+SCENE_V14_CANDIDATE_SELECTION_POLICY = (
+    "benchmark_first_single_production_checkpoint3_v1"
+)
+SCENE_V14_EVALUATOR_BRIDGE_REASON = (
+    "legacy_value14_14_of_14_gate_failed_but_checkpoint3_was_preselected_as_"
+    "the_single_benchmark_first_candidate_v1"
+)
+SCENE_V14_CANDIDATE_LOCK_PATH = (
+    SCRIPT_DIR / "scene_memory_v14_checkpoint3_hard32_candidate_lock.json"
+)
+# The lock binds historical evidence; live evaluator code binds this exact lock.
+SCENE_V14_CANDIDATE_LOCK_FILE_SHA256 = (
+    "83f1eebf5f9e615f10c0d41a6d29745326e3f4f054107897c060c6ebf6290a24"
 )
 SCENE_V14_HARD32_AUTHORIZATION_SCOPE = SCENE_V8_HARD32_AUTHORIZATION_SCOPE
 HISTORICAL_V6_LINEAGE_LIMITATION = (
@@ -274,9 +298,13 @@ SCENE_V14_HARD32_OBJECTIVE_INTERPRETATION = {
         "symmetric_cached_actual_prefix_boundary_repair_and_cached_gold_prefix_"
         "decision_retention"
     ),
-    "value14_gate": (
+    "value14_diagnostic": (
         "exact_correct_and_reciprocal_donor_semantic_generation_with_"
         "row_invariant_zero_state_control"
+    ),
+    "candidate_selection": SCENE_V14_CANDIDATE_SELECTION_POLICY,
+    "candidate_selection_role": (
+        "one_predeclared_checkpoint_for_frozen_hard32_benchmark_first_test"
     ),
     "raw_token_exact_role": "telemetry_only",
     "hard32_role": "fixed_confirmatory_evaluation_only",
@@ -434,7 +462,7 @@ def parse_args() -> argparse.Namespace:
         "--preflight-only",
         action="store_true",
         help=(
-            "Validate the protected historical-V6 checkpoint and Hard32 bindings "
+            "Validate protected historical-V6 or locked V14 Hard32 bindings "
             "without loading a model or creating output files."
         ),
     )
@@ -472,9 +500,17 @@ def parse_args() -> argparse.Namespace:
         "--scene-v14-value14-receipt",
         type=Path,
         help=(
-            "Passed Scene-Memory V14 Value14 gate receipt required for "
-            "scene_v14_authorized_hard32. It binds only the exact candidate "
-            "checkpoint and frozen Hard32."
+            "Exact Scene-Memory V14 Value14 diagnostic receipt bound by the "
+            "checkpoint-3 candidate lock. Its historical pass/fail status is "
+            "preserved and does not itself authorize Hard32."
+        ),
+    )
+    parser.add_argument(
+        "--scene-v14-candidate-lock",
+        type=Path,
+        help=(
+            "Canonical tracked V14 checkpoint-3 candidate lock required for "
+            "scene_v14_authorized_hard32. No other lock path is accepted."
         ),
     )
     parser.add_argument(
@@ -529,11 +565,13 @@ def validate_scene_v14_receipt_scope(
     *,
     evaluation_contract: str,
     gate_receipt: Path | None,
+    candidate_lock: Path | None,
     launch_receipt: Path | None,
     completion_receipt: Path | None,
 ) -> None:
     supplied = {
         "--scene-v14-value14-receipt": gate_receipt,
+        "--scene-v14-candidate-lock": candidate_lock,
         "--scene-v14-launch-receipt": launch_receipt,
         "--scene-v14-completion-receipt": completion_receipt,
     }
@@ -547,8 +585,9 @@ def validate_scene_v14_receipt_scope(
         missing = [name for name, value in supplied.items() if value is None]
         if missing:
             raise ValueError(
-                f"{SCENE_V14_HARD32_CONTRACT} requires exact gate, launch, and "
-                "completion receipts; missing: " + ", ".join(missing)
+                f"{SCENE_V14_HARD32_CONTRACT} requires the canonical candidate "
+                "lock plus exact diagnostic, launch, and completion receipts; "
+                "missing: " + ", ".join(missing)
             )
 
 
@@ -1086,16 +1125,16 @@ def validate_scene_v6_matched_donor_contract(
     selection_manifest_sha256: str | None = None,
     hard32_receipt_authorization: dict[str, Any] | None = None,
     scene_v8_train32_authorization: dict[str, Any] | None = None,
-    scene_v14_value14_authorization: dict[str, Any] | None = None,
+    scene_v14_candidate_authorization: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if contract not in EVALUATION_CONTRACTS:
         raise ValueError(f"Unsupported scene-state evaluation contract: {contract}")
     if (
-        scene_v14_value14_authorization is not None
+        scene_v14_candidate_authorization is not None
         and contract != SCENE_V14_HARD32_CONTRACT
     ):
         raise ValueError(
-            "V14 Value14 authorization is restricted to "
+            "V14 candidate-lock authorization is restricted to "
             f"{SCENE_V14_HARD32_CONTRACT}"
         )
     if contract == SCENE_V14_HARD32_CONTRACT and (
@@ -1223,20 +1262,21 @@ def validate_scene_v6_matched_donor_contract(
         )
     if (
         contract == SCENE_V14_HARD32_CONTRACT
-        and scene_v14_value14_authorization is None
+        and scene_v14_candidate_authorization is None
     ):
         raise ValueError(
-            f"{SCENE_V14_HARD32_CONTRACT} requires a passing V14 Value14 gate "
-            "receipt plus its exact launch and completion receipts"
+            f"{SCENE_V14_HARD32_CONTRACT} requires the exact V14 candidate lock, "
+            "diagnostic receipt, launch receipt, and completion receipt"
         )
     if contract == SCENE_V14_HARD32_CONTRACT and (
-        scene_v14_value14_authorization.get("authorization_kind")
-        != SCENE_V14_VALUE14_AUTHORIZATION_KIND
-        or scene_v14_value14_authorization.get("scope")
+        scene_v14_candidate_authorization.get("authorization_kind")
+        != SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
+        or scene_v14_candidate_authorization.get("scope")
         != SCENE_V14_HARD32_AUTHORIZATION_SCOPE
-        or scene_v14_value14_authorization.get("full170_authorized") is not False
-        or scene_v14_value14_authorization.get("test_authorized") is not False
-        or scene_v14_value14_authorization.get("other_benchmarks_authorized")
+        or scene_v14_candidate_authorization.get("hard32_authorized") is not True
+        or scene_v14_candidate_authorization.get("full170_authorized") is not False
+        or scene_v14_candidate_authorization.get("test_authorized") is not False
+        or scene_v14_candidate_authorization.get("other_benchmarks_authorized")
         is not False
     ):
         raise ValueError("V14 Hard32 authorization scope differs")
@@ -1282,7 +1322,7 @@ def validate_scene_v6_matched_donor_contract(
         ),
         "hard32_receipt_authorization": hard32_receipt_authorization,
         "scene_v8_train32_authorization": scene_v8_train32_authorization,
-        "scene_v14_value14_authorization": scene_v14_value14_authorization,
+        "scene_v14_candidate_authorization": scene_v14_candidate_authorization,
         "authorization_scope": (
             SCENE_V14_HARD32_AUTHORIZATION_SCOPE
             if fixed_scope_hard32
@@ -3414,21 +3454,30 @@ def build_candidate_lineage_record_binding(
 ) -> dict[str, Any] | None:
     if candidate_lineage is None:
         return None
-    if candidate_lineage.get("lineage_kind") != SCENE_V14_VALUE14_AUTHORIZATION_KIND:
+    if (
+        candidate_lineage.get("lineage_kind")
+        != SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
+    ):
         return None
     authorization = candidate_lineage.get("authorization")
     if not isinstance(authorization, Mapping):
         raise ValueError("V14 candidate authorization is missing")
     checkpoint = authorization.get("checkpoint")
     provenance = authorization.get("training_provenance")
-    receipt = authorization.get("receipt")
+    diagnostic_receipt = authorization.get("diagnostic_receipt")
+    candidate_lock = authorization.get("candidate_lock")
+    evaluator_code_bridge = authorization.get("evaluator_code_bridge")
+    base_model = authorization.get("base_model")
     if (
         authorization.get("authorization_kind")
-        != SCENE_V14_VALUE14_AUTHORIZATION_KIND
+        != SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
         or authorization.get("scope") != SCENE_V14_HARD32_AUTHORIZATION_SCOPE
         or not isinstance(checkpoint, Mapping)
         or not isinstance(provenance, Mapping)
-        or not isinstance(receipt, Mapping)
+        or not isinstance(diagnostic_receipt, Mapping)
+        or not isinstance(candidate_lock, Mapping)
+        or not isinstance(evaluator_code_bridge, Mapping)
+        or not isinstance(base_model, str)
     ):
         raise ValueError("V14 candidate authorization lineage differs")
     checkpoint_artifacts = checkpoint.get("artifacts")
@@ -3448,10 +3497,13 @@ def build_candidate_lineage_record_binding(
             "receipt_sha256": entry["receipt_sha256"],
         }
     return {
-        "lineage_kind": SCENE_V14_VALUE14_AUTHORIZATION_KIND,
+        "lineage_kind": SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND,
         "lineage_sha256": fingerprint_payload_sha256(candidate_lineage),
         "authorization_scope": SCENE_V14_HARD32_AUTHORIZATION_SCOPE,
-        "gate_receipt": dict(receipt),
+        "candidate_lock": dict(candidate_lock),
+        "diagnostic_receipt": dict(diagnostic_receipt),
+        "evaluator_code_bridge": dict(evaluator_code_bridge),
+        "base_model": base_model,
         "checkpoint": {
             "memory_dir": checkpoint.get("memory_dir"),
             "global_step": checkpoint.get("global_step"),
@@ -3736,7 +3788,7 @@ def build_hard32_receipt(
     )
     is_v14_authorized = (
         candidate_lineage.get("lineage_kind")
-        == SCENE_V14_VALUE14_AUTHORIZATION_KIND
+        == SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
     )
     receipt_gate = copy.deepcopy(gate)
     if is_v7_authorized or is_v8_authorized or is_v14_authorized:
@@ -3792,7 +3844,7 @@ def build_hard32_receipt(
                     else "fixed_hard32_only_no_full170"
                 ),
                 "upstream_authorization_kind": (
-                    SCENE_V14_VALUE14_AUTHORIZATION_KIND
+                    SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
                     if is_v14_authorized
                     else (
                         SCENE_V8_TRAIN32_AUTHORIZATION_KIND
@@ -4016,60 +4068,345 @@ def validate_scene_v8_train32_hard32_authorization(
     }
 
 
-def validate_scene_v14_value14_hard32_authorization(
+def validate_scene_v14_candidate_lock(
+    lock_path: Path,
+) -> dict[str, Any]:
+    """Load the one canonical tracked V14 Hard32 candidate designation."""
+
+    supplied = lock_path.expanduser().absolute()
+    canonical = SCENE_V14_CANDIDATE_LOCK_PATH.absolute()
+    if supplied != canonical:
+        raise ValueError(
+            "V14 Hard32 requires the canonical tracked checkpoint-3 candidate lock"
+        )
+    _reject_symlink_components(supplied, description="V14 candidate lock")
+    if not supplied.is_file():
+        raise ValueError(f"V14 candidate lock is missing: {supplied}")
+    file_sha256 = sha256_file(supplied)
+    if file_sha256 != SCENE_V14_CANDIDATE_LOCK_FILE_SHA256:
+        raise ValueError("V14 candidate lock file hash differs")
+    try:
+        payload = json.loads(supplied.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError("V14 candidate lock is invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("V14 candidate lock must contain an object")
+    required_keys = {
+        "schema",
+        "authorization_kind",
+        "selection_policy",
+        "candidate_count",
+        "rejected_checkpoint_steps",
+        "hard32_output_dir",
+        "selected_candidate",
+        "authorization",
+        "exception_reason",
+        "lock_sha256",
+    }
+    if set(payload) != required_keys:
+        raise ValueError("V14 candidate lock fields differ")
+    if payload.get("schema") != SCENE_V14_CANDIDATE_LOCK_SCHEMA:
+        raise ValueError("V14 candidate lock schema differs")
+    if (
+        payload.get("authorization_kind")
+        != SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
+        or payload.get("selection_policy")
+        != SCENE_V14_CANDIDATE_SELECTION_POLICY
+        or payload.get("candidate_count") != 1
+        or payload.get("rejected_checkpoint_steps") != [1, 2, 4]
+    ):
+        raise ValueError("V14 candidate designation differs")
+    recorded_sha256 = payload.get("lock_sha256")
+    if (
+        not isinstance(recorded_sha256, str)
+        or SHA256_RE.fullmatch(recorded_sha256) is None
+        or recorded_sha256
+        != fingerprint_payload_sha256(
+            {key: value for key, value in payload.items() if key != "lock_sha256"}
+        )
+    ):
+        raise ValueError("V14 candidate lock self-hash differs")
+    if payload.get("authorization") != {
+        "scope": SCENE_V14_HARD32_AUTHORIZATION_SCOPE,
+        "hard32_authorized": True,
+        "full170_authorized": False,
+        "test_authorized": False,
+        "other_benchmarks_authorized": False,
+    }:
+        raise ValueError("V14 candidate lock authorization scope differs")
+    if payload.get("exception_reason") != SCENE_V14_EVALUATOR_BRIDGE_REASON:
+        raise ValueError("V14 candidate lock exception reason differs")
+    selected = payload.get("selected_candidate")
+    if not isinstance(selected, Mapping):
+        raise ValueError("V14 candidate lock selected candidate is missing")
+    if set(selected) != {
+        "checkpoint",
+        "diagnostic_receipt",
+        "legacy_gate",
+        "launch_receipt",
+        "completion_receipt",
+        "historical_state_runtime",
+    }:
+        raise ValueError("V14 candidate lock selected-candidate fields differ")
+    checkpoint = selected.get("checkpoint")
+    if (
+        not isinstance(checkpoint, Mapping)
+        or checkpoint.get("global_step") != 3
+        or checkpoint.get("consumed_pair_presentations") != 21
+        or Path(str(checkpoint.get("memory_dir", ""))).name != "checkpoint-3"
+    ):
+        raise ValueError("V14 candidate lock must designate only checkpoint-3")
+    for name in (
+        "delta_mem_adapter",
+        "delta_mem_config",
+        "trainer_state",
+    ):
+        binding = checkpoint.get(name)
+        if (
+            not isinstance(binding, Mapping)
+            or not isinstance(binding.get("path"), str)
+            or not isinstance(binding.get("bytes"), int)
+            or not isinstance(binding.get("sha256"), str)
+            or SHA256_RE.fullmatch(binding["sha256"]) is None
+        ):
+            raise ValueError(f"V14 candidate lock {name} binding differs")
+    for name in ("diagnostic_receipt", "launch_receipt", "completion_receipt"):
+        binding = selected.get(name)
+        if (
+            not isinstance(binding, Mapping)
+            or not isinstance(binding.get("path"), str)
+            or not isinstance(binding.get("bytes"), int)
+            or not isinstance(binding.get("file_sha256"), str)
+            or SHA256_RE.fullmatch(binding["file_sha256"]) is None
+            or not isinstance(binding.get("payload_sha256"), str)
+            or SHA256_RE.fullmatch(binding["payload_sha256"]) is None
+        ):
+            raise ValueError(f"V14 candidate lock {name} binding differs")
+    diagnostic_receipt = selected["diagnostic_receipt"]
+    if (
+        diagnostic_receipt.get("status") != "fail"
+        or not isinstance(diagnostic_receipt.get("evaluation_fingerprint"), str)
+        or SHA256_RE.fullmatch(diagnostic_receipt["evaluation_fingerprint"]) is None
+    ):
+        raise ValueError("V14 candidate diagnostic receipt status differs")
+    if selected.get("legacy_gate") != {
+        "status": "fail",
+        "all_gates_passed": False,
+        "hard32_authorized": False,
+        "correct_strict_exact_rows": 6,
+        "donor_identity_strict_exact_rows": 6,
+        "correct_donor_semantic_switch_rows": 4,
+        "role": "diagnostic_only_superseded_by_exact_candidate_lock",
+    }:
+        raise ValueError("V14 candidate lock must preserve the failed legacy gate")
+    historical_runtime = selected.get("historical_state_runtime")
+    if (
+        not isinstance(historical_runtime, Mapping)
+        or not isinstance(historical_runtime.get("path"), str)
+        or not isinstance(historical_runtime.get("bytes"), int)
+        or not isinstance(historical_runtime.get("sha256"), str)
+        or SHA256_RE.fullmatch(historical_runtime["sha256"]) is None
+    ):
+        raise ValueError("V14 historical evaluator binding differs")
+    return {
+        "payload": payload,
+        "binding": {
+            "path": str(supplied),
+            "bytes": supplied.stat().st_size,
+            "file_sha256": file_sha256,
+            "payload_sha256": recorded_sha256,
+            "selection_policy": SCENE_V14_CANDIDATE_SELECTION_POLICY,
+        },
+    }
+
+
+def _validate_scene_v14_bound_artifact(
+    path: Path,
+    binding: Mapping[str, Any],
+    *,
+    description: str,
+) -> Path:
+    supplied = path.expanduser().absolute()
+    expected = Path(str(binding.get("path", ""))).expanduser().absolute()
+    if supplied != expected or not supplied.is_file():
+        raise ValueError(f"V14 {description} path differs")
+    if (
+        supplied.stat().st_size != binding.get("bytes")
+        or sha256_file(supplied) != binding.get("file_sha256")
+    ):
+        raise ValueError(f"V14 {description} artifact differs")
+    return supplied
+
+
+def _replay_scene_v14_locked_diagnostic_receipt(
+    *,
+    v14: Any,
+    receipt_path: Path,
+    lock_payload: Mapping[str, Any],
+    launch_receipt: Path,
+    completion_receipt: Path,
+    memory_dir: Path,
+    input_contract: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Replay one old receipt after bridging only its evaluator self-binding."""
+
+    selected = lock_payload["selected_candidate"]
+    receipt_binding = selected["diagnostic_receipt"]
+    resolved_receipt = _validate_scene_v14_bound_artifact(
+        receipt_path,
+        receipt_binding,
+        description="checkpoint-3 diagnostic receipt",
+    )
+    try:
+        original = json.loads(resolved_receipt.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError("V14 diagnostic receipt is invalid JSON") from exc
+    if not isinstance(original, dict):
+        raise ValueError("V14 diagnostic receipt must contain an object")
+    original_payload_sha256 = original.get("receipt_sha256")
+    if (
+        original_payload_sha256 != receipt_binding.get("payload_sha256")
+        or original_payload_sha256
+        != v14.self_hash_payload(original, hash_field="receipt_sha256")
+    ):
+        raise ValueError("V14 diagnostic receipt self-hash differs")
+    if (
+        original.get("schema") != v14.GATE_RECEIPT_SCHEMA
+        or original.get("status") != "fail"
+    ):
+        raise ValueError("V14 locked diagnostic receipt must preserve status=fail")
+
+    historical_code = original.get("code")
+    historical_runtime = selected.get("historical_state_runtime")
+    live_code = v14.evaluator_code_binding()
+    if (
+        not isinstance(historical_code, Mapping)
+        or historical_code.get("state_runtime") != historical_runtime
+        or not isinstance(live_code, Mapping)
+        or not isinstance(live_code.get("state_runtime"), Mapping)
+    ):
+        raise ValueError("V14 historical evaluator binding differs")
+    historical_other = dict(historical_code)
+    live_other = dict(live_code)
+    historical_other.pop("state_runtime")
+    live_other.pop("state_runtime")
+    if historical_other != live_other:
+        raise ValueError("V14 diagnostic receipt has non-evaluator code drift")
+
+    replay_code = dict(live_code)
+    replay_code["state_runtime"] = dict(historical_runtime)
+    if replay_code != historical_code:
+        raise ValueError("V14 diagnostic replay code binding differs")
+    live_binding_function = v14.evaluator_code_binding
+    try:
+        v14.evaluator_code_binding = lambda: dict(replay_code)
+        validated = v14.validate_gate_receipt_for_checkpoint(
+            original,
+            memory_dir=memory_dir,
+            launch_receipt=launch_receipt,
+            completion_receipt=completion_receipt,
+            input_contract=input_contract,
+        )
+    finally:
+        v14.evaluator_code_binding = live_binding_function
+    bridge = {
+        "exception_reason": lock_payload["exception_reason"],
+        "substitution_scope": (
+            "diagnostic_replay.evaluator_code_binding.state_runtime_only"
+        ),
+        "historical_state_runtime": dict(historical_runtime),
+        "live_state_runtime": dict(live_code["state_runtime"]),
+        "other_code_bindings_unchanged": True,
+        "original_receipt_payload_sha256": original_payload_sha256,
+        "original_evaluation_fingerprint": original.get("evaluation_fingerprint"),
+        "original_receipt_replayed_unchanged": True,
+    }
+    return validated, bridge
+
+
+def validate_scene_v14_candidate_hard32_authorization(
+    candidate_lock_path: Path,
     receipt_path: Path,
     *,
     launch_receipt: Path,
     completion_receipt: Path,
+    base_model: Path | str,
     memory_dir: Path,
+    output_dir: Path,
+    overwrite: bool,
     dataset_file: Path,
     selection_file: Path | None,
 ) -> dict[str, Any]:
-    """Authorize only frozen Hard32 for one provenance-bound V14 candidate."""
+    """Authorize frozen Hard32 for exactly the tracked V14 checkpoint-3."""
 
     from experiments.rethinking_rwkv_ms_gemma import (  # lazy circular import
         run_scene_memory_v14_gate as v14,
     )
 
+    lock = validate_scene_v14_candidate_lock(candidate_lock_path)
+    lock_payload = lock["payload"]
+    expected_output = Path(str(lock_payload["hard32_output_dir"])).expanduser().absolute()
+    if output_dir.expanduser().absolute() != expected_output:
+        raise ValueError("V14 candidate lock permits only its exact Hard32 output directory")
+    if overwrite:
+        raise ValueError("V14 candidate-lock Hard32 evaluation forbids --overwrite")
+    if v14.HARD32_AUTHORIZATION_SCOPE != SCENE_V14_HARD32_AUTHORIZATION_SCOPE:
+        raise ValueError("V14 gate and Hard32 authorization scopes differ")
     if (
         v14.HARD32_AUTHORIZATION_KIND
-        != SCENE_V14_VALUE14_AUTHORIZATION_KIND
-        or v14.HARD32_AUTHORIZATION_SCOPE
-        != SCENE_V14_HARD32_AUTHORIZATION_SCOPE
+        != SCENE_V14_VALUE14_DIAGNOSTIC_RECEIPT_KIND
     ):
-        raise ValueError("V14 gate and Hard32 authorization constants differ")
+        raise ValueError("V14 diagnostic receipt kind differs")
     inputs = v14.validate_v14_train_inputs()
-    validated = v14.validate_gate_receipt_for_checkpoint(
-        receipt_path,
-        memory_dir=memory_dir,
+    validated_base_model = v14.validate_base_model_path(base_model)
+    selected = lock_payload["selected_candidate"]
+    if memory_dir.expanduser().absolute() != Path(
+        selected["checkpoint"]["memory_dir"]
+    ).expanduser().absolute():
+        raise ValueError("V14 candidate lock rejects every checkpoint except checkpoint-3")
+    _validate_scene_v14_bound_artifact(
+        launch_receipt,
+        selected["launch_receipt"],
+        description="launch receipt",
+    )
+    _validate_scene_v14_bound_artifact(
+        completion_receipt,
+        selected["completion_receipt"],
+        description="completion receipt",
+    )
+    validated, code_bridge = _replay_scene_v14_locked_diagnostic_receipt(
+        v14=v14,
+        receipt_path=receipt_path,
+        lock_payload=lock_payload,
         launch_receipt=launch_receipt,
         completion_receipt=completion_receipt,
+        memory_dir=memory_dir,
         input_contract=inputs,
     )
     gate = validated.get("gate")
     candidate = validated.get("candidate_designation")
     authorization = validated.get("training_authorization")
     if (
-        validated.get("status") != "pass"
+        validated.get("status") != "fail"
         or not isinstance(gate, Mapping)
-        or gate.get("status") != "pass"
-        or gate.get("all_gates_passed") is not True
-        or gate.get("hard32_authorized") is not True
+        or gate.get("status") != "fail"
+        or gate.get("all_gates_passed") is not False
+        or gate.get("hard32_authorized") is not False
         or gate.get("full170_authorized") is not False
         or gate.get("test_authorized") is not False
         or gate.get("other_benchmarks_authorized") is not False
         or not isinstance(candidate, Mapping)
         or candidate.get("kind") != v14.CANDIDATE_DESIGNATION_KIND
-        or candidate.get("designated") is not True
+        or candidate.get("designated") is not False
         or not isinstance(authorization, Mapping)
-        or authorization.get("hard32_authorized") is not True
+        or authorization.get("hard32_authorized") is not False
         or authorization.get("full170_authorized") is not False
         or authorization.get("test_authorized") is not False
         or authorization.get("other_benchmarks_authorized") is not False
     ):
         raise ValueError(
-            "Fixed Hard32 requires a passed V14 Value14 receipt with no broader "
-            "benchmark authorization"
+            "V14 candidate lock requires its exact failed diagnostic receipt with "
+            "no benchmark authorization encoded in that historical receipt"
         )
     checkpoint = validated.get("checkpoint")
     if (
@@ -4078,7 +4415,37 @@ def validate_scene_v14_value14_hard32_authorization(
         or checkpoint.get("training_provenance")
         != validated.get("training_provenance")
     ):
-        raise ValueError("V14 Value14 receipt candidate or training lineage differs")
+        raise ValueError("V14 diagnostic receipt candidate or training lineage differs")
+    locked_checkpoint = selected["checkpoint"]
+    expected_checkpoint = {
+        "memory_dir": checkpoint.get("memory_dir"),
+        "global_step": checkpoint.get("global_step"),
+        "consumed_pair_presentations": checkpoint.get("consumed_pair_presentations"),
+        "delta_mem_adapter": checkpoint.get("artifacts", {}).get("delta_mem_adapter"),
+        "delta_mem_config": checkpoint.get("artifacts", {}).get("delta_mem_config"),
+        "trainer_state": checkpoint.get("artifacts", {}).get("trainer_state"),
+    }
+    if locked_checkpoint != expected_checkpoint:
+        raise ValueError("V14 candidate lock checkpoint-3 artifact binding differs")
+    if (
+        validated.get("evaluation_fingerprint")
+        != selected["diagnostic_receipt"]["evaluation_fingerprint"]
+    ):
+        raise ValueError("V14 candidate lock evaluation fingerprint differs")
+    provenance = validated.get("training_provenance")
+    if not isinstance(provenance, Mapping):
+        raise ValueError("V14 diagnostic receipt training provenance is missing")
+    for stage in ("launch", "completion"):
+        entry = provenance.get(stage)
+        locked = selected[f"{stage}_receipt"]
+        if (
+            not isinstance(entry, Mapping)
+            or entry.get("artifact", {}).get("path") != locked["path"]
+            or entry.get("artifact", {}).get("bytes") != locked["bytes"]
+            or entry.get("artifact", {}).get("sha256") != locked["file_sha256"]
+            or entry.get("receipt_sha256") != locked["payload_sha256"]
+        ):
+            raise ValueError(f"V14 candidate lock {stage} provenance differs")
     benchmark_lock = inputs.get("benchmark_lock")
     if (
         not isinstance(benchmark_lock, Mapping)
@@ -4129,19 +4496,26 @@ def validate_scene_v14_value14_hard32_authorization(
     receipt_file = validated.get("receipt_path")
     receipt_file_sha256 = validated.get("receipt_file_sha256")
     if not isinstance(receipt_file, str) or not isinstance(receipt_file_sha256, str):
-        raise ValueError("V14 Value14 receipt file binding is missing")
+        receipt_file = selected["diagnostic_receipt"]["path"]
+        receipt_file_sha256 = selected["diagnostic_receipt"]["file_sha256"]
     return {
-        "authorization_kind": SCENE_V14_VALUE14_AUTHORIZATION_KIND,
+        "authorization_kind": SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND,
         "contract": v14.GATE_CONTRACT,
         "scope": SCENE_V14_HARD32_AUTHORIZATION_SCOPE,
-        "receipt": {
+        "hard32_authorized": True,
+        "candidate_lock": dict(lock["binding"]),
+        "diagnostic_receipt": {
             "path": receipt_file,
             "file_sha256": receipt_file_sha256,
-            "payload_sha256": validated["receipt_sha256"],
+            "payload_sha256": selected["diagnostic_receipt"]["payload_sha256"],
             "evaluation_fingerprint": validated["evaluation_fingerprint"],
+            "status": "fail",
         },
+        "base_model": str(validated_base_model),
+        "evaluator_code_bridge": code_bridge,
+        "hard32_output_dir": str(expected_output),
         "checkpoint": dict(checkpoint),
-        "training_provenance": dict(validated["training_provenance"]),
+        "training_provenance": dict(provenance),
         "benchmark_selection_lock": dict(benchmark_lock),
         "frozen_hard32": hard32,
         "full170_authorized": False,
@@ -4804,8 +5178,14 @@ def historical_base_model_binding(base_model: Path) -> dict[str, Any]:
 
 def main() -> None:
     args = parse_args()
-    if args.preflight_only and args.evaluation_contract != HISTORICAL_V6_HARD32_CONTRACT:
-        raise ValueError("--preflight-only is restricted to the historical V6 contract")
+    if args.preflight_only and args.evaluation_contract not in {
+        HISTORICAL_V6_HARD32_CONTRACT,
+        SCENE_V14_HARD32_CONTRACT,
+    }:
+        raise ValueError(
+            "--preflight-only is restricted to the historical V6 and locked V14 "
+            "Hard32 contracts"
+        )
     conditions = selected_conditions(args.conditions)
     historical_preflight = validate_historical_v6_run_preflight(
         args,
@@ -4829,6 +5209,8 @@ def main() -> None:
         args.scene_v8_train32_receipt = args.scene_v8_train32_receipt.expanduser()
     if args.scene_v14_value14_receipt is not None:
         args.scene_v14_value14_receipt = args.scene_v14_value14_receipt.expanduser()
+    if args.scene_v14_candidate_lock is not None:
+        args.scene_v14_candidate_lock = args.scene_v14_candidate_lock.expanduser()
     if args.scene_v14_launch_receipt is not None:
         args.scene_v14_launch_receipt = args.scene_v14_launch_receipt.expanduser()
     if args.scene_v14_completion_receipt is not None:
@@ -4846,6 +5228,7 @@ def main() -> None:
     validate_scene_v14_receipt_scope(
         evaluation_contract=args.evaluation_contract,
         gate_receipt=args.scene_v14_value14_receipt,
+        candidate_lock=args.scene_v14_candidate_lock,
         launch_receipt=args.scene_v14_launch_receipt,
         completion_receipt=args.scene_v14_completion_receipt,
     )
@@ -4861,14 +5244,18 @@ def main() -> None:
         )
         if args.row_indices_file is not None:
             args.row_indices_file = args.row_indices_file.expanduser().resolve()
-    scene_v14_value14_authorization = None
+    scene_v14_candidate_authorization = None
     if v14_hard32_requested:
-        scene_v14_value14_authorization = (
-            validate_scene_v14_value14_hard32_authorization(
+        scene_v14_candidate_authorization = (
+            validate_scene_v14_candidate_hard32_authorization(
+                args.scene_v14_candidate_lock,
                 args.scene_v14_value14_receipt,
                 launch_receipt=args.scene_v14_launch_receipt,
                 completion_receipt=args.scene_v14_completion_receipt,
+                base_model=args.base_model,
                 memory_dir=args.memory_dir,
+                output_dir=args.output_dir,
+                overwrite=args.overwrite,
                 dataset_file=args.dataset_file,
                 selection_file=args.row_indices_file,
             )
@@ -4885,10 +5272,10 @@ def main() -> None:
     )
     memory_architecture = memory_architecture_contract(args.memory_dir)
     scene_v7_train32_authorization = None
-    if scene_v14_value14_authorization is not None:
+    if scene_v14_candidate_authorization is not None:
         candidate_lineage = {
-            "lineage_kind": SCENE_V14_VALUE14_AUTHORIZATION_KIND,
-            "authorization": scene_v14_value14_authorization,
+            "lineage_kind": SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND,
+            "authorization": scene_v14_candidate_authorization,
         }
     elif scene_v8_train32_authorization is not None:
         candidate_lineage = {
@@ -4964,7 +5351,7 @@ def main() -> None:
         selection_manifest_sha256=selection_manifest_sha256,
         hard32_receipt_authorization=hard32_receipt_authorization,
         scene_v8_train32_authorization=scene_v8_train32_authorization,
-        scene_v14_value14_authorization=scene_v14_value14_authorization,
+        scene_v14_candidate_authorization=scene_v14_candidate_authorization,
     )
     if args.evaluation_contract == "generic" and len(row_indices) > MAX_SELECTED_ROWS:
         raise ValueError(
@@ -5087,7 +5474,7 @@ def main() -> None:
         "candidate_lineage_record_binding": candidate_lineage_record_binding,
         "hard32_receipt_authorization": hard32_receipt_authorization,
         "scene_v7_train32_authorization": scene_v7_train32_authorization,
-        "scene_v14_value14_authorization": scene_v14_value14_authorization,
+        "scene_v14_candidate_authorization": scene_v14_candidate_authorization,
         "historical_v6_preflight": historical_preflight,
         "max_new_tokens": args.max_new_tokens,
         "device": args.device,

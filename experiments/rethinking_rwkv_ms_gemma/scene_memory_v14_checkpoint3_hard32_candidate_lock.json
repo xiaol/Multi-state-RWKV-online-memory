@@ -1,0 +1,77 @@
+{
+  "schema": "rwkv_ms_scene_memory_v14_hard32_candidate_lock.v1",
+  "authorization_kind": "scene_memory_v14_benchmark_first_candidate_lock",
+  "selection_policy": "benchmark_first_single_production_checkpoint3_v1",
+  "candidate_count": 1,
+  "rejected_checkpoint_steps": [
+    1,
+    2,
+    4
+  ],
+  "hard32_output_dir": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v14/hard32/scene_memory_v14_production_boundary28_20260801_024215_step4_checkpoint-3",
+  "selected_candidate": {
+    "checkpoint": {
+      "memory_dir": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v14/scene_memory_v14_production_boundary28_20260801_024215_step4/trainer/checkpoint-3",
+      "global_step": 3,
+      "consumed_pair_presentations": 21,
+      "delta_mem_adapter": {
+        "path": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v14/scene_memory_v14_production_boundary28_20260801_024215_step4/trainer/checkpoint-3/delta_mem_adapter.pt",
+        "bytes": 9490515,
+        "sha256": "2f64ea27117844a3209f71b63cc431238605fb2d157d9b9292a6d94ba7b1fec1"
+      },
+      "delta_mem_config": {
+        "path": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v14/scene_memory_v14_production_boundary28_20260801_024215_step4/trainer/checkpoint-3/delta_mem_config.json",
+        "bytes": 2432,
+        "sha256": "86e1bbb1a258cb591c9167935317a2374cf9edc79e5a3a77b0f903dc38483931"
+      },
+      "trainer_state": {
+        "path": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v14/scene_memory_v14_production_boundary28_20260801_024215_step4/trainer/checkpoint-3/trainer_state.json",
+        "bytes": 53210,
+        "sha256": "e32e21759f3fdd689bd81a0fbc9eeeedfe970da6ec5f3fc4ff5a819d3b852d96"
+      }
+    },
+    "diagnostic_receipt": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v14/gates/scene_memory_v14_production_boundary28_20260801_024215_step4_checkpoint-3_cuda130/gate_receipt.json",
+      "bytes": 143298,
+      "file_sha256": "bf10a20fed35c5980481fa3f6c5a083a0bcb8c961dcf322c15fde7f398ff7500",
+      "payload_sha256": "86a554c002ca84968257bd90c1a3ec59cb36eaaadcd9411439507341f028f851",
+      "evaluation_fingerprint": "0d22e71c6d1b3a79f199167184a49cb07ac819cd2ac9520f5599336cde20142a",
+      "status": "fail"
+    },
+    "legacy_gate": {
+      "status": "fail",
+      "all_gates_passed": false,
+      "hard32_authorized": false,
+      "correct_strict_exact_rows": 6,
+      "donor_identity_strict_exact_rows": 6,
+      "correct_donor_semantic_switch_rows": 4,
+      "role": "diagnostic_only_superseded_by_exact_candidate_lock"
+    },
+    "launch_receipt": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v14/logs/scene_memory_v14_production_boundary28_20260801_024215_step4.launch.json",
+      "bytes": 14433,
+      "file_sha256": "a18707e39d041f793e6a3d79caaf6c7399c97822e79922267c226024009a26c2",
+      "payload_sha256": "17e1f0acb0ff1e0ad6b3a2b5009048476a93c3cb9606d231e5dd8e5fb0b3f69e"
+    },
+    "completion_receipt": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_memory_v14/logs/scene_memory_v14_production_boundary28_20260801_024215_step4.completion.json",
+      "bytes": 29555,
+      "file_sha256": "e49b406b7921604783e5745142d8325f63de21d11404b0522563d83d80bf330e",
+      "payload_sha256": "ded8e62c88bfd1ce2bbbf6a6f5bbe06ffd3faf65a88821196ea164759187a4c5"
+    },
+    "historical_state_runtime": {
+      "path": "/home/xiaol/X/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_scene_state_eval.py",
+      "bytes": 216644,
+      "sha256": "4d3bca1e86ca4c6bd46aff2a0a713d1344b66d8315b0ea804fccf65fc3ef8e0d"
+    }
+  },
+  "authorization": {
+    "scope": "fixed_scene_v4_current_hard32_only_no_full170_no_test_no_other_benchmarks",
+    "hard32_authorized": true,
+    "full170_authorized": false,
+    "test_authorized": false,
+    "other_benchmarks_authorized": false
+  },
+  "exception_reason": "legacy_value14_14_of_14_gate_failed_but_checkpoint3_was_preselected_as_the_single_benchmark_first_candidate_v1",
+  "lock_sha256": "42ec33712e02e074a71b761d18d303925510f8826dbacdba02091fdd3b186911"
+}
