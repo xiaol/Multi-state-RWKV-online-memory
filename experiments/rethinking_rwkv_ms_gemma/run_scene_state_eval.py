@@ -111,6 +111,23 @@ SCENE_V14_CANDIDATE_LOCK_FILE_SHA256 = (
     "83f1eebf5f9e615f10c0d41a6d29745326e3f4f054107897c060c6ebf6290a24"
 )
 SCENE_V14_HARD32_AUTHORIZATION_SCOPE = SCENE_V8_HARD32_AUTHORIZATION_SCOPE
+SCENE_V15_HARD32_CONTRACT = "scene_v15_authorized_hard32"
+SCENE_V15_CANDIDATE_LOCK_SCHEMA = (
+    "rwkv_ms_scene_memory_v15_hard32_candidate_lock.v1"
+)
+SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND = (
+    "scene_memory_v15_train32_selected_checkpoint_lock"
+)
+SCENE_V15_CANDIDATE_SELECTION_POLICY = (
+    "correct_state_exact_then_own_paired_identity_then_semantic_nll_v1"
+)
+SCENE_V15_HARD32_AUTHORIZATION_SCOPE = SCENE_V8_HARD32_AUTHORIZATION_SCOPE
+SCENE_V15_HARD32_CONSUMPTION_MARKER_SCHEMA = (
+    "rwkv_ms_scene_memory_v15_hard32_authorization_consumed.v1"
+)
+SCENE_V15_HARD32_CONSUMPTION_MARKER_FILENAME = (
+    "hard32_authorization_consumed.json"
+)
 HISTORICAL_V6_LINEAGE_LIMITATION = (
     "This historical training run predates commit-bound source locks and atomic "
     "checkpoint receipts. Exact adapter, config, and trainer-state hashes prove "
@@ -195,6 +212,7 @@ EVALUATION_CONTRACTS = (
     "scene_v6_identity_hard32",
     SCENE_V8_HARD32_CONTRACT,
     SCENE_V14_HARD32_CONTRACT,
+    SCENE_V15_HARD32_CONTRACT,
     "scene_v6_matched_donor_validation",
     HISTORICAL_V6_HARD32_CONTRACT,
 )
@@ -312,6 +330,24 @@ SCENE_V14_HARD32_OBJECTIVE_INTERPRETATION = {
     "test_authorized": False,
     "other_benchmarks_authorized": False,
 }
+SCENE_V15_HARD32_OBJECTIVE_INTERPRETATION = {
+    "objective_version": (
+        "scene_state_generation_ce_symmetric_cached_prefix_identity_v15"
+    ),
+    "training_objective": (
+        "cached_prefix_semantic_boundary_repair_plus_pair_identity_margin_"
+        "with_full_answer_ce_weight_zero"
+    ),
+    "checkpoint_selection": SCENE_V15_CANDIDATE_SELECTION_POLICY,
+    "checkpoint_selection_role": (
+        "post_save_train32_only_lexicographic_selection_before_frozen_hard32"
+    ),
+    "raw_token_exact_role": "telemetry_only",
+    "hard32_role": "fixed_confirmatory_evaluation_only",
+    "full170_authorized": False,
+    "test_authorized": False,
+    "other_benchmarks_authorized": False,
+}
 HARD32_GATE_REQUIREMENTS = {
     "semantic_advantage_positive_rows": 20,
     "same_cardinality_nonempty_rows": 10,
@@ -326,10 +362,24 @@ HARD32_GATE_REQUIREMENTS = {
     "recovered_outputs": 31,
     "canonical_outputs": 31,
 }
+SCENE_V15_HARD32_GATE_POLICY = {
+    "metric_name": BENCHMARK_SCENE_METRIC_NAME,
+    "operator": ">",
+    "threshold": 0.0,
+    "pass_iff": (
+        "state_only_strict_f1_gt_state_only_donor_strict_f1_and_"
+        "state_only_strict_f1_gt_state_only_no_write_strict_f1"
+    ),
+}
 CONDITIONS = (
     "base_full",
     "normal_full",
     "no_write_full",
+    "state_only",
+    "state_only_donor",
+    "state_only_no_write",
+)
+SCENE_V15_HARD32_CONDITIONS = (
     "state_only",
     "state_only_donor",
     "state_only_no_write",
@@ -527,6 +577,33 @@ def parse_args() -> argparse.Namespace:
             "Attached V14 completion receipt bound by --scene-v14-value14-receipt."
         ),
     )
+    parser.add_argument(
+        "--scene-v15-selection-receipt",
+        type=Path,
+        help=(
+            "Complete post-save Train32 checkpoint-selection receipt required for "
+            "scene_v15_authorized_hard32."
+        ),
+    )
+    parser.add_argument(
+        "--scene-v15-candidate-lock",
+        type=Path,
+        help=(
+            "Canonical V15 candidate lock beside --scene-v15-selection-receipt."
+        ),
+    )
+    parser.add_argument(
+        "--scene-v15-launch-receipt",
+        type=Path,
+        help="Attached production V15 launch receipt bound by the selection receipt.",
+    )
+    parser.add_argument(
+        "--scene-v15-completion-receipt",
+        type=Path,
+        help=(
+            "Completed production V15 receipt binding all four post-update checkpoints."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -591,18 +668,53 @@ def validate_scene_v14_receipt_scope(
             )
 
 
+def validate_scene_v15_receipt_scope(
+    *,
+    evaluation_contract: str,
+    selection_receipt: Path | None,
+    candidate_lock: Path | None,
+    launch_receipt: Path | None,
+    completion_receipt: Path | None,
+) -> None:
+    supplied = {
+        "--scene-v15-selection-receipt": selection_receipt,
+        "--scene-v15-candidate-lock": candidate_lock,
+        "--scene-v15-launch-receipt": launch_receipt,
+        "--scene-v15-completion-receipt": completion_receipt,
+    }
+    provided = [name for name, value in supplied.items() if value is not None]
+    if provided and evaluation_contract != SCENE_V15_HARD32_CONTRACT:
+        raise ValueError(
+            "V15 receipts are accepted only by "
+            f"{SCENE_V15_HARD32_CONTRACT}: {', '.join(provided)}"
+        )
+    if evaluation_contract == SCENE_V15_HARD32_CONTRACT:
+        missing = [name for name, value in supplied.items() if value is None]
+        if missing:
+            raise ValueError(
+                f"{SCENE_V15_HARD32_CONTRACT} requires the exact Train32 "
+                "selection receipt, canonical candidate lock, launch receipt, "
+                "and completion receipt; missing: " + ", ".join(missing)
+            )
+
+
 def is_identity_hard32_contract(contract: str | Mapping[str, Any]) -> bool:
     name = contract.get("name") if isinstance(contract, Mapping) else contract
     return name in {
         "scene_v6_identity_hard32",
         SCENE_V8_HARD32_CONTRACT,
         SCENE_V14_HARD32_CONTRACT,
+        SCENE_V15_HARD32_CONTRACT,
     }
 
 
 def is_fixed_scope_hard32_contract(contract: str | Mapping[str, Any]) -> bool:
     name = contract.get("name") if isinstance(contract, Mapping) else contract
-    return name in {SCENE_V8_HARD32_CONTRACT, SCENE_V14_HARD32_CONTRACT}
+    return name in {
+        SCENE_V8_HARD32_CONTRACT,
+        SCENE_V14_HARD32_CONTRACT,
+        SCENE_V15_HARD32_CONTRACT,
+    }
 
 
 def parse_row_indices(raw: str) -> list[int]:
@@ -1126,6 +1238,7 @@ def validate_scene_v6_matched_donor_contract(
     hard32_receipt_authorization: dict[str, Any] | None = None,
     scene_v8_train32_authorization: dict[str, Any] | None = None,
     scene_v14_candidate_authorization: dict[str, Any] | None = None,
+    scene_v15_candidate_authorization: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if contract not in EVALUATION_CONTRACTS:
         raise ValueError(f"Unsupported scene-state evaluation contract: {contract}")
@@ -1137,11 +1250,26 @@ def validate_scene_v6_matched_donor_contract(
             "V14 candidate-lock authorization is restricted to "
             f"{SCENE_V14_HARD32_CONTRACT}"
         )
+    if (
+        scene_v15_candidate_authorization is not None
+        and contract != SCENE_V15_HARD32_CONTRACT
+    ):
+        raise ValueError(
+            "V15 candidate-lock authorization is restricted to "
+            f"{SCENE_V15_HARD32_CONTRACT}"
+        )
     if contract == SCENE_V14_HARD32_CONTRACT and (
         scene_v8_train32_authorization is not None
+        or scene_v15_candidate_authorization is not None
         or hard32_receipt_authorization is not None
     ):
         raise ValueError("V14 Hard32 forbids mixed or broader benchmark authorization")
+    if contract == SCENE_V15_HARD32_CONTRACT and (
+        scene_v8_train32_authorization is not None
+        or scene_v14_candidate_authorization is not None
+        or hard32_receipt_authorization is not None
+    ):
+        raise ValueError("V15 Hard32 forbids mixed or broader benchmark authorization")
     if contract == "generic":
         return {"name": "generic", "phase": "focused_diagnostic"}
     if contract == HISTORICAL_V6_HARD32_CONTRACT:
@@ -1197,9 +1325,13 @@ def validate_scene_v6_matched_donor_contract(
             f"file at revision {OFFICIAL_SCENE_V4_DATASET_REVISION}"
         )
     expected_conditions = (
-        list(CONDITIONS)
-        if identity_hard32
-        else ["state_only", "state_only_donor"]
+        list(SCENE_V15_HARD32_CONDITIONS)
+        if contract == SCENE_V15_HARD32_CONTRACT
+        else (
+            list(CONDITIONS)
+            if identity_hard32
+            else ["state_only", "state_only_donor"]
+        )
     )
     if conditions != expected_conditions:
         raise ValueError(
@@ -1280,6 +1412,26 @@ def validate_scene_v6_matched_donor_contract(
         is not False
     ):
         raise ValueError("V14 Hard32 authorization scope differs")
+    if (
+        contract == SCENE_V15_HARD32_CONTRACT
+        and scene_v15_candidate_authorization is None
+    ):
+        raise ValueError(
+            f"{SCENE_V15_HARD32_CONTRACT} requires the complete post-save "
+            "Train32 selection and exact selected-checkpoint lock"
+        )
+    if contract == SCENE_V15_HARD32_CONTRACT and (
+        scene_v15_candidate_authorization.get("authorization_kind")
+        != SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND
+        or scene_v15_candidate_authorization.get("scope")
+        != SCENE_V15_HARD32_AUTHORIZATION_SCOPE
+        or scene_v15_candidate_authorization.get("hard32_authorized") is not True
+        or scene_v15_candidate_authorization.get("full170_authorized") is not False
+        or scene_v15_candidate_authorization.get("test_authorized") is not False
+        or scene_v15_candidate_authorization.get("other_benchmarks_authorized")
+        is not False
+    ):
+        raise ValueError("V15 Hard32 authorization scope differs")
     fixed_scope_hard32 = is_fixed_scope_hard32_contract(contract)
     return {
         "name": contract,
@@ -1316,13 +1468,18 @@ def validate_scene_v6_matched_donor_contract(
             else None
         ),
         "gate_requirements": (
-            dict(HARD32_GATE_REQUIREMENTS)
-            if identity_hard32
-            else None
+            dict(SCENE_V15_HARD32_GATE_POLICY)
+            if contract == SCENE_V15_HARD32_CONTRACT
+            else (
+                dict(HARD32_GATE_REQUIREMENTS)
+                if identity_hard32
+                else None
+            )
         ),
         "hard32_receipt_authorization": hard32_receipt_authorization,
         "scene_v8_train32_authorization": scene_v8_train32_authorization,
         "scene_v14_candidate_authorization": scene_v14_candidate_authorization,
+        "scene_v15_candidate_authorization": scene_v15_candidate_authorization,
         "authorization_scope": (
             SCENE_V14_HARD32_AUTHORIZATION_SCOPE
             if fixed_scope_hard32
@@ -3397,6 +3554,117 @@ def build_scene_v6_identity_hard32_gate(
     }
 
 
+def build_scene_v15_hard32_gate(
+    *,
+    summaries: dict[str, dict[str, Any]],
+    comparisons: dict[str, Any],
+    semantic_evidence: dict[str, Any],
+    ordered_records: dict[str, list[dict[str, Any]]],
+    contract: dict[str, Any],
+) -> dict[str, Any]:
+    """Apply only the frozen V15 correct-state versus donor/zero decision."""
+
+    if contract.get("name") != SCENE_V15_HARD32_CONTRACT:
+        return {"status": "not_requested", "contract": contract}
+    if list(summaries) != list(SCENE_V15_HARD32_CONDITIONS):
+        raise ValueError("V15 Hard32 summaries must contain exactly three conditions")
+    donor_comparison = comparisons.get("state_only_minus_state_only_donor")
+    zero_comparison = comparisons.get("state_only_minus_state_only_no_write")
+    if not isinstance(donor_comparison, Mapping) or not isinstance(
+        zero_comparison,
+        Mapping,
+    ):
+        raise ValueError("V15 Hard32 correct-state comparisons are incomplete")
+    gates = {
+        "state_only_strict_f1_greater_than_donor": {
+            "metric_name": BENCHMARK_SCENE_METRIC_NAME,
+            "operator": ">",
+            "threshold": 0.0,
+            "value": float(donor_comparison["delta"]),
+            "correct_state_f1": summaries["state_only"]["strict"][
+                "primary_metric"
+            ],
+            "control_f1": summaries["state_only_donor"]["strict"][
+                "primary_metric"
+            ],
+        },
+        "state_only_strict_f1_greater_than_zero": {
+            "metric_name": BENCHMARK_SCENE_METRIC_NAME,
+            "operator": ">",
+            "threshold": 0.0,
+            "value": float(zero_comparison["delta"]),
+            "correct_state_f1": summaries["state_only"]["strict"][
+                "primary_metric"
+            ],
+            "control_f1": summaries["state_only_no_write"]["strict"][
+                "primary_metric"
+            ],
+        },
+    }
+    for gate in gates.values():
+        value = float(gate["value"])
+        if not math.isfinite(value):
+            raise ValueError("V15 Hard32 gate contains a non-finite value")
+        gate["passed"] = value > 0.0
+    passed = all(gate["passed"] for gate in gates.values())
+    exact_generation = {
+        condition: {
+            "strict_parsed_exact_rows": sum(
+                _strict_exact_record(record) for record in ordered_records[condition]
+            ),
+            "format_recovered_exact_rows": sum(
+                _recovered_exact_record(record) for record in ordered_records[condition]
+            ),
+            "rows": len(ordered_records[condition]),
+        }
+        for condition in SCENE_V15_HARD32_CONDITIONS
+    }
+    benchmark_scores = {
+        condition: {
+            field: summaries[condition]["strict"][field]
+            for field in (
+                "metric_name",
+                "primary_metric",
+                "precision",
+                "recall",
+                "tp",
+                "fp",
+                "fn",
+                "schema_valid_rate",
+            )
+        }
+        for condition in SCENE_V15_HARD32_CONDITIONS
+    }
+    return {
+        "status": "pass" if passed else "fail",
+        "contract": contract,
+        "policy": dict(SCENE_V15_HARD32_GATE_POLICY),
+        "gates": gates,
+        "benchmark_metric_evidence": benchmark_scores,
+        "exact_generation_evidence": exact_generation,
+        "semantic_nll_evidence": {
+            "donor_pair_target_minus_correct": semantic_evidence[
+                "donor_pair_target_minus_correct"
+            ],
+            "donor_all_semantic_minus_correct_diagnostic": semantic_evidence[
+                "donor_all_semantic_minus_correct_diagnostic"
+            ],
+            "zero_all_semantic_minus_correct": semantic_evidence[
+                "zero_all_semantic_minus_correct"
+            ],
+        },
+        "format_recovery_diagnostic": {
+            condition: summaries[condition]["format_recovered"]
+            for condition in SCENE_V15_HARD32_CONDITIONS
+        },
+        "all_gates_passed": passed,
+        "full170_authorized_for_bound_checkpoint": False,
+        "authorization_scope": SCENE_V15_HARD32_AUTHORIZATION_SCOPE,
+        "other_benchmarks_authorized": False,
+        "test_selection_forbidden": True,
+    }
+
+
 def build_scene_v6_matched_donor_gate(
     comparisons: dict[str, Any],
     contract: dict[str, Any],
@@ -3406,6 +3674,7 @@ def build_scene_v6_matched_donor_gate(
         "scene_v6_identity_hard32",
         SCENE_V8_HARD32_CONTRACT,
         SCENE_V14_HARD32_CONTRACT,
+        SCENE_V15_HARD32_CONTRACT,
         HISTORICAL_V6_HARD32_CONTRACT,
     }:
         return {"status": "not_requested", "contract": contract}
@@ -3454,10 +3723,71 @@ def build_candidate_lineage_record_binding(
 ) -> dict[str, Any] | None:
     if candidate_lineage is None:
         return None
-    if (
-        candidate_lineage.get("lineage_kind")
-        != SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
-    ):
+    lineage_kind = candidate_lineage.get("lineage_kind")
+    if lineage_kind == SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND:
+        authorization = candidate_lineage.get("authorization")
+        if not isinstance(authorization, Mapping):
+            raise ValueError("V15 candidate authorization is missing")
+        checkpoint = authorization.get("checkpoint")
+        artifacts = (
+            checkpoint.get("artifacts") if isinstance(checkpoint, Mapping) else None
+        )
+        provenance = authorization.get("training_provenance")
+        selector_manifest = authorization.get("selector_manifest")
+        consumption = authorization.get("authorization_consumption")
+        if (
+            authorization.get("authorization_kind")
+            != SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND
+            or authorization.get("scope") != SCENE_V15_HARD32_AUTHORIZATION_SCOPE
+            or not isinstance(checkpoint, Mapping)
+            or not isinstance(artifacts, Mapping)
+            or not isinstance(provenance, Mapping)
+            or not isinstance(authorization.get("candidate_lock"), Mapping)
+            or not isinstance(authorization.get("selection_receipt"), Mapping)
+            or not isinstance(selector_manifest, Mapping)
+            or not isinstance(consumption, Mapping)
+            or consumption.get("schema")
+            != SCENE_V15_HARD32_CONSUMPTION_MARKER_SCHEMA
+            or not isinstance(consumption.get("path"), str)
+            or not isinstance(consumption.get("file_sha256"), str)
+            or not isinstance(consumption.get("claim_sha256"), str)
+            or not isinstance(authorization.get("base_model"), str)
+        ):
+            raise ValueError("V15 candidate authorization lineage differs")
+        compact_provenance: dict[str, Any] = {}
+        for stage in ("launch", "completion"):
+            entry = provenance.get(stage)
+            if (
+                not isinstance(entry, Mapping)
+                or not isinstance(entry.get("path"), str)
+                or not isinstance(entry.get("file_sha256"), str)
+                or not isinstance(entry.get("receipt_sha256"), str)
+            ):
+                raise ValueError(f"V15 candidate {stage} receipt binding is missing")
+            compact_provenance[stage] = dict(entry)
+        return {
+            "lineage_kind": SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND,
+            "lineage_sha256": fingerprint_payload_sha256(candidate_lineage),
+            "authorization_scope": SCENE_V15_HARD32_AUTHORIZATION_SCOPE,
+            "candidate_lock": dict(authorization["candidate_lock"]),
+            "selection_receipt": dict(authorization["selection_receipt"]),
+            "selection_fingerprint": authorization.get("selection_fingerprint"),
+            "selector_manifest": dict(selector_manifest),
+            "authorization_consumption": dict(consumption),
+            "selected_checkpoint_step": authorization.get(
+                "selected_checkpoint_step"
+            ),
+            "post_save_audit": dict(authorization["post_save_audit"]),
+            "base_model": authorization["base_model"],
+            "checkpoint": {
+                "path": checkpoint.get("path"),
+                "checkpoint_step": checkpoint.get("checkpoint_step"),
+                "delta_mem_adapter": artifacts.get("delta_mem_adapter.pt"),
+                "delta_mem_config": artifacts.get("delta_mem_config.json"),
+            },
+            "training_provenance": compact_provenance,
+        }
+    if lineage_kind != SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND:
         return None
     authorization = candidate_lineage.get("authorization")
     if not isinstance(authorization, Mapping):
@@ -3765,14 +4095,21 @@ def build_hard32_receipt(
     donor_mapping: list[dict[str, Any]],
     gate: dict[str, Any],
     semantic_evidence: dict[str, Any],
-    base_outcome_evidence: dict[str, Any],
+    base_outcome_evidence: dict[str, Any] | None,
     memory_dir: Path,
     conditions: list[str],
 ) -> dict[str, Any]:
     if not is_identity_hard32_contract(contract):
         raise ValueError("Hard32 receipt requires the protected hard32 contract")
-    if conditions != list(CONDITIONS):
-        raise ValueError("Hard32 receipt requires all six protected conditions")
+    expected_conditions = (
+        list(SCENE_V15_HARD32_CONDITIONS)
+        if contract.get("name") == SCENE_V15_HARD32_CONTRACT
+        else list(CONDITIONS)
+    )
+    if conditions != expected_conditions:
+        raise ValueError(
+            "Hard32 receipt conditions differ from the protected contract"
+        )
     donor_mapping_sha256 = sha256_text(
         json.dumps(donor_mapping, sort_keys=True, separators=(",", ":"))
     )
@@ -3790,12 +4127,16 @@ def build_hard32_receipt(
         candidate_lineage.get("lineage_kind")
         == SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
     )
+    is_v15_authorized = (
+        candidate_lineage.get("lineage_kind")
+        == SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND
+    )
     receipt_gate = copy.deepcopy(gate)
-    if is_v7_authorized or is_v8_authorized or is_v14_authorized:
+    if is_v7_authorized or is_v8_authorized or is_v14_authorized or is_v15_authorized:
         receipt_gate["full170_authorized_for_bound_checkpoint"] = False
         receipt_gate["authorization_scope"] = (
             SCENE_V14_HARD32_AUTHORIZATION_SCOPE
-            if is_v8_authorized or is_v14_authorized
+            if is_v8_authorized or is_v14_authorized or is_v15_authorized
             else "fixed_hard32_only_no_full170"
         )
         receipt_gate["other_benchmarks_authorized"] = False
@@ -3824,15 +4165,19 @@ def build_hard32_receipt(
             "candidate_lineage_binding": candidate_lineage_binding,
         },
         "objective_interpretation": (
-            SCENE_V14_HARD32_OBJECTIVE_INTERPRETATION
-            if is_v14_authorized
+            SCENE_V15_HARD32_OBJECTIVE_INTERPRETATION
+            if is_v15_authorized
             else (
-                SCENE_V8_HARD32_OBJECTIVE_INTERPRETATION
-                if is_v8_authorized
+                SCENE_V14_HARD32_OBJECTIVE_INTERPRETATION
+                if is_v14_authorized
                 else (
-                    SCENE_V7_HARD32_OBJECTIVE_INTERPRETATION
-                    if is_v7_authorized
-                    else SCENE_V6_IDENTITY_OBJECTIVE_INTERPRETATION
+                    SCENE_V8_HARD32_OBJECTIVE_INTERPRETATION
+                    if is_v8_authorized
+                    else (
+                        SCENE_V7_HARD32_OBJECTIVE_INTERPRETATION
+                        if is_v7_authorized
+                        else SCENE_V6_IDENTITY_OBJECTIVE_INTERPRETATION
+                    )
                 )
             )
         ),
@@ -3840,23 +4185,30 @@ def build_hard32_receipt(
             {
                 "authorization_scope": (
                     SCENE_V14_HARD32_AUTHORIZATION_SCOPE
-                    if is_v8_authorized or is_v14_authorized
+                    if is_v8_authorized or is_v14_authorized or is_v15_authorized
                     else "fixed_hard32_only_no_full170"
                 ),
                 "upstream_authorization_kind": (
-                    SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
-                    if is_v14_authorized
+                    SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND
+                    if is_v15_authorized
                     else (
-                        SCENE_V8_TRAIN32_AUTHORIZATION_KIND
-                        if is_v8_authorized
-                        else SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+                        SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
+                        if is_v14_authorized
+                        else (
+                            SCENE_V8_TRAIN32_AUTHORIZATION_KIND
+                            if is_v8_authorized
+                            else SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+                        )
                     )
                 ),
                 "full170_authorized": False,
                 "test_authorized": False,
                 "other_benchmarks_authorized": False,
             }
-            if is_v7_authorized or is_v8_authorized or is_v14_authorized
+            if is_v7_authorized
+            or is_v8_authorized
+            or is_v14_authorized
+            or is_v15_authorized
             else {}
         ),
         "dataset": {
@@ -4524,6 +4876,403 @@ def validate_scene_v14_candidate_hard32_authorization(
     }
 
 
+def _lexical_absolute(path: Path | str) -> Path:
+    """Normalize a CLI path without resolving or probing its filesystem target."""
+
+    return Path(os.path.abspath(os.fspath(Path(path).expanduser())))
+
+
+def scene_v15_consumption_marker_path(selection_receipt_path: Path) -> Path:
+    selection_path = _lexical_absolute(selection_receipt_path)
+    return selection_path.parent / SCENE_V15_HARD32_CONSUMPTION_MARKER_FILENAME
+
+
+def claim_scene_v15_hard32_authorization(
+    *,
+    selection_receipt_path: Path,
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Irrevocably consume the selected checkpoint's single Hard32 authorization."""
+
+    marker_path = scene_v15_consumption_marker_path(selection_receipt_path)
+    marker_payload = dict(payload)
+    marker_payload["schema"] = SCENE_V15_HARD32_CONSUMPTION_MARKER_SCHEMA
+    marker_payload["claim_sha256"] = fingerprint_payload_sha256(marker_payload)
+    serialized = json.dumps(marker_payload, sort_keys=True, separators=(",", ":"))
+    encoded = serialized.encode("utf-8")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(marker_path, flags, 0o400)
+    except FileExistsError as exc:
+        raise ValueError(
+            "V15 Hard32 authorization was already consumed; exactly-once "
+            f"evaluation forbids replay: {marker_path}"
+        ) from exc
+    try:
+        offset = 0
+        while offset < len(encoded):
+            try:
+                written = os.write(descriptor, encoded[offset:])
+            except InterruptedError:
+                continue
+            if written <= 0:
+                raise OSError("V15 Hard32 consumption marker write made no progress")
+            offset += written
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    directory_flags = os.O_RDONLY
+    directory_flags |= getattr(os, "O_CLOEXEC", 0)
+    directory_flags |= getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
+    directory_descriptor = os.open(marker_path.parent, directory_flags)
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
+    return {
+        "path": str(marker_path),
+        "bytes": len(encoded),
+        "file_sha256": sha256_text(serialized),
+        "claim_sha256": marker_payload["claim_sha256"],
+        "schema": SCENE_V15_HARD32_CONSUMPTION_MARKER_SCHEMA,
+    }
+
+
+def validate_scene_v15_candidate_hard32_authorization(
+    *,
+    selection_receipt_path: Path,
+    candidate_lock_path: Path,
+    launch_receipt: Path,
+    completion_receipt: Path,
+    base_model: Path | str,
+    memory_dir: Path,
+    output_dir: Path,
+    overwrite: bool,
+    dataset_file: Path,
+    selection_file: Path | None,
+    device: str,
+    dtype: str,
+    attn_implementation: str,
+    delta_mem_root: Path | str,
+    conditions: list[str],
+    donor_rule: str,
+    max_new_tokens: int,
+    normal_fusion_profile: str,
+    expected_memory_layer_count: int | None,
+    inline_row_indices: str | None,
+    preflight_only: bool,
+    broader_authorization_supplied: bool,
+) -> dict[str, Any]:
+    """Authorize one frozen Hard32 run from the complete Train32-only selection."""
+
+    if preflight_only:
+        raise ValueError(
+            "V15 Hard32 forbids --preflight-only because protected access must "
+            "consume its exactly-once authorization"
+        )
+    if overwrite:
+        raise ValueError("V15 selected-checkpoint Hard32 evaluation forbids --overwrite")
+    if broader_authorization_supplied:
+        raise ValueError("V15 Hard32 forbids mixed or broader benchmark authorization")
+    if inline_row_indices is not None or selection_file is None:
+        raise ValueError(
+            "V15 Hard32 requires only the frozen --row-indices-file; inline row "
+            "indices are forbidden"
+        )
+    if conditions != list(SCENE_V15_HARD32_CONDITIONS):
+        raise ValueError(
+            f"{SCENE_V15_HARD32_CONTRACT} requires conditions in exact order: "
+            + ",".join(SCENE_V15_HARD32_CONDITIONS)
+        )
+    if donor_rule != DONOR_RULE_LENGTH_MATCHED:
+        raise ValueError(
+            f"V15 Hard32 requires donor_rule={DONOR_RULE_LENGTH_MATCHED}"
+        )
+    if max_new_tokens != DEFAULT_MAX_NEW_TOKENS:
+        raise ValueError(
+            f"V15 Hard32 requires max_new_tokens={DEFAULT_MAX_NEW_TOKENS}"
+        )
+    if normal_fusion_profile != "native":
+        raise ValueError("V15 Hard32 requires normal_fusion_profile=native")
+    if device != "cuda:0" or dtype != "bfloat16" or attn_implementation != "sdpa":
+        raise ValueError("V15 Hard32 requires CUDA 0, bfloat16, and SDPA")
+    if _lexical_absolute(delta_mem_root) != _lexical_absolute(PROJECT_ROOT):
+        raise ValueError("V15 Hard32 requires this Delta-Mem checkout")
+
+    protected_dataset = _lexical_absolute(dataset_file)
+    protected_selection = _lexical_absolute(selection_file)
+    if protected_dataset != _lexical_absolute(HISTORICAL_V6_OFFICIAL_VAL):
+        raise ValueError("V15 Hard32 requires the exact frozen official val path")
+    if protected_selection != _lexical_absolute(HISTORICAL_V6_HARD32_SELECTION):
+        raise ValueError("V15 Hard32 requires the exact frozen Hard32 selection path")
+    pair_list_sha256 = sha256_text(
+        json.dumps(HARD32_FROZEN_DONOR_PAIRS, separators=(",", ":"))
+    )
+    if pair_list_sha256 != HARD32_FROZEN_DONOR_PAIRS_SHA256:
+        raise RuntimeError("V15 Hard32 frozen donor pair-list hash differs")
+
+    from experiments.rethinking_rwkv_ms_gemma import (  # lazy circular import
+        scene_memory_v15_launch_contract as launch,
+    )
+    from experiments.rethinking_rwkv_ms_gemma import (  # lazy circular import
+        select_scene_memory_v15_checkpoint as selector,
+    )
+
+    selection_path = _lexical_absolute(selection_receipt_path)
+    lock_path = _lexical_absolute(candidate_lock_path)
+    selection_root = _lexical_absolute(selector.SELECTION_ROOT)
+    if (
+        selection_path.name != selector.SELECTION_RECEIPT_FILENAME
+        or selection_path.parent.parent != selection_root
+        or lock_path
+        != selection_path.parent / selector.CANDIDATE_LOCK_FILENAME
+    ):
+        raise ValueError(
+            "V15 Hard32 requires the canonical candidate lock beside its "
+            "canonical Train32 selection receipt"
+        )
+    for path, description in (
+        (selection_path, "V15 selection receipt"),
+        (lock_path, "V15 candidate lock"),
+        (launch_receipt.expanduser().absolute(), "V15 launch receipt"),
+        (completion_receipt.expanduser().absolute(), "V15 completion receipt"),
+    ):
+        _reject_symlink_components(path, description=description)
+
+    # This validation reads only Train32 audit files and checkpoint artifacts.
+    selected_receipt = selector.validate_selection_receipt(selection_path)
+    candidate_lock = selector.validate_candidate_lock(
+        lock_path,
+        selection_receipt=selection_path,
+    )
+    if (
+        candidate_lock.get("schema") != SCENE_V15_CANDIDATE_LOCK_SCHEMA
+        or candidate_lock.get("authorization_kind")
+        != SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND
+        or candidate_lock.get("selection_policy")
+        != SCENE_V15_CANDIDATE_SELECTION_POLICY
+    ):
+        raise ValueError("V15 candidate-lock evaluator contract differs")
+
+    expected_output = _lexical_absolute(candidate_lock["hard32_output_dir"])
+    requested_output = _lexical_absolute(output_dir)
+    if requested_output != expected_output:
+        raise ValueError("V15 candidate lock permits only its exact Hard32 output directory")
+    _reject_symlink_components(requested_output, description="V15 Hard32 output directory")
+    if requested_output.exists():
+        raise ValueError(
+            "V15 Hard32 requires a fresh, nonexistent output directory and cannot resume"
+        )
+
+    selected = candidate_lock["selected_candidate"]
+    selected_checkpoint = selected_receipt["selected_checkpoint"]
+    selector_manifest = selected_receipt.get("selector_manifest")
+    selector_base_model = selected_receipt.get("base_model")
+    if (
+        not isinstance(selector_manifest, Mapping)
+        or not isinstance(selector_base_model, Mapping)
+        or selected.get("selector_manifest") != selector_manifest
+        or selected.get("selector_manifest_fingerprint")
+        != selected_receipt.get("fingerprint")
+        or selected.get("base_model") != selector_base_model
+    ):
+        raise ValueError("V15 selector-manifest or base-model candidate chain differs")
+    resolved_memory = _lexical_absolute(memory_dir)
+    expected_memory = _lexical_absolute(str(selected_checkpoint.get("path", "")))
+    if resolved_memory != expected_memory or selected.get("checkpoint") != selected_checkpoint:
+        raise ValueError("V15 candidate lock rejects every unselected checkpoint")
+
+    selector.validate_artifact_binding(
+        selected_receipt["launch_receipt"],
+        description="V15 bound launch receipt",
+        expected_path=launch_receipt,
+    )
+    selector.validate_artifact_binding(
+        selected_receipt["completion_receipt"],
+        description="V15 bound completion receipt",
+        expected_path=completion_receipt,
+    )
+    selector.validate_artifact_binding(
+        selector_manifest,
+        description="V15 bound selector manifest",
+        expected_path=selection_path.parent / selector.SELECTOR_MANIFEST_FILENAME,
+    )
+
+    data = launch.validate_data_contract()
+    warm = launch.validate_warm_start_contract()
+    base_identity = launch.validate_base_model_contract(Path(base_model))
+    if dict(base_identity) != dict(selector_base_model):
+        raise ValueError("V15 selected checkpoint base-model identity differs")
+    checkpoint_contract = launch.validate_checkpoint_contract(
+        resolved_memory,
+        data=data,
+        warm=warm,
+        smoke=False,
+    )
+    if checkpoint_contract != selected_checkpoint:
+        raise ValueError("V15 selected checkpoint artifact contract differs")
+    resolved_layer_count = resolved_memory_layer_count(
+        resolved_memory,
+        expected_memory_layer_count,
+    )
+    architecture = memory_architecture_contract(resolved_memory)
+    if (
+        resolved_layer_count != 42
+        or architecture.get("target_layers") != list(range(42))
+        or architecture.get("delta_heads") != ["q", "o"]
+        or architecture.get("rank") != 4
+        or architecture.get("rwkv_ms_semantics_version") != 2
+        or architecture.get("memory_backend") != "rwkv_ms"
+    ):
+        raise ValueError("V15 Hard32 requires a 42-layer q,o rank-4 RWKV-MS checkpoint")
+    launch_validation = launch.validate_launch_receipt(
+        launch_receipt,
+        checkpoint=resolved_memory,
+        base_model_identity=base_identity,
+        smoke=False,
+        data=data,
+        warm_start=warm,
+    )
+    completion_validation = launch.validate_completion_receipt(
+        completion_receipt,
+        checkpoint=resolved_memory,
+        checkpoint_contract=checkpoint_contract,
+        launch=launch_validation,
+        smoke=False,
+        data=data,
+        warm_start=warm,
+    )
+
+    expected_checkpoints = {
+        Path(str(summary["checkpoint"]["path"])).name: summary["checkpoint"]
+        for summary in selected_receipt["candidates"]
+    }
+    completion_payload = completion_validation.get("payload", {})
+    launch_payload = launch_validation.get("payload", {})
+    if (
+        completion_payload.get("checkpoints") != expected_checkpoints
+        or launch_payload.get("checkpoints")
+        != {
+            name: str(contract["path"])
+            for name, contract in expected_checkpoints.items()
+        }
+    ):
+        raise ValueError(
+            "V15 completion receipt does not bind all four selected post-update audits"
+        )
+
+    selection_binding = {
+        "path": str(selection_path),
+        "bytes": selection_path.stat().st_size,
+        "file_sha256": sha256_file(selection_path),
+        "payload_sha256": selected_receipt["validated_receipt_sha256"],
+    }
+    lock_binding = {
+        "path": str(lock_path),
+        "bytes": lock_path.stat().st_size,
+        "file_sha256": sha256_file(lock_path),
+        "payload_sha256": candidate_lock["validated_lock_sha256"],
+        "selection_policy": SCENE_V15_CANDIDATE_SELECTION_POLICY,
+    }
+    training_provenance = {
+        "launch": {
+            "path": launch_validation["path"],
+            "file_sha256": launch_validation["file_sha256"],
+            "receipt_sha256": launch_validation["receipt_sha256"],
+        },
+        "completion": {
+            "path": completion_validation["path"],
+            "file_sha256": completion_validation["file_sha256"],
+            "receipt_sha256": completion_validation["receipt_sha256"],
+        },
+    }
+    authorization = {
+        "authorization_kind": SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND,
+        "scope": SCENE_V15_HARD32_AUTHORIZATION_SCOPE,
+        "hard32_authorized": True,
+        "candidate_lock": lock_binding,
+        "selection_receipt": selection_binding,
+        "selection_fingerprint": selected_receipt["fingerprint"],
+        "selector_manifest": dict(selector_manifest),
+        "ranked_checkpoint_steps": list(
+            selected_receipt["ranked_checkpoint_steps"]
+        ),
+        "selected_checkpoint_step": selected_receipt["selected_checkpoint_step"],
+        "post_save_audit": dict(selected["post_save_audit"]),
+        "base_model": base_identity["path"],
+        "base_model_identity": dict(base_identity),
+        "hard32_output_dir": str(requested_output),
+        "checkpoint": dict(checkpoint_contract),
+        "training_provenance": training_provenance,
+        "full170_authorized": False,
+        "test_authorized": False,
+        "other_benchmarks_authorized": False,
+    }
+    # This duplicates the protected contract check using compiled-in identities only.
+    # The real selection and dataset remain unopened until the exclusive claim below.
+    validate_scene_v6_matched_donor_contract(
+        contract=SCENE_V15_HARD32_CONTRACT,
+        row_indices=list(HARD32_ROW_INDICES),
+        expected_hashes=dict(HARD32_ROW_HASHES),
+        selection_dataset_contract={
+            "path": str(_lexical_absolute(HISTORICAL_V6_OFFICIAL_VAL)),
+            "split": "val",
+            "sha256": OFFICIAL_SCENE_V4_VAL_SHA256,
+        },
+        conditions=conditions,
+        donor_rule=donor_rule,
+        max_new_tokens=max_new_tokens,
+        normal_fusion_profile=normal_fusion_profile,
+        expected_memory_layer_count=resolved_layer_count,
+        memory_target_layers=architecture["target_layers"],
+        memory_delta_heads=architecture["delta_heads"],
+        memory_rank=architecture["rank"],
+        rwkv_ms_semantics_version=architecture["rwkv_ms_semantics_version"],
+        memory_backend=architecture["memory_backend"],
+        selection_manifest_sha256=HARD32_SELECTION_SHA256,
+        scene_v15_candidate_authorization=authorization,
+    )
+    consumption = claim_scene_v15_hard32_authorization(
+        selection_receipt_path=selection_path,
+        payload={
+            "authorization_kind": SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND,
+            "authorization_scope": SCENE_V15_HARD32_AUTHORIZATION_SCOPE,
+            "selection_receipt": selection_binding,
+            "candidate_lock": lock_binding,
+            "selection_fingerprint": selected_receipt["fingerprint"],
+            "selector_manifest": dict(selector_manifest),
+            "checkpoint": dict(checkpoint_contract),
+            "training_provenance": training_provenance,
+            "base_model": dict(base_identity),
+            "hard32_output_dir": str(requested_output),
+            "protected_dataset_path": str(protected_dataset),
+            "protected_selection_path": str(protected_selection),
+            "conditions": list(conditions),
+            "donor_rule": donor_rule,
+            "frozen_donor_pairs_sha256": pair_list_sha256,
+            "max_new_tokens": max_new_tokens,
+            "normal_fusion_profile": normal_fusion_profile,
+            "device": device,
+            "dtype": dtype,
+            "attn_implementation": attn_implementation,
+            "full170_authorized": False,
+            "test_authorized": False,
+            "other_benchmarks_authorized": False,
+            "retry_authorized": False,
+        },
+    )
+    hard32 = validate_historical_v6_hard32_artifacts(
+        dataset_file=dataset_file,
+        selection_file=selection_file,
+    )
+    authorization["authorization_consumption"] = consumption
+    authorization["frozen_hard32"] = hard32
+    return authorization
+
+
 def validate_hard32_pass_receipt(
     receipt_path: Path,
     *,
@@ -5178,15 +5927,25 @@ def historical_base_model_binding(base_model: Path) -> dict[str, Any]:
 
 def main() -> None:
     args = parse_args()
+    if (
+        args.preflight_only
+        and args.evaluation_contract == SCENE_V15_HARD32_CONTRACT
+    ):
+        raise ValueError(
+            "V15 Hard32 forbids --preflight-only because its protected access "
+            "authorization is exactly once"
+        )
     if args.preflight_only and args.evaluation_contract not in {
         HISTORICAL_V6_HARD32_CONTRACT,
         SCENE_V14_HARD32_CONTRACT,
     }:
         raise ValueError(
-            "--preflight-only is restricted to the historical V6 and locked V14 "
-            "Hard32 contracts"
+            "--preflight-only is restricted to the historical V6 and locked "
+            "V14 Hard32 contracts"
         )
     conditions = selected_conditions(args.conditions)
+    if args.max_new_tokens <= 0:
+        raise ValueError("--max-new-tokens must be positive")
     historical_preflight = validate_historical_v6_run_preflight(
         args,
         conditions=conditions,
@@ -5195,10 +5954,12 @@ def main() -> None:
     args.output_dir = args.output_dir.expanduser().resolve()
     v8_hard32_requested = args.evaluation_contract == SCENE_V8_HARD32_CONTRACT
     v14_hard32_requested = args.evaluation_contract == SCENE_V14_HARD32_CONTRACT
+    v15_hard32_requested = args.evaluation_contract == SCENE_V15_HARD32_CONTRACT
     if (
         args.row_indices_file is not None
         and not v8_hard32_requested
         and not v14_hard32_requested
+        and not v15_hard32_requested
     ):
         args.row_indices_file = args.row_indices_file.expanduser().resolve()
     if args.hard32_receipt is not None:
@@ -5217,6 +5978,16 @@ def main() -> None:
         args.scene_v14_completion_receipt = (
             args.scene_v14_completion_receipt.expanduser()
         )
+    if args.scene_v15_selection_receipt is not None:
+        args.scene_v15_selection_receipt = args.scene_v15_selection_receipt.expanduser()
+    if args.scene_v15_candidate_lock is not None:
+        args.scene_v15_candidate_lock = args.scene_v15_candidate_lock.expanduser()
+    if args.scene_v15_launch_receipt is not None:
+        args.scene_v15_launch_receipt = args.scene_v15_launch_receipt.expanduser()
+    if args.scene_v15_completion_receipt is not None:
+        args.scene_v15_completion_receipt = (
+            args.scene_v15_completion_receipt.expanduser()
+        )
     validate_scene_v7_train32_receipt_scope(
         evaluation_contract=args.evaluation_contract,
         receipt_path=args.scene_v7_train32_receipt,
@@ -5232,6 +6003,20 @@ def main() -> None:
         launch_receipt=args.scene_v14_launch_receipt,
         completion_receipt=args.scene_v14_completion_receipt,
     )
+    validate_scene_v15_receipt_scope(
+        evaluation_contract=args.evaluation_contract,
+        selection_receipt=args.scene_v15_selection_receipt,
+        candidate_lock=args.scene_v15_candidate_lock,
+        launch_receipt=args.scene_v15_launch_receipt,
+        completion_receipt=args.scene_v15_completion_receipt,
+    )
+    if (
+        args.hard32_receipt is not None
+        and args.evaluation_contract != "scene_v6_matched_donor_validation"
+    ):
+        raise ValueError(
+            "--hard32-receipt is accepted only by scene_v6_matched_donor_validation"
+        )
     scene_v8_train32_authorization = None
     if v8_hard32_requested:
         scene_v8_train32_authorization = (
@@ -5262,8 +6047,47 @@ def main() -> None:
         )
         if args.row_indices_file is not None:
             args.row_indices_file = args.row_indices_file.expanduser().resolve()
-    if args.max_new_tokens <= 0:
-        raise ValueError("--max-new-tokens must be positive")
+    scene_v15_candidate_authorization = None
+    if v15_hard32_requested:
+        scene_v15_candidate_authorization = (
+            validate_scene_v15_candidate_hard32_authorization(
+                selection_receipt_path=args.scene_v15_selection_receipt,
+                candidate_lock_path=args.scene_v15_candidate_lock,
+                launch_receipt=args.scene_v15_launch_receipt,
+                completion_receipt=args.scene_v15_completion_receipt,
+                base_model=args.base_model,
+                memory_dir=args.memory_dir,
+                output_dir=args.output_dir,
+                overwrite=args.overwrite,
+                dataset_file=args.dataset_file,
+                selection_file=args.row_indices_file,
+                device=args.device,
+                dtype=args.dtype,
+                attn_implementation=args.attn_implementation,
+                delta_mem_root=args.delta_mem_root,
+                conditions=conditions,
+                donor_rule=args.donor_rule,
+                max_new_tokens=args.max_new_tokens,
+                normal_fusion_profile=args.normal_fusion_profile,
+                expected_memory_layer_count=args.expected_memory_layer_count,
+                inline_row_indices=args.row_indices,
+                preflight_only=args.preflight_only,
+                broader_authorization_supplied=any(
+                    receipt is not None
+                    for receipt in (
+                        args.hard32_receipt,
+                        args.scene_v7_train32_receipt,
+                        args.scene_v8_train32_receipt,
+                        args.scene_v14_value14_receipt,
+                        args.scene_v14_candidate_lock,
+                        args.scene_v14_launch_receipt,
+                        args.scene_v14_completion_receipt,
+                    )
+                ),
+            )
+        )
+        if args.row_indices_file is not None:
+            args.row_indices_file = args.row_indices_file.expanduser().resolve()
     dataset_file = resolve_validation_dataset_file(args.dataset_file)
     row_indices, expected_hashes, selection_dataset_contract = read_selection(args)
     validate_selection_dataset_contract(dataset_file, selection_dataset_contract)
@@ -5272,7 +6096,12 @@ def main() -> None:
     )
     memory_architecture = memory_architecture_contract(args.memory_dir)
     scene_v7_train32_authorization = None
-    if scene_v14_candidate_authorization is not None:
+    if scene_v15_candidate_authorization is not None:
+        candidate_lineage = {
+            "lineage_kind": SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND,
+            "authorization": scene_v15_candidate_authorization,
+        }
+    elif scene_v14_candidate_authorization is not None:
         candidate_lineage = {
             "lineage_kind": SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND,
             "authorization": scene_v14_candidate_authorization,
@@ -5352,6 +6181,7 @@ def main() -> None:
         hard32_receipt_authorization=hard32_receipt_authorization,
         scene_v8_train32_authorization=scene_v8_train32_authorization,
         scene_v14_candidate_authorization=scene_v14_candidate_authorization,
+        scene_v15_candidate_authorization=scene_v15_candidate_authorization,
     )
     if args.evaluation_contract == "generic" and len(row_indices) > MAX_SELECTED_ROWS:
         raise ValueError(
@@ -5475,6 +6305,7 @@ def main() -> None:
         "hard32_receipt_authorization": hard32_receipt_authorization,
         "scene_v7_train32_authorization": scene_v7_train32_authorization,
         "scene_v14_candidate_authorization": scene_v14_candidate_authorization,
+        "scene_v15_candidate_authorization": scene_v15_candidate_authorization,
         "historical_v6_preflight": historical_preflight,
         "max_new_tokens": args.max_new_tokens,
         "device": args.device,
@@ -5504,7 +6335,11 @@ def main() -> None:
 
     args.output_dir.mkdir(
         parents=True,
-        exist_ok=args.evaluation_contract != HISTORICAL_V6_HARD32_CONTRACT,
+        exist_ok=args.evaluation_contract
+        not in {
+            HISTORICAL_V6_HARD32_CONTRACT,
+            SCENE_V15_HARD32_CONTRACT,
+        },
     )
     output_paths = [
         *(args.output_dir / f"{condition}.jsonl" for condition in conditions),
@@ -5518,7 +6353,13 @@ def main() -> None:
         for path in output_paths:
             path.unlink(missing_ok=True)
     manifest_path = args.output_dir / "manifest.json"
-    if manifest_path.is_file():
+    if args.evaluation_contract == SCENE_V15_HARD32_CONTRACT:
+        if any(path.exists() for path in output_paths):
+            raise RuntimeError(
+                "V15 Hard32 is a one-shot evaluation and cannot resume existing outputs"
+            )
+        write_json_atomic(manifest_path, manifest)
+    elif manifest_path.is_file():
         existing = json.loads(manifest_path.read_text(encoding="utf-8"))
         try:
             manifest = validate_existing_manifest(
@@ -5536,19 +6377,27 @@ def main() -> None:
     completed_by_condition: dict[str, dict[int, dict[str, Any]]] = {}
     for condition in conditions:
         path = args.output_dir / f"{condition}.jsonl"
-        completed_by_condition[condition] = validate_resume_records(
-            read_resume_records(path),
-            condition=condition,
-            condition_protocol=condition_protocols[condition],
-            selected_by_index=selected_by_index,
-            donor_by_index=donor_by_index,
-            fingerprint=fingerprint,
-            max_new_tokens=args.max_new_tokens,
-            require_semantic_nll=(
-                is_identity_hard32_contract(args.evaluation_contract)
-            ),
-            candidate_lineage_record_binding=candidate_lineage_record_binding,
-        )
+        if args.evaluation_contract == SCENE_V15_HARD32_CONTRACT:
+            if path.exists():
+                raise RuntimeError(
+                    "V15 Hard32 condition output appeared after fresh initialization; "
+                    "resume is forbidden"
+                )
+            completed_by_condition[condition] = {}
+        else:
+            completed_by_condition[condition] = validate_resume_records(
+                read_resume_records(path),
+                condition=condition,
+                condition_protocol=condition_protocols[condition],
+                selected_by_index=selected_by_index,
+                donor_by_index=donor_by_index,
+                fingerprint=fingerprint,
+                max_new_tokens=args.max_new_tokens,
+                require_semantic_nll=(
+                    is_identity_hard32_contract(args.evaluation_contract)
+                ),
+                candidate_lineage_record_binding=candidate_lineage_record_binding,
+            )
 
     runtime_profile: dict[str, Any] | None = manifest.get("runtime_fusion_profile")
     for adapter_group in (False, True):
@@ -5658,9 +6507,21 @@ def main() -> None:
     base_outcome_evidence = (
         build_base_outcome_evidence(ordered_records)
         if is_identity_hard32_contract(args.evaluation_contract)
+        and args.evaluation_contract != SCENE_V15_HARD32_CONTRACT
         else None
     )
-    hard32_gate = (
+    scene_v15_hard32_gate = (
+        build_scene_v15_hard32_gate(
+            summaries=summaries,
+            comparisons=comparisons,
+            semantic_evidence=semantic_evidence,
+            ordered_records=ordered_records,
+            contract=evaluation_contract,
+        )
+        if args.evaluation_contract == SCENE_V15_HARD32_CONTRACT
+        else {"status": "not_requested", "contract": evaluation_contract}
+    )
+    scene_v6_identity_hard32_gate = (
         build_scene_v6_identity_hard32_gate(
             summaries=summaries,
             comparisons=comparisons,
@@ -5668,7 +6529,13 @@ def main() -> None:
             contract=evaluation_contract,
         )
         if is_identity_hard32_contract(args.evaluation_contract)
+        and args.evaluation_contract != SCENE_V15_HARD32_CONTRACT
         else {"status": "not_requested", "contract": evaluation_contract}
+    )
+    hard32_gate = (
+        scene_v15_hard32_gate
+        if args.evaluation_contract == SCENE_V15_HARD32_CONTRACT
+        else scene_v6_identity_hard32_gate
     )
     historical_v6_evidence = (
         build_historical_v6_hard32_evidence(ordered_records)
@@ -5693,7 +6560,8 @@ def main() -> None:
         "comparisons": comparisons,
         "semantic_decision_evidence": semantic_evidence,
         "base_outcome_evidence": base_outcome_evidence,
-        "scene_v6_identity_hard32_gate": hard32_gate,
+        "scene_v6_identity_hard32_gate": scene_v6_identity_hard32_gate,
+        "scene_v15_hard32_gate": scene_v15_hard32_gate,
         "historical_v6_hard32_evidence": historical_v6_evidence,
         "scene_v6_matched_donor_gate": build_scene_v6_matched_donor_gate(
             comparisons,

@@ -313,10 +313,20 @@ def test_v14_teacher_telemetry_has_no_gradient_or_backward_path() -> None:
         and item.context_expr.func.attr == "set_grad_enabled"
     )
     assert len(grad_call.args) == 1
-    assert isinstance(grad_call.args[0], ast.UnaryOp)
-    assert isinstance(grad_call.args[0].op, ast.Not)
-    assert isinstance(grad_call.args[0].operand, ast.Name)
-    assert grad_call.args[0].operand.id == "cached_prefix_objective"
+    assert isinstance(grad_call.args[0], ast.BoolOp)
+    assert isinstance(grad_call.args[0].op, ast.Or)
+    assert any(
+        isinstance(value, ast.UnaryOp)
+        and isinstance(value.op, ast.Not)
+        and isinstance(value.operand, ast.Name)
+        and value.operand.id == "cached_prefix_objective"
+        for value in grad_call.args[0].values
+    )
+    assert any(
+        isinstance(value, ast.Name)
+        and value.id == "cached_prefix_identity_objective"
+        for value in grad_call.args[0].values
+    )
 
     teacher_backward_dispatch = next(
         node
@@ -325,11 +335,20 @@ def test_v14_teacher_telemetry_has_no_gradient_or_backward_path() -> None:
         and _loaded_names(node.test) == {"cached_prefix_objective"}
         and "backward" in _called_attribute_names(_nodes_as_module(node.orelse))
     )
-    assert "backward" not in _called_attribute_names(
-        _nodes_as_module(teacher_backward_dispatch.body)
-    )
     assert "backward" in _called_attribute_names(
         _nodes_as_module(teacher_backward_dispatch.orelse)
+    )
+    identity_backward_dispatch = next(
+        node
+        for node in teacher_backward_dispatch.body
+        if isinstance(node, ast.If)
+        and _loaded_names(node.test) == {"cached_prefix_identity_objective"}
+    )
+    assert "backward" in _called_attribute_names(
+        _nodes_as_module(identity_backward_dispatch.body)
+    )
+    assert "backward" not in _called_attribute_names(
+        _nodes_as_module(identity_backward_dispatch.orelse)
     )
 
     cached_teacher_branch = next(
@@ -788,6 +807,60 @@ def test_v14_one_pair_smoke_aggregates_and_emits_two_row_audit_observations() ->
         trainer._scene_state_cycle_retention_aggregate_memory_stats(stats)
 
 
+def test_v14_production_cycle_remains_exactly_seven_pairs() -> None:
+    trainer = object.__new__(experimental_train.DeltaMemTrainer)
+    trainer.scene_state_generation_objective_version = (
+        experimental_train._SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION
+    )
+    trainer.scene_state_v14_one_pair_smoke = False
+    trainer.scene_state_v15_one_pair_smoke = False
+    trainer._scene_state_cycle_retention_metric_sums = {}
+    trainer._scene_state_cycle_retention_metric_presentations = 0
+    trainer._scene_state_v14_cycle_pairs = []
+    trainer._scene_state_v14_completed_cycles = 0
+    trainer._scene_state_v14_row_observations = []
+    trainer._scene_state_v14_pair_observations = []
+    cycle_pairs = experimental_train._SCENE_STATE_V14_FOUR_CYCLE_PAIRS[:7]
+    manifest_pairs: list[dict[str, object]] = [{} for _ in range(32)]
+    for source, donor in cycle_pairs:
+        manifest_pairs[source] = {
+            "source_index": source,
+            "donor_index": donor,
+            "source_row_sha256": bytes([source] * 32).hex(),
+            "donor_row_sha256": bytes([donor] * 32).hex(),
+        }
+    trainer.scene_state_identity_pairing_manifest = {
+        "splits": {"train": {"pairs": manifest_pairs}}
+    }
+    stats = _v14_exact_audit_stats()
+    row_hash = lambda ordinal: torch.full(
+        (1, 32), ordinal, dtype=torch.uint8
+    )
+
+    averaged: dict[str, float] = {}
+    for source, donor in cycle_pairs:
+        trainer._scene_state_v14_record_pair_presentation(
+            torch.tensor([source]),
+            torch.tensor([donor]),
+            row_hash(source),
+            row_hash(donor),
+            stats,
+        )
+        averaged = trainer._scene_state_cycle_retention_aggregate_memory_stats(
+            stats
+        )
+    payload = trainer._scene_state_v14_row_audit_payload()
+
+    assert averaged["scene_generation_v14_cycle_pair_presentations"] == 7.0
+    assert averaged["scene_generation_v14_cycle_index"] == 1.0
+    assert payload["completed_pair_presentations"] == 7
+    assert [
+        (item["source_row_ordinal"], item["donor_row_ordinal"])
+        for item in payload["pair_presentations"]
+    ] == list(cycle_pairs)
+    assert len(payload["rows"]) == 14
+
+
 def test_v14_smoke_runtime_uses_one_pair_accumulation() -> None:
     trainer = object.__new__(experimental_train.DeltaMemTrainer)
     trainer.scene_state_generation_objective_version = (
@@ -814,25 +887,34 @@ def test_v14_smoke_runtime_uses_one_pair_accumulation() -> None:
 
 
 @pytest.mark.parametrize(
-    ("objective", "expected_v13", "expected_v14"),
+    ("objective", "expected_v13", "expected_v14", "expected_v15"),
     [
         (
             experimental_train._SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
             True,
+            False,
             False,
         ),
         (
             experimental_train._SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
             False,
             True,
+            False,
+        ),
+        (
+            experimental_train._SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
+            False,
+            False,
+            True,
         ),
     ],
 )
-def test_v13_v14_checkpoint_reload_requires_versioned_row_audit(
+def test_v13_v14_v15_checkpoint_reload_requires_versioned_row_audit(
     monkeypatch: pytest.MonkeyPatch,
     objective: str,
     expected_v13: bool,
     expected_v14: bool,
+    expected_v15: bool,
 ) -> None:
     captured: dict[str, object] = {}
 
@@ -860,14 +942,35 @@ def test_v13_v14_checkpoint_reload_requires_versioned_row_audit(
 
     assert captured["require_scene_state_v13_audit"] is expected_v13
     assert captured["require_scene_state_v14_audit"] is expected_v14
-    expected_filename = (
-        experimental_train._SCENE_STATE_V13_ROW_AUDIT_FILENAME
-        if expected_v13
-        else experimental_train._SCENE_STATE_V14_ROW_AUDIT_FILENAME
+    assert captured["require_scene_state_v15_audit"] is expected_v15
+    expected_filename = next(
+        filename
+        for required, filename in (
+            (
+                expected_v13,
+                experimental_train._SCENE_STATE_V13_ROW_AUDIT_FILENAME,
+            ),
+            (
+                expected_v14,
+                experimental_train._SCENE_STATE_V14_ROW_AUDIT_FILENAME,
+            ),
+            (
+                expected_v15,
+                experimental_train._SCENE_STATE_V15_ROW_AUDIT_FILENAME,
+            ),
+        )
+        if required
     )
     missing = experimental_train._missing_resume_checkpoint_files(
         Path("checkpoint-1"),
         require_scene_state_v13_audit=expected_v13,
         require_scene_state_v14_audit=expected_v14,
+        require_scene_state_v15_audit=expected_v15,
     )
     assert expected_filename in missing
+    audit_filenames = {
+        experimental_train._SCENE_STATE_V13_ROW_AUDIT_FILENAME,
+        experimental_train._SCENE_STATE_V14_ROW_AUDIT_FILENAME,
+        experimental_train._SCENE_STATE_V15_ROW_AUDIT_FILENAME,
+    }
+    assert set(missing) & audit_filenames == {expected_filename}

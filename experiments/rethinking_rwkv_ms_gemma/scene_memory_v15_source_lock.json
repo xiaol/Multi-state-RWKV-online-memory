@@ -1,0 +1,193 @@
+{
+  "artifacts": {
+    "bundle_manifest": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v15/all32_pair64_v1/manifest.json",
+      "sha256": "564954160392a4c70b83b6ab48c773cbf6bd99a069e787bb02268850d9f3332b"
+    },
+    "pair_schedule": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v15/all32_pair64_v1/pair_schedule.jsonl",
+      "sha256": "d59e239e4f29f7981175783dafb8a8e4f34c9c95399000e73f2c3dbd26347421"
+    },
+    "pair_schedule_manifest": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v15/all32_pair64_v1/pair_schedule_manifest.json",
+      "sha256": "5a48421605f10d69cadca08b320d57e79bde5004df1585fa8f0c98470642c6ad"
+    },
+    "source_manifest": {
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v15/all32_pair64_v1/source_manifest.json",
+      "sha256": "ff313a6875941d11e8c3e56ad7acb927f57795a14c8073e885fa8500080a4d1a"
+    }
+  },
+  "curriculum": {
+    "all32_ordinals": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "canonical_all32_pairs": [
+      [
+        0,
+        17
+      ],
+      [
+        1,
+        14
+      ],
+      [
+        2,
+        29
+      ],
+      [
+        3,
+        24
+      ],
+      [
+        4,
+        27
+      ],
+      [
+        5,
+        9
+      ],
+      [
+        6,
+        21
+      ],
+      [
+        7,
+        25
+      ],
+      [
+        8,
+        15
+      ],
+      [
+        10,
+        23
+      ],
+      [
+        11,
+        18
+      ],
+      [
+        12,
+        30
+      ],
+      [
+        13,
+        16
+      ],
+      [
+        19,
+        28
+      ],
+      [
+        20,
+        31
+      ],
+      [
+        22,
+        26
+      ]
+    ],
+    "checkpoint_cycles": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "directed_presentations": 128,
+    "empty_ordinals": [
+      4,
+      6,
+      7,
+      11,
+      12,
+      15,
+      16,
+      17,
+      29
+    ],
+    "pair_cycles": 4,
+    "pair_prefix_sha256_by_checkpoint": {
+      "1": "2253f0b7a678bad0a4d0a2c8150a8f1b8f1acb88185f411bd4bc03cf65a0f733",
+      "2": "55538c8dff030eb30c6dc66708ab798eb2a2b7191fc95db4eaf4afaac30ede65",
+      "3": "8a35c31f28c572aa8a2d2fa6c3b6d1a8e9df9931ca47c0c0cf45405667dcecc1",
+      "4": "5aea39c86edd9460454172bc046961b607c1792f27a2abb198ed2996ed10b26e"
+    },
+    "pair_presentations": 64,
+    "pair_stratum_counts_per_cycle": {
+      "cross_cardinality_value": 2,
+      "presence": 9,
+      "same_cardinality_value": 5
+    },
+    "pairs_per_cycle": 16,
+    "presentation_checkpoints": [
+      16,
+      32,
+      48,
+      64
+    ]
+  },
+  "excluded_artifacts": {
+    "hard32": {
+      "included": false,
+      "name": "Hard32",
+      "path": null,
+      "policy": "forbidden_not_resolved_opened_or_hashed",
+      "sha256": null
+    }
+  },
+  "inputs": {
+    "pair_manifest": {
+      "bytes": 70558,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/train32_pair_manifest.json",
+      "sha256": "13555da56823d9597bf061d51ec6575db25cde49c044cab378f2050373fd78b6"
+    },
+    "source_manifest": {
+      "bytes": 1899,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/train32_source_manifest.json",
+      "sha256": "57626d3629e055a5f7900ed2a8526d357890d63730aa55d56ee72bd56a05017b"
+    },
+    "train32": {
+      "bytes": 60598,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/train32.jsonl",
+      "sha256": "20d395bc99a9e2e502d2ed86169664ea0162638c07a7b52a4b4d293c171dc7b9"
+    },
+    "train32_rows": {
+      "bytes": 104770,
+      "path": "/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_memory_v7_fixed_hard32_aligned_train32_v1/train32_rows.jsonl",
+      "sha256": "af80b1938196319e6595a0e6d0e2f2c9a6009963a82fea520d608e060a4fe957"
+    }
+  },
+  "lock_sha256": "fdae194ee1bad0a885eacce2856356923b9653da2db74868fddf61f07ebf455d",
+  "schema": "rwkv_ms_scene_memory_v15_source_lock.v1"
+}
