@@ -4024,9 +4024,10 @@ def load_delta_mem_online_state(model: nn.Module, state: dict[str, torch.Tensor]
             module = module_map[module_name]
             if not isinstance(module, DeltaMemAttention):
                 raise TypeError(f"{module_name} is not a DeltaMemAttention")
+            # The predecessor comes from the projected RWKV source, whose live
+            # dtype can differ from the frozen base attention weights.
             module.rwkv_ms_previous_source = tensor.to(
                 device=module.base.q_proj.weight.device,
-                dtype=module.base.q_proj.weight.dtype,
             )
             continue
         module = module_map[name]

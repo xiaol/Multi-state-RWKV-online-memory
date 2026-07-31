@@ -3503,6 +3503,12 @@ def test_rwkv_ms_online_state_round_trips_streaming_predecessor() -> None:
         dtype=x.dtype,
     )
     _ = source(x, position_embeddings, None)
+    assert source.rwkv_ms_previous_source is not None
+    source.rwkv_ms_previous_source = torch.tensor(
+        [[1.003, -0.503], [0.251, -1.007]],
+        dtype=torch.float32,
+    )
+    source.base.to(dtype=torch.bfloat16)
     snapshot = get_delta_mem_online_state(source_model)
 
     target = make_delta_module(
@@ -3510,6 +3516,8 @@ def test_rwkv_ms_online_state_round_trips_streaming_predecessor() -> None:
         memory_backend="rwkv_ms",
         rwkv_ms_num_states=3,
     )
+    target.base.to(dtype=torch.bfloat16)
+    target.load_state_dict(source.state_dict(), strict=True)
     target_model = torch.nn.Module()
     target_model.add_module("attn", target)
     load_delta_mem_online_state(target_model, snapshot)
@@ -3519,6 +3527,17 @@ def test_rwkv_ms_online_state_round_trips_streaming_predecessor() -> None:
         "attn.__rwkv_ms_positions",
         "attn.__rwkv_ms_previous_source",
     }
+    assert source.base.q_proj.weight.dtype == torch.bfloat16
+    assert target.base.q_proj.weight.dtype == torch.bfloat16
+    target_weights = target.state_dict()
+    for name, source_tensor in source.state_dict().items():
+        assert torch.equal(target_weights[name], source_tensor)
+    assert snapshot["attn.__rwkv_ms_previous_source"].dtype == torch.float32
+    assert target.rwkv_ms_previous_source.dtype == torch.float32
+    assert not torch.equal(
+        snapshot["attn.__rwkv_ms_previous_source"],
+        snapshot["attn.__rwkv_ms_previous_source"].to(torch.bfloat16).float(),
+    )
     assert torch.equal(target.delta_state, source.delta_state)
     assert torch.equal(target.rwkv_ms_positions, source.rwkv_ms_positions)
     assert torch.equal(target.rwkv_ms_previous_source, source.rwkv_ms_previous_source)
@@ -3527,6 +3546,41 @@ def test_rwkv_ms_online_state_round_trips_streaming_predecessor() -> None:
     for tensor in snapshot.values():
         assert not tensor.requires_grad
         assert tensor.grad_fn is None
+
+    lossy_target = copy.deepcopy(target)
+    lossy_target.rwkv_ms_previous_source = (
+        lossy_target.rwkv_ms_previous_source.to(torch.bfloat16).float()
+    )
+    generator = torch.Generator().manual_seed(1234)
+    continuation_source = torch.randn(
+        2,
+        3,
+        source.state_read_dim,
+        generator=generator,
+        dtype=torch.float32,
+    )
+    with torch.no_grad():
+        source_reads = source._rwkv_ms_token_state_reads(
+            source.delta_state,
+            continuation_source,
+            None,
+        )
+        target_reads = target._rwkv_ms_token_state_reads(
+            target.delta_state,
+            continuation_source,
+            None,
+        )
+        lossy_reads = lossy_target._rwkv_ms_token_state_reads(
+            lossy_target.delta_state,
+            continuation_source,
+            None,
+        )
+
+    assert torch.equal(target_reads, source_reads)
+    assert torch.equal(target.delta_state, source.delta_state)
+    assert torch.equal(target.rwkv_ms_positions, source.rwkv_ms_positions)
+    assert torch.equal(target.rwkv_ms_previous_source, source.rwkv_ms_previous_source)
+    assert not torch.equal(lossy_reads, source_reads)
 
 
 def test_rwkv_ms_trainer_capture_and_scatter_include_streaming_predecessor() -> None:

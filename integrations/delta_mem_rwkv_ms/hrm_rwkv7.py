@@ -152,6 +152,8 @@ class HRMRWKV7LowRankCore(nn.Module):
         self.output = nn.Linear(dim, dim, bias=False)
         self.ln_x = nn.GroupNorm(self.n_head, dim, eps=64e-5)
         self.reset_parameters(dim**-0.5, output_init_scale=output_init_scale)
+        # Retain the parameter for old checkpoints, but never let an empty
+        # state acquire a learned offset through GroupNorm.
         self.ln_x.bias.requires_grad_(False)
 
     def reset_parameters(self, init_std: float, *, output_init_scale: float = 0.0) -> None:

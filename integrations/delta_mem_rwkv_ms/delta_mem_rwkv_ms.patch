@@ -991,7 +991,7 @@ index e8e8845f9db260a25be0357368b170b351fd9893..b891e4037e011a1d9735bc1ac7c287e8
      return snapshot
  
  
-@@ -2258,12 +2723,38 @@ def get_delta_mem_online_state(model: nn.Module) -> dict[str, torch.Tensor]:
+@@ -2258,12 +2723,39 @@ def get_delta_mem_online_state(model: nn.Module) -> dict[str, torch.Tensor]:
          if module.delta_state is None:
              continue
          state[name] = module.delta_state.detach().cpu().clone()
@@ -1022,9 +1022,10 @@ index e8e8845f9db260a25be0357368b170b351fd9893..b891e4037e011a1d9735bc1ac7c287e8
 +            module = module_map[module_name]
 +            if not isinstance(module, DeltaMemAttention):
 +                raise TypeError(f"{module_name} is not a DeltaMemAttention")
++            # The predecessor comes from the projected RWKV source, whose live
++            # dtype can differ from the frozen base attention weights.
 +            module.rwkv_ms_previous_source = tensor.to(
 +                device=module.base.q_proj.weight.device,
-+                dtype=module.base.q_proj.weight.dtype,
 +            )
 +            continue
          module = module_map[name]
