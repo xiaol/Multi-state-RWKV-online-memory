@@ -109,6 +109,35 @@ The overfit proof must show all of the following:
 
 If this proof fails, stop. Do not spend Hard32 or broader benchmark compute.
 
+#### Fail-Closed Endpoint Screening
+
+Run the endpoint driver only after the production launcher has written its
+64-step completion receipt and all 64 checkpoint audits. The driver accepts no
+model, dataset, condition, endpoint, or held-out path overrides:
+
+```bash
+cd /home/xiaol/X/Multi-state-RWKV-online-memory
+PYTHONPATH="$PWD" /home/xiaol/X/delta-Mem/.venv/bin/python \
+  experiments/rethinking_rwkv_ms_gemma/run_scene_hard_failure_endpoint_screen.py \
+  --run-root /run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_hard_failure/scene_hard_failure_four_cycle_pair64_hard_failure_train32_v1_step64 \
+  --completion-receipt /run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_hard_failure/logs/scene_hard_failure_four_cycle_pair64_hard_failure_train32_v1_step64.completion.json
+```
+
+The command creates a fresh `train32_endpoint_screen` directory inside the run
+root. It generates and recomputes the Train32 gate at steps 16, 32, 48, and 64
+in order and stops at the first pass. Each evaluated endpoint contains
+`manifest.json`, `summary.json`, `progress.json`, the seven condition JSONL
+files, and `focused_recovery_gate.json`. `screening_protocol.json` binds the
+production completion receipt before generation begins. The final
+`train32_checkpoint_selection_receipt.json` binds that protocol, every executed
+command, every evaluated endpoint, and the production receipt.
+
+Exit status `0` means the first passing endpoint is authorized only for the
+separate Hard32 command. Exit status `1` means all four endpoints failed and an
+unauthorized deterministic fallback receipt was written. Exit status `2` is a
+contract or runtime failure. Do not use `--overwrite`, rename outputs to a
+held-out term, or manually substitute evaluator arguments.
+
 ### 3. Single Held-Out Screen
 
 Select exactly one checkpoint from train-only evidence, then run Hard32 once in
