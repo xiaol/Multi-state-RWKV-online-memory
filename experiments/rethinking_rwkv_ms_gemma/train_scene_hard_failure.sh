@@ -3,7 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
-PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"
+PYTHON_BIN="${PYTHON_BIN:-/home/xiaol/X/delta-Mem/.venv/bin/python}"
+VALIDATION_PYTHON_BIN="${VALIDATION_PYTHON_BIN:-${REPO_ROOT}/.venv/bin/python}"
 export PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 MODEL_PATH="/run/media/xiaol/B214449214445C0B/models/gemma/gemma-4-E4B-it"
 DATA_ROOT="/run/media/xiaol/B214449214445C0B/delta_mem_data/scene_failure_state/scene_hard_failure_curriculum_base64_pairs16_v1"
@@ -29,6 +30,8 @@ for variable in WORLD_SIZE RANK LOCAL_RANK MASTER_ADDR MASTER_PORT; do
 done
 while IFS='=' read -r variable _; do
   case "${variable}" in
+    VALIDATION_PYTHON_BIN)
+      ;;
     HARD32*|VALIDATION*|TEST*|BENCHMARK*)
       fail "protected_evaluation_environment_is_forbidden variable=${variable}"
       ;;
@@ -36,12 +39,50 @@ while IFS='=' read -r variable _; do
 done < <(env)
 
 [[ -x "${PYTHON_BIN}" ]] || fail "python_missing path=${PYTHON_BIN}"
+[[ -x "${VALIDATION_PYTHON_BIN}" ]] \
+  || fail "validation_python_missing path=${VALIDATION_PYTHON_BIN}"
 [[ "${RUN_MODE}" == "smoke" || "${RUN_MODE}" == "production" ]] \
   || fail "RUN_MODE must be smoke or production"
 [[ "${DRY_RUN}" == "0" || "${DRY_RUN}" == "1" ]] \
   || fail "DRY_RUN must be 0 or 1"
 [[ "${RUN_NAME}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
   || fail "RUN_NAME contains unsupported characters"
+
+if [[ "${DRY_RUN}" == "0" ]]; then
+  "${PYTHON_BIN}" - "${PYTHON_BIN}" <<'PY' \
+    || fail "python_cuda_bf16_preflight_failed path=${PYTHON_BIN}"
+import sys
+
+python_bin = sys.argv[1]
+try:
+    import torch
+except Exception as exc:
+    print(
+        f"ERROR: python_torch_import_failed executable={python_bin} error={exc}",
+        file=sys.stderr,
+    )
+    raise SystemExit(2) from exc
+
+if not torch.cuda.is_available():
+    print(f"ERROR: python_cuda_unavailable executable={python_bin}", file=sys.stderr)
+    raise SystemExit(2)
+try:
+    bf16_supported = bool(torch.cuda.is_bf16_supported())
+except Exception as exc:
+    print(
+        f"ERROR: python_cuda_bf16_probe_failed executable={python_bin} error={exc}",
+        file=sys.stderr,
+    )
+    raise SystemExit(2) from exc
+if not bf16_supported:
+    print(
+        f"ERROR: python_cuda_bf16_unsupported executable={python_bin}",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+print(f"python_cuda_bf16_preflight=pass executable={python_bin}")
+PY
+fi
 
 if [[ "${RUN_MODE}" == "smoke" ]]; then
   MAX_STEPS=1
@@ -65,7 +106,8 @@ TARGET_LAYERS="$(seq -s, 0 41)"
 [[ ! -e "${COMPLETION_RECEIPT}" ]] \
   || fail "fresh_completion_receipt_already_exists path=${COMPLETION_RECEIPT}"
 
-"${PYTHON_BIN}" - "${RUN_MODE}" "${OUTPUT_DIR}" "${CACHE_ROOT}" "${DRY_RUN}" <<'PY'
+"${VALIDATION_PYTHON_BIN}" - \
+  "${RUN_MODE}" "${OUTPUT_DIR}" "${CACHE_ROOT}" "${DRY_RUN}" <<'PY'
 from pathlib import Path
 import sys
 
@@ -235,9 +277,12 @@ set +e
   cd -- "${REPO_ROOT}"
   "${train_command[@]}"
 ) 2>&1 | tee -- "${LOG_FILE}"
-trainer_status=${PIPESTATUS[0]}
-tee_status=${PIPESTATUS[1]}
+pipeline_status=("${PIPESTATUS[@]}")
 set -e
+[[ "${#pipeline_status[@]}" == "2" ]] \
+  || fail "trainer_pipeline_status_count_differs count=${#pipeline_status[@]}"
+trainer_status="${pipeline_status[0]}"
+tee_status="${pipeline_status[1]}"
 [[ "${trainer_status}" == "0" ]] \
   || fail "trainer_failed status=${trainer_status} log=${LOG_FILE}"
 [[ "${tee_status}" == "0" ]] \
@@ -248,13 +293,13 @@ if [[ "${RUN_MODE}" == "smoke" ]]; then
   audit_args+=(--smoke)
 fi
 for checkpoint_step in $(seq 1 "${MAX_STEPS}"); do
-  "${PYTHON_BIN}" "${SCRIPT_DIR}/scene_hard_failure_run_audit.py" \
+  "${VALIDATION_PYTHON_BIN}" "${SCRIPT_DIR}/scene_hard_failure_run_audit.py" \
     --run-root "${OUTPUT_DIR}" \
     --checkpoint-step "${checkpoint_step}" \
     "${audit_args[@]}"
 done
 
-"${PYTHON_BIN}" - \
+"${VALIDATION_PYTHON_BIN}" - \
   "${OUTPUT_DIR}" "${LOG_FILE}" "${COMPLETION_RECEIPT}" \
   "${RUN_MODE}" "${MAX_STEPS}" <<'PY'
 from datetime import datetime, timezone

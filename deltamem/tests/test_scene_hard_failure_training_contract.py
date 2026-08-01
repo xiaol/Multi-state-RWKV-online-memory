@@ -764,7 +764,11 @@ def _launcher_environment(
 ) -> dict[str, str]:
     environment = os.environ.copy()
     for variable in tuple(environment):
-        if variable in _DISTRIBUTED_ENVIRONMENT or variable.startswith(
+        if variable in {
+            *_DISTRIBUTED_ENVIRONMENT,
+            "PYTHON_BIN",
+            "VALIDATION_PYTHON_BIN",
+        } or variable.startswith(
             _PROTECTED_EVALUATION_ENVIRONMENT_PREFIXES
         ):
             environment.pop(variable)
@@ -819,6 +823,102 @@ def test_hard_failure_launcher_is_executable_and_has_valid_bash_syntax() -> None
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_hard_failure_launcher_uses_independent_python_overrides(
+    tmp_path: Path,
+) -> None:
+    training_python = tmp_path / "training-python"
+    training_python.symlink_to("/bin/true")
+    validation_capture = tmp_path / "validation-python-used"
+    validation_python = tmp_path / "validation-python"
+    validation_python.write_text(
+        "#!/usr/bin/env bash\n"
+        f"touch {shlex.quote(str(validation_capture))}\n"
+        f"exec {shlex.quote(sys.executable)} \"$@\"\n",
+        encoding="utf-8",
+    )
+    validation_python.chmod(0o755)
+
+    arguments = _dry_run_arguments(
+        _run_launcher(
+            _launcher_environment(
+                updates={
+                    "PYTHON_BIN": str(training_python),
+                    "VALIDATION_PYTHON_BIN": str(validation_python),
+                }
+            )
+        )
+    )
+
+    assert arguments[0] == str(training_python)
+    assert validation_capture.is_file()
+
+
+def test_hard_failure_launcher_defaults_to_cuda_training_python() -> None:
+    arguments = _dry_run_arguments(_run_launcher(_launcher_environment()))
+
+    assert arguments[0] == "/home/xiaol/X/delta-Mem/.venv/bin/python"
+
+
+@pytest.mark.parametrize(
+    ("cuda_available", "bf16_supported", "message"),
+    (
+        (False, False, "python_cuda_unavailable"),
+        (True, False, "python_cuda_bf16_unsupported"),
+    ),
+)
+def test_hard_failure_real_launcher_rejects_incompatible_training_python_before_output(
+    tmp_path: Path,
+    cuda_available: bool,
+    bf16_supported: bool,
+    message: str,
+) -> None:
+    fake_torch = tmp_path / "torch.py"
+    fake_torch.write_text(
+        "class _Cuda:\n"
+        "    @staticmethod\n"
+        f"    def is_available(): return {cuda_available!r}\n"
+        "    @staticmethod\n"
+        f"    def is_bf16_supported(): return {bf16_supported!r}\n"
+        "cuda = _Cuda()\n",
+        encoding="utf-8",
+    )
+    run_name = f"pytest_cuda_preflight_{uuid.uuid4().hex}"
+    output = (
+        Path("/run/media/xiaol/B214449214445C0B")
+        / "delta_mem_outputs/novel_rwkv_ms_memory/scene_hard_failure"
+        / f"scene_hard_failure_one_pair_real_update_{run_name}_step1"
+    )
+    environment = _launcher_environment(
+        run_name=run_name,
+        dry_run="0",
+        updates={
+            "PYTHON_BIN": sys.executable,
+            "PYTHONPATH": str(tmp_path),
+        },
+    )
+
+    assert not output.exists()
+    result = _run_launcher(environment)
+
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert "python_cuda_bf16_preflight_failed" in result.stderr
+    assert not output.exists()
+
+
+def test_hard_failure_launcher_captures_pipeline_status_before_indexing() -> None:
+    source = HARD_FAILURE_LAUNCHER.read_text(encoding="utf-8")
+    capture = 'pipeline_status=("${PIPESTATUS[@]}")'
+    trainer_assignment = 'trainer_status="${pipeline_status[0]}"'
+    tee_assignment = 'tee_status="${pipeline_status[1]}"'
+
+    assert source.count(capture) == 1
+    assert source.index(capture) < source.index(trainer_assignment)
+    assert source.index(capture) < source.index(tee_assignment)
+    assert "trainer_status=${PIPESTATUS[0]}" not in source
+    assert "tee_status=${PIPESTATUS[1]}" not in source
 
 
 @pytest.mark.parametrize(
