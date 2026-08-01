@@ -31,6 +31,7 @@ from experiments.rethinking_rwkv_ms_gemma.prepare_scene_memory_v7_data import ( 
     sha256_file,
 )
 from experiments.rethinking_rwkv_ms_gemma.run_scene_state_eval import (  # noqa: E402
+    PAIR_TARGET_DECISION_MASK_MODE,
     clear_model_memory,
     evaluate_condition,
     load_adapter_model,
@@ -721,6 +722,7 @@ def validate_post_save_row_records(
     fingerprint: str,
     rows: Sequence[Mapping[str, Any]],
     donor_by_ordinal: Mapping[int, int],
+    pair_by_ordinal: Mapping[int, Mapping[str, Any]],
     require_complete: bool,
 ) -> dict[int, dict[str, Any]]:
     by_ordinal: dict[int, dict[str, Any]] = {}
@@ -739,6 +741,7 @@ def validate_post_save_row_records(
         row = rows[ordinal]
         donor_ordinal = donor_by_ordinal[ordinal]
         donor = rows[donor_ordinal]
+        pair_entry = pair_by_ordinal.get(ordinal)
         _require(
             record.get("fingerprint") == fingerprint
             and record.get("checkpoint_step") == checkpoint_step
@@ -751,6 +754,26 @@ def validate_post_save_row_records(
             and record.get("saved_weight_timing")
             == "reloaded_post_optimizer_update_checkpoint",
             "V15 audit row identity differs",
+        )
+        pair_target = record.get("pair_target")
+        _require(
+            isinstance(pair_entry, Mapping)
+            and isinstance(pair_target, Mapping)
+            and dict(pair_target)
+            == {
+                "target_mode": PAIR_TARGET_DECISION_MASK_MODE,
+                "first_differing_semantic_ordinal": pair_entry.get(
+                    "first_differing_semantic_ordinal"
+                ),
+                "selected_target_token_ids": pair_entry.get(
+                    "selected_target_token_ids"
+                ),
+                "donor_target_token_ids": pair_entry.get(
+                    "donor_target_token_ids"
+                ),
+                "causal_prefix_sha256": pair_entry.get("causal_prefix_sha256"),
+            },
+            "V15 audit causal pair target differs from locked Train32 pairing",
         )
         for field in (
             "parsed_boundary_exact",
@@ -1102,6 +1125,7 @@ def validate_selection_receipt(
     train_contract = _selector_train_contract()
     rows = train_contract["rows"]
     donor_by_ordinal = train_contract["pairing"]["donor_by_ordinal"]
+    pair_by_ordinal = train_contract["pairing"]["by_ordinal"]
     _require(len(rows) == TRAIN32_ROWS, "V15 selection input is not Train32")
     for summary in candidates:
         binding = summary.get("post_save_audit")
@@ -1121,6 +1145,7 @@ def validate_selection_receipt(
             fingerprint=str(payload.get("fingerprint", "")),
             rows=rows,
             donor_by_ordinal=donor_by_ordinal,
+            pair_by_ordinal=pair_by_ordinal,
             require_complete=True,
         )
         checkpoint = summary.get("checkpoint")
@@ -1607,6 +1632,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     train_contract = _selector_train_contract()
     rows = train_contract["rows"]
     donor_by_ordinal = train_contract["pairing"]["donor_by_ordinal"]
+    pair_by_ordinal = train_contract["pairing"]["by_ordinal"]
     _require(len(rows) == TRAIN32_ROWS, "V15 selector input is not Train32")
     base_model = require_ssd_path(args.base_model, description="base model")
     checkpoints, _, _, base_model_identity = _validate_provenance(
@@ -1669,6 +1695,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             fingerprint=fingerprint,
             rows=rows,
             donor_by_ordinal=donor_by_ordinal,
+            pair_by_ordinal=pair_by_ordinal,
             require_complete=False,
         )
         if len(completed) < TRAIN32_ROWS:
@@ -1727,6 +1754,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             fingerprint=fingerprint,
             rows=rows,
             donor_by_ordinal=donor_by_ordinal,
+            pair_by_ordinal=pair_by_ordinal,
             require_complete=True,
         )
         summaries.append(

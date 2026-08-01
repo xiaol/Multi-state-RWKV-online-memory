@@ -52,6 +52,20 @@ def _rows() -> tuple[list[dict[str, Any]], dict[int, int]]:
     return rows, donors
 
 
+def _pair_entries(donors: dict[int, int]) -> dict[int, dict[str, Any]]:
+    return {
+        ordinal: {
+            "train_row_ordinal": ordinal,
+            "donor_train_row_ordinal": donor,
+            "first_differing_semantic_ordinal": 0,
+            "selected_target_token_ids": [1],
+            "donor_target_token_ids": [2],
+            "causal_prefix_sha256": "a" * 64,
+        }
+        for ordinal, donor in donors.items()
+    }
+
+
 def _result(*, exact: bool, margin: float, nll: float, gold: str) -> dict[str, Any]:
     return {
         "score_strict": {
@@ -90,10 +104,17 @@ def _selection_fixture(
     monkeypatch: pytest.MonkeyPatch,
 ) -> dict[str, Any]:
     rows, donors = _rows()
+    pair_entries = _pair_entries(donors)
     monkeypatch.setattr(
         selector,
         "_selector_train_contract",
-        lambda: {"rows": rows, "pairing": {"donor_by_ordinal": donors}},
+        lambda: {
+            "rows": rows,
+            "pairing": {
+                "donor_by_ordinal": donors,
+                "by_ordinal": pair_entries,
+            },
+        },
     )
     run_root = tmp_path / "scene_memory_v15"
     selection_root = run_root / "selection"
@@ -209,6 +230,7 @@ def _selection_fixture(
     return {
         "rows": rows,
         "donors": donors,
+        "pair_entries": pair_entries,
         "summaries": summaries,
         "checkpoints": checkpoints,
         "audit_paths": audit_paths,
@@ -327,6 +349,55 @@ def test_exact_generation_claims_reproduce_from_embedded_evidence(
             fingerprint="f" * 64,
             rows=rows,
             donor_by_ordinal=donors,
+            pair_by_ordinal=_pair_entries(donors),
+            require_complete=False,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "forged_value"),
+    (
+        ("target_mode", "non_causal_target"),
+        ("first_differing_semantic_ordinal", 1),
+        ("selected_target_token_ids", [7]),
+        ("donor_target_token_ids", [8]),
+        ("causal_prefix_sha256", "d" * 64),
+    ),
+)
+def test_causal_pair_target_must_match_locked_train32_pairing(
+    field: str,
+    forged_value: Any,
+) -> None:
+    rows, donors = _rows()
+    record = selector.build_post_save_row_record(
+        checkpoint_step=1,
+        sample=rows[0],
+        donor_sample=rows[donors[0]],
+        result=_result(
+            exact=True,
+            margin=1.0,
+            nll=0.5,
+            gold=rows[0]["gold_content"],
+        ),
+        fingerprint="f" * 64,
+    )
+    record["pair_target"][field] = forged_value
+    record["record_sha256"] = selector.self_hash_payload(
+        record,
+        field="record_sha256",
+    )
+
+    with pytest.raises(
+        selector.V15SelectionError,
+        match="causal pair target differs from locked Train32 pairing",
+    ):
+        selector.validate_post_save_row_records(
+            [record],
+            checkpoint_step=1,
+            fingerprint="f" * 64,
+            rows=rows,
+            donor_by_ordinal=donors,
+            pair_by_ordinal=_pair_entries(donors),
             require_complete=False,
         )
 
@@ -665,6 +736,7 @@ def test_partial_canonical_train32_audit_remains_resumable(
         fingerprint=fixture["fingerprint"],
         rows=fixture["rows"],
         donor_by_ordinal=fixture["donors"],
+        pair_by_ordinal=fixture["pair_entries"],
         require_complete=False,
     )
 

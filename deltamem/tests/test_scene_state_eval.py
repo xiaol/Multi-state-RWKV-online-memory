@@ -9,6 +9,25 @@ import pytest
 import torch
 
 from experiments.rethinking_rwkv_ms_gemma import run_scene_state_eval as evaluator
+from experiments.rethinking_rwkv_ms_gemma import (
+    scene_hard_failure_train_contract as hard_failure_contract,
+)
+
+
+def test_focused_evaluator_source_lock_matches_training_curriculum() -> None:
+    source = json.loads(
+        hard_failure_contract.SOURCE_MANIFEST.read_text(encoding="utf-8")
+    )
+
+    assert evaluator.SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256 == (
+        hard_failure_contract.FILE_SHA256["source_manifest.json"]
+    )
+    assert evaluator.sha256_file(hard_failure_contract.SOURCE_MANIFEST) == (
+        evaluator.SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256
+    )
+    assert source["manifest_sha256"] == (
+        evaluator.SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256
+    )
 
 
 def test_parse_row_indices_accepts_json_and_delimited_text() -> None:
@@ -76,6 +95,137 @@ def test_focused_evaluator_accepts_only_validation_filename(tmp_path: Path) -> N
     for filename in ("train.jsonl", "test.jsonl", "holdout.jsonl"):
         with pytest.raises(ValueError, match="requires the official val.jsonl"):
             evaluator.resolve_validation_dataset_file(tmp_path / filename)
+
+
+def test_focused_train_source_manifest_binds_all_rows_and_reciprocal_pairs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "curriculum"
+    root.mkdir()
+    dataset = root / "train.jsonl"
+    rows_path = root / "train_rows.jsonl"
+    pair_path = root / "pair_manifest.json"
+    source_path = root / "source_manifest.json"
+    raw_rows = [
+        json.dumps(scene_row([1] if index % 2 == 0 else [2]), sort_keys=True)
+        for index in range(32)
+    ]
+    dataset.write_text("\n".join(raw_rows) + "\n", encoding="utf-8")
+    row_hashes = [evaluator.sha256_text(raw) for raw in raw_rows]
+    row_manifests = []
+    for index, row_sha256 in enumerate(row_hashes):
+        row = {
+            "schema": evaluator.SCENE_HARD_FAILURE_ROW_SCHEMA,
+            "train_row_ordinal": index,
+            "source_split": "train",
+            "row_sha256": row_sha256,
+            "label_sha256": "a" * 64 if index % 2 == 0 else "b" * 64,
+        }
+        row["record_sha256"] = evaluator._canonical_sha256(row)
+        row_manifests.append(row)
+    rows_path.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in row_manifests),
+        encoding="utf-8",
+    )
+    directed = []
+    for index, row in enumerate(row_manifests):
+        donor_index = index ^ 1
+        donor = row_manifests[donor_index]
+        entry = {
+            "train_row_ordinal": index,
+            "donor_train_row_ordinal": donor_index,
+            "source_row_sha256": row["row_sha256"],
+            "donor_row_sha256": donor["row_sha256"],
+            "source_label_sha256": row["label_sha256"],
+            "donor_label_sha256": donor["label_sha256"],
+        }
+        entry["entry_sha256"] = evaluator._canonical_sha256(entry)
+        directed.append(entry)
+    entries_sha256 = evaluator._canonical_sha256(directed)
+    pair_manifest = {
+        "schema": evaluator.SCENE_HARD_FAILURE_PAIR_SCHEMA,
+        "dataset": {
+            "path": str(dataset.resolve()),
+            "sha256": evaluator.sha256_file(dataset),
+            "rows": 32,
+            "ordered_row_sha256": evaluator._canonical_sha256(row_hashes),
+        },
+        "directed_pairs": directed,
+        "entries_sha256": entries_sha256,
+    }
+    pair_manifest["manifest_sha256"] = evaluator._canonical_sha256(pair_manifest)
+    pair_path.write_text(json.dumps(pair_manifest, sort_keys=True), encoding="utf-8")
+    source = {
+        "schema": evaluator.SCENE_HARD_FAILURE_SOURCE_SCHEMA,
+        "task": evaluator.TASK_NAME,
+        "purpose": evaluator.SCENE_HARD_FAILURE_SOURCE_PURPOSE,
+        "contract": {
+            "source_split": "train",
+            "val_rows": 0,
+            "test_rows": 0,
+            "episode_contract": {
+                "episode_recent_messages": 0,
+                "write_phase": "system + user",
+                "read_supervision": "system + assistant",
+            },
+        },
+        "partitions": {
+            "train": {
+                "source_split": "train",
+                "rows": 32,
+                "data": {
+                    "path": str(dataset.resolve()),
+                    "sha256": evaluator.sha256_file(dataset),
+                },
+                "row_manifest": {
+                    "path": str(rows_path.resolve()),
+                    "sha256": evaluator.sha256_file(rows_path),
+                },
+            }
+        },
+        "v7_pairing": {
+            "dataset_sha256": evaluator.sha256_file(dataset),
+            "directed_entry_count": 32,
+            "entries_sha256": entries_sha256,
+            "pair_manifest": {
+                "path": str(pair_path.resolve()),
+                "sha256": evaluator.sha256_file(pair_path),
+                "manifest_sha256": pair_manifest["manifest_sha256"],
+            },
+        },
+    }
+    source["manifest_sha256"] = evaluator._canonical_sha256(source)
+    source_path.write_text(json.dumps(source, sort_keys=True), encoding="utf-8")
+    for name, value in {
+        "SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256": evaluator.sha256_file(
+            source_path
+        ),
+        "SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256": source["manifest_sha256"],
+        "SCENE_HARD_FAILURE_TRAIN_FILE_SHA256": evaluator.sha256_file(dataset),
+        "SCENE_HARD_FAILURE_ROW_MANIFEST_FILE_SHA256": evaluator.sha256_file(
+            rows_path
+        ),
+        "SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256": evaluator.sha256_file(
+            pair_path
+        ),
+        "SCENE_HARD_FAILURE_PAIR_MANIFEST_SHA256": pair_manifest[
+            "manifest_sha256"
+        ],
+        "SCENE_HARD_FAILURE_PAIR_ENTRIES_SHA256": entries_sha256,
+    }.items():
+        monkeypatch.setattr(evaluator, name, value)
+
+    validated = evaluator.validate_focused_train_source_manifest(
+        source_path,
+        dataset_file=dataset,
+    )
+
+    assert validated["dataset"]["split"] == "train"
+    assert validated["expected_row_hashes"] == dict(enumerate(row_hashes))
+    assert validated["donor_by_source_index"] == {
+        index: index ^ 1 for index in range(32)
+    }
 
 
 @pytest.mark.parametrize("raw", ["", "1,1", "-1", "1.5", "[true]"])
@@ -257,6 +407,34 @@ def test_length_matched_donors_are_label_distinct_symmetric_pairs() -> None:
     assert rows[0]["write_token_count"] == 100
 
 
+def test_deterministic_shuffled_mapping_is_label_distinct_bijective_and_not_donor() -> None:
+    samples = [
+        {
+            "source_index": index,
+            "row_sha256": f"{index + 1:064x}",
+            "prime_messages_sha256": f"{index + 101:064x}",
+            "gold": {"boundaries": [1] if index % 2 == 0 else [2]},
+        }
+        for index in range(8)
+    ]
+    donors = {index: samples[index ^ 1] for index in range(len(samples))}
+
+    first = evaluator.build_deterministic_shuffled_mapping(samples, donors)
+    second = evaluator.build_deterministic_shuffled_mapping(samples, donors)
+
+    assert {source: row["source_index"] for source, row in first.items()} == {
+        source: row["source_index"] for source, row in second.items()
+    }
+    assert {row["source_index"] for row in first.values()} == set(range(8))
+    for source_index, shuffled in first.items():
+        assert shuffled["source_index"] != source_index
+        assert shuffled["source_index"] != donors[source_index]["source_index"]
+        assert shuffled["gold"] != samples[source_index]["gold"]
+    fingerprint = evaluator.shuffled_mapping_fingerprint_rows(samples, first)
+    assert [row["source_index"] for row in fingerprint] == list(range(8))
+    assert all("shuffled_row_sha256" in row for row in fingerprint)
+
+
 def test_length_matched_donors_reject_unpairable_labels() -> None:
     samples = [
         {
@@ -317,6 +495,102 @@ def test_resolved_condition_protocol_records_matched_donor_rule() -> None:
         evaluator.CONDITION_PROTOCOLS["state_only_donor"]["donor_rule"]
         == evaluator.DONOR_RULE_CYCLIC
     )
+
+
+def _focused_memory_dir(tmp_path: Path) -> Path:
+    memory_dir = tmp_path / "checkpoint-64"
+    memory_dir.mkdir()
+    (memory_dir / "delta_mem_adapter.pt").write_bytes(b"adapter")
+    (memory_dir / "delta_mem_config.json").write_text("{}\n", encoding="utf-8")
+    return memory_dir
+
+
+def test_focused_train_contract_requires_exact_train32_and_emits_train_split(
+    tmp_path: Path,
+) -> None:
+    memory_dir = _focused_memory_dir(tmp_path)
+    row_hashes = {index: f"{index + 1:064x}" for index in range(32)}
+    train_source = {
+        "expected_row_hashes": row_hashes,
+        "selection": [
+            {"source_index": index, "row_sha256": row_hashes[index]}
+            for index in range(32)
+        ],
+    }
+
+    contract = evaluator.validate_scene_hard_failure_contract(
+        contract=evaluator.SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
+        row_indices=list(range(32)),
+        expected_hashes=row_hashes,
+        selection_dataset_contract=None,
+        conditions=list(evaluator.SCENE_FOCUSED_CONDITIONS),
+        donor_rule=evaluator.DONOR_RULE_LENGTH_MATCHED,
+        max_new_tokens=evaluator.DEFAULT_MAX_NEW_TOKENS,
+        normal_fusion_profile="native",
+        expected_memory_layer_count=42,
+        memory_target_layers=list(range(42)),
+        memory_delta_heads=["q", "o"],
+        memory_rank=4,
+        rwkv_ms_semantics_version=2,
+        memory_backend="rwkv_ms",
+        memory_dir=memory_dir,
+        selection_manifest_sha256=None,
+        train_source=train_source,
+        train_selection_authorization=None,
+    )
+
+    assert contract["split"] == "train"
+    assert contract["conditions"] == list(evaluator.SCENE_FOCUSED_CONDITIONS)
+    assert contract["hard32_authorized"] is False
+
+
+def test_focused_hard32_contract_requires_selected_checkpoint_and_seven_controls(
+    tmp_path: Path,
+) -> None:
+    memory_dir = _focused_memory_dir(tmp_path)
+    authorization = {
+        "selected_checkpoint": {
+            "path": str(memory_dir.resolve()),
+            "artifacts": {
+                "delta_mem_adapter.pt": evaluator.sha256_file(
+                    memory_dir / "delta_mem_adapter.pt"
+                ),
+                "delta_mem_config.json": evaluator.sha256_file(
+                    memory_dir / "delta_mem_config.json"
+                ),
+            },
+        }
+    }
+
+    contract = evaluator.validate_scene_hard_failure_contract(
+        contract=evaluator.SCENE_HARD_FAILURE_HARD32_CONTRACT,
+        row_indices=list(evaluator.HARD32_ROW_INDICES),
+        expected_hashes=dict(evaluator.HARD32_ROW_HASHES),
+        selection_dataset_contract={
+            "split": "val",
+            "path": "/official/val.jsonl",
+            "sha256": evaluator.OFFICIAL_SCENE_V4_VAL_SHA256,
+        },
+        conditions=list(evaluator.SCENE_FOCUSED_CONDITIONS),
+        donor_rule=evaluator.DONOR_RULE_LENGTH_MATCHED,
+        max_new_tokens=evaluator.DEFAULT_MAX_NEW_TOKENS,
+        normal_fusion_profile="native",
+        expected_memory_layer_count=42,
+        memory_target_layers=list(range(42)),
+        memory_delta_heads=["q", "o"],
+        memory_rank=4,
+        rwkv_ms_semantics_version=2,
+        memory_backend="rwkv_ms",
+        memory_dir=memory_dir,
+        selection_manifest_sha256=evaluator.HARD32_SELECTION_SHA256,
+        train_source=None,
+        train_selection_authorization=authorization,
+    )
+
+    assert contract["split"] == "val"
+    assert contract["rows"] == 32
+    assert contract["conditions"] == list(evaluator.SCENE_FOCUSED_CONDITIONS)
+    assert contract["full170_authorized"] is False
 
 
 def test_scene_v6_matched_donor_contract_requires_all_170_hashed_val_rows() -> None:
@@ -765,6 +1039,77 @@ def test_state_only_primes_full_prompt_then_queries_system_only(
         ("reset",),
     ]
     assert result["score_recovered"]["sample_f1"] == 1.0
+
+
+def test_state_only_shuffled_primes_explicit_shuffle_and_records_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[tuple[str, str]] = []
+    current = {
+        "source_index": 1,
+        "row_sha256": "a" * 64,
+        "messages": [
+            {"role": "system", "content": "current system"},
+            {"role": "user", "content": "current scene"},
+        ],
+        "gold": {"boundaries": [2]},
+    }
+    donor = {
+        "source_index": 2,
+        "row_sha256": "b" * 64,
+        "messages": [
+            {"role": "system", "content": "donor system"},
+            {"role": "user", "content": "donor scene"},
+        ],
+        "gold": {"boundaries": [1]},
+    }
+    shuffled = {
+        "source_index": 3,
+        "row_sha256": "c" * 64,
+        "messages": [
+            {"role": "system", "content": "shuffle system"},
+            {"role": "user", "content": "shuffle scene"},
+        ],
+        "gold": {"boundaries": [4]},
+    }
+    monkeypatch.setattr(evaluator, "reset_delta_state", lambda model: None)
+    monkeypatch.setattr(
+        evaluator,
+        "prime_online_state",
+        lambda **kwargs: events.append(("prime", kwargs["messages"][1]["content"]))
+        or {"tokens": 10},
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "generate_messages",
+        lambda **kwargs: events.append(("generate", kwargs["messages"][0]["content"]))
+        or {"parsed_json": {"boundaries": [2]}},
+    )
+
+    @contextlib.contextmanager
+    def no_write(model, condition):
+        yield
+
+    monkeypatch.setattr(evaluator, "memory_condition", no_write)
+
+    result = evaluator.evaluate_condition(
+        model=object(),
+        tokenizer=object(),
+        sample=current,
+        donor_sample=donor,
+        shuffled_sample=shuffled,
+        condition="state_only_shuffled",
+        max_new_tokens=8,
+        device="cpu",
+    )
+
+    assert events == [
+        ("prime", "shuffle scene"),
+        ("generate", "current system"),
+    ]
+    assert result["shuffled_source_index"] == 3
+    assert result["shuffled_row_sha256"] == "c" * 64
+    assert result["score_strict"]["sample_f1"] == 1.0
 
 
 def test_state_only_donor_primes_donor_then_queries_and_scores_current_row(
@@ -1624,6 +1969,26 @@ def test_validate_resume_records_accepts_full_contract_and_rejects_duplicates() 
             selected_by_index=selected,
             fingerprint="f" * 64,
         )
+
+
+def test_validate_resume_records_preserves_train_split_for_focused_overfit() -> None:
+    sample = {
+        "source_index": 3,
+        "row_sha256": "a" * 64,
+        "gold": {"boundaries": [2]},
+    }
+    record = {**make_resume_record(sample), "split": "train"}
+
+    validated = evaluator.validate_resume_records(
+        [record],
+        condition="state_only",
+        condition_protocol=evaluator.CONDITION_PROTOCOLS["state_only"],
+        selected_by_index={3: sample},
+        fingerprint="f" * 64,
+        split="train",
+    )
+
+    assert validated[3]["split"] == "train"
 
 
 def test_validate_resume_records_rejects_resource_and_state_schema_drift() -> None:

@@ -128,6 +128,50 @@ SCENE_V15_HARD32_CONSUMPTION_MARKER_SCHEMA = (
 SCENE_V15_HARD32_CONSUMPTION_MARKER_FILENAME = (
     "hard32_authorization_consumed.json"
 )
+SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT = (
+    "scene_hard_failure_curriculum_train32_overfit_v1"
+)
+SCENE_HARD_FAILURE_HARD32_CONTRACT = (
+    "scene_hard_failure_curriculum_hard32_v1"
+)
+# Stable import names used by the focused gate and experiment launchers.
+SCENE_FOCUSED_TRAIN_OVERFIT_CONTRACT = SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT
+SCENE_FOCUSED_HARD32_CONTRACT = SCENE_HARD_FAILURE_HARD32_CONTRACT
+SCENE_HARD_FAILURE_TRAIN_SELECTION_SCHEMA = (
+    "rwkv_ms_scene_hard_failure_train_overfit_selection.v1"
+)
+SCENE_HARD_FAILURE_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v7_source.v1"
+SCENE_HARD_FAILURE_PAIR_SCHEMA = "rwkv_ms_scene_memory_v7_pairing.v1"
+SCENE_HARD_FAILURE_ROW_SCHEMA = "rwkv_ms_scene_memory_v7_row.v1"
+SCENE_HARD_FAILURE_SOURCE_PURPOSE = (
+    "train_only_frozen_base_failure_benchmark_boost_v1"
+)
+SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256 = (
+    "a3b1e0a255f2e7440971e81337d9648a1dbf96da8a1211aa3e103f2d01f052d8"
+)
+SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256 = (
+    "8326a1e6c79552f72ccfe372614ee80375673d1956f498b64a254f82fd953caf"
+)
+SCENE_HARD_FAILURE_TRAIN_FILE_SHA256 = (
+    "254e4fe5c2c8e8e9f107ef72a5e08abb48c1c86a446f75e3b265034de1ada8df"
+)
+SCENE_HARD_FAILURE_ROW_MANIFEST_FILE_SHA256 = (
+    "d12dff5cc2d8d038b8a04aef002cb0dc3b8dc047f726d63eb063f9aba66200df"
+)
+SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256 = (
+    "61a4597ef1e014d20b0aece500117d4068e39e36fa320868f7758c506f30f78f"
+)
+SCENE_HARD_FAILURE_PAIR_MANIFEST_SHA256 = (
+    "af568b19542541944250e663d73fdd1b5794d2e214fc5ff4bf26b26ea147e35e"
+)
+SCENE_HARD_FAILURE_PAIR_ENTRIES_SHA256 = (
+    "8e43ae9b5902f8d6b8b277bf61611d3f05de871852b288a197a79ed6ab627d33"
+)
+SCENE_HARD_FAILURE_ROWS = 32
+SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE = (
+    "single_selected_checkpoint_fixed_scene_v4_current_hard32_only_no_full170_"
+    "no_test_no_other_benchmarks"
+)
 HISTORICAL_V6_LINEAGE_LIMITATION = (
     "This historical training run predates commit-bound source locks and atomic "
     "checkpoint receipts. Exact adapter, config, and trainer-state hashes prove "
@@ -209,6 +253,8 @@ HARD32_FROZEN_DONOR_STRATUM_ROWS = {
 }
 EVALUATION_CONTRACTS = (
     "generic",
+    SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
+    SCENE_HARD_FAILURE_HARD32_CONTRACT,
     "scene_v6_identity_hard32",
     SCENE_V8_HARD32_CONTRACT,
     SCENE_V14_HARD32_CONTRACT,
@@ -379,6 +425,16 @@ CONDITIONS = (
     "state_only_donor",
     "state_only_no_write",
 )
+SCENE_FOCUSED_CONDITIONS = (
+    "base_full",
+    "no_write_full",
+    "normal_full",
+    "state_only",
+    "state_only_donor",
+    "state_only_shuffled",
+    "state_only_no_write",
+)
+SUPPORTED_CONDITIONS = (*CONDITIONS, "state_only_shuffled")
 SCENE_V15_HARD32_CONDITIONS = (
     "state_only",
     "state_only_donor",
@@ -441,6 +497,25 @@ CONDITION_PROTOCOLS: dict[str, dict[str, Any]] = {
             "Prime online state from the next selected validation row, discard ordinary "
             "KV state, then query with the current row's system-only prompt and score "
             "against the current gold."
+        ),
+    },
+    "state_only_shuffled": {
+        "adapter": True,
+        "attention_context": "current_system_only",
+        "rwkv_prime": "deterministic_label_distinct_shuffled_selected_row",
+        "rwkv_online_carrier": (
+            "shuffled delta_state, rwkv_ms_positions, and rwkv_ms_previous_source"
+        ),
+        "donor_pool": "selected_rows_bijective_without_replacement",
+        "donor_rule": "deterministic_label_distinct_non_donor_permutation_v1",
+        "score_target": "current_row_gold",
+        "kv_cache_carried_from_prime": False,
+        "rwkv_writes_during_prime": True,
+        "rwkv_writes_during_generation": False,
+        "description": (
+            "Prime online state from an independently permuted, label-distinct row "
+            "that is neither the source nor its locked donor; discard ordinary KV "
+            "state, then query the current system-only prompt with writes frozen."
         ),
     },
     "state_only_no_write": {
@@ -520,6 +595,22 @@ def parse_args() -> argparse.Namespace:
         "--evaluation-contract",
         choices=EVALUATION_CONTRACTS,
         default="generic",
+    )
+    parser.add_argument(
+        "--focused-source-manifest",
+        type=Path,
+        help=(
+            "Exact train-only hard-failure source manifest required by the focused "
+            "train-overfit contract."
+        ),
+    )
+    parser.add_argument(
+        "--focused-train-selection-receipt",
+        type=Path,
+        help=(
+            "Passing train-only selected-checkpoint receipt required before the "
+            "focused hard-failure Hard32 contract may access validation data."
+        ),
     )
     parser.add_argument(
         "--hard32-receipt",
@@ -698,6 +789,42 @@ def validate_scene_v15_receipt_scope(
             )
 
 
+def validate_scene_focused_artifact_scope(
+    *,
+    evaluation_contract: str,
+    source_manifest: Path | None,
+    train_selection_receipt: Path | None,
+) -> None:
+    if evaluation_contract == SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT:
+        if source_manifest is None:
+            raise ValueError(
+                f"{SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT} requires "
+                "--focused-source-manifest"
+            )
+        if train_selection_receipt is not None:
+            raise ValueError("Focused train-overfit forbids a Hard32 selection receipt")
+        return
+    if evaluation_contract == SCENE_HARD_FAILURE_HARD32_CONTRACT:
+        if train_selection_receipt is None:
+            raise ValueError(
+                f"{SCENE_HARD_FAILURE_HARD32_CONTRACT} requires "
+                "--focused-train-selection-receipt"
+            )
+        if source_manifest is not None:
+            raise ValueError("Focused Hard32 does not accept a training source manifest")
+        return
+    supplied = []
+    if source_manifest is not None:
+        supplied.append("--focused-source-manifest")
+    if train_selection_receipt is not None:
+        supplied.append("--focused-train-selection-receipt")
+    if supplied:
+        raise ValueError(
+            "Focused hard-failure artifacts are accepted only by their experiment "
+            f"contracts: {', '.join(supplied)}"
+        )
+
+
 def is_identity_hard32_contract(contract: str | Mapping[str, Any]) -> bool:
     name = contract.get("name") if isinstance(contract, Mapping) else contract
     return name in {
@@ -705,6 +832,7 @@ def is_identity_hard32_contract(contract: str | Mapping[str, Any]) -> bool:
         SCENE_V8_HARD32_CONTRACT,
         SCENE_V14_HARD32_CONTRACT,
         SCENE_V15_HARD32_CONTRACT,
+        SCENE_HARD_FAILURE_HARD32_CONTRACT,
     }
 
 
@@ -714,6 +842,7 @@ def is_fixed_scope_hard32_contract(contract: str | Mapping[str, Any]) -> bool:
         SCENE_V8_HARD32_CONTRACT,
         SCENE_V14_HARD32_CONTRACT,
         SCENE_V15_HARD32_CONTRACT,
+        SCENE_HARD_FAILURE_HARD32_CONTRACT,
     }
 
 
@@ -815,12 +944,558 @@ def selected_conditions(raw: str) -> list[str]:
     conditions = [item.strip() for item in raw.split(",") if item.strip()]
     if not conditions:
         raise ValueError("At least one condition is required")
-    unknown = [item for item in conditions if item not in CONDITIONS]
+    unknown = [item for item in conditions if item not in SUPPORTED_CONDITIONS]
     if unknown:
         raise ValueError(f"Unknown conditions: {', '.join(unknown)}")
     if len(set(conditions)) != len(conditions):
         raise ValueError("Conditions must not contain duplicates")
     return conditions
+
+
+def _canonical_sha256(value: Any) -> str:
+    return sha256_text(
+        json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    )
+
+
+def _validate_self_hash(
+    payload: Mapping[str, Any],
+    *,
+    field: str,
+    description: str,
+) -> str:
+    unsigned = dict(payload)
+    recorded = unsigned.pop(field, None)
+    if not isinstance(recorded, str) or SHA256_RE.fullmatch(recorded) is None:
+        raise ValueError(f"{description} {field} is missing or invalid")
+    if recorded != _canonical_sha256(unsigned):
+        raise ValueError(f"{description} {field} differs")
+    return recorded
+
+
+def _reject_focused_protected_path(path: Path, *, description: str) -> None:
+    protected = {"val", "validation", "test", "holdout", "hard32"}
+    for component in path.expanduser().absolute().parts:
+        normalized = component.lower()
+        if normalized in protected or Path(normalized).stem in protected:
+            raise ValueError(
+                f"Focused train-only {description} resolves through a protected path: {path}"
+            )
+
+
+def _focused_regular_file(
+    path: Path,
+    *,
+    description: str,
+    train_only: bool,
+) -> Path:
+    lexical = path.expanduser().absolute()
+    if train_only:
+        _reject_focused_protected_path(lexical, description=description)
+    current = lexical
+    while True:
+        if current.is_symlink():
+            raise ValueError(f"Focused {description} forbids symlinks: {current}")
+        if current.parent == current:
+            break
+        current = current.parent
+    resolved = lexical.resolve()
+    if not resolved.is_file():
+        raise ValueError(f"Focused {description} is missing: {resolved}")
+    if train_only:
+        _reject_focused_protected_path(resolved, description=description)
+    return resolved
+
+
+def _load_json_object(path: Path, *, description: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in focused {description}: {path}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"Focused {description} must be a JSON object")
+    return payload
+
+
+def _nonblank_jsonl_rows(
+    path: Path,
+    *,
+    description: str,
+) -> list[tuple[str, dict[str, Any]]]:
+    rows: list[tuple[str, dict[str, Any]]] = []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            raw = line.rstrip("\r\n")
+            if not raw.strip():
+                continue
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Invalid JSON in focused {description}:{line_number}"
+                ) from exc
+            if not isinstance(payload, dict):
+                raise ValueError(
+                    f"Focused {description}:{line_number} must be a JSON object"
+                )
+            rows.append((raw, payload))
+    return rows
+
+
+def validate_focused_train_source_manifest(
+    source_manifest_path: Path,
+    *,
+    dataset_file: Path,
+) -> dict[str, Any]:
+    """Validate the exact train-only hard-failure curriculum and pair schedule."""
+
+    source_path = _focused_regular_file(
+        source_manifest_path,
+        description="source manifest",
+        train_only=True,
+    )
+    dataset_path = _focused_regular_file(
+        dataset_file,
+        description="dataset",
+        train_only=True,
+    )
+    if sha256_file(source_path) != SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256:
+        raise ValueError("Focused source-manifest file SHA-256 differs")
+    source = _load_json_object(source_path, description="source manifest")
+    source_self_hash = _validate_self_hash(
+        source,
+        field="manifest_sha256",
+        description="focused source manifest",
+    )
+    if source_self_hash != SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256:
+        raise ValueError("Focused source-manifest self hash differs")
+    if source.get("schema") != SCENE_HARD_FAILURE_SOURCE_SCHEMA:
+        raise ValueError("Focused source-manifest schema differs")
+    if source.get("task") != TASK_NAME:
+        raise ValueError("Focused source-manifest task differs")
+    if source.get("purpose") != SCENE_HARD_FAILURE_SOURCE_PURPOSE:
+        raise ValueError("Focused source-manifest purpose differs")
+    source_contract = source.get("contract")
+    expected_episode_contract = {
+        "episode_recent_messages": 0,
+        "write_phase": "system + user",
+        "read_supervision": "system + assistant",
+    }
+    if not isinstance(source_contract, dict) or source_contract != {
+        "source_split": "train",
+        "val_rows": 0,
+        "test_rows": 0,
+        "episode_contract": expected_episode_contract,
+    }:
+        raise ValueError("Focused source-manifest train-only contract differs")
+    partitions = source.get("partitions")
+    if not isinstance(partitions, dict) or set(partitions) != {"train"}:
+        raise ValueError("Focused source manifest must contain only the train partition")
+    train = partitions["train"]
+    if (
+        not isinstance(train, dict)
+        or train.get("source_split") != "train"
+        or train.get("rows") != SCENE_HARD_FAILURE_ROWS
+    ):
+        raise ValueError("Focused source train partition differs")
+    data_binding = train.get("data")
+    row_binding = train.get("row_manifest")
+    if not isinstance(data_binding, dict) or not isinstance(row_binding, dict):
+        raise ValueError("Focused source artifact bindings are missing")
+    declared_dataset = Path(str(data_binding.get("path", ""))).expanduser().resolve()
+    if declared_dataset != dataset_path:
+        raise ValueError("Focused source dataset path differs from --dataset-file")
+    dataset_sha256 = sha256_file(dataset_path)
+    if (
+        dataset_sha256 != SCENE_HARD_FAILURE_TRAIN_FILE_SHA256
+        or data_binding.get("sha256") != dataset_sha256
+    ):
+        raise ValueError("Focused train dataset SHA-256 differs")
+    rows_path = _focused_regular_file(
+        Path(str(row_binding.get("path", ""))),
+        description="row manifest",
+        train_only=True,
+    )
+    row_manifest_sha256 = sha256_file(rows_path)
+    if (
+        row_manifest_sha256 != SCENE_HARD_FAILURE_ROW_MANIFEST_FILE_SHA256
+        or row_binding.get("sha256") != row_manifest_sha256
+    ):
+        raise ValueError("Focused row-manifest SHA-256 differs")
+
+    pairing_binding = source.get("v7_pairing")
+    if not isinstance(pairing_binding, dict):
+        raise ValueError("Focused source pairing binding is missing")
+    pair_file_binding = pairing_binding.get("pair_manifest")
+    if not isinstance(pair_file_binding, dict):
+        raise ValueError("Focused pair-manifest file binding is missing")
+    pair_path = _focused_regular_file(
+        Path(str(pair_file_binding.get("path", ""))),
+        description="pair manifest",
+        train_only=True,
+    )
+    pair_file_sha256 = sha256_file(pair_path)
+    if (
+        pair_file_sha256 != SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256
+        or pair_file_binding.get("sha256") != pair_file_sha256
+    ):
+        raise ValueError("Focused pair-manifest file SHA-256 differs")
+
+    dataset_rows = _nonblank_jsonl_rows(dataset_path, description="train dataset")
+    row_records = _nonblank_jsonl_rows(rows_path, description="row manifest")
+    if len(dataset_rows) != len(row_records) or len(dataset_rows) != SCENE_HARD_FAILURE_ROWS:
+        raise ValueError("Focused train data and row-manifest counts differ")
+    expected_hashes: dict[int, str] = {}
+    row_manifests: list[dict[str, Any]] = []
+    for ordinal, ((raw_data, _), (_, row)) in enumerate(
+        zip(dataset_rows, row_records, strict=True)
+    ):
+        _validate_self_hash(
+            row,
+            field="record_sha256",
+            description=f"focused row manifest {ordinal}",
+        )
+        row_sha256 = sha256_text(raw_data)
+        if (
+            row.get("schema") != SCENE_HARD_FAILURE_ROW_SCHEMA
+            or row.get("train_row_ordinal") != ordinal
+            or row.get("source_split") != "train"
+            or row.get("row_sha256") != row_sha256
+        ):
+            raise ValueError(f"Focused row-manifest identity differs at ordinal {ordinal}")
+        expected_hashes[ordinal] = row_sha256
+        row_manifests.append(row)
+
+    pair_manifest = _load_json_object(pair_path, description="pair manifest")
+    pair_self_hash = _validate_self_hash(
+        pair_manifest,
+        field="manifest_sha256",
+        description="focused pair manifest",
+    )
+    if pair_self_hash != SCENE_HARD_FAILURE_PAIR_MANIFEST_SHA256:
+        raise ValueError("Focused pair-manifest self hash differs")
+    if pair_manifest.get("schema") != SCENE_HARD_FAILURE_PAIR_SCHEMA:
+        raise ValueError("Focused pair-manifest schema differs")
+    pair_dataset = pair_manifest.get("dataset")
+    ordered_hashes = [expected_hashes[index] for index in range(SCENE_HARD_FAILURE_ROWS)]
+    if not isinstance(pair_dataset, dict) or pair_dataset != {
+        "path": str(dataset_path),
+        "sha256": dataset_sha256,
+        "rows": SCENE_HARD_FAILURE_ROWS,
+        "ordered_row_sha256": _canonical_sha256(ordered_hashes),
+    }:
+        raise ValueError("Focused pair-manifest dataset binding differs")
+    directed = pair_manifest.get("directed_pairs")
+    if not isinstance(directed, list) or len(directed) != SCENE_HARD_FAILURE_ROWS:
+        raise ValueError("Focused pair manifest must cover all 32 train rows")
+    entries_sha256 = pair_manifest.get("entries_sha256")
+    if (
+        entries_sha256 != _canonical_sha256(directed)
+        or entries_sha256 != SCENE_HARD_FAILURE_PAIR_ENTRIES_SHA256
+    ):
+        raise ValueError("Focused pair-manifest entry digest differs")
+    donor_by_source: dict[int, int] = {}
+    for entry in directed:
+        if not isinstance(entry, dict):
+            raise ValueError("Focused pair-manifest entry is invalid")
+        _validate_self_hash(
+            entry,
+            field="entry_sha256",
+            description="focused pair-manifest entry",
+        )
+        source_index = entry.get("train_row_ordinal")
+        donor_index = entry.get("donor_train_row_ordinal")
+        if (
+            isinstance(source_index, bool)
+            or not isinstance(source_index, int)
+            or isinstance(donor_index, bool)
+            or not isinstance(donor_index, int)
+            or source_index not in expected_hashes
+            or donor_index not in expected_hashes
+            or source_index == donor_index
+            or source_index in donor_by_source
+        ):
+            raise ValueError("Focused pair-manifest ordinals differ")
+        if (
+            entry.get("source_row_sha256") != expected_hashes[source_index]
+            or entry.get("donor_row_sha256") != expected_hashes[donor_index]
+            or entry.get("source_label_sha256") == entry.get("donor_label_sha256")
+        ):
+            raise ValueError("Focused pair-manifest row or label identity differs")
+        donor_by_source[source_index] = donor_index
+    if set(donor_by_source) != set(range(SCENE_HARD_FAILURE_ROWS)):
+        raise ValueError("Focused pair-manifest source coverage differs")
+    for source_index, donor_index in donor_by_source.items():
+        if donor_by_source.get(donor_index) != source_index:
+            raise ValueError("Focused pair-manifest mapping is not reciprocal")
+
+    if (
+        pairing_binding.get("dataset_sha256") != dataset_sha256
+        or pairing_binding.get("directed_entry_count") != SCENE_HARD_FAILURE_ROWS
+        or pairing_binding.get("entries_sha256") != entries_sha256
+        or pair_file_binding.get("manifest_sha256") != pair_self_hash
+    ):
+        raise ValueError("Focused source pairing binding differs")
+    return {
+        "kind": "scene_hard_failure_train_only_source_v1",
+        "source_manifest": {
+            "path": str(source_path),
+            "file_sha256": sha256_file(source_path),
+            "manifest_sha256": source_self_hash,
+        },
+        "dataset": {
+            "path": str(dataset_path),
+            "sha256": dataset_sha256,
+            "split": "train",
+            "rows": SCENE_HARD_FAILURE_ROWS,
+        },
+        "row_manifest": {
+            "path": str(rows_path),
+            "sha256": row_manifest_sha256,
+        },
+        "pair_manifest": {
+            "path": str(pair_path),
+            "file_sha256": pair_file_sha256,
+            "manifest_sha256": pair_self_hash,
+            "entries_sha256": entries_sha256,
+        },
+        "selection": [
+            {"source_index": index, "row_sha256": expected_hashes[index]}
+            for index in range(SCENE_HARD_FAILURE_ROWS)
+        ],
+        "expected_row_hashes": expected_hashes,
+        "donor_by_source_index": donor_by_source,
+        "protected_evaluation_accessed": False,
+    }
+
+
+def _receipt_artifact_digest(
+    artifacts: Mapping[str, Any],
+    name: str,
+    *,
+    checkpoint_dir: Path,
+) -> str:
+    record = artifacts.get(name)
+    if isinstance(record, str):
+        digest = record
+        declared_path = checkpoint_dir / name
+    elif isinstance(record, Mapping):
+        digest = record.get("sha256")
+        declared_path = Path(str(record.get("path", checkpoint_dir / name))).expanduser()
+    else:
+        raise ValueError(f"Focused selection receipt checkpoint artifact is missing: {name}")
+    if not isinstance(digest, str) or SHA256_RE.fullmatch(digest) is None:
+        raise ValueError(f"Focused selection receipt artifact hash is invalid: {name}")
+    resolved = _focused_regular_file(
+        declared_path,
+        description=f"selected checkpoint {name}",
+        train_only=True,
+    )
+    if resolved != (checkpoint_dir / name).resolve():
+        raise ValueError(f"Focused selection receipt artifact path differs: {name}")
+    if sha256_file(resolved) != digest:
+        raise ValueError(f"Focused selection receipt artifact SHA-256 differs: {name}")
+    return digest
+
+
+def validate_focused_train_selection_authorization(
+    receipt_path: Path,
+    *,
+    memory_dir: Path,
+) -> dict[str, Any]:
+    """Validate the train-only selector before the protected Hard32 is opened."""
+
+    path = _focused_regular_file(
+        receipt_path,
+        description="train selection receipt",
+        train_only=True,
+    )
+    receipt = _load_json_object(path, description="train selection receipt")
+    receipt_sha256 = _validate_self_hash(
+        receipt,
+        field="receipt_sha256",
+        description="focused train selection receipt",
+    )
+    if receipt.get("schema") != SCENE_HARD_FAILURE_TRAIN_SELECTION_SCHEMA:
+        raise ValueError("Focused train selection receipt schema differs")
+    if (
+        receipt.get("status") != "pass"
+        or receipt.get("stage") != "train_overfit"
+        or receipt.get("task") != TASK_NAME
+    ):
+        raise ValueError("Focused train selection receipt did not pass train-overfit")
+    authorization = receipt.get("authorization")
+    if not isinstance(authorization, Mapping) or dict(authorization) != {
+        "hard32_authorized": True,
+        "selected_checkpoint_only": True,
+        "full_validation": False,
+        "test": False,
+        "other_benchmarks": False,
+    }:
+        raise ValueError("Focused train selection authorization scope differs")
+
+    checkpoint = receipt.get("selected_checkpoint")
+    if not isinstance(checkpoint, Mapping):
+        raise ValueError("Focused train selection checkpoint is missing")
+    selected_dir = Path(str(checkpoint.get("path", ""))).expanduser().resolve()
+    expected_dir = memory_dir.expanduser().resolve()
+    if selected_dir != expected_dir or not expected_dir.is_dir() or expected_dir.is_symlink():
+        raise ValueError("Focused Hard32 checkpoint differs from train-only selection")
+    global_step = checkpoint.get("global_step")
+    if isinstance(global_step, bool) or not isinstance(global_step, int) or global_step <= 0:
+        raise ValueError("Focused selected checkpoint global_step is invalid")
+    artifacts = checkpoint.get("artifacts")
+    if not isinstance(artifacts, Mapping):
+        raise ValueError("Focused selected checkpoint artifacts are missing")
+    artifact_sha256 = {
+        name: _receipt_artifact_digest(
+            artifacts,
+            name,
+            checkpoint_dir=expected_dir,
+        )
+        for name in ("delta_mem_adapter.pt", "delta_mem_config.json")
+    }
+    for name in (
+        "training_protocol.json",
+        "scene_state_identity_pairing_manifest.json",
+        "scene_memory_v15_row_objective.json",
+    ):
+        if name in artifacts:
+            artifact_sha256[name] = _receipt_artifact_digest(
+                artifacts,
+                name,
+                checkpoint_dir=expected_dir,
+            )
+
+    source = receipt.get("source")
+    if not isinstance(source, Mapping):
+        raise ValueError("Focused train selection source binding is missing")
+    expected_source_fields = {
+        "source_manifest_file_sha256": SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256,
+        "source_manifest_sha256": SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256,
+        "train_file_sha256": SCENE_HARD_FAILURE_TRAIN_FILE_SHA256,
+        "pair_manifest_file_sha256": SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256,
+        "pair_manifest_sha256": SCENE_HARD_FAILURE_PAIR_MANIFEST_SHA256,
+        "entries_sha256": SCENE_HARD_FAILURE_PAIR_ENTRIES_SHA256,
+    }
+    if any(source.get(field) != expected for field, expected in expected_source_fields.items()):
+        raise ValueError("Focused train selection source identity differs")
+    source_manifest_path = source.get("source_manifest_path")
+    if not isinstance(source_manifest_path, str):
+        raise ValueError("Focused train selection source-manifest path is missing")
+    bound_source_path = _focused_regular_file(
+        Path(source_manifest_path),
+        description="selection-bound source manifest",
+        train_only=True,
+    )
+    if sha256_file(bound_source_path) != SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256:
+        raise ValueError("Focused selection-bound source manifest differs")
+
+    gate_binding = receipt.get("gate")
+    if not isinstance(gate_binding, Mapping):
+        raise ValueError("Focused train selection gate binding is missing")
+    gate_path_value = gate_binding.get("focused_gate_path")
+    if not isinstance(gate_path_value, str):
+        raise ValueError("Focused train selection gate path is missing")
+    gate_path = _focused_regular_file(
+        Path(gate_path_value),
+        description="train-overfit focused gate",
+        train_only=True,
+    )
+    if gate_binding.get("file_sha256") != sha256_file(gate_path):
+        raise ValueError("Focused train selection gate file SHA-256 differs")
+    gate = _load_json_object(gate_path, description="train-overfit focused gate")
+    if gate_binding.get("canonical_sha256") != _canonical_sha256(gate):
+        raise ValueError("Focused train selection gate canonical SHA-256 differs")
+    if (
+        gate.get("schema") != "rwkv_ms_scene_focused_recovery_gate.v1"
+        or gate.get("status") != "diagnostic_pass"
+        or gate.get("stage") != "train_overfit"
+        or gate.get("task") != TASK_NAME
+        or gate.get("all_gates_passed") is not True
+        or gate.get("source_indices") != list(range(SCENE_HARD_FAILURE_ROWS))
+    ):
+        raise ValueError("Focused train selection gate did not pass exact Train32")
+    gate_input = gate.get("input")
+    if not isinstance(gate_input, Mapping):
+        raise ValueError("Focused train selection gate input binding is missing")
+    evaluation_fingerprint = gate_input.get("evaluation_fingerprint")
+    if (
+        not isinstance(evaluation_fingerprint, str)
+        or SHA256_RE.fullmatch(evaluation_fingerprint) is None
+        or gate_binding.get("evaluation_fingerprint") != evaluation_fingerprint
+    ):
+        raise ValueError("Focused train selection evaluation fingerprint differs")
+    evaluation_contract = gate_input.get("evaluation_contract")
+    if (
+        not isinstance(evaluation_contract, Mapping)
+        or evaluation_contract.get("name")
+        != SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT
+        or evaluation_contract.get("split") != "train"
+        or evaluation_contract.get("conditions") != list(SCENE_FOCUSED_CONDITIONS)
+    ):
+        raise ValueError("Focused train selection evaluation contract differs")
+    contract_checkpoint = evaluation_contract.get("checkpoint")
+    if not isinstance(contract_checkpoint, Mapping) or dict(contract_checkpoint) != {
+        "memory_dir": str(expected_dir),
+        "adapter_sha256": artifact_sha256["delta_mem_adapter.pt"],
+        "config_sha256": artifact_sha256["delta_mem_config.json"],
+    }:
+        raise ValueError("Focused train gate checkpoint binding differs")
+    contract_source = evaluation_contract.get("train_source")
+    contract_source_manifest = (
+        contract_source.get("source_manifest")
+        if isinstance(contract_source, Mapping)
+        else None
+    )
+    contract_source_dataset = (
+        contract_source.get("dataset") if isinstance(contract_source, Mapping) else None
+    )
+    contract_source_pair = (
+        contract_source.get("pair_manifest")
+        if isinstance(contract_source, Mapping)
+        else None
+    )
+    if (
+        not isinstance(contract_source, Mapping)
+        or not isinstance(contract_source_manifest, Mapping)
+        or not isinstance(contract_source_dataset, Mapping)
+        or not isinstance(contract_source_pair, Mapping)
+        or contract_source_manifest.get("file_sha256")
+        != SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256
+        or contract_source_manifest.get("manifest_sha256")
+        != SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256
+        or contract_source_dataset.get("sha256")
+        != SCENE_HARD_FAILURE_TRAIN_FILE_SHA256
+        or contract_source_pair.get("file_sha256")
+        != SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256
+    ):
+        raise ValueError("Focused train gate source binding differs")
+    return {
+        "authorization_kind": "scene_hard_failure_train_overfit_selection",
+        "scope": SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE,
+        "hard32_authorized": True,
+        "full170_authorized": False,
+        "test_authorized": False,
+        "other_benchmarks_authorized": False,
+        "receipt": {
+            "path": str(path),
+            "file_sha256": sha256_file(path),
+            "receipt_sha256": receipt_sha256,
+        },
+        "selected_checkpoint": {
+            "path": str(expected_dir),
+            "global_step": global_step,
+            "artifacts": artifact_sha256,
+        },
+        "evaluation_fingerprint": evaluation_fingerprint,
+        "source": dict(source),
+        "gate": {
+            "path": str(gate_path),
+            "file_sha256": sha256_file(gate_path),
+            "canonical_sha256": _canonical_sha256(gate),
+        },
+    }
 
 
 def _reject_symlink_components(path: Path, *, description: str) -> None:
@@ -1218,6 +1893,145 @@ def validate_historical_v6_hard32_contract(
     }
 
 
+def validate_scene_hard_failure_contract(
+    *,
+    contract: str,
+    row_indices: list[int],
+    expected_hashes: dict[int, str],
+    selection_dataset_contract: dict[str, str] | None,
+    conditions: list[str],
+    donor_rule: str,
+    max_new_tokens: int,
+    normal_fusion_profile: str,
+    expected_memory_layer_count: int,
+    memory_target_layers: list[int],
+    memory_delta_heads: list[str],
+    memory_rank: int,
+    rwkv_ms_semantics_version: int,
+    memory_backend: str,
+    memory_dir: Path,
+    selection_manifest_sha256: str | None,
+    train_source: Mapping[str, Any] | None,
+    train_selection_authorization: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    if contract not in {
+        SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
+        SCENE_HARD_FAILURE_HARD32_CONTRACT,
+    }:
+        raise ValueError(f"Unsupported focused hard-failure contract: {contract}")
+    if conditions != list(SCENE_FOCUSED_CONDITIONS):
+        raise ValueError(
+            f"{contract} requires conditions in exact order: "
+            + ",".join(SCENE_FOCUSED_CONDITIONS)
+        )
+    if donor_rule != DONOR_RULE_LENGTH_MATCHED:
+        raise ValueError(f"{contract} requires donor_rule={DONOR_RULE_LENGTH_MATCHED}")
+    if max_new_tokens != DEFAULT_MAX_NEW_TOKENS:
+        raise ValueError(
+            f"{contract} requires max_new_tokens={DEFAULT_MAX_NEW_TOKENS}"
+        )
+    if normal_fusion_profile != "native":
+        raise ValueError(f"{contract} requires normal_fusion_profile=native")
+    if expected_memory_layer_count != 42 or memory_target_layers != list(range(42)):
+        raise ValueError(f"{contract} requires checkpoint target_layers=0..41")
+    if memory_delta_heads != ["q", "o"]:
+        raise ValueError(f"{contract} requires checkpoint delta_heads=q,o")
+    if memory_rank != 4:
+        raise ValueError(f"{contract} requires checkpoint rank=4")
+    if rwkv_ms_semantics_version != 2 or memory_backend != "rwkv_ms":
+        raise ValueError(f"{contract} requires RWKV-MS semantics v2")
+
+    memory_dir = memory_dir.expanduser().resolve()
+    checkpoint = {
+        "memory_dir": str(memory_dir),
+        "adapter_sha256": sha256_file(memory_dir / "delta_mem_adapter.pt"),
+        "config_sha256": sha256_file(memory_dir / "delta_mem_config.json"),
+    }
+    if contract == SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT:
+        if train_source is None or train_selection_authorization is not None:
+            raise ValueError("Focused train-overfit requires only the bound train source")
+        source_hashes = train_source.get("expected_row_hashes")
+        if not isinstance(source_hashes, Mapping):
+            raise ValueError("Focused train source row hashes are missing")
+        normalized_hashes = {int(index): str(digest) for index, digest in source_hashes.items()}
+        if row_indices != list(range(SCENE_HARD_FAILURE_ROWS)):
+            raise ValueError("Focused train-overfit requires exact local rows 0..31")
+        if expected_hashes != normalized_hashes:
+            raise ValueError("Focused train-overfit row hashes differ from source manifest")
+        if selection_dataset_contract is not None:
+            raise ValueError("Focused train-overfit forbids a validation selection manifest")
+        return {
+            "name": contract,
+            "phase": "train_only_overfit_proof",
+            "split": "train",
+            "task": TASK_NAME,
+            "rows": SCENE_HARD_FAILURE_ROWS,
+            "conditions": list(conditions),
+            "donor_rule": donor_rule,
+            "max_new_tokens": max_new_tokens,
+            "normal_fusion_profile": normal_fusion_profile,
+            "checkpoint": checkpoint,
+            "train_source": dict(train_source),
+            "hard32_authorized": False,
+            "full170_authorized": False,
+            "test_authorized": False,
+            "other_benchmarks_authorized": False,
+        }
+
+    if train_source is not None or train_selection_authorization is None:
+        raise ValueError(
+            "Focused Hard32 requires only a passing train-only selection authorization"
+        )
+    if row_indices != list(HARD32_ROW_INDICES) or expected_hashes != HARD32_ROW_HASHES:
+        raise ValueError("Focused Hard32 requires the frozen authoritative 32 rows")
+    if selection_manifest_sha256 != HARD32_SELECTION_SHA256:
+        raise ValueError("Focused Hard32 requires the authoritative selection manifest")
+    if (
+        selection_dataset_contract is None
+        or selection_dataset_contract.get("split") != "val"
+        or selection_dataset_contract.get("sha256") != OFFICIAL_SCENE_V4_VAL_SHA256
+    ):
+        raise ValueError("Focused Hard32 requires the official scene-v4 validation file")
+    selected_checkpoint = train_selection_authorization.get("selected_checkpoint")
+    selected_artifacts = (
+        selected_checkpoint.get("artifacts")
+        if isinstance(selected_checkpoint, Mapping)
+        else None
+    )
+    if (
+        not isinstance(selected_checkpoint, Mapping)
+        or not isinstance(selected_artifacts, Mapping)
+        or selected_checkpoint.get("path") != str(memory_dir)
+        or selected_artifacts.get("delta_mem_adapter.pt")
+        != checkpoint["adapter_sha256"]
+        or selected_artifacts.get("delta_mem_config.json")
+        != checkpoint["config_sha256"]
+    ):
+        raise ValueError("Focused Hard32 checkpoint authorization differs")
+    return {
+        "name": contract,
+        "phase": "single_authorized_hard32",
+        "split": "val",
+        "task": TASK_NAME,
+        "rows": len(HARD32_ROW_INDICES),
+        "conditions": list(conditions),
+        "donor_rule": donor_rule,
+        "max_new_tokens": max_new_tokens,
+        "normal_fusion_profile": normal_fusion_profile,
+        "checkpoint": checkpoint,
+        "official_dataset_revision": OFFICIAL_SCENE_V4_DATASET_REVISION,
+        "official_dataset_sha256": OFFICIAL_SCENE_V4_VAL_SHA256,
+        "authoritative_selection_sha256": HARD32_SELECTION_SHA256,
+        "authoritative_holdout_sha256": HARD32_HOLDOUT_SHA256,
+        "authoritative_pair_manifest_sha256": HARD32_PAIR_MANIFEST_SHA256,
+        "train_selection_authorization": dict(train_selection_authorization),
+        "authorization_scope": SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE,
+        "full170_authorized": False,
+        "test_authorized": False,
+        "other_benchmarks_authorized": False,
+    }
+
+
 def validate_scene_v6_matched_donor_contract(
     *,
     contract: str,
@@ -1239,6 +2053,9 @@ def validate_scene_v6_matched_donor_contract(
     scene_v8_train32_authorization: dict[str, Any] | None = None,
     scene_v14_candidate_authorization: dict[str, Any] | None = None,
     scene_v15_candidate_authorization: dict[str, Any] | None = None,
+    focused_train_source: dict[str, Any] | None = None,
+    focused_train_selection_authorization: dict[str, Any] | None = None,
+    memory_dir: Path | None = None,
 ) -> dict[str, Any]:
     if contract not in EVALUATION_CONTRACTS:
         raise ValueError(f"Unsupported scene-state evaluation contract: {contract}")
@@ -1272,6 +2089,32 @@ def validate_scene_v6_matched_donor_contract(
         raise ValueError("V15 Hard32 forbids mixed or broader benchmark authorization")
     if contract == "generic":
         return {"name": "generic", "phase": "focused_diagnostic"}
+    if contract in {
+        SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
+        SCENE_HARD_FAILURE_HARD32_CONTRACT,
+    }:
+        if memory_dir is None:
+            raise ValueError("Focused hard-failure contract requires memory_dir")
+        return validate_scene_hard_failure_contract(
+            contract=contract,
+            row_indices=row_indices,
+            expected_hashes=expected_hashes,
+            selection_dataset_contract=selection_dataset_contract,
+            conditions=conditions,
+            donor_rule=donor_rule,
+            max_new_tokens=max_new_tokens,
+            normal_fusion_profile=normal_fusion_profile,
+            expected_memory_layer_count=expected_memory_layer_count,
+            memory_target_layers=memory_target_layers,
+            memory_delta_heads=memory_delta_heads,
+            memory_rank=memory_rank,
+            rwkv_ms_semantics_version=rwkv_ms_semantics_version,
+            memory_backend=memory_backend,
+            memory_dir=memory_dir,
+            selection_manifest_sha256=selection_manifest_sha256,
+            train_source=focused_train_source,
+            train_selection_authorization=focused_train_selection_authorization,
+        )
     if contract == HISTORICAL_V6_HARD32_CONTRACT:
         return validate_historical_v6_hard32_contract(
             row_indices=row_indices,
@@ -1511,6 +2354,18 @@ def resolve_validation_dataset_file(dataset_file: Path) -> Path:
             "train inference belongs to the dedicated producer and test is unsupported"
         )
     return resolved
+
+
+def resolve_scene_dataset_file(dataset_file: Path, *, evaluation_contract: str) -> Path:
+    if evaluation_contract == SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT:
+        resolved = dataset_file.expanduser().resolve()
+        if resolved.name != "train.jsonl":
+            raise ValueError(
+                "Focused train-overfit requires the source-manifest-bound train.jsonl"
+            )
+        _reject_focused_protected_path(resolved, description="dataset")
+        return resolved
+    return resolve_validation_dataset_file(dataset_file)
 
 
 def validate_selection_dataset_contract(
@@ -1762,6 +2617,111 @@ def build_frozen_hard32_donor_mapping(
     return mapping
 
 
+def materialize_focused_train_donor_mapping(
+    samples: list[dict[str, Any]],
+    donor_by_source_index: Mapping[int, int],
+) -> dict[int, dict[str, Any]]:
+    by_source = {int(sample["source_index"]): sample for sample in samples}
+    expected_sources = set(range(SCENE_HARD_FAILURE_ROWS))
+    if set(by_source) != expected_sources or set(donor_by_source_index) != expected_sources:
+        raise ValueError("Focused train donor mapping does not cover exact local rows 0..31")
+    mapping = {
+        source_index: by_source[int(donor_by_source_index[source_index])]
+        for source_index in range(SCENE_HARD_FAILURE_ROWS)
+    }
+    for source_index, donor in mapping.items():
+        if (
+            int(donor["source_index"]) == source_index
+            or donor["gold"] == by_source[source_index]["gold"]
+            or int(mapping[int(donor["source_index"])]["source_index"]) != source_index
+        ):
+            raise ValueError("Focused train donor mapping identity or reciprocity differs")
+    return mapping
+
+
+def build_deterministic_shuffled_mapping(
+    samples: list[dict[str, Any]],
+    donor_by_index: Mapping[int, dict[str, Any]],
+) -> dict[int, dict[str, Any]]:
+    """Build an independent, label-distinct bijection excluding locked donors."""
+
+    by_source = {int(sample["source_index"]): sample for sample in samples}
+    if len(by_source) != len(samples) or set(donor_by_index) != set(by_source):
+        raise ValueError("Shuffled mapping requires complete unique source and donor rows")
+    candidates: dict[int, list[int]] = {}
+    for source_index, sample in by_source.items():
+        locked_donor_index = int(donor_by_index[source_index]["source_index"])
+        eligible = [
+            candidate_index
+            for candidate_index, candidate in by_source.items()
+            if candidate_index not in {source_index, locked_donor_index}
+            and candidate["gold"] != sample["gold"]
+        ]
+        candidates[source_index] = sorted(
+            eligible,
+            key=lambda candidate_index: (
+                sha256_text(
+                    "rwkv_ms_scene_state_only_shuffled.v1\0"
+                    + str(sample["row_sha256"])
+                    + "\0"
+                    + str(by_source[candidate_index]["row_sha256"])
+                ),
+                str(by_source[candidate_index]["row_sha256"]),
+                candidate_index,
+            ),
+        )
+        if not candidates[source_index]:
+            raise ValueError(
+                f"No label-distinct non-donor shuffle candidate for source {source_index}"
+            )
+
+    donor_owner: dict[int, int] = {}
+
+    def assign(source_index: int, visited: set[int]) -> bool:
+        for candidate_index in candidates[source_index]:
+            if candidate_index in visited:
+                continue
+            visited.add(candidate_index)
+            previous_owner = donor_owner.get(candidate_index)
+            if previous_owner is None or assign(previous_owner, visited):
+                donor_owner[candidate_index] = source_index
+                return True
+        return False
+
+    source_order = sorted(
+        by_source,
+        key=lambda source_index: (
+            len(candidates[source_index]),
+            str(by_source[source_index]["row_sha256"]),
+            source_index,
+        ),
+    )
+    for source_index in source_order:
+        if not assign(source_index, set()):
+            raise ValueError("No complete deterministic shuffled-state matching exists")
+    shuffled_index_by_source = {
+        source_index: candidate_index
+        for candidate_index, source_index in donor_owner.items()
+    }
+    if set(shuffled_index_by_source) != set(by_source):
+        raise RuntimeError("Shuffled-state matching did not cover every source row")
+    mapping = {
+        source_index: by_source[shuffled_index_by_source[source_index]]
+        for source_index in by_source
+    }
+    if len({int(sample["source_index"]) for sample in mapping.values()}) != len(samples):
+        raise RuntimeError("Shuffled-state matching is not bijective")
+    for source_index, shuffled in mapping.items():
+        shuffled_index = int(shuffled["source_index"])
+        if (
+            shuffled_index == source_index
+            or shuffled_index == int(donor_by_index[source_index]["source_index"])
+            or shuffled["gold"] == by_source[source_index]["gold"]
+        ):
+            raise RuntimeError("Shuffled-state matching violates identity constraints")
+    return mapping
+
+
 def resolved_condition_protocols(
     conditions: list[str],
     *,
@@ -1769,13 +2729,12 @@ def resolved_condition_protocols(
 ) -> dict[str, dict[str, Any]]:
     protocols = {condition: copy.deepcopy(CONDITION_PROTOCOLS[condition]) for condition in conditions}
     donor_protocol = protocols.get("state_only_donor")
-    if donor_protocol is None:
-        return protocols
-    donor_protocol["donor_rule"] = donor_rule
+    if donor_protocol is not None:
+        donor_protocol["donor_rule"] = donor_rule
     if donor_rule in {
         DONOR_RULE_LENGTH_MATCHED,
         DONOR_RULE_LENGTH_MATCHED_LEGACY,
-    }:
+    } and donor_protocol is not None:
         donor_protocol.update(
             {
                 "rwkv_prime": "write_token_length_matched_label_distinct_validation_row",
@@ -1838,6 +2797,28 @@ def donor_mapping_fingerprint_rows(
                 }
             )
         rows.append(row)
+    return rows
+
+
+def shuffled_mapping_fingerprint_rows(
+    samples: list[dict[str, Any]],
+    shuffled_by_index: Mapping[int, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for sample in samples:
+        shuffled = shuffled_by_index[int(sample["source_index"])]
+        rows.append(
+            {
+                "source_index": int(sample["source_index"]),
+                "row_sha256": sample["row_sha256"],
+                "prime_messages_sha256": sample["prime_messages_sha256"],
+                "shuffled_source_index": int(shuffled["source_index"]),
+                "shuffled_row_sha256": shuffled["row_sha256"],
+                "shuffled_prime_messages_sha256": shuffled[
+                    "prime_messages_sha256"
+                ],
+            }
+        )
     return rows
 
 
@@ -2549,6 +3530,7 @@ def evaluate_condition(
     tokenizer,
     sample: dict[str, Any],
     donor_sample: dict[str, Any] | None = None,
+    shuffled_sample: dict[str, Any] | None = None,
     condition: str,
     max_new_tokens: int,
     device: str,
@@ -2610,6 +3592,32 @@ def evaluate_condition(
                     max_new_tokens=max_new_tokens,
                     device=device,
                 )
+        elif condition == "state_only_shuffled":
+            if shuffled_sample is None:
+                raise ValueError("state_only_shuffled requires a shuffled sample")
+            if shuffled_sample["source_index"] == sample["source_index"]:
+                raise ValueError("state_only_shuffled cannot prime from the current row")
+            if (
+                donor_sample is not None
+                and shuffled_sample["source_index"] == donor_sample["source_index"]
+            ):
+                raise ValueError("state_only_shuffled cannot reuse the locked donor row")
+            if shuffled_sample["gold"] == sample["gold"]:
+                raise ValueError("state_only_shuffled requires a label-distinct row")
+            prime = prime_online_state(
+                model=model,
+                tokenizer=tokenizer,
+                messages=shuffled_sample["messages"],
+                device=device,
+            )
+            with memory_condition(model, "no_write"):
+                result = generate_messages(
+                    model=model,
+                    tokenizer=tokenizer,
+                    messages=system_only,
+                    max_new_tokens=max_new_tokens,
+                    device=device,
+                )
         elif condition == "state_only_no_write":
             with memory_condition(model, "no_write"):
                 prime = prime_online_state(
@@ -2654,6 +3662,14 @@ def evaluate_condition(
                 donor_sample["row_sha256"]
                 if condition == "state_only_donor" and donor_sample is not None
                 else None
+            ),
+            **(
+                {
+                    "shuffled_source_index": int(shuffled_sample["source_index"]),
+                    "shuffled_row_sha256": shuffled_sample["row_sha256"],
+                }
+                if condition == "state_only_shuffled" and shuffled_sample is not None
+                else {}
             ),
             "score_strict": score_prediction("scene", parsed, sample["gold"]),
             "score_recovered": recovered_scene_score(parsed, sample["gold"]),
@@ -2792,6 +3808,11 @@ def build_comparisons(summaries: dict[str, dict[str, Any]]) -> dict[str, Any]:
             "state_only_minus_state_only_donor",
             "state_only",
             "state_only_donor",
+        ),
+        (
+            "state_only_minus_state_only_shuffled",
+            "state_only",
+            "state_only_shuffled",
         ),
     ):
         if left not in summaries or right not in summaries:
@@ -3395,6 +4416,12 @@ def build_scene_v6_identity_hard32_gate(
     no_write = summaries["no_write_full"]
     state_donor_delta = comparisons["state_only_minus_state_only_donor"]["delta"]
     state_zero_delta = comparisons["state_only_minus_state_only_no_write"]["delta"]
+    focused_contract = contract.get("name") == SCENE_HARD_FAILURE_HARD32_CONTRACT
+    state_shuffled_delta = (
+        comparisons["state_only_minus_state_only_shuffled"]["delta"]
+        if focused_contract
+        else None
+    )
     strongest_full_control = max(
         float(base["strict"]["primary_metric"]),
         float(no_write["strict"]["primary_metric"]),
@@ -3418,7 +4445,9 @@ def build_scene_v6_identity_hard32_gate(
                 "schema_valid_rate",
             )
         }
-        for condition in CONDITIONS
+        for condition in (
+            SCENE_FOCUSED_CONDITIONS if focused_contract else CONDITIONS
+        )
     }
     gates = {
         "correct_better_than_donor_rows": {
@@ -3507,6 +4536,12 @@ def build_scene_v6_identity_hard32_gate(
             "value": state["decision_quality"]["canonical_outputs"],
         },
     }
+    if focused_contract:
+        gates["state_only_minus_shuffled_f1"] = {
+            "operator": ">=",
+            "threshold": HARD32_GATE_REQUIREMENTS["state_minus_donor_f1"],
+            "value": state_shuffled_delta,
+        }
     if state["decision_quality"]["empty_list_rows"] != HARD32_GATE_REQUIREMENTS[
         "empty_list_rows"
     ]:
@@ -3542,12 +4577,16 @@ def build_scene_v6_identity_hard32_gate(
         "benchmark_metric_evidence": benchmark_metric_evidence,
         "format_recovery_diagnostic": {
             condition: summaries[condition]["format_recovered"]
-            for condition in CONDITIONS
+            for condition in (
+                SCENE_FOCUSED_CONDITIONS if focused_contract else CONDITIONS
+            )
         },
         "all_gates_passed": passed,
         "full170_authorized_for_bound_checkpoint": passed and not fixed_scope_only,
         "authorization_scope": (
-            SCENE_V14_HARD32_AUTHORIZATION_SCOPE if fixed_scope_only else None
+            SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE
+            if focused_contract
+            else (SCENE_V14_HARD32_AUTHORIZATION_SCOPE if fixed_scope_only else None)
         ),
         "other_benchmarks_authorized": False if fixed_scope_only else None,
         "test_selection_forbidden": True,
@@ -3675,6 +4714,8 @@ def build_scene_v6_matched_donor_gate(
         SCENE_V8_HARD32_CONTRACT,
         SCENE_V14_HARD32_CONTRACT,
         SCENE_V15_HARD32_CONTRACT,
+        SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
+        SCENE_HARD_FAILURE_HARD32_CONTRACT,
         HISTORICAL_V6_HARD32_CONTRACT,
     }:
         return {"status": "not_requested", "contract": contract}
@@ -3724,6 +4765,30 @@ def build_candidate_lineage_record_binding(
     if candidate_lineage is None:
         return None
     lineage_kind = candidate_lineage.get("lineage_kind")
+    if lineage_kind == "scene_hard_failure_train_overfit_selection":
+        authorization = candidate_lineage.get("authorization")
+        if (
+            not isinstance(authorization, Mapping)
+            or authorization.get("authorization_kind") != lineage_kind
+            or authorization.get("scope") != SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE
+            or authorization.get("hard32_authorized") is not True
+            or authorization.get("full170_authorized") is not False
+            or authorization.get("test_authorized") is not False
+            or authorization.get("other_benchmarks_authorized") is not False
+            or not isinstance(authorization.get("receipt"), Mapping)
+            or not isinstance(authorization.get("selected_checkpoint"), Mapping)
+            or not isinstance(authorization.get("gate"), Mapping)
+        ):
+            raise ValueError("Focused train selection authorization lineage differs")
+        return {
+            "lineage_kind": lineage_kind,
+            "lineage_sha256": fingerprint_payload_sha256(candidate_lineage),
+            "authorization_scope": SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE,
+            "receipt": dict(authorization["receipt"]),
+            "selected_checkpoint": dict(authorization["selected_checkpoint"]),
+            "evaluation_fingerprint": authorization.get("evaluation_fingerprint"),
+            "gate": dict(authorization["gate"]),
+        }
     if lineage_kind == SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND:
         authorization = candidate_lineage.get("authorization")
         if not isinstance(authorization, Mapping):
@@ -4093,6 +5158,7 @@ def build_hard32_receipt(
     dataset_file: Path,
     selection_file: Path,
     donor_mapping: list[dict[str, Any]],
+    shuffled_mapping: list[dict[str, Any]] | None = None,
     gate: dict[str, Any],
     semantic_evidence: dict[str, Any],
     base_outcome_evidence: dict[str, Any] | None,
@@ -4102,9 +5168,13 @@ def build_hard32_receipt(
     if not is_identity_hard32_contract(contract):
         raise ValueError("Hard32 receipt requires the protected hard32 contract")
     expected_conditions = (
-        list(SCENE_V15_HARD32_CONDITIONS)
-        if contract.get("name") == SCENE_V15_HARD32_CONTRACT
-        else list(CONDITIONS)
+        list(SCENE_FOCUSED_CONDITIONS)
+        if contract.get("name") == SCENE_HARD_FAILURE_HARD32_CONTRACT
+        else (
+            list(SCENE_V15_HARD32_CONDITIONS)
+            if contract.get("name") == SCENE_V15_HARD32_CONTRACT
+            else list(CONDITIONS)
+        )
     )
     if conditions != expected_conditions:
         raise ValueError(
@@ -4131,13 +5201,27 @@ def build_hard32_receipt(
         candidate_lineage.get("lineage_kind")
         == SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND
     )
+    is_focused_authorized = (
+        candidate_lineage.get("lineage_kind")
+        == "scene_hard_failure_train_overfit_selection"
+    )
     receipt_gate = copy.deepcopy(gate)
-    if is_v7_authorized or is_v8_authorized or is_v14_authorized or is_v15_authorized:
+    if (
+        is_v7_authorized
+        or is_v8_authorized
+        or is_v14_authorized
+        or is_v15_authorized
+        or is_focused_authorized
+    ):
         receipt_gate["full170_authorized_for_bound_checkpoint"] = False
         receipt_gate["authorization_scope"] = (
-            SCENE_V14_HARD32_AUTHORIZATION_SCOPE
-            if is_v8_authorized or is_v14_authorized or is_v15_authorized
-            else "fixed_hard32_only_no_full170"
+            SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE
+            if is_focused_authorized
+            else (
+                SCENE_V14_HARD32_AUTHORIZATION_SCOPE
+                if is_v8_authorized or is_v14_authorized or is_v15_authorized
+                else "fixed_hard32_only_no_full170"
+            )
         )
         receipt_gate["other_benchmarks_authorized"] = False
     output_bindings = {
@@ -4184,20 +5268,28 @@ def build_hard32_receipt(
         **(
             {
                 "authorization_scope": (
-                    SCENE_V14_HARD32_AUTHORIZATION_SCOPE
-                    if is_v8_authorized or is_v14_authorized or is_v15_authorized
-                    else "fixed_hard32_only_no_full170"
+                    SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE
+                    if is_focused_authorized
+                    else (
+                        SCENE_V14_HARD32_AUTHORIZATION_SCOPE
+                        if is_v8_authorized or is_v14_authorized or is_v15_authorized
+                        else "fixed_hard32_only_no_full170"
+                    )
                 ),
                 "upstream_authorization_kind": (
-                    SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND
-                    if is_v15_authorized
+                    "scene_hard_failure_train_overfit_selection"
+                    if is_focused_authorized
                     else (
-                        SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
-                        if is_v14_authorized
+                        SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND
+                        if is_v15_authorized
                         else (
-                            SCENE_V8_TRAIN32_AUTHORIZATION_KIND
-                            if is_v8_authorized
-                            else SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+                            SCENE_V14_CANDIDATE_LOCK_AUTHORIZATION_KIND
+                            if is_v14_authorized
+                            else (
+                                SCENE_V8_TRAIN32_AUTHORIZATION_KIND
+                                if is_v8_authorized
+                                else SCENE_V7_TRAIN32_AUTHORIZATION_KIND
+                            )
                         )
                     )
                 ),
@@ -4209,6 +5301,7 @@ def build_hard32_receipt(
             or is_v8_authorized
             or is_v14_authorized
             or is_v15_authorized
+            or is_focused_authorized
             else {}
         ),
         "dataset": {
@@ -4241,6 +5334,19 @@ def build_hard32_receipt(
             "rows": donor_mapping,
             "sha256": donor_mapping_sha256,
         },
+        **(
+            {
+                "shuffled_mapping": {
+                    "rule": (
+                        "deterministic_label_distinct_non_donor_permutation_v1"
+                    ),
+                    "rows": list(shuffled_mapping or []),
+                    "sha256": _canonical_sha256(list(shuffled_mapping or [])),
+                }
+            }
+            if contract.get("name") == SCENE_HARD_FAILURE_HARD32_CONTRACT
+            else {}
+        ),
         "code": code_fingerprint,
         "outputs": output_bindings,
         "gate": receipt_gate,
@@ -5455,7 +6561,9 @@ def validate_resume_record_contract(
     condition_protocol: dict[str, Any],
     selected_by_index: dict[int, dict[str, Any]],
     donor_by_index: dict[int, dict[str, Any]] | None,
+    shuffled_by_index: dict[int, dict[str, Any]] | None = None,
     fingerprint: str,
+    split: str = "val",
     max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
     require_semantic_nll: bool = False,
     candidate_lineage_record_binding: Mapping[str, Any] | None = None,
@@ -5473,6 +6581,12 @@ def validate_resume_record_contract(
             f"Resume donor mapping is missing source index {source_index}"
         )
     generation_donor = pair_donor if condition == "state_only_donor" else None
+    shuffled_by_index = shuffled_by_index or {}
+    generation_shuffled = shuffled_by_index.get(source_index)
+    if condition == "state_only_shuffled" and generation_shuffled is None:
+        raise ValueError(
+            f"Resume shuffled mapping is missing source index {source_index}"
+        )
 
     expected_literals = {
         "status": "ok",
@@ -5480,7 +6594,7 @@ def validate_resume_record_contract(
         "condition_protocol": condition_protocol,
         "task": TASK_NAME,
         "task_kind": "scene",
-        "split": "val",
+        "split": split,
         "key": f"{TASK_NAME}:{source_index}",
         "line_index": source_index,
         "selection_ordinal": list(selected_by_index).index(source_index),
@@ -5500,6 +6614,15 @@ def validate_resume_record_contract(
             raise ValueError(
                 f"Resume record {field} differs at source index {source_index}"
             )
+    if condition == "state_only_shuffled" and generation_shuffled is not None:
+        for field, expected in {
+            "shuffled_source_index": int(generation_shuffled["source_index"]),
+            "shuffled_row_sha256": generation_shuffled["row_sha256"],
+        }.items():
+            if record.get(field) != expected:
+                raise ValueError(
+                    f"Resume record {field} differs at source index {source_index}"
+                )
     if (
         candidate_lineage_record_binding is not None
         and record.get("candidate_lineage")
@@ -5603,6 +6726,7 @@ def validate_resume_record_contract(
     condition_requires_prime = condition in {
         "state_only",
         "state_only_donor",
+        "state_only_shuffled",
         "state_only_no_write",
     }
     if condition_requires_prime:
@@ -5773,7 +6897,9 @@ def validate_resume_records(
     condition_protocol: dict[str, Any],
     selected_by_index: dict[int, dict[str, Any]],
     donor_by_index: dict[int, dict[str, Any]] | None = None,
+    shuffled_by_index: dict[int, dict[str, Any]] | None = None,
     fingerprint: str,
+    split: str = "val",
     max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
     require_semantic_nll: bool = False,
     candidate_lineage_record_binding: Mapping[str, Any] | None = None,
@@ -5786,7 +6912,9 @@ def validate_resume_records(
             condition_protocol=condition_protocol,
             selected_by_index=selected_by_index,
             donor_by_index=donor_by_index,
+            shuffled_by_index=shuffled_by_index,
             fingerprint=fingerprint,
+            split=split,
             max_new_tokens=max_new_tokens,
             require_semantic_nll=require_semantic_nll,
             candidate_lineage_record_binding=candidate_lineage_record_binding,
@@ -5955,6 +7083,12 @@ def main() -> None:
     v8_hard32_requested = args.evaluation_contract == SCENE_V8_HARD32_CONTRACT
     v14_hard32_requested = args.evaluation_contract == SCENE_V14_HARD32_CONTRACT
     v15_hard32_requested = args.evaluation_contract == SCENE_V15_HARD32_CONTRACT
+    focused_train_requested = (
+        args.evaluation_contract == SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT
+    )
+    focused_hard32_requested = (
+        args.evaluation_contract == SCENE_HARD_FAILURE_HARD32_CONTRACT
+    )
     if (
         args.row_indices_file is not None
         and not v8_hard32_requested
@@ -5988,6 +7122,17 @@ def main() -> None:
         args.scene_v15_completion_receipt = (
             args.scene_v15_completion_receipt.expanduser()
         )
+    if args.focused_source_manifest is not None:
+        args.focused_source_manifest = args.focused_source_manifest.expanduser()
+    if args.focused_train_selection_receipt is not None:
+        args.focused_train_selection_receipt = (
+            args.focused_train_selection_receipt.expanduser()
+        )
+    validate_scene_focused_artifact_scope(
+        evaluation_contract=args.evaluation_contract,
+        source_manifest=args.focused_source_manifest,
+        train_selection_receipt=args.focused_train_selection_receipt,
+    )
     validate_scene_v7_train32_receipt_scope(
         evaluation_contract=args.evaluation_contract,
         receipt_path=args.scene_v7_train32_receipt,
@@ -6088,15 +7233,39 @@ def main() -> None:
         )
         if args.row_indices_file is not None:
             args.row_indices_file = args.row_indices_file.expanduser().resolve()
-    dataset_file = resolve_validation_dataset_file(args.dataset_file)
+    focused_train_selection_authorization = None
+    if focused_hard32_requested:
+        focused_train_selection_authorization = (
+            validate_focused_train_selection_authorization(
+                args.focused_train_selection_receipt,
+                memory_dir=args.memory_dir,
+            )
+        )
+    dataset_file = resolve_scene_dataset_file(
+        args.dataset_file,
+        evaluation_contract=args.evaluation_contract,
+    )
+    focused_train_source = None
+    if focused_train_requested:
+        focused_train_source = validate_focused_train_source_manifest(
+            args.focused_source_manifest,
+            dataset_file=dataset_file,
+        )
     row_indices, expected_hashes, selection_dataset_contract = read_selection(args)
+    if focused_train_source is not None:
+        expected_hashes = dict(focused_train_source["expected_row_hashes"])
     validate_selection_dataset_contract(dataset_file, selection_dataset_contract)
     expected_layer_count = resolved_memory_layer_count(
         args.memory_dir, args.expected_memory_layer_count
     )
     memory_architecture = memory_architecture_contract(args.memory_dir)
     scene_v7_train32_authorization = None
-    if scene_v15_candidate_authorization is not None:
+    if focused_train_selection_authorization is not None:
+        candidate_lineage = {
+            "lineage_kind": "scene_hard_failure_train_overfit_selection",
+            "authorization": focused_train_selection_authorization,
+        }
+    elif scene_v15_candidate_authorization is not None:
         candidate_lineage = {
             "lineage_kind": SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND,
             "authorization": scene_v15_candidate_authorization,
@@ -6182,7 +7351,15 @@ def main() -> None:
         scene_v8_train32_authorization=scene_v8_train32_authorization,
         scene_v14_candidate_authorization=scene_v14_candidate_authorization,
         scene_v15_candidate_authorization=scene_v15_candidate_authorization,
+        focused_train_source=focused_train_source,
+        focused_train_selection_authorization=(
+            focused_train_selection_authorization
+        ),
+        memory_dir=args.memory_dir,
     )
+    evaluation_split = str(evaluation_contract.get("split", "val"))
+    if evaluation_split not in {"train", "val"}:
+        raise ValueError("Scene-state evaluation split is invalid")
     if args.evaluation_contract == "generic" and len(row_indices) > MAX_SELECTED_ROWS:
         raise ValueError(
             f"Focused validation is capped at {MAX_SELECTED_ROWS} selected rows; "
@@ -6217,7 +7394,20 @@ def main() -> None:
     selected_by_index = {sample["source_index"]: sample for sample in samples}
     donor_by_index: dict[int, dict[str, Any]] = {}
     if "state_only_donor" in conditions:
-        if args.donor_rule == DONOR_RULE_CYCLIC:
+        if focused_train_source is not None:
+            from transformers import AutoTokenizer
+
+            donor_tokenizer = AutoTokenizer.from_pretrained(
+                base_model_path,
+                local_files_only=True,
+            )
+            annotate_write_token_counts(samples, donor_tokenizer)
+            del donor_tokenizer
+            donor_by_index = materialize_focused_train_donor_mapping(
+                samples,
+                focused_train_source["donor_by_source_index"],
+            )
+        elif args.donor_rule == DONOR_RULE_CYCLIC:
             donor_by_index = build_cyclic_donor_mapping(samples)
         else:
             from transformers import AutoTokenizer
@@ -6237,6 +7427,19 @@ def main() -> None:
     donor_mapping = (
         donor_mapping_fingerprint_rows(samples, donor_by_index)
         if donor_by_index
+        else []
+    )
+    shuffled_by_index: dict[int, dict[str, Any]] = {}
+    if "state_only_shuffled" in conditions:
+        if not donor_by_index:
+            raise ValueError("state_only_shuffled requires the locked donor mapping")
+        shuffled_by_index = build_deterministic_shuffled_mapping(
+            samples,
+            donor_by_index,
+        )
+    shuffled_mapping = (
+        shuffled_mapping_fingerprint_rows(samples, shuffled_by_index)
+        if shuffled_by_index
         else []
     )
     condition_protocols = resolved_condition_protocols(
@@ -6278,7 +7481,7 @@ def main() -> None:
     fingerprint_payload = {
         "schema_version": 1,
         "task": TASK_NAME,
-        "split": "val",
+        "split": evaluation_split,
         "code": code_fingerprint,
         "runtime_packages": runtime_package_versions(),
         "delta_mem_root": str(delta_mem_root),
@@ -6299,6 +7502,11 @@ def main() -> None:
         "condition_protocols": condition_protocols,
         "donor_rule": args.donor_rule,
         "state_only_donor_mapping": donor_mapping,
+        **(
+            {"state_only_shuffled_mapping": shuffled_mapping}
+            if "state_only_shuffled" in conditions
+            else {}
+        ),
         "evaluation_contract": evaluation_contract,
         "candidate_lineage": candidate_lineage,
         "candidate_lineage_record_binding": candidate_lineage_record_binding,
@@ -6306,6 +7514,16 @@ def main() -> None:
         "scene_v7_train32_authorization": scene_v7_train32_authorization,
         "scene_v14_candidate_authorization": scene_v14_candidate_authorization,
         "scene_v15_candidate_authorization": scene_v15_candidate_authorization,
+        **(
+            {
+                "focused_train_source": focused_train_source,
+                "focused_train_selection_authorization": (
+                    focused_train_selection_authorization
+                ),
+            }
+            if focused_train_requested or focused_hard32_requested
+            else {}
+        ),
         "historical_v6_preflight": historical_preflight,
         "max_new_tokens": args.max_new_tokens,
         "device": args.device,
@@ -6328,8 +7546,13 @@ def main() -> None:
         "candidate_lineage": candidate_lineage,
         "candidate_lineage_record_binding": candidate_lineage_record_binding,
         "warning": (
-            "This selected validation slice is diagnostic, not an unbiased estimate of the "
-            "complete benchmark, and its rows must not be used for training."
+            "This exact train-only slice is an overfit diagnostic and cannot authorize "
+            "validation without a separate selected-checkpoint receipt."
+            if evaluation_split == "train"
+            else (
+                "This selected validation slice is diagnostic, not an unbiased estimate "
+                "of the complete benchmark, and its rows must not be used for training."
+            )
         ),
     }
 
@@ -6391,7 +7614,9 @@ def main() -> None:
                 condition_protocol=condition_protocols[condition],
                 selected_by_index=selected_by_index,
                 donor_by_index=donor_by_index,
+                shuffled_by_index=shuffled_by_index,
                 fingerprint=fingerprint,
+                split=evaluation_split,
                 max_new_tokens=args.max_new_tokens,
                 require_semantic_nll=(
                     is_identity_hard32_contract(args.evaluation_contract)
@@ -6434,6 +7659,7 @@ def main() -> None:
                         tokenizer=tokenizer,
                         sample=sample,
                         donor_sample=donor_by_index.get(source_index),
+                        shuffled_sample=shuffled_by_index.get(source_index),
                         condition=condition,
                         max_new_tokens=args.max_new_tokens,
                         device=args.device,
@@ -6449,7 +7675,7 @@ def main() -> None:
                         "condition_protocol": condition_protocols[condition],
                         "task": TASK_NAME,
                         "task_kind": "scene",
-                        "split": "val",
+                        "split": evaluation_split,
                         "key": f"{TASK_NAME}:{source_index}",
                         "line_index": source_index,
                         "source_index": source_index,
@@ -6548,13 +7774,18 @@ def main() -> None:
         "fingerprint": fingerprint,
         "complete": all(len(records) == len(samples) for records in ordered_records.values()),
         "task": TASK_NAME,
-        "split": "val",
+        "split": evaluation_split,
         "selected_source_indices": row_indices,
         "donor_rule": args.donor_rule,
         "evaluation_contract": evaluation_contract,
         "candidate_lineage": candidate_lineage,
         "candidate_lineage_record_binding": candidate_lineage_record_binding,
         "state_only_donor_mapping": donor_mapping,
+        **(
+            {"state_only_shuffled_mapping": shuffled_mapping}
+            if "state_only_shuffled" in conditions
+            else {}
+        ),
         "selected_rows": len(samples),
         "conditions": summaries,
         "comparisons": comparisons,
@@ -6605,6 +7836,7 @@ def main() -> None:
             dataset_file=dataset_file,
             selection_file=args.row_indices_file,
             donor_mapping=donor_mapping,
+            shuffled_mapping=shuffled_mapping,
             gate=hard32_gate,
             semantic_evidence=semantic_evidence,
             base_outcome_evidence=base_outcome_evidence,

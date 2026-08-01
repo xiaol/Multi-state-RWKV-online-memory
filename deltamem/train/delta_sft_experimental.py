@@ -143,6 +143,9 @@ from experiments.rethinking_rwkv_ms_gemma.scene_memory_v9_launch_contract import
     validate_data_contract as validate_v9_data_contract,
     validate_warm_start_contract as validate_v9_warm_start_contract,
 )
+from experiments.rethinking_rwkv_ms_gemma import (
+    scene_hard_failure_train_contract as scene_hard_failure_contract,
+)
 
 
 class FrozenMLPActivationCheckpointWrapper(nn.Module):
@@ -759,10 +762,22 @@ _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_FORMULA = (
     "own_vs_paired_target_logit_hinge(1.0)); full_answer_schema_footer_and_"
     "chat_termination_ce=0; raw_token_exact=telemetry_only"
 )
+_SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION = (
+    scene_hard_failure_contract.OBJECTIVE_VERSION
+)
+_SCENE_STATE_HARD_FAILURE_TRAINING_PROTOCOL_SCHEMA_VERSION = (
+    scene_hard_failure_contract.OBJECTIVE_SCHEMA_VERSION
+)
+_SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSIONS = frozenset(
+    {
+        _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
+        _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
+    }
+)
 _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSIONS = frozenset(
     {
         _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
-        _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
+        *_SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSIONS,
     }
 )
 _SCENE_STATE_V14_ROW_AUDIT_FILENAME = "scene_memory_v14_row_objective.json"
@@ -781,6 +796,18 @@ _SCENE_STATE_V15_PRODUCTION_RUN_MODE = (
 _SCENE_STATE_V15_ONE_PAIR_SMOKE_RUN_MODE = (
     "one_pair_real_backward_optimizer_step_smoke_v15"
 )
+_SCENE_STATE_HARD_FAILURE_ROW_AUDIT_FILENAME = (
+    scene_hard_failure_contract.ROW_OBJECTIVE_AUDIT_FILENAME
+)
+_SCENE_STATE_HARD_FAILURE_ROW_AUDIT_SCHEMA = (
+    scene_hard_failure_contract.ROW_OBJECTIVE_AUDIT_SCHEMA
+)
+_SCENE_STATE_HARD_FAILURE_PRODUCTION_RUN_MODE = (
+    scene_hard_failure_contract.PRODUCTION_RUN_MODE
+)
+_SCENE_STATE_HARD_FAILURE_ONE_PAIR_SMOKE_RUN_MODE = (
+    scene_hard_failure_contract.ONE_PAIR_SMOKE_RUN_MODE
+)
 _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS = frozenset(
     {
         _SCENE_STATE_CYCLE_RETENTION_OBJECTIVE_VERSION,
@@ -789,6 +816,7 @@ _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS = frozenset(
         _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
         _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
         _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
+        _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
     }
 )
 _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS = frozenset(
@@ -800,6 +828,7 @@ _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS = frozenset(
         _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
         _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
         _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
+        _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
     }
 )
 _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS = 7
@@ -825,6 +854,16 @@ _SCENE_STATE_CACHED_PREFIX_IDENTITY_PRESENTATION_CHECKPOINT_STEPS = (
     64,
 )
 _SCENE_STATE_CACHED_PREFIX_IDENTITY_CONTINUATION_POLICY = "forbidden"
+_SCENE_STATE_HARD_FAILURE_GRADIENT_ACCUMULATION_STEPS = (
+    scene_hard_failure_contract.GRADIENT_ACCUMULATION_STEPS
+)
+_SCENE_STATE_HARD_FAILURE_CHECKPOINT_STEPS = (
+    scene_hard_failure_contract.CHECKPOINT_STEPS
+)
+_SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS = (
+    scene_hard_failure_contract.GENERATION_ENDPOINT_STEPS
+)
+_SCENE_STATE_HARD_FAILURE_CONTINUATION_POLICY = "forbidden_fresh_only"
 _SCENE_STATE_GENERATION_MASK_MODE = (
     "exact_system_only_generation_prefix_content_schema_decision_termination_v1"
 )
@@ -865,11 +904,20 @@ _V15_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
 _V15_ONE_PAIR_SMOKE_SAMPLER_MODE = (
     "explicit_ordered_v15_first_materialized_pair_smoke_v1"
 )
+_HARD_FAILURE_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE = (
+    scene_hard_failure_contract.FIXED_SAMPLER_MODE
+)
+_HARD_FAILURE_ONE_PAIR_SMOKE_SAMPLER_MODE = (
+    scene_hard_failure_contract.ONE_PAIR_SMOKE_SAMPLER_MODE
+)
 _SCENE_STATE_V14_ONE_PAIR_SMOKE_SCHEDULE_SELECTION = (
     "first_canonical_pair_only_from_verified_v13_four_cycle_schedule_v1"
 )
 _SCENE_STATE_V15_ONE_PAIR_SMOKE_SCHEDULE_SELECTION = (
     "first_materialized_pair_only_from_verified_v15_four_cycle_schedule_v1"
+)
+_SCENE_STATE_HARD_FAILURE_ONE_PAIR_SMOKE_SCHEDULE_SELECTION = (
+    "first_materialized_pair_only_from_verified_hard_failure_schedule_v1"
 )
 _SCENE_STATE_V11_FIRST_CYCLE_PAIRS = (
     (3, 24),
@@ -974,6 +1022,15 @@ _SCENE_MEMORY_V15_SCHEDULE_ENTRY_SCHEMA = (
 )
 _SCENE_MEMORY_V15_SCHEDULE_MANIFEST_SCHEMA = (
     "rwkv_ms_scene_memory_v15_pair_schedule_manifest.v1"
+)
+_SCENE_MEMORY_HARD_FAILURE_CURRICULUM_SCHEMA = (
+    "rwkv_ms_scene_hard_failure_pair_curriculum_binding.v1"
+)
+_SCENE_MEMORY_HARD_FAILURE_SCHEDULE_ENTRY_SCHEMA = (
+    "rwkv_ms_scene_hard_failure_pair_schedule_entry.v1"
+)
+_SCENE_MEMORY_HARD_FAILURE_SCHEDULE_MANIFEST_SCHEMA = (
+    "rwkv_ms_scene_hard_failure_pair_schedule_manifest.v1"
 )
 _CONTENT_CONTRAST_PAIRING_FILENAME = "content_contrast_pairing_manifest.json"
 _INITIAL_ADAPTER_DIRNAME = "initial_adapter"
@@ -3623,6 +3680,76 @@ def _scene_memory_v9_protocol_checkpoint_steps(
     return endpoints
 
 
+def _scene_hard_failure_protocol_checkpoint_steps(
+    protocol: dict[str, object] | None,
+) -> tuple[int, ...] | None:
+    if protocol is None or protocol.get("memory_objective_version") != (
+        _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+    ):
+        return None
+    schedule = protocol.get("train_schedule")
+    if not isinstance(schedule, dict) or schedule.get("schema") != (
+        _SCENE_MEMORY_HARD_FAILURE_CURRICULUM_SCHEMA
+    ):
+        raise ValueError("Scene hard-failure protocol schedule differs")
+    run_mode = protocol.get("scene_generation_hard_failure_run_mode")
+    if run_mode not in {
+        _SCENE_STATE_HARD_FAILURE_PRODUCTION_RUN_MODE,
+        _SCENE_STATE_HARD_FAILURE_ONE_PAIR_SMOKE_RUN_MODE,
+    }:
+        raise ValueError("Scene hard-failure run mode differs")
+    smoke = run_mode == _SCENE_STATE_HARD_FAILURE_ONE_PAIR_SMOKE_RUN_MODE
+    expected_steps = (1,) if smoke else _SCENE_STATE_HARD_FAILURE_CHECKPOINT_STEPS
+    expected_presentations = 1 if smoke else scene_hard_failure_contract.TOTAL_PAIR_PRESENTATIONS
+    expected_sampler = (
+        _HARD_FAILURE_ONE_PAIR_SMOKE_SAMPLER_MODE
+        if smoke
+        else _HARD_FAILURE_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
+    )
+    if (
+        protocol.get("schema_version")
+        != _SCENE_STATE_HARD_FAILURE_TRAINING_PROTOCOL_SCHEMA_VERSION
+        or schedule.get("checkpoint_steps") != list(expected_steps)
+        or schedule.get("optimizer_checkpoint_steps") != list(expected_steps)
+        or schedule.get("generation_endpoint_steps")
+        != list(
+            (1,)
+            if smoke
+            else _SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS
+        )
+        or schedule.get("microbatch_cycle_size") != 1
+        or schedule.get("continuation_policy")
+        != _SCENE_STATE_HARD_FAILURE_CONTINUATION_POLICY
+        or schedule.get("total_steps") != expected_presentations
+        or protocol.get("max_steps") != expected_presentations
+        or protocol.get("gradient_accumulation_steps") != 1
+        or protocol.get("train_sampler_mode") != expected_sampler
+        or protocol.get("ignore_data_skip") is not False
+        or protocol.get("learning_rate") != scene_hard_failure_contract.LEARNING_RATE
+        or protocol.get("lr_scheduler_type") != "constant"
+        or protocol.get("warmup_steps") != 0
+        or protocol.get("save_steps") != 1
+        or protocol.get("save_total_limit")
+        != (1 if smoke else scene_hard_failure_contract.SAVE_TOTAL_LIMIT)
+        or protocol.get("scene_generation_hard_failure_production_eligible")
+        is not (not smoke)
+        or protocol.get("scene_generation_cycle_pair_presentations") != 1
+        or protocol.get("scene_generation_gradient_accumulation_pair_cycle") != 1
+        or protocol.get("scene_generation_row_objective_audit_filename")
+        != _SCENE_STATE_HARD_FAILURE_ROW_AUDIT_FILENAME
+        or protocol.get("scene_generation_row_objective_audit_schema")
+        != _SCENE_STATE_HARD_FAILURE_ROW_AUDIT_SCHEMA
+        or protocol.get("scene_generation_hard_failure_pair_identity_mode")
+        != _SCENE_STATE_CACHED_PREFIX_IDENTITY_MODE
+        or protocol.get("scene_generation_hard_failure_pair_identity_margin")
+        != _SCENE_STATE_CACHED_PREFIX_IDENTITY_MARGIN_VALUE
+        or protocol.get("scene_generation_hard_failure_pair_identity_optimization_weight")
+        != 1.0
+    ):
+        raise ValueError("Scene hard-failure cached-prefix protocol differs")
+    return expected_steps
+
+
 def _scene_memory_v10_protocol_checkpoint_steps(
     protocol: dict[str, object] | None,
 ) -> tuple[int, ...] | None:
@@ -5784,6 +5911,7 @@ class DeltaMemTrainer(Trainer):
         scene_state_generation_tokenizer: object | None = None,
         scene_state_v14_one_pair_smoke: bool = False,
         scene_state_v15_one_pair_smoke: bool = False,
+        scene_state_hard_failure_one_pair_smoke: bool = False,
         episode_read_write_enabled: bool = False,
         context_ablation_mode: str = "mixed",
         context_ablation_no_state_prob: float = 0.2,
@@ -5921,6 +6049,8 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
             _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
             _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
         }
         if (
             scene_state_generated_unlikelihood_max_wrong_tokens < 0
@@ -5975,6 +6105,7 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
             _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
             _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
         }
         if normalized_generation_objective not in supported_generation_objectives:
             raise ValueError(
@@ -6059,6 +6190,20 @@ class DeltaMemTrainer(Trainer):
                 "V15 one-pair smoke requires the cached-prefix identity objective"
             )
         self.scene_state_v15_one_pair_smoke = scene_state_v15_one_pair_smoke
+        if not isinstance(scene_state_hard_failure_one_pair_smoke, bool):
+            raise TypeError(
+                "scene_state_hard_failure_one_pair_smoke must be a boolean"
+            )
+        if scene_state_hard_failure_one_pair_smoke and (
+            normalized_generation_objective
+            != _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+        ):
+            raise ValueError(
+                "Hard-failure one-pair smoke requires the hard-failure objective"
+            )
+        self.scene_state_hard_failure_one_pair_smoke = (
+            scene_state_hard_failure_one_pair_smoke
+        )
         self.scene_state_generated_prefix_correction_weight = float(
             scene_state_generated_prefix_correction_weight
         )
@@ -6225,6 +6370,10 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
         ):
             self._validate_scene_state_v15_trainer_contract()
+        elif self.scene_state_generation_objective_version == (
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+        ):
+            self._validate_scene_state_hard_failure_trainer_contract()
         self.memory_dropout_counts = {"both": 0, "state_only": 0, "no_memory": 0}
         self._last_write_sparsity_loss = 0.0
         self._last_memory_keep_loss = 0.0
@@ -6309,6 +6458,14 @@ class DeltaMemTrainer(Trainer):
         self._scene_state_v15_completed_cycles = 0
         self._scene_state_v15_row_observations: list[dict[str, object]] = []
         self._scene_state_v15_pair_observations: list[dict[str, object]] = []
+        self._scene_state_hard_failure_cycle_pairs: list[tuple[int, int]] = []
+        self._scene_state_hard_failure_completed_updates = 0
+        self._scene_state_hard_failure_row_observations: list[
+            dict[str, object]
+        ] = []
+        self._scene_state_hard_failure_pair_observations: list[
+            dict[str, object]
+        ] = []
         self._last_memory_teacher_loss = 0.0
         self._last_scene_boundary_full_ce_loss = 0.0
         self._last_scene_boundary_payload_ce_loss = 0.0
@@ -9407,6 +9564,94 @@ class DeltaMemTrainer(Trainer):
                 + ", ".join(sorted(set(mismatches)))
             )
 
+    def _validate_scene_state_hard_failure_trainer_contract(self) -> None:
+        protocol = self.training_protocol
+        schedule_binding = self.train_schedule_binding
+        schedule_indices = self.train_schedule_indices
+        smoke = self.scene_state_hard_failure_one_pair_smoke
+        expected_steps = (1,) if smoke else _SCENE_STATE_HARD_FAILURE_CHECKPOINT_STEPS
+        expected_presentations = (
+            1 if smoke else scene_hard_failure_contract.TOTAL_PAIR_PRESENTATIONS
+        )
+        expected_save_limit = (
+            1 if smoke else scene_hard_failure_contract.SAVE_TOTAL_LIMIT
+        )
+        mismatches: list[str] = []
+        if self.resume_mode != "exact":
+            mismatches.append("resume_mode")
+        if self.continuation_manifest is not None:
+            mismatches.append("fresh_start_lineage")
+        if (
+            self.args.max_steps != expected_presentations
+            or self.args.gradient_accumulation_steps != 1
+            or self.args.max_grad_norm != scene_hard_failure_contract.MAX_GRAD_NORM
+            or self.args.save_steps != scene_hard_failure_contract.SAVE_STEPS
+            or self.args.save_total_limit != expected_save_limit
+        ):
+            mismatches.append("training_horizon")
+        if not isinstance(protocol, dict):
+            mismatches.append("training_protocol")
+        else:
+            try:
+                checkpoint_steps = _scene_hard_failure_protocol_checkpoint_steps(
+                    protocol
+                )
+            except ValueError:
+                mismatches.append("training_protocol")
+            else:
+                if checkpoint_steps != expected_steps:
+                    mismatches.append("training_protocol")
+        if not isinstance(schedule_binding, dict):
+            mismatches.append("hard_failure_schedule")
+        else:
+            pair_indices = schedule_binding.get("pair_indices")
+            if (
+                schedule_binding.get("schema")
+                != _SCENE_MEMORY_HARD_FAILURE_CURRICULUM_SCHEMA
+                or schedule_binding.get("total_steps") != expected_presentations
+                or not isinstance(pair_indices, tuple)
+                or len(pair_indices) != expected_presentations
+                or (
+                    smoke
+                    and schedule_binding.get("schedule_selection_mode")
+                    != _SCENE_STATE_HARD_FAILURE_ONE_PAIR_SMOKE_SCHEDULE_SELECTION
+                )
+                or (
+                    not smoke and "schedule_selection_mode" in schedule_binding
+                )
+            ):
+                mismatches.append("hard_failure_schedule")
+            elif not smoke:
+                expected_set = frozenset(
+                    tuple(pair)
+                    for pair in schedule_binding.get("canonical_pairs", ())
+                )
+                if len(expected_set) != scene_hard_failure_contract.PAIR_COUNT:
+                    mismatches.append("hard_failure_schedule")
+                for cycle_index in range(scene_hard_failure_contract.PAIR_CYCLES):
+                    start = cycle_index * scene_hard_failure_contract.PAIRS_PER_CYCLE
+                    cycle = pair_indices[
+                        start : start + scene_hard_failure_contract.PAIRS_PER_CYCLE
+                    ]
+                    if len(cycle) != scene_hard_failure_contract.PAIRS_PER_CYCLE or (
+                        frozenset(tuple(pair) for pair in cycle) != expected_set
+                    ):
+                        mismatches.append("hard_failure_schedule")
+                        break
+        if (
+            not isinstance(schedule_indices, tuple)
+            or not isinstance(schedule_binding, dict)
+            or not isinstance(schedule_binding.get("pair_indices"), tuple)
+            or schedule_indices
+            != tuple(pair[0] for pair in schedule_binding["pair_indices"])
+        ):
+            mismatches.append("hard_failure_schedule")
+        if mismatches:
+            raise ValueError(
+                "Hard-failure trainer contract differs for: "
+                + ", ".join(sorted(set(mismatches)))
+            )
+
     def _validate_scene_state_generation_runtime(self) -> None:
         if self.episode_read_write_enabled:
             raise ValueError(
@@ -9449,9 +9694,10 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_GENERATION_OBJECTIVE_VERSION,
         )
         expected_accumulation_steps = (
-            self._scene_state_v15_pair_cycle_size()
-            if objective_version
-            == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
+            _SCENE_STATE_HARD_FAILURE_GRADIENT_ACCUMULATION_STEPS
+            if objective_version == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+            else self._scene_state_v15_pair_cycle_size()
+            if objective_version == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
             else
             self._scene_state_v14_pair_cycle_size()
             if objective_version == _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION
@@ -12434,7 +12680,7 @@ class DeltaMemTrainer(Trainer):
         )
         cached_prefix_identity_objective = (
             objective_version
-            == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
+            in _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSIONS
         )
         semantic_rollout_objective = (
             semantic_margin_objective
@@ -13208,13 +13454,22 @@ class DeltaMemTrainer(Trainer):
                     "scene_generation_v15_full_answer_ce_optimization_weight": 0.0,
                     "scene_generation_v15_pair_identity_optimization_weight": 1.0,
                 }
-                self._scene_state_v15_record_pair_presentation(
-                    source_indices,
-                    donor_indices,
-                    source_row_sha256,
-                    donor_row_sha256,
-                    memory_stats,
-                )
+                if objective_version == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION:
+                    self._scene_state_hard_failure_record_pair_presentation(
+                        source_indices,
+                        donor_indices,
+                        source_row_sha256,
+                        donor_row_sha256,
+                        memory_stats,
+                    )
+                else:
+                    self._scene_state_v15_record_pair_presentation(
+                        source_indices,
+                        donor_indices,
+                        source_row_sha256,
+                        donor_row_sha256,
+                        memory_stats,
+                    )
                 set_delta_mem_read_context_mask(model, None)
                 set_delta_mem_write_enabled(model, True)
                 return reported_total * gradient_scale, memory_stats
@@ -15287,6 +15542,35 @@ class DeltaMemTrainer(Trainer):
             else _SCENE_STATE_CACHED_PREFIX_IDENTITY_GRADIENT_ACCUMULATION_STEPS
         )
 
+    def _scene_state_hard_failure_active_pair_schedule(
+        self,
+    ) -> tuple[tuple[int, int], ...]:
+        schedule = getattr(self, "train_schedule_binding", None)
+        pair_indices = None if not isinstance(schedule, dict) else schedule.get(
+            "pair_indices"
+        )
+        if not isinstance(pair_indices, tuple):
+            raise RuntimeError("Hard-failure pair schedule is missing")
+        normalized = tuple(tuple(int(value) for value in pair) for pair in pair_indices)
+        expected_rows = (
+            1
+            if bool(
+                getattr(
+                    self,
+                    "scene_state_hard_failure_one_pair_smoke",
+                    False,
+                )
+            )
+            else scene_hard_failure_contract.TOTAL_PAIR_PRESENTATIONS
+        )
+        if len(normalized) != expected_rows:
+            raise RuntimeError("Hard-failure active pair schedule length differs")
+        return normalized
+
+    @staticmethod
+    def _scene_state_hard_failure_pair_cycle_size() -> int:
+        return 1
+
     @staticmethod
     def _scene_state_v14_audit_number(
         memory_stats: dict[str, float],
@@ -15364,6 +15648,7 @@ class DeltaMemTrainer(Trainer):
             raise RuntimeError("V14 pair telemetry escaped the four-cycle boundary")
         presentation_index = completed_cycles * cycle_size + len(observed_pairs)
         expected = active_schedule[presentation_index]
+        schedule_cycle = completed_cycles + 1
         if pair != expected:
             raise ValueError(
                 "V14 pair telemetry order differs: "
@@ -15429,7 +15714,7 @@ class DeltaMemTrainer(Trainer):
             )
             observation: dict[str, object] = {
                 "phase": phase,
-                "cycle": completed_cycles + 1,
+                "cycle": schedule_cycle,
                 "adapter_optimizer_step_before_update": completed_cycles,
                 "presentation": presentation_index + 1,
                 "pair_role": role,
@@ -15647,7 +15932,7 @@ class DeltaMemTrainer(Trainer):
         }
         pair_observation: dict[str, object] = {
             "phase": phase,
-            "cycle": completed_cycles + 1,
+            "cycle": schedule_cycle,
             "adapter_optimizer_step_before_update": completed_cycles,
             "presentation": presentation_index + 1,
             "source_row_ordinal": pair[0],
@@ -15813,10 +16098,12 @@ class DeltaMemTrainer(Trainer):
         donor_row_sha256: torch.Tensor,
         memory_stats: dict[str, float],
     ) -> None:
-        if self.scene_state_generation_objective_version != (
-            _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
+        objective_version = self.scene_state_generation_objective_version
+        if objective_version not in (
+            _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSIONS
         ):
             return
+        hard_failure = objective_version == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
         normalized_source = source_indices.detach().reshape(-1).cpu()
         normalized_donor = donor_indices.detach().reshape(-1).cpu()
         if normalized_source.numel() != 1 or normalized_donor.numel() != 1:
@@ -15834,27 +16121,51 @@ class DeltaMemTrainer(Trainer):
             raise ValueError("V15 row hashes must contain exactly 32 bytes per row")
         source_hash = bytes(int(value) for value in normalized_source_hash).hex()
         donor_hash = bytes(int(value) for value in normalized_donor_hash).hex()
-        observed_pairs = getattr(self, "_scene_state_v15_cycle_pairs", None)
+        observed_pairs = getattr(
+            self,
+            "_scene_state_hard_failure_cycle_pairs"
+            if hard_failure
+            else "_scene_state_v15_cycle_pairs",
+            None,
+        )
         row_observations = getattr(
             self,
-            "_scene_state_v15_row_observations",
+            "_scene_state_hard_failure_row_observations"
+            if hard_failure
+            else "_scene_state_v15_row_observations",
             None,
         )
         pair_observations = getattr(
             self,
-            "_scene_state_v15_pair_observations",
+            "_scene_state_hard_failure_pair_observations"
+            if hard_failure
+            else "_scene_state_v15_pair_observations",
             None,
         )
         completed_cycles = int(
-            getattr(self, "_scene_state_v15_completed_cycles", -1)
+            getattr(
+                self,
+                "_scene_state_hard_failure_completed_updates"
+                if hard_failure
+                else "_scene_state_v15_completed_cycles",
+                -1,
+            )
         )
         if not all(
             isinstance(value, list)
             for value in (observed_pairs, row_observations, pair_observations)
         ):
             raise RuntimeError("V15 row telemetry accumulators are missing")
-        cycle_size = self._scene_state_v15_pair_cycle_size()
-        active_schedule = self._scene_state_v15_active_pair_schedule()
+        cycle_size = (
+            self._scene_state_hard_failure_pair_cycle_size()
+            if hard_failure
+            else self._scene_state_v15_pair_cycle_size()
+        )
+        active_schedule = (
+            self._scene_state_hard_failure_active_pair_schedule()
+            if hard_failure
+            else self._scene_state_v15_active_pair_schedule()
+        )
         max_cycles = len(active_schedule) // cycle_size
         if (
             not 0 <= completed_cycles < max_cycles
@@ -15863,6 +16174,11 @@ class DeltaMemTrainer(Trainer):
             raise RuntimeError("V15 pair telemetry escaped the four-cycle boundary")
         presentation_index = completed_cycles * cycle_size + len(observed_pairs)
         expected = active_schedule[presentation_index]
+        schedule_cycle = (
+            presentation_index // scene_hard_failure_contract.PAIRS_PER_CYCLE + 1
+            if hard_failure
+            else completed_cycles + 1
+        )
         if pair != expected:
             raise ValueError(
                 "V15 pair telemetry order differs: "
@@ -15902,8 +16218,20 @@ class DeltaMemTrainer(Trainer):
         observed_pairs.append(pair)
         phase = (
             "smoke_input"
-            if bool(getattr(self, "scene_state_v15_one_pair_smoke", False))
-            else f"cycle{completed_cycles + 1}_input"
+            if bool(
+                getattr(
+                    self,
+                    "scene_state_hard_failure_one_pair_smoke"
+                    if hard_failure
+                    else "scene_state_v15_one_pair_smoke",
+                    False,
+                )
+            )
+            else (
+                f"presentation{presentation_index + 1}_input"
+                if hard_failure
+                else f"cycle{completed_cycles + 1}_input"
+            )
         )
 
         def number(key: str, *, integer: bool = False) -> int | float:
@@ -15929,7 +16257,7 @@ class DeltaMemTrainer(Trainer):
             )
             observation: dict[str, object] = {
                 "phase": phase,
-                "cycle": completed_cycles + 1,
+                "cycle": schedule_cycle,
                 "adapter_optimizer_step_before_update": completed_cycles,
                 "presentation": presentation_index + 1,
                 "pair_role": role,
@@ -16195,7 +16523,7 @@ class DeltaMemTrainer(Trainer):
         }
         pair_observation: dict[str, object] = {
             "phase": phase,
-            "cycle": completed_cycles + 1,
+            "cycle": schedule_cycle,
             "adapter_optimizer_step_before_update": completed_cycles,
             "presentation": presentation_index + 1,
             "source_row_ordinal": pair[0],
@@ -16241,6 +16569,135 @@ class DeltaMemTrainer(Trainer):
         ):
             raise RuntimeError("V15 pair audit loss arithmetic differs")
         pair_observations.append(pair_observation)
+
+    def _scene_state_hard_failure_record_pair_presentation(
+        self,
+        source_indices: torch.Tensor,
+        donor_indices: torch.Tensor,
+        source_row_sha256: torch.Tensor,
+        donor_row_sha256: torch.Tensor,
+        memory_stats: dict[str, float],
+    ) -> None:
+        if self.scene_state_generation_objective_version != (
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+        ):
+            return
+        self._scene_state_v15_record_pair_presentation(
+            source_indices,
+            donor_indices,
+            source_row_sha256,
+            donor_row_sha256,
+            memory_stats,
+        )
+
+    def _scene_state_hard_failure_row_audit_payload(self) -> dict[str, object]:
+        completed_updates = int(
+            getattr(self, "_scene_state_hard_failure_completed_updates", -1)
+        )
+        row_observations = getattr(
+            self,
+            "_scene_state_hard_failure_row_observations",
+            None,
+        )
+        pair_observations = getattr(
+            self,
+            "_scene_state_hard_failure_pair_observations",
+            None,
+        )
+        observed_pairs = getattr(
+            self,
+            "_scene_state_hard_failure_cycle_pairs",
+            None,
+        )
+        smoke = bool(
+            getattr(self, "scene_state_hard_failure_one_pair_smoke", False)
+        )
+        active_schedule = self._scene_state_hard_failure_active_pair_schedule()
+        if (
+            completed_updates not in set(range(1, len(active_schedule) + 1))
+            or not isinstance(row_observations, list)
+            or not isinstance(pair_observations, list)
+            or not isinstance(observed_pairs, list)
+            or observed_pairs
+            or len(row_observations) != completed_updates * 2
+            or len(pair_observations) != completed_updates
+        ):
+            raise RuntimeError(
+                "Hard-failure checkpoint requires a complete audit for every "
+                "optimizer update"
+            )
+        expected_schedule = active_schedule[:completed_updates]
+        for presentation_index, expected_pair in enumerate(expected_schedule):
+            presentation = presentation_index + 1
+            phase = "smoke_input" if smoke else f"presentation{presentation}_input"
+            pair_observation = pair_observations[presentation_index]
+            if (
+                pair_observation.get("phase") != phase
+                or pair_observation.get("presentation") != presentation
+                or pair_observation.get("adapter_optimizer_step_before_update")
+                != presentation_index
+                or pair_observation.get("source_row_ordinal") != expected_pair[0]
+                or pair_observation.get("donor_row_ordinal") != expected_pair[1]
+            ):
+                raise RuntimeError(
+                    "Hard-failure pair audit differs from the optimizer schedule"
+                )
+            expected_rows = (
+                ("source", expected_pair[0], expected_pair[1]),
+                ("donor", expected_pair[1], expected_pair[0]),
+            )
+            presentation_rows = row_observations[
+                presentation_index * 2 : (presentation_index + 1) * 2
+            ]
+            for observation, expected_row in zip(
+                presentation_rows,
+                expected_rows,
+                strict=True,
+            ):
+                role, row_ordinal, paired_ordinal = expected_row
+                if (
+                    observation.get("phase") != phase
+                    or observation.get("presentation") != presentation
+                    or observation.get("pair_role") != role
+                    or observation.get("row_ordinal") != row_ordinal
+                    or observation.get("paired_row_ordinal") != paired_ordinal
+                ):
+                    raise RuntimeError(
+                        "Hard-failure row audit differs from its reciprocal pair"
+                    )
+        checkpoint_global_step = int(
+            getattr(getattr(self, "state", None), "global_step", completed_updates)
+        )
+        if checkpoint_global_step != completed_updates:
+            raise RuntimeError(
+                "Hard-failure audit optimizer step differs from Trainer state"
+            )
+        return {
+            "schema": _SCENE_STATE_HARD_FAILURE_ROW_AUDIT_SCHEMA,
+            "memory_objective_version": _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
+            "run_mode": (
+                _SCENE_STATE_HARD_FAILURE_ONE_PAIR_SMOKE_RUN_MODE
+                if smoke
+                else _SCENE_STATE_HARD_FAILURE_PRODUCTION_RUN_MODE
+            ),
+            "production_eligible": not smoke,
+            "checkpoint_optimizer_step": completed_updates,
+            "completed_pair_presentations": completed_updates,
+            "generation_endpoint": (
+                completed_updates in _SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS
+            ),
+            "completed_generation_endpoint_steps": [
+                step
+                for step in _SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS
+                if step <= completed_updates
+            ],
+            "pair_schedule": [
+                {"source_row_ordinal": low, "donor_row_ordinal": high}
+                for low, high in expected_schedule
+            ],
+            "pair_presentations": [dict(item) for item in pair_observations],
+            "rows": [dict(item) for item in row_observations],
+        }
 
     def _scene_state_v15_row_audit_payload(self) -> dict[str, object]:
         completed_cycles = int(
@@ -16346,9 +16803,10 @@ class DeltaMemTrainer(Trainer):
             return memory_stats
         objective_version = self.scene_state_generation_objective_version
         expected_presentations = (
-            self._scene_state_v15_pair_cycle_size()
-            if objective_version
-            == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
+            self._scene_state_hard_failure_pair_cycle_size()
+            if objective_version == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+            else self._scene_state_v15_pair_cycle_size()
+            if objective_version == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
             else
             self._scene_state_v14_pair_cycle_size()
             if objective_version == _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION
@@ -16367,6 +16825,11 @@ class DeltaMemTrainer(Trainer):
         observed_v13_pairs = getattr(self, "_scene_state_v13_cycle_pairs", [])
         observed_v14_pairs = getattr(self, "_scene_state_v14_cycle_pairs", [])
         observed_v15_pairs = getattr(self, "_scene_state_v15_cycle_pairs", [])
+        observed_hard_failure_pairs = getattr(
+            self,
+            "_scene_state_hard_failure_cycle_pairs",
+            [],
+        )
         if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION and (
             not isinstance(observed_v11_pairs, list)
             or len(observed_v11_pairs) != count + 1
@@ -16404,6 +16867,13 @@ class DeltaMemTrainer(Trainer):
             raise RuntimeError(
                 "V15 cycle telemetry is missing its ordered pair presentation"
             )
+        if objective_version == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION and (
+            not isinstance(observed_hard_failure_pairs, list)
+            or len(observed_hard_failure_pairs) != count + 1
+        ):
+            raise RuntimeError(
+                "Hard-failure update telemetry is missing its ordered pair presentation"
+            )
         numeric_stats = {
             key: float(value)
             for key, value in memory_stats.items()
@@ -16436,6 +16906,9 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION: "scene_generation_v14",
             _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION: (
                 "scene_generation_v15"
+            ),
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION: (
+                "scene_generation_hard_failure"
             ),
         }.get(objective_version, "scene_generation_v10")
         averaged[f"{cycle_prefix}_cycle_pair_presentations"] = float(
@@ -16559,6 +17032,54 @@ class DeltaMemTrainer(Trainer):
                     f"scene_generation_v15_cycle_pair_{pair_index}_high_ordinal"
                 ] = float(high_ordinal)
             self._scene_state_v15_completed_cycles = completed_cycles + 1
+        if objective_version == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION:
+            completed_updates = int(
+                getattr(self, "_scene_state_hard_failure_completed_updates", -1)
+            )
+            active_schedule = self._scene_state_hard_failure_active_pair_schedule()
+            if completed_updates not in set(range(len(active_schedule))):
+                raise RuntimeError(
+                    "Hard-failure completed-update telemetry escaped its bounds"
+                )
+            expected_pair = active_schedule[completed_updates]
+            if tuple(observed_hard_failure_pairs) != (expected_pair,):
+                raise RuntimeError("Hard-failure completed update pair order differs")
+            optimizer_step = completed_updates + 1
+            averaged.update(
+                {
+                    key.replace(
+                        "scene_generation_v15",
+                        "scene_generation_hard_failure",
+                        1,
+                    ): value
+                    for key, value in tuple(averaged.items())
+                    if key.startswith("scene_generation_v15")
+                }
+            )
+            averaged["scene_generation_hard_failure_optimizer_step"] = float(
+                optimizer_step
+            )
+            averaged["scene_generation_hard_failure_cycle_index"] = float(
+                completed_updates
+                // scene_hard_failure_contract.PAIRS_PER_CYCLE
+                + 1
+            )
+            averaged["scene_generation_hard_failure_cycle_position"] = float(
+                completed_updates % scene_hard_failure_contract.PAIRS_PER_CYCLE
+            )
+            averaged[
+                "scene_generation_hard_failure_pair_low_ordinal"
+            ] = float(expected_pair[0])
+            averaged[
+                "scene_generation_hard_failure_pair_high_ordinal"
+            ] = float(expected_pair[1])
+            averaged[
+                "scene_generation_hard_failure_generation_endpoint"
+            ] = float(
+                optimizer_step
+                in _SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS
+            )
+            self._scene_state_hard_failure_completed_updates = optimizer_step
         self._scene_state_cycle_retention_metric_sums = {}
         self._scene_state_cycle_retention_metric_presentations = 0
         if objective_version == _SCENE_STATE_SUFFIX_REPAIR_OBJECTIVE_VERSION:
@@ -16573,6 +17094,8 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
         ):
             self._scene_state_v15_cycle_pairs = []
+        if objective_version == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION:
+            self._scene_state_hard_failure_cycle_pairs = []
         return averaged
 
     def _record_memory_stats(self, model, memory_stats: dict[str, float]) -> None:
@@ -17723,6 +18246,9 @@ class DeltaMemTrainer(Trainer):
                 _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION: (
                     "scene_generation_v15"
                 ),
+                _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION: (
+                    "scene_generation_hard_failure"
+                ),
             }.get(objective_version, "scene_generation_v10")
             cycle_presentations = getattr(
                 self,
@@ -17732,9 +18258,10 @@ class DeltaMemTrainer(Trainer):
                 f"delta/{cycle_prefix}_cycle_pair_presentations"
             )
             expected_presentations = (
-                self._scene_state_v15_pair_cycle_size()
-                if objective_version
-                == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
+                self._scene_state_hard_failure_pair_cycle_size()
+                if objective_version == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+                else self._scene_state_v15_pair_cycle_size()
+                if objective_version == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
                 else
                 self._scene_state_v14_pair_cycle_size()
                 if objective_version == _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION
@@ -18680,6 +19207,12 @@ class DeltaMemTrainer(Trainer):
             self,
             "scene_state_generation_objective_version",
             None,
+        ) == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION:
+            audit_payload = self._scene_state_hard_failure_row_audit_payload()
+        elif getattr(
+            self,
+            "scene_state_generation_objective_version",
+            None,
         ) == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION:
             # Validate the complete V15 cycle before creating a partial checkpoint.
             audit_payload = self._scene_state_v15_row_audit_payload()
@@ -18693,6 +19226,10 @@ class DeltaMemTrainer(Trainer):
             )
         if audit_payload is not None:
             if self.scene_state_generation_objective_version == (
+                _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+            ):
+                audit_filename = _SCENE_STATE_HARD_FAILURE_ROW_AUDIT_FILENAME
+            elif self.scene_state_generation_objective_version == (
                 _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
             ):
                 audit_filename = _SCENE_STATE_V15_ROW_AUDIT_FILENAME
@@ -19580,6 +20117,108 @@ def _scene_state_v15_curriculum_binding(
     }
 
 
+def _scene_state_hard_failure_curriculum_binding(
+    args: argparse.Namespace,
+) -> dict[str, object] | None:
+    source_identity = _scene_state_source_manifest_identity(args)
+    if source_identity is None or source_identity.get("schema") != (
+        data_prep_source_schema := "rwkv_ms_scene_memory_v7_source.v1"
+    ):
+        return None
+    source_manifest_path = Path(str(source_identity["path"]))
+    source_manifest = _load_json_object(
+        source_manifest_path,
+        description="scene hard-failure source manifest",
+    )
+    curriculum_root = source_manifest.get("hard_failure_curriculum")
+    if curriculum_root is None:
+        return None
+    if source_identity.get("schema") != data_prep_source_schema:
+        raise ValueError("Scene hard-failure source schema differs")
+    if source_manifest_path.parent.resolve() != (
+        scene_hard_failure_contract.DATA_ROOT.resolve()
+    ):
+        raise ValueError("Scene hard-failure source root differs")
+    validated = scene_hard_failure_contract.validate_data_contract(
+        source_manifest_path.parent
+    )
+    if (
+        source_identity.get("file_sha256")
+        != scene_hard_failure_contract.FILE_SHA256["source_manifest.json"]
+        or source_identity.get("train_file_sha256")
+        != scene_hard_failure_contract.FILE_SHA256["train.jsonl"]
+        or source_identity.get("train_rows") != 32
+        or source_identity.get("train_source_split") != "train"
+        or validated.get("status") != "pass"
+    ):
+        raise ValueError("Scene hard-failure source identity differs")
+    if not isinstance(curriculum_root, dict) or curriculum_root.get("schema") != (
+        "rwkv_ms_scene_hard_failure_pairing.v1"
+    ):
+        raise ValueError("Scene hard-failure curriculum schema differs")
+    schedule_binding = curriculum_root.get("train_schedule")
+    if not isinstance(schedule_binding, dict) or schedule_binding.get("schema") != (
+        _SCENE_MEMORY_HARD_FAILURE_CURRICULUM_SCHEMA
+    ):
+        raise ValueError("Scene hard-failure train schedule binding differs")
+    entries = scene_hard_failure_contract.load_pair_schedule()
+    pairs = tuple(
+        tuple(int(value) for value in entry["canonical_pair_ordinals"])
+        for entry in entries
+    )
+    canonical_pairs = tuple(
+        tuple(int(value) for value in pair)
+        for pair in validated["canonical_pairs"]
+    )
+    if (
+        schedule_binding.get("pair_cycles")
+        != scene_hard_failure_contract.PAIR_CYCLES
+        or schedule_binding.get("pairs_per_cycle")
+        != scene_hard_failure_contract.PAIRS_PER_CYCLE
+        or schedule_binding.get("pair_presentations")
+        != scene_hard_failure_contract.TOTAL_PAIR_PRESENTATIONS
+        or schedule_binding.get("optimizer_steps")
+        != scene_hard_failure_contract.TOTAL_OPTIMIZER_STEPS
+        or schedule_binding.get("gradient_accumulation_steps") != 1
+        or schedule_binding.get("generation_endpoint_steps")
+        != list(_SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS)
+        or schedule_binding.get("canonical_pairs")
+        != [list(pair) for pair in canonical_pairs]
+        or pairs != tuple(
+            tuple(pair) for pair in validated["scheduled_pairs"]
+        )
+    ):
+        raise ValueError("Scene hard-failure exact schedule differs")
+    return {
+        "schema": _SCENE_MEMORY_HARD_FAILURE_CURRICULUM_SCHEMA,
+        "source_manifest_path": str(source_manifest_path),
+        "source_manifest_file_sha256": source_identity["file_sha256"],
+        "schedule_path": str(scene_hard_failure_contract.PAIR_SCHEDULE),
+        "schedule_file_sha256": validated["actual_schedule_sha256"],
+        "schedule_entries_sha256": validated["schedule_entries_sha256"],
+        "schedule_manifest_path": str(
+            scene_hard_failure_contract.PAIR_SCHEDULE_MANIFEST
+        ),
+        "schedule_manifest_file_sha256": (
+            scene_hard_failure_contract.FILE_SHA256[
+                "pair_schedule_manifest.json"
+            ]
+        ),
+        "ordered_pairs_sha256": validated["ordered_pairs_sha256"],
+        "canonical_pairs": tuple(canonical_pairs),
+        "scheduled_ordinals": tuple(validated["scheduled_ordinals"]),
+        "pair_cycles": scene_hard_failure_contract.PAIR_CYCLES,
+        "pairs_per_cycle": scene_hard_failure_contract.PAIRS_PER_CYCLE,
+        "total_steps": scene_hard_failure_contract.TOTAL_PAIR_PRESENTATIONS,
+        "checkpoint_steps": list(_SCENE_STATE_HARD_FAILURE_CHECKPOINT_STEPS),
+        "generation_endpoint_steps": list(
+            _SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS
+        ),
+        "pair_indices": pairs,
+        "indices": tuple(pair[0] for pair in pairs),
+    }
+
+
 def _validate_scene_state_v10_cycle_schedule(
     curriculum_binding: dict[str, object],
 ) -> None:
@@ -19788,6 +20427,109 @@ def _validate_scene_state_v15_one_pair_smoke_schedule(
         raise ValueError("Scene-memory V15 one-pair smoke schedule differs")
 
 
+def _validate_scene_state_hard_failure_schedule(
+    curriculum_binding: dict[str, object],
+) -> None:
+    pair_indices = curriculum_binding.get("pair_indices")
+    canonical_pairs = curriculum_binding.get("canonical_pairs")
+    schedule_indices = curriculum_binding.get("indices")
+    if (
+        curriculum_binding.get("schema")
+        != _SCENE_MEMORY_HARD_FAILURE_CURRICULUM_SCHEMA
+        or curriculum_binding.get("total_steps")
+        != scene_hard_failure_contract.TOTAL_PAIR_PRESENTATIONS
+        or curriculum_binding.get("checkpoint_steps")
+        != list(_SCENE_STATE_HARD_FAILURE_CHECKPOINT_STEPS)
+        or curriculum_binding.get("generation_endpoint_steps")
+        != list(_SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS)
+        or not isinstance(pair_indices, tuple)
+        or len(pair_indices) != scene_hard_failure_contract.TOTAL_PAIR_PRESENTATIONS
+        or not isinstance(canonical_pairs, tuple)
+        or len(canonical_pairs) != scene_hard_failure_contract.PAIR_COUNT
+        or not isinstance(schedule_indices, tuple)
+        or schedule_indices != tuple(pair[0] for pair in pair_indices)
+    ):
+        raise ValueError("Scene hard-failure schedule differs")
+    expected_set = frozenset(tuple(pair) for pair in canonical_pairs)
+    for cycle_index in range(scene_hard_failure_contract.PAIR_CYCLES):
+        start = cycle_index * scene_hard_failure_contract.PAIRS_PER_CYCLE
+        cycle = pair_indices[
+            start : start + scene_hard_failure_contract.PAIRS_PER_CYCLE
+        ]
+        if (
+            len(cycle) != scene_hard_failure_contract.PAIRS_PER_CYCLE
+            or frozenset(tuple(pair) for pair in cycle) != expected_set
+        ):
+            raise ValueError(
+                "Scene hard-failure cycle does not cover all pairs exactly once: "
+                f"cycle={cycle_index + 1}"
+            )
+
+
+def _scene_state_hard_failure_one_pair_smoke_binding(
+    curriculum_binding: dict[str, object],
+) -> dict[str, object]:
+    _validate_scene_state_hard_failure_schedule(curriculum_binding)
+    pair_indices = curriculum_binding["pair_indices"]
+    if not isinstance(pair_indices, tuple):
+        raise AssertionError("validated hard-failure pair schedule changed type")
+    first_pair = pair_indices[0]
+    smoke_binding = dict(curriculum_binding)
+    smoke_binding.update(
+        {
+            "source_total_steps": curriculum_binding["total_steps"],
+            "source_checkpoint_steps": list(
+                curriculum_binding["checkpoint_steps"]
+            ),
+            "source_generation_endpoint_steps": list(
+                curriculum_binding["generation_endpoint_steps"]
+            ),
+            "source_ordered_pairs_sha256": curriculum_binding[
+                "ordered_pairs_sha256"
+            ],
+            "schedule_selection_mode": (
+                _SCENE_STATE_HARD_FAILURE_ONE_PAIR_SMOKE_SCHEDULE_SELECTION
+            ),
+            "active_ordered_pairs_sha256": _canonical_json_sha256(
+                [list(first_pair)]
+            ),
+            "total_steps": 1,
+            "checkpoint_steps": [1],
+            "generation_endpoint_steps": [1],
+            "pair_indices": (first_pair,),
+            "indices": (first_pair[0],),
+        }
+    )
+    return smoke_binding
+
+
+def _validate_scene_state_hard_failure_one_pair_smoke_schedule(
+    curriculum_binding: dict[str, object],
+) -> None:
+    pair_indices = curriculum_binding.get("pair_indices")
+    if (
+        curriculum_binding.get("schema")
+        != _SCENE_MEMORY_HARD_FAILURE_CURRICULUM_SCHEMA
+        or curriculum_binding.get("source_total_steps")
+        != scene_hard_failure_contract.TOTAL_PAIR_PRESENTATIONS
+        or curriculum_binding.get("source_checkpoint_steps")
+        != list(_SCENE_STATE_HARD_FAILURE_CHECKPOINT_STEPS)
+        or curriculum_binding.get("source_generation_endpoint_steps")
+        != list(_SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS)
+        or curriculum_binding.get("schedule_selection_mode")
+        != _SCENE_STATE_HARD_FAILURE_ONE_PAIR_SMOKE_SCHEDULE_SELECTION
+        or curriculum_binding.get("total_steps") != 1
+        or curriculum_binding.get("checkpoint_steps") != [1]
+        or curriculum_binding.get("generation_endpoint_steps") != [1]
+        or not isinstance(pair_indices, tuple)
+        or len(pair_indices) != 1
+        or curriculum_binding.get("indices") != (pair_indices[0][0],)
+        or curriculum_binding.get("active_ordered_pairs_sha256")
+        != _canonical_json_sha256([list(pair_indices[0])])
+    ):
+        raise ValueError("Scene hard-failure one-pair smoke schedule differs")
+
+
 def _validate_scene_state_v8_locked_training_args(
     args: argparse.Namespace,
     curriculum_binding: dict[str, object],
@@ -19885,6 +20627,110 @@ def _validate_scene_state_v8_locked_training_args(
     if mismatches:
         raise ValueError(
             "Scene-memory V8 locked training contract differs for: "
+            + ", ".join(sorted(set(mismatches)))
+        )
+
+
+def _validate_scene_state_hard_failure_training_args(
+    args: argparse.Namespace,
+    curriculum_binding: dict[str, object],
+) -> None:
+    smoke = bool(args.scene_state_hard_failure_one_pair_smoke)
+    expected_values = {
+        "memory_backend": "rwkv_ms",
+        "rwkv_ms_num_states": scene_hard_failure_contract.RWKV_MS_NUM_STATES,
+        "rwkv_ms_chunk_size": scene_hard_failure_contract.RWKV_MS_CHUNK_SIZE,
+        "rwkv_ms_boundary_mode": scene_hard_failure_contract.RWKV_MS_BOUNDARY_MODE,
+        "rwkv_ms_semantics_version": (
+            scene_hard_failure_contract.RWKV_MS_SEMANTICS_VERSION
+        ),
+        "rank": scene_hard_failure_contract.RANK,
+        "alpha": scene_hard_failure_contract.ALPHA,
+        "memory_fusion_mode": scene_hard_failure_contract.MEMORY_FUSION_MODE,
+        "memory_fusion_placement": (
+            scene_hard_failure_contract.MEMORY_FUSION_PLACEMENT
+        ),
+        "training_mode": "episode",
+        "assistant_loss_mode": "final_assistant_only",
+        "episode_recent_messages": 0,
+        "episode_read_write_enabled": False,
+        "max_length": 256,
+        "max_write_length": 2048,
+        "memory_loss_mode": "scene_state_generation_ce",
+        "scene_state_generation_objective_version": (
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+        ),
+        "scene_state_generated_prefix_correction_weight": 0.0,
+        "scene_state_generated_unlikelihood_weight": 0.0,
+        "scene_state_generated_unlikelihood_max_wrong_tokens": 0,
+        "scene_boundary_payload_ce_weight": 0.0,
+        "memory_dropout_no_memory_prob": 0.0,
+        "memory_dropout_state_only_prob": 0.0,
+        "memory_base_kl_weight": 0.0,
+        "memory_contrast_weight": 0.0,
+        "memory_representation_weight": 0.0,
+        "memory_kl_weight": 0.0,
+        "memory_causal_weight": 0.0,
+        "memory_anchor_weight": 0.0,
+        "memory_recover_weight": 0.0,
+        "write_sparsity_weight": 0.0,
+        "memory_partition_alignment_weight": 0.0,
+        "memory_partition_entropy_weight": 0.0,
+        "memory_partition_balance_weight": 0.0,
+        "per_device_train_batch_size": 1,
+        "per_device_eval_batch_size": 1,
+        "gradient_accumulation_steps": 1,
+        "learning_rate": scene_hard_failure_contract.LEARNING_RATE,
+        "lr_scheduler_type": "constant",
+        "warmup_ratio": 0.0,
+        "warmup_steps": 0,
+        "weight_decay": 0.0,
+        "optim": "adamw_torch_fused",
+        "max_grad_norm": scene_hard_failure_contract.MAX_GRAD_NORM,
+        "num_train_epochs": 1.0,
+        "max_steps": 1 if smoke else scene_hard_failure_contract.TOTAL_OPTIMIZER_STEPS,
+        "logging_steps": 1,
+        "save_steps": scene_hard_failure_contract.SAVE_STEPS,
+        "save_total_limit": 1 if smoke else scene_hard_failure_contract.SAVE_TOTAL_LIMIT,
+        "validation_split_ratio": 0.0,
+        "load_best_model_at_end": False,
+        "dataset_num_proc": 1,
+        "dataloader_num_workers": 0,
+        "frozen_mlp_activation_checkpointing": True,
+        "seed": scene_hard_failure_contract.SEED,
+        "data_seed": scene_hard_failure_contract.DATA_SEED,
+        "train_sampler_seed": None,
+        "group_by_length": False,
+        "prepare_only": False,
+        "resume_from_checkpoint": None,
+        "resume_mode": "exact",
+        "warm_start_from_checkpoint": None,
+        "warm_start_mode": None,
+        "scene_state_v14_one_pair_smoke": False,
+        "scene_state_v15_one_pair_smoke": False,
+    }
+    mismatches = [
+        name
+        for name, expected in expected_values.items()
+        if getattr(args, name) != expected
+    ]
+    if parse_layer_indices(args.target_layers) != (
+        scene_hard_failure_contract.TARGET_LAYERS
+    ):
+        mismatches.append("target_layers")
+    if parse_delta_heads(args.delta_heads) != scene_hard_failure_contract.DELTA_HEADS:
+        mismatches.append("delta_heads")
+    if args.initial_adapter_output_dir is None:
+        mismatches.append("initial_adapter_output_dir")
+    if smoke:
+        _validate_scene_state_hard_failure_one_pair_smoke_schedule(
+            curriculum_binding
+        )
+    else:
+        _validate_scene_state_hard_failure_schedule(curriculum_binding)
+    if mismatches:
+        raise ValueError(
+            "Scene hard-failure locked training contract differs for: "
             + ", ".join(sorted(set(mismatches)))
         )
 
@@ -20431,6 +21277,7 @@ def parse_args() -> argparse.Namespace:
             _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
             _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
             _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
         ),
         default=None,
     )
@@ -20450,6 +21297,14 @@ def parse_args() -> argparse.Namespace:
             "Run the V15 cached-prefix identity objective on only the first "
             "materialized pair for one real backward and optimizer step. This "
             "output is smoke-only and is not production eligible."
+        ),
+    )
+    parser.add_argument(
+        "--scene-state-hard-failure-one-pair-smoke",
+        action="store_true",
+        help=(
+            "Run the fresh hard-failure cached-prefix identity objective on only "
+            "the first reciprocal pair for one real optimizer update."
         ),
     )
     parser.add_argument(
@@ -20593,6 +21448,14 @@ def parse_args() -> argparse.Namespace:
         raise ValueError(
             "--scene-state-v15-one-pair-smoke requires the V15 cached-prefix "
             "identity objective"
+        )
+    if args.scene_state_hard_failure_one_pair_smoke and (
+        args.scene_state_generation_objective_version
+        != _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+    ):
+        raise ValueError(
+            "--scene-state-hard-failure-one-pair-smoke requires the hard-failure "
+            "cached-prefix identity objective"
         )
     if (args.warm_start_from_checkpoint is None) != (args.warm_start_mode is None):
         raise ValueError(
@@ -20816,26 +21679,40 @@ def parse_args() -> argparse.Namespace:
     if args.scene_state_generation_objective_version in (
         _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSIONS
     ):
-        cached_version = (
-            "V15"
-            if args.scene_state_generation_objective_version
-            == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
-            else "V14"
-        )
-        if (
-            args.warm_start_mode != _SCENE_V14_WARM_START_MODE
-            or args.warm_start_from_checkpoint is None
+        if args.scene_state_generation_objective_version == (
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
         ):
-            raise ValueError(
-                f"The {cached_version} cached-prefix objective requires the "
-                "fresh V14 adapter-only warm start"
+            if (
+                args.warm_start_from_checkpoint is not None
+                or args.warm_start_mode is not None
+                or args.resume_from_checkpoint is not None
+                or args.resume_mode != "exact"
+            ):
+                raise ValueError(
+                    "The hard-failure cached-prefix objective requires a fresh "
+                    "adapter and forbids warm start or resume"
+                )
+        else:
+            cached_version = (
+                "V15"
+                if args.scene_state_generation_objective_version
+                == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
+                else "V14"
             )
-        if args.resume_from_checkpoint is not None or args.resume_mode != "exact":
-            raise ValueError(
-                f"The {cached_version} cached-prefix objective forbids checkpoint "
-                "continuation"
-            )
-        _validate_scene_v14_warm_start_args(args)
+            if (
+                args.warm_start_mode != _SCENE_V14_WARM_START_MODE
+                or args.warm_start_from_checkpoint is None
+            ):
+                raise ValueError(
+                    f"The {cached_version} cached-prefix objective requires the "
+                    "fresh V14 adapter-only warm start"
+                )
+            if args.resume_from_checkpoint is not None or args.resume_mode != "exact":
+                raise ValueError(
+                    f"The {cached_version} cached-prefix objective forbids checkpoint "
+                    "continuation"
+                )
+            _validate_scene_v14_warm_start_args(args)
     if (
         args.scene_state_generated_unlikelihood_max_wrong_tokens < 0
         or (
@@ -20846,6 +21723,7 @@ def parse_args() -> argparse.Namespace:
                 _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
                 _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
                 _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
+                _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
             }
         )
     ):
@@ -21004,10 +21882,13 @@ def parse_args() -> argparse.Namespace:
             if (
                 args.scene_state_v14_one_pair_smoke
                 or args.scene_state_v15_one_pair_smoke
+                or args.scene_state_hard_failure_one_pair_smoke
+                or args.scene_state_generation_objective_version
+                == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
             )
             else _SCENE_STATE_CACHED_PREFIX_IDENTITY_GRADIENT_ACCUMULATION_STEPS
             if args.scene_state_generation_objective_version
-            == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
+            in _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSIONS
             else _SCENE_STATE_CYCLE_RETENTION_GRADIENT_ACCUMULATION_STEPS
             if args.scene_state_generation_objective_version
             in _SCENE_STATE_CYCLE_OBJECTIVE_VERSIONS
@@ -24721,10 +25602,15 @@ def build_training_protocol(
         and requested_generation_objective
         == _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION
     )
+    uses_hard_failure_generation = (
+        is_scene_state_generation
+        and requested_generation_objective
+        == _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+    )
     uses_cached_prefix_identity_generation = (
         is_scene_state_generation
         and requested_generation_objective
-        == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
+        in _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSIONS
     )
     uses_cached_prefix_generation = (
         is_scene_state_generation
@@ -24748,6 +25634,13 @@ def build_training_protocol(
         raise ValueError(
             "V15 one-pair smoke protocol requires the cached-prefix identity objective"
         )
+    uses_hard_failure_one_pair_smoke = bool(
+        getattr(args, "scene_state_hard_failure_one_pair_smoke", False)
+    )
+    if uses_hard_failure_one_pair_smoke and not uses_hard_failure_generation:
+        raise ValueError(
+            "Hard-failure one-pair smoke protocol requires the hard-failure objective"
+        )
     uses_semantic_rollout_generation = (
         uses_semantic_margin_generation
         or uses_dense_semantic_generation
@@ -24764,30 +25657,34 @@ def build_training_protocol(
         in _SCENE_STATE_RECIPROCAL_OBJECTIVE_VERSIONS
     )
     scene_generation_schema_version = (
-        _SCENE_STATE_CACHED_PREFIX_IDENTITY_TRAINING_PROTOCOL_SCHEMA_VERSION
-        if uses_cached_prefix_identity_generation
+        _SCENE_STATE_HARD_FAILURE_TRAINING_PROTOCOL_SCHEMA_VERSION
+        if uses_hard_failure_generation
         else (
-            _SCENE_STATE_CACHED_PREFIX_TRAINING_PROTOCOL_SCHEMA_VERSION
-            if uses_cached_prefix_generation
+            _SCENE_STATE_CACHED_PREFIX_IDENTITY_TRAINING_PROTOCOL_SCHEMA_VERSION
+            if uses_cached_prefix_identity_generation
             else (
-                _SCENE_STATE_DENSE_SEMANTIC_TRAINING_PROTOCOL_SCHEMA_VERSION
-                if uses_dense_semantic_generation
+                _SCENE_STATE_CACHED_PREFIX_TRAINING_PROTOCOL_SCHEMA_VERSION
+                if uses_cached_prefix_generation
                 else (
-                    _SCENE_STATE_SEMANTIC_MARGIN_TRAINING_PROTOCOL_SCHEMA_VERSION
-                    if uses_semantic_margin_generation
+                    _SCENE_STATE_DENSE_SEMANTIC_TRAINING_PROTOCOL_SCHEMA_VERSION
+                    if uses_dense_semantic_generation
                     else (
-                        _SCENE_STATE_SUFFIX_REPAIR_TRAINING_PROTOCOL_SCHEMA_VERSION
-                        if uses_suffix_repair_generation
+                        _SCENE_STATE_SEMANTIC_MARGIN_TRAINING_PROTOCOL_SCHEMA_VERSION
+                        if uses_semantic_margin_generation
                         else (
-                            _SCENE_STATE_CYCLE_RETENTION_TRAINING_PROTOCOL_SCHEMA_VERSION
-                            if uses_cycle_retention_generation
+                            _SCENE_STATE_SUFFIX_REPAIR_TRAINING_PROTOCOL_SCHEMA_VERSION
+                            if uses_suffix_repair_generation
                             else (
-                                _SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION
-                                if uses_symmetric_generation
+                                _SCENE_STATE_CYCLE_RETENTION_TRAINING_PROTOCOL_SCHEMA_VERSION
+                                if uses_cycle_retention_generation
                                 else (
-                                    _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
-                                    if uses_generated_unlikelihood
-                                    else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+                                    _SCENE_STATE_SYMMETRIC_TRAINING_PROTOCOL_SCHEMA_VERSION
+                                    if uses_symmetric_generation
+                                    else (
+                                        _SCENE_STATE_GENERATED_UNLIKELIHOOD_TRAINING_PROTOCOL_SCHEMA_VERSION
+                                        if uses_generated_unlikelihood
+                                        else _SCENE_STATE_GENERATION_TRAINING_PROTOCOL_SCHEMA_VERSION
+                                    )
                                 )
                             )
                         )
@@ -24825,6 +25722,14 @@ def build_training_protocol(
             _DEFAULT_TRAIN_SAMPLER_MODE
             if getattr(args, "train_sampler_seed", None) is None
             else _SEEDED_TRAIN_SAMPLER_MODE
+        )
+    elif train_schedule_binding.get("schema") == (
+        _SCENE_MEMORY_HARD_FAILURE_CURRICULUM_SCHEMA
+    ):
+        train_sampler_mode = (
+            _HARD_FAILURE_ONE_PAIR_SMOKE_SAMPLER_MODE
+            if uses_hard_failure_one_pair_smoke
+            else _HARD_FAILURE_PAIR_TRAIN_SCHEDULE_SAMPLER_MODE
         )
     elif train_schedule_binding.get("schema") == (
         _SCENE_MEMORY_V15_CURRICULUM_SCHEMA
@@ -25004,11 +25909,18 @@ def build_training_protocol(
         if not isinstance(schedule_protocol, dict):
             raise ValueError("V10 cycle-retention protocol requires a fixed pair schedule")
         if uses_cached_prefix_generation:
+            any_one_pair_smoke = (
+                uses_v14_one_pair_smoke
+                or uses_v15_one_pair_smoke
+                or uses_hard_failure_one_pair_smoke
+            )
             schedule_protocol["checkpoint_steps"] = list(
                 (1,)
-                if uses_v14_one_pair_smoke or uses_v15_one_pair_smoke
+                if any_one_pair_smoke
                 else (
-                    _SCENE_STATE_CACHED_PREFIX_IDENTITY_PRESENTATION_CHECKPOINT_STEPS
+                    _SCENE_STATE_HARD_FAILURE_CHECKPOINT_STEPS
+                    if uses_hard_failure_generation
+                    else _SCENE_STATE_CACHED_PREFIX_IDENTITY_PRESENTATION_CHECKPOINT_STEPS
                     if uses_cached_prefix_identity_generation
                     else _SCENE_STATE_CACHED_PREFIX_PRESENTATION_CHECKPOINT_STEPS
                 )
@@ -25017,16 +25929,18 @@ def build_training_protocol(
                 {
                     "optimizer_checkpoint_steps": list(
                         (1,)
-                        if uses_v14_one_pair_smoke or uses_v15_one_pair_smoke
+                        if any_one_pair_smoke
                         else (
-                            _SCENE_STATE_CACHED_PREFIX_IDENTITY_CHECKPOINT_STEPS
+                            _SCENE_STATE_HARD_FAILURE_CHECKPOINT_STEPS
+                            if uses_hard_failure_generation
+                            else _SCENE_STATE_CACHED_PREFIX_IDENTITY_CHECKPOINT_STEPS
                             if uses_cached_prefix_identity_generation
                             else _SCENE_STATE_CACHED_PREFIX_CHECKPOINT_STEPS
                         )
                     ),
                     "microbatch_cycle_size": (
                         1
-                        if uses_v14_one_pair_smoke or uses_v15_one_pair_smoke
+                        if any_one_pair_smoke or uses_hard_failure_generation
                         else (
                             _SCENE_STATE_CACHED_PREFIX_IDENTITY_GRADIENT_ACCUMULATION_STEPS
                             if uses_cached_prefix_identity_generation
@@ -25034,12 +25948,20 @@ def build_training_protocol(
                         )
                     ),
                     "continuation_policy": (
-                        _SCENE_STATE_CACHED_PREFIX_IDENTITY_CONTINUATION_POLICY
+                        _SCENE_STATE_HARD_FAILURE_CONTINUATION_POLICY
+                        if uses_hard_failure_generation
+                        else _SCENE_STATE_CACHED_PREFIX_IDENTITY_CONTINUATION_POLICY
                         if uses_cached_prefix_identity_generation
                         else _SCENE_STATE_CACHED_PREFIX_CONTINUATION_POLICY
                     ),
                 }
             )
+            if uses_hard_failure_generation:
+                schedule_protocol["generation_endpoint_steps"] = list(
+                    (1,)
+                    if uses_hard_failure_one_pair_smoke
+                    else _SCENE_STATE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS
+                )
             schedule_protocol.pop("resume_schedule_cursor_formula", None)
         elif uses_dense_semantic_generation:
             schedule_protocol["checkpoint_steps"] = list(
@@ -25532,7 +26454,9 @@ def build_training_protocol(
                         "scene_generation_selected_full_vocab_ce_optimization_weight": 0.0,
                         "scene_generation_cycle_pair_presentations": (
                             1
-                            if uses_v14_one_pair_smoke or uses_v15_one_pair_smoke
+                            if uses_v14_one_pair_smoke
+                            or uses_v15_one_pair_smoke
+                            or uses_hard_failure_generation
                             else (
                                 _SCENE_STATE_CACHED_PREFIX_IDENTITY_GRADIENT_ACCUMULATION_STEPS
                                 if uses_cached_prefix_identity_generation
@@ -25541,7 +26465,9 @@ def build_training_protocol(
                         ),
                         "scene_generation_gradient_accumulation_pair_cycle": (
                             1
-                            if uses_v14_one_pair_smoke or uses_v15_one_pair_smoke
+                            if uses_v14_one_pair_smoke
+                            or uses_v15_one_pair_smoke
+                            or uses_hard_failure_generation
                             else (
                                 _SCENE_STATE_CACHED_PREFIX_IDENTITY_GRADIENT_ACCUMULATION_STEPS
                                 if uses_cached_prefix_identity_generation
@@ -25552,18 +26478,49 @@ def build_training_protocol(
                             _SCENE_STATE_CYCLE_RETENTION_MODE
                         ),
                         "scene_generation_row_objective_audit_filename": (
-                            _SCENE_STATE_V15_ROW_AUDIT_FILENAME
+                            _SCENE_STATE_HARD_FAILURE_ROW_AUDIT_FILENAME
+                            if uses_hard_failure_generation
+                            else _SCENE_STATE_V15_ROW_AUDIT_FILENAME
                             if uses_cached_prefix_identity_generation
                             else _SCENE_STATE_V14_ROW_AUDIT_FILENAME
                         ),
                         "scene_generation_row_objective_audit_schema": (
-                            _SCENE_STATE_V15_ROW_AUDIT_SCHEMA
+                            _SCENE_STATE_HARD_FAILURE_ROW_AUDIT_SCHEMA
+                            if uses_hard_failure_generation
+                            else _SCENE_STATE_V15_ROW_AUDIT_SCHEMA
                             if uses_cached_prefix_identity_generation
                             else _SCENE_STATE_V14_ROW_AUDIT_SCHEMA
                         ),
                     }
                 )
-                if uses_cached_prefix_identity_generation:
+                if uses_hard_failure_generation:
+                    protocol.update(
+                        {
+                            "scene_generation_hard_failure_run_mode": (
+                                _SCENE_STATE_HARD_FAILURE_ONE_PAIR_SMOKE_RUN_MODE
+                                if uses_hard_failure_one_pair_smoke
+                                else _SCENE_STATE_HARD_FAILURE_PRODUCTION_RUN_MODE
+                            ),
+                            "scene_generation_hard_failure_production_eligible": (
+                                not uses_hard_failure_one_pair_smoke
+                            ),
+                            "scene_generation_hard_failure_pair_identity_mode": (
+                                _SCENE_STATE_CACHED_PREFIX_IDENTITY_MODE
+                            ),
+                            "scene_generation_hard_failure_pair_identity_margin": (
+                                _SCENE_STATE_CACHED_PREFIX_IDENTITY_MARGIN_VALUE
+                            ),
+                            "scene_generation_hard_failure_pair_identity_optimization_weight": 1.0,
+                            "scene_generation_hard_failure_fresh_start": {
+                                "source_checkpoint": None,
+                                "optimizer_state_imported": False,
+                                "scheduler_state_imported": False,
+                                "trainer_state_imported": False,
+                                "rng_state_imported": False,
+                            },
+                        }
+                    )
+                elif uses_cached_prefix_identity_generation:
                     protocol.update(
                         {
                             "scene_generation_v15_run_mode": (
@@ -26675,6 +27632,7 @@ def main() -> None:
     v8_schedule_binding = _scene_state_v8_curriculum_binding(args)
     v9_schedule_binding = _scene_state_v9_curriculum_binding(args)
     v15_schedule_binding = _scene_state_v15_curriculum_binding(args)
+    hard_failure_schedule_binding = _scene_state_hard_failure_curriculum_binding(args)
     if (
         v9_schedule_binding is not None
         and args.scene_state_v14_one_pair_smoke
@@ -26689,12 +27647,22 @@ def main() -> None:
         v15_schedule_binding = _scene_state_v15_one_pair_smoke_binding(
             v15_schedule_binding
         )
+    if (
+        hard_failure_schedule_binding is not None
+        and args.scene_state_hard_failure_one_pair_smoke
+    ):
+        hard_failure_schedule_binding = (
+            _scene_state_hard_failure_one_pair_smoke_binding(
+                hard_failure_schedule_binding
+            )
+        )
     bound_schedules = sum(
         binding is not None
         for binding in (
             v8_schedule_binding,
             v9_schedule_binding,
             v15_schedule_binding,
+            hard_failure_schedule_binding,
         )
     )
     if bound_schedules > 1:
@@ -26707,6 +27675,8 @@ def main() -> None:
         else v9_schedule_binding
         if v9_schedule_binding is not None
         else v15_schedule_binding
+        if v15_schedule_binding is not None
+        else hard_failure_schedule_binding
     )
     if v8_schedule_binding is not None:
         _validate_scene_state_v8_locked_training_args(
@@ -26822,6 +27792,23 @@ def main() -> None:
                 "Scene-memory V15 max-steps must stay within the locked "
                 "optimizer-step curriculum"
             )
+    elif hard_failure_schedule_binding is not None:
+        if args.scene_state_generation_objective_version != (
+            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION
+        ):
+            raise ValueError(
+                "Scene hard-failure fixed pair training requires its locked "
+                "cached-prefix identity objective"
+            )
+        _validate_scene_state_hard_failure_training_args(
+            args,
+            hard_failure_schedule_binding,
+        )
+        if args.train_sampler_seed is not None or args.group_by_length:
+            raise ValueError(
+                "Scene hard-failure fixed curriculum forbids random or length "
+                "sampling"
+            )
     # Adapter and RWKV-core parameters are initialized before Trainer exists.
     set_seed(args.seed)
     if args.warm_start_from_checkpoint is not None:
@@ -26867,9 +27854,9 @@ def main() -> None:
         ),
         require_scene_state_v15_audit=(
             args.scene_state_generation_objective_version
-            == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
-        ),
-    )
+                == _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION
+            ),
+        )
     warm_start_from_checkpoint = resolve_adapter_warm_start_checkpoint(
         args.warm_start_from_checkpoint,
         warm_start_mode=args.warm_start_mode,
@@ -27479,6 +28466,9 @@ def main() -> None:
         scene_state_generation_tokenizer=tokenizer,
         scene_state_v14_one_pair_smoke=args.scene_state_v14_one_pair_smoke,
         scene_state_v15_one_pair_smoke=args.scene_state_v15_one_pair_smoke,
+        scene_state_hard_failure_one_pair_smoke=(
+            args.scene_state_hard_failure_one_pair_smoke
+        ),
         episode_read_write_enabled=args.episode_read_write_enabled,
         context_ablation_mode=args.context_ablation_mode,
         context_ablation_no_state_prob=args.context_ablation_no_state_prob,
