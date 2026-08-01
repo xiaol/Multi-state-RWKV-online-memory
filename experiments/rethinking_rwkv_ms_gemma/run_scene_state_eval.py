@@ -140,6 +140,12 @@ SCENE_FOCUSED_HARD32_CONTRACT = SCENE_HARD_FAILURE_HARD32_CONTRACT
 SCENE_HARD_FAILURE_TRAIN_SELECTION_SCHEMA = (
     "rwkv_ms_scene_hard_failure_train_overfit_selection.v2"
 )
+SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA = (
+    "rwkv_ms_scene_hard_failure_hard32_authorization_consumed.v1"
+)
+SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_FILENAME = (
+    "hard32_authorization_consumed.json"
+)
 SCENE_HARD_FAILURE_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v7_source.v1"
 SCENE_HARD_FAILURE_PAIR_SCHEMA = "rwkv_ms_scene_memory_v7_pairing.v1"
 SCENE_HARD_FAILURE_ROW_SCHEMA = "rwkv_ms_scene_memory_v7_row.v1"
@@ -2416,6 +2422,7 @@ def validate_scene_hard_failure_contract(
         if isinstance(selected_checkpoint, Mapping)
         else None
     )
+    consumption = train_selection_authorization.get("authorization_consumption")
     if (
         not isinstance(selected_checkpoint, Mapping)
         or not isinstance(selected_artifacts, Mapping)
@@ -2424,6 +2431,15 @@ def validate_scene_hard_failure_contract(
         != checkpoint["adapter_sha256"]
         or selected_artifacts.get("delta_mem_config.json")
         != checkpoint["config_sha256"]
+        or not isinstance(consumption, Mapping)
+        or consumption.get("schema")
+        != SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA
+        or not isinstance(consumption.get("path"), str)
+        or not isinstance(consumption.get("file_sha256"), str)
+        or not isinstance(consumption.get("claim_sha256"), str)
+        or not isinstance(
+            train_selection_authorization.get("hard32_output_dir"), str
+        )
     ):
         raise ValueError("Focused Hard32 checkpoint authorization differs")
     return {
@@ -5185,6 +5201,11 @@ def build_candidate_lineage_record_binding(
     lineage_kind = candidate_lineage.get("lineage_kind")
     if lineage_kind == "scene_hard_failure_train_overfit_selection":
         authorization = candidate_lineage.get("authorization")
+        consumption = (
+            authorization.get("authorization_consumption")
+            if isinstance(authorization, Mapping)
+            else None
+        )
         if (
             not isinstance(authorization, Mapping)
             or authorization.get("authorization_kind") != lineage_kind
@@ -5196,6 +5217,13 @@ def build_candidate_lineage_record_binding(
             or not isinstance(authorization.get("receipt"), Mapping)
             or not isinstance(authorization.get("selected_checkpoint"), Mapping)
             or not isinstance(authorization.get("gate"), Mapping)
+            or not isinstance(authorization.get("hard32_output_dir"), str)
+            or not isinstance(consumption, Mapping)
+            or consumption.get("schema")
+            != SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA
+            or not isinstance(consumption.get("path"), str)
+            or not isinstance(consumption.get("file_sha256"), str)
+            or not isinstance(consumption.get("claim_sha256"), str)
         ):
             raise ValueError("Focused train selection authorization lineage differs")
         return {
@@ -5206,6 +5234,8 @@ def build_candidate_lineage_record_binding(
             "selected_checkpoint": dict(authorization["selected_checkpoint"]),
             "evaluation_fingerprint": authorization.get("evaluation_fingerprint"),
             "gate": dict(authorization["gate"]),
+            "hard32_output_dir": authorization["hard32_output_dir"],
+            "authorization_consumption": dict(consumption),
         }
     if lineage_kind == SCENE_V15_CANDIDATE_LOCK_AUTHORIZATION_KIND:
         authorization = candidate_lineage.get("authorization")
@@ -6406,6 +6436,251 @@ def _lexical_absolute(path: Path | str) -> Path:
     return Path(os.path.abspath(os.fspath(Path(path).expanduser())))
 
 
+def scene_hard_failure_consumption_marker_path(
+    selection_receipt_path: Path,
+) -> Path:
+    selection_path = _lexical_absolute(selection_receipt_path)
+    return (
+        selection_path.parent
+        / SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_FILENAME
+    )
+
+
+def claim_scene_hard_failure_hard32_authorization(
+    *,
+    selection_receipt_path: Path,
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Irrevocably consume one focused train-selection Hard32 authorization."""
+
+    marker_path = scene_hard_failure_consumption_marker_path(
+        selection_receipt_path
+    )
+    marker_payload = dict(payload)
+    marker_payload["schema"] = (
+        SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA
+    )
+    marker_payload["claim_sha256"] = fingerprint_payload_sha256(marker_payload)
+    serialized = json.dumps(marker_payload, sort_keys=True, separators=(",", ":"))
+    encoded = serialized.encode("utf-8")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(marker_path, flags, 0o400)
+    except FileExistsError as exc:
+        raise ValueError(
+            "Focused Hard32 authorization was already consumed; exactly-once "
+            f"evaluation forbids replay or another output: {marker_path}"
+        ) from exc
+    try:
+        offset = 0
+        while offset < len(encoded):
+            try:
+                written = os.write(descriptor, encoded[offset:])
+            except InterruptedError:
+                continue
+            if written <= 0:
+                raise OSError(
+                    "Focused Hard32 consumption marker write made no progress"
+                )
+            offset += written
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    directory_flags = os.O_RDONLY
+    directory_flags |= getattr(os, "O_CLOEXEC", 0)
+    directory_flags |= getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
+    directory_descriptor = os.open(marker_path.parent, directory_flags)
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
+    return {
+        "path": str(marker_path),
+        "bytes": len(encoded),
+        "file_sha256": sha256_text(serialized),
+        "claim_sha256": marker_payload["claim_sha256"],
+        "schema": SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA,
+    }
+
+
+def validate_focused_hard32_exactly_once_authorization(
+    *,
+    selection_receipt_path: Path,
+    memory_dir: Path,
+    output_dir: Path,
+    overwrite: bool,
+    dataset_file: Path,
+    selection_file: Path | None,
+    base_model: Path | str,
+    device: str,
+    dtype: str,
+    attn_implementation: str,
+    delta_mem_root: Path | str,
+    conditions: list[str],
+    donor_rule: str,
+    max_new_tokens: int,
+    normal_fusion_profile: str,
+    expected_memory_layer_count: int | None,
+    inline_row_indices: str | None,
+    preflight_only: bool,
+) -> dict[str, Any]:
+    """Validate and exclusively claim focused Hard32 before protected access."""
+
+    if preflight_only:
+        raise ValueError(
+            "Focused Hard32 forbids --preflight-only because protected access must "
+            "consume its exactly-once authorization"
+        )
+    if overwrite:
+        raise ValueError("Focused Hard32 evaluation forbids --overwrite")
+    if inline_row_indices is not None or selection_file is None:
+        raise ValueError(
+            "Focused Hard32 requires only the frozen --row-indices-file; inline row "
+            "indices are forbidden"
+        )
+    if conditions != list(SCENE_FOCUSED_CONDITIONS):
+        raise ValueError(
+            f"{SCENE_HARD_FAILURE_HARD32_CONTRACT} requires conditions in exact order: "
+            + ",".join(SCENE_FOCUSED_CONDITIONS)
+        )
+    if donor_rule != DONOR_RULE_LENGTH_MATCHED:
+        raise ValueError(
+            f"Focused Hard32 requires donor_rule={DONOR_RULE_LENGTH_MATCHED}"
+        )
+    if max_new_tokens != DEFAULT_MAX_NEW_TOKENS:
+        raise ValueError(
+            f"Focused Hard32 requires max_new_tokens={DEFAULT_MAX_NEW_TOKENS}"
+        )
+    if normal_fusion_profile != "native":
+        raise ValueError("Focused Hard32 requires normal_fusion_profile=native")
+    if device != "cuda:0" or dtype != "bfloat16" or attn_implementation != "sdpa":
+        raise ValueError("Focused Hard32 requires CUDA 0, bfloat16, and SDPA")
+
+    requested_delta_mem_root = _lexical_absolute(delta_mem_root)
+    if requested_delta_mem_root != _lexical_absolute(PROJECT_ROOT):
+        raise ValueError("Focused Hard32 requires this Delta-Mem checkout")
+
+    protected_dataset = _lexical_absolute(dataset_file)
+    protected_selection = _lexical_absolute(selection_file)
+    protected_base_model = _lexical_absolute(base_model)
+    if protected_dataset != _lexical_absolute(HISTORICAL_V6_OFFICIAL_VAL):
+        raise ValueError("Focused Hard32 requires the exact frozen official val path")
+    if protected_selection != _lexical_absolute(HISTORICAL_V6_HARD32_SELECTION):
+        raise ValueError("Focused Hard32 requires the exact frozen Hard32 selection path")
+    if protected_base_model != _lexical_absolute(HISTORICAL_V6_BASE_MODEL):
+        raise ValueError("Focused Hard32 requires the exact frozen base-model path")
+    pair_list_sha256 = sha256_text(
+        json.dumps(HARD32_FROZEN_DONOR_PAIRS, separators=(",", ":"))
+    )
+    if pair_list_sha256 != HARD32_FROZEN_DONOR_PAIRS_SHA256:
+        raise RuntimeError("Focused Hard32 frozen donor pair-list hash differs")
+
+    requested_output = _lexical_absolute(output_dir)
+    _reject_symlink_components(
+        requested_output,
+        description="focused Hard32 output directory",
+    )
+    if requested_output.exists():
+        raise ValueError(
+            "Focused Hard32 requires a fresh, nonexistent output directory and "
+            "cannot resume"
+        )
+
+    authorization = validate_focused_train_selection_authorization(
+        selection_receipt_path,
+        memory_dir=memory_dir,
+    )
+    resolved_memory = Path(
+        str(authorization["selected_checkpoint"]["path"])
+    ).expanduser().resolve()
+    checkpoint_binding = dict(authorization["selected_checkpoint"])
+    global_step = checkpoint_binding.get("global_step")
+    if isinstance(global_step, bool) or not isinstance(global_step, int):
+        raise ValueError("Focused Hard32 selected checkpoint step differs")
+    run_root = resolved_memory.parent.parent
+    expected_memory = run_root / "trainer" / f"checkpoint-{global_step}"
+    canonical_receipt = (
+        run_root
+        / "train32_endpoint_screen"
+        / "train32_checkpoint_selection_receipt.json"
+    )
+    canonical_output = run_root / "hard32_once"
+    receipt_binding = dict(authorization["receipt"])
+    requested_receipt = _lexical_absolute(selection_receipt_path)
+    bound_receipt = _lexical_absolute(str(receipt_binding.get("path", "")))
+    if (
+        resolved_memory != expected_memory
+        or requested_receipt != canonical_receipt
+        or bound_receipt != canonical_receipt
+    ):
+        raise ValueError(
+            "Focused Hard32 requires the canonical checkpoint and Train32 "
+            "selection receipt layout"
+        )
+    if requested_output != canonical_output:
+        raise ValueError(
+            "Focused Hard32 permits only the canonical hard32_once output directory"
+        )
+
+    resolved_layer_count = resolved_memory_layer_count(
+        resolved_memory,
+        expected_memory_layer_count,
+    )
+    architecture = memory_architecture_contract(resolved_memory)
+    if (
+        resolved_layer_count != 42
+        or architecture.get("target_layers") != list(range(42))
+        or architecture.get("delta_heads") != ["q", "o"]
+        or architecture.get("rank") != 4
+        or architecture.get("rwkv_ms_semantics_version") != 2
+        or architecture.get("memory_backend") != "rwkv_ms"
+    ):
+        raise ValueError(
+            "Focused Hard32 requires a 42-layer q,o rank-4 RWKV-MS checkpoint"
+        )
+
+    consumption = claim_scene_hard_failure_hard32_authorization(
+        selection_receipt_path=canonical_receipt,
+        payload={
+            "authorization_kind": authorization["authorization_kind"],
+            "authorization_scope": authorization["scope"],
+            "run_root": str(run_root),
+            "selection_receipt": receipt_binding,
+            "selected_checkpoint": checkpoint_binding,
+            "selection_evaluation_fingerprint": authorization[
+                "evaluation_fingerprint"
+            ],
+            "train_gate": dict(authorization["gate"]),
+            "hard32_output_dir": str(requested_output),
+            "protected_dataset_path": str(protected_dataset),
+            "protected_selection_path": str(protected_selection),
+            "base_model_path": str(protected_base_model),
+            "runtime": {
+                "device": device,
+                "dtype": dtype,
+                "attn_implementation": attn_implementation,
+            },
+            "delta_mem_root": str(requested_delta_mem_root),
+            "frozen_donor_pairs_sha256": pair_list_sha256,
+            "conditions": list(conditions),
+            "donor_rule": donor_rule,
+            "max_new_tokens": max_new_tokens,
+            "normal_fusion_profile": normal_fusion_profile,
+            "full170_authorized": False,
+            "test_authorized": False,
+            "other_benchmarks_authorized": False,
+            "retry_authorized": False,
+        },
+    )
+    claimed_authorization = dict(authorization)
+    claimed_authorization["hard32_output_dir"] = str(requested_output)
+    claimed_authorization["authorization_consumption"] = consumption
+    return claimed_authorization
+
+
 def scene_v15_consumption_marker_path(selection_receipt_path: Path) -> Path:
     selection_path = _lexical_absolute(selection_receipt_path)
     return selection_path.parent / SCENE_V15_HARD32_CONSUMPTION_MARKER_FILENAME
@@ -7512,6 +7787,7 @@ def main() -> None:
         and not v8_hard32_requested
         and not v14_hard32_requested
         and not v15_hard32_requested
+        and not focused_hard32_requested
     ):
         args.row_indices_file = args.row_indices_file.expanduser().resolve()
     if args.hard32_receipt is not None:
@@ -7654,11 +7930,29 @@ def main() -> None:
     focused_train_selection_authorization = None
     if focused_hard32_requested:
         focused_train_selection_authorization = (
-            validate_focused_train_selection_authorization(
-                args.focused_train_selection_receipt,
+            validate_focused_hard32_exactly_once_authorization(
+                selection_receipt_path=args.focused_train_selection_receipt,
                 memory_dir=args.memory_dir,
+                output_dir=args.output_dir,
+                overwrite=args.overwrite,
+                dataset_file=args.dataset_file,
+                selection_file=args.row_indices_file,
+                base_model=args.base_model,
+                device=args.device,
+                dtype=args.dtype,
+                attn_implementation=args.attn_implementation,
+                delta_mem_root=args.delta_mem_root,
+                conditions=conditions,
+                donor_rule=args.donor_rule,
+                max_new_tokens=args.max_new_tokens,
+                normal_fusion_profile=args.normal_fusion_profile,
+                expected_memory_layer_count=args.expected_memory_layer_count,
+                inline_row_indices=args.row_indices,
+                preflight_only=args.preflight_only,
             )
         )
+        if args.row_indices_file is not None:
+            args.row_indices_file = args.row_indices_file.expanduser().resolve()
     dataset_file = resolve_scene_dataset_file(
         args.dataset_file,
         evaluation_contract=args.evaluation_contract,
@@ -7980,6 +8274,7 @@ def main() -> None:
         not in {
             HISTORICAL_V6_HARD32_CONTRACT,
             SCENE_V15_HARD32_CONTRACT,
+            SCENE_HARD_FAILURE_HARD32_CONTRACT,
         },
     )
     output_paths = [
@@ -7998,6 +8293,12 @@ def main() -> None:
         if any(path.exists() for path in output_paths):
             raise RuntimeError(
                 "V15 Hard32 is a one-shot evaluation and cannot resume existing outputs"
+            )
+        write_json_atomic(manifest_path, manifest)
+    elif args.evaluation_contract == SCENE_HARD_FAILURE_HARD32_CONTRACT:
+        if any(path.exists() for path in output_paths):
+            raise RuntimeError(
+                "Focused Hard32 is a one-shot evaluation and cannot resume existing outputs"
             )
         write_json_atomic(manifest_path, manifest)
     elif manifest_path.is_file():
@@ -8022,6 +8323,13 @@ def main() -> None:
             if path.exists():
                 raise RuntimeError(
                     "V15 Hard32 condition output appeared after fresh initialization; "
+                    "resume is forbidden"
+                )
+            completed_by_condition[condition] = {}
+        elif args.evaluation_contract == SCENE_HARD_FAILURE_HARD32_CONTRACT:
+            if path.exists():
+                raise RuntimeError(
+                    "Focused Hard32 condition output appeared after fresh initialization; "
                     "resume is forbidden"
                 )
             completed_by_condition[condition] = {}

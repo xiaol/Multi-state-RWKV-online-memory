@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -498,8 +499,8 @@ def test_resolved_condition_protocol_records_matched_donor_rule() -> None:
 
 
 def _focused_memory_dir(tmp_path: Path) -> Path:
-    memory_dir = tmp_path / "checkpoint-64"
-    memory_dir.mkdir()
+    memory_dir = tmp_path / "run" / "trainer" / "checkpoint-64"
+    memory_dir.mkdir(parents=True)
     (memory_dir / "delta_mem_adapter.pt").write_bytes(b"adapter")
     (memory_dir / "delta_mem_config.json").write_text("{}\n", encoding="utf-8")
     return memory_dir
@@ -559,7 +560,16 @@ def test_focused_hard32_contract_requires_selected_checkpoint_and_seven_controls
                     memory_dir / "delta_mem_config.json"
                 ),
             },
-        }
+        },
+        "hard32_output_dir": str((tmp_path / "focused-hard32").absolute()),
+        "authorization_consumption": {
+            "schema": (
+                evaluator.SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA
+            ),
+            "path": str(tmp_path / "hard32_authorization_consumed.json"),
+            "file_sha256": "a" * 64,
+            "claim_sha256": "b" * 64,
+        },
     }
 
     contract = evaluator.validate_scene_hard_failure_contract(
@@ -591,6 +601,437 @@ def test_focused_hard32_contract_requires_selected_checkpoint_and_seven_controls
     assert contract["rows"] == 32
     assert contract["conditions"] == list(evaluator.SCENE_FOCUSED_CONDITIONS)
     assert contract["full170_authorized"] is False
+
+
+def _focused_exactly_once_fixture(
+    tmp_path: Path,
+    memory_dir: Path,
+) -> tuple[Path, dict[str, object]]:
+    run_root = memory_dir.parent.parent
+    receipt_dir = run_root / "train32_endpoint_screen"
+    receipt_dir.mkdir()
+    receipt_path = receipt_dir / "train32_checkpoint_selection_receipt.json"
+    receipt_path.write_text("{}\n", encoding="utf-8")
+    return receipt_path, {
+        "authorization_kind": "scene_hard_failure_train_overfit_selection",
+        "scope": evaluator.SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE,
+        "hard32_authorized": True,
+        "full170_authorized": False,
+        "test_authorized": False,
+        "other_benchmarks_authorized": False,
+        "receipt": {
+            "path": str(receipt_path.resolve()),
+            "file_sha256": evaluator.sha256_file(receipt_path),
+            "receipt_sha256": "1" * 64,
+        },
+        "selected_checkpoint": {
+            "path": str(memory_dir.resolve()),
+            "global_step": 64,
+            "artifacts": {
+                "delta_mem_adapter.pt": evaluator.sha256_file(
+                    memory_dir / "delta_mem_adapter.pt"
+                ),
+                "delta_mem_config.json": evaluator.sha256_file(
+                    memory_dir / "delta_mem_config.json"
+                ),
+            },
+        },
+        "evaluation_fingerprint": "2" * 64,
+        "gate": {
+            "path": str(receipt_dir / "focused_gate.json"),
+            "file_sha256": "3" * 64,
+            "canonical_sha256": "4" * 64,
+        },
+    }
+
+
+def _focused_exactly_once_kwargs(
+    *,
+    receipt_path: Path,
+    memory_dir: Path,
+    output_dir: Path,
+    dataset_file: Path,
+    selection_file: Path,
+) -> dict[str, object]:
+    return {
+        "selection_receipt_path": receipt_path,
+        "memory_dir": memory_dir,
+        "output_dir": output_dir,
+        "overwrite": False,
+        "dataset_file": dataset_file,
+        "selection_file": selection_file,
+        "base_model": evaluator.HISTORICAL_V6_BASE_MODEL,
+        "device": "cuda:0",
+        "dtype": "bfloat16",
+        "attn_implementation": "sdpa",
+        "delta_mem_root": evaluator.PROJECT_ROOT,
+        "conditions": list(evaluator.SCENE_FOCUSED_CONDITIONS),
+        "donor_rule": evaluator.DONOR_RULE_LENGTH_MATCHED,
+        "max_new_tokens": evaluator.DEFAULT_MAX_NEW_TOKENS,
+        "normal_fusion_profile": "native",
+        "expected_memory_layer_count": 42,
+        "inline_row_indices": None,
+        "preflight_only": False,
+    }
+
+
+def test_focused_hard32_claim_is_atomic_bound_and_never_opens_protected_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_dir = _focused_memory_dir(tmp_path)
+    receipt_path, selection_authorization = _focused_exactly_once_fixture(
+        tmp_path,
+        memory_dir,
+    )
+    dataset_file = evaluator.HISTORICAL_V6_OFFICIAL_VAL
+    selection_file = evaluator.HISTORICAL_V6_HARD32_SELECTION
+    output_dir = memory_dir.parent.parent / "hard32_once"
+    kwargs = _focused_exactly_once_kwargs(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        output_dir=output_dir,
+        dataset_file=dataset_file,
+        selection_file=selection_file,
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "validate_focused_train_selection_authorization",
+        lambda *args, **kwargs: selection_authorization,
+    )
+    monkeypatch.setattr(evaluator, "resolved_memory_layer_count", lambda *args: 42)
+    monkeypatch.setattr(
+        evaluator,
+        "memory_architecture_contract",
+        lambda *args: {
+            "target_layers": list(range(42)),
+            "delta_heads": ["q", "o"],
+            "rank": 4,
+            "rwkv_ms_semantics_version": 2,
+            "memory_backend": "rwkv_ms",
+        },
+    )
+
+    protected = {
+        str(dataset_file.absolute()),
+        str(selection_file.absolute()),
+        str(evaluator.HISTORICAL_V6_BASE_MODEL.absolute()),
+    }
+    protected_accesses: list[tuple[str, str]] = []
+    real_stat = os.stat
+    real_lstat = os.lstat
+    real_open = Path.open
+
+    def guarded_stat(path, *args, **kwargs):
+        if str(Path(path).absolute()) in protected:
+            protected_accesses.append(("stat", str(path)))
+            raise AssertionError("protected Hard32 stat before exclusive claim")
+        return real_stat(path, *args, **kwargs)
+
+    def guarded_lstat(path, *args, **kwargs):
+        if str(Path(path).absolute()) in protected:
+            protected_accesses.append(("lstat", str(path)))
+            raise AssertionError("protected Hard32 lstat before exclusive claim")
+        return real_lstat(path, *args, **kwargs)
+
+    def guarded_open(path: Path, *args, **kwargs):
+        if str(path.absolute()) in protected:
+            protected_accesses.append(("open", str(path)))
+            raise AssertionError("protected Hard32 open before exclusive claim")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", guarded_stat)
+    monkeypatch.setattr(os, "lstat", guarded_lstat)
+    monkeypatch.setattr(Path, "open", guarded_open)
+
+    authorization = evaluator.validate_focused_hard32_exactly_once_authorization(
+        **kwargs
+    )
+    marker_path = evaluator.scene_hard_failure_consumption_marker_path(receipt_path)
+    marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    unsigned = dict(marker)
+    claim_sha256 = unsigned.pop("claim_sha256")
+
+    assert protected_accesses == []
+    assert marker["schema"] == (
+        evaluator.SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA
+    )
+    assert claim_sha256 == evaluator.fingerprint_payload_sha256(unsigned)
+    assert marker["selection_receipt"] == selection_authorization["receipt"]
+    assert marker["selected_checkpoint"] == selection_authorization[
+        "selected_checkpoint"
+    ]
+    assert marker["hard32_output_dir"] == str(output_dir.absolute())
+    assert marker["base_model_path"] == str(
+        evaluator.HISTORICAL_V6_BASE_MODEL.absolute()
+    )
+    assert marker["runtime"] == {
+        "device": "cuda:0",
+        "dtype": "bfloat16",
+        "attn_implementation": "sdpa",
+    }
+    assert marker["delta_mem_root"] == str(evaluator.PROJECT_ROOT.absolute())
+    assert marker["frozen_donor_pairs_sha256"] == (
+        evaluator.HARD32_FROZEN_DONOR_PAIRS_SHA256
+    )
+    assert marker["retry_authorized"] is False
+    assert marker_path.stat().st_mode & 0o777 == 0o400
+    assert authorization["authorization_consumption"]["path"] == str(marker_path)
+    assert authorization["hard32_output_dir"] == str(output_dir.absolute())
+
+    with pytest.raises(ValueError, match="already consumed"):
+        evaluator.validate_focused_hard32_exactly_once_authorization(
+            **kwargs
+        )
+    assert json.loads(marker_path.read_text(encoding="utf-8")) == marker
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        ("dataset_file", "official val path"),
+        ("selection_file", "Hard32 selection path"),
+        ("base_model", "base-model path"),
+        ("device", "CUDA 0, bfloat16, and SDPA"),
+        ("dtype", "CUDA 0, bfloat16, and SDPA"),
+        ("attn_implementation", "CUDA 0, bfloat16, and SDPA"),
+        ("delta_mem_root", "this Delta-Mem checkout"),
+    ),
+)
+def test_focused_hard32_rejects_noncanonical_paths_and_runtime_before_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+    message: str,
+) -> None:
+    memory_dir = _focused_memory_dir(tmp_path)
+    receipt_path, _ = _focused_exactly_once_fixture(tmp_path, memory_dir)
+    kwargs = _focused_exactly_once_kwargs(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        output_dir=memory_dir.parent.parent / "hard32_once",
+        dataset_file=evaluator.HISTORICAL_V6_OFFICIAL_VAL,
+        selection_file=evaluator.HISTORICAL_V6_HARD32_SELECTION,
+    )
+    wrong_values = {
+        "dataset_file": tmp_path / "other" / "val.jsonl",
+        "selection_file": tmp_path / "other" / "holdout_source_indices.json",
+        "base_model": tmp_path / "other" / "base-model",
+        "device": "cuda:1",
+        "dtype": "float16",
+        "attn_implementation": "flash_attention_2",
+        "delta_mem_root": tmp_path / "other" / "delta-mem",
+    }
+    kwargs[mutation] = wrong_values[mutation]
+    monkeypatch.setattr(
+        evaluator,
+        "validate_focused_train_selection_authorization",
+        lambda *args, **kwargs: pytest.fail(
+            "noncanonical binding must fail before receipt validation"
+        ),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        evaluator.validate_focused_hard32_exactly_once_authorization(**kwargs)
+
+    assert not evaluator.scene_hard_failure_consumption_marker_path(
+        receipt_path
+    ).exists()
+
+
+def test_focused_hard32_recomputes_donor_pair_hash_before_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_dir = _focused_memory_dir(tmp_path)
+    receipt_path, _ = _focused_exactly_once_fixture(tmp_path, memory_dir)
+    kwargs = _focused_exactly_once_kwargs(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        output_dir=memory_dir.parent.parent / "hard32_once",
+        dataset_file=evaluator.HISTORICAL_V6_OFFICIAL_VAL,
+        selection_file=evaluator.HISTORICAL_V6_HARD32_SELECTION,
+    )
+    monkeypatch.setattr(evaluator, "HARD32_FROZEN_DONOR_PAIRS_SHA256", "0" * 64)
+    monkeypatch.setattr(
+        evaluator,
+        "validate_focused_train_selection_authorization",
+        lambda *args, **kwargs: pytest.fail(
+            "donor hash must fail before receipt validation"
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="donor pair-list hash differs"):
+        evaluator.validate_focused_hard32_exactly_once_authorization(**kwargs)
+
+    assert not evaluator.scene_hard_failure_consumption_marker_path(
+        receipt_path
+    ).exists()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        ("copied_receipt", "canonical checkpoint and Train32 selection receipt"),
+        ("noncanonical_checkpoint", "canonical checkpoint and Train32 selection receipt"),
+        ("alternate_output", "canonical hard32_once output directory"),
+    ),
+)
+def test_focused_hard32_rejects_copied_receipt_or_alternate_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+    message: str,
+) -> None:
+    memory_dir = _focused_memory_dir(tmp_path)
+    receipt_path, selection_authorization = _focused_exactly_once_fixture(
+        tmp_path,
+        memory_dir,
+    )
+    kwargs = _focused_exactly_once_kwargs(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        output_dir=memory_dir.parent.parent / "hard32_once",
+        dataset_file=evaluator.HISTORICAL_V6_OFFICIAL_VAL,
+        selection_file=evaluator.HISTORICAL_V6_HARD32_SELECTION,
+    )
+    if mutation == "copied_receipt":
+        copied_receipt = tmp_path / "copied" / receipt_path.name
+        copied_receipt.parent.mkdir()
+        copied_receipt.write_bytes(receipt_path.read_bytes())
+        kwargs["selection_receipt_path"] = copied_receipt
+    elif mutation == "noncanonical_checkpoint":
+        selection_authorization["selected_checkpoint"]["path"] = str(
+            memory_dir.parent.parent / "other" / "checkpoint-64"
+        )
+    else:
+        kwargs["output_dir"] = memory_dir.parent.parent / "hard32_second_run"
+    monkeypatch.setattr(
+        evaluator,
+        "validate_focused_train_selection_authorization",
+        lambda *args, **kwargs: selection_authorization,
+    )
+
+    with pytest.raises(ValueError, match=message):
+        evaluator.validate_focused_hard32_exactly_once_authorization(**kwargs)
+
+    assert not evaluator.scene_hard_failure_consumption_marker_path(
+        receipt_path
+    ).exists()
+
+
+@pytest.mark.parametrize(
+    ("overwrite", "existing_output", "message"),
+    (
+        (True, False, "overwrite"),
+        (False, True, "cannot resume"),
+    ),
+)
+def test_focused_hard32_rejects_overwrite_or_resume_before_receipt_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    overwrite: bool,
+    existing_output: bool,
+    message: str,
+) -> None:
+    memory_dir = _focused_memory_dir(tmp_path)
+    receipt_path, _ = _focused_exactly_once_fixture(tmp_path, memory_dir)
+    output_dir = memory_dir.parent.parent / "hard32_once"
+    if existing_output:
+        output_dir.mkdir()
+    kwargs = _focused_exactly_once_kwargs(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        output_dir=output_dir,
+        dataset_file=evaluator.HISTORICAL_V6_OFFICIAL_VAL,
+        selection_file=evaluator.HISTORICAL_V6_HARD32_SELECTION,
+    )
+    kwargs["overwrite"] = overwrite
+    monkeypatch.setattr(
+        evaluator,
+        "validate_focused_train_selection_authorization",
+        lambda *args, **kwargs: pytest.fail(
+            "receipt validation must not run for an invalid one-shot output"
+        ),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        evaluator.validate_focused_hard32_exactly_once_authorization(**kwargs)
+
+    assert not evaluator.scene_hard_failure_consumption_marker_path(
+        receipt_path
+    ).exists()
+
+
+def test_focused_hard32_main_claims_before_protected_dataset_resolution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_dir = tmp_path / "checkpoint-64"
+    memory_dir.mkdir()
+    selection_receipt = tmp_path / "train-selection" / "selection_receipt.json"
+    protected_selection = tmp_path / "protected" / "selection.json"
+    protected_dataset = tmp_path / "protected" / "val.jsonl"
+    events: list[str] = []
+    args = SimpleNamespace(
+        preflight_only=False,
+        evaluation_contract=evaluator.SCENE_HARD_FAILURE_HARD32_CONTRACT,
+        conditions=",".join(evaluator.SCENE_FOCUSED_CONDITIONS),
+        max_new_tokens=evaluator.DEFAULT_MAX_NEW_TOKENS,
+        memory_dir=memory_dir,
+        output_dir=tmp_path / "focused-hard32",
+        row_indices=None,
+        row_indices_file=protected_selection,
+        hard32_receipt=None,
+        scene_v7_train32_receipt=None,
+        scene_v8_train32_receipt=None,
+        scene_v14_value14_receipt=None,
+        scene_v14_candidate_lock=None,
+        scene_v14_launch_receipt=None,
+        scene_v14_completion_receipt=None,
+        scene_v15_selection_receipt=None,
+        scene_v15_candidate_lock=None,
+        scene_v15_launch_receipt=None,
+        scene_v15_completion_receipt=None,
+        focused_source_manifest=None,
+        focused_train_selection_receipt=selection_receipt,
+        overwrite=False,
+        dataset_file=protected_dataset,
+        base_model=str(evaluator.HISTORICAL_V6_BASE_MODEL),
+        device="cuda:0",
+        dtype="bfloat16",
+        attn_implementation="sdpa",
+        delta_mem_root=str(evaluator.PROJECT_ROOT),
+        donor_rule=evaluator.DONOR_RULE_LENGTH_MATCHED,
+        normal_fusion_profile="native",
+        expected_memory_layer_count=42,
+    )
+
+    monkeypatch.setattr(evaluator, "parse_args", lambda: args)
+
+    def claim_authorization(**kwargs):
+        events.append("authorization_claimed")
+        return {"authorization_consumption": {"schema": "claimed"}}
+
+    def reject_dataset_resolution(*args, **kwargs):
+        assert events == ["authorization_claimed"]
+        raise RuntimeError("protected dataset resolution reached after claim")
+
+    monkeypatch.setattr(
+        evaluator,
+        "validate_focused_hard32_exactly_once_authorization",
+        claim_authorization,
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "resolve_scene_dataset_file",
+        reject_dataset_resolution,
+    )
+
+    with pytest.raises(RuntimeError, match="reached after claim"):
+        evaluator.main()
+
+    assert events == ["authorization_claimed"]
 
 
 def test_scene_v6_matched_donor_contract_requires_all_170_hashed_val_rows() -> None:
