@@ -30,21 +30,41 @@ def _source_binding(source_manifest: Path | None = None) -> dict[str, Any]:
     }
 
 
-def _checkpoint(run_root: Path, step: int) -> dict[str, Any]:
+def _checkpoint(
+    run_root: Path,
+    step: int,
+    *,
+    missing: dict[str, list[int]] | None = None,
+) -> dict[str, Any]:
+    missing = {} if missing is None else missing
+    coverage = {
+        suffix: 42 - len(missing.get(suffix, []))
+        for suffix in selector.run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES
+    }
+    changed_count = sum(coverage.values())
+    full_coverage = not missing and changed_count == 1134
+    adapter_binding = {
+        "path": str(
+            run_root / "trainer" / f"checkpoint-{step}" / "delta_mem_adapter.pt"
+        ),
+        "bytes": 7,
+        "sha256": f"{step:064x}",
+    }
+    coverage_evidence = {
+        "changed_trainable_tensor_count": changed_count,
+        "expected_trainable_tensor_count": 1134,
+        "trainable_tensor_family_count": 27,
+        "target_layer_count": 42,
+        "trainable_family_layer_coverage": coverage,
+        "missing_trainable_family_layers": missing,
+        "full_trainable_family_coverage": full_coverage,
+        "full_trainable_family_coverage_required": step == 64,
+    }
     return {
         "path": str(run_root / "trainer" / f"checkpoint-{step}"),
         "global_step": step,
         "artifacts": {
-            "delta_mem_adapter.pt": {
-                "path": str(
-                    run_root
-                    / "trainer"
-                    / f"checkpoint-{step}"
-                    / "delta_mem_adapter.pt"
-                ),
-                "bytes": 7,
-                "sha256": f"{step:064x}",
-            },
+            "delta_mem_adapter.pt": adapter_binding,
             "delta_mem_config.json": {
                 "path": str(
                     run_root
@@ -56,14 +76,14 @@ def _checkpoint(run_root: Path, step: int) -> dict[str, Any]:
                 "sha256": f"{step + 1:064x}",
             },
         },
-        "trainable_tensor_family_count": 27,
-        "target_layer_count": 42,
-        "trainable_family_layer_coverage": {
-            suffix: 42
-            for suffix in selector.run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES
-        },
-        "full_trainable_family_coverage": True,
+        **coverage_evidence,
         "checkpoint_audit_receipt_sha256": "9" * 64,
+        "current_adapter_validation": {
+            "checkpoint_adapter": adapter_binding,
+            "recomputed_adapter_change_canonical_sha256": f"{step + 3:064x}",
+            **coverage_evidence,
+            "frozen_adapter_tensors_unchanged": True,
+        },
     }
 
 
@@ -101,6 +121,7 @@ def _evidence(
     passed_gate_count: int = 0,
     state_f1: float = 0.0,
     normal_f1: float = 0.0,
+    checkpoint: dict[str, Any] | None = None,
 ) -> selector.EndpointEvidence:
     report = _gate_report(
         passed=passed,
@@ -110,7 +131,7 @@ def _evidence(
     )
     return selector.EndpointEvidence(
         step=step,
-        checkpoint=_checkpoint(run_root, step),
+        checkpoint=_checkpoint(run_root, step) if checkpoint is None else checkpoint,
         evaluation={"fingerprint": f"{step + 2:064x}"},
         gate={
             "focused_gate_path": str(
@@ -184,6 +205,12 @@ def test_selector_stops_at_first_passing_endpoint(
     assert receipt["status"] == "pass"
     assert receipt["evaluated_endpoint_steps"] == [16, 32]
     assert receipt["selected_checkpoint"]["global_step"] == 32
+    assert receipt["selected_endpoint_eligibility"] == {
+        "benchmark_gate_passed": True,
+        "full_coverage": True,
+        "selection_eligible": True,
+    }
+    assert receipt["evaluated_endpoints"][-1]["selection_eligible"] is True
     assert receipt["authorization"] == {
         "hard32_authorized": True,
         "selected_checkpoint_only": True,
@@ -194,6 +221,85 @@ def test_selector_stops_at_first_passing_endpoint(
     unsigned = dict(receipt)
     recorded = unsigned.pop("receipt_sha256")
     assert recorded == selector.canonical_sha256(unsigned)
+
+
+def test_selector_continues_gate_passes_until_first_full_coverage_endpoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_root = tmp_path / "run"
+    run_root.mkdir()
+    calls: list[int] = []
+    partial = {
+        16: {"hrm_rwkv7_core.x_a": [1], "hrm_rwkv7_core.x_w": list(range(14))},
+        32: {"hrm_rwkv7_core.x_w": [1]},
+    }
+    monkeypatch.setattr(selector, "validate_source_binding", _source_binding)
+
+    def validate_checkpoint(
+        root: Path, *, step: int, source: dict[str, Any]
+    ) -> dict[str, Any]:
+        calls.append(step)
+        return _checkpoint(root, step, missing=partial.get(step))
+
+    def load_endpoint(
+        spec: selector.EndpointSpec,
+        *,
+        checkpoint: dict[str, Any],
+        source: dict[str, Any],
+    ) -> selector.EndpointEvidence:
+        return _evidence(
+            run_root,
+            step=spec.step,
+            passed=True,
+            passed_gate_count=5,
+            state_f1=1.0,
+            normal_f1=1.0,
+            checkpoint=checkpoint,
+        )
+
+    monkeypatch.setattr(selector, "validate_checkpoint", validate_checkpoint)
+    monkeypatch.setattr(selector, "load_endpoint_evidence", load_endpoint)
+
+    receipt = selector.select_checkpoint(
+        run_root=run_root,
+        endpoint_specs=_endpoint_specs(run_root),
+    )
+
+    assert calls == [16, 32, 48]
+    assert receipt["status"] == "pass"
+    assert receipt["evaluated_endpoint_steps"] == [16, 32, 48]
+    assert receipt["selected_checkpoint"]["global_step"] == 48
+    assert [
+        {
+            "benchmark_gate_passed": item["benchmark_gate_passed"],
+            "full_coverage": item["full_coverage"],
+            "selection_eligible": item["selection_eligible"],
+        }
+        for item in receipt["evaluated_endpoints"]
+    ] == [
+        {
+            "benchmark_gate_passed": True,
+            "full_coverage": False,
+            "selection_eligible": False,
+        },
+        {
+            "benchmark_gate_passed": True,
+            "full_coverage": False,
+            "selection_eligible": False,
+        },
+        {
+            "benchmark_gate_passed": True,
+            "full_coverage": True,
+            "selection_eligible": True,
+        },
+    ]
+    assert receipt["evaluated_endpoints"][0]["checkpoint"][
+        "missing_trainable_family_layers"
+    ] == partial[16]
+    assert receipt["evaluated_endpoints"][1]["checkpoint"][
+        "changed_trainable_tensor_count"
+    ] == 1133
 
 
 def test_selector_uses_deterministic_unauthorized_fallback(
@@ -236,10 +342,63 @@ def test_selector_uses_deterministic_unauthorized_fallback(
     assert receipt["evaluated_endpoint_steps"] == [16, 32, 48, 64]
     assert receipt["selected_checkpoint"]["global_step"] == 48
     assert receipt["selection_reason"] == (
-        "diagnostic_fallback_no_train32_endpoint_passed"
+        "diagnostic_fallback_no_selection_eligible_train32_endpoint"
     )
     assert receipt["authorization"]["hard32_authorized"] is False
     assert receipt["hard32_accessed"] is False
+
+
+def test_selector_gate_only_pass_remains_unauthorized_after_four_endpoints(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_root = tmp_path / "run"
+    run_root.mkdir()
+    missing = {"hrm_rwkv7_core.x_w": [1]}
+    monkeypatch.setattr(selector, "validate_source_binding", _source_binding)
+    monkeypatch.setattr(
+        selector,
+        "validate_checkpoint",
+        lambda root, *, step, source: _checkpoint(
+            root,
+            step,
+            missing=missing if step == 16 else None,
+        ),
+    )
+
+    def load_endpoint(
+        spec: selector.EndpointSpec,
+        *,
+        checkpoint: dict[str, Any],
+        source: dict[str, Any],
+    ) -> selector.EndpointEvidence:
+        gate_passed = spec.step == 16
+        return _evidence(
+            run_root,
+            step=spec.step,
+            passed=gate_passed,
+            passed_gate_count=5 if gate_passed else 0,
+            state_f1=1.0 if gate_passed else 0.0,
+            normal_f1=1.0 if gate_passed else 0.0,
+            checkpoint=checkpoint,
+        )
+
+    monkeypatch.setattr(selector, "load_endpoint_evidence", load_endpoint)
+
+    receipt = selector.select_checkpoint(
+        run_root=run_root,
+        endpoint_specs=_endpoint_specs(run_root),
+    )
+
+    assert receipt["status"] == "fail"
+    assert receipt["evaluated_endpoint_steps"] == [16, 32, 48, 64]
+    assert receipt["selected_checkpoint"]["global_step"] == 16
+    assert receipt["selected_endpoint_eligibility"] == {
+        "benchmark_gate_passed": True,
+        "full_coverage": False,
+        "selection_eligible": False,
+    }
+    assert receipt["authorization"]["hard32_authorized"] is False
 
 
 @pytest.mark.parametrize(
@@ -301,16 +460,23 @@ def test_output_path_rejects_symlink(tmp_path: Path) -> None:
         selector.require_output_path(linked, description="selection receipt")
 
 
-def _full_coverage_audit(step: int = 16) -> dict[str, Any]:
+def _coverage_audit(
+    step: int = 16,
+    *,
+    missing: dict[str, list[int]] | None = None,
+) -> dict[str, Any]:
+    missing = {} if missing is None else missing
     coverage = {
-        suffix: 42
+        suffix: 42 - len(missing.get(suffix, []))
         for suffix in selector.run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES
     }
+    changed_count = sum(coverage.values())
+    full_coverage = not missing and changed_count == 1134
     return {
         "trainable_tensor_family_count": 27,
         "target_layer_count": 42,
-        "trainable_family_layer_coverage": coverage,
-        "full_trainable_family_coverage": True,
+        "trainable_family_layer_coverage": dict(coverage),
+        "full_trainable_family_coverage": full_coverage,
         "optimizer_contains_only_declared_trainable_adapter_state_count": True,
         "base_model_parameter_values_not_materialized_in_adapter_checkpoint": True,
         "nontrainable_adapter_tensors_unchanged": True,
@@ -320,17 +486,22 @@ def _full_coverage_audit(step: int = 16) -> dict[str, Any]:
             "all_optimizer_parameter_states_at_checkpoint_step": True,
         },
         "adapter_change": {
-            "changed_trainable_tensor_count": 1134,
+            "changed_trainable_tensor_count": changed_count,
             "changed_nontrainable_tensor_count": 0,
             "trainable_tensor_family_count": 27,
             "target_layer_count": 42,
             "expected_trainable_tensor_count": 1134,
-            "trainable_family_layer_coverage": coverage,
-            "missing_trainable_family_layers": {},
-            "full_trainable_family_coverage": True,
+            "trainable_family_layer_coverage": dict(coverage),
+            "missing_trainable_family_layers": missing,
+            "full_trainable_family_coverage": full_coverage,
             "full_trainable_family_coverage_required": step == 64,
+            "frozen_adapter_tensors_unchanged": True,
         },
     }
+
+
+def _full_coverage_audit(step: int = 16) -> dict[str, Any]:
+    return _coverage_audit(step)
 
 
 def test_selector_requires_exact_27_family_by_42_layer_audit() -> None:
@@ -343,6 +514,20 @@ def test_selector_requires_exact_27_family_by_42_layer_audit() -> None:
         for suffix in selector.run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES
     }
     assert len(coverage) == 27
+
+
+def test_selector_accepts_and_binds_exact_partial_endpoint_coverage() -> None:
+    missing = {"hrm_rwkv7_core.x_w": [1]}
+    audit = _coverage_audit(32, missing=missing)
+
+    evidence = selector.validate_trainable_family_coverage(audit, step=32)
+
+    assert evidence["changed_trainable_tensor_count"] == 1133
+    assert evidence["missing_trainable_family_layers"] == missing
+    assert evidence["trainable_family_layer_coverage"][
+        "hrm_rwkv7_core.x_w"
+    ] == 41
+    assert evidence["full_trainable_family_coverage"] is False
 
 
 @pytest.mark.parametrize(
@@ -362,13 +547,13 @@ def test_selector_requires_exact_27_family_by_42_layer_audit() -> None:
             lambda audit: audit["adapter_change"].update(
                 changed_trainable_tensor_count=1133
             ),
-            "adapter-change evidence",
+            "adapter-change",
         ),
         (
             lambda audit: audit["adapter_change"].update(
                 missing_trainable_family_layers={"delta_q_proj": [41]}
             ),
-            "adapter-change evidence",
+            "adapter-change",
         ),
         (
             lambda audit: audit["optimizer_update"].update(
@@ -386,7 +571,7 @@ def test_selector_rejects_incomplete_27_by_42_audit(
     mutation(audit)
 
     with pytest.raises(selector.SelectionError, match=message):
-        selector.validate_full_trainable_family_coverage(audit, step=16)
+        selector.validate_trainable_family_coverage(audit, step=16)
 
 
 def _write_checkpoint_fixture(
@@ -406,7 +591,10 @@ def _write_checkpoint_fixture(
             path.write_bytes(b"artifact")
     audit = _full_coverage_audit(step)
     if not full_coverage:
-        audit["full_trainable_family_coverage"] = False
+        audit = _coverage_audit(
+            step,
+            missing={"hrm_rwkv7_core.x_w": [1]},
+        )
     audit.update(
         {
             "schema": selector.run_audit.AUDIT_SCHEMA,
@@ -443,11 +631,22 @@ def test_validate_checkpoint_binds_v2_audit_and_full_coverage(
         selector.run_audit, "_validate_trainer_state", lambda *a, **k: None
     )
     monkeypatch.setattr(selector.run_audit, "_validate_row_audit", lambda *a, **k: None)
+    audit = json.loads(
+        (checkpoint / selector.run_audit.AUDIT_FILENAME).read_text(encoding="utf-8")
+    )
     current_adapter_validation = {
         "checkpoint_adapter": selector.artifact_binding(
             checkpoint / "delta_mem_adapter.pt",
             description="checkpoint adapter",
-        )
+        ),
+        **selector.validate_recomputed_adapter_change(
+            audit["adapter_change"],
+            step=16,
+        ),
+        "recomputed_adapter_change_canonical_sha256": selector.canonical_sha256(
+            audit["adapter_change"]
+        ),
+        "frozen_adapter_tensors_unchanged": True,
     }
     monkeypatch.setattr(
         selector,
@@ -475,13 +674,13 @@ def test_validate_checkpoint_binds_v2_audit_and_full_coverage(
     )
 
 
-def test_validate_checkpoint_rejects_v2_audit_without_full_coverage(
+def test_validate_checkpoint_accepts_and_binds_partial_nonfinal_coverage(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     run_root = tmp_path / "run"
     source_lock_sha256 = "2" * 64
-    _write_checkpoint_fixture(
+    checkpoint = _write_checkpoint_fixture(
         run_root,
         step=16,
         source_lock_sha256=source_lock_sha256,
@@ -492,13 +691,51 @@ def test_validate_checkpoint_rejects_v2_audit_without_full_coverage(
         selector.run_audit, "_validate_trainer_state", lambda *a, **k: None
     )
     monkeypatch.setattr(selector.run_audit, "_validate_row_audit", lambda *a, **k: None)
-
-    with pytest.raises(selector.SelectionError, match="top-level audit"):
-        selector.validate_checkpoint(
-            run_root,
+    audit = json.loads(
+        (checkpoint / selector.run_audit.AUDIT_FILENAME).read_text(encoding="utf-8")
+    )
+    current_adapter_validation = {
+        "checkpoint_adapter": selector.artifact_binding(
+            checkpoint / "delta_mem_adapter.pt",
+            description="checkpoint adapter",
+        ),
+        **selector.validate_recomputed_adapter_change(
+            audit["adapter_change"],
             step=16,
-            source={"source_lock_sha256": source_lock_sha256},
-        )
+        ),
+        "recomputed_adapter_change_canonical_sha256": selector.canonical_sha256(
+            audit["adapter_change"]
+        ),
+        "frozen_adapter_tensors_unchanged": True,
+    }
+    monkeypatch.setattr(
+        selector,
+        "validate_current_adapter_change",
+        lambda *a, **k: current_adapter_validation,
+    )
+
+    validated = selector.validate_checkpoint(
+        run_root,
+        step=16,
+        source={"source_lock_sha256": source_lock_sha256},
+    )
+
+    assert validated["changed_trainable_tensor_count"] == 1133
+    assert validated["full_trainable_family_coverage"] is False
+    assert validated["missing_trainable_family_layers"] == {
+        "hrm_rwkv7_core.x_w": [1]
+    }
+    assert validated["current_adapter_validation"] == current_adapter_validation
+
+
+def test_selector_rejects_partial_final_checkpoint_coverage() -> None:
+    audit = _coverage_audit(
+        64,
+        missing={"hrm_rwkv7_core.x_w": [1]},
+    )
+
+    with pytest.raises(selector.SelectionError, match="requires complete"):
+        selector.validate_trainable_family_coverage(audit, step=64)
 
 
 def _write_adapter_change_fixture(tmp_path: Path) -> tuple[Path, Path]:
@@ -581,6 +818,35 @@ def test_current_adapter_change_recomputes_and_binds_stable_bytes(
         selector.canonical_sha256(audited_change)
     )
     assert evidence["full_trainable_family_coverage"] is True
+    assert evidence["frozen_adapter_tensors_unchanged"] is True
+
+
+def test_current_adapter_change_binds_exact_partial_coverage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_root, checkpoint = _write_adapter_change_fixture(tmp_path)
+    audited_change = _coverage_audit(
+        16,
+        missing={"hrm_rwkv7_core.x_w": [1]},
+    )["adapter_change"]
+    _mock_adapter_recomputation(
+        monkeypatch,
+        change_for_checkpoint=lambda content: dict(audited_change),
+    )
+
+    evidence = selector.validate_current_adapter_change(
+        run_root,
+        checkpoint,
+        step=16,
+        audited_change=audited_change,
+    )
+
+    assert evidence["changed_trainable_tensor_count"] == 1133
+    assert evidence["full_trainable_family_coverage"] is False
+    assert evidence["missing_trainable_family_layers"] == {
+        "hrm_rwkv7_core.x_w": [1]
+    }
     assert evidence["frozen_adapter_tensors_unchanged"] is True
 
 
@@ -745,7 +1011,9 @@ def test_endpoint_evidence_recomputes_and_binds_gate_and_evaluation(
         source=source,
     )
 
-    assert evidence.passed is True
+    assert evidence.benchmark_gate_passed is True
+    assert evidence.full_coverage is True
+    assert evidence.selection_eligible is True
     assert evidence.evaluation["fingerprint"] == fingerprint
     assert evidence.gate["file_sha256"] == selector.sha256_file(gate_file)
     assert set(evidence.evaluation["artifacts"]) == {
@@ -798,6 +1066,12 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
 ) -> None:
     memory_dir = tmp_path / "run" / "trainer" / "checkpoint-16"
     memory_dir.mkdir(parents=True)
+    initial_dir = tmp_path / "run" / "initial_adapter"
+    initial_dir.mkdir()
+    initial_manifest = initial_dir / "initial_adapter_manifest.json"
+    initial_adapter = initial_dir / "delta_mem_adapter.pt"
+    initial_manifest.write_text("{}\n", encoding="utf-8")
+    initial_adapter.write_bytes(b"initial-adapter")
     adapter = memory_dir / "delta_mem_adapter.pt"
     config = memory_dir / "delta_mem_config.json"
     audit_file = memory_dir / selector.run_audit.AUDIT_FILENAME
@@ -807,17 +1081,23 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
     audit_payload.update(
         {
             "schema": selector.run_audit.AUDIT_SCHEMA,
+            "run_root": str(tmp_path / "run"),
+            "checkpoint": str(memory_dir),
             "checkpoint_optimizer_step": 16,
         }
     )
+    audit_payload["receipt_sha256"] = selector.canonical_sha256(audit_payload)
     audit_file.write_text(json.dumps(audit_payload, sort_keys=True), encoding="utf-8")
+    coverage_evidence = selector.validate_recomputed_adapter_change(
+        audit_payload["adapter_change"],
+        step=16,
+    )
+    adapter_binding = selector.artifact_binding(adapter, description="adapter")
     checkpoint = {
         "path": str(memory_dir),
         "global_step": 16,
         "artifacts": {
-            "delta_mem_adapter.pt": selector.artifact_binding(
-                adapter, description="adapter"
-            ),
+            "delta_mem_adapter.pt": adapter_binding,
             "delta_mem_config.json": selector.artifact_binding(
                 config, description="config"
             ),
@@ -826,13 +1106,24 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
                 description="hard-failure checkpoint audit",
             ),
         },
-        "trainable_tensor_family_count": 27,
-        "target_layer_count": 42,
-        "trainable_family_layer_coverage": audit_payload[
-            "trainable_family_layer_coverage"
-        ],
-        "full_trainable_family_coverage": True,
-        "checkpoint_audit_receipt_sha256": "9" * 64,
+        **coverage_evidence,
+        "checkpoint_audit_receipt_sha256": audit_payload["receipt_sha256"],
+        "current_adapter_validation": {
+            "initial_adapter_manifest": selector.artifact_binding(
+                initial_manifest,
+                description="initial adapter manifest",
+            ),
+            "initial_adapter": selector.artifact_binding(
+                initial_adapter,
+                description="initial adapter",
+            ),
+            "checkpoint_adapter": adapter_binding,
+            "recomputed_adapter_change_canonical_sha256": (
+                selector.canonical_sha256(audit_payload["adapter_change"])
+            ),
+            **coverage_evidence,
+            "frozen_adapter_tensors_unchanged": True,
+        },
     }
     source_manifest = tmp_path / "train-source.json"
     source_manifest.write_text('{"split":"train"}\n', encoding="utf-8")
@@ -895,6 +1186,16 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
         "SCENE_HARD_FAILURE_PAIR_ENTRIES_SHA256": source["entries_sha256"],
     }.items():
         monkeypatch.setattr(state_eval, name, value)
+    monkeypatch.setattr(
+        state_eval,
+        "_recompute_focused_adapter_change",
+        lambda checkpoint_adapter_path, **kwargs: dict(
+            json.loads(
+                (checkpoint_adapter_path.parent / selector.run_audit.AUDIT_FILENAME)
+                .read_text(encoding="utf-8")
+            )["adapter_change"]
+        ),
+    )
 
     authorization = state_eval.validate_focused_train_selection_authorization(
         receipt_path,
@@ -907,6 +1208,247 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
     assert receipt["selected_checkpoint"]["artifacts"][
         selector.run_audit.AUDIT_FILENAME
     ]["sha256"] == selector.sha256_file(audit_file)
+
+    forged_full = json.loads(json.dumps(receipt))
+    forged_audit = _coverage_audit(
+        16,
+        missing={"hrm_rwkv7_core.x_w": [1]},
+    )
+    forged_audit.update(
+        {
+            "schema": selector.run_audit.AUDIT_SCHEMA,
+            "run_root": str(tmp_path / "run"),
+            "checkpoint": str(memory_dir),
+            "checkpoint_optimizer_step": 16,
+        }
+    )
+    forged_audit["receipt_sha256"] = selector.canonical_sha256(forged_audit)
+    audit_file.write_text(json.dumps(forged_audit, sort_keys=True), encoding="utf-8")
+    forged_audit_binding = selector.artifact_binding(
+        audit_file,
+        description="hard-failure checkpoint audit",
+    )
+    for candidate in (
+        forged_full["selected_checkpoint"],
+        forged_full["evaluated_endpoints"][-1]["checkpoint"],
+    ):
+        candidate["artifacts"][selector.run_audit.AUDIT_FILENAME] = (
+            forged_audit_binding
+        )
+        candidate["checkpoint_audit_receipt_sha256"] = forged_audit[
+            "receipt_sha256"
+        ]
+    forged_full.pop("receipt_sha256")
+    forged_full["receipt_sha256"] = selector.canonical_sha256(forged_full)
+    selector.atomic_write_json(receipt_path, forged_full)
+    with pytest.raises(ValueError, match="current-byte coverage binding differs"):
+        state_eval.validate_focused_train_selection_authorization(
+            receipt_path,
+            memory_dir=memory_dir,
+        )
+
+    audit_file.write_text(json.dumps(audit_payload, sort_keys=True), encoding="utf-8")
+    wrong_families = json.loads(json.dumps(receipt))
+    expected_suffix = selector.run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES[0]
+    for family_map in (
+        wrong_families["selected_checkpoint"][
+            "trainable_family_layer_coverage"
+        ],
+        wrong_families["selected_checkpoint"]["current_adapter_validation"][
+            "trainable_family_layer_coverage"
+        ],
+        wrong_families["evaluated_endpoints"][-1]["checkpoint"][
+            "trainable_family_layer_coverage"
+        ],
+        wrong_families["evaluated_endpoints"][-1]["checkpoint"][
+            "current_adapter_validation"
+        ]["trainable_family_layer_coverage"],
+        wrong_families["evaluated_endpoints"][-1]["coverage_evidence"][
+            "trainable_family_layer_coverage"
+        ],
+    ):
+        family_map["invented_trainable_family"] = family_map.pop(expected_suffix)
+    wrong_families.pop("receipt_sha256")
+    wrong_families["receipt_sha256"] = selector.canonical_sha256(wrong_families)
+    selector.atomic_write_json(receipt_path, wrong_families)
+    with pytest.raises(ValueError, match="current-byte coverage binding differs"):
+        state_eval.validate_focused_train_selection_authorization(
+            receipt_path,
+            memory_dir=memory_dir,
+        )
+
+    memory_dir_32 = tmp_path / "run" / "trainer" / "checkpoint-32"
+    memory_dir_32.mkdir()
+    adapter_32 = memory_dir_32 / "delta_mem_adapter.pt"
+    config_32 = memory_dir_32 / "delta_mem_config.json"
+    audit_file_32 = memory_dir_32 / selector.run_audit.AUDIT_FILENAME
+    adapter_32.write_bytes(b"adapter-32")
+    config_32.write_text("{}\n", encoding="utf-8")
+    audit_payload_32 = _full_coverage_audit(32)
+    audit_payload_32.update(
+        {
+            "schema": selector.run_audit.AUDIT_SCHEMA,
+            "run_root": str(tmp_path / "run"),
+            "checkpoint": str(memory_dir_32),
+            "checkpoint_optimizer_step": 32,
+        }
+    )
+    audit_payload_32["receipt_sha256"] = selector.canonical_sha256(
+        audit_payload_32
+    )
+    audit_file_32.write_text(
+        json.dumps(audit_payload_32, sort_keys=True),
+        encoding="utf-8",
+    )
+    coverage_evidence_32 = selector.validate_recomputed_adapter_change(
+        audit_payload_32["adapter_change"],
+        step=32,
+    )
+    adapter_binding_32 = selector.artifact_binding(
+        adapter_32,
+        description="adapter-32",
+    )
+    checkpoint_32 = {
+        "path": str(memory_dir_32),
+        "global_step": 32,
+        "artifacts": {
+            "delta_mem_adapter.pt": adapter_binding_32,
+            "delta_mem_config.json": selector.artifact_binding(
+                config_32,
+                description="config-32",
+            ),
+            selector.run_audit.AUDIT_FILENAME: selector.artifact_binding(
+                audit_file_32,
+                description="hard-failure checkpoint-32 audit",
+            ),
+        },
+        **coverage_evidence_32,
+        "checkpoint_audit_receipt_sha256": audit_payload_32["receipt_sha256"],
+        "current_adapter_validation": {
+            "initial_adapter_manifest": selector.artifact_binding(
+                initial_manifest,
+                description="initial adapter manifest",
+            ),
+            "initial_adapter": selector.artifact_binding(
+                initial_adapter,
+                description="initial adapter",
+            ),
+            "checkpoint_adapter": adapter_binding_32,
+            "recomputed_adapter_change_canonical_sha256": (
+                selector.canonical_sha256(audit_payload_32["adapter_change"])
+            ),
+            **coverage_evidence_32,
+            "frozen_adapter_tensors_unchanged": True,
+        },
+    }
+    gate_32 = _gate_report(
+        passed=True,
+        passed_gate_count=5,
+        state_f1=1.0,
+        normal_f1=1.0,
+    )
+    fingerprint_32 = "e" * 64
+    results_dir_32 = tmp_path / "train32-results-32"
+    results_dir_32.mkdir()
+    gate_file_32 = results_dir_32 / selector.GATE_FILENAME
+    gate_32["input"] = {
+        "results_dir": str(results_dir_32),
+        "evaluation_fingerprint": fingerprint_32,
+        "evaluation_contract": _evaluation_contract(
+            checkpoint=checkpoint_32,
+            source=source,
+        ),
+    }
+    gate_file_32.write_text(json.dumps(gate_32, sort_keys=True), encoding="utf-8")
+    evidence_32 = selector.EndpointEvidence(
+        step=32,
+        checkpoint=checkpoint_32,
+        evaluation={"results_dir": str(results_dir_32), "fingerprint": fingerprint_32},
+        gate={
+            "focused_gate_path": str(gate_file_32),
+            "file_sha256": selector.sha256_file(gate_file_32),
+            "canonical_sha256": selector.canonical_sha256(gate_32),
+            "evaluation_fingerprint": fingerprint_32,
+        },
+        report=gate_32,
+        fallback_rank=selector._fallback_rank(gate_32, step=32),
+    )
+    skipped_earlier = json.loads(json.dumps(receipt))
+    skipped_earlier["evaluated_endpoint_steps"] = [16, 32]
+    skipped_earlier["evaluated_endpoints"][0]["benchmark_gate_passed"] = False
+    skipped_earlier["evaluated_endpoints"][0]["selection_eligible"] = False
+    skipped_earlier["evaluated_endpoints"].append(
+        selector._endpoint_receipt_record(evidence_32)
+    )
+    skipped_earlier["selected_checkpoint"] = checkpoint_32
+    skipped_earlier["selected_endpoint_eligibility"] = {
+        "benchmark_gate_passed": True,
+        "full_coverage": True,
+        "selection_eligible": True,
+    }
+    skipped_earlier["evaluation"] = evidence_32.evaluation
+    skipped_earlier["gate"] = evidence_32.gate
+    skipped_earlier.pop("receipt_sha256")
+    skipped_earlier["receipt_sha256"] = selector.canonical_sha256(skipped_earlier)
+    selector.atomic_write_json(receipt_path, skipped_earlier)
+    with pytest.raises(ValueError, match="endpoint eligibility differs"):
+        state_eval.validate_focused_train_selection_authorization(
+            receipt_path,
+            memory_dir=memory_dir_32,
+        )
+
+    partial = json.loads(json.dumps(receipt))
+    partial.pop("receipt_sha256")
+    partial_checkpoint = partial["selected_checkpoint"]
+    partial_endpoint = partial["evaluated_endpoints"][-1]
+    partial_endpoint_checkpoint = partial_endpoint["checkpoint"]
+    missing = {"hrm_rwkv7_core.x_w": [1]}
+    for candidate in (partial_checkpoint, partial_endpoint_checkpoint):
+        candidate["changed_trainable_tensor_count"] = 1133
+        candidate["trainable_family_layer_coverage"][
+            "hrm_rwkv7_core.x_w"
+        ] = 41
+        candidate["missing_trainable_family_layers"] = missing
+        candidate["full_trainable_family_coverage"] = False
+        current = candidate["current_adapter_validation"]
+        current["changed_trainable_tensor_count"] = 1133
+        current["trainable_family_layer_coverage"][
+            "hrm_rwkv7_core.x_w"
+        ] = 41
+        current["missing_trainable_family_layers"] = missing
+        current["full_trainable_family_coverage"] = False
+    partial_coverage = partial_endpoint["coverage_evidence"]
+    partial_coverage["changed_trainable_tensor_count"] = 1133
+    partial_coverage["trainable_family_layer_coverage"][
+        "hrm_rwkv7_core.x_w"
+    ] = 41
+    partial_coverage["missing_trainable_family_layers"] = missing
+    partial_coverage["full_trainable_family_coverage"] = False
+    partial_endpoint["full_coverage"] = False
+    partial_endpoint["selection_eligible"] = False
+    partial["selected_endpoint_eligibility"] = {
+        "benchmark_gate_passed": True,
+        "full_coverage": False,
+        "selection_eligible": False,
+    }
+    partial["receipt_sha256"] = selector.canonical_sha256(partial)
+    selector.atomic_write_json(receipt_path, partial)
+    with pytest.raises(ValueError, match="current-byte coverage binding differs"):
+        state_eval.validate_focused_train_selection_authorization(
+            receipt_path,
+            memory_dir=memory_dir,
+        )
+
+    legacy = json.loads(json.dumps(receipt))
+    legacy.pop("receipt_sha256")
+    legacy["schema"] = "rwkv_ms_scene_hard_failure_train_overfit_selection.v1"
+    legacy["receipt_sha256"] = selector.canonical_sha256(legacy)
+    selector.atomic_write_json(receipt_path, legacy)
+    with pytest.raises(ValueError, match="schema differs"):
+        state_eval.validate_focused_train_selection_authorization(
+            receipt_path,
+            memory_dir=memory_dir,
+        )
 
 
 def test_source_binding_fails_closed_on_evaluator_lock_mismatch(

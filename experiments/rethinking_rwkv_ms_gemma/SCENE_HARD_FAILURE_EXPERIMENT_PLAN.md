@@ -91,7 +91,10 @@ perform one optimizer update per symmetric pair instead of accumulating an
 entire 16-pair cycle into one update. This gives 64 optimizer updates from the
 same 64 pair presentations that gave V15 only four updates. Save every update
 for auditability, but run generation screening only at cycle endpoints 16, 32,
-48, and 64, stopping at the first checkpoint that passes the train-only gate.
+48, and 64. Stop only at the first checkpoint that both passes the train-only
+gate and has current-byte changes in all 1,134 trainable layer-family tensors.
+An earlier gate pass with partial coverage is recorded but does not authorize
+selection, so screening continues to the next endpoint.
 The schedule may be extended only by complete, deterministically bound cycles
 after all four initial cycle endpoints fail.
 
@@ -125,18 +128,21 @@ PYTHONPATH="$PWD" /home/xiaol/X/delta-Mem/.venv/bin/python \
 
 The command creates a fresh `train32_endpoint_screen` directory inside the run
 root. It generates and recomputes the Train32 gate at steps 16, 32, 48, and 64
-in order and stops at the first pass. Each evaluated endpoint contains
+in order and stops at the first gate pass with full current-byte coverage. Each
+evaluated endpoint records the benchmark-gate result, exact adapter coverage,
+and combined selection eligibility, and contains
 `manifest.json`, `summary.json`, `progress.json`, the seven condition JSONL
 files, and `focused_recovery_gate.json`. `screening_protocol.json` binds the
 production completion receipt before generation begins. The final
 `train32_checkpoint_selection_receipt.json` binds that protocol, every executed
 command, every evaluated endpoint, and the production receipt.
 
-Exit status `0` means the first passing endpoint is authorized only for the
-separate Hard32 command. Exit status `1` means all four endpoints failed and an
-unauthorized deterministic fallback receipt was written. Exit status `2` is a
-contract or runtime failure. Do not use `--overwrite`, rename outputs to a
-held-out term, or manually substitute evaluator arguments.
+Exit status `0` means the first gate-plus-coverage eligible endpoint is
+authorized only for the separate Hard32 command. Exit status `1` means all four
+endpoints were ineligible and an unauthorized deterministic fallback receipt
+was written; this includes a gate pass whose current-byte coverage is partial.
+Exit status `2` is a contract or runtime failure. Do not use `--overwrite`,
+rename outputs to a held-out term, or manually substitute evaluator arguments.
 
 ### 3. Single Held-Out Screen
 

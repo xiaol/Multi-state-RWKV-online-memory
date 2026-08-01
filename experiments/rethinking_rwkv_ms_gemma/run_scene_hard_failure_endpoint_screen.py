@@ -4,9 +4,11 @@
 This driver is deliberately train-only. It accepts a completed production run
 and its canonical completion receipt, then evaluates checkpoints 16, 32, 48,
 and 64 in order under the exact focused Train32 contract. Generation stops at
-the first passing gate. If no endpoint passes, all four endpoints are screened
-and the existing selector writes a diagnostic receipt that does not authorize
-Hard32.
+the first endpoint that both passes the focused gate and has complete 27-family
+by 42-layer current-adapter coverage. A gate-only pass with partial coverage
+continues to the next endpoint. If no endpoint satisfies both requirements, all
+four endpoints are screened and the selector writes an unauthorized diagnostic
+receipt.
 
 The model, dataset, source manifest, conditions, donor rule, runtime profile,
 endpoint schedule, and output layout are compiled in. Validation, test,
@@ -49,8 +51,8 @@ from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
 )
 
 
-SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen.v1"
-PROTOCOL_SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v1"
+SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen.v2"
+PROTOCOL_SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v2"
 COMPLETION_SCHEMA = "rwkv_ms_scene_hard_failure_completion.v1"
 SCREEN_DIRNAME = "train32_endpoint_screen"
 PROTOCOL_FILENAME = "screening_protocol.json"
@@ -60,6 +62,9 @@ CONDITIONS = state_eval.SCENE_FOCUSED_CONDITIONS
 EVALUATION_CONTRACT = state_eval.SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT
 DONOR_RULE = state_eval.DONOR_RULE_LENGTH_MATCHED
 FROZEN_ENDPOINT_STEPS = (16, 32, 48, 64)
+FROZEN_SELECTION_POLICY = (
+    "first_train32_gate_pass_with_full_current_adapter_coverage_v2"
+)
 FROZEN_CONDITIONS = (
     "base_full",
     "no_write_full",
@@ -107,6 +112,9 @@ def validate_static_contract() -> None:
         EVALUATION_CONTRACT
         == "scene_hard_failure_curriculum_train32_overfit_v1"
         and DONOR_RULE == "length_matched_label_distinct_symmetric_pair_v1"
+        and selector.SCHEMA
+        == "rwkv_ms_scene_hard_failure_train_overfit_selection.v2"
+        and selector.SELECTION_POLICY == FROZEN_SELECTION_POLICY
         and train_contract.TOTAL_OPTIMIZER_STEPS == 64
         and tuple(train_contract.TARGET_LAYERS) == tuple(range(42)),
         "Train32 endpoint screen static contract differs",
@@ -378,6 +386,92 @@ def run_selector(
     )
 
 
+def validate_selector_receipt(receipt: Any) -> dict[str, Any]:
+    """Fail closed before rebinding selector evidence into the driver receipt."""
+
+    _require(isinstance(receipt, Mapping), "selector receipt must be a JSON object")
+    validated = dict(receipt)
+    selector.validate_self_hash(
+        validated,
+        field="receipt_sha256",
+        description="Train32 checkpoint selection receipt",
+    )
+    status = validated.get("status")
+    _require(
+        validated.get("schema") == selector.SCHEMA
+        and validated.get("stage") == selector.STAGE
+        and validated.get("task") == selector.TASK
+        and validated.get("selection_policy") == selector.SELECTION_POLICY
+        and validated.get("endpoint_schedule") == list(ENDPOINT_STEPS)
+        and status in {"pass", "fail"},
+        "selector receipt static contract or status differs",
+    )
+    expected_reason = (
+        "first_train32_gate_pass_with_full_current_adapter_coverage"
+        if status == "pass"
+        else "diagnostic_fallback_no_selection_eligible_train32_endpoint"
+    )
+    _require(
+        validated.get("selection_reason") == expected_reason
+        and validated.get("held_out_access") == selector.HARD32_ACCESS_POLICY
+        and validated.get("hard32_accessed") is False
+        and validated.get("full_validation_accessed") is False
+        and validated.get("test_accessed") is False
+        and validated.get("other_benchmarks_accessed") is False,
+        "selector receipt reason or protected-access evidence differs",
+    )
+    records = validated.get("evaluated_endpoints")
+    selected = validated.get("selected_checkpoint")
+    selected_eligibility = validated.get("selected_endpoint_eligibility")
+    _require(
+        isinstance(records, list)
+        and records
+        and all(isinstance(record, Mapping) for record in records)
+        and isinstance(selected, Mapping)
+        and isinstance(selected_eligibility, Mapping),
+        "selector receipt endpoint evidence is incomplete",
+    )
+    eligible = [
+        record for record in records if record.get("selection_eligible") is True
+    ]
+    selected_step = selected.get("global_step")
+    selected_records = [
+        record for record in records if record.get("global_step") == selected_step
+    ]
+    selected_record_checkpoint = (
+        selected_records[0].get("checkpoint") if len(selected_records) == 1 else None
+    )
+    _require(
+        len(selected_records) == 1
+        and isinstance(selected_record_checkpoint, Mapping)
+        and dict(selected) == dict(selected_record_checkpoint)
+        and dict(selected_eligibility)
+        == {
+            name: selected_records[0].get(name)
+            for name in (
+                "benchmark_gate_passed",
+                "full_coverage",
+                "selection_eligible",
+            )
+        },
+        "selector selected endpoint eligibility differs",
+    )
+    if status == "pass":
+        _require(
+            eligible == [records[-1]]
+            and selected_records[0] is records[-1]
+            and selected_eligibility.get("benchmark_gate_passed") is True
+            and selected_eligibility.get("full_coverage") is True,
+            "selector passing endpoint is not the first eligible endpoint",
+        )
+    else:
+        _require(
+            not eligible and len(records) == len(ENDPOINT_STEPS),
+            "selector failed receipt contains an eligible or missing endpoint",
+        )
+    return validated
+
+
 def validate_source() -> dict[str, Any]:
     return selector.validate_source_binding()
 
@@ -439,6 +533,7 @@ def _bind_driver_receipt(
     completion: Mapping[str, Any],
     protocol: Mapping[str, Any],
     evaluated_steps: Sequence[int],
+    endpoint_decisions: Sequence[Mapping[str, Any]],
     commands: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     bound = dict(receipt)
@@ -453,6 +548,7 @@ def _bind_driver_receipt(
             "protocol_sha256": protocol["protocol_sha256"],
         },
         "evaluated_endpoint_steps": list(evaluated_steps),
+        "endpoint_decisions": [dict(decision) for decision in endpoint_decisions],
         "commands": [dict(record) for record in commands],
         "conditions": list(CONDITIONS),
         "hard32_accessed": False,
@@ -491,6 +587,16 @@ def screen_endpoints(
         == list(ENDPOINT_STEPS),
         "preflight checkpoint endpoint sequence differs",
     )
+    coverage_by_step = {
+        int(checkpoint["global_step"]): selector.validate_endpoint_checkpoint_coverage(
+            checkpoint,
+            step=int(checkpoint["global_step"]),
+        )
+        for checkpoint in checkpoints
+    }
+    checkpoints_by_step = {
+        int(checkpoint["global_step"]): checkpoint for checkpoint in checkpoints
+    }
     paths = create_screen_paths(root)
     protocol = _protocol_payload(
         run_root=root,
@@ -504,7 +610,8 @@ def screen_endpoints(
     command_environment = _command_environment(runtime_environment)
     command_records: list[dict[str, Any]] = []
     evaluated_steps: list[int] = []
-    last_gate_passed = False
+    endpoint_decisions: list[dict[str, Any]] = []
+    last_selection_eligible = False
     for step in ENDPOINT_STEPS:
         evaluate = evaluation_command(run_root=root, paths=paths, step=step)
         evaluate_status = command_runner(evaluate, PROJECT_ROOT, command_environment)
@@ -545,13 +652,26 @@ def screen_endpoints(
             recorded == recomputed,
             f"checkpoint-{step} focused gate differs from independent recomputation",
         )
-        last_gate_passed = recomputed.get("all_gates_passed") is True
+        benchmark_gate_passed = recomputed.get("all_gates_passed") is True
         _require(
-            gate_status == (0 if last_gate_passed else 1),
+            gate_status == (0 if benchmark_gate_passed else 1),
             f"checkpoint-{step} focused gate exit status differs from report",
         )
+        checkpoint = checkpoints_by_step[step]
+        coverage_evidence = coverage_by_step[step]
+        full_coverage = coverage_evidence["full_trainable_family_coverage"] is True
+        last_selection_eligible = benchmark_gate_passed and full_coverage
+        decision = {
+            "global_step": step,
+            "benchmark_gate_passed": benchmark_gate_passed,
+            "full_coverage": full_coverage,
+            "selection_eligible": last_selection_eligible,
+            "coverage_evidence": coverage_evidence,
+        }
+        endpoint_decisions.append(decision)
+        command_records[-1].update(decision)
         evaluated_steps.append(step)
-        if last_gate_passed:
+        if last_selection_eligible:
             break
 
     specs = [
@@ -562,14 +682,34 @@ def screen_endpoints(
         )
         for step in ENDPOINT_STEPS
     ]
-    receipt = selector_runner(root, specs)
+    receipt = validate_selector_receipt(selector_runner(root, specs))
     _require(
         receipt.get("evaluated_endpoint_steps") == evaluated_steps,
         "selector evaluated endpoint sequence differs from the screening driver",
     )
+    selector_endpoints = receipt.get("evaluated_endpoints")
+    _require(
+        isinstance(selector_endpoints, list)
+        and len(selector_endpoints) == len(endpoint_decisions)
+        and all(
+            isinstance(record, Mapping)
+            and {
+                "global_step": record.get("global_step"),
+                "benchmark_gate_passed": record.get("benchmark_gate_passed"),
+                "full_coverage": record.get("full_coverage"),
+                "selection_eligible": record.get("selection_eligible"),
+                "coverage_evidence": record.get("coverage_evidence"),
+            }
+            == decision
+            and record.get("checkpoint")
+            == checkpoints_by_step[decision["global_step"]]
+            for record, decision in zip(selector_endpoints, endpoint_decisions)
+        ),
+        "selector endpoint eligibility differs from the screening driver",
+    )
     passed = receipt.get("status") == "pass"
     _require(
-        passed == last_gate_passed,
+        passed == last_selection_eligible,
         "selector status differs from endpoint stop policy",
     )
     if passed:
@@ -577,6 +717,15 @@ def screen_endpoints(
         _require(
             isinstance(selected_checkpoint, Mapping)
             and selected_checkpoint.get("global_step") == evaluated_steps[-1]
+            and selected_checkpoint
+            == checkpoints_by_step[evaluated_steps[-1]]
+            and selected_checkpoint.get("full_trainable_family_coverage") is True
+            and receipt.get("selected_endpoint_eligibility")
+            == {
+                "benchmark_gate_passed": True,
+                "full_coverage": True,
+                "selection_eligible": True,
+            }
             and receipt.get("authorization")
             == {
                 "hard32_authorized": True,
@@ -607,6 +756,7 @@ def screen_endpoints(
         completion=completion,
         protocol=protocol,
         evaluated_steps=evaluated_steps,
+        endpoint_decisions=endpoint_decisions,
         commands=command_records,
     )
     selector.atomic_write_json(paths.selection_receipt, bound)

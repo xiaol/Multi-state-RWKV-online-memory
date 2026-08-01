@@ -5,7 +5,8 @@ The selector accepts exactly the four predeclared generation endpoints.  For
 each endpoint, in order, it validates the saved checkpoint, recomputes the
 focused recovery gate from the existing Train32 generation bundle, and checks
 that the recorded gate is byte-bound evidence for that evaluation.  Evaluation
-stops at the first passing endpoint.
+stops at the first endpoint that both passes the gate and has complete current-
+byte trainable-family coverage.
 
 If none of the four endpoints passes, a deterministic diagnostic fallback is
 recorded, but the receipt does not authorize Hard32.  This module never accepts
@@ -46,11 +47,13 @@ from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
 from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
     scene_hard_failure_train_contract as train_contract,
 )
-SCHEMA = "rwkv_ms_scene_hard_failure_train_overfit_selection.v1"
+SCHEMA = "rwkv_ms_scene_hard_failure_train_overfit_selection.v2"
 TASK = "scene-v4-current"
 STAGE = "train_overfit"
 ENDPOINT_STEPS = (16, 32, 48, 64)
-SELECTION_POLICY = "first_passing_train32_generation_endpoint_v1"
+SELECTION_POLICY = (
+    "first_train32_gate_pass_with_full_current_adapter_coverage_v2"
+)
 FALLBACK_POLICY = (
     "highest_passed_gate_count_then_state_only_strict_f1_then_normal_full_"
     "strict_f1_then_earliest_endpoint_v1"
@@ -250,8 +253,23 @@ class EndpointEvidence:
     fallback_rank: tuple[int, float, float, int]
 
     @property
-    def passed(self) -> bool:
+    def benchmark_gate_passed(self) -> bool:
         return self.report.get("all_gates_passed") is True
+
+    @property
+    def full_coverage(self) -> bool:
+        return self.coverage_evidence["full_trainable_family_coverage"] is True
+
+    @property
+    def coverage_evidence(self) -> dict[str, Any]:
+        return validate_endpoint_checkpoint_coverage(
+            self.checkpoint,
+            step=self.step,
+        )
+
+    @property
+    def selection_eligible(self) -> bool:
+        return self.benchmark_gate_passed and self.full_coverage
 
 
 def preflight_endpoint_specs(
@@ -380,20 +398,16 @@ def validate_source_binding() -> dict[str, Any]:
     }
 
 
-def validate_full_trainable_family_coverage(
+def validate_trainable_family_coverage(
     audit: Mapping[str, Any],
     *,
     step: int,
-) -> dict[str, int]:
-    """Require all 27 trainable tensor families to change in all 42 layers."""
+) -> dict[str, Any]:
+    """Validate exact full or partial 27-family by 42-layer change evidence."""
 
     expected_family_count = len(run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES)
     expected_layer_count = len(train_contract.TARGET_LAYERS)
     expected_tensor_count = expected_family_count * expected_layer_count
-    expected_coverage = {
-        suffix: expected_layer_count
-        for suffix in run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES
-    }
     _require(
         expected_family_count == 27
         and expected_layer_count == 42
@@ -406,18 +420,15 @@ def validate_full_trainable_family_coverage(
         isinstance(change, Mapping),
         f"checkpoint-{step} adapter-change evidence is missing",
     )
+    change_evidence = validate_recomputed_adapter_change(change, step=step)
     _require(
         audit.get("trainable_tensor_family_count") == expected_family_count
         and audit.get("target_layer_count") == expected_layer_count
-        and audit.get("trainable_family_layer_coverage") == expected_coverage
-        and audit.get("full_trainable_family_coverage") is True,
-        f"checkpoint-{step} top-level audit does not prove complete 27-family x "
-        "42-layer coverage",
-    )
-    recomputed_coverage = validate_recomputed_adapter_change(change, step=step)
-    _require(
-        recomputed_coverage == expected_coverage,
-        f"checkpoint-{step} adapter-change coverage differs",
+        and audit.get("trainable_family_layer_coverage")
+        == change_evidence["trainable_family_layer_coverage"]
+        and audit.get("full_trainable_family_coverage")
+        is change_evidence["full_trainable_family_coverage"],
+        f"checkpoint-{step} top-level audit coverage differs from adapter change",
     )
     _require(
         audit.get("optimizer_contains_only_declared_trainable_adapter_state_count")
@@ -439,41 +450,115 @@ def validate_full_trainable_family_coverage(
         f"checkpoint-{step} optimizer coverage does not bind all 1,134 trainable "
         "adapter tensors",
     )
-    return expected_coverage
+    return change_evidence
+
+
+def validate_full_trainable_family_coverage(
+    audit: Mapping[str, Any],
+    *,
+    step: int,
+) -> dict[str, int]:
+    """Require validated coverage to include all 1,134 trainable tensors."""
+
+    evidence = validate_trainable_family_coverage(audit, step=step)
+    _require(
+        evidence["full_trainable_family_coverage"] is True,
+        f"checkpoint-{step} does not have complete 27-family x 42-layer coverage",
+    )
+    return dict(evidence["trainable_family_layer_coverage"])
 
 
 def validate_recomputed_adapter_change(
     change: Mapping[str, Any],
     *,
     step: int,
-) -> dict[str, int]:
-    """Require complete current-byte change evidence for every trainable tensor."""
+) -> dict[str, Any]:
+    """Validate exact current-byte change evidence, including partial coverage."""
 
     expected_family_count = len(run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES)
     expected_layer_count = len(train_contract.TARGET_LAYERS)
     expected_tensor_count = expected_family_count * expected_layer_count
-    expected_coverage = {
-        suffix: expected_layer_count
-        for suffix in run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES
+    suffixes = tuple(run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES)
+    target_layers = tuple(train_contract.TARGET_LAYERS)
+    coverage_value = change.get("trainable_family_layer_coverage")
+    _require(
+        isinstance(coverage_value, Mapping)
+        and set(coverage_value) == set(suffixes),
+        f"checkpoint-{step} adapter-change family coverage keys differ",
+    )
+    coverage: dict[str, int] = {}
+    for suffix in suffixes:
+        count = coverage_value.get(suffix)
+        _require(
+            isinstance(count, int)
+            and not isinstance(count, bool)
+            and 0 <= count <= expected_layer_count,
+            f"checkpoint-{step} adapter-change coverage is invalid for {suffix}",
+        )
+        coverage[suffix] = count
+
+    missing_value = change.get("missing_trainable_family_layers")
+    expected_missing_suffixes = {
+        suffix for suffix, count in coverage.items() if count != expected_layer_count
     }
+    _require(
+        isinstance(missing_value, Mapping)
+        and set(missing_value) == expected_missing_suffixes,
+        f"checkpoint-{step} adapter-change missing-family keys differ",
+    )
+    missing: dict[str, list[int]] = {}
+    target_layer_set = set(target_layers)
+    for suffix in suffixes:
+        if suffix not in expected_missing_suffixes:
+            continue
+        layers = missing_value.get(suffix)
+        _require(
+            isinstance(layers, list)
+            and all(
+                isinstance(layer, int)
+                and not isinstance(layer, bool)
+                and layer in target_layer_set
+                for layer in layers
+            )
+            and layers == sorted(set(layers))
+            and len(layers) == expected_layer_count - coverage[suffix],
+            f"checkpoint-{step} adapter-change missing layers differ for {suffix}",
+        )
+        missing[suffix] = list(layers)
+
+    changed_count = change.get("changed_trainable_tensor_count")
+    full_coverage = not missing and sum(coverage.values()) == expected_tensor_count
+    full_coverage_required = step == train_contract.TOTAL_OPTIMIZER_STEPS
     _require(
         change.get("trainable_tensor_family_count") == expected_family_count
         and change.get("target_layer_count") == expected_layer_count
         and change.get("expected_trainable_tensor_count") == expected_tensor_count
-        and change.get("changed_trainable_tensor_count") == expected_tensor_count
+        and isinstance(changed_count, int)
+        and not isinstance(changed_count, bool)
+        and changed_count == sum(coverage.values())
         and change.get("changed_nontrainable_tensor_count") == 0
-        and change.get("trainable_family_layer_coverage") == expected_coverage
-        and change.get("missing_trainable_family_layers") == {}
-        and change.get("full_trainable_family_coverage") is True,
-        f"checkpoint-{step} adapter-change evidence does not prove complete "
-        "27-family x 42-layer coverage",
+        and change.get("full_trainable_family_coverage") is full_coverage,
+        f"checkpoint-{step} adapter-change counts or coverage flag differ",
     )
     _require(
         change.get("full_trainable_family_coverage_required")
-        is (step == train_contract.TOTAL_OPTIMIZER_STEPS),
+        is full_coverage_required,
         f"checkpoint-{step} audit coverage requirement flag differs",
     )
-    return expected_coverage
+    _require(
+        not full_coverage_required or full_coverage,
+        f"checkpoint-{step} requires complete 27-family x 42-layer coverage",
+    )
+    return {
+        "changed_trainable_tensor_count": changed_count,
+        "expected_trainable_tensor_count": expected_tensor_count,
+        "trainable_tensor_family_count": expected_family_count,
+        "target_layer_count": expected_layer_count,
+        "trainable_family_layer_coverage": coverage,
+        "missing_trainable_family_layers": missing,
+        "full_trainable_family_coverage": full_coverage,
+        "full_trainable_family_coverage_required": full_coverage_required,
+    }
 
 
 def validate_current_adapter_change(
@@ -543,9 +628,7 @@ def validate_current_adapter_change(
         "recomputed_adapter_change_canonical_sha256": canonical_sha256(
             recomputed_change
         ),
-        "trainable_tensor_family_count": len(coverage),
-        "target_layer_count": len(train_contract.TARGET_LAYERS),
-        "full_trainable_family_coverage": True,
+        **coverage,
         "frozen_adapter_tensors_unchanged": True,
     }
 
@@ -606,7 +689,7 @@ def validate_checkpoint(
         and audit.get("row_audit_complete") is True,
         f"checkpoint-{step} production audit binding differs",
     )
-    family_coverage = validate_full_trainable_family_coverage(audit, step=step)
+    coverage = validate_trainable_family_coverage(audit, step=step)
     current_adapter_validation = validate_current_adapter_change(
         run_root,
         checkpoint,
@@ -618,16 +701,86 @@ def validate_checkpoint(
         == artifacts["delta_mem_adapter.pt"],
         f"checkpoint-{step} adapter binding changed during checkpoint validation",
     )
-    return {
+    checkpoint_record = {
         "path": str(checkpoint),
         "global_step": step,
         "artifacts": artifacts,
-        "trainable_tensor_family_count": len(family_coverage),
-        "target_layer_count": len(train_contract.TARGET_LAYERS),
-        "trainable_family_layer_coverage": family_coverage,
-        "full_trainable_family_coverage": True,
+        **coverage,
         "checkpoint_audit_receipt_sha256": audit["receipt_sha256"],
         "current_adapter_validation": current_adapter_validation,
+    }
+    validate_endpoint_checkpoint_coverage(checkpoint_record, step=step)
+    return checkpoint_record
+
+
+def validate_endpoint_checkpoint_coverage(
+    checkpoint: Mapping[str, Any],
+    *,
+    step: int,
+) -> dict[str, Any]:
+    """Bind endpoint eligibility to the nested current-byte recomputation."""
+
+    _require(
+        checkpoint.get("global_step") == step,
+        f"checkpoint-{step} endpoint coverage step differs",
+    )
+    current = checkpoint.get("current_adapter_validation")
+    artifacts = checkpoint.get("artifacts")
+    _require(
+        isinstance(current, Mapping) and isinstance(artifacts, Mapping),
+        f"checkpoint-{step} current adapter coverage binding is missing",
+    )
+    adapter_artifact = artifacts.get("delta_mem_adapter.pt")
+    current_adapter = current.get("checkpoint_adapter")
+    _require(
+        isinstance(adapter_artifact, Mapping)
+        and isinstance(current_adapter, Mapping)
+        and dict(current_adapter) == dict(adapter_artifact),
+        f"checkpoint-{step} current adapter digest differs from checkpoint artifact",
+    )
+    change_sha256 = current.get("recomputed_adapter_change_canonical_sha256")
+    _require(
+        isinstance(change_sha256, str)
+        and SHA256_RE.fullmatch(change_sha256) is not None
+        and current.get("frozen_adapter_tensors_unchanged") is True,
+        f"checkpoint-{step} current adapter recomputation binding differs",
+    )
+    summary_change = {
+        "changed_trainable_tensor_count": current.get(
+            "changed_trainable_tensor_count"
+        ),
+        "changed_nontrainable_tensor_count": 0,
+        "expected_trainable_tensor_count": current.get(
+            "expected_trainable_tensor_count"
+        ),
+        "trainable_tensor_family_count": current.get(
+            "trainable_tensor_family_count"
+        ),
+        "target_layer_count": current.get("target_layer_count"),
+        "trainable_family_layer_coverage": current.get(
+            "trainable_family_layer_coverage"
+        ),
+        "missing_trainable_family_layers": current.get(
+            "missing_trainable_family_layers"
+        ),
+        "full_trainable_family_coverage": current.get(
+            "full_trainable_family_coverage"
+        ),
+        "full_trainable_family_coverage_required": current.get(
+            "full_trainable_family_coverage_required"
+        ),
+    }
+    evidence = validate_recomputed_adapter_change(summary_change, step=step)
+    for field, value in evidence.items():
+        _require(
+            checkpoint.get(field) == value,
+            f"checkpoint-{step} top-level {field} differs from current bytes",
+        )
+    return {
+        **evidence,
+        "checkpoint_adapter_sha256": current_adapter.get("sha256"),
+        "recomputed_adapter_change_canonical_sha256": change_sha256,
+        "frozen_adapter_tensors_unchanged": True,
     }
 
 
@@ -848,7 +1001,10 @@ def load_endpoint_evidence(
 def _endpoint_receipt_record(evidence: EndpointEvidence) -> dict[str, Any]:
     return {
         "global_step": evidence.step,
-        "gate_passed": evidence.passed,
+        "benchmark_gate_passed": evidence.benchmark_gate_passed,
+        "full_coverage": evidence.full_coverage,
+        "selection_eligible": evidence.selection_eligible,
+        "coverage_evidence": evidence.coverage_evidence,
         "fallback_rank": {
             "passed_gate_count": evidence.fallback_rank[0],
             "state_only_strict_f1": evidence.fallback_rank[1],
@@ -873,14 +1029,15 @@ def build_selection_receipt(
     _require(selected in evaluated, "selected endpoint was not evaluated")
     if passed:
         _require(
-            selected.passed
-            and selected is next(item for item in evaluated if item.passed),
-            "passing selection is not the first passing endpoint",
+            selected.selection_eligible
+            and selected
+            is next(item for item in evaluated if item.selection_eligible),
+            "passing selection is not the first gate-plus-coverage eligible endpoint",
         )
     else:
         _require(
             len(evaluated) == len(ENDPOINT_STEPS)
-            and not any(item.passed for item in evaluated)
+            and not any(item.selection_eligible for item in evaluated)
             and selected == max(evaluated, key=lambda item: item.fallback_rank),
             "diagnostic fallback selection differs from the frozen policy",
         )
@@ -917,10 +1074,15 @@ def build_selection_receipt(
             _endpoint_receipt_record(item) for item in evaluated
         ],
         "selected_checkpoint": selected.checkpoint,
+        "selected_endpoint_eligibility": {
+            "benchmark_gate_passed": selected.benchmark_gate_passed,
+            "full_coverage": selected.full_coverage,
+            "selection_eligible": selected.selection_eligible,
+        },
         "selection_reason": (
-            "first_passing_train32_generation_endpoint"
+            "first_train32_gate_pass_with_full_current_adapter_coverage"
             if passed
-            else "diagnostic_fallback_no_train32_endpoint_passed"
+            else "diagnostic_fallback_no_selection_eligible_train32_endpoint"
         ),
         "source": dict(source),
         "evaluation": selected.evaluation,
@@ -958,7 +1120,7 @@ def select_checkpoint(
             source=source_binding,
         )
         evaluated.append(evidence)
-        if evidence.passed:
+        if evidence.selection_eligible:
             selected = evidence
             break
     passed = selected is not None

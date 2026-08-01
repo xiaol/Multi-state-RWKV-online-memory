@@ -138,7 +138,7 @@ SCENE_HARD_FAILURE_HARD32_CONTRACT = (
 SCENE_FOCUSED_TRAIN_OVERFIT_CONTRACT = SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT
 SCENE_FOCUSED_HARD32_CONTRACT = SCENE_HARD_FAILURE_HARD32_CONTRACT
 SCENE_HARD_FAILURE_TRAIN_SELECTION_SCHEMA = (
-    "rwkv_ms_scene_hard_failure_train_overfit_selection.v1"
+    "rwkv_ms_scene_hard_failure_train_overfit_selection.v2"
 )
 SCENE_HARD_FAILURE_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v7_source.v1"
 SCENE_HARD_FAILURE_PAIR_SCHEMA = "rwkv_ms_scene_memory_v7_pairing.v1"
@@ -1298,6 +1298,302 @@ def _receipt_artifact_digest(
     return digest
 
 
+def _focused_bound_artifact(
+    record: Any,
+    *,
+    expected_path: Path,
+    description: str,
+) -> dict[str, Any]:
+    if not isinstance(record, Mapping):
+        raise ValueError(f"Focused {description} binding is missing")
+    path_value = record.get("path")
+    digest = record.get("sha256")
+    byte_count = record.get("bytes")
+    if (
+        not isinstance(path_value, str)
+        or not isinstance(digest, str)
+        or SHA256_RE.fullmatch(digest) is None
+        or not isinstance(byte_count, int)
+        or isinstance(byte_count, bool)
+        or byte_count < 0
+    ):
+        raise ValueError(f"Focused {description} binding is invalid")
+    resolved = _focused_regular_file(
+        Path(path_value),
+        description=description,
+        train_only=True,
+    )
+    if (
+        resolved != expected_path.resolve()
+        or resolved.stat().st_size != byte_count
+        or sha256_file(resolved) != digest
+    ):
+        raise ValueError(f"Focused {description} current bytes differ")
+    return dict(record)
+
+
+def _hard_failure_audit_module() -> Any:
+    # Import lazily because the hard-failure data contract imports this evaluator.
+    from experiments.rethinking_rwkv_ms_gemma import scene_hard_failure_run_audit
+
+    return scene_hard_failure_run_audit
+
+
+def _recompute_focused_adapter_change(
+    *,
+    initial_manifest_path: Path,
+    initial_adapter_path: Path,
+    checkpoint_adapter_path: Path,
+    step: int,
+) -> dict[str, Any]:
+    audit_module = _hard_failure_audit_module()
+    try:
+        initial_manifest = _load_json_object(
+            initial_manifest_path,
+            description="initial adapter manifest",
+        )
+        initial_adapter = audit_module.load_finite_adapter(
+            initial_adapter_path
+        )
+        checkpoint_adapter = audit_module.load_finite_adapter(
+            checkpoint_adapter_path
+        )
+        trainable_names = audit_module._validate_initial_adapter_topology(
+            initial_manifest.get("topology"),
+            initial_adapter,
+        )
+        return audit_module.adapter_change_record(
+            initial_adapter,
+            checkpoint_adapter,
+            trainable_names=trainable_names,
+            checkpoint_step=step,
+            smoke=False,
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError(
+            f"Focused checkpoint-{step} current adapter recomputation failed: {exc}"
+        ) from exc
+
+
+def _focused_checkpoint_audit_change(
+    checkpoint: Mapping[str, Any],
+    *,
+    checkpoint_dir: Path,
+    step: int,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Load the checkpoint audit that proves coverage for the current bytes."""
+
+    audit_module = _hard_failure_audit_module()
+    artifacts = checkpoint.get("artifacts")
+    if not isinstance(artifacts, Mapping):
+        raise ValueError("Focused endpoint checkpoint artifacts are missing")
+    required_names = (
+        "delta_mem_adapter.pt",
+        audit_module.AUDIT_FILENAME,
+    )
+    digests = {
+        name: _receipt_artifact_digest(
+            artifacts,
+            name,
+            checkpoint_dir=checkpoint_dir,
+        )
+        for name in required_names
+    }
+    current = checkpoint.get("current_adapter_validation")
+    if not isinstance(current, Mapping):
+        raise ValueError("Focused endpoint current adapter validation is missing")
+    run_root = checkpoint_dir.parent.parent
+    initial_manifest_path = run_root / "initial_adapter" / "initial_adapter_manifest.json"
+    initial_adapter_path = run_root / "initial_adapter" / "delta_mem_adapter.pt"
+    checkpoint_adapter_path = checkpoint_dir / "delta_mem_adapter.pt"
+    evidence_paths = {
+        "initial_adapter_manifest": initial_manifest_path,
+        "initial_adapter": initial_adapter_path,
+        "checkpoint_adapter": checkpoint_adapter_path,
+    }
+    before = {
+        name: _focused_bound_artifact(
+            current.get(name),
+            expected_path=evidence_path,
+            description=name.replace("_", " "),
+        )
+        for name, evidence_path in evidence_paths.items()
+    }
+    if before["checkpoint_adapter"] != dict(
+        artifacts["delta_mem_adapter.pt"]
+    ):
+        raise ValueError("Focused endpoint checkpoint adapter binding differs")
+
+    audit_path = checkpoint_dir / audit_module.AUDIT_FILENAME
+    audit = _load_json_object(audit_path, description="hard-failure checkpoint audit")
+    audit_receipt_sha256 = _validate_self_hash(
+        audit,
+        field="receipt_sha256",
+        description="hard-failure checkpoint audit",
+    )
+    if (
+        audit.get("schema") != audit_module.AUDIT_SCHEMA
+        or audit.get("run_root") != str(run_root)
+        or audit.get("checkpoint") != str(checkpoint_dir)
+        or audit.get("checkpoint_optimizer_step") != step
+        or audit.get("nontrainable_adapter_tensors_unchanged") is not True
+        or checkpoint.get("checkpoint_audit_receipt_sha256")
+        != audit_receipt_sha256
+    ):
+        raise ValueError("Focused endpoint checkpoint audit binding differs")
+    change = audit.get("adapter_change")
+    if not isinstance(change, Mapping):
+        raise ValueError("Focused endpoint checkpoint audit change is missing")
+    recomputed = _recompute_focused_adapter_change(
+        initial_manifest_path=initial_manifest_path,
+        initial_adapter_path=initial_adapter_path,
+        checkpoint_adapter_path=checkpoint_adapter_path,
+        step=step,
+    )
+    after = {
+        name: _focused_bound_artifact(
+            current.get(name),
+            expected_path=evidence_path,
+            description=name.replace("_", " "),
+        )
+        for name, evidence_path in evidence_paths.items()
+    }
+    if before != after or recomputed != dict(change):
+        raise ValueError("Focused endpoint audit differs from current adapter bytes")
+    coverage_fields = (
+        "trainable_tensor_family_count",
+        "target_layer_count",
+        "trainable_family_layer_coverage",
+        "full_trainable_family_coverage",
+    )
+    if any(audit.get(field) != recomputed.get(field) for field in coverage_fields):
+        raise ValueError("Focused endpoint audit top-level coverage differs")
+    return recomputed, digests
+
+
+def _validate_focused_coverage_claims(
+    checkpoint: Mapping[str, Any],
+    coverage: Mapping[str, Any],
+    audit_change: Mapping[str, Any],
+    *,
+    step: int,
+    adapter_sha256: str,
+) -> bool:
+    """Bind receipt coverage fields to the exact audited family map."""
+
+    audit_module = _hard_failure_audit_module()
+    suffixes = tuple(audit_module.TRAINABLE_ADAPTER_TENSOR_SUFFIXES)
+    expected_family_coverage = audit_change.get("trainable_family_layer_coverage")
+    expected_missing = audit_change.get("missing_trainable_family_layers")
+    changed_count = audit_change.get("changed_trainable_tensor_count")
+    full_coverage = audit_change.get("full_trainable_family_coverage")
+    required = step == 64
+    if (
+        len(suffixes) != 27
+        or not isinstance(expected_family_coverage, Mapping)
+        or set(expected_family_coverage) != set(suffixes)
+        or not all(
+            isinstance(count, int)
+            and not isinstance(count, bool)
+            and 0 <= count <= 42
+            for count in expected_family_coverage.values()
+        )
+        or not isinstance(expected_missing, Mapping)
+        or set(expected_missing)
+        != {
+            suffix
+            for suffix, count in expected_family_coverage.items()
+            if count != 42
+        }
+        or not all(
+            isinstance(layers, list)
+            and layers == sorted(set(layers))
+            and all(
+                isinstance(layer, int)
+                and not isinstance(layer, bool)
+                and 0 <= layer < 42
+                for layer in layers
+            )
+            and len(layers) == 42 - expected_family_coverage[suffix]
+            for suffix, layers in expected_missing.items()
+        )
+        or changed_count != sum(expected_family_coverage.values())
+        or audit_change.get("expected_trainable_tensor_count") != 1134
+        or audit_change.get("trainable_tensor_family_count") != 27
+        or audit_change.get("target_layer_count") != 42
+        or audit_change.get("changed_nontrainable_tensor_count") != 0
+        or full_coverage
+        is not (not expected_missing and changed_count == 1134)
+        or audit_change.get("full_trainable_family_coverage_required") is not required
+        or (required and full_coverage is not True)
+        or audit_change.get("frozen_adapter_tensors_unchanged") is not True
+    ):
+        raise ValueError("Focused endpoint audited coverage is invalid")
+
+    current = checkpoint.get("current_adapter_validation")
+    artifacts = checkpoint.get("artifacts")
+    if not isinstance(current, Mapping) or not isinstance(artifacts, Mapping):
+        raise ValueError("Focused endpoint current adapter coverage is missing")
+    current_adapter = current.get("checkpoint_adapter")
+    change_sha256 = _canonical_sha256(audit_change)
+    coverage_fields = (
+        "changed_trainable_tensor_count",
+        "expected_trainable_tensor_count",
+        "trainable_tensor_family_count",
+        "target_layer_count",
+        "trainable_family_layer_coverage",
+        "missing_trainable_family_layers",
+        "full_trainable_family_coverage",
+        "full_trainable_family_coverage_required",
+    )
+    if (
+        not isinstance(current_adapter, Mapping)
+        or dict(current_adapter) != dict(artifacts["delta_mem_adapter.pt"])
+        or current_adapter.get("sha256") != adapter_sha256
+        or current.get("recomputed_adapter_change_canonical_sha256")
+        != change_sha256
+        or current.get("frozen_adapter_tensors_unchanged") is not True
+        or any(current.get(field) != audit_change.get(field) for field in coverage_fields)
+        or any(checkpoint.get(field) != audit_change.get(field) for field in coverage_fields)
+        or any(coverage.get(field) != audit_change.get(field) for field in coverage_fields)
+        or coverage.get("checkpoint_adapter_sha256") != adapter_sha256
+        or coverage.get("recomputed_adapter_change_canonical_sha256")
+        != change_sha256
+        or coverage.get("frozen_adapter_tensors_unchanged") is not True
+    ):
+        raise ValueError("Focused endpoint current-byte coverage binding differs")
+    return full_coverage is True
+
+
+def _focused_endpoint_gate_passed(endpoint: Mapping[str, Any]) -> bool:
+    binding = endpoint.get("gate")
+    if not isinstance(binding, Mapping):
+        raise ValueError("Focused endpoint gate binding is missing")
+    path_value = binding.get("focused_gate_path")
+    if not isinstance(path_value, str):
+        raise ValueError("Focused endpoint gate path is missing")
+    path = _focused_regular_file(
+        Path(path_value),
+        description="train-overfit endpoint gate",
+        train_only=True,
+    )
+    gate = _load_json_object(path, description="train-overfit endpoint gate")
+    passed = gate.get("all_gates_passed")
+    if (
+        not isinstance(passed, bool)
+        or binding.get("file_sha256") != sha256_file(path)
+        or binding.get("canonical_sha256") != _canonical_sha256(gate)
+        or gate.get("schema") != "rwkv_ms_scene_focused_recovery_gate.v1"
+        or gate.get("stage") != "train_overfit"
+        or gate.get("task") != TASK_NAME
+        or gate.get("source_indices") != list(range(SCENE_HARD_FAILURE_ROWS))
+        or gate.get("status")
+        != ("diagnostic_pass" if passed else "diagnostic_fail")
+    ):
+        raise ValueError("Focused endpoint gate binding differs")
+    return passed
+
+
 def validate_focused_train_selection_authorization(
     receipt_path: Path,
     *,
@@ -1305,6 +1601,7 @@ def validate_focused_train_selection_authorization(
 ) -> dict[str, Any]:
     """Validate the train-only selector before the protected Hard32 is opened."""
 
+    audit_filename = _hard_failure_audit_module().AUDIT_FILENAME
     path = _focused_regular_file(
         receipt_path,
         description="train selection receipt",
@@ -1322,6 +1619,11 @@ def validate_focused_train_selection_authorization(
         receipt.get("status") != "pass"
         or receipt.get("stage") != "train_overfit"
         or receipt.get("task") != TASK_NAME
+        or receipt.get("selection_policy")
+        != "first_train32_gate_pass_with_full_current_adapter_coverage_v2"
+        or receipt.get("endpoint_schedule") != [16, 32, 48, 64]
+        or receipt.get("selection_reason")
+        != "first_train32_gate_pass_with_full_current_adapter_coverage"
     ):
         raise ValueError("Focused train selection receipt did not pass train-overfit")
     authorization = receipt.get("authorization")
@@ -1353,7 +1655,11 @@ def validate_focused_train_selection_authorization(
             name,
             checkpoint_dir=expected_dir,
         )
-        for name in ("delta_mem_adapter.pt", "delta_mem_config.json")
+        for name in (
+            "delta_mem_adapter.pt",
+            "delta_mem_config.json",
+            audit_filename,
+        )
     }
     for name in (
         "training_protocol.json",
@@ -1366,6 +1672,118 @@ def validate_focused_train_selection_authorization(
                 name,
                 checkpoint_dir=expected_dir,
             )
+
+    evaluated_steps = receipt.get("evaluated_endpoint_steps")
+    evaluated = receipt.get("evaluated_endpoints")
+    selected_eligibility = receipt.get("selected_endpoint_eligibility")
+    if (
+        not isinstance(evaluated_steps, list)
+        or evaluated_steps != [16, 32, 48, 64][: len(evaluated_steps)]
+        or not isinstance(evaluated, list)
+        or len(evaluated) != len(evaluated_steps)
+        or not evaluated
+        or not all(isinstance(item, Mapping) for item in evaluated)
+        or not isinstance(selected_eligibility, Mapping)
+    ):
+        raise ValueError("Focused train selection endpoint sequence differs")
+    trainer_dir = expected_dir.parent
+    run_root = trainer_dir.parent
+    if trainer_dir.name != "trainer" or expected_dir.name != f"checkpoint-{global_step}":
+        raise ValueError("Focused selected checkpoint layout differs")
+    eligible: list[Mapping[str, Any]] = []
+    for step, endpoint in zip(evaluated_steps, evaluated):
+        endpoint_checkpoint = endpoint.get("checkpoint")
+        endpoint_coverage = endpoint.get("coverage_evidence")
+        endpoint_dir = run_root / "trainer" / f"checkpoint-{step}"
+        if (
+            not isinstance(endpoint_checkpoint, Mapping)
+            or endpoint_checkpoint.get("path") != str(endpoint_dir)
+            or not isinstance(endpoint_coverage, Mapping)
+        ):
+            raise ValueError("Focused endpoint checkpoint binding differs")
+        audit_change, endpoint_digests = _focused_checkpoint_audit_change(
+            endpoint_checkpoint,
+            checkpoint_dir=endpoint_dir,
+            step=step,
+        )
+        full_coverage = _validate_focused_coverage_claims(
+            endpoint_checkpoint,
+            endpoint_coverage,
+            audit_change,
+            step=step,
+            adapter_sha256=endpoint_digests["delta_mem_adapter.pt"],
+        )
+        benchmark_gate_passed = _focused_endpoint_gate_passed(endpoint)
+        selection_eligible = endpoint.get("selection_eligible")
+        if (
+            endpoint.get("global_step") != step
+            or endpoint.get("benchmark_gate_passed") is not benchmark_gate_passed
+            or endpoint.get("full_coverage") is not full_coverage
+            or not isinstance(selection_eligible, bool)
+            or selection_eligible
+            is not (benchmark_gate_passed and full_coverage)
+        ):
+            raise ValueError("Focused train selection endpoint eligibility differs")
+        if selection_eligible:
+            eligible.append(endpoint)
+    selected_endpoint = evaluated[-1]
+    if (
+        eligible != [selected_endpoint]
+        or selected_endpoint.get("global_step") != global_step
+        or selected_endpoint.get("checkpoint") != checkpoint
+        or selected_endpoint.get("gate") != receipt.get("gate")
+        or dict(selected_eligibility)
+        != {
+            "benchmark_gate_passed": True,
+            "full_coverage": True,
+            "selection_eligible": True,
+        }
+    ):
+        raise ValueError("Focused train selection did not choose first eligible endpoint")
+
+    coverage = selected_endpoint.get("coverage_evidence")
+    current = checkpoint.get("current_adapter_validation")
+    if not isinstance(coverage, Mapping) or not isinstance(current, Mapping):
+        raise ValueError("Focused selected checkpoint current coverage is missing")
+    family_coverage = coverage.get("trainable_family_layer_coverage")
+    current_adapter = current.get("checkpoint_adapter")
+    change_sha256 = coverage.get("recomputed_adapter_change_canonical_sha256")
+    if (
+        coverage.get("changed_trainable_tensor_count") != 1134
+        or coverage.get("expected_trainable_tensor_count") != 1134
+        or coverage.get("trainable_tensor_family_count") != 27
+        or coverage.get("target_layer_count") != 42
+        or not isinstance(family_coverage, Mapping)
+        or len(family_coverage) != 27
+        or not all(
+            isinstance(name, str) and count == 42
+            for name, count in family_coverage.items()
+        )
+        or coverage.get("missing_trainable_family_layers") != {}
+        or coverage.get("full_trainable_family_coverage") is not True
+        or coverage.get("frozen_adapter_tensors_unchanged") is not True
+        or not isinstance(change_sha256, str)
+        or SHA256_RE.fullmatch(change_sha256) is None
+        or coverage.get("checkpoint_adapter_sha256")
+        != artifact_sha256["delta_mem_adapter.pt"]
+        or not isinstance(current_adapter, Mapping)
+        or dict(current_adapter) != dict(artifacts["delta_mem_adapter.pt"])
+        or current_adapter.get("sha256") != artifact_sha256["delta_mem_adapter.pt"]
+        or current.get("recomputed_adapter_change_canonical_sha256")
+        != change_sha256
+        or any(current.get(field) != coverage.get(field) for field in (
+            "changed_trainable_tensor_count",
+            "expected_trainable_tensor_count",
+            "trainable_tensor_family_count",
+            "target_layer_count",
+            "trainable_family_layer_coverage",
+            "missing_trainable_family_layers",
+            "full_trainable_family_coverage",
+            "full_trainable_family_coverage_required",
+            "frozen_adapter_tensors_unchanged",
+        ))
+    ):
+        raise ValueError("Focused selected checkpoint lacks full current-byte coverage")
 
     source = receipt.get("source")
     if not isinstance(source, Mapping):
