@@ -550,10 +550,19 @@ class _GreedyModel(torch.nn.Module):
         return torch.cat((input_ids, self.generated_suffix.to(input_ids.device)), dim=1)
 
 
-def test_v12_rollout_uses_positive_internal_alignment_cap_when_legacy_cap_is_zero(
+@pytest.mark.parametrize(
+    "objective_version",
+    (
+        experimental_train._SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+        experimental_train._SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
+    ),
+)
+def test_semantic_rollout_uses_positive_internal_alignment_cap_when_legacy_cap_is_zero(
     monkeypatch: pytest.MonkeyPatch,
+    objective_version: str,
 ) -> None:
     trainer = _v12_trainer()
+    trainer.scene_state_generation_objective_version = objective_version
     model = _GreedyModel([1, 9, 3])
     trainer._reset_online_state = lambda active: None
     monkeypatch.setattr(

@@ -6050,7 +6050,6 @@ class DeltaMemTrainer(Trainer):
             _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
             _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
             _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
-            _SCENE_STATE_HARD_FAILURE_OBJECTIVE_VERSION,
         }
         if (
             scene_state_generated_unlikelihood_max_wrong_tokens < 0
@@ -10779,12 +10778,15 @@ class DeltaMemTrainer(Trainer):
         generated_token_ids = generated_sequences[0, prompt_length:].detach()
         gold_token_ids = rollout["gold_token_ids"]
         wrong_position_cap = self.scene_state_generated_unlikelihood_max_wrong_tokens
-        if self.scene_state_generation_objective_version in {
-            _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
-            _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
-            _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSION,
-            _SCENE_STATE_CACHED_PREFIX_IDENTITY_OBJECTIVE_VERSION,
-        }:
+        objective_version = self.scene_state_generation_objective_version
+        if (
+            objective_version
+            in {
+                _SCENE_STATE_SEMANTIC_MARGIN_OBJECTIVE_VERSION,
+                _SCENE_STATE_DENSE_SEMANTIC_OBJECTIVE_VERSION,
+            }
+            or objective_version in _SCENE_STATE_CACHED_PREFIX_OBJECTIVE_VERSIONS
+        ):
             # Semantic rollout objectives lock the legacy correction count to zero.
             # Alignment still needs a positive internal cap for telemetry.
             wrong_position_cap = max(
