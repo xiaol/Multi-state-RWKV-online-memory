@@ -414,22 +414,10 @@ def validate_full_trainable_family_coverage(
         f"checkpoint-{step} top-level audit does not prove complete 27-family x "
         "42-layer coverage",
     )
+    recomputed_coverage = validate_recomputed_adapter_change(change, step=step)
     _require(
-        change.get("trainable_tensor_family_count") == expected_family_count
-        and change.get("target_layer_count") == expected_layer_count
-        and change.get("expected_trainable_tensor_count") == expected_tensor_count
-        and change.get("changed_trainable_tensor_count") == expected_tensor_count
-        and change.get("changed_nontrainable_tensor_count") == 0
-        and change.get("trainable_family_layer_coverage") == expected_coverage
-        and change.get("missing_trainable_family_layers") == {}
-        and change.get("full_trainable_family_coverage") is True,
-        f"checkpoint-{step} adapter-change evidence does not prove complete "
-        "27-family x 42-layer coverage",
-    )
-    _require(
-        change.get("full_trainable_family_coverage_required")
-        is (step == train_contract.TOTAL_OPTIMIZER_STEPS),
-        f"checkpoint-{step} audit coverage requirement flag differs",
+        recomputed_coverage == expected_coverage,
+        f"checkpoint-{step} adapter-change coverage differs",
     )
     _require(
         audit.get("optimizer_contains_only_declared_trainable_adapter_state_count")
@@ -452,6 +440,114 @@ def validate_full_trainable_family_coverage(
         "adapter tensors",
     )
     return expected_coverage
+
+
+def validate_recomputed_adapter_change(
+    change: Mapping[str, Any],
+    *,
+    step: int,
+) -> dict[str, int]:
+    """Require complete current-byte change evidence for every trainable tensor."""
+
+    expected_family_count = len(run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES)
+    expected_layer_count = len(train_contract.TARGET_LAYERS)
+    expected_tensor_count = expected_family_count * expected_layer_count
+    expected_coverage = {
+        suffix: expected_layer_count
+        for suffix in run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES
+    }
+    _require(
+        change.get("trainable_tensor_family_count") == expected_family_count
+        and change.get("target_layer_count") == expected_layer_count
+        and change.get("expected_trainable_tensor_count") == expected_tensor_count
+        and change.get("changed_trainable_tensor_count") == expected_tensor_count
+        and change.get("changed_nontrainable_tensor_count") == 0
+        and change.get("trainable_family_layer_coverage") == expected_coverage
+        and change.get("missing_trainable_family_layers") == {}
+        and change.get("full_trainable_family_coverage") is True,
+        f"checkpoint-{step} adapter-change evidence does not prove complete "
+        "27-family x 42-layer coverage",
+    )
+    _require(
+        change.get("full_trainable_family_coverage_required")
+        is (step == train_contract.TOTAL_OPTIMIZER_STEPS),
+        f"checkpoint-{step} audit coverage requirement flag differs",
+    )
+    return expected_coverage
+
+
+def validate_current_adapter_change(
+    run_root: Path,
+    checkpoint: Path,
+    *,
+    step: int,
+    audited_change: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Recompute adapter changes from stable current bytes and bind the evidence."""
+
+    initial_dir = require_directory(
+        run_root / "initial_adapter",
+        description="initial adapter directory",
+    )
+    evidence_paths = {
+        "initial_adapter_manifest": initial_dir / "initial_adapter_manifest.json",
+        "initial_adapter": initial_dir / "delta_mem_adapter.pt",
+        "checkpoint_adapter": checkpoint / "delta_mem_adapter.pt",
+    }
+    before = {
+        name: artifact_binding(path, description=name.replace("_", " "))
+        for name, path in evidence_paths.items()
+    }
+    try:
+        initial_manifest = load_json_object(
+            evidence_paths["initial_adapter_manifest"],
+            description="initial adapter manifest",
+        )
+        initial_adapter = run_audit.load_finite_adapter(
+            evidence_paths["initial_adapter"]
+        )
+        checkpoint_adapter = run_audit.load_finite_adapter(
+            evidence_paths["checkpoint_adapter"]
+        )
+        trainable_names = run_audit._validate_initial_adapter_topology(
+            initial_manifest.get("topology"),
+            initial_adapter,
+        )
+        recomputed_change = run_audit.adapter_change_record(
+            initial_adapter,
+            checkpoint_adapter,
+            trainable_names=trainable_names,
+            checkpoint_step=step,
+            smoke=False,
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise SelectionError(
+            f"checkpoint-{step} current adapter change validation failed: {exc}"
+        ) from exc
+
+    after = {
+        name: artifact_binding(path, description=name.replace("_", " "))
+        for name, path in evidence_paths.items()
+    }
+    _require(
+        after == before,
+        f"checkpoint-{step} adapter evidence changed during current-byte validation",
+    )
+    coverage = validate_recomputed_adapter_change(recomputed_change, step=step)
+    _require(
+        recomputed_change == dict(audited_change),
+        f"checkpoint-{step} current adapter change differs from audited evidence",
+    )
+    return {
+        **before,
+        "recomputed_adapter_change_canonical_sha256": canonical_sha256(
+            recomputed_change
+        ),
+        "trainable_tensor_family_count": len(coverage),
+        "target_layer_count": len(train_contract.TARGET_LAYERS),
+        "full_trainable_family_coverage": True,
+        "frozen_adapter_tensors_unchanged": True,
+    }
 
 
 def validate_checkpoint(
@@ -511,6 +607,17 @@ def validate_checkpoint(
         f"checkpoint-{step} production audit binding differs",
     )
     family_coverage = validate_full_trainable_family_coverage(audit, step=step)
+    current_adapter_validation = validate_current_adapter_change(
+        run_root,
+        checkpoint,
+        step=step,
+        audited_change=audit["adapter_change"],
+    )
+    _require(
+        current_adapter_validation["checkpoint_adapter"]
+        == artifacts["delta_mem_adapter.pt"],
+        f"checkpoint-{step} adapter binding changed during checkpoint validation",
+    )
     return {
         "path": str(checkpoint),
         "global_step": step,
@@ -520,6 +627,7 @@ def validate_checkpoint(
         "trainable_family_layer_coverage": family_coverage,
         "full_trainable_family_coverage": True,
         "checkpoint_audit_receipt_sha256": audit["receipt_sha256"],
+        "current_adapter_validation": current_adapter_validation,
     }
 
 
@@ -689,6 +797,20 @@ def load_endpoint_evidence(
         and manifest.get("evaluation_contract") == contract,
         f"checkpoint-{spec.step} manifest fingerprint or contract differs",
     )
+    progress = load_json_object(
+        results_dir / "progress.json",
+        description=f"checkpoint-{spec.step} evaluation progress",
+    )
+    expected_records = state_eval.SCENE_HARD_FAILURE_ROWS * len(
+        state_eval.SCENE_FOCUSED_CONDITIONS
+    )
+    _require(
+        progress.get("fingerprint") == fingerprint
+        and progress.get("completed") == expected_records
+        and progress.get("expected") == expected_records
+        and progress.get("complete") is True,
+        f"checkpoint-{spec.step} evaluation progress is incomplete or differs",
+    )
     evaluation_artifacts = {
         name: artifact_binding(
             results_dir / name,
@@ -697,6 +819,7 @@ def load_endpoint_evidence(
         for name in (
             "manifest.json",
             "summary.json",
+            "progress.json",
             *(f"{condition}.jsonl" for condition in state_eval.SCENE_FOCUSED_CONDITIONS),
         )
     }

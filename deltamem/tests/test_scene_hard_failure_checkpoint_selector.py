@@ -443,6 +443,17 @@ def test_validate_checkpoint_binds_v2_audit_and_full_coverage(
         selector.run_audit, "_validate_trainer_state", lambda *a, **k: None
     )
     monkeypatch.setattr(selector.run_audit, "_validate_row_audit", lambda *a, **k: None)
+    current_adapter_validation = {
+        "checkpoint_adapter": selector.artifact_binding(
+            checkpoint / "delta_mem_adapter.pt",
+            description="checkpoint adapter",
+        )
+    }
+    monkeypatch.setattr(
+        selector,
+        "validate_current_adapter_change",
+        lambda *a, **k: current_adapter_validation,
+    )
 
     validated = selector.validate_checkpoint(
         run_root,
@@ -454,6 +465,7 @@ def test_validate_checkpoint_binds_v2_audit_and_full_coverage(
     assert validated["trainable_tensor_family_count"] == 27
     assert validated["target_layer_count"] == 42
     assert validated["full_trainable_family_coverage"] is True
+    assert validated["current_adapter_validation"] == current_adapter_validation
     audit_binding = validated["artifacts"][selector.run_audit.AUDIT_FILENAME]
     assert audit_binding["path"] == str(
         checkpoint / selector.run_audit.AUDIT_FILENAME
@@ -486,6 +498,152 @@ def test_validate_checkpoint_rejects_v2_audit_without_full_coverage(
             run_root,
             step=16,
             source={"source_lock_sha256": source_lock_sha256},
+        )
+
+
+def _write_adapter_change_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    run_root = tmp_path / "run"
+    initial = run_root / "initial_adapter"
+    checkpoint = run_root / "trainer" / "checkpoint-16"
+    initial.mkdir(parents=True)
+    checkpoint.mkdir(parents=True)
+    (initial / "initial_adapter_manifest.json").write_text(
+        json.dumps({"topology": {"fixture": True}}),
+        encoding="utf-8",
+    )
+    (initial / "delta_mem_adapter.pt").write_bytes(b"seed-adapter")
+    (checkpoint / "delta_mem_adapter.pt").write_bytes(b"checkpoint-v1")
+    return run_root, checkpoint
+
+
+def _mock_adapter_recomputation(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    change_for_checkpoint: Any,
+) -> None:
+    monkeypatch.setattr(
+        selector.run_audit,
+        "load_finite_adapter",
+        lambda path: {"content": path.read_bytes()},
+    )
+    monkeypatch.setattr(
+        selector.run_audit,
+        "_validate_initial_adapter_topology",
+        lambda topology, initial: ["fixture.trainable"],
+    )
+
+    def adapter_change(
+        initial: dict[str, Any],
+        checkpoint: dict[str, Any],
+        *,
+        trainable_names: list[str],
+        checkpoint_step: int,
+        smoke: bool,
+    ) -> dict[str, Any]:
+        assert initial == {"content": b"seed-adapter"}
+        assert trainable_names == ["fixture.trainable"]
+        assert checkpoint_step == 16
+        assert smoke is False
+        return change_for_checkpoint(checkpoint["content"])
+
+    monkeypatch.setattr(selector.run_audit, "adapter_change_record", adapter_change)
+
+
+def test_current_adapter_change_recomputes_and_binds_stable_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_root, checkpoint = _write_adapter_change_fixture(tmp_path)
+    audited_change = _full_coverage_audit(16)["adapter_change"]
+    audited_change["maximum_absolute_delta"] = 0.25
+    _mock_adapter_recomputation(
+        monkeypatch,
+        change_for_checkpoint=lambda content: dict(audited_change),
+    )
+
+    evidence = selector.validate_current_adapter_change(
+        run_root,
+        checkpoint,
+        step=16,
+        audited_change=audited_change,
+    )
+
+    assert evidence["initial_adapter_manifest"]["sha256"] == selector.sha256_file(
+        run_root / "initial_adapter" / "initial_adapter_manifest.json"
+    )
+    assert evidence["initial_adapter"]["sha256"] == selector.sha256_file(
+        run_root / "initial_adapter" / "delta_mem_adapter.pt"
+    )
+    assert evidence["checkpoint_adapter"]["sha256"] == selector.sha256_file(
+        checkpoint / "delta_mem_adapter.pt"
+    )
+    assert evidence["recomputed_adapter_change_canonical_sha256"] == (
+        selector.canonical_sha256(audited_change)
+    )
+    assert evidence["full_trainable_family_coverage"] is True
+    assert evidence["frozen_adapter_tensors_unchanged"] is True
+
+
+def test_current_adapter_change_rejects_mutation_after_stale_audit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_root, checkpoint = _write_adapter_change_fixture(tmp_path)
+    audited_change = _full_coverage_audit(16)["adapter_change"]
+    audited_change["maximum_absolute_delta"] = 0.25
+    checkpoint_change = dict(audited_change)
+    checkpoint_change["maximum_absolute_delta"] = 0.5
+    (checkpoint / "delta_mem_adapter.pt").write_bytes(b"checkpoint-v2")
+    _mock_adapter_recomputation(
+        monkeypatch,
+        change_for_checkpoint=lambda content: (
+            dict(audited_change)
+            if content == b"checkpoint-v1"
+            else dict(checkpoint_change)
+        ),
+    )
+
+    with pytest.raises(selector.SelectionError, match="differs from audited evidence"):
+        selector.validate_current_adapter_change(
+            run_root,
+            checkpoint,
+            step=16,
+            audited_change=audited_change,
+        )
+
+
+def test_current_adapter_change_rejects_mutation_during_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_root, checkpoint = _write_adapter_change_fixture(tmp_path)
+    audited_change = _full_coverage_audit(16)["adapter_change"]
+    checkpoint_adapter = checkpoint / "delta_mem_adapter.pt"
+
+    def load_and_mutate(path: Path) -> dict[str, bytes]:
+        content = path.read_bytes()
+        if path == checkpoint_adapter:
+            path.write_bytes(b"checkpoint-mutated-during-load")
+        return {"content": content}
+
+    monkeypatch.setattr(selector.run_audit, "load_finite_adapter", load_and_mutate)
+    monkeypatch.setattr(
+        selector.run_audit,
+        "_validate_initial_adapter_topology",
+        lambda topology, initial: ["fixture.trainable"],
+    )
+    monkeypatch.setattr(
+        selector.run_audit,
+        "adapter_change_record",
+        lambda *a, **k: dict(audited_change),
+    )
+
+    with pytest.raises(selector.SelectionError, match="changed during current-byte"):
+        selector.validate_current_adapter_change(
+            run_root,
+            checkpoint,
+            step=16,
+            audited_change=audited_change,
         )
 
 
@@ -562,6 +720,15 @@ def test_endpoint_evidence_recomputes_and_binds_gate_and_evaluation(
         encoding="utf-8",
     )
     (results_dir / "summary.json").write_text("{}\n", encoding="utf-8")
+    progress = {
+        "fingerprint": fingerprint,
+        "completed": 32 * len(state_eval.SCENE_FOCUSED_CONDITIONS),
+        "expected": 32 * len(state_eval.SCENE_FOCUSED_CONDITIONS),
+        "complete": True,
+    }
+    (results_dir / "progress.json").write_text(
+        json.dumps(progress, sort_keys=True), encoding="utf-8"
+    )
     for condition in state_eval.SCENE_FOCUSED_CONDITIONS:
         (results_dir / f"{condition}.jsonl").write_text("{}\n", encoding="utf-8")
     gate_file = results_dir / selector.GATE_FILENAME
@@ -584,8 +751,35 @@ def test_endpoint_evidence_recomputes_and_binds_gate_and_evaluation(
     assert set(evidence.evaluation["artifacts"]) == {
         "manifest.json",
         "summary.json",
+        "progress.json",
         *(f"{condition}.jsonl" for condition in state_eval.SCENE_FOCUSED_CONDITIONS),
     }
+
+    (results_dir / "progress.json").unlink()
+    with pytest.raises(selector.SelectionError, match="evaluation progress"):
+        selector.load_endpoint_evidence(
+            selector.EndpointSpec(16, results_dir, gate_file),
+            checkpoint=checkpoint,
+            source=source,
+        )
+
+    invalid_progress = dict(progress)
+    invalid_progress["completed"] -= 1
+    (results_dir / "progress.json").write_text(
+        json.dumps(invalid_progress, sort_keys=True), encoding="utf-8"
+    )
+    with pytest.raises(
+        selector.SelectionError,
+        match="progress is incomplete or differs",
+    ):
+        selector.load_endpoint_evidence(
+            selector.EndpointSpec(16, results_dir, gate_file),
+            checkpoint=checkpoint,
+            source=source,
+        )
+    (results_dir / "progress.json").write_text(
+        json.dumps(progress, sort_keys=True), encoding="utf-8"
+    )
 
     tampered = dict(report)
     tampered["status"] = "diagnostic_fail"
