@@ -1,0 +1,41 @@
+{"type": "init", "profile": "research", "ts": "2026-07-07T01:16:14"}
+{"type": "goal", "text": "HOLA-on-RWKV: replace HOLA's GDN neocortex with RWKV-7 multi-state online memory; add surprise-evicted exact-KV hippocampus + sharpened read at mechanism level in dla_poc harness", "ts": "2026-07-07T01:16:14"}
+{"type": "hypothesis", "hid": "H1", "text": "H1: surprise eviction (erase_gate*||e||, the RWKV-7 write magnitude) beats a matched recency cache on needle recall under imperfect boundaries (fixed/noisy/low_k)", "ts": "2026-07-07T01:16:14"}
+{"type": "hypothesis", "hid": "H2", "text": "H2: the exact cache only helps with a sharpened read (sqrt(d)*cos logits); a flat 0.83*cos read degenerates toward the no-cache baseline", "ts": "2026-07-07T01:16:14"}
+{"type": "hypothesis", "hid": "H3", "text": "H3: the hippocampus rescues low-K state compression: ms+cache at K/2 states recovers most of the gap to oracle boundaries", "ts": "2026-07-07T01:16:14"}
+{"type": "phase", "pid": "p1", "title": "Design doc mapping HOLA components onto RWKV-7 read-before-write multi-state", "check": "test -s experiments/hola_hippocampus/DESIGN.md && grep -q 'erase_gate' experiments/hola_hippocampus/DESIGN.md", "ts": "2026-07-07T01:16:14"}
+{"type": "phase", "pid": "p2", "title": "Implement experiments/hola_hippocampus/hola_rwkv_ms.py (5 variants: ms, ms+hola, ms+recency, ms+hola-flat, single+hola)", "check": ".venv/bin/python experiments/hola_hippocampus/hola_rwkv_ms.py --smoke", "ts": "2026-07-07T01:16:14"}
+{"type": "phase", "pid": "p3", "title": "Full grid run (3 configs x 5 policies x 5 seeds x w in 8,16) + REPORT.md with hypothesis verdicts", "check": "test -s experiments/hola_hippocampus/REPORT.md && grep -q 'H1' experiments/hola_hippocampus/REPORT.md", "ts": "2026-07-07T01:16:14"}
+{"type": "phase", "pid": "p4", "title": "Wire results into repo README (new section) ", "check": "grep -q 'hola_hippocampus' README.md", "ts": "2026-07-07T01:16:14"}
+{"type": "phase_status", "pid": "p1", "status": "in_progress", "ts": "2026-07-07T01:16:14"}
+{"type": "phase_status", "pid": "p1", "status": "done", "ts": "2026-07-07T01:17:18"}
+{"type": "check_result", "pid": "p1", "ok": true, "code": 0, "tail": "", "ts": "2026-07-07T01:17:18"}
+{"type": "phase_status", "pid": "p2", "status": "in_progress", "ts": "2026-07-07T01:17:18"}
+{"type": "finding", "text": "Plain HOLA score beta||e|| FAILS here: needle_in_cache 0.12-0.31, ms+hola 0.716 < ms 0.983. Three causes: (a) first-filler-of-theme scores m~1 same as needles (constant erase_gate = no learned beta to separate them); (b) multi-state block resets inflate m for block-first tokens; (c) filler values are ~0.6% longer than unit needles (v_theme+noise not renormalized) so topk systematically prefers filler. Fix: consolidation-aware eviction (demote cache entries whose key the state later predicts well) + confidence-gated lambda from cache softmax top weight.", "refs": ["experiments/hola_hippocampus/hola_rwkv_ms.py"], "ts": "2026-07-07T01:20:58"}
+{"type": "phase_status", "pid": "p2", "status": "done", "ts": "2026-07-07T01:23:09"}
+{"type": "check_result", "pid": "p2", "ok": true, "code": 0, "tail": "w= 8 needles= 8 K=16 fixed     ms=0.983 +hola=0.977 +plain=0.951 +rec=0.983 +flat=0.980 single+hola=0.886 needle_in_cache=0.75\nw= 8 needles= 8 K=16 low_k_dla ms=0.945 +hola=0.978 +plain=0.947 +rec=0.945 +flat=0.948 single+hola=0.886 needle_in_cache=0.94\nSMOKE_OK parity and quick grid pass", "ts": "2026-07-07T01:23:09"}
+{"type": "phase_status", "pid": "p3", "status": "in_progress", "ts": "2026-07-07T01:23:09"}
+{"type": "experiment", "hash": "b0c50679c525", "cmd": ".venv/bin/python experiments/hola_hippocampus/hola_rwkv_ms.py", "config": "experiments/hola_hippocampus/grid_config.json", "code": 0, "tail": "dles=16 K=12 noisy_dla ms=0.819 +hola=0.907 +plain=0.851 +rec=0.816 +flat=0.825 single+hola=0.794 needle_in_cache=0.82\nw=16 needles=16 K=12 low_k_dla ms=0.669 +hola=0.880 +plain=0.779 +rec=0.665 +flat=0.683 single+hola=0.794 needle_in_cache=0.94\n{\n  \"h1_gap_bad_boundaries\": 0.038191618859572285,\n  \"h1_pass\": true,\n  \"h2_gap_sharp_vs_flat\": 0.031214526528020987,\n  \"h2_flat_minus_no_cache\": 0.002556538869221519,\n  \"h2_pass\": true,\n  \"h3_lowk_gap_recovered\": 0.5488885952119634,\n  \"h3_pass\": true\n}\n", "hypothesis": "H1", "ts": "2026-07-07T01:23:14"}
+{"type": "hypothesis_status", "hid": "H1", "status": "supported", "evidence": "e16", "ts": "2026-07-07T01:23:48"}
+{"type": "hypothesis_status", "hid": "H2", "status": "supported", "evidence": "e16", "ts": "2026-07-07T01:23:48"}
+{"type": "hypothesis_status", "hid": "H3", "status": "supported", "evidence": "e16", "ts": "2026-07-07T01:23:48"}
+{"type": "phase_status", "pid": "p3", "status": "done", "ts": "2026-07-07T01:24:31"}
+{"type": "check_result", "pid": "p3", "ok": true, "code": 0, "tail": "", "ts": "2026-07-07T01:24:31"}
+{"type": "phase_status", "pid": "p4", "status": "in_progress", "ts": "2026-07-07T01:24:31"}
+{"type": "phase_status", "pid": "p4", "status": "done", "ts": "2026-07-07T01:25:28"}
+{"type": "check_result", "pid": "p4", "ok": true, "code": 0, "tail": "", "ts": "2026-07-07T01:25:28"}
+{"type": "hypothesis", "hid": "H4", "text": "H4: with matched decay and unit keys, HOLA(GDN neocortex) and HOLA-RWKV(RWKV-7 neocortex) are within noise (mean abs diff < 0.02) — the only mechanism difference is erase-term scaling alpha vs 1", "ts": "2026-07-07T01:46:19"}
+{"type": "hypothesis", "hid": "H5", "text": "H4b: the surprise signal comes FROM the delta rule: on a plain linear block-sum state, m_t=||v k^T||~=1 for every token, so the cache gain on bad boundaries is under half the delta-backbone gain", "ts": "2026-07-07T01:46:19"}
+{"type": "phase", "pid": "p5", "title": "Add gdn + linear neocortex kinds, run HOLA vs HOLA-RWKV comparison grid, extend REPORT", "check": "grep -q 'gdn' experiments/hola_hippocampus/REPORT.md && grep -q 'H4' experiments/hola_hippocampus/REPORT.md", "ts": "2026-07-07T01:46:19"}
+{"type": "phase", "pid": "p6", "title": "Write Autoresearch_ideas docs/17 idea entry with results and next steps", "check": "test -s /home/xiaol/X/Autoresearch_ideas/docs/17_hola_hippocampus_rwkv.md", "ts": "2026-07-07T01:46:19"}
+{"type": "phase_status", "pid": "p5", "status": "in_progress", "ts": "2026-07-07T01:46:19"}
+{"type": "experiment", "hash": "821a3020cc54", "cmd": ".venv/bin/python experiments/hola_hippocampus/hola_rwkv_ms.py", "config": "experiments/hola_hippocampus/grid_config.json", "code": 0, "tail": "n=0.668/0.883 rwkv7=0.669/0.880 linear=0.371/0.354\n{\n  \"h1_gap_bad_boundaries\": 0.038191618859572285,\n  \"h1_pass\": true,\n  \"h2_gap_sharp_vs_flat\": 0.031214526528020987,\n  \"h2_flat_minus_no_cache\": 0.002556538869221519,\n  \"h2_pass\": true,\n  \"h3_lowk_gap_recovered\": 0.5488885952119634,\n  \"h3_pass\": true,\n  \"h4_gdn_vs_rwkv_absdiff\": 0.0005348379358959857,\n  \"h4_pass\": true,\n  \"h5_cache_gain_delta_backbones\": 0.053065065794658896,\n  \"h5_cache_gain_linear\": -0.016109477300078296,\n  \"h5_pass\": true\n}\n", "hypothesis": "H4", "ts": "2026-07-07T01:48:16"}
+{"type": "hypothesis_status", "hid": "H4", "status": "supported", "evidence": "e21", "ts": "2026-07-07T01:48:45"}
+{"type": "hypothesis_status", "hid": "H5", "status": "supported", "evidence": "e21", "ts": "2026-07-07T01:48:45"}
+{"type": "phase_status", "pid": "p5", "status": "done", "ts": "2026-07-07T01:48:45"}
+{"type": "check_result", "pid": "p5", "ok": true, "code": 0, "tail": "", "ts": "2026-07-07T01:48:45"}
+{"type": "phase_status", "pid": "p6", "status": "in_progress", "ts": "2026-07-07T01:48:45"}
+{"type": "artifact", "text": "HOLA vs HOLA-RWKV comparison in REPORT.md + Autoresearch_ideas docs/17 entry", "refs": ["/home/xiaol/X/Autoresearch_ideas/docs/17_hola_hippocampus_rwkv.md"], "ts": "2026-07-07T01:52:03"}
+{"type": "phase_status", "pid": "p6", "status": "done", "ts": "2026-07-07T01:52:03"}
+{"type": "check_result", "pid": "p6", "ok": true, "code": 0, "tail": "", "ts": "2026-07-07T01:52:03"}
+{"type": "artifact", "text": "Filed 5 follow-up ideas (not started): iso-byte state/slot frontier, m_t boundary detector, surprise-gated agent memory, cache replay, estimator taxonomy", "refs": ["/home/xiaol/X/Autoresearch_ideas/docs/18_semiparametric_memory_followups.md"], "ts": "2026-07-07T05:10:29"}

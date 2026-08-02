@@ -1,0 +1,58 @@
+{
+  "grid": {
+    "widths": [
+      8,
+      16
+    ],
+    "seeds": 5,
+    "configs": [
+      [
+        8,
+        12,
+        16
+      ],
+      [
+        12,
+        10,
+        16
+      ],
+      [
+        16,
+        8,
+        12
+      ]
+    ],
+    "policies": [
+      "oracle",
+      "dla",
+      "fixed",
+      "noisy_dla",
+      "low_k_dla"
+    ]
+  },
+  "mech": {
+    "decay": 0.98,
+    "erase_gate": 1.0,
+    "sharp_scale": "sqrt(d)",
+    "flat_scale": 0.83,
+    "consolidate": {
+      "thresh": 0.5,
+      "cos": 0.9,
+      "decay": 0.5
+    },
+    "gate": "top-softmax-weight normalized"
+  },
+  "metric": "cosine needle recall, dla_poc state-only grid",
+  "comparison": {
+    "w": 16,
+    "backbones": [
+      "gdn",
+      "rwkv7",
+      "linear"
+    ],
+    "gdn": {
+      "alpha": 0.98,
+      "beta": 1.0
+    }
+  }
+}
