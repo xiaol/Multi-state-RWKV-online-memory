@@ -13,6 +13,9 @@ from experiments.rethinking_rwkv_ms_gemma import run_scene_state_eval as evaluat
 from experiments.rethinking_rwkv_ms_gemma import (
     scene_hard_failure_train_contract as hard_failure_contract,
 )
+from experiments.rethinking_rwkv_ms_gemma import (
+    select_scene_hard_failure_checkpoint as hard_failure_selector,
+)
 
 
 def test_focused_evaluator_source_lock_matches_training_curriculum() -> None:
@@ -607,6 +610,8 @@ def _focused_exactly_once_fixture(
     tmp_path: Path,
     memory_dir: Path,
 ) -> tuple[Path, dict[str, object]]:
+    audit_path = memory_dir / hard_failure_selector.run_audit.AUDIT_FILENAME
+    audit_path.write_text("{}\n", encoding="utf-8")
     run_root = memory_dir.parent.parent
     receipt_dir = run_root / "train32_endpoint_screen"
     receipt_dir.mkdir()
@@ -633,6 +638,9 @@ def _focused_exactly_once_fixture(
                 ),
                 "delta_mem_config.json": evaluator.sha256_file(
                     memory_dir / "delta_mem_config.json"
+                ),
+                hard_failure_selector.run_audit.AUDIT_FILENAME: (
+                    evaluator.sha256_file(audit_path)
                 ),
             },
         },
@@ -673,6 +681,994 @@ def _focused_exactly_once_kwargs(
         "inline_row_indices": None,
         "preflight_only": False,
     }
+
+
+def _valid_focused_v2_selection_receipt(
+    tmp_path: Path,
+) -> tuple[Path, Path, dict[str, object]]:
+    step = 16
+    run_root = tmp_path / "run"
+    memory_dir = run_root / "trainer" / f"checkpoint-{step}"
+    initial_dir = run_root / "initial_adapter"
+    receipt_dir = run_root / "train32_endpoint_screen"
+    memory_dir.mkdir(parents=True)
+    initial_dir.mkdir()
+    receipt_dir.mkdir()
+
+    initial_manifest = initial_dir / "initial_adapter_manifest.json"
+    initial_adapter = initial_dir / "delta_mem_adapter.pt"
+    checkpoint_adapter = memory_dir / "delta_mem_adapter.pt"
+    checkpoint_config = memory_dir / "delta_mem_config.json"
+    checkpoint_protocol = memory_dir / "training_protocol.json"
+    checkpoint_audit = memory_dir / hard_failure_selector.run_audit.AUDIT_FILENAME
+    initial_manifest.write_text(
+        json.dumps({"topology": {"fixture": True}}, sort_keys=True),
+        encoding="utf-8",
+    )
+    initial_adapter.write_bytes(b"initial-adapter")
+    checkpoint_adapter.write_bytes(b"checkpoint-adapter")
+    checkpoint_config.write_text(
+        json.dumps(
+            {
+                "target_layers": list(range(42)),
+                "delta_heads": ["q", "o"],
+                "rank": 4,
+                "rwkv_ms_semantics_version": 2,
+                "memory_backend": "rwkv_ms",
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    training_protocol = {
+        "schema_version": hard_failure_contract.OBJECTIVE_SCHEMA_VERSION,
+        "memory_objective_version": hard_failure_contract.OBJECTIVE_VERSION,
+        "gradient_accumulation_steps": (
+            hard_failure_contract.GRADIENT_ACCUMULATION_STEPS
+        ),
+        "max_steps": hard_failure_contract.TOTAL_OPTIMIZER_STEPS,
+        "save_steps": hard_failure_contract.SAVE_STEPS,
+        "save_total_limit": hard_failure_contract.SAVE_TOTAL_LIMIT,
+        "scene_generation_hard_failure_run_mode": (
+            hard_failure_contract.PRODUCTION_RUN_MODE
+        ),
+        "scene_generation_hard_failure_production_eligible": True,
+        "scene_generation_row_objective_audit_filename": (
+            hard_failure_contract.ROW_OBJECTIVE_AUDIT_FILENAME
+        ),
+        "scene_generation_row_objective_audit_schema": (
+            hard_failure_contract.ROW_OBJECTIVE_AUDIT_SCHEMA
+        ),
+        "train_schedule": {
+            "checkpoint_steps": list(hard_failure_contract.CHECKPOINT_STEPS),
+            "optimizer_checkpoint_steps": list(
+                hard_failure_contract.CHECKPOINT_STEPS
+            ),
+            "generation_endpoint_steps": list(
+                hard_failure_contract.GENERATION_ENDPOINT_STEPS
+            ),
+            "microbatch_cycle_size": 1,
+            "continuation_policy": "forbidden_fresh_only",
+        },
+    }
+    hard_failure_selector.run_audit._validate_protocol(
+        training_protocol,
+        smoke=False,
+    )
+    checkpoint_protocol.write_text(
+        json.dumps(training_protocol, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    family_coverage = {
+        suffix: 42
+        for suffix in hard_failure_selector.run_audit.TRAINABLE_ADAPTER_TENSOR_SUFFIXES
+    }
+    adapter_change = {
+        "changed_trainable_tensor_count": 1134,
+        "changed_nontrainable_tensor_count": 0,
+        "expected_trainable_tensor_count": 1134,
+        "trainable_tensor_family_count": 27,
+        "target_layer_count": 42,
+        "trainable_family_layer_coverage": family_coverage,
+        "missing_trainable_family_layers": {},
+        "full_trainable_family_coverage": True,
+        "full_trainable_family_coverage_required": False,
+        "frozen_adapter_tensors_unchanged": True,
+    }
+    audit = {
+        "schema": hard_failure_selector.run_audit.AUDIT_SCHEMA,
+        "run_root": str(run_root),
+        "checkpoint": str(memory_dir),
+        "checkpoint_optimizer_step": step,
+        "run_mode": hard_failure_contract.PRODUCTION_RUN_MODE,
+        "objective_version": hard_failure_contract.OBJECTIVE_VERSION,
+        "source_lock_sha256": hard_failure_contract.validate_source_lock()[
+            "lock_sha256"
+        ],
+        "nontrainable_adapter_tensors_unchanged": True,
+        "optimizer_contains_only_declared_trainable_adapter_state_count": True,
+        "base_model_parameter_values_not_materialized_in_adapter_checkpoint": True,
+        "row_audit_complete": True,
+        "trainable_tensor_family_count": 27,
+        "target_layer_count": 42,
+        "trainable_family_layer_coverage": family_coverage,
+        "full_trainable_family_coverage": True,
+        "adapter_change": adapter_change,
+    }
+    audit["receipt_sha256"] = evaluator._canonical_sha256(audit)
+    checkpoint_audit.write_text(
+        json.dumps(audit, sort_keys=True),
+        encoding="utf-8",
+    )
+    completion_audits = []
+    for checkpoint_step in hard_failure_contract.CHECKPOINT_STEPS:
+        audit_path = (
+            run_root
+            / "trainer"
+            / f"checkpoint-{checkpoint_step}"
+            / hard_failure_selector.run_audit.AUDIT_FILENAME
+        )
+        audit_path.parent.mkdir(parents=True, exist_ok=True)
+        if checkpoint_step != step:
+            audit_path.write_text(
+                json.dumps({"checkpoint_optimizer_step": checkpoint_step}),
+                encoding="utf-8",
+            )
+        completion_audits.append(
+            {
+                "step": checkpoint_step,
+                "path": str(audit_path.resolve()),
+                "sha256": evaluator.sha256_file(audit_path),
+            }
+        )
+    completion = {
+        "schema": "rwkv_ms_scene_hard_failure_completion.v1",
+        "run_mode": "production",
+        "run_root": str(run_root.resolve()),
+        "global_step": hard_failure_contract.TOTAL_OPTIMIZER_STEPS,
+        "checkpoint_steps": list(hard_failure_contract.CHECKPOINT_STEPS),
+        "checkpoint_audits": completion_audits,
+        "training_complete": True,
+        "evaluation_accessed": False,
+    }
+    completion["receipt_sha256"] = evaluator._canonical_sha256(completion)
+    completion_path = run_root.parent / "logs" / f"{run_root.name}.completion.json"
+    completion_path.parent.mkdir()
+    completion_path.write_text(
+        json.dumps(completion, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    adapter_binding = hard_failure_selector.artifact_binding(
+        checkpoint_adapter,
+        description="checkpoint adapter",
+    )
+    coverage = hard_failure_selector.validate_recomputed_adapter_change(
+        adapter_change,
+        step=step,
+    )
+    checkpoint = {
+        "path": str(memory_dir),
+        "global_step": step,
+        "artifacts": {
+            "delta_mem_adapter.pt": adapter_binding,
+            "delta_mem_config.json": hard_failure_selector.artifact_binding(
+                checkpoint_config,
+                description="checkpoint config",
+            ),
+            "training_protocol.json": hard_failure_selector.artifact_binding(
+                checkpoint_protocol,
+                description="checkpoint training protocol",
+            ),
+            hard_failure_selector.run_audit.AUDIT_FILENAME: (
+                hard_failure_selector.artifact_binding(
+                    checkpoint_audit,
+                    description="checkpoint audit",
+                )
+            ),
+        },
+        **coverage,
+        "checkpoint_audit_receipt_sha256": audit["receipt_sha256"],
+        "current_adapter_validation": {
+            "initial_adapter_manifest": hard_failure_selector.artifact_binding(
+                initial_manifest,
+                description="initial adapter manifest",
+            ),
+            "initial_adapter": hard_failure_selector.artifact_binding(
+                initial_adapter,
+                description="initial adapter",
+            ),
+            "checkpoint_adapter": adapter_binding,
+            "recomputed_adapter_change_canonical_sha256": (
+                evaluator._canonical_sha256(adapter_change)
+            ),
+            **coverage,
+            "frozen_adapter_tensors_unchanged": True,
+        },
+    }
+    source_lock = hard_failure_contract.validate_source_lock()
+    source = {
+        "source_lock_path": str(hard_failure_contract.SOURCE_LOCK.resolve()),
+        "source_lock_file_sha256": evaluator.sha256_file(
+            hard_failure_contract.SOURCE_LOCK
+        ),
+        "source_lock_sha256": source_lock["lock_sha256"],
+        "source_manifest_path": str(hard_failure_contract.SOURCE_MANIFEST.resolve()),
+        "source_manifest_file_sha256": (
+            evaluator.SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256
+        ),
+        "source_manifest_sha256": (
+            evaluator.SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256
+        ),
+        "train_file_sha256": evaluator.SCENE_HARD_FAILURE_TRAIN_FILE_SHA256,
+        "pair_manifest_file_sha256": (
+            evaluator.SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256
+        ),
+        "pair_manifest_sha256": (
+            evaluator.SCENE_HARD_FAILURE_PAIR_MANIFEST_SHA256
+        ),
+        "entries_sha256": evaluator.SCENE_HARD_FAILURE_PAIR_ENTRIES_SHA256,
+        "protected_evaluation_accessed": False,
+    }
+    results_dir = (run_root / f"train32_checkpoint_{step}").resolve()
+    results_dir.mkdir()
+    dataset_file = hard_failure_contract.TRAIN_FILE.resolve()
+    validated_train_source = evaluator.validate_focused_train_source_manifest(
+        hard_failure_contract.SOURCE_MANIFEST,
+        dataset_file=dataset_file,
+    )
+    samples = evaluator.load_selected_rows(
+        dataset_file,
+        list(range(32)),
+        expected_hashes=dict(validated_train_source["expected_row_hashes"]),
+    )
+    train_row_manifests = [
+        json.loads(line)
+        for line in hard_failure_contract.TRAIN_ROWS.read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+    assert len(train_row_manifests) == len(samples)
+    for sample, row_manifest in zip(samples, train_row_manifests, strict=True):
+        source_index = int(sample["source_index"])
+        assert row_manifest["train_row_ordinal"] == source_index
+        assert row_manifest["row_sha256"] == sample["row_sha256"]
+        sample["write_token_count"] = row_manifest["token_metadata"][
+            "write_token_count"
+        ]
+    candidate_lineage = evaluator.build_focused_train_checkpoint_lineage(
+        memory_dir,
+        train_source=validated_train_source,
+    )
+    candidate_lineage_record_binding = (
+        evaluator.build_candidate_lineage_record_binding(candidate_lineage)
+    )
+    assert candidate_lineage_record_binding is not None
+    donors = evaluator.materialize_focused_train_donor_mapping(
+        samples,
+        validated_train_source["donor_by_source_index"],
+    )
+    shuffled = evaluator.build_deterministic_shuffled_mapping(samples, donors)
+    train_source = json.loads(json.dumps(validated_train_source, sort_keys=True))
+    selection = train_source["selection"]
+    donor_mapping = evaluator.donor_mapping_fingerprint_rows(samples, donors)
+    shuffled_mapping = evaluator.shuffled_mapping_fingerprint_rows(
+        samples,
+        shuffled,
+    )
+    protocols = evaluator.resolved_condition_protocols(
+        list(evaluator.SCENE_FOCUSED_CONDITIONS),
+        donor_rule=evaluator.DONOR_RULE_LENGTH_MATCHED,
+    )
+    expected_hashes = {
+        int(index): str(digest)
+        for index, digest in validated_train_source["expected_row_hashes"].items()
+    }
+    evaluation_contract = evaluator.validate_scene_hard_failure_contract(
+        contract=evaluator.SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
+        row_indices=list(range(32)),
+        expected_hashes=expected_hashes,
+        selection_dataset_contract=None,
+        conditions=list(evaluator.SCENE_FOCUSED_CONDITIONS),
+        donor_rule=evaluator.DONOR_RULE_LENGTH_MATCHED,
+        max_new_tokens=evaluator.DEFAULT_MAX_NEW_TOKENS,
+        normal_fusion_profile="native",
+        expected_memory_layer_count=42,
+        memory_target_layers=list(range(42)),
+        memory_delta_heads=["q", "o"],
+        memory_rank=4,
+        rwkv_ms_semantics_version=2,
+        memory_backend="rwkv_ms",
+        memory_dir=memory_dir,
+        selection_manifest_sha256=None,
+        train_source=train_source,
+        train_selection_authorization=None,
+    )
+    prompt_files = [
+        {
+            "relative_path": name,
+            "bytes": int(identity["bytes"]),
+            "sha256": str(identity["sha256"]),
+        }
+        for name, identity in sorted(
+            hard_failure_contract.BASE_MODEL_ARTIFACTS.items()
+        )
+    ]
+    base_model_prompt_artifacts = {
+        "files": prompt_files,
+        "combined_sha256": evaluator.sha256_text(
+            json.dumps(prompt_files, sort_keys=True, separators=(",", ":"))
+        ),
+    }
+    weight_files = [
+        {
+            "relative_path": hard_failure_contract.BASE_MODEL_WEIGHT_FILE,
+            "bytes": hard_failure_contract.BASE_MODEL_WEIGHT_BYTES,
+            "sha256": "0" * 64,
+        }
+    ]
+    base_model_weights = {
+        "layout": "unsharded",
+        "files": weight_files,
+        "combined_sha256": evaluator.sha256_text(
+            json.dumps(weight_files, sort_keys=True, separators=(",", ":"))
+        ),
+    }
+    profile_fields = evaluator.normal_fusion_fingerprint_fields("native", 42)
+    fingerprint_payload = {
+        "schema_version": 1,
+        "task": evaluator.TASK_NAME,
+        "split": "train",
+        "code": evaluator.scene_state_code_fingerprint(evaluator.PROJECT_ROOT),
+        "runtime_packages": evaluator.runtime_package_versions(),
+        "delta_mem_root": str(evaluator.PROJECT_ROOT),
+        "base_model": str(hard_failure_contract.PINNED_BASE_MODEL.resolve()),
+        "base_model_weights": base_model_weights,
+        "base_model_prompt_artifacts": base_model_prompt_artifacts,
+        "memory_dir": str(memory_dir),
+        "memory_config_sha256": checkpoint["artifacts"][
+            "delta_mem_config.json"
+        ]["sha256"],
+        "memory_adapter_sha256": adapter_binding["sha256"],
+        "dataset_file": str(dataset_file),
+        "dataset_sha256": source["train_file_sha256"],
+        "selection_source": {"kind": "inline_indices"},
+        "selection": selection,
+        "conditions": list(evaluator.SCENE_FOCUSED_CONDITIONS),
+        "condition_protocols": protocols,
+        "donor_rule": evaluator.DONOR_RULE_LENGTH_MATCHED,
+        "state_only_donor_mapping": donor_mapping,
+        "state_only_shuffled_mapping": shuffled_mapping,
+        "evaluation_contract": evaluation_contract,
+        "candidate_lineage": candidate_lineage,
+        "candidate_lineage_record_binding": candidate_lineage_record_binding,
+        "hard32_receipt_authorization": None,
+        "scene_v7_train32_authorization": None,
+        "scene_v14_candidate_authorization": None,
+        "scene_v15_candidate_authorization": None,
+        "focused_train_source": train_source,
+        "focused_train_selection_authorization": None,
+        "historical_v6_preflight": None,
+        "max_new_tokens": evaluator.DEFAULT_MAX_NEW_TOKENS,
+        "device": "cuda:0",
+        "dtype": "bfloat16",
+        "attn_implementation": "sdpa",
+        **profile_fields,
+    }
+    evaluation_fingerprint = evaluator.fingerprint_payload_sha256(
+        fingerprint_payload
+    )
+    manifest = {
+        "fingerprint": evaluation_fingerprint,
+        "fingerprint_payload": fingerprint_payload,
+        "evaluation_contract": evaluation_contract,
+        "candidate_lineage": candidate_lineage,
+        "candidate_lineage_record_binding": candidate_lineage_record_binding,
+    }
+    (results_dir / "manifest.json").write_text(
+        json.dumps(manifest, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    summary_conditions = {}
+    samples_by_index = {
+        int(sample["source_index"]): sample for sample in samples
+    }
+    for condition in evaluator.SCENE_FOCUSED_CONDITIONS:
+        rows = []
+        for index, identity in enumerate(selection):
+            sample = samples_by_index[index]
+            donor = donors[index]
+            shuffled_sample = shuffled[index]
+            gold = sample["gold"]
+            if condition in {"normal_full", "state_only"}:
+                parsed = gold
+            elif condition == "state_only_shuffled":
+                parsed = shuffled_sample["gold"]
+            else:
+                parsed = donor["gold"]
+            row = {
+                "status": "ok",
+                "fingerprint": evaluation_fingerprint,
+                "completed_at": "2026-08-01T00:00:00+00:00",
+                "condition": condition,
+                "condition_protocol": protocols[condition],
+                "task": evaluator.TASK_NAME,
+                "task_kind": "scene",
+                "split": "train",
+                "key": f"{evaluator.TASK_NAME}:{index}",
+                "line_index": index,
+                "source_index": index,
+                "selection_ordinal": index,
+                "row_sha256": identity["row_sha256"],
+                "write_token_count": sample["write_token_count"],
+                "candidate_lineage": candidate_lineage_record_binding,
+                "gold": gold,
+                "raw_generation": json.dumps(parsed, sort_keys=True),
+                "parsed_json": parsed,
+                "input_tokens": 10,
+                "output_tokens": 2,
+                "hit_max_new_tokens": False,
+                "elapsed_seconds": 0.25,
+                "input_rendered_sha256": "c" * 64,
+                "peak_cuda_memory_bytes": None,
+                "memory_trace": [],
+                "online_state_after_generation": {},
+                "prime": (
+                    {
+                        "tokens": 8,
+                        "rendered_sha256": "d" * 64,
+                        "kv_cache_retained": False,
+                        "online_state": {},
+                    }
+                    if condition
+                    in {
+                        "state_only",
+                        "state_only_donor",
+                        "state_only_shuffled",
+                        "state_only_no_write",
+                    }
+                    else None
+                ),
+                "donor_source_index": None,
+                "donor_row_sha256": None,
+                "semantic_decision_nll": None,
+                "score_strict": evaluator.score_prediction("scene", parsed, gold),
+                "score_recovered": evaluator.recovered_scene_score(parsed, gold),
+            }
+            if condition == "state_only_donor":
+                row.update(
+                    donor_source_index=donor_mapping[index]["donor_source_index"],
+                    donor_row_sha256=donor_mapping[index]["donor_row_sha256"],
+                )
+            if condition == "state_only_shuffled":
+                row.update(
+                    shuffled_source_index=shuffled_mapping[index][
+                        "shuffled_source_index"
+                    ],
+                    shuffled_row_sha256=shuffled_mapping[index][
+                        "shuffled_row_sha256"
+                    ],
+                )
+            rows.append(row)
+        (results_dir / f"{condition}.jsonl").write_text(
+            "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        true_positives = sum(row["score_strict"]["tp"] for row in rows)
+        false_positives = sum(row["score_strict"]["fp"] for row in rows)
+        false_negatives = sum(row["score_strict"]["fn"] for row in rows)
+        denominator = 2 * true_positives + false_positives + false_negatives
+        summary_conditions[condition] = {
+            "strict": {
+                "primary_metric": (
+                    0.0
+                    if denominator == 0
+                    else 2 * true_positives / denominator
+                )
+            }
+        }
+    summary = {
+        "complete": True,
+        "task": evaluator.TASK_NAME,
+        "split": "train",
+        "selected_source_indices": list(range(32)),
+        "conditions": summary_conditions,
+    }
+    (results_dir / "summary.json").write_text(
+        json.dumps(summary, sort_keys=True),
+        encoding="utf-8",
+    )
+    expected_records = 32 * len(evaluator.SCENE_FOCUSED_CONDITIONS)
+    (results_dir / "progress.json").write_text(
+        json.dumps(
+            {
+                "fingerprint": evaluation_fingerprint,
+                "completed": expected_records,
+                "expected": expected_records,
+                "complete": True,
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    gate = hard_failure_selector.focused_gate.analyze_results_dir(
+        results_dir,
+        stage="train_overfit",
+    )
+    assert gate["all_gates_passed"] is True
+    gate_path = results_dir / "focused_recovery_gate.json"
+    gate_path.write_text(json.dumps(gate, sort_keys=True), encoding="utf-8")
+    artifact_names = (
+        "manifest.json",
+        "summary.json",
+        "progress.json",
+        *(f"{condition}.jsonl" for condition in evaluator.SCENE_FOCUSED_CONDITIONS),
+    )
+    evidence = hard_failure_selector.EndpointEvidence(
+        step=step,
+        checkpoint=checkpoint,
+        evaluation={
+            "results_dir": str(results_dir),
+            "fingerprint": evaluation_fingerprint,
+            "contract_canonical_sha256": evaluator._canonical_sha256(
+                evaluation_contract
+            ),
+            "artifacts": {
+                name: hard_failure_selector.artifact_binding(
+                    results_dir / name,
+                    description=f"checkpoint-{step} evaluation {name}",
+                )
+                for name in artifact_names
+            },
+        },
+        gate={
+            "focused_gate_path": str(gate_path),
+            "file_sha256": evaluator.sha256_file(gate_path),
+            "canonical_sha256": evaluator._canonical_sha256(gate),
+            "evaluation_fingerprint": evaluation_fingerprint,
+        },
+        report=gate,
+        fallback_rank=hard_failure_selector._fallback_rank(gate, step=step),
+    )
+    receipt = hard_failure_selector.build_selection_receipt(
+        source=source,
+        evaluated=[evidence],
+        selected=evidence,
+        passed=True,
+        created_at="2026-08-01T00:00:00+00:00",
+    )
+    receipt_path = receipt_dir / "train32_checkpoint_selection_receipt.json"
+    hard_failure_selector.atomic_write_json(receipt_path, receipt)
+    return receipt_path, memory_dir, adapter_change
+
+
+def _focused_v2_results_dir(memory_dir: Path) -> Path:
+    step = int(memory_dir.name.removeprefix("checkpoint-"))
+    return memory_dir.parent.parent / f"train32_checkpoint_{step}"
+
+
+def _read_jsonl_records(path: Path) -> list[dict[str, object]]:
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def _write_jsonl_records(path: Path, records: list[dict[str, object]]) -> None:
+    path.write_text(
+        "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
+        encoding="utf-8",
+    )
+
+
+def _rebind_focused_v2_selection_receipt(
+    receipt_path: Path,
+    memory_dir: Path,
+) -> str:
+    """Refresh every outer hash after a semantically adversarial result edit."""
+
+    results_dir = _focused_v2_results_dir(memory_dir)
+    manifest_path = results_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    fingerprint_payload = manifest["fingerprint_payload"]
+    fingerprint = evaluator.fingerprint_payload_sha256(fingerprint_payload)
+    manifest["fingerprint"] = fingerprint
+    manifest["evaluation_contract"] = fingerprint_payload["evaluation_contract"]
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    progress_path = results_dir / "progress.json"
+    progress = json.loads(progress_path.read_text(encoding="utf-8"))
+    progress["fingerprint"] = fingerprint
+    progress_path.write_text(
+        json.dumps(progress, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    gate_path = results_dir / "focused_recovery_gate.json"
+    gate = json.loads(gate_path.read_text(encoding="utf-8"))
+    gate["input"] = {
+        "results_dir": str(results_dir.resolve()),
+        "evaluation_fingerprint": fingerprint,
+        "evaluation_contract": manifest["evaluation_contract"],
+    }
+    gate_path.write_text(json.dumps(gate, sort_keys=True), encoding="utf-8")
+
+    artifact_names = (
+        "manifest.json",
+        "summary.json",
+        "progress.json",
+        *(f"{condition}.jsonl" for condition in evaluator.SCENE_FOCUSED_CONDITIONS),
+    )
+    artifacts = {
+        name: hard_failure_selector.artifact_binding(
+            results_dir / name,
+            description=f"adversarial evaluation {name}",
+        )
+        for name in artifact_names
+    }
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    endpoint = receipt["evaluated_endpoints"][-1]
+    evaluation = dict(endpoint["evaluation"])
+    evaluation.update(
+        {
+            "fingerprint": fingerprint,
+            "contract_canonical_sha256": evaluator._canonical_sha256(
+                manifest["evaluation_contract"]
+            ),
+            "artifacts": artifacts,
+        }
+    )
+    gate_binding = {
+        "focused_gate_path": str(gate_path),
+        "file_sha256": evaluator.sha256_file(gate_path),
+        "canonical_sha256": evaluator._canonical_sha256(gate),
+        "evaluation_fingerprint": fingerprint,
+    }
+    endpoint["evaluation"] = evaluation
+    endpoint["gate"] = gate_binding
+    receipt["evaluation"] = json.loads(json.dumps(evaluation, sort_keys=True))
+    receipt["gate"] = dict(gate_binding)
+    receipt.pop("receipt_sha256", None)
+    receipt["receipt_sha256"] = evaluator._canonical_sha256(receipt)
+    hard_failure_selector.atomic_write_json(receipt_path, receipt)
+    return fingerprint
+
+
+def _assert_focused_v2_selection_rejected_without_claim(
+    *,
+    receipt_path: Path,
+    memory_dir: Path,
+    adapter_change: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        evaluator,
+        "_recompute_focused_adapter_change",
+        lambda **kwargs: dict(adapter_change),
+    )
+    with pytest.raises(ValueError):
+        evaluator.validate_focused_hard32_exactly_once_authorization(
+            **_focused_exactly_once_kwargs(
+                receipt_path=receipt_path,
+                memory_dir=memory_dir,
+                output_dir=memory_dir.parent.parent / "hard32_once",
+                dataset_file=evaluator.HISTORICAL_V6_OFFICIAL_VAL,
+                selection_file=evaluator.HISTORICAL_V6_HARD32_SELECTION,
+            )
+        )
+    assert not evaluator.scene_hard_failure_consumption_marker_path(
+        receipt_path
+    ).exists()
+
+
+def test_focused_v2_selection_authorization_reaches_atomic_one_shot_claim(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path, memory_dir, adapter_change = _valid_focused_v2_selection_receipt(
+        tmp_path
+    )
+    recomputed: list[Path] = []
+
+    def recompute_adapter_change(*, checkpoint_adapter_path: Path, **kwargs):
+        recomputed.append(checkpoint_adapter_path)
+        return dict(adapter_change)
+
+    monkeypatch.setattr(
+        evaluator,
+        "_recompute_focused_adapter_change",
+        recompute_adapter_change,
+    )
+    output_dir = memory_dir.parent.parent / "hard32_once"
+    authorization = evaluator.validate_focused_hard32_exactly_once_authorization(
+        **_focused_exactly_once_kwargs(
+            receipt_path=receipt_path,
+            memory_dir=memory_dir,
+            output_dir=output_dir,
+            dataset_file=evaluator.HISTORICAL_V6_OFFICIAL_VAL,
+            selection_file=evaluator.HISTORICAL_V6_HARD32_SELECTION,
+        )
+    )
+
+    marker_path = evaluator.scene_hard_failure_consumption_marker_path(receipt_path)
+    marker_bytes = marker_path.read_bytes()
+    marker_file_sha256 = evaluator.sha256_file(marker_path)
+    marker = json.loads(marker_bytes)
+    unsigned = dict(marker)
+    claim_sha256 = unsigned.pop("claim_sha256")
+    assert recomputed == [memory_dir / "delta_mem_adapter.pt"]
+    assert authorization["hard32_authorized"] is True
+    assert authorization["selected_checkpoint"]["global_step"] == 16
+    assert authorization["authorization_consumption"]["path"] == str(marker_path)
+    assert marker["selection_receipt"] == authorization["receipt"]
+    assert marker["selected_checkpoint"] == authorization["selected_checkpoint"]
+    assert marker["hard32_output_dir"] == str(output_dir.absolute())
+    assert marker["schema"] == (
+        evaluator.SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA
+    )
+    assert claim_sha256 == evaluator.fingerprint_payload_sha256(unsigned)
+    assert marker_path.stat().st_mode & 0o777 == 0o400
+
+    with pytest.raises(ValueError, match="already consumed"):
+        evaluator.validate_focused_hard32_exactly_once_authorization(
+            **_focused_exactly_once_kwargs(
+                receipt_path=receipt_path,
+                memory_dir=memory_dir,
+                output_dir=output_dir,
+                dataset_file=evaluator.HISTORICAL_V6_OFFICIAL_VAL,
+                selection_file=evaluator.HISTORICAL_V6_HARD32_SELECTION,
+            )
+        )
+    assert recomputed == [memory_dir / "delta_mem_adapter.pt"] * 2
+    assert marker_path.read_bytes() == marker_bytes
+    assert evaluator.sha256_file(marker_path) == marker_file_sha256
+
+
+def test_focused_v2_rejects_nonexistent_train32_bundle_claiming_canonical_hashes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path, memory_dir, adapter_change = _valid_focused_v2_selection_receipt(
+        tmp_path
+    )
+    results_dir = _focused_v2_results_dir(memory_dir)
+    manifest_path = results_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload = manifest["fingerprint_payload"]
+    forged_dataset = results_dir.parent / "synthetic_train32" / "train.jsonl"
+    assert not forged_dataset.exists()
+    payload["dataset_file"] = str(forged_dataset)
+    payload["focused_train_source"]["dataset"]["path"] = str(forged_dataset)
+    payload["evaluation_contract"]["train_source"]["dataset"]["path"] = str(
+        forged_dataset
+    )
+    assert payload["dataset_sha256"] == (
+        evaluator.SCENE_HARD_FAILURE_TRAIN_FILE_SHA256
+    )
+    forged_fingerprint = evaluator.fingerprint_payload_sha256(payload)
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True),
+        encoding="utf-8",
+    )
+    for condition in evaluator.SCENE_FOCUSED_CONDITIONS:
+        path = results_dir / f"{condition}.jsonl"
+        records = _read_jsonl_records(path)
+        for record in records:
+            record["fingerprint"] = forged_fingerprint
+        _write_jsonl_records(path, records)
+    assert (
+        _rebind_focused_v2_selection_receipt(receipt_path, memory_dir)
+        == forged_fingerprint
+    )
+
+    _assert_focused_v2_selection_rejected_without_claim(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        adapter_change=adapter_change,
+        monkeypatch=monkeypatch,
+    )
+
+
+def test_focused_v2_rejects_condition_relabeling_with_wrong_protocol(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path, memory_dir, adapter_change = _valid_focused_v2_selection_receipt(
+        tmp_path
+    )
+    results_dir = _focused_v2_results_dir(memory_dir)
+    normal_path = results_dir / "normal_full.jsonl"
+    state_path = results_dir / "state_only.jsonl"
+    normal_records = _read_jsonl_records(normal_path)
+    state_records = _read_jsonl_records(state_path)
+    relabeled_normal = []
+    relabeled_state = []
+    for normal_record, state_record in zip(
+        normal_records,
+        state_records,
+        strict=True,
+    ):
+        forged_normal = dict(state_record)
+        forged_normal["condition"] = "normal_full"
+        forged_state = dict(normal_record)
+        forged_state["condition"] = "state_only"
+        relabeled_normal.append(forged_normal)
+        relabeled_state.append(forged_state)
+    assert relabeled_normal[0]["condition_protocol"] == (
+        state_records[0]["condition_protocol"]
+    )
+    assert relabeled_state[0]["condition_protocol"] == (
+        normal_records[0]["condition_protocol"]
+    )
+    _write_jsonl_records(normal_path, relabeled_normal)
+    _write_jsonl_records(state_path, relabeled_state)
+    _rebind_focused_v2_selection_receipt(receipt_path, memory_dir)
+
+    _assert_focused_v2_selection_rejected_without_claim(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        adapter_change=adapter_change,
+        monkeypatch=monkeypatch,
+    )
+
+
+def test_focused_v2_rejects_gate_minimal_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path, memory_dir, adapter_change = _valid_focused_v2_selection_receipt(
+        tmp_path
+    )
+    results_dir = _focused_v2_results_dir(memory_dir)
+    gate_fields = {
+        "status",
+        "condition",
+        "task",
+        "split",
+        "source_index",
+        "row_sha256",
+        "gold",
+        "parsed_json",
+        "score_strict",
+        "score_recovered",
+    }
+    for condition in evaluator.SCENE_FOCUSED_CONDITIONS:
+        path = results_dir / f"{condition}.jsonl"
+        records = _read_jsonl_records(path)
+        if condition == "state_only_donor":
+            required = gate_fields | {"donor_source_index", "donor_row_sha256"}
+        elif condition == "state_only_shuffled":
+            required = gate_fields | {
+                "shuffled_source_index",
+                "shuffled_row_sha256",
+            }
+        else:
+            required = gate_fields
+        minimal = [
+            {field: record[field] for field in required}
+            for record in records
+        ]
+        _write_jsonl_records(path, minimal)
+    _rebind_focused_v2_selection_receipt(receipt_path, memory_dir)
+
+    _assert_focused_v2_selection_rejected_without_claim(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        adapter_change=adapter_change,
+        monkeypatch=monkeypatch,
+    )
+
+
+def test_focused_v2_rejects_raw_generation_that_disagrees_with_parsed_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path, memory_dir, adapter_change = _valid_focused_v2_selection_receipt(
+        tmp_path
+    )
+    path = _focused_v2_results_dir(memory_dir) / "base_full.jsonl"
+    records = _read_jsonl_records(path)
+    records[0]["raw_generation"] = "{}"
+    assert evaluator.extract_json(records[0]["raw_generation"]) != records[0][
+        "parsed_json"
+    ]
+    _write_jsonl_records(path, records)
+    _rebind_focused_v2_selection_receipt(receipt_path, memory_dir)
+
+    _assert_focused_v2_selection_rejected_without_claim(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        adapter_change=adapter_change,
+        monkeypatch=monkeypatch,
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("condition_protocol", "fingerprint", "candidate_lineage"),
+)
+def test_focused_v2_rejects_record_identity_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    receipt_path, memory_dir, adapter_change = _valid_focused_v2_selection_receipt(
+        tmp_path
+    )
+    path = _focused_v2_results_dir(memory_dir) / "base_full.jsonl"
+    records = _read_jsonl_records(path)
+    if mutation == "condition_protocol":
+        records[0][mutation] = evaluator.CONDITION_PROTOCOLS["state_only"]
+    elif mutation == "fingerprint":
+        records[0][mutation] = "0" * 64
+    else:
+        records[0][mutation] = {
+            "lineage_kind": "forged_candidate",
+            "lineage_sha256": "0" * 64,
+        }
+    _write_jsonl_records(path, records)
+    _rebind_focused_v2_selection_receipt(receipt_path, memory_dir)
+
+    _assert_focused_v2_selection_rejected_without_claim(
+        receipt_path=receipt_path,
+        memory_dir=memory_dir,
+        adapter_change=adapter_change,
+        monkeypatch=monkeypatch,
+    )
+
+
+def test_focused_v2_rejects_adapter_mutation_after_gate_before_claim(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path, memory_dir, adapter_change = _valid_focused_v2_selection_receipt(
+        tmp_path
+    )
+    checkpoint_adapter = memory_dir / "delta_mem_adapter.pt"
+    monkeypatch.setattr(
+        evaluator,
+        "_recompute_focused_adapter_change",
+        lambda **kwargs: dict(adapter_change),
+    )
+    real_analyze = hard_failure_selector.focused_gate.analyze_results_dir
+    mutation_count = 0
+
+    def mutate_adapter_after_gate(*args, **kwargs):
+        nonlocal mutation_count
+        report = real_analyze(*args, **kwargs)
+        mutation_count += 1
+        checkpoint_adapter.write_bytes(
+            checkpoint_adapter.read_bytes() + b"-mutated-after-gate"
+        )
+        return report
+
+    monkeypatch.setattr(
+        hard_failure_selector.focused_gate,
+        "analyze_results_dir",
+        mutate_adapter_after_gate,
+    )
+    with pytest.raises(ValueError):
+        evaluator.validate_focused_hard32_exactly_once_authorization(
+            **_focused_exactly_once_kwargs(
+                receipt_path=receipt_path,
+                memory_dir=memory_dir,
+                output_dir=memory_dir.parent.parent / "hard32_once",
+                dataset_file=evaluator.HISTORICAL_V6_OFFICIAL_VAL,
+                selection_file=evaluator.HISTORICAL_V6_HARD32_SELECTION,
+            )
+        )
+
+    assert mutation_count >= 1
+    assert not evaluator.scene_hard_failure_consumption_marker_path(
+        receipt_path
+    ).exists()
 
 
 def test_focused_hard32_claim_is_atomic_bound_and_never_opens_protected_inputs(
@@ -1032,6 +2028,106 @@ def test_focused_hard32_main_claims_before_protected_dataset_resolution(
         evaluator.main()
 
     assert events == ["authorization_claimed"]
+
+
+def test_focused_train_main_uses_hard_failure_checkpoint_lineage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_dir = tmp_path / "run" / "trainer" / "checkpoint-16"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "delta_mem_config.json").write_text(
+        json.dumps(
+            {
+                "target_layers": list(range(42)),
+                "delta_heads": ["q", "o"],
+                "rank": 4,
+                "rwkv_ms_semantics_version": 2,
+                "memory_backend": "rwkv_ms",
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    train_source = {
+        "expected_row_hashes": {index: f"{index:064x}" for index in range(32)},
+    }
+    args = SimpleNamespace(
+        preflight_only=False,
+        evaluation_contract=evaluator.SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
+        conditions=",".join(evaluator.SCENE_FOCUSED_CONDITIONS),
+        max_new_tokens=evaluator.DEFAULT_MAX_NEW_TOKENS,
+        memory_dir=memory_dir,
+        output_dir=tmp_path / "train32",
+        row_indices=json.dumps(list(range(32))),
+        row_indices_file=None,
+        hard32_receipt=None,
+        scene_v7_train32_receipt=None,
+        scene_v8_train32_receipt=None,
+        scene_v14_value14_receipt=None,
+        scene_v14_candidate_lock=None,
+        scene_v14_launch_receipt=None,
+        scene_v14_completion_receipt=None,
+        scene_v15_selection_receipt=None,
+        scene_v15_candidate_lock=None,
+        scene_v15_launch_receipt=None,
+        scene_v15_completion_receipt=None,
+        focused_source_manifest=tmp_path / "source_manifest.json",
+        focused_train_selection_receipt=None,
+        overwrite=False,
+        dataset_file=tmp_path / "train.jsonl",
+        base_model=str(evaluator.HISTORICAL_V6_BASE_MODEL),
+        device="cuda:0",
+        dtype="bfloat16",
+        attn_implementation="sdpa",
+        delta_mem_root=str(evaluator.PROJECT_ROOT),
+        donor_rule=evaluator.DONOR_RULE_LENGTH_MATCHED,
+        normal_fusion_profile="native",
+        expected_memory_layer_count=42,
+    )
+    lineage = {
+        "lineage_kind": (
+            evaluator.SCENE_HARD_FAILURE_TRAIN_CHECKPOINT_LINEAGE_KIND
+        ),
+        "global_step": 16,
+    }
+    calls: list[tuple[Path, dict[str, object]]] = []
+
+    monkeypatch.setattr(evaluator, "parse_args", lambda: args)
+    monkeypatch.setattr(
+        evaluator,
+        "validate_focused_train_source_manifest",
+        lambda *args, **kwargs: train_source,
+    )
+
+    def build_lineage(path: Path, *, train_source: dict[str, object]):
+        calls.append((path, train_source))
+        return lineage
+
+    monkeypatch.setattr(
+        evaluator,
+        "build_focused_train_checkpoint_lineage",
+        build_lineage,
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "scene_v6_training_lineage",
+        lambda path: pytest.fail("focused Train32 used legacy V6 lineage"),
+    )
+
+    def stop_after_lineage(**kwargs):
+        raise RuntimeError("focused Train32 lineage dispatch reached")
+
+    monkeypatch.setattr(
+        evaluator,
+        "validate_scene_v6_matched_donor_contract",
+        stop_after_lineage,
+    )
+
+    with pytest.raises(RuntimeError, match="lineage dispatch reached"):
+        evaluator.main()
+
+    assert calls == [(memory_dir.resolve(), train_source)]
 
 
 def test_scene_v6_matched_donor_contract_requires_all_170_hashed_val_rows() -> None:

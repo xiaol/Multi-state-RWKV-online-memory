@@ -83,6 +83,7 @@ class FakeCommands:
     def __init__(self, reports: Mapping[int, dict[str, Any]]) -> None:
         self.reports = dict(reports)
         self.calls: list[list[str]] = []
+        self.contexts: list[tuple[Path, dict[str, str]]] = []
 
     @staticmethod
     def _option(command: Sequence[str], name: str) -> str:
@@ -97,6 +98,7 @@ class FakeCommands:
     ) -> int:
         argv = list(command)
         self.calls.append(argv)
+        self.contexts.append((cwd, dict(environment)))
         assert cwd == driver.PROJECT_ROOT
         assert environment["PYTHONPATH"].split(":", 1)[0] == str(
             driver.PROJECT_ROOT
@@ -104,6 +106,10 @@ class FakeCommands:
         script = Path(argv[1]).name
         if script == "run_scene_state_eval.py":
             output_dir = Path(self._option(argv, "--output-dir"))
+            if "--preflight-only" in argv:
+                assert not output_dir.exists()
+                assert not output_dir.parent.exists()
+                return 0
             output_dir.mkdir(parents=True, exist_ok=False)
             return 0
         assert script == "run_scene_focused_recovery_gate.py"
@@ -281,13 +287,26 @@ def test_screen_stops_generation_at_first_passing_endpoint(tmp_path: Path) -> No
     )
 
     assert selector_calls == [[16, 32, 48, 64]]
-    assert [Path(call[1]).name for call in commands.calls] == [
+    preflight_calls = commands.calls[:4]
+    assert [Path(call[1]).name for call in preflight_calls] == [
+        "run_scene_state_eval.py",
+        "run_scene_state_eval.py",
+        "run_scene_state_eval.py",
+        "run_scene_state_eval.py",
+    ]
+    assert [
+        int(FakeCommands._option(call, "--memory-dir").rsplit("-", 1)[1])
+        for call in preflight_calls
+    ] == list(driver.ENDPOINT_STEPS)
+    assert all(call[-1] == "--preflight-only" for call in preflight_calls)
+    production_calls = commands.calls[4:]
+    assert [Path(call[1]).name for call in production_calls] == [
         "run_scene_state_eval.py",
         "run_scene_focused_recovery_gate.py",
         "run_scene_state_eval.py",
         "run_scene_focused_recovery_gate.py",
     ]
-    evaluation_calls = commands.calls[::2]
+    evaluation_calls = production_calls[::2]
     assert [FakeCommands._option(call, "--memory-dir") for call in evaluation_calls] == [
         str(run_root / "trainer" / "checkpoint-16"),
         str(run_root / "trainer" / "checkpoint-32"),
@@ -301,10 +320,52 @@ def test_screen_stops_generation_at_first_passing_endpoint(tmp_path: Path) -> No
         == driver.EVALUATION_CONTRACT
         for call in evaluation_calls
     )
+    screen_paths = driver.ScreenPaths(
+        root=run_root / driver.SCREEN_DIRNAME,
+        protocol=run_root / driver.SCREEN_DIRNAME / driver.PROTOCOL_FILENAME,
+        selection_receipt=(
+            run_root / driver.SCREEN_DIRNAME / driver.SELECTION_RECEIPT_FILENAME
+        ),
+    )
+    assert preflight_calls == [
+        driver.evaluation_preflight_command(
+            run_root=run_root,
+            paths=screen_paths,
+            step=step,
+        )
+        for step in driver.ENDPOINT_STEPS
+    ]
+    assert preflight_calls[:2] == [
+        [*call, "--preflight-only"] for call in evaluation_calls
+    ]
+    assert all(context == commands.contexts[0] for context in commands.contexts)
     assert receipt["status"] == "pass"
     assert receipt["evaluated_endpoint_steps"] == [16, 32]
     assert receipt["production_completion_receipt"]["global_step"] == 64
     assert receipt["endpoint_screen"]["hard32_accessed"] is False
+    protocol_path = run_root / driver.SCREEN_DIRNAME / driver.PROTOCOL_FILENAME
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    preflight = protocol["evaluator_preflight"]
+    assert preflight["endpoint_steps"] == list(driver.ENDPOINT_STEPS)
+    assert preflight["all_returned_zero"] is True
+    assert preflight["screen_root_absent_before"] is True
+    assert preflight["output_dirs_absent_before"] is True
+    assert preflight["screen_root_absent_after"] is True
+    assert preflight["output_dirs_absent_after"] is True
+    assert [record["argv"] for record in preflight["commands"]] == preflight_calls
+    assert all(record["returncode"] == 0 for record in preflight["commands"])
+    assert (
+        receipt["endpoint_screen"]["evaluator_preflight"]
+        == protocol["evaluator_preflight"]
+    )
+    assert receipt["endpoint_screen"]["execution_context"] == protocol[
+        "execution_context"
+    ]
+    assert all(
+        record["environment_sha256"]
+        == protocol["execution_context"]["environment_sha256"]
+        for record in receipt["endpoint_screen"]["commands"]
+    )
     receipt_path = (
         run_root / driver.SCREEN_DIRNAME / driver.SELECTION_RECEIPT_FILENAME
     )
@@ -354,7 +415,7 @@ def test_screen_continues_gate_only_partial_until_first_eligible_endpoint(
         ),
     )
 
-    assert len(commands.calls) == 6
+    assert len(commands.calls) == 10
     assert receipt["evaluated_endpoint_steps"] == [16, 32, 48]
     decisions = receipt["endpoint_screen"]["endpoint_decisions"]
     assert [decision["selection_eligible"] for decision in decisions] == [
@@ -411,7 +472,7 @@ def test_screen_finishes_four_failures_and_writes_unauthorized_receipt(
         ),
     )
 
-    assert len(commands.calls) == 8
+    assert len(commands.calls) == 12
     assert receipt["status"] == "fail"
     assert receipt["evaluated_endpoint_steps"] == [16, 32, 48, 64]
     assert receipt["authorization"]["hard32_authorized"] is False
@@ -610,6 +671,86 @@ def test_screen_requires_fresh_output(tmp_path: Path) -> None:
             source_validator=_source_validator,
             checkpoint_validator=_checkpoint_validator,
         )
+
+
+def test_screen_rejects_failed_evaluator_preflight_before_output_creation(
+    tmp_path: Path,
+) -> None:
+    run_root, completion = _production_run(tmp_path)
+    calls: list[list[str]] = []
+
+    def fail_checkpoint_32(
+        command: Sequence[str],
+        cwd: Path,
+        environment: Mapping[str, str],
+    ) -> int:
+        argv = list(command)
+        calls.append(argv)
+        assert cwd == driver.PROJECT_ROOT
+        assert environment["PYTHONPATH"].split(":", 1)[0] == str(
+            driver.PROJECT_ROOT
+        )
+        assert argv[-1] == "--preflight-only"
+        output_dir = Path(FakeCommands._option(argv, "--output-dir"))
+        assert not output_dir.parent.exists()
+        step = int(Path(FakeCommands._option(argv, "--memory-dir")).name.split("-")[1])
+        return 9 if step == 32 else 0
+
+    with pytest.raises(
+        driver.EndpointScreenError,
+        match="checkpoint-32 evaluator preflight failed with status 9",
+    ):
+        driver.screen_endpoints(
+            run_root=run_root,
+            completion_receipt=completion,
+            environment={"PATH": "/usr/bin"},
+            command_runner=fail_checkpoint_32,
+            source_validator=_source_validator,
+            checkpoint_validator=_checkpoint_validator,
+        )
+
+    assert [
+        int(Path(FakeCommands._option(call, "--memory-dir")).name.split("-")[1])
+        for call in calls
+    ] == [16, 32]
+    assert not (run_root / driver.SCREEN_DIRNAME).exists()
+
+
+def test_screen_rejects_preflight_output_creation_before_screen_claim(
+    tmp_path: Path,
+) -> None:
+    run_root, completion = _production_run(tmp_path)
+    calls: list[list[str]] = []
+
+    def create_forbidden_output(
+        command: Sequence[str],
+        cwd: Path,
+        environment: Mapping[str, str],
+    ) -> int:
+        del cwd, environment
+        argv = list(command)
+        calls.append(argv)
+        assert argv[-1] == "--preflight-only"
+        Path(FakeCommands._option(argv, "--output-dir")).mkdir(parents=True)
+        return 0
+
+    with pytest.raises(
+        driver.EndpointScreenError,
+        match="checkpoint-16 evaluator preflight created an output directory",
+    ):
+        driver.screen_endpoints(
+            run_root=run_root,
+            completion_receipt=completion,
+            environment={},
+            command_runner=create_forbidden_output,
+            source_validator=_source_validator,
+            checkpoint_validator=_checkpoint_validator,
+        )
+
+    assert len(calls) == 1
+    screen_root = run_root / driver.SCREEN_DIRNAME
+    assert screen_root.is_dir()
+    assert not (screen_root / driver.PROTOCOL_FILENAME).exists()
 
 
 def test_external_command_runner_forwards_without_shell(

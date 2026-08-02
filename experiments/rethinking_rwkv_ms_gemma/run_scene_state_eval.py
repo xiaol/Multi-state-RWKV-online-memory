@@ -146,6 +146,10 @@ SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA = (
 SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_FILENAME = (
     "hard32_authorization_consumed.json"
 )
+SCENE_HARD_FAILURE_TRAIN_CHECKPOINT_LINEAGE_KIND = (
+    "scene_hard_failure_train_checkpoint_v1"
+)
+SCENE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS = (16, 32, 48, 64)
 SCENE_HARD_FAILURE_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v7_source.v1"
 SCENE_HARD_FAILURE_PAIR_SCHEMA = "rwkv_ms_scene_memory_v7_pairing.v1"
 SCENE_HARD_FAILURE_ROW_SCHEMA = "rwkv_ms_scene_memory_v7_row.v1"
@@ -1013,6 +1017,30 @@ def _focused_regular_file(
     return resolved
 
 
+def _focused_directory(
+    path: Path,
+    *,
+    description: str,
+    train_only: bool,
+) -> Path:
+    lexical = path.expanduser().absolute()
+    if train_only:
+        _reject_focused_protected_path(lexical, description=description)
+    current = lexical
+    while True:
+        if current.is_symlink():
+            raise ValueError(f"Focused {description} forbids symlinks: {current}")
+        if current.parent == current:
+            break
+        current = current.parent
+    resolved = lexical.resolve()
+    if not resolved.is_dir():
+        raise ValueError(f"Focused {description} is missing: {resolved}")
+    if train_only:
+        _reject_focused_protected_path(resolved, description=description)
+    return resolved
+
+
 def _load_json_object(path: Path, *, description: str) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -1345,6 +1373,314 @@ def _hard_failure_audit_module() -> Any:
     return scene_hard_failure_run_audit
 
 
+def _hard_failure_train_contract_module() -> Any:
+    from experiments.rethinking_rwkv_ms_gemma import scene_hard_failure_train_contract
+
+    return scene_hard_failure_train_contract
+
+
+def build_focused_train_checkpoint_lineage(
+    memory_dir: Path,
+    *,
+    train_source: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Bind a canonical hard-failure endpoint to its current checkpoint bytes."""
+
+    checkpoint_dir = _focused_directory(
+        memory_dir,
+        description="Train32 checkpoint",
+        train_only=True,
+    )
+    trainer_dir = checkpoint_dir.parent
+    run_root = trainer_dir.parent
+    try:
+        global_step = int(checkpoint_dir.name.removeprefix("checkpoint-"))
+    except ValueError as exc:
+        raise ValueError("Focused Train32 checkpoint step is invalid") from exc
+    if (
+        trainer_dir.name != "trainer"
+        or checkpoint_dir.name != f"checkpoint-{global_step}"
+        or global_step not in SCENE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS
+    ):
+        raise ValueError(
+            "Focused Train32 checkpoint must be an endpoint at step 16, 32, 48, or 64"
+        )
+
+    source_manifest = train_source.get("source_manifest")
+    dataset = train_source.get("dataset")
+    row_manifest = train_source.get("row_manifest")
+    pair_manifest = train_source.get("pair_manifest")
+    if not all(
+        isinstance(record, Mapping)
+        for record in (source_manifest, dataset, row_manifest, pair_manifest)
+    ):
+        raise ValueError("Focused Train32 lineage source binding is incomplete")
+    source_manifest = dict(source_manifest)
+    dataset = dict(dataset)
+    row_manifest = dict(row_manifest)
+    pair_manifest = dict(pair_manifest)
+    expected_source_digests = {
+        "source_manifest_file_sha256": (
+            source_manifest.get("file_sha256"),
+            SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256,
+        ),
+        "source_manifest_sha256": (
+            source_manifest.get("manifest_sha256"),
+            SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256,
+        ),
+        "dataset_sha256": (
+            dataset.get("sha256"),
+            SCENE_HARD_FAILURE_TRAIN_FILE_SHA256,
+        ),
+        "row_manifest_sha256": (
+            row_manifest.get("sha256"),
+            SCENE_HARD_FAILURE_ROW_MANIFEST_FILE_SHA256,
+        ),
+        "pair_manifest_file_sha256": (
+            pair_manifest.get("file_sha256"),
+            SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256,
+        ),
+        "pair_manifest_sha256": (
+            pair_manifest.get("manifest_sha256"),
+            SCENE_HARD_FAILURE_PAIR_MANIFEST_SHA256,
+        ),
+        "pair_entries_sha256": (
+            pair_manifest.get("entries_sha256"),
+            SCENE_HARD_FAILURE_PAIR_ENTRIES_SHA256,
+        ),
+    }
+    if (
+        any(actual != expected for actual, expected in expected_source_digests.values())
+        or dataset.get("split") != "train"
+        or dataset.get("rows") != SCENE_HARD_FAILURE_ROWS
+        or train_source.get("protected_evaluation_accessed") is not False
+    ):
+        raise ValueError("Focused Train32 lineage source identity differs")
+    for record, field, description, expected_digest in (
+        (
+            source_manifest,
+            "path",
+            "lineage source manifest",
+            SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256,
+        ),
+        (
+            dataset,
+            "path",
+            "lineage train dataset",
+            SCENE_HARD_FAILURE_TRAIN_FILE_SHA256,
+        ),
+        (
+            row_manifest,
+            "path",
+            "lineage row manifest",
+            SCENE_HARD_FAILURE_ROW_MANIFEST_FILE_SHA256,
+        ),
+        (
+            pair_manifest,
+            "path",
+            "lineage pair manifest",
+            SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256,
+        ),
+    ):
+        path_value = record.get(field)
+        if not isinstance(path_value, str):
+            raise ValueError(f"Focused {description} path is missing")
+        source_path = _focused_regular_file(
+            Path(path_value),
+            description=description,
+            train_only=True,
+        )
+        if path_value != str(source_path) or sha256_file(source_path) != expected_digest:
+            raise ValueError(f"Focused {description} current bytes differ")
+
+    audit_module = _hard_failure_audit_module()
+    train_contract = _hard_failure_train_contract_module()
+    artifact_paths = {
+        "delta_mem_adapter.pt": checkpoint_dir / "delta_mem_adapter.pt",
+        "delta_mem_config.json": checkpoint_dir / "delta_mem_config.json",
+        "training_protocol.json": checkpoint_dir / "training_protocol.json",
+        audit_module.AUDIT_FILENAME: checkpoint_dir / audit_module.AUDIT_FILENAME,
+    }
+    resolved_artifacts = {
+        name: _focused_regular_file(
+            path,
+            description=f"Train32 checkpoint {name}",
+            train_only=True,
+        )
+        for name, path in artifact_paths.items()
+    }
+    artifact_bindings = {
+        name: {
+            "path": str(path),
+            "bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+        }
+        for name, path in resolved_artifacts.items()
+    }
+
+    protocol_path = resolved_artifacts["training_protocol.json"]
+    protocol = _load_json_object(protocol_path, description="training protocol")
+    try:
+        audit_module._validate_protocol(protocol, smoke=False)
+    except (RuntimeError, ValueError) as exc:
+        raise ValueError("Focused Train32 training protocol differs") from exc
+
+    source_lock = train_contract.validate_source_lock()
+    audit_path = resolved_artifacts[audit_module.AUDIT_FILENAME]
+    audit = _load_json_object(audit_path, description="checkpoint audit")
+    audit_receipt_sha256 = _validate_self_hash(
+        audit,
+        field="receipt_sha256",
+        description="focused checkpoint audit",
+    )
+    if (
+        audit.get("schema") != audit_module.AUDIT_SCHEMA
+        or audit.get("run_root") != str(run_root)
+        or audit.get("checkpoint") != str(checkpoint_dir)
+        or audit.get("checkpoint_optimizer_step") != global_step
+        or audit.get("run_mode") != train_contract.PRODUCTION_RUN_MODE
+        or audit.get("objective_version") != train_contract.OBJECTIVE_VERSION
+        or audit.get("source_lock_sha256") != source_lock.get("lock_sha256")
+        or audit.get("row_audit_complete") is not True
+        or audit.get(
+            "optimizer_contains_only_declared_trainable_adapter_state_count"
+        )
+        is not True
+        or audit.get(
+            "base_model_parameter_values_not_materialized_in_adapter_checkpoint"
+        )
+        is not True
+        or audit.get("nontrainable_adapter_tensors_unchanged") is not True
+        or sha256_file(audit_path)
+        != artifact_bindings[audit_module.AUDIT_FILENAME]["sha256"]
+    ):
+        raise ValueError("Focused Train32 checkpoint audit identity differs")
+    audit_change = audit.get("adapter_change")
+    if (
+        not isinstance(audit_change, Mapping)
+        or audit_change.get("changed_nontrainable_tensor_count") != 0
+        or audit_change.get("frozen_adapter_tensors_unchanged") is not True
+    ):
+        raise ValueError("Focused Train32 checkpoint frozen-state audit differs")
+
+    completion_path = _focused_regular_file(
+        run_root.parent / "logs" / f"{run_root.name}.completion.json",
+        description="production completion receipt",
+        train_only=True,
+    )
+    completion = _load_json_object(
+        completion_path,
+        description="production completion receipt",
+    )
+    completion_receipt_sha256 = _validate_self_hash(
+        completion,
+        field="receipt_sha256",
+        description="production completion receipt",
+    )
+    expected_steps = list(range(1, train_contract.TOTAL_OPTIMIZER_STEPS + 1))
+    if (
+        completion.get("schema") != "rwkv_ms_scene_hard_failure_completion.v1"
+        or completion.get("run_mode") != "production"
+        or completion.get("run_root") != str(run_root)
+        or completion.get("global_step") != train_contract.TOTAL_OPTIMIZER_STEPS
+        or completion.get("checkpoint_steps") != expected_steps
+        or completion.get("training_complete") is not True
+        or completion.get("evaluation_accessed") is not False
+    ):
+        raise ValueError("Focused Train32 production completion receipt differs")
+    checkpoint_audits = completion.get("checkpoint_audits")
+    if (
+        not isinstance(checkpoint_audits, list)
+        or len(checkpoint_audits) != len(expected_steps)
+    ):
+        raise ValueError("Focused Train32 completion checkpoint audits are incomplete")
+    selected_completion_audit: dict[str, Any] | None = None
+    for step, record in zip(expected_steps, checkpoint_audits, strict=True):
+        expected_path = (
+            run_root
+            / "trainer"
+            / f"checkpoint-{step}"
+            / audit_module.AUDIT_FILENAME
+        )
+        if (
+            not isinstance(record, Mapping)
+            or record.get("step") != step
+            or record.get("path") != str(expected_path)
+        ):
+            raise ValueError(
+                f"Focused Train32 completion checkpoint-{step} audit binding differs"
+            )
+        current_audit = _focused_regular_file(
+            expected_path,
+            description=f"completion checkpoint-{step} audit",
+            train_only=True,
+        )
+        current_sha256 = sha256_file(current_audit)
+        if record.get("sha256") != current_sha256:
+            raise ValueError(
+                f"Focused Train32 completion checkpoint-{step} audit SHA-256 differs"
+            )
+        if step == global_step:
+            selected_completion_audit = {
+                "step": step,
+                "path": str(current_audit),
+                "sha256": current_sha256,
+            }
+    if (
+        selected_completion_audit is None
+        or selected_completion_audit["sha256"]
+        != artifact_bindings[audit_module.AUDIT_FILENAME]["sha256"]
+    ):
+        raise ValueError("Focused Train32 completion selected audit binding differs")
+    completion_binding = {
+        "path": str(completion_path),
+        "bytes": completion_path.stat().st_size,
+        "file_sha256": sha256_file(completion_path),
+        "receipt_sha256": completion_receipt_sha256,
+        "run_root": str(run_root),
+        "global_step": train_contract.TOTAL_OPTIMIZER_STEPS,
+        "checkpoint_steps": expected_steps,
+        "selected_checkpoint_audit": selected_completion_audit,
+        "training_complete": True,
+        "evaluation_accessed": False,
+    }
+
+    architecture = memory_architecture_contract(checkpoint_dir)
+    if architecture != {
+        "target_layers": list(range(42)),
+        "delta_heads": ["q", "o"],
+        "rank": 4,
+        "rwkv_ms_semantics_version": 2,
+        "memory_backend": "rwkv_ms",
+    }:
+        raise ValueError("Focused Train32 checkpoint architecture differs")
+    compact_source = {
+        "source_manifest": source_manifest,
+        "dataset": dataset,
+        "row_manifest": row_manifest,
+        "pair_manifest": pair_manifest,
+        "protected_evaluation_accessed": False,
+    }
+    return {
+        "lineage_kind": SCENE_HARD_FAILURE_TRAIN_CHECKPOINT_LINEAGE_KIND,
+        "memory_dir": str(checkpoint_dir),
+        "global_step": global_step,
+        "artifacts": artifact_bindings,
+        "checkpoint_audit_receipt_sha256": audit_receipt_sha256,
+        "completion_receipt": completion_binding,
+        "architecture": architecture,
+        "train_source": compact_source,
+        "train_source_sha256": _canonical_sha256(dict(train_source)),
+    }
+
+
+def _focused_recovery_gate_module() -> Any:
+    # Import lazily because the focused gate imports this evaluator.
+    from experiments.rethinking_rwkv_ms_gemma import run_scene_focused_recovery_gate
+
+    return run_scene_focused_recovery_gate
+
+
 def _recompute_focused_adapter_change(
     *,
     initial_manifest_path: Path,
@@ -1395,6 +1731,7 @@ def _focused_checkpoint_audit_change(
         raise ValueError("Focused endpoint checkpoint artifacts are missing")
     required_names = (
         "delta_mem_adapter.pt",
+        "delta_mem_config.json",
         audit_module.AUDIT_FILENAME,
     )
     digests = {
@@ -1571,10 +1908,297 @@ def _validate_focused_coverage_claims(
     return full_coverage is True
 
 
-def _focused_endpoint_gate_passed(endpoint: Mapping[str, Any]) -> bool:
+def _focused_base_model_fingerprint(
+    fingerprint_payload: Mapping[str, Any],
+    *,
+    train_contract: Any,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    base_model = _focused_directory(
+        train_contract.PINNED_BASE_MODEL,
+        description="pinned base model",
+        train_only=True,
+    )
+    weight_path = _focused_regular_file(
+        base_model / train_contract.BASE_MODEL_WEIGHT_FILE,
+        description="pinned base-model weight",
+        train_only=True,
+    )
+    weights = fingerprint_payload.get("base_model_weights")
+    weight_files = weights.get("files") if isinstance(weights, Mapping) else None
+    if (
+        not isinstance(weights, Mapping)
+        or weights.get("layout") != "unsharded"
+        or not isinstance(weight_files, list)
+        or len(weight_files) != 1
+        or not isinstance(weight_files[0], Mapping)
+        or dict(weight_files[0])
+        != {
+            "relative_path": train_contract.BASE_MODEL_WEIGHT_FILE,
+            "bytes": weight_path.stat().st_size,
+            "sha256": weight_files[0].get("sha256"),
+        }
+        or weight_path.stat().st_size != train_contract.BASE_MODEL_WEIGHT_BYTES
+        or not isinstance(weight_files[0].get("sha256"), str)
+        or SHA256_RE.fullmatch(weight_files[0]["sha256"]) is None
+        or weights.get("combined_sha256")
+        != sha256_text(
+            json.dumps(weight_files, sort_keys=True, separators=(",", ":"))
+        )
+    ):
+        raise ValueError("Focused Train32 base-model weight fingerprint differs")
+
+    prompt_files = [
+        {
+            "relative_path": name,
+            "bytes": int(identity["bytes"]),
+            "sha256": str(identity["sha256"]),
+        }
+        for name, identity in sorted(train_contract.BASE_MODEL_ARTIFACTS.items())
+    ]
+    prompt_artifacts = {
+        "files": prompt_files,
+        "combined_sha256": sha256_text(
+            json.dumps(prompt_files, sort_keys=True, separators=(",", ":"))
+        ),
+    }
+    if fingerprint_payload.get("base_model_prompt_artifacts") != prompt_artifacts:
+        raise ValueError("Focused Train32 base-model prompt fingerprint differs")
+    return dict(weights), prompt_artifacts
+
+
+def _canonical_focused_train_evidence(
+    *,
+    checkpoint_dir: Path,
+    checkpoint_artifact_sha256: Mapping[str, str],
+    selector_source: Mapping[str, Any],
+    fingerprint_payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    train_contract = _hard_failure_train_contract_module()
+    source_lock_path = _focused_regular_file(
+        train_contract.SOURCE_LOCK,
+        description="hard-failure source lock",
+        train_only=True,
+    )
+    source_lock = train_contract.validate_source_lock(source_lock_path)
+    canonical_source_raw = validate_focused_train_source_manifest(
+        train_contract.SOURCE_MANIFEST,
+        dataset_file=train_contract.TRAIN_FILE,
+    )
+    canonical_source = json.loads(
+        json.dumps(canonical_source_raw, ensure_ascii=True, sort_keys=True)
+    )
+    source_manifest = canonical_source["source_manifest"]
+    dataset = canonical_source["dataset"]
+    pair_manifest = canonical_source["pair_manifest"]
+    expected_selector_source = {
+        "source_lock_path": str(source_lock_path),
+        "source_lock_file_sha256": sha256_file(source_lock_path),
+        "source_lock_sha256": source_lock["lock_sha256"],
+        "source_manifest_path": source_manifest["path"],
+        "source_manifest_file_sha256": source_manifest["file_sha256"],
+        "source_manifest_sha256": source_manifest["manifest_sha256"],
+        "train_file_sha256": dataset["sha256"],
+        "pair_manifest_file_sha256": pair_manifest["file_sha256"],
+        "pair_manifest_sha256": pair_manifest["manifest_sha256"],
+        "entries_sha256": pair_manifest["entries_sha256"],
+        "protected_evaluation_accessed": False,
+    }
+    if dict(selector_source) != expected_selector_source:
+        raise ValueError("Focused Train32 selector source binding differs")
+
+    expected_hashes = {
+        int(index): str(digest)
+        for index, digest in canonical_source_raw["expected_row_hashes"].items()
+    }
+    samples = load_selected_rows(
+        train_contract.TRAIN_FILE,
+        list(range(SCENE_HARD_FAILURE_ROWS)),
+        expected_hashes=expected_hashes,
+    )
+    row_manifest_path = _focused_regular_file(
+        train_contract.TRAIN_ROWS,
+        description="canonical Train32 row manifest",
+        train_only=True,
+    )
+    row_manifests = [
+        record
+        for _, record in _nonblank_jsonl_rows(
+            row_manifest_path,
+            description="canonical Train32 row manifest",
+        )
+    ]
+    if len(row_manifests) != len(samples):
+        raise ValueError("Focused Train32 row-manifest count differs")
+    for sample, row_manifest in zip(samples, row_manifests, strict=True):
+        source_index = int(sample["source_index"])
+        token_metadata = row_manifest.get("token_metadata")
+        write_token_count = (
+            token_metadata.get("write_token_count")
+            if isinstance(token_metadata, Mapping)
+            else None
+        )
+        if (
+            row_manifest.get("train_row_ordinal") != source_index
+            or row_manifest.get("row_sha256") != sample["row_sha256"]
+            or isinstance(write_token_count, bool)
+            or not isinstance(write_token_count, int)
+            or write_token_count <= 0
+        ):
+            raise ValueError(
+                f"Focused Train32 token metadata differs at row {source_index}"
+            )
+        sample["write_token_count"] = write_token_count
+
+    donors = materialize_focused_train_donor_mapping(
+        samples,
+        canonical_source_raw["donor_by_source_index"],
+    )
+    shuffled = build_deterministic_shuffled_mapping(samples, donors)
+    donor_mapping = donor_mapping_fingerprint_rows(samples, donors)
+    shuffled_mapping = shuffled_mapping_fingerprint_rows(samples, shuffled)
+    condition_protocols = resolved_condition_protocols(
+        list(SCENE_FOCUSED_CONDITIONS),
+        donor_rule=DONOR_RULE_LENGTH_MATCHED,
+    )
+    architecture = memory_architecture_contract(checkpoint_dir)
+    evaluation_contract = validate_scene_hard_failure_contract(
+        contract=SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
+        row_indices=list(range(SCENE_HARD_FAILURE_ROWS)),
+        expected_hashes=expected_hashes,
+        selection_dataset_contract=None,
+        conditions=list(SCENE_FOCUSED_CONDITIONS),
+        donor_rule=DONOR_RULE_LENGTH_MATCHED,
+        max_new_tokens=DEFAULT_MAX_NEW_TOKENS,
+        normal_fusion_profile="native",
+        expected_memory_layer_count=42,
+        memory_target_layers=architecture["target_layers"],
+        memory_delta_heads=architecture["delta_heads"],
+        memory_rank=architecture["rank"],
+        rwkv_ms_semantics_version=architecture["rwkv_ms_semantics_version"],
+        memory_backend=architecture["memory_backend"],
+        memory_dir=checkpoint_dir,
+        selection_manifest_sha256=None,
+        train_source=canonical_source_raw,
+        train_selection_authorization=None,
+    )
+    evaluation_contract = json.loads(
+        json.dumps(evaluation_contract, ensure_ascii=True, sort_keys=True)
+    )
+    candidate_lineage = build_focused_train_checkpoint_lineage(
+        checkpoint_dir,
+        train_source=canonical_source_raw,
+    )
+    candidate_lineage_record_binding = build_candidate_lineage_record_binding(
+        candidate_lineage
+    )
+    if candidate_lineage_record_binding is None:
+        raise ValueError("Focused Train32 candidate lineage binding is missing")
+    base_weights, base_prompt_artifacts = _focused_base_model_fingerprint(
+        fingerprint_payload,
+        train_contract=train_contract,
+    )
+    profile_fields = normal_fusion_fingerprint_fields("native", 42)
+    expected_fingerprint_payload = {
+        "schema_version": 1,
+        "task": TASK_NAME,
+        "split": "train",
+        "code": scene_state_code_fingerprint(PROJECT_ROOT),
+        "runtime_packages": runtime_package_versions(),
+        "delta_mem_root": str(PROJECT_ROOT),
+        "base_model": str(train_contract.PINNED_BASE_MODEL.resolve()),
+        "base_model_weights": base_weights,
+        "base_model_prompt_artifacts": base_prompt_artifacts,
+        "memory_dir": str(checkpoint_dir),
+        "memory_config_sha256": checkpoint_artifact_sha256.get(
+            "delta_mem_config.json"
+        ),
+        "memory_adapter_sha256": checkpoint_artifact_sha256.get(
+            "delta_mem_adapter.pt"
+        ),
+        "dataset_file": str(train_contract.TRAIN_FILE.resolve()),
+        "dataset_sha256": SCENE_HARD_FAILURE_TRAIN_FILE_SHA256,
+        "selection_source": {"kind": "inline_indices"},
+        "selection": canonical_source["selection"],
+        "conditions": list(SCENE_FOCUSED_CONDITIONS),
+        "condition_protocols": condition_protocols,
+        "donor_rule": DONOR_RULE_LENGTH_MATCHED,
+        "state_only_donor_mapping": donor_mapping,
+        "state_only_shuffled_mapping": shuffled_mapping,
+        "evaluation_contract": evaluation_contract,
+        "candidate_lineage": candidate_lineage,
+        "candidate_lineage_record_binding": candidate_lineage_record_binding,
+        "hard32_receipt_authorization": None,
+        "scene_v7_train32_authorization": None,
+        "scene_v14_candidate_authorization": None,
+        "scene_v15_candidate_authorization": None,
+        "focused_train_source": canonical_source,
+        "focused_train_selection_authorization": None,
+        "historical_v6_preflight": None,
+        "max_new_tokens": DEFAULT_MAX_NEW_TOKENS,
+        "device": "cuda:0",
+        "dtype": "bfloat16",
+        "attn_implementation": "sdpa",
+        **profile_fields,
+    }
+    return {
+        "source": canonical_source,
+        "samples": samples,
+        "selected_by_index": {
+            int(sample["source_index"]): sample for sample in samples
+        },
+        "donors": donors,
+        "shuffled": shuffled,
+        "donor_mapping": donor_mapping,
+        "shuffled_mapping": shuffled_mapping,
+        "condition_protocols": condition_protocols,
+        "evaluation_contract": evaluation_contract,
+        "candidate_lineage": candidate_lineage,
+        "candidate_lineage_record_binding": candidate_lineage_record_binding,
+        "fingerprint_payload": expected_fingerprint_payload,
+    }
+
+
+def _focused_endpoint_gate_passed(
+    endpoint: Mapping[str, Any],
+    *,
+    step: int,
+    checkpoint_dir: Path,
+    checkpoint_artifact_sha256: Mapping[str, str],
+    source: Mapping[str, Any],
+) -> bool:
+    evaluation = endpoint.get("evaluation")
     binding = endpoint.get("gate")
-    if not isinstance(binding, Mapping):
-        raise ValueError("Focused endpoint gate binding is missing")
+    if not isinstance(evaluation, Mapping) or not isinstance(binding, Mapping):
+        raise ValueError("Focused endpoint evaluation or gate binding is missing")
+    results_dir_value = evaluation.get("results_dir")
+    if not isinstance(results_dir_value, str):
+        raise ValueError("Focused endpoint results directory is missing")
+    results_dir = _focused_directory(
+        Path(results_dir_value),
+        description=f"checkpoint-{step} Train32 results",
+        train_only=True,
+    )
+    if results_dir_value != str(results_dir):
+        raise ValueError("Focused endpoint results directory binding differs")
+
+    artifact_names = (
+        "manifest.json",
+        "summary.json",
+        "progress.json",
+        *(f"{condition}.jsonl" for condition in SCENE_FOCUSED_CONDITIONS),
+    )
+    artifacts = evaluation.get("artifacts")
+    if not isinstance(artifacts, Mapping) or set(artifacts) != set(artifact_names):
+        raise ValueError("Focused endpoint evaluation artifact set differs")
+    before = {
+        name: _focused_bound_artifact(
+            artifacts.get(name),
+            expected_path=results_dir / name,
+            description=f"checkpoint-{step} evaluation {name}",
+        )
+        for name in artifact_names
+    }
+
     path_value = binding.get("focused_gate_path")
     if not isinstance(path_value, str):
         raise ValueError("Focused endpoint gate path is missing")
@@ -1583,20 +2207,138 @@ def _focused_endpoint_gate_passed(endpoint: Mapping[str, Any]) -> bool:
         description="train-overfit endpoint gate",
         train_only=True,
     )
-    gate = _load_json_object(path, description="train-overfit endpoint gate")
-    passed = gate.get("all_gates_passed")
+    if path != (results_dir / "focused_recovery_gate.json").resolve():
+        raise ValueError("Focused endpoint gate is not bound to its results directory")
+    gate_file_sha256 = sha256_file(path)
+    recorded_gate = _load_json_object(path, description="train-overfit endpoint gate")
+
+    manifest = _load_json_object(
+        results_dir / "manifest.json",
+        description=f"checkpoint-{step} evaluation manifest",
+    )
+    progress = _load_json_object(
+        results_dir / "progress.json",
+        description=f"checkpoint-{step} evaluation progress",
+    )
+    fingerprint_payload = manifest.get("fingerprint_payload")
+    if not isinstance(fingerprint_payload, Mapping):
+        raise ValueError("Focused Train32 manifest fingerprint payload is missing")
+    canonical = _canonical_focused_train_evidence(
+        checkpoint_dir=checkpoint_dir,
+        checkpoint_artifact_sha256=checkpoint_artifact_sha256,
+        selector_source=source,
+        fingerprint_payload=fingerprint_payload,
+    )
+    expected_fingerprint_payload = canonical["fingerprint_payload"]
+    expected_fingerprint = fingerprint_payload_sha256(expected_fingerprint_payload)
+    expected_contract = canonical["evaluation_contract"]
+    expected_lineage = canonical["candidate_lineage"]
+    expected_lineage_binding = canonical["candidate_lineage_record_binding"]
+    if (
+        dict(fingerprint_payload) != expected_fingerprint_payload
+        or manifest.get("fingerprint") != expected_fingerprint
+        or manifest.get("evaluation_contract") != expected_contract
+        or manifest.get("candidate_lineage") != expected_lineage
+        or manifest.get("candidate_lineage_record_binding")
+        != expected_lineage_binding
+        or evaluation.get("fingerprint") != expected_fingerprint
+        or evaluation.get("contract_canonical_sha256")
+        != _canonical_sha256(expected_contract)
+    ):
+        raise ValueError("Focused Train32 manifest fingerprint or lineage differs")
+    try:
+        recomputed_gate = _focused_recovery_gate_module().analyze_results_dir(
+            results_dir,
+            stage="train_overfit",
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError(
+            f"Focused checkpoint-{step} Train32 gate recomputation failed: {exc}"
+        ) from exc
+
+    after = {
+        name: _focused_bound_artifact(
+            artifacts.get(name),
+            expected_path=results_dir / name,
+            description=f"checkpoint-{step} evaluation {name}",
+        )
+        for name in artifact_names
+    }
+    if before != after or sha256_file(path) != gate_file_sha256:
+        raise ValueError("Focused endpoint evaluation changed during gate recomputation")
+    if recorded_gate != recomputed_gate:
+        raise ValueError("Focused endpoint gate differs from recomputed Train32 results")
+
+    passed = recomputed_gate.get("all_gates_passed")
+    gate_input = recomputed_gate.get("input")
+    expected_records = SCENE_HARD_FAILURE_ROWS * len(SCENE_FOCUSED_CONDITIONS)
     if (
         not isinstance(passed, bool)
-        or binding.get("file_sha256") != sha256_file(path)
-        or binding.get("canonical_sha256") != _canonical_sha256(gate)
-        or gate.get("schema") != "rwkv_ms_scene_focused_recovery_gate.v1"
-        or gate.get("stage") != "train_overfit"
-        or gate.get("task") != TASK_NAME
-        or gate.get("source_indices") != list(range(SCENE_HARD_FAILURE_ROWS))
-        or gate.get("status")
+        or binding.get("file_sha256") != gate_file_sha256
+        or binding.get("canonical_sha256") != _canonical_sha256(recorded_gate)
+        or recomputed_gate.get("schema") != "rwkv_ms_scene_focused_recovery_gate.v1"
+        or recomputed_gate.get("stage") != "train_overfit"
+        or recomputed_gate.get("task") != TASK_NAME
+        or recomputed_gate.get("rows") != SCENE_HARD_FAILURE_ROWS
+        or recomputed_gate.get("source_indices")
+        != list(range(SCENE_HARD_FAILURE_ROWS))
+        or recomputed_gate.get("status")
         != ("diagnostic_pass" if passed else "diagnostic_fail")
+        or not isinstance(gate_input, Mapping)
+        or gate_input.get("results_dir") != str(results_dir)
+        or gate_input.get("evaluation_fingerprint") != expected_fingerprint
+        or gate_input.get("evaluation_contract") != expected_contract
+        or binding.get("evaluation_fingerprint") != expected_fingerprint
+        or progress.get("fingerprint") != expected_fingerprint
+        or progress.get("completed") != expected_records
+        or progress.get("expected") != expected_records
+        or progress.get("complete") is not True
     ):
         raise ValueError("Focused endpoint gate binding differs")
+
+    selected_by_index = canonical["selected_by_index"]
+    donors = canonical["donors"]
+    shuffled = canonical["shuffled"]
+    condition_protocols = canonical["condition_protocols"]
+    for condition in SCENE_FOCUSED_CONDITIONS:
+        records = [
+            record
+            for _, record in _nonblank_jsonl_rows(
+                results_dir / f"{condition}.jsonl",
+                description=f"checkpoint-{step} {condition} output",
+            )
+        ]
+        validated = validate_resume_records(
+            records,
+            condition=condition,
+            condition_protocol=condition_protocols[condition],
+            selected_by_index=selected_by_index,
+            donor_by_index=donors,
+            shuffled_by_index=shuffled,
+            fingerprint=expected_fingerprint,
+            split="train",
+            max_new_tokens=DEFAULT_MAX_NEW_TOKENS,
+            require_semantic_nll=False,
+            candidate_lineage_record_binding=expected_lineage_binding,
+        )
+        if (
+            len(records) != SCENE_HARD_FAILURE_ROWS
+            or list(validated) != list(range(SCENE_HARD_FAILURE_ROWS))
+        ):
+            raise ValueError(
+                f"Focused checkpoint-{step} {condition} row order differs"
+            )
+
+    final_artifacts = {
+        name: _focused_bound_artifact(
+            artifacts.get(name),
+            expected_path=results_dir / name,
+            description=f"checkpoint-{step} evaluation {name}",
+        )
+        for name in artifact_names
+    }
+    if before != final_artifacts or sha256_file(path) != gate_file_sha256:
+        raise ValueError("Focused endpoint evidence changed during validation")
     return passed
 
 
@@ -1696,6 +2438,9 @@ def validate_focused_train_selection_authorization(
     run_root = trainer_dir.parent
     if trainer_dir.name != "trainer" or expected_dir.name != f"checkpoint-{global_step}":
         raise ValueError("Focused selected checkpoint layout differs")
+    source = receipt.get("source")
+    if not isinstance(source, Mapping):
+        raise ValueError("Focused train selection source binding is missing")
     eligible: list[Mapping[str, Any]] = []
     for step, endpoint in zip(evaluated_steps, evaluated):
         endpoint_checkpoint = endpoint.get("checkpoint")
@@ -1719,7 +2464,13 @@ def validate_focused_train_selection_authorization(
             step=step,
             adapter_sha256=endpoint_digests["delta_mem_adapter.pt"],
         )
-        benchmark_gate_passed = _focused_endpoint_gate_passed(endpoint)
+        benchmark_gate_passed = _focused_endpoint_gate_passed(
+            endpoint,
+            step=step,
+            checkpoint_dir=endpoint_dir,
+            checkpoint_artifact_sha256=endpoint_digests,
+            source=source,
+        )
         selection_eligible = endpoint.get("selection_eligible")
         if (
             endpoint.get("global_step") != step
@@ -1737,6 +2488,7 @@ def validate_focused_train_selection_authorization(
         eligible != [selected_endpoint]
         or selected_endpoint.get("global_step") != global_step
         or selected_endpoint.get("checkpoint") != checkpoint
+        or selected_endpoint.get("evaluation") != receipt.get("evaluation")
         or selected_endpoint.get("gate") != receipt.get("gate")
         or dict(selected_eligibility)
         != {
@@ -1791,9 +2543,6 @@ def validate_focused_train_selection_authorization(
     ):
         raise ValueError("Focused selected checkpoint lacks full current-byte coverage")
 
-    source = receipt.get("source")
-    if not isinstance(source, Mapping):
-        raise ValueError("Focused train selection source binding is missing")
     expected_source_fields = {
         "source_manifest_file_sha256": SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256,
         "source_manifest_sha256": SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256,
@@ -5199,6 +5948,46 @@ def build_candidate_lineage_record_binding(
     if candidate_lineage is None:
         return None
     lineage_kind = candidate_lineage.get("lineage_kind")
+    if lineage_kind == SCENE_HARD_FAILURE_TRAIN_CHECKPOINT_LINEAGE_KIND:
+        artifacts = candidate_lineage.get("artifacts")
+        architecture = candidate_lineage.get("architecture")
+        completion = candidate_lineage.get("completion_receipt")
+        if (
+            not isinstance(candidate_lineage.get("memory_dir"), str)
+            or candidate_lineage.get("global_step")
+            not in SCENE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS
+            or not isinstance(artifacts, Mapping)
+            or set(artifacts)
+            != {
+                "delta_mem_adapter.pt",
+                "delta_mem_config.json",
+                "training_protocol.json",
+                _hard_failure_audit_module().AUDIT_FILENAME,
+            }
+            or not all(isinstance(binding, Mapping) for binding in artifacts.values())
+            or not isinstance(
+                candidate_lineage.get("checkpoint_audit_receipt_sha256"), str
+            )
+            or not isinstance(architecture, Mapping)
+            or not isinstance(completion, Mapping)
+            or completion.get("training_complete") is not True
+            or completion.get("evaluation_accessed") is not False
+            or not isinstance(candidate_lineage.get("train_source_sha256"), str)
+        ):
+            raise ValueError("Focused Train32 checkpoint lineage differs")
+        return {
+            "lineage_kind": lineage_kind,
+            "lineage_sha256": fingerprint_payload_sha256(candidate_lineage),
+            "memory_dir": candidate_lineage["memory_dir"],
+            "global_step": candidate_lineage["global_step"],
+            "artifacts": {name: dict(binding) for name, binding in artifacts.items()},
+            "checkpoint_audit_receipt_sha256": candidate_lineage[
+                "checkpoint_audit_receipt_sha256"
+            ],
+            "completion_receipt": dict(completion),
+            "architecture": dict(architecture),
+            "train_source_sha256": candidate_lineage["train_source_sha256"],
+        }
     if lineage_kind == "scene_hard_failure_train_overfit_selection":
         authorization = candidate_lineage.get("authorization")
         consumption = (
@@ -6642,6 +7431,27 @@ def validate_focused_hard32_exactly_once_authorization(
             "Focused Hard32 requires a 42-layer q,o rank-4 RWKV-MS checkpoint"
         )
 
+    selected_artifacts = checkpoint_binding.get("artifacts")
+    if not isinstance(selected_artifacts, Mapping):
+        raise ValueError("Focused Hard32 selected checkpoint artifacts are missing")
+    audit_filename = _hard_failure_audit_module().AUDIT_FILENAME
+    for name in (
+        "delta_mem_adapter.pt",
+        "delta_mem_config.json",
+        audit_filename,
+    ):
+        current_path = _focused_regular_file(
+            resolved_memory / name,
+            description=f"pre-claim selected checkpoint {name}",
+            train_only=True,
+        )
+        if (
+            current_path != (resolved_memory / name).resolve()
+            or sha256_file(current_path) != selected_artifacts.get(name)
+        ):
+            raise ValueError(
+                f"Focused Hard32 selected checkpoint {name} changed before claim"
+            )
     consumption = claim_scene_hard_failure_hard32_authorization(
         selection_receipt_path=canonical_receipt,
         payload={
@@ -7316,11 +8126,12 @@ def validate_resume_record_contract(
                 raise ValueError(
                     f"Resume record {field} differs at source index {source_index}"
                 )
-    if (
-        candidate_lineage_record_binding is not None
-        and record.get("candidate_lineage")
-        != dict(candidate_lineage_record_binding)
-    ):
+    expected_record_lineage = (
+        None
+        if candidate_lineage_record_binding is None
+        else dict(candidate_lineage_record_binding)
+    )
+    if record.get("candidate_lineage") != expected_record_lineage:
         raise ValueError(
             "Resume record candidate lineage differs at source index "
             f"{source_index}"
@@ -7759,10 +8570,11 @@ def main() -> None:
     if args.preflight_only and args.evaluation_contract not in {
         HISTORICAL_V6_HARD32_CONTRACT,
         SCENE_V14_HARD32_CONTRACT,
+        SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
     }:
         raise ValueError(
-            "--preflight-only is restricted to the historical V6 and locked "
-            "V14 Hard32 contracts"
+            "--preflight-only is restricted to historical V6, locked V14 "
+            "Hard32, and focused Train32 contracts"
         )
     conditions = selected_conditions(args.conditions)
     if args.max_new_tokens <= 0:
@@ -8007,6 +8819,11 @@ def main() -> None:
         if historical_preflight is None:
             raise AssertionError("Historical V6 preflight result is missing")
         candidate_lineage = historical_preflight["checkpoint"]
+    elif focused_train_source is not None:
+        candidate_lineage = build_focused_train_checkpoint_lineage(
+            args.memory_dir,
+            train_source=focused_train_source,
+        )
     else:
         candidate_lineage = (
             None

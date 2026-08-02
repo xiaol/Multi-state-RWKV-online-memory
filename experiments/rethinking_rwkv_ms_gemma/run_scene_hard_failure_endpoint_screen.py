@@ -51,8 +51,8 @@ from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
 )
 
 
-SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen.v2"
-PROTOCOL_SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v2"
+SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen.v3"
+PROTOCOL_SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v3"
 COMPLETION_SCHEMA = "rwkv_ms_scene_hard_failure_completion.v1"
 SCREEN_DIRNAME = "train32_endpoint_screen"
 PROTOCOL_FILENAME = "screening_protocol.json"
@@ -266,7 +266,7 @@ class ScreenPaths:
         return self.results_dir(step) / selector.GATE_FILENAME
 
 
-def create_screen_paths(run_root: Path) -> ScreenPaths:
+def prospective_screen_paths(run_root: Path) -> ScreenPaths:
     screen_root = selector.reject_protected_path(
         run_root / SCREEN_DIRNAME,
         description="Train32 endpoint screen root",
@@ -279,12 +279,17 @@ def create_screen_paths(run_root: Path) -> ScreenPaths:
         not screen_root.exists() and not screen_root.is_symlink(),
         f"fresh Train32 endpoint screen output already exists: {screen_root}",
     )
-    screen_root.mkdir(parents=False, exist_ok=False)
     return ScreenPaths(
         root=screen_root,
         protocol=screen_root / PROTOCOL_FILENAME,
         selection_receipt=screen_root / SELECTION_RECEIPT_FILENAME,
     )
+
+
+def create_screen_paths(run_root: Path) -> ScreenPaths:
+    paths = prospective_screen_paths(run_root)
+    paths.root.mkdir(parents=False, exist_ok=False)
+    return paths
 
 
 def evaluation_command(*, run_root: Path, paths: ScreenPaths, step: int) -> list[str]:
@@ -327,6 +332,18 @@ def evaluation_command(*, run_root: Path, paths: ScreenPaths, step: int) -> list
     ]
 
 
+def evaluation_preflight_command(
+    *,
+    run_root: Path,
+    paths: ScreenPaths,
+    step: int,
+) -> list[str]:
+    return [
+        *evaluation_command(run_root=run_root, paths=paths, step=step),
+        "--preflight-only",
+    ]
+
+
 def gate_command(*, paths: ScreenPaths, step: int) -> list[str]:
     _require(step in ENDPOINT_STEPS, f"unsupported endpoint step: {step}")
     return [
@@ -346,6 +363,13 @@ def _command_environment(environment: Mapping[str, str]) -> dict[str, str]:
     existing = result.get("PYTHONPATH")
     result["PYTHONPATH"] = str(PROJECT_ROOT) + (f":{existing}" if existing else "")
     return result
+
+
+def _execution_context(environment: Mapping[str, str]) -> dict[str, str]:
+    return {
+        "cwd": str(PROJECT_ROOT),
+        "environment_sha256": selector.canonical_sha256(dict(environment)),
+    }
 
 
 CommandRunner = Callable[[Sequence[str], Path, Mapping[str, str]], int]
@@ -370,6 +394,113 @@ def run_external_command(
         check=False,
     )
     return int(completed.returncode)
+
+
+def run_evaluator_preflights(
+    *,
+    run_root: Path,
+    paths: ScreenPaths,
+    environment: Mapping[str, str],
+    command_runner: CommandRunner,
+) -> list[dict[str, Any]]:
+    """Validate every endpoint without creating any screening output path."""
+
+    records: list[dict[str, Any]] = []
+    execution_context = _execution_context(environment)
+    for step in ENDPOINT_STEPS:
+        output_dir = paths.results_dir(step)
+        screen_root_absent_before = (
+            not paths.root.exists() and not paths.root.is_symlink()
+        )
+        output_dir_absent_before = (
+            not output_dir.exists() and not output_dir.is_symlink()
+        )
+        _require(
+            screen_root_absent_before and output_dir_absent_before,
+            f"checkpoint-{step} evaluator preflight requires absent output paths",
+        )
+        command = evaluation_preflight_command(
+            run_root=run_root,
+            paths=paths,
+            step=step,
+        )
+        status = command_runner(command, PROJECT_ROOT, environment)
+        screen_root_absent = not paths.root.exists() and not paths.root.is_symlink()
+        output_dir_absent = not output_dir.exists() and not output_dir.is_symlink()
+        record = {
+            "step": step,
+            "kind": "train32_evaluator_preflight",
+            "argv": command,
+            **execution_context,
+            "returncode": status,
+            "output_dir": str(output_dir),
+            "screen_root_absent_before": screen_root_absent_before,
+            "output_dir_absent_before": output_dir_absent_before,
+            "screen_root_absent_after": screen_root_absent,
+            "output_dir_absent_after": output_dir_absent,
+        }
+        records.append(record)
+        _require(
+            status == 0,
+            f"checkpoint-{step} evaluator preflight failed with status {status}",
+        )
+        _require(
+            screen_root_absent and output_dir_absent,
+            f"checkpoint-{step} evaluator preflight created an output directory",
+        )
+    _require(
+        [record["step"] for record in records] == list(ENDPOINT_STEPS)
+        and all(record["returncode"] == 0 for record in records)
+        and all(record["screen_root_absent_before"] is True for record in records)
+        and all(record["output_dir_absent_before"] is True for record in records)
+        and all(record["screen_root_absent_after"] is True for record in records)
+        and all(record["output_dir_absent_after"] is True for record in records),
+        "evaluator preflight evidence is incomplete",
+    )
+    return records
+
+
+def evaluator_preflight_evidence(
+    *,
+    run_root: Path,
+    paths: ScreenPaths,
+    records: Sequence[Mapping[str, Any]],
+    execution_context: Mapping[str, str],
+) -> dict[str, Any]:
+    expected_records = [
+        {
+            "step": step,
+            "kind": "train32_evaluator_preflight",
+            "argv": evaluation_preflight_command(
+                run_root=run_root,
+                paths=paths,
+                step=step,
+            ),
+            **dict(execution_context),
+            "returncode": 0,
+            "output_dir": str(paths.results_dir(step)),
+            "screen_root_absent_before": True,
+            "output_dir_absent_before": True,
+            "screen_root_absent_after": True,
+            "output_dir_absent_after": True,
+        }
+        for step in ENDPOINT_STEPS
+    ]
+    normalized = [dict(record) for record in records]
+    _require(
+        normalized == expected_records,
+        "evaluator preflight command or result evidence differs",
+    )
+    return {
+        "required_before_screen_root_creation": True,
+        "endpoint_steps": list(ENDPOINT_STEPS),
+        "commands": normalized,
+        "all_returned_zero": True,
+        "screen_root_absent_before": True,
+        "output_dirs_absent_before": True,
+        "screen_root_absent_after": True,
+        "output_dirs_absent_after": True,
+    }
 
 
 def recompute_gate(results_dir: Path) -> dict[str, Any]:
@@ -491,6 +622,8 @@ def _protocol_payload(
     completion: Mapping[str, Any],
     source: Mapping[str, Any],
     checkpoints: Sequence[Mapping[str, Any]],
+    preflight: Mapping[str, Any],
+    execution_context: Mapping[str, str],
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "schema": PROTOCOL_SCHEMA,
@@ -500,6 +633,8 @@ def _protocol_payload(
         "production_completion_receipt": dict(completion),
         "train_source": dict(source),
         "endpoint_checkpoints": [dict(checkpoint) for checkpoint in checkpoints],
+        "execution_context": dict(execution_context),
+        "evaluator_preflight": dict(preflight),
         "endpoint_steps": list(ENDPOINT_STEPS),
         "selection_policy": selector.SELECTION_POLICY,
         "evaluation_contract": EVALUATION_CONTRACT,
@@ -535,6 +670,8 @@ def _bind_driver_receipt(
     evaluated_steps: Sequence[int],
     endpoint_decisions: Sequence[Mapping[str, Any]],
     commands: Sequence[Mapping[str, Any]],
+    preflight: Mapping[str, Any],
+    execution_context: Mapping[str, str],
 ) -> dict[str, Any]:
     bound = dict(receipt)
     bound.pop("receipt_sha256", None)
@@ -549,6 +686,8 @@ def _bind_driver_receipt(
         },
         "evaluated_endpoint_steps": list(evaluated_steps),
         "endpoint_decisions": [dict(decision) for decision in endpoint_decisions],
+        "execution_context": dict(execution_context),
+        "evaluator_preflight": dict(preflight),
         "commands": [dict(record) for record in commands],
         "conditions": list(CONDITIONS),
         "hard32_accessed": False,
@@ -597,6 +736,21 @@ def screen_endpoints(
     checkpoints_by_step = {
         int(checkpoint["global_step"]): checkpoint for checkpoint in checkpoints
     }
+    paths = prospective_screen_paths(root)
+    command_environment = _command_environment(runtime_environment)
+    execution_context = _execution_context(command_environment)
+    preflight_records = run_evaluator_preflights(
+        run_root=root,
+        paths=paths,
+        environment=command_environment,
+        command_runner=command_runner,
+    )
+    preflight = evaluator_preflight_evidence(
+        run_root=root,
+        paths=paths,
+        records=preflight_records,
+        execution_context=execution_context,
+    )
     paths = create_screen_paths(root)
     protocol = _protocol_payload(
         run_root=root,
@@ -604,10 +758,11 @@ def screen_endpoints(
         completion=completion,
         source=source,
         checkpoints=checkpoints,
+        preflight=preflight,
+        execution_context=execution_context,
     )
     selector.atomic_write_json(paths.protocol, protocol)
 
-    command_environment = _command_environment(runtime_environment)
     command_records: list[dict[str, Any]] = []
     evaluated_steps: list[int] = []
     endpoint_decisions: list[dict[str, Any]] = []
@@ -620,6 +775,7 @@ def screen_endpoints(
                 "step": step,
                 "kind": "train32_generation",
                 "argv": evaluate,
+                **execution_context,
                 "returncode": evaluate_status,
             }
         )
@@ -636,6 +792,7 @@ def screen_endpoints(
                 "step": step,
                 "kind": "focused_gate",
                 "argv": gate,
+                **execution_context,
                 "returncode": gate_status,
             }
         )
@@ -758,6 +915,8 @@ def screen_endpoints(
         evaluated_steps=evaluated_steps,
         endpoint_decisions=endpoint_decisions,
         commands=command_records,
+        preflight=preflight,
+        execution_context=execution_context,
     )
     selector.atomic_write_json(paths.selection_receipt, bound)
     return bound

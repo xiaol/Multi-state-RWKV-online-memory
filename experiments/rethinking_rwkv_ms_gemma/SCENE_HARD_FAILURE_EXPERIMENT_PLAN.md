@@ -126,16 +126,20 @@ PYTHONPATH="$PWD" /home/xiaol/X/delta-Mem/.venv/bin/python \
   --completion-receipt /run/media/xiaol/B214449214445C0B/delta_mem_outputs/novel_rwkv_ms_memory/scene_hard_failure/logs/scene_hard_failure_four_cycle_pair64_hard_failure_train32_v1_step64.completion.json
 ```
 
-The command creates a fresh `train32_endpoint_screen` directory inside the run
-root. It generates and recomputes the Train32 gate at steps 16, 32, 48, and 64
+Before claiming any output path, the command runs the exact Train32 evaluator
+arguments with `--preflight-only` for steps 16, 32, 48, and 64. All four must
+return zero without creating the screen root or any endpoint output directory.
+Only then does the command create the fresh `train32_endpoint_screen` directory
+inside the run root. It generates and recomputes the Train32 gate at each step
 in order and stops at the first gate pass with full current-byte coverage. Each
 evaluated endpoint records the benchmark-gate result, exact adapter coverage,
 and combined selection eligibility, and contains
 `manifest.json`, `summary.json`, `progress.json`, the seven condition JSONL
 files, and `focused_recovery_gate.json`. `screening_protocol.json` binds the
-production completion receipt before generation begins. The final
-`train32_checkpoint_selection_receipt.json` binds that protocol, every executed
-command, every evaluated endpoint, and the production receipt.
+production completion receipt and all preflight commands/results before
+generation begins. The final `train32_checkpoint_selection_receipt.json` binds
+that protocol, the same preflight evidence, every executed command, every
+evaluated endpoint, and the production receipt.
 
 Exit status `0` means the first gate-plus-coverage eligible endpoint is
 authorized only for the separate Hard32 command. Exit status `1` means all four

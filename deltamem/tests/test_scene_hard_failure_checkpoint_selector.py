@@ -954,6 +954,276 @@ def _evaluation_contract(
     }
 
 
+def _write_bound_endpoint_evidence(
+    results_dir: Path,
+    *,
+    step: int,
+    checkpoint: dict[str, Any],
+    source: dict[str, Any],
+    report: dict[str, Any],
+) -> selector.EndpointEvidence:
+    results_dir.mkdir()
+    contract = _evaluation_contract(checkpoint=checkpoint, source=source)
+    candidate_lineage = {
+        "lineage_kind": state_eval.SCENE_HARD_FAILURE_TRAIN_CHECKPOINT_LINEAGE_KIND,
+        "memory_dir": checkpoint["path"],
+        "global_step": step,
+    }
+    candidate_lineage_record_binding = {
+        "lineage_kind": candidate_lineage["lineage_kind"],
+        "lineage_sha256": state_eval.fingerprint_payload_sha256(candidate_lineage),
+        "memory_dir": checkpoint["path"],
+        "global_step": step,
+    }
+    fingerprint_payload = {
+        "schema_version": 1,
+        "evaluation_contract": contract,
+        "candidate_lineage": candidate_lineage,
+        "candidate_lineage_record_binding": candidate_lineage_record_binding,
+    }
+    fingerprint = state_eval.fingerprint_payload_sha256(fingerprint_payload)
+    report = json.loads(json.dumps(report))
+    report["input"] = {
+        "results_dir": str(results_dir.resolve()),
+        "evaluation_fingerprint": fingerprint,
+        "evaluation_contract": contract,
+    }
+    (results_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "fingerprint": fingerprint,
+                "fingerprint_payload": fingerprint_payload,
+                "evaluation_contract": contract,
+                "candidate_lineage": candidate_lineage,
+                "candidate_lineage_record_binding": (
+                    candidate_lineage_record_binding
+                ),
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    (results_dir / "summary.json").write_text("{}\n", encoding="utf-8")
+    (results_dir / "progress.json").write_text(
+        json.dumps(
+            {
+                "fingerprint": fingerprint,
+                "completed": 32 * len(state_eval.SCENE_FOCUSED_CONDITIONS),
+                "expected": 32 * len(state_eval.SCENE_FOCUSED_CONDITIONS),
+                "complete": True,
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    for condition in state_eval.SCENE_FOCUSED_CONDITIONS:
+        (results_dir / f"{condition}.jsonl").write_text(
+            "{}\n" * state_eval.SCENE_HARD_FAILURE_ROWS,
+            encoding="utf-8",
+        )
+    gate_file = results_dir / selector.GATE_FILENAME
+    gate_file.write_text(json.dumps(report, sort_keys=True), encoding="utf-8")
+    artifact_names = (
+        "manifest.json",
+        "summary.json",
+        "progress.json",
+        *(f"{condition}.jsonl" for condition in state_eval.SCENE_FOCUSED_CONDITIONS),
+    )
+    evaluation = {
+        "results_dir": str(results_dir.resolve()),
+        "fingerprint": fingerprint,
+        "contract_canonical_sha256": selector.canonical_sha256(contract),
+        "artifacts": {
+            name: selector.artifact_binding(
+                results_dir / name,
+                description=f"checkpoint-{step} evaluation {name}",
+            )
+            for name in artifact_names
+        },
+    }
+    gate = {
+        "focused_gate_path": str(gate_file.resolve()),
+        "file_sha256": selector.sha256_file(gate_file),
+        "canonical_sha256": selector.canonical_sha256(report),
+        "evaluation_fingerprint": fingerprint,
+    }
+    return selector.EndpointEvidence(
+        step=step,
+        checkpoint=checkpoint,
+        evaluation=evaluation,
+        gate=gate,
+        report=report,
+        fallback_rank=selector._fallback_rank(report, step=step),
+    )
+
+
+def _write_authorization_checkpoint(
+    run_root: Path,
+    *,
+    step: int,
+    initial_manifest: Path,
+    initial_adapter: Path,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    checkpoint_dir = run_root / "trainer" / f"checkpoint-{step}"
+    checkpoint_dir.mkdir(parents=True)
+    adapter = checkpoint_dir / "delta_mem_adapter.pt"
+    config = checkpoint_dir / "delta_mem_config.json"
+    audit_file = checkpoint_dir / selector.run_audit.AUDIT_FILENAME
+    adapter.write_bytes(f"adapter-{step}".encode("ascii"))
+    config.write_text("{}\n", encoding="utf-8")
+    audit = _full_coverage_audit(step)
+    audit.update(
+        {
+            "schema": selector.run_audit.AUDIT_SCHEMA,
+            "run_root": str(run_root),
+            "checkpoint": str(checkpoint_dir),
+            "checkpoint_optimizer_step": step,
+        }
+    )
+    audit["receipt_sha256"] = selector.canonical_sha256(audit)
+    audit_file.write_text(json.dumps(audit, sort_keys=True), encoding="utf-8")
+    coverage = selector.validate_recomputed_adapter_change(
+        audit["adapter_change"],
+        step=step,
+    )
+    adapter_binding = selector.artifact_binding(adapter, description="adapter")
+    checkpoint = {
+        "path": str(checkpoint_dir),
+        "global_step": step,
+        "artifacts": {
+            "delta_mem_adapter.pt": adapter_binding,
+            "delta_mem_config.json": selector.artifact_binding(
+                config,
+                description="config",
+            ),
+            selector.run_audit.AUDIT_FILENAME: selector.artifact_binding(
+                audit_file,
+                description="hard-failure checkpoint audit",
+            ),
+        },
+        **coverage,
+        "checkpoint_audit_receipt_sha256": audit["receipt_sha256"],
+        "current_adapter_validation": {
+            "initial_adapter_manifest": selector.artifact_binding(
+                initial_manifest,
+                description="initial adapter manifest",
+            ),
+            "initial_adapter": selector.artifact_binding(
+                initial_adapter,
+                description="initial adapter",
+            ),
+            "checkpoint_adapter": adapter_binding,
+            "recomputed_adapter_change_canonical_sha256": (
+                selector.canonical_sha256(audit["adapter_change"])
+            ),
+            **coverage,
+            "frozen_adapter_tensors_unchanged": True,
+        },
+    }
+    return checkpoint, audit
+
+
+def _install_authorization_endpoint_validation_mocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    condition_protocols = state_eval.resolved_condition_protocols(
+        list(state_eval.SCENE_FOCUSED_CONDITIONS),
+        donor_rule=state_eval.DONOR_RULE_LENGTH_MATCHED,
+    )
+
+    def canonical_focused_train_evidence(
+        *,
+        checkpoint_dir: Path,
+        checkpoint_artifact_sha256: dict[str, str],
+        selector_source: dict[str, Any],
+        fingerprint_payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        del checkpoint_dir, checkpoint_artifact_sha256, selector_source
+        return {
+            "selected_by_index": {},
+            "donors": {},
+            "shuffled": {},
+            "condition_protocols": condition_protocols,
+            "evaluation_contract": fingerprint_payload["evaluation_contract"],
+            "candidate_lineage": fingerprint_payload["candidate_lineage"],
+            "candidate_lineage_record_binding": fingerprint_payload[
+                "candidate_lineage_record_binding"
+            ],
+            "fingerprint_payload": fingerprint_payload,
+        }
+
+    monkeypatch.setattr(
+        state_eval,
+        "_canonical_focused_train_evidence",
+        canonical_focused_train_evidence,
+    )
+    monkeypatch.setattr(
+        state_eval,
+        "validate_resume_records",
+        lambda records, **kwargs: list(range(state_eval.SCENE_HARD_FAILURE_ROWS)),
+    )
+
+
+def _authorization_test_context(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[
+    Path,
+    dict[str, Any],
+    Path,
+    Path,
+    dict[Path, dict[str, Any]],
+]:
+    run_root = tmp_path / "run"
+    initial_dir = run_root / "initial_adapter"
+    initial_dir.mkdir(parents=True)
+    initial_manifest = initial_dir / "initial_adapter_manifest.json"
+    initial_adapter = initial_dir / "delta_mem_adapter.pt"
+    initial_manifest.write_text("{}\n", encoding="utf-8")
+    initial_adapter.write_bytes(b"initial-adapter")
+    source_manifest = tmp_path / "train-source.json"
+    source_manifest.write_text('{"split":"train"}\n', encoding="utf-8")
+    source = _source_binding(source_manifest)
+    source["source_manifest_file_sha256"] = selector.sha256_file(source_manifest)
+    for name, value in {
+        "SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256": source[
+            "source_manifest_file_sha256"
+        ],
+        "SCENE_HARD_FAILURE_SOURCE_MANIFEST_SHA256": source[
+            "source_manifest_sha256"
+        ],
+        "SCENE_HARD_FAILURE_TRAIN_FILE_SHA256": source["train_file_sha256"],
+        "SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256": source[
+            "pair_manifest_file_sha256"
+        ],
+        "SCENE_HARD_FAILURE_PAIR_MANIFEST_SHA256": source[
+            "pair_manifest_sha256"
+        ],
+        "SCENE_HARD_FAILURE_PAIR_ENTRIES_SHA256": source["entries_sha256"],
+    }.items():
+        monkeypatch.setattr(state_eval, name, value)
+    monkeypatch.setattr(
+        state_eval,
+        "_recompute_focused_adapter_change",
+        lambda checkpoint_adapter_path, **kwargs: dict(
+            json.loads(
+                (
+                    checkpoint_adapter_path.parent
+                    / selector.run_audit.AUDIT_FILENAME
+                ).read_text(encoding="utf-8")
+            )["adapter_change"]
+        ),
+    )
+    recomputed: dict[Path, dict[str, Any]] = {}
+    monkeypatch.setattr(
+        selector.focused_gate,
+        "analyze_results_dir",
+        lambda path, *, stage: json.loads(json.dumps(recomputed[path.resolve()])),
+    )
+    _install_authorization_endpoint_validation_mocks(monkeypatch)
+    return run_root, source, initial_manifest, initial_adapter, recomputed
+
+
 def test_endpoint_evidence_recomputes_and_binds_gate_and_evaluation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1129,35 +1399,26 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
     source_manifest.write_text('{"split":"train"}\n', encoding="utf-8")
     source = _source_binding(source_manifest)
     source["source_manifest_file_sha256"] = selector.sha256_file(source_manifest)
-    contract = _evaluation_contract(checkpoint=checkpoint, source=source)
-    fingerprint = "f" * 64
-    gate = _gate_report(
-        passed=True,
-        passed_gate_count=5,
-        state_f1=1.0,
-        normal_f1=1.0,
-    )
-    gate["input"] = {
-        "results_dir": str(tmp_path / "train32-results"),
-        "evaluation_fingerprint": fingerprint,
-        "evaluation_contract": contract,
-    }
     results_dir = tmp_path / "train32-results"
-    results_dir.mkdir()
-    gate_file = results_dir / selector.GATE_FILENAME
-    gate_file.write_text(json.dumps(gate, sort_keys=True), encoding="utf-8")
-    evidence = selector.EndpointEvidence(
+    evidence = _write_bound_endpoint_evidence(
+        results_dir,
         step=16,
         checkpoint=checkpoint,
-        evaluation={"results_dir": str(results_dir), "fingerprint": fingerprint},
-        gate={
-            "focused_gate_path": str(gate_file),
-            "file_sha256": selector.sha256_file(gate_file),
-            "canonical_sha256": selector.canonical_sha256(gate),
-            "evaluation_fingerprint": fingerprint,
-        },
-        report=gate,
-        fallback_rank=selector._fallback_rank(gate, step=16),
+        source=source,
+        report=_gate_report(
+            passed=True,
+            passed_gate_count=5,
+            state_f1=1.0,
+            normal_f1=1.0,
+        ),
+    )
+    recomputed_gates = {results_dir.resolve(): evidence.report}
+    monkeypatch.setattr(
+        selector.focused_gate,
+        "analyze_results_dir",
+        lambda path, *, stage: json.loads(
+            json.dumps(recomputed_gates[path.resolve()])
+        ),
     )
     receipt = selector.build_selection_receipt(
         source=source,
@@ -1196,6 +1457,7 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
             )["adapter_change"]
         ),
     )
+    _install_authorization_endpoint_validation_mocks(monkeypatch)
 
     authorization = state_eval.validate_focused_train_selection_authorization(
         receipt_path,
@@ -1204,7 +1466,9 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
 
     assert authorization["hard32_authorized"] is True
     assert authorization["selected_checkpoint"]["global_step"] == 16
-    assert authorization["evaluation_fingerprint"] == fingerprint
+    assert authorization["evaluation_fingerprint"] == evidence.evaluation[
+        "fingerprint"
+    ]
     assert receipt["selected_checkpoint"]["artifacts"][
         selector.run_audit.AUDIT_FILENAME
     ]["sha256"] == selector.sha256_file(audit_file)
@@ -1341,38 +1605,20 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
             "frozen_adapter_tensors_unchanged": True,
         },
     }
-    gate_32 = _gate_report(
-        passed=True,
-        passed_gate_count=5,
-        state_f1=1.0,
-        normal_f1=1.0,
-    )
-    fingerprint_32 = "e" * 64
     results_dir_32 = tmp_path / "train32-results-32"
-    results_dir_32.mkdir()
-    gate_file_32 = results_dir_32 / selector.GATE_FILENAME
-    gate_32["input"] = {
-        "results_dir": str(results_dir_32),
-        "evaluation_fingerprint": fingerprint_32,
-        "evaluation_contract": _evaluation_contract(
-            checkpoint=checkpoint_32,
-            source=source,
-        ),
-    }
-    gate_file_32.write_text(json.dumps(gate_32, sort_keys=True), encoding="utf-8")
-    evidence_32 = selector.EndpointEvidence(
+    evidence_32 = _write_bound_endpoint_evidence(
+        results_dir_32,
         step=32,
         checkpoint=checkpoint_32,
-        evaluation={"results_dir": str(results_dir_32), "fingerprint": fingerprint_32},
-        gate={
-            "focused_gate_path": str(gate_file_32),
-            "file_sha256": selector.sha256_file(gate_file_32),
-            "canonical_sha256": selector.canonical_sha256(gate_32),
-            "evaluation_fingerprint": fingerprint_32,
-        },
-        report=gate_32,
-        fallback_rank=selector._fallback_rank(gate_32, step=32),
+        source=source,
+        report=_gate_report(
+            passed=True,
+            passed_gate_count=5,
+            state_f1=1.0,
+            normal_f1=1.0,
+        ),
     )
+    recomputed_gates[results_dir_32.resolve()] = evidence_32.report
     skipped_earlier = json.loads(json.dumps(receipt))
     skipped_earlier["evaluated_endpoint_steps"] = [16, 32]
     skipped_earlier["evaluated_endpoints"][0]["benchmark_gate_passed"] = False
@@ -1448,6 +1694,170 @@ def test_passing_receipt_is_accepted_by_hard32_authorization_validator(
         state_eval.validate_focused_train_selection_authorization(
             receipt_path,
             memory_dir=memory_dir,
+        )
+
+
+@pytest.mark.parametrize(
+    ("tamper", "message"),
+    [
+        ("redirected", "gate is not bound to its results directory"),
+        ("fabricated", "gate differs from recomputed Train32 results"),
+    ],
+)
+def test_authorization_recomputes_earlier_gate_for_first_eligible_enforcement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tamper: str,
+    message: str,
+) -> None:
+    (
+        run_root,
+        source,
+        initial_manifest,
+        initial_adapter,
+        recomputed,
+    ) = _authorization_test_context(tmp_path, monkeypatch)
+    checkpoint_16, _ = _write_authorization_checkpoint(
+        run_root,
+        step=16,
+        initial_manifest=initial_manifest,
+        initial_adapter=initial_adapter,
+    )
+    checkpoint_32, _ = _write_authorization_checkpoint(
+        run_root,
+        step=32,
+        initial_manifest=initial_manifest,
+        initial_adapter=initial_adapter,
+    )
+    results_16 = tmp_path / "train32-results-16"
+    results_32 = tmp_path / "train32-results-32"
+    evidence_16 = _write_bound_endpoint_evidence(
+        results_16,
+        step=16,
+        checkpoint=checkpoint_16,
+        source=source,
+        report=_gate_report(
+            passed=False,
+            passed_gate_count=4,
+            state_f1=0.5,
+            normal_f1=0.5,
+        ),
+    )
+    evidence_32 = _write_bound_endpoint_evidence(
+        results_32,
+        step=32,
+        checkpoint=checkpoint_32,
+        source=source,
+        report=_gate_report(
+            passed=True,
+            passed_gate_count=5,
+            state_f1=1.0,
+            normal_f1=1.0,
+        ),
+    )
+    recomputed[results_16.resolve()] = evidence_16.report
+    recomputed[results_32.resolve()] = evidence_32.report
+    receipt = selector.build_selection_receipt(
+        source=source,
+        evaluated=[evidence_16, evidence_32],
+        selected=evidence_32,
+        passed=True,
+        created_at="2026-08-01T00:00:00+00:00",
+    )
+    receipt_path = tmp_path / "selection-receipt.json"
+    selector.atomic_write_json(receipt_path, receipt)
+    authorization = state_eval.validate_focused_train_selection_authorization(
+        receipt_path,
+        memory_dir=Path(checkpoint_32["path"]),
+    )
+    assert authorization["selected_checkpoint"]["global_step"] == 32
+
+    if tamper == "redirected":
+        forged = json.loads(json.dumps(receipt))
+        forged["evaluated_endpoints"][0]["gate"] = evidence_32.gate
+        forged.pop("receipt_sha256")
+        forged["receipt_sha256"] = selector.canonical_sha256(forged)
+        selector.atomic_write_json(receipt_path, forged)
+    else:
+        fabricated = json.loads(json.dumps(evidence_16.report))
+        fabricated["all_gates_passed"] = True
+        fabricated["status"] = "diagnostic_pass"
+        recomputed[results_16.resolve()] = fabricated
+
+    with pytest.raises(ValueError, match=message):
+        state_eval.validate_focused_train_selection_authorization(
+            receipt_path,
+            memory_dir=Path(checkpoint_32["path"]),
+        )
+
+
+@pytest.mark.parametrize(
+    ("tamper", "message"),
+    [
+        ("gate", "gate differs from recomputed Train32 results"),
+        ("result", "current bytes differ"),
+    ],
+)
+def test_authorization_rejects_selected_gate_or_result_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tamper: str,
+    message: str,
+) -> None:
+    (
+        run_root,
+        source,
+        initial_manifest,
+        initial_adapter,
+        recomputed,
+    ) = _authorization_test_context(tmp_path, monkeypatch)
+    checkpoint, _ = _write_authorization_checkpoint(
+        run_root,
+        step=16,
+        initial_manifest=initial_manifest,
+        initial_adapter=initial_adapter,
+    )
+    results_dir = tmp_path / "train32-results-16"
+    evidence = _write_bound_endpoint_evidence(
+        results_dir,
+        step=16,
+        checkpoint=checkpoint,
+        source=source,
+        report=_gate_report(
+            passed=True,
+            passed_gate_count=5,
+            state_f1=1.0,
+            normal_f1=1.0,
+        ),
+    )
+    recomputed[results_dir.resolve()] = evidence.report
+    receipt = selector.build_selection_receipt(
+        source=source,
+        evaluated=[evidence],
+        selected=evidence,
+        passed=True,
+        created_at="2026-08-01T00:00:00+00:00",
+    )
+    receipt_path = tmp_path / "selection-receipt.json"
+    selector.atomic_write_json(receipt_path, receipt)
+    assert state_eval.validate_focused_train_selection_authorization(
+        receipt_path,
+        memory_dir=Path(checkpoint["path"]),
+    )["hard32_authorized"] is True
+
+    if tamper == "gate":
+        gate_path = results_dir / selector.GATE_FILENAME
+        mutated = json.loads(gate_path.read_text(encoding="utf-8"))
+        mutated["status"] = "diagnostic_fail"
+        gate_path.write_text(json.dumps(mutated, sort_keys=True), encoding="utf-8")
+    else:
+        with (results_dir / "summary.json").open("a", encoding="utf-8") as handle:
+            handle.write("{}\n")
+
+    with pytest.raises(ValueError, match=message):
+        state_eval.validate_focused_train_selection_authorization(
+            receipt_path,
+            memory_dir=Path(checkpoint["path"]),
         )
 
 

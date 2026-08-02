@@ -38,7 +38,7 @@ for import_root in (SCRIPT_DIR, PROJECT_ROOT):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
-from run_scene_state_eval import (  # noqa: E402
+from experiments.rethinking_rwkv_ms_gemma.run_scene_state_eval import (  # noqa: E402
     HARD32_ROW_INDICES,
     HARD32_ROW_HASHES,
     OFFICIAL_SCENE_V4_VAL_SHA256,
