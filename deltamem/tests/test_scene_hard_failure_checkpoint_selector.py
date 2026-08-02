@@ -1162,6 +1162,35 @@ def _install_authorization_endpoint_validation_mocks(
         "validate_resume_records",
         lambda records, **kwargs: list(range(state_eval.SCENE_HARD_FAILURE_ROWS)),
     )
+    prior_failed_attempt = {"status": "fixture_failed_v3_attempt"}
+
+    def validate_screen_evidence(
+        receipt: dict[str, Any],
+        *,
+        source: dict[str, Any],
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        del receipt, kwargs
+        protocol_path = Path(source["source_manifest_path"]).resolve()
+        return {
+            "protocol_path": str(protocol_path),
+            "protocol_file_sha256": state_eval.sha256_file(protocol_path),
+            "prior_failed_attempt": dict(prior_failed_attempt),
+        }
+
+    # These selector tests exercise checkpoint, gate, and current-byte
+    # validation. The v4 driver envelope is covered independently by the
+    # endpoint-screen and state-evaluator contract suites.
+    monkeypatch.setattr(
+        state_eval,
+        "_validate_focused_train32_screen_evidence",
+        validate_screen_evidence,
+    )
+    monkeypatch.setattr(
+        state_eval,
+        "_focused_train32_prior_attempt_evidence",
+        lambda run_root: dict(prior_failed_attempt),
+    )
 
 
 def _authorization_test_context(

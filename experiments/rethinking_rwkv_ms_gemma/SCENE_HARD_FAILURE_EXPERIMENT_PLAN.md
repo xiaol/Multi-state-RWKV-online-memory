@@ -114,6 +114,31 @@ If this proof fails, stop. Do not spend Hard32 or broader benchmark compute.
 
 #### Fail-Closed Endpoint Screening
 
+The first production screen claimed `train32_endpoint_screen` under the v3
+protocol. Checkpoint 16 completed all 224 generation records (32 train rows in
+each of seven conditions), but the focused gate rejected the bundle before it
+wrote `focused_recovery_gate.json` or a selection receipt. The persisted
+manifest retained fingerprint
+`087855a20f03b12786f7923e303b254a96c5a15ec5cbc82aa666545edae15d5d`,
+while canonicalizing its persisted `fingerprint_payload` yields
+`7774ff4360f82cbf03ac561a14a5fdf1ebf61474cc81749baaa8465333171973`.
+This was a persisted-versus-in-memory canonicalization defect: integer keys in
+the in-memory fingerprint payload became string keys during JSON persistence,
+so hashing the persisted payload produced a different digest. It is a contract
+failure, not a checkpoint-16 gate result.
+
+The failed v3 directory is immutable evidence and must remain at
+`train32_endpoint_screen`. The restart uses driver schema
+`rwkv_ms_scene_hard_failure_endpoint_screen.v4`, protocol schema
+`rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v4`, and a distinct fresh
+root named `train32_endpoint_screen_v2`. Before any v2 output is claimed, the
+driver verifies the v3 self-hashed protocol, completed checkpoint-16 progress,
+fingerprint mismatch, absent gate and selection receipt, and the exact
+11-artifact inventory. The v4 protocol and final receipt bind that failed-v3
+status plus every artifact byte count and SHA-256. The driver rechecks the same
+binding after preflight and generation. No v3 generation output is resumed,
+copied, renamed, or reused; checkpoint 16 starts fresh in v2.
+
 Run the endpoint driver only after the production launcher has written its
 64-step completion receipt and all 64 checkpoint audits. The driver accepts no
 model, dataset, condition, endpoint, or held-out path overrides:
@@ -129,17 +154,18 @@ PYTHONPATH="$PWD" /home/xiaol/X/delta-Mem/.venv/bin/python \
 Before claiming any output path, the command runs the exact Train32 evaluator
 arguments with `--preflight-only` for steps 16, 32, 48, and 64. All four must
 return zero without creating the screen root or any endpoint output directory.
-Only then does the command create the fresh `train32_endpoint_screen` directory
-inside the run root. It generates and recomputes the Train32 gate at each step
-in order and stops at the first gate pass with full current-byte coverage. Each
-evaluated endpoint records the benchmark-gate result, exact adapter coverage,
-and combined selection eligibility, and contains
+Only then does the command create the fresh `train32_endpoint_screen_v2`
+directory inside the run root. It generates and recomputes the Train32 gate at
+each step in order and stops at the first gate pass with full current-byte
+coverage. Each evaluated endpoint records the benchmark-gate result, exact
+adapter coverage, and combined selection eligibility, and contains
 `manifest.json`, `summary.json`, `progress.json`, the seven condition JSONL
 files, and `focused_recovery_gate.json`. `screening_protocol.json` binds the
-production completion receipt and all preflight commands/results before
-generation begins. The final `train32_checkpoint_selection_receipt.json` binds
-that protocol, the same preflight evidence, every executed command, every
-evaluated endpoint, and the production receipt.
+immutable failed-v3 attempt, production completion receipt, and all preflight
+commands/results before generation begins. The final
+`train32_checkpoint_selection_receipt.json` binds that v4 protocol, the same
+failed-v3 and preflight evidence, every executed command, every evaluated
+endpoint, and the production receipt.
 
 Exit status `0` means the first gate-plus-coverage eligible endpoint is
 authorized only for the separate Hard32 command. Exit status `1` means all four
@@ -174,8 +200,9 @@ The held-out checkpoint passes only when:
 - At least 31/32 outputs are canonical and recoverable.
 - Boundary density remains at most twice gold density.
 
-Only a passing Hard32 receipt can authorize a later complete scene validation
-run. It never authorizes attribution, narrative, or test evaluation.
+A passing Hard32 receipt records only this frozen 32-row result. It does not
+authorize complete scene validation, attribution, narrative, test evaluation,
+or another benchmark.
 
 ## Decision Logic
 
@@ -191,5 +218,5 @@ train-only gate passes, Hard32 fails
      change the learning mechanism before another held-out run
 
 Hard32 passes
-  -> run complete scene validation only
+  -> report the frozen hardest-task result; do not open broader evaluation
 ```

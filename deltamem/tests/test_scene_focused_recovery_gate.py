@@ -57,21 +57,28 @@ def _bundle(*, stage: str, state_prediction: Any | None = None) -> dict[str, lis
         identities = [(41, "a" * 64), (73, "b" * 64)]
         split = "train"
     selected_indices = [index for index, _ in identities]
-    correct = {"boundaries": [1]}
-    wrong = {"boundaries": [2]}
-    state_prediction = correct if state_prediction is None else state_prediction
-    predictions = {
-        "base_full": wrong,
-        "no_write_full": wrong,
-        "normal_full": correct,
-        "state_only": state_prediction,
-        "state_only_donor": wrong,
-        "state_only_no_write": wrong,
-    }
     records: dict[str, list[dict]] = {}
     for condition in gate.FOCUSED_CONDITIONS:
         condition_records = []
         for ordinal, (source_index, row_sha256) in enumerate(identities):
+            sentinel = (
+                stage == "hard32"
+                and source_index
+                == gate.HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][0]
+            )
+            gold = [] if sentinel else [1]
+            correct = {"boundaries": gold}
+            wrong = {"boundaries": [2] if gold else [1]}
+            predictions = {
+                "base_full": correct if sentinel else wrong,
+                "no_write_full": wrong,
+                "normal_full": correct,
+                "state_only": (
+                    correct if state_prediction is None else state_prediction
+                ),
+                "state_only_donor": wrong,
+                "state_only_no_write": wrong,
+            }
             donor_index = selected_indices[(ordinal + 1) % len(selected_indices)]
             condition_records.append(
                 _record(
@@ -80,6 +87,7 @@ def _bundle(*, stage: str, state_prediction: Any | None = None) -> dict[str, lis
                     row_sha256=row_sha256,
                     prediction=predictions[condition],
                     split=split,
+                    gold=gold,
                     donor_source_index=(
                         donor_index if condition == "state_only_donor" else None
                     ),
@@ -87,6 +95,25 @@ def _bundle(*, stage: str, state_prediction: Any | None = None) -> dict[str, lis
             )
         records[condition] = condition_records
     return records
+
+
+def _set_prediction(
+    records: dict[str, list[dict[str, Any]]],
+    *,
+    condition: str,
+    source_index: int,
+    prediction: Any,
+) -> None:
+    record = next(
+        row for row in records[condition] if row["source_index"] == source_index
+    )
+    record["parsed_json"] = prediction
+    record["score_strict"] = state_eval.score_prediction(
+        "scene", prediction, record["gold"]
+    )
+    record["score_recovered"] = state_eval.recovered_scene_score(
+        prediction, record["gold"]
+    )
 
 
 def _write_results_dir(root: Path, records: dict[str, list[dict]]) -> None:
@@ -162,13 +189,22 @@ def _protected_bundle(*, stage: str) -> dict[str, list[dict[str, Any]]]:
         condition: [] for condition in state_eval.SCENE_FOCUSED_CONDITIONS
     }
     for ordinal, (source_index, row_sha256) in enumerate(identities):
-        gold = [1] if ordinal % 2 == 0 else [2]
+        sentinel = (
+            stage == "hard32"
+            and source_index == gate.HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][0]
+        )
+        gold = [] if sentinel else ([1] if ordinal % 2 == 0 else [2])
         correct = {"boundaries": gold}
         wrong = {"boundaries": [2] if gold == [1] else [1]}
         donor_index, donor_hash = identities[ordinal ^ 1]
         shuffled_index, shuffled_hash = identities[(ordinal + 3) % len(identities)]
         for condition in state_eval.SCENE_FOCUSED_CONDITIONS:
-            prediction = correct if condition in {"normal_full", "state_only"} else wrong
+            prediction = (
+                correct
+                if condition in {"normal_full", "state_only"}
+                or (condition == "base_full" and sentinel)
+                else wrong
+            )
             records[condition].append(
                 _record(
                     condition=condition,
@@ -317,18 +353,259 @@ def test_hard32_gate_requires_task_recovery_and_state_causality() -> None:
     assert report["criterion"]["primary_metric"] == (
         "dataset_native_strict_boundaries_micro_f1"
     )
-    assert report["base_failure_cohort"]["rows"] == 32
-    assert len(report["base_failure_cohort"]["normal_full_recoveries"]) == 32
-    assert len(report["base_failure_cohort"]["state_only_recoveries"]) == 32
+    assert report["criterion"]["primary_cohort"] == "all_32_frozen_hard32_rows"
+    assert report["base_failure_cohort"]["rows"] == 31
+    assert len(report["base_failure_cohort"]["normal_full_recoveries"]) == 31
+    assert len(report["base_failure_cohort"]["state_only_recoveries"]) == 31
     assert len(
         report["base_failure_cohort"]["write_specific_normal_recoveries"]
-    ) == 32
+    ) == 31
     assert len(
         report["base_failure_cohort"]["identity_specific_state_recoveries"]
-    ) == 32
+    ) == 31
+    assert report["base_success_sentinel"]["row_identities"] == [
+        {
+            "source_index": gate.HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][0],
+            "row_sha256": gate.HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][1],
+        }
+    ]
     assert report["shuffled_state_control"]["condition"] == "state_only_donor"
     assert report["authorization"]["full_validation_authorized"] is False
     assert report["authorization"]["test_authorized"] is False
+
+
+def test_hard32_rejects_all_32_rows_as_frozen_base_failures() -> None:
+    records = _bundle(stage="hard32")
+    sentinel_index = gate.HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][0]
+    _set_prediction(
+        records,
+        condition="base_full",
+        source_index=sentinel_index,
+        prediction={"boundaries": [1]},
+    )
+
+    with pytest.raises(
+        gate.FocusedRecoveryContractError,
+        match="authoritative 31-row cohort",
+    ):
+        gate.build_focused_recovery_gate(
+            stage="hard32",
+            records_by_condition=records,
+        )
+
+
+def test_hard32_rejects_a_different_31_plus_1_base_composition() -> None:
+    records = _bundle(stage="hard32")
+    sentinel_index = gate.HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][0]
+    replacement_index = gate.HARD32_BASE_FAILURE_IDENTITIES[0][0]
+    _set_prediction(
+        records,
+        condition="base_full",
+        source_index=sentinel_index,
+        prediction={"boundaries": [1]},
+    )
+    _set_prediction(
+        records,
+        condition="base_full",
+        source_index=replacement_index,
+        prediction={"boundaries": [1]},
+    )
+
+    with pytest.raises(
+        gate.FocusedRecoveryContractError,
+        match="authoritative 31-row cohort",
+    ):
+        gate.build_focused_recovery_gate(
+            stage="hard32",
+            records_by_condition=records,
+        )
+
+
+def test_hard32_sentinel_regression_fails_full_cohort_f1() -> None:
+    records = _bundle(stage="hard32")
+    failure_indices = [index for index, _ in gate.HARD32_BASE_FAILURE_IDENTITIES]
+    sentinel_index = gate.HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][0]
+    for source_index in failure_indices[:28]:
+        _set_prediction(
+            records,
+            condition="no_write_full",
+            source_index=source_index,
+            prediction={"boundaries": [1]},
+        )
+    _set_prediction(
+        records,
+        condition="no_write_full",
+        source_index=sentinel_index,
+        prediction={"boundaries": []},
+    )
+    _set_prediction(
+        records,
+        condition="normal_full",
+        source_index=sentinel_index,
+        prediction={"boundaries": [1, 2, 3, 4]},
+    )
+
+    report = gate.build_focused_recovery_gate(
+        stage="hard32",
+        records_by_condition=records,
+    )
+
+    delta_name = "normal_full_minus_no_write_full"
+    assert report["f1_deltas"]["base_failure_diagnostic"][delta_name] > 0.05
+    assert report["f1_deltas"]["acceptance"][delta_name] < 0.05
+    assert report["gates"][
+        "normal_full_lifts_base_failure_f1_over_no_write"
+    ]["passed"] is False
+    assert report["gates"]["normal_recovery_advantage_over_no_write"] == {
+        "category": "causality",
+        "operator": ">=",
+        "threshold": 3,
+        "value": 3,
+        "passed": True,
+    }
+    assert report["status"] == "fail"
+
+
+@pytest.mark.parametrize(("no_write_recoveries", "expected_pass"), [(29, False), (28, True)])
+def test_hard32_normal_recovery_advantage_boundary(
+    no_write_recoveries: int,
+    expected_pass: bool,
+) -> None:
+    records = _bundle(stage="hard32")
+    failure_indices = [index for index, _ in gate.HARD32_BASE_FAILURE_IDENTITIES]
+    sentinel_index = gate.HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][0]
+    for source_index in failure_indices[:no_write_recoveries]:
+        _set_prediction(
+            records,
+            condition="no_write_full",
+            source_index=source_index,
+            prediction={"boundaries": [1]},
+        )
+    _set_prediction(
+        records,
+        condition="no_write_full",
+        source_index=sentinel_index,
+        prediction={"boundaries": []},
+    )
+
+    report = gate.build_focused_recovery_gate(
+        stage="hard32",
+        records_by_condition=records,
+    )
+
+    advantage = report["gates"]["normal_recovery_advantage_over_no_write"]
+    assert advantage["value"] == 31 - no_write_recoveries
+    assert advantage["passed"] is expected_pass
+
+
+@pytest.mark.parametrize(("canonical_outputs", "expected_pass"), [(30, False), (31, True)])
+def test_hard32_format_coverage_boundary(
+    canonical_outputs: int,
+    expected_pass: bool,
+) -> None:
+    records = _bundle(stage="hard32")
+    invalid_rows = 32 - canonical_outputs
+    for source_index in list(gate.HARD32_ROW_INDICES)[:invalid_rows]:
+        _set_prediction(
+            records,
+            condition="state_only_donor",
+            source_index=source_index,
+            prediction=None,
+        )
+
+    report = gate.build_focused_recovery_gate(
+        stage="hard32",
+        records_by_condition=records,
+    )
+
+    for suffix in ("dataset_parser_coverage", "canonical_output_coverage"):
+        result = report["gates"][f"state_only_donor_{suffix}"]
+        assert result["threshold"] == 31
+        assert result["value"] == canonical_outputs
+        assert result["passed"] is expected_pass
+
+
+@pytest.mark.parametrize(("above_limit", "expected_pass"), [(False, True), (True, False)])
+def test_hard32_boundary_density_limit(
+    above_limit: bool,
+    expected_pass: bool,
+) -> None:
+    records = _bundle(stage="hard32")
+    for source_index, _ in gate.HARD32_BASE_FAILURE_IDENTITIES:
+        _set_prediction(
+            records,
+            condition="normal_full",
+            source_index=source_index,
+            prediction={"boundaries": [1, 99]},
+        )
+    if above_limit:
+        _set_prediction(
+            records,
+            condition="normal_full",
+            source_index=gate.HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][0],
+            prediction={"boundaries": [99]},
+        )
+
+    report = gate.build_focused_recovery_gate(
+        stage="hard32",
+        records_by_condition=records,
+    )
+
+    density = report["gates"]["normal_full_predicted_boundary_density"]
+    assert density["value"] == pytest.approx((63 if above_limit else 62) / 31)
+    assert density["passed"] is expected_pass
+
+
+@pytest.mark.parametrize(
+    ("control_condition", "failed_gate"),
+    [
+        (
+            "state_only_donor",
+            "correct_state_lifts_base_failure_f1_over_donor",
+        ),
+        (
+            "state_only_shuffled",
+            "correct_state_lifts_base_failure_f1_over_shuffled",
+        ),
+        (
+            "state_only_no_write",
+            "correct_state_lifts_base_failure_f1_over_zero",
+        ),
+    ],
+)
+def test_hard32_state_controls_fail_independently(
+    control_condition: str,
+    failed_gate: str,
+) -> None:
+    records = _protected_bundle(stage="hard32")
+    for source_index in gate.HARD32_ROW_INDICES:
+        row = next(
+            item
+            for item in records[control_condition]
+            if item["source_index"] == source_index
+        )
+        _set_prediction(
+            records,
+            condition=control_condition,
+            source_index=source_index,
+            prediction={"boundaries": row["gold"]["boundaries"]},
+        )
+
+    report = gate.build_focused_recovery_gate(
+        stage="hard32",
+        records_by_condition=records,
+    )
+
+    control_gates = {
+        "correct_state_lifts_base_failure_f1_over_donor",
+        "correct_state_lifts_base_failure_f1_over_shuffled",
+        "correct_state_lifts_base_failure_f1_over_zero",
+    }
+    assert report["gates"][failed_gate]["passed"] is False
+    assert all(
+        report["gates"][name]["passed"] is True
+        for name in control_gates - {failed_gate}
+    )
 
 
 def test_semantic_nll_cannot_replace_failed_generation() -> None:
@@ -363,6 +640,44 @@ def test_semantic_nll_cannot_replace_failed_generation() -> None:
     assert report["gates"]["state_only_recovers_base_failures"]["passed"] is False
 
 
+def test_semantic_nll_diagnostics_cannot_change_passing_hard32_status() -> None:
+    records = _protected_bundle(stage="hard32")
+    favorable = gate.build_focused_recovery_gate(
+        stage="hard32",
+        records_by_condition=records,
+        diagnostics={
+            "semantic_decision_evidence": {
+                "legacy_semantic_gate_status": "pass",
+                "correct_better_than_donor_rows": 32,
+                "correct_better_than_zero_rows": 32,
+            }
+        },
+    )
+    adverse = gate.build_focused_recovery_gate(
+        stage="hard32",
+        records_by_condition=records,
+        diagnostics={
+            "semantic_decision_evidence": {
+                "legacy_semantic_gate_status": "fail",
+                "correct_better_than_donor_rows": 0,
+                "correct_better_than_zero_rows": 0,
+            }
+        },
+    )
+
+    assert favorable["status"] == adverse["status"] == "pass"
+    assert favorable["all_gates_passed"] is True
+    assert adverse["all_gates_passed"] is True
+    assert favorable["gates"] == adverse["gates"]
+    assert favorable["f1_deltas"]["acceptance"] == adverse["f1_deltas"][
+        "acceptance"
+    ]
+    assert favorable["diagnostics_only"]["source_summary_diagnostics"] != (
+        adverse["diagnostics_only"]["source_summary_diagnostics"]
+    )
+    assert adverse["diagnostics_only"]["can_satisfy_gate"] is False
+
+
 def test_recovered_parser_success_is_secondary_and_cannot_bypass_schema() -> None:
     noncanonical = [{"boundaries": ["P1"]}]
     records = _bundle(stage="hard32", state_prediction=noncanonical)
@@ -373,7 +688,9 @@ def test_recovered_parser_success_is_secondary_and_cannot_bypass_schema() -> Non
 
     state = report["condition_scores"]["state_only"]
     assert state["primary_metric"] == 0.0
-    assert state["format"]["recovered_micro_f1_diagnostic"] == 1.0
+    assert state["format"]["recovered_micro_f1_diagnostic"] == pytest.approx(
+        62 / 63
+    )
     assert state["format"]["canonical_outputs"] == 0
     assert report["gates"]["state_only_canonical_output_coverage"]["passed"] is False
     assert report["status"] == "fail"

@@ -137,8 +137,24 @@ SCENE_HARD_FAILURE_HARD32_CONTRACT = (
 # Stable import names used by the focused gate and experiment launchers.
 SCENE_FOCUSED_TRAIN_OVERFIT_CONTRACT = SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT
 SCENE_FOCUSED_HARD32_CONTRACT = SCENE_HARD_FAILURE_HARD32_CONTRACT
+SCENE_FOCUSED_RECOVERY_GATE_FILENAME = "focused_recovery_gate.json"
 SCENE_HARD_FAILURE_TRAIN_SELECTION_SCHEMA = (
     "rwkv_ms_scene_hard_failure_train_overfit_selection.v2"
+)
+SCENE_HARD_FAILURE_TRAIN32_SCREEN_SCHEMA = (
+    "rwkv_ms_scene_hard_failure_endpoint_screen.v4"
+)
+SCENE_HARD_FAILURE_TRAIN32_PROTOCOL_SCHEMA = (
+    "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v4"
+)
+SCENE_HARD_FAILURE_TRAIN32_SCREEN_DIRNAME = "train32_endpoint_screen_v2"
+SCENE_HARD_FAILURE_TRAIN32_PRIOR_SCREEN_DIRNAME = "train32_endpoint_screen"
+SCENE_HARD_FAILURE_TRAIN32_PRIOR_PROTOCOL_SCHEMA = (
+    "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v3"
+)
+SCENE_HARD_FAILURE_TRAIN32_PROTOCOL_FILENAME = "screening_protocol.json"
+SCENE_HARD_FAILURE_TRAIN32_SELECTION_RECEIPT_FILENAME = (
+    "train32_checkpoint_selection_receipt.json"
 )
 SCENE_HARD_FAILURE_HARD32_CONSUMPTION_MARKER_SCHEMA = (
     "rwkv_ms_scene_hard_failure_hard32_authorization_consumed.v1"
@@ -2342,6 +2358,459 @@ def _focused_endpoint_gate_passed(
     return passed
 
 
+def focused_train32_selection_receipt_path(run_root: Path) -> Path:
+    return (
+        run_root
+        / SCENE_HARD_FAILURE_TRAIN32_SCREEN_DIRNAME
+        / SCENE_HARD_FAILURE_TRAIN32_SELECTION_RECEIPT_FILENAME
+    )
+
+
+def _focused_train32_prior_attempt_evidence(run_root: Path) -> dict[str, Any]:
+    prior_root = _focused_directory(
+        run_root / SCENE_HARD_FAILURE_TRAIN32_PRIOR_SCREEN_DIRNAME,
+        description="preserved failed Train32 endpoint attempt",
+        train_only=True,
+    )
+    protocol_path = _focused_regular_file(
+        prior_root / SCENE_HARD_FAILURE_TRAIN32_PROTOCOL_FILENAME,
+        description="preserved failed Train32 screening protocol",
+        train_only=True,
+    )
+    protocol = _load_json_object(
+        protocol_path,
+        description="preserved failed Train32 screening protocol",
+    )
+    protocol_sha256 = _validate_self_hash(
+        protocol,
+        field="protocol_sha256",
+        description="preserved failed Train32 screening protocol",
+    )
+    protected_evaluation = {
+        "hard32_accessed": False,
+        "validation_accessed": False,
+        "test_accessed": False,
+        "other_benchmarks_accessed": False,
+    }
+    if (
+        protocol.get("schema")
+        != SCENE_HARD_FAILURE_TRAIN32_PRIOR_PROTOCOL_SCHEMA
+        or protocol.get("run_root") != str(run_root)
+        or protocol.get("screen_root") != str(prior_root)
+        or protocol.get("endpoint_steps")
+        != list(SCENE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS)
+        or protocol.get("selection_policy")
+        != "first_train32_gate_pass_with_full_current_adapter_coverage_v2"
+        or protocol.get("evaluation_contract")
+        != SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT
+        or protocol.get("conditions") != list(SCENE_FOCUSED_CONDITIONS)
+        or protocol.get("donor_rule") != DONOR_RULE_LENGTH_MATCHED
+        or protocol.get("protected_evaluation") != protected_evaluation
+    ):
+        raise ValueError("Preserved failed Train32 screening protocol differs")
+
+    prior_step = SCENE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS[0]
+    results_dir = _focused_directory(
+        prior_root / f"checkpoint-{prior_step}",
+        description=f"preserved failed checkpoint-{prior_step} results",
+        train_only=True,
+    )
+    expected_relative_files = {
+        SCENE_HARD_FAILURE_TRAIN32_PROTOCOL_FILENAME,
+        *(f"checkpoint-{prior_step}/{condition}.jsonl" for condition in SCENE_FOCUSED_CONDITIONS),
+        f"checkpoint-{prior_step}/manifest.json",
+        f"checkpoint-{prior_step}/progress.json",
+        f"checkpoint-{prior_step}/summary.json",
+    }
+    artifacts: list[dict[str, Any]] = []
+    for candidate in sorted(prior_root.rglob("*")):
+        relative_path = candidate.relative_to(prior_root).as_posix()
+        if candidate.is_symlink():
+            raise ValueError(
+                "Preserved failed Train32 attempt contains a symlink: "
+                f"{relative_path}"
+            )
+        if candidate.is_dir():
+            continue
+        locked = _focused_regular_file(
+            candidate,
+            description=f"preserved failed Train32 artifact {relative_path}",
+            train_only=True,
+        )
+        if locked.stat().st_size <= 0:
+            raise ValueError(
+                "Preserved failed Train32 attempt contains an empty artifact: "
+                f"{relative_path}"
+            )
+        artifacts.append(
+            {
+                "relative_path": relative_path,
+                "bytes": locked.stat().st_size,
+                "sha256": sha256_file(locked),
+            }
+        )
+    if {artifact["relative_path"] for artifact in artifacts} != expected_relative_files:
+        raise ValueError("Preserved failed Train32 artifact inventory differs")
+
+    manifest = _load_json_object(
+        results_dir / "manifest.json",
+        description=f"preserved failed checkpoint-{prior_step} manifest",
+    )
+    summary = _load_json_object(
+        results_dir / "summary.json",
+        description=f"preserved failed checkpoint-{prior_step} summary",
+    )
+    progress = _load_json_object(
+        results_dir / "progress.json",
+        description=f"preserved failed checkpoint-{prior_step} progress",
+    )
+    recorded_fingerprint = manifest.get("fingerprint")
+    fingerprint_payload = manifest.get("fingerprint_payload")
+    recomputed_fingerprint = (
+        _canonical_sha256(fingerprint_payload)
+        if isinstance(fingerprint_payload, Mapping)
+        else None
+    )
+    expected_records = SCENE_HARD_FAILURE_ROWS * len(SCENE_FOCUSED_CONDITIONS)
+    if (
+        not isinstance(recorded_fingerprint, str)
+        or SHA256_RE.fullmatch(recorded_fingerprint) is None
+        or not isinstance(recomputed_fingerprint, str)
+        or recorded_fingerprint == recomputed_fingerprint
+        or summary.get("fingerprint") != recorded_fingerprint
+        or summary.get("complete") is not True
+        or progress.get("fingerprint") != recorded_fingerprint
+        or progress.get("complete") is not True
+        or progress.get("completed") != expected_records
+        or progress.get("expected") != expected_records
+    ):
+        raise ValueError(
+            "Preserved Train32 attempt does not prove the v3 fingerprint failure"
+        )
+    gate_path = results_dir / "focused_recovery_gate.json"
+    selection_path = (
+        prior_root / SCENE_HARD_FAILURE_TRAIN32_SELECTION_RECEIPT_FILENAME
+    )
+    if (
+        gate_path.exists()
+        or gate_path.is_symlink()
+        or selection_path.exists()
+        or selection_path.is_symlink()
+    ):
+        raise ValueError(
+            "Preserved failed Train32 attempt unexpectedly has gate or selection evidence"
+        )
+    return {
+        "status": "failed",
+        "failure_stage": "checkpoint_16_focused_gate",
+        "failure_reason": "protected_evaluation_fingerprint_mismatch",
+        "screen_root": str(prior_root),
+        "protocol": {
+            "path": str(protocol_path),
+            "file_sha256": sha256_file(protocol_path),
+            "protocol_sha256": protocol_sha256,
+            "schema": SCENE_HARD_FAILURE_TRAIN32_PRIOR_PROTOCOL_SCHEMA,
+        },
+        "completed_generation_endpoint_steps": [prior_step],
+        "recorded_fingerprint": recorded_fingerprint,
+        "recomputed_fingerprint_payload_sha256": recomputed_fingerprint,
+        "focused_gate_present": False,
+        "selection_receipt_present": False,
+        "protected_evaluation": protected_evaluation,
+        "artifact_count": len(artifacts),
+        "artifacts": artifacts,
+        "artifact_inventory_sha256": _canonical_sha256(artifacts),
+    }
+
+
+def _focused_train32_preflight_argv(
+    *,
+    python_executable: str,
+    run_root: Path,
+    screen_root: Path,
+    step: int,
+) -> list[str]:
+    train_contract = _hard_failure_train_contract_module()
+    return [
+        python_executable,
+        str(SCRIPT_DIR / "run_scene_state_eval.py"),
+        "--base-model",
+        str(train_contract.PINNED_BASE_MODEL),
+        "--memory-dir",
+        str(run_root / "trainer" / f"checkpoint-{step}"),
+        "--dataset-file",
+        str(train_contract.TRAIN_FILE),
+        "--output-dir",
+        str(screen_root / f"checkpoint-{step}"),
+        "--row-indices",
+        ",".join(str(index) for index in range(SCENE_HARD_FAILURE_ROWS)),
+        "--conditions",
+        ",".join(SCENE_FOCUSED_CONDITIONS),
+        "--donor-rule",
+        DONOR_RULE_LENGTH_MATCHED,
+        "--max-new-tokens",
+        str(DEFAULT_MAX_NEW_TOKENS),
+        "--delta-mem-root",
+        str(PROJECT_ROOT),
+        "--normal-fusion-profile",
+        "native",
+        "--expected-memory-layer-count",
+        "42",
+        "--device",
+        "cuda:0",
+        "--dtype",
+        "bfloat16",
+        "--attn-implementation",
+        "sdpa",
+        "--evaluation-contract",
+        SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
+        "--focused-source-manifest",
+        str(train_contract.SOURCE_MANIFEST),
+        "--preflight-only",
+    ]
+
+
+def _validate_focused_train32_preflight(
+    preflight: Any,
+    *,
+    run_root: Path,
+    screen_root: Path,
+    execution_context: Mapping[str, Any],
+) -> None:
+    if not isinstance(preflight, Mapping):
+        raise ValueError("Focused Train32 v4 evaluator preflight evidence is missing")
+    commands = preflight.get("commands")
+    endpoint_steps = list(SCENE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS)
+    if (
+        preflight.get("required_before_screen_root_creation") is not True
+        or preflight.get("endpoint_steps") != endpoint_steps
+        or not isinstance(commands, list)
+        or len(commands) != len(endpoint_steps)
+        or preflight.get("all_returned_zero") is not True
+        or preflight.get("screen_root_absent_before") is not True
+        or preflight.get("output_dirs_absent_before") is not True
+        or preflight.get("screen_root_absent_after") is not True
+        or preflight.get("output_dirs_absent_after") is not True
+    ):
+        raise ValueError("Focused Train32 v4 evaluator preflight evidence differs")
+    python_executable: str | None = None
+    for step, command in zip(endpoint_steps, commands, strict=True):
+        if not isinstance(command, Mapping):
+            raise ValueError("Focused Train32 v4 preflight command is invalid")
+        argv = command.get("argv")
+        if not isinstance(argv, list) or not argv or not all(
+            isinstance(item, str) for item in argv
+        ):
+            raise ValueError("Focused Train32 v4 preflight argv is invalid")
+        if python_executable is None:
+            python_executable = argv[0]
+            if Path(python_executable).expanduser().resolve() != Path(sys.executable).resolve():
+                raise ValueError("Focused Train32 v4 preflight Python differs")
+        expected_argv = _focused_train32_preflight_argv(
+            python_executable=python_executable,
+            run_root=run_root,
+            screen_root=screen_root,
+            step=step,
+        )
+        if (
+            dict(command)
+            != {
+                "step": step,
+                "kind": "train32_evaluator_preflight",
+                "argv": expected_argv,
+                "cwd": execution_context["cwd"],
+                "environment_sha256": execution_context["environment_sha256"],
+                "returncode": 0,
+                "output_dir": str(screen_root / f"checkpoint-{step}"),
+                "screen_root_absent_before": True,
+                "output_dir_absent_before": True,
+                "screen_root_absent_after": True,
+                "output_dir_absent_after": True,
+            }
+        ):
+            raise ValueError("Focused Train32 v4 preflight command evidence differs")
+
+
+def _validate_focused_train32_screen_evidence(
+    receipt: Mapping[str, Any],
+    *,
+    receipt_path: Path,
+    run_root: Path,
+    source: Mapping[str, Any],
+    evaluated_steps: list[int],
+    evaluated: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    canonical_receipt = focused_train32_selection_receipt_path(run_root).resolve()
+    if receipt_path != canonical_receipt:
+        raise ValueError("Focused train selection receipt is not in the canonical v2 root")
+    screen_root = _focused_directory(
+        run_root / SCENE_HARD_FAILURE_TRAIN32_SCREEN_DIRNAME,
+        description="Train32 v4 endpoint screen root",
+        train_only=True,
+    )
+    endpoint_screen = receipt.get("endpoint_screen")
+    if not isinstance(endpoint_screen, Mapping):
+        raise ValueError("Focused Train32 v4 endpoint-screen evidence is missing")
+    protected_evaluation = {
+        "hard32_accessed": False,
+        "validation_accessed": False,
+        "test_accessed": False,
+        "other_benchmarks_accessed": False,
+    }
+    if (
+        endpoint_screen.get("schema") != SCENE_HARD_FAILURE_TRAIN32_SCREEN_SCHEMA
+        or endpoint_screen.get("screen_root") != str(screen_root)
+        or endpoint_screen.get("evaluated_endpoint_steps") != evaluated_steps
+        or endpoint_screen.get("conditions") != list(SCENE_FOCUSED_CONDITIONS)
+        or any(
+            endpoint_screen.get(field) is not False
+            for field in protected_evaluation
+        )
+        or receipt.get("held_out_access")
+        != "forbidden_not_resolved_opened_or_hashed"
+        or receipt.get("hard32_accessed") is not False
+        or receipt.get("full_validation_accessed") is not False
+        or receipt.get("test_accessed") is not False
+        or receipt.get("other_benchmarks_accessed") is not False
+    ):
+        raise ValueError("Focused Train32 v4 endpoint-screen contract differs")
+
+    protocol_binding = endpoint_screen.get("protocol")
+    if not isinstance(protocol_binding, Mapping):
+        raise ValueError("Focused Train32 v4 protocol binding is missing")
+    protocol_path = _focused_regular_file(
+        screen_root / SCENE_HARD_FAILURE_TRAIN32_PROTOCOL_FILENAME,
+        description="Train32 v4 screening protocol",
+        train_only=True,
+    )
+    if protocol_binding.get("path") != str(protocol_path):
+        raise ValueError("Focused Train32 v4 protocol path differs")
+    protocol = _load_json_object(protocol_path, description="Train32 v4 protocol")
+    protocol_sha256 = _validate_self_hash(
+        protocol,
+        field="protocol_sha256",
+        description="Train32 v4 screening protocol",
+    )
+    protocol_file_sha256 = sha256_file(protocol_path)
+    if (
+        protocol_binding.get("file_sha256") != protocol_file_sha256
+        or protocol_binding.get("protocol_sha256") != protocol_sha256
+    ):
+        raise ValueError("Focused Train32 v4 protocol cryptographic binding differs")
+    execution_context = protocol.get("execution_context")
+    if (
+        protocol.get("schema") != SCENE_HARD_FAILURE_TRAIN32_PROTOCOL_SCHEMA
+        or protocol.get("run_root") != str(run_root)
+        or protocol.get("screen_root") != str(screen_root)
+        or protocol.get("endpoint_steps")
+        != list(SCENE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS)
+        or protocol.get("selection_policy")
+        != "first_train32_gate_pass_with_full_current_adapter_coverage_v2"
+        or protocol.get("evaluation_contract")
+        != SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT
+        or protocol.get("conditions") != list(SCENE_FOCUSED_CONDITIONS)
+        or protocol.get("donor_rule") != DONOR_RULE_LENGTH_MATCHED
+        or protocol.get("protected_evaluation") != protected_evaluation
+        or protocol.get("train_source") != source
+        or protocol.get("production_completion_receipt")
+        != receipt.get("production_completion_receipt")
+        or not isinstance(execution_context, Mapping)
+        or dict(execution_context).get("cwd") != str(PROJECT_ROOT)
+        or not isinstance(dict(execution_context).get("environment_sha256"), str)
+        or SHA256_RE.fullmatch(dict(execution_context)["environment_sha256"])
+        is None
+        or endpoint_screen.get("execution_context") != execution_context
+    ):
+        raise ValueError("Focused Train32 v4 screening protocol contract differs")
+
+    train_contract = _hard_failure_train_contract_module()
+    if protocol.get("dataset") != {
+        "path": str(train_contract.TRAIN_FILE),
+        "sha256": SCENE_HARD_FAILURE_TRAIN_FILE_SHA256,
+        "split": "train",
+        "rows": SCENE_HARD_FAILURE_ROWS,
+    } or protocol.get("source_manifest") != {
+        "path": str(train_contract.SOURCE_MANIFEST),
+        "sha256": SCENE_HARD_FAILURE_SOURCE_MANIFEST_FILE_SHA256,
+    }:
+        raise ValueError("Focused Train32 v4 protocol train-source files differ")
+
+    endpoint_checkpoints = protocol.get("endpoint_checkpoints")
+    expected_steps = list(SCENE_HARD_FAILURE_GENERATION_ENDPOINT_STEPS)
+    if (
+        not isinstance(endpoint_checkpoints, list)
+        or len(endpoint_checkpoints) != len(expected_steps)
+        or not all(isinstance(item, Mapping) for item in endpoint_checkpoints)
+    ):
+        raise ValueError("Focused Train32 v4 protocol endpoint checkpoints differ")
+    protocol_checkpoints: dict[int, Mapping[str, Any]] = {}
+    for step, checkpoint in zip(expected_steps, endpoint_checkpoints, strict=True):
+        if (
+            checkpoint.get("global_step") != step
+            or checkpoint.get("path")
+            != str(run_root / "trainer" / f"checkpoint-{step}")
+        ):
+            raise ValueError("Focused Train32 v4 protocol checkpoint order differs")
+        protocol_checkpoints[step] = checkpoint
+    if any(
+        endpoint.get("checkpoint") != protocol_checkpoints[step]
+        for step, endpoint in zip(evaluated_steps, evaluated, strict=True)
+    ):
+        raise ValueError("Focused Train32 v4 evaluated checkpoint binding differs")
+
+    preflight = protocol.get("evaluator_preflight")
+    if endpoint_screen.get("evaluator_preflight") != preflight:
+        raise ValueError("Focused Train32 v4 preflight binding differs")
+    _validate_focused_train32_preflight(
+        preflight,
+        run_root=run_root,
+        screen_root=screen_root,
+        execution_context=execution_context,
+    )
+
+    prior_failed_attempt = _focused_train32_prior_attempt_evidence(run_root)
+    if (
+        protocol.get("prior_failed_attempt") != prior_failed_attempt
+        or endpoint_screen.get("prior_failed_attempt") != prior_failed_attempt
+    ):
+        raise ValueError("Focused Train32 v4 preserved failed-v3 binding differs")
+
+    decisions = endpoint_screen.get("endpoint_decisions")
+    expected_decisions = [
+        {
+            "global_step": step,
+            "benchmark_gate_passed": endpoint.get("benchmark_gate_passed"),
+            "full_coverage": endpoint.get("full_coverage"),
+            "selection_eligible": endpoint.get("selection_eligible"),
+            "coverage_evidence": endpoint.get("coverage_evidence"),
+        }
+        for step, endpoint in zip(evaluated_steps, evaluated, strict=True)
+    ]
+    commands = endpoint_screen.get("commands")
+    if (
+        decisions != expected_decisions
+        or not isinstance(commands, list)
+        or len(commands) != 2 * len(evaluated_steps)
+        or any(
+            not isinstance(command, Mapping)
+            or command.get("step") != evaluated_steps[index // 2]
+            or command.get("kind")
+            != ("train32_generation" if index % 2 == 0 else "focused_gate")
+            or command.get("cwd") != execution_context["cwd"]
+            or command.get("environment_sha256")
+            != execution_context["environment_sha256"]
+            for index, command in enumerate(commands)
+        )
+    ):
+        raise ValueError("Focused Train32 v4 driver execution evidence differs")
+    return {
+        "screen_root": str(screen_root),
+        "protocol_path": str(protocol_path),
+        "protocol_file_sha256": protocol_file_sha256,
+        "prior_failed_attempt": prior_failed_attempt,
+    }
+
+
 def validate_focused_train_selection_authorization(
     receipt_path: Path,
     *,
@@ -2356,6 +2825,7 @@ def validate_focused_train_selection_authorization(
         train_only=True,
     )
     receipt = _load_json_object(path, description="train selection receipt")
+    receipt_file_sha256 = sha256_file(path)
     receipt_sha256 = _validate_self_hash(
         receipt,
         field="receipt_sha256",
@@ -2441,6 +2911,14 @@ def validate_focused_train_selection_authorization(
     source = receipt.get("source")
     if not isinstance(source, Mapping):
         raise ValueError("Focused train selection source binding is missing")
+    screen_evidence = _validate_focused_train32_screen_evidence(
+        receipt,
+        receipt_path=path,
+        run_root=run_root,
+        source=source,
+        evaluated_steps=evaluated_steps,
+        evaluated=evaluated,
+    )
     eligible: list[Mapping[str, Any]] = []
     for step, endpoint in zip(evaluated_steps, evaluated):
         endpoint_checkpoint = endpoint.get("checkpoint")
@@ -2644,6 +3122,14 @@ def validate_focused_train_selection_authorization(
         != SCENE_HARD_FAILURE_PAIR_MANIFEST_FILE_SHA256
     ):
         raise ValueError("Focused train gate source binding differs")
+    if (
+        sha256_file(path) != receipt_file_sha256
+        or sha256_file(Path(screen_evidence["protocol_path"]))
+        != screen_evidence["protocol_file_sha256"]
+        or _focused_train32_prior_attempt_evidence(run_root)
+        != screen_evidence["prior_failed_attempt"]
+    ):
+        raise ValueError("Focused Train32 v4 authorization evidence changed")
     return {
         "authorization_kind": "scene_hard_failure_train_overfit_selection",
         "scope": SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE,
@@ -2653,7 +3139,7 @@ def validate_focused_train_selection_authorization(
         "other_benchmarks_authorized": False,
         "receipt": {
             "path": str(path),
-            "file_sha256": sha256_file(path),
+            "file_sha256": receipt_file_sha256,
             "receipt_sha256": receipt_sha256,
         },
         "selected_checkpoint": {
@@ -5590,6 +6076,16 @@ def build_scene_v6_identity_hard32_gate(
     semantic_evidence: dict[str, Any],
     contract: dict[str, Any],
 ) -> dict[str, Any]:
+    if contract.get("name") == SCENE_HARD_FAILURE_HARD32_CONTRACT:
+        return {
+            "status": "not_requested",
+            "contract": contract,
+            "reason": (
+                "The focused Hard32 contract is accepted only by the focused "
+                "full-cohort native recovery gate; legacy semantic-NLL gates are "
+                "diagnostic-only."
+            ),
+        }
     if not is_identity_hard32_contract(contract):
         return {"status": "not_requested", "contract": contract}
     fixed_scope_only = is_fixed_scope_hard32_contract(contract)
@@ -5599,12 +6095,6 @@ def build_scene_v6_identity_hard32_gate(
     no_write = summaries["no_write_full"]
     state_donor_delta = comparisons["state_only_minus_state_only_donor"]["delta"]
     state_zero_delta = comparisons["state_only_minus_state_only_no_write"]["delta"]
-    focused_contract = contract.get("name") == SCENE_HARD_FAILURE_HARD32_CONTRACT
-    state_shuffled_delta = (
-        comparisons["state_only_minus_state_only_shuffled"]["delta"]
-        if focused_contract
-        else None
-    )
     strongest_full_control = max(
         float(base["strict"]["primary_metric"]),
         float(no_write["strict"]["primary_metric"]),
@@ -5628,9 +6118,7 @@ def build_scene_v6_identity_hard32_gate(
                 "schema_valid_rate",
             )
         }
-        for condition in (
-            SCENE_FOCUSED_CONDITIONS if focused_contract else CONDITIONS
-        )
+        for condition in CONDITIONS
     }
     gates = {
         "correct_better_than_donor_rows": {
@@ -5719,12 +6207,6 @@ def build_scene_v6_identity_hard32_gate(
             "value": state["decision_quality"]["canonical_outputs"],
         },
     }
-    if focused_contract:
-        gates["state_only_minus_shuffled_f1"] = {
-            "operator": ">=",
-            "threshold": HARD32_GATE_REQUIREMENTS["state_minus_donor_f1"],
-            "value": state_shuffled_delta,
-        }
     if state["decision_quality"]["empty_list_rows"] != HARD32_GATE_REQUIREMENTS[
         "empty_list_rows"
     ]:
@@ -5760,16 +6242,12 @@ def build_scene_v6_identity_hard32_gate(
         "benchmark_metric_evidence": benchmark_metric_evidence,
         "format_recovery_diagnostic": {
             condition: summaries[condition]["format_recovered"]
-            for condition in (
-                SCENE_FOCUSED_CONDITIONS if focused_contract else CONDITIONS
-            )
+            for condition in CONDITIONS
         },
         "all_gates_passed": passed,
         "full170_authorized_for_bound_checkpoint": passed and not fixed_scope_only,
         "authorization_scope": (
-            SCENE_HARD_FAILURE_AUTHORIZATION_SCOPE
-            if focused_contract
-            else (SCENE_V14_HARD32_AUTHORIZATION_SCOPE if fixed_scope_only else None)
+            SCENE_V14_HARD32_AUTHORIZATION_SCOPE if fixed_scope_only else None
         ),
         "other_benchmarks_authorized": False if fixed_scope_only else None,
         "test_selection_forbidden": True,
@@ -5929,6 +6407,69 @@ def fingerprint_payload_sha256(payload: Any) -> str:
     if not isinstance(payload, dict):
         raise ValueError("Manifest fingerprint_payload must be an object")
     return sha256_text(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+
+
+def _json_canonical_copy(value: Any) -> Any:
+    """Return the exact detached representation that JSON persistence will load."""
+
+    return json.loads(
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
+
+
+def build_scene_state_manifest(
+    *,
+    fingerprint_payload: dict[str, Any],
+    created_at: str,
+    repository_revision: Mapping[str, Any],
+    code_fingerprint: Mapping[str, Any],
+    evaluation_contract: Mapping[str, Any],
+    candidate_lineage: Mapping[str, Any] | None,
+    candidate_lineage_record_binding: Mapping[str, Any] | None,
+    warning: str,
+) -> dict[str, Any]:
+    canonical_payload = _json_canonical_copy(fingerprint_payload)
+    if not isinstance(canonical_payload, dict):
+        raise AssertionError("Canonical fingerprint payload must remain an object")
+    top_level_evidence = _json_canonical_copy(
+        {
+            "evaluation_contract": evaluation_contract,
+            "candidate_lineage": candidate_lineage,
+            "candidate_lineage_record_binding": candidate_lineage_record_binding,
+        }
+    )
+    return {
+        "created_at": created_at,
+        "fingerprint": fingerprint_payload_sha256(canonical_payload),
+        "fingerprint_payload": canonical_payload,
+        "code": {
+            "rwkv_repo": _json_canonical_copy(repository_revision),
+            **_json_canonical_copy(code_fingerprint),
+        },
+        "evaluation_kind": "focused state-isolating scene-boundary diagnostic",
+        **top_level_evidence,
+        "warning": warning,
+    }
+
+
+def manifest_with_runtime_fusion_profile(
+    manifest: Mapping[str, Any],
+    runtime_profile: Mapping[str, Any],
+) -> dict[str, Any]:
+    updated = _json_canonical_copy(manifest)
+    if not isinstance(updated, dict):
+        raise AssertionError("Canonical manifest must remain an object")
+    updated["runtime_fusion_profile"] = _json_canonical_copy(runtime_profile)
+    validate_existing_manifest(
+        updated,
+        expected_fingerprint=updated.get("fingerprint"),
+    )
+    return updated
 
 
 def file_binding(path: Path) -> dict[str, Any]:
@@ -6399,6 +6940,7 @@ def build_hard32_receipt(
     gate: dict[str, Any],
     semantic_evidence: dict[str, Any],
     base_outcome_evidence: dict[str, Any] | None,
+    focused_gate_file: Path | None = None,
     memory_dir: Path,
     conditions: list[str],
 ) -> dict[str, Any]:
@@ -6416,6 +6958,59 @@ def build_hard32_receipt(
     if conditions != expected_conditions:
         raise ValueError(
             "Hard32 receipt conditions differ from the protected contract"
+        )
+    focused_contract = contract.get("name") == SCENE_HARD_FAILURE_HARD32_CONTRACT
+    focused_gate_binding: dict[str, Any] | None = None
+    if focused_contract:
+        if focused_gate_file is None:
+            raise ValueError(
+                "Focused Hard32 receipt requires the focused recovery gate artifact"
+            )
+        expected_gate_path = (
+            output_dir.expanduser().resolve()
+            / SCENE_FOCUSED_RECOVERY_GATE_FILENAME
+        )
+        resolved_gate_path = focused_gate_file.expanduser().resolve()
+        if resolved_gate_path != expected_gate_path or not resolved_gate_path.is_file():
+            raise ValueError(
+                "Focused Hard32 gate must be the canonical results-directory artifact"
+            )
+        recorded_focused_gate = _load_json_object(
+            resolved_gate_path,
+            description="focused Hard32 recovery gate",
+        )
+        passed = gate.get("all_gates_passed")
+        criterion = gate.get("criterion")
+        diagnostics = gate.get("diagnostics_only")
+        if (
+            recorded_focused_gate != gate
+            or gate.get("schema") != "rwkv_ms_scene_focused_recovery_gate.v1"
+            or gate.get("stage") != "hard32"
+            or gate.get("task") != TASK_NAME
+            or gate.get("rows") != len(HARD32_ROW_INDICES)
+            or gate.get("source_indices") != list(HARD32_ROW_INDICES)
+            or not isinstance(passed, bool)
+            or gate.get("status") != ("pass" if passed else "fail")
+            or not isinstance(criterion, Mapping)
+            or criterion.get("primary_metric")
+            != "dataset_native_strict_boundaries_micro_f1"
+            or criterion.get("primary_cohort")
+            != "all_32_frozen_hard32_rows"
+            or criterion.get("loss_logit_or_semantic_nll_can_satisfy_gate")
+            is not False
+            or not isinstance(diagnostics, Mapping)
+            or diagnostics.get("can_satisfy_gate") is not False
+        ):
+            raise ValueError("Focused Hard32 recovery gate report differs")
+        focused_gate_binding = {
+            "acceptance_role": "sole_acceptance_gate",
+            "artifact": file_binding(resolved_gate_path),
+            "canonical_sha256": _canonical_sha256(recorded_focused_gate),
+            "report": copy.deepcopy(recorded_focused_gate),
+        }
+    elif focused_gate_file is not None:
+        raise ValueError(
+            "A focused recovery gate artifact is valid only for focused Hard32"
         )
     donor_mapping_sha256 = sha256_text(
         json.dumps(donor_mapping, sort_keys=True, separators=(",", ":"))
@@ -6448,7 +7043,6 @@ def build_hard32_receipt(
         or is_v8_authorized
         or is_v14_authorized
         or is_v15_authorized
-        or is_focused_authorized
     ):
         receipt_gate["full170_authorized_for_bound_checkpoint"] = False
         receipt_gate["authorization_scope"] = (
@@ -6469,6 +7063,10 @@ def build_hard32_receipt(
             for condition in conditions
         },
     }
+    if focused_gate_binding is not None:
+        output_bindings["focused_recovery_gate"] = copy.deepcopy(
+            focused_gate_binding["artifact"]
+        )
     candidate_lineage_binding = build_candidate_lineage_record_binding(
         candidate_lineage
     )
@@ -6587,6 +7185,17 @@ def build_hard32_receipt(
         "code": code_fingerprint,
         "outputs": output_bindings,
         "gate": receipt_gate,
+        **(
+            {
+                "focused_recovery_gate": focused_gate_binding,
+                "semantic_evidence_role": {
+                    "role": "diagnostic_only",
+                    "can_determine_receipt_status": False,
+                },
+            }
+            if focused_gate_binding is not None
+            else {}
+        ),
         "semantic_evidence": semantic_evidence,
         "base_outcome_evidence": base_outcome_evidence,
     }
@@ -7391,11 +8000,7 @@ def validate_focused_hard32_exactly_once_authorization(
         raise ValueError("Focused Hard32 selected checkpoint step differs")
     run_root = resolved_memory.parent.parent
     expected_memory = run_root / "trainer" / f"checkpoint-{global_step}"
-    canonical_receipt = (
-        run_root
-        / "train32_endpoint_screen"
-        / "train32_checkpoint_selection_receipt.json"
-    )
+    canonical_receipt = focused_train32_selection_receipt_path(run_root)
     canonical_output = run_root / "hard32_once"
     receipt_binding = dict(authorization["receipt"])
     requested_receipt = _lexical_absolute(selection_receipt_path)
@@ -9060,21 +9665,16 @@ def main() -> None:
         "attn_implementation": args.attn_implementation,
         **profile_fields,
     }
-    fingerprint = fingerprint_payload_sha256(fingerprint_payload)
     repository_revision = git_revision(PROJECT_ROOT)
-    manifest = {
-        "created_at": utc_now(),
-        "fingerprint": fingerprint,
-        "fingerprint_payload": fingerprint_payload,
-        "code": {
-            "rwkv_repo": repository_revision,
-            **code_fingerprint,
-        },
-        "evaluation_kind": "focused state-isolating scene-boundary diagnostic",
-        "evaluation_contract": evaluation_contract,
-        "candidate_lineage": candidate_lineage,
-        "candidate_lineage_record_binding": candidate_lineage_record_binding,
-        "warning": (
+    manifest = build_scene_state_manifest(
+        fingerprint_payload=fingerprint_payload,
+        created_at=utc_now(),
+        repository_revision=repository_revision,
+        code_fingerprint=code_fingerprint,
+        evaluation_contract=evaluation_contract,
+        candidate_lineage=candidate_lineage,
+        candidate_lineage_record_binding=candidate_lineage_record_binding,
+        warning=(
             "This exact train-only slice is an overfit diagnostic and cannot authorize "
             "validation without a separate selected-checkpoint receipt."
             if evaluation_split == "train"
@@ -9083,7 +9683,9 @@ def main() -> None:
                 "of the complete benchmark, and its rows must not be used for training."
             )
         ),
-    }
+    )
+    fingerprint = manifest["fingerprint"]
+    fingerprint_payload = manifest["fingerprint_payload"]
 
     args.output_dir.mkdir(
         parents=True,
@@ -9099,6 +9701,11 @@ def main() -> None:
         args.output_dir / "manifest.json",
         args.output_dir / "progress.json",
         args.output_dir / "summary.json",
+        *(
+            [args.output_dir / SCENE_FOCUSED_RECOVERY_GATE_FILENAME]
+            if args.evaluation_contract == SCENE_HARD_FAILURE_HARD32_CONTRACT
+            else []
+        ),
         args.output_dir / "hard32_receipt.json",
         args.output_dir / "historical_v6_hard32_receipt.json",
     ]
@@ -9186,7 +9793,10 @@ def main() -> None:
                     "Runtime fusion profile differs from the existing output manifest"
                 )
             runtime_profile = loaded_runtime_profile
-            manifest["runtime_fusion_profile"] = runtime_profile
+            manifest = manifest_with_runtime_fusion_profile(
+                manifest,
+                runtime_profile,
+            )
             write_json_atomic(manifest_path, manifest)
         else:
             model, tokenizer = load_base_model(args)
@@ -9298,14 +9908,20 @@ def main() -> None:
             contract=evaluation_contract,
         )
         if is_identity_hard32_contract(args.evaluation_contract)
-        and args.evaluation_contract != SCENE_V15_HARD32_CONTRACT
+        and args.evaluation_contract
+        not in {
+            SCENE_V15_HARD32_CONTRACT,
+            SCENE_HARD_FAILURE_HARD32_CONTRACT,
+        }
         else {"status": "not_requested", "contract": evaluation_contract}
     )
-    hard32_gate = (
-        scene_v15_hard32_gate
-        if args.evaluation_contract == SCENE_V15_HARD32_CONTRACT
-        else scene_v6_identity_hard32_gate
-    )
+    hard32_gate: dict[str, Any] | None
+    if args.evaluation_contract == SCENE_V15_HARD32_CONTRACT:
+        hard32_gate = scene_v15_hard32_gate
+    elif args.evaluation_contract == SCENE_HARD_FAILURE_HARD32_CONTRACT:
+        hard32_gate = None
+    else:
+        hard32_gate = scene_v6_identity_hard32_gate
     historical_v6_evidence = (
         build_historical_v6_hard32_evidence(ordered_records)
         if args.evaluation_contract == HISTORICAL_V6_HARD32_CONTRACT
@@ -9367,9 +9983,21 @@ def main() -> None:
             "updated_at": utc_now(),
         },
     )
+    focused_gate_file: Path | None = None
+    if args.evaluation_contract == SCENE_HARD_FAILURE_HARD32_CONTRACT:
+        focused_gate_file = (
+            args.output_dir / SCENE_FOCUSED_RECOVERY_GATE_FILENAME
+        )
+        hard32_gate = _focused_recovery_gate_module().analyze_results_dir(
+            args.output_dir,
+            stage="hard32",
+        )
+        write_json_atomic(focused_gate_file, hard32_gate)
     if is_identity_hard32_contract(args.evaluation_contract):
         if args.row_indices_file is None:
             raise AssertionError("Protected hard32 contract requires a selection file")
+        if hard32_gate is None:
+            raise AssertionError("Protected hard32 gate was not constructed")
         receipt = build_hard32_receipt(
             output_dir=args.output_dir,
             fingerprint=fingerprint,
@@ -9383,6 +10011,7 @@ def main() -> None:
             gate=hard32_gate,
             semantic_evidence=semantic_evidence,
             base_outcome_evidence=base_outcome_evidence,
+            focused_gate_file=focused_gate_file,
             memory_dir=args.memory_dir,
             conditions=conditions,
         )

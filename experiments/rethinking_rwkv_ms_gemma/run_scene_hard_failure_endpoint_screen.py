@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Screen the four hard-scene Train32 endpoints and select one checkpoint.
 
-This driver is deliberately train-only. It accepts a completed production run
-and its canonical completion receipt, then evaluates checkpoints 16, 32, 48,
-and 64 in order under the exact focused Train32 contract. Generation stops at
+This driver is deliberately train-only. It accepts a completed production run,
+its canonical completion receipt, and the immutable failed v3 attempt, then
+restarts in a fresh v4 output and evaluates checkpoints 16, 32, 48, and 64 in
+order under the exact focused Train32 contract. Generation stops at
 the first endpoint that both passes the focused gate and has complete 27-family
 by 42-layer current-adapter coverage. A gate-only pass with partial coverage
 continues to the next endpoint. If no endpoint satisfies both requirements, all
@@ -51,10 +52,12 @@ from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
 )
 
 
-SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen.v3"
-PROTOCOL_SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v3"
+SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen.v4"
+PROTOCOL_SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v4"
 COMPLETION_SCHEMA = "rwkv_ms_scene_hard_failure_completion.v1"
-SCREEN_DIRNAME = "train32_endpoint_screen"
+SCREEN_DIRNAME = "train32_endpoint_screen_v2"
+PRIOR_SCREEN_DIRNAME = "train32_endpoint_screen"
+PRIOR_PROTOCOL_SCHEMA = "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v3"
 PROTOCOL_FILENAME = "screening_protocol.json"
 SELECTION_RECEIPT_FILENAME = "train32_checkpoint_selection_receipt.json"
 ENDPOINT_STEPS = selector.ENDPOINT_STEPS
@@ -74,6 +77,10 @@ FROZEN_CONDITIONS = (
     "state_only_shuffled",
     "state_only_no_write",
 )
+PRIOR_FAILED_STEP = 16
+PRIOR_FAILURE_STATUS = "failed"
+PRIOR_FAILURE_STAGE = "checkpoint_16_focused_gate"
+PRIOR_FAILURE_REASON = "protected_evaluation_fingerprint_mismatch"
 PROTECTED_ENV_PREFIXES = ("HARD32", "VALIDATION", "TEST", "BENCHMARK")
 FORBIDDEN_DISTRIBUTED_ENV = (
     "WORLD_SIZE",
@@ -98,6 +105,16 @@ def utc_now() -> str:
 
 
 def validate_static_contract() -> None:
+    _require(
+        SCHEMA == "rwkv_ms_scene_hard_failure_endpoint_screen.v4"
+        and PROTOCOL_SCHEMA
+        == "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v4"
+        and SCREEN_DIRNAME == "train32_endpoint_screen_v2"
+        and PRIOR_SCREEN_DIRNAME == "train32_endpoint_screen"
+        and PRIOR_PROTOCOL_SCHEMA
+        == "rwkv_ms_scene_hard_failure_endpoint_screen_protocol.v3",
+        "versioned Train32 endpoint restart contract differs",
+    )
     _require(
         tuple(ENDPOINT_STEPS) == FROZEN_ENDPOINT_STEPS
         and tuple(train_contract.GENERATION_ENDPOINT_STEPS)
@@ -148,6 +165,168 @@ def _reject_symlink_components(path: Path, *, description: str) -> None:
             f"endpoint screening forbids symlink component for {description}: "
             f"{current}",
         )
+
+
+def _prior_artifact_inventory(prior_root: Path) -> list[dict[str, Any]]:
+    artifacts: list[dict[str, Any]] = []
+    for candidate in sorted(prior_root.rglob("*")):
+        relative_path = candidate.relative_to(prior_root).as_posix()
+        _require(
+            not candidate.is_symlink(),
+            f"prior Train32 endpoint attempt contains a symlink: {relative_path}",
+        )
+        if candidate.is_dir():
+            continue
+        _require(
+            candidate.is_file() and candidate.stat().st_size > 0,
+            "prior Train32 endpoint attempt contains a non-regular or empty "
+            f"artifact: {relative_path}",
+        )
+        artifacts.append(
+            {
+                "relative_path": relative_path,
+                "bytes": candidate.stat().st_size,
+                "sha256": selector.sha256_file(candidate),
+            }
+        )
+    return artifacts
+
+
+def validate_prior_failed_attempt(run_root: Path) -> dict[str, Any]:
+    """Bind the immutable v3 attempt that failed before its focused gate."""
+
+    prior_root = selector.reject_protected_path(
+        run_root / PRIOR_SCREEN_DIRNAME,
+        description="prior failed Train32 endpoint attempt",
+    )
+    prior_root = selector.require_directory(
+        prior_root,
+        description="prior failed Train32 endpoint attempt",
+    )
+    _reject_symlink_components(
+        prior_root,
+        description="prior failed Train32 endpoint attempt",
+    )
+    protocol_path = prior_root / PROTOCOL_FILENAME
+    protocol = selector.load_json_object(
+        protocol_path,
+        description="prior failed Train32 screening protocol",
+    )
+    protocol_sha256 = selector.validate_self_hash(
+        protocol,
+        field="protocol_sha256",
+        description="prior failed Train32 screening protocol",
+    )
+    _require(
+        protocol.get("schema") == PRIOR_PROTOCOL_SCHEMA
+        and protocol.get("run_root") == str(run_root)
+        and protocol.get("screen_root") == str(prior_root)
+        and protocol.get("endpoint_steps") == list(ENDPOINT_STEPS)
+        and protocol.get("selection_policy") == selector.SELECTION_POLICY
+        and protocol.get("evaluation_contract") == EVALUATION_CONTRACT
+        and protocol.get("conditions") == list(CONDITIONS)
+        and protocol.get("donor_rule") == DONOR_RULE
+        and protocol.get("protected_evaluation")
+        == {
+            "hard32_accessed": False,
+            "validation_accessed": False,
+            "test_accessed": False,
+            "other_benchmarks_accessed": False,
+        },
+        "prior failed Train32 screening protocol contract differs",
+    )
+
+    prior_results = prior_root / f"checkpoint-{PRIOR_FAILED_STEP}"
+    selector.require_directory(
+        prior_results,
+        description=f"prior checkpoint-{PRIOR_FAILED_STEP} generation results",
+    )
+    expected_relative_files = {
+        PROTOCOL_FILENAME,
+        *(
+            f"checkpoint-{PRIOR_FAILED_STEP}/{condition}.jsonl"
+            for condition in CONDITIONS
+        ),
+        f"checkpoint-{PRIOR_FAILED_STEP}/manifest.json",
+        f"checkpoint-{PRIOR_FAILED_STEP}/progress.json",
+        f"checkpoint-{PRIOR_FAILED_STEP}/summary.json",
+    }
+    artifacts = _prior_artifact_inventory(prior_root)
+    _require(
+        {artifact["relative_path"] for artifact in artifacts}
+        == expected_relative_files,
+        "prior failed Train32 endpoint artifact inventory differs",
+    )
+
+    manifest_path = prior_results / "manifest.json"
+    summary_path = prior_results / "summary.json"
+    progress_path = prior_results / "progress.json"
+    manifest = selector.load_json_object(
+        manifest_path,
+        description=f"prior checkpoint-{PRIOR_FAILED_STEP} manifest",
+    )
+    summary = selector.load_json_object(
+        summary_path,
+        description=f"prior checkpoint-{PRIOR_FAILED_STEP} summary",
+    )
+    progress = selector.load_json_object(
+        progress_path,
+        description=f"prior checkpoint-{PRIOR_FAILED_STEP} progress",
+    )
+    recorded_fingerprint = manifest.get("fingerprint")
+    fingerprint_payload = manifest.get("fingerprint_payload")
+    recomputed_fingerprint = (
+        selector.canonical_sha256(fingerprint_payload)
+        if isinstance(fingerprint_payload, Mapping)
+        else None
+    )
+    expected_samples = len(CONDITIONS) * state_eval.SCENE_HARD_FAILURE_ROWS
+    _require(
+        isinstance(recorded_fingerprint, str)
+        and selector.SHA256_RE.fullmatch(recorded_fingerprint) is not None
+        and isinstance(recomputed_fingerprint, str)
+        and recorded_fingerprint != recomputed_fingerprint
+        and summary.get("fingerprint") == recorded_fingerprint
+        and summary.get("complete") is True
+        and progress.get("fingerprint") == recorded_fingerprint
+        and progress.get("complete") is True
+        and progress.get("completed") == expected_samples
+        and progress.get("expected") == expected_samples,
+        "prior Train32 endpoint attempt does not prove the protected-evaluation "
+        "fingerprint failure",
+    )
+    gate_path = prior_results / selector.GATE_FILENAME
+    selection_path = prior_root / SELECTION_RECEIPT_FILENAME
+    _require(
+        not gate_path.exists()
+        and not gate_path.is_symlink()
+        and not selection_path.exists()
+        and not selection_path.is_symlink(),
+        "prior failed Train32 endpoint attempt unexpectedly has gate or selection "
+        "evidence",
+    )
+
+    return {
+        "status": PRIOR_FAILURE_STATUS,
+        "failure_stage": PRIOR_FAILURE_STAGE,
+        "failure_reason": PRIOR_FAILURE_REASON,
+        "screen_root": str(prior_root),
+        "protocol": {
+            "path": str(protocol_path),
+            "file_sha256": selector.sha256_file(protocol_path),
+            "protocol_sha256": protocol_sha256,
+            "schema": PRIOR_PROTOCOL_SCHEMA,
+        },
+        "completed_generation_endpoint_steps": [PRIOR_FAILED_STEP],
+        "recorded_fingerprint": recorded_fingerprint,
+        "recomputed_fingerprint_payload_sha256": recomputed_fingerprint,
+        "focused_gate_present": False,
+        "selection_receipt_present": False,
+        "protected_evaluation": dict(protocol["protected_evaluation"]),
+        "artifact_count": len(artifacts),
+        "artifacts": artifacts,
+        "artifact_inventory_sha256": selector.canonical_sha256(artifacts),
+    }
 
 
 def validate_production_completion(
@@ -622,6 +801,7 @@ def _protocol_payload(
     completion: Mapping[str, Any],
     source: Mapping[str, Any],
     checkpoints: Sequence[Mapping[str, Any]],
+    prior_failed_attempt: Mapping[str, Any],
     preflight: Mapping[str, Any],
     execution_context: Mapping[str, str],
 ) -> dict[str, Any]:
@@ -630,6 +810,7 @@ def _protocol_payload(
         "created_at": utc_now(),
         "run_root": str(run_root),
         "screen_root": str(paths.root),
+        "prior_failed_attempt": dict(prior_failed_attempt),
         "production_completion_receipt": dict(completion),
         "train_source": dict(source),
         "endpoint_checkpoints": [dict(checkpoint) for checkpoint in checkpoints],
@@ -667,6 +848,7 @@ def _bind_driver_receipt(
     paths: ScreenPaths,
     completion: Mapping[str, Any],
     protocol: Mapping[str, Any],
+    prior_failed_attempt: Mapping[str, Any],
     evaluated_steps: Sequence[int],
     endpoint_decisions: Sequence[Mapping[str, Any]],
     commands: Sequence[Mapping[str, Any]],
@@ -679,6 +861,7 @@ def _bind_driver_receipt(
     bound["endpoint_screen"] = {
         "schema": SCHEMA,
         "screen_root": str(paths.root),
+        "prior_failed_attempt": dict(prior_failed_attempt),
         "protocol": {
             "path": str(paths.protocol),
             "file_sha256": selector.sha256_file(paths.protocol),
@@ -717,6 +900,7 @@ def screen_endpoints(
         run_root=run_root,
         completion_receipt=completion_receipt,
     )
+    prior_failed_attempt = validate_prior_failed_attempt(root)
     source = source_validator()
     checkpoints = [
         checkpoint_validator(root, step, source) for step in ENDPOINT_STEPS
@@ -751,6 +935,10 @@ def screen_endpoints(
         records=preflight_records,
         execution_context=execution_context,
     )
+    _require(
+        validate_prior_failed_attempt(root) == prior_failed_attempt,
+        "prior failed Train32 endpoint attempt changed during evaluator preflight",
+    )
     paths = create_screen_paths(root)
     protocol = _protocol_payload(
         run_root=root,
@@ -758,6 +946,7 @@ def screen_endpoints(
         completion=completion,
         source=source,
         checkpoints=checkpoints,
+        prior_failed_attempt=prior_failed_attempt,
         preflight=preflight,
         execution_context=execution_context,
     )
@@ -830,6 +1019,11 @@ def screen_endpoints(
         evaluated_steps.append(step)
         if last_selection_eligible:
             break
+
+    _require(
+        validate_prior_failed_attempt(root) == prior_failed_attempt,
+        "prior failed Train32 endpoint attempt changed during v4 screening",
+    )
 
     specs = [
         selector.EndpointSpec(
@@ -912,6 +1106,7 @@ def screen_endpoints(
         paths=paths,
         completion=completion,
         protocol=protocol,
+        prior_failed_attempt=prior_failed_attempt,
         evaluated_steps=evaluated_steps,
         endpoint_decisions=endpoint_decisions,
         commands=command_records,

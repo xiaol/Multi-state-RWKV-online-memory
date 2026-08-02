@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 import subprocess
 from typing import Any, Mapping, Sequence
 
@@ -18,6 +19,60 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
         json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _failed_v3_attempt(run_root: Path) -> Path:
+    prior_root = run_root / driver.PRIOR_SCREEN_DIRNAME
+    results = prior_root / f"checkpoint-{driver.PRIOR_FAILED_STEP}"
+    results.mkdir(parents=True)
+    protocol: dict[str, Any] = {
+        "schema": driver.PRIOR_PROTOCOL_SCHEMA,
+        "created_at": "2026-08-02T00:00:00+00:00",
+        "run_root": str(run_root),
+        "screen_root": str(prior_root),
+        "endpoint_steps": list(driver.ENDPOINT_STEPS),
+        "selection_policy": driver.selector.SELECTION_POLICY,
+        "evaluation_contract": driver.EVALUATION_CONTRACT,
+        "conditions": list(driver.CONDITIONS),
+        "donor_rule": driver.DONOR_RULE,
+        "protected_evaluation": {
+            "hard32_accessed": False,
+            "validation_accessed": False,
+            "test_accessed": False,
+            "other_benchmarks_accessed": False,
+        },
+    }
+    protocol["protocol_sha256"] = driver.selector.canonical_sha256(protocol)
+    _write_json(prior_root / driver.PROTOCOL_FILENAME, protocol)
+
+    recorded_fingerprint = "f" * 64
+    _write_json(
+        results / "manifest.json",
+        {
+            "fingerprint": recorded_fingerprint,
+            "fingerprint_payload": {"immutable_before_runtime_profile": True},
+        },
+    )
+    _write_json(
+        results / "summary.json",
+        {"complete": True, "fingerprint": recorded_fingerprint},
+    )
+    expected = len(driver.CONDITIONS) * driver.state_eval.SCENE_HARD_FAILURE_ROWS
+    _write_json(
+        results / "progress.json",
+        {
+            "complete": True,
+            "completed": expected,
+            "expected": expected,
+            "fingerprint": recorded_fingerprint,
+        },
+    )
+    for condition in driver.CONDITIONS:
+        (results / f"{condition}.jsonl").write_text(
+            json.dumps({"condition": condition}) + "\n",
+            encoding="utf-8",
+        )
+    return prior_root
 
 
 def _production_run(tmp_path: Path) -> tuple[Path, Path]:
@@ -63,7 +118,9 @@ def _production_run(tmp_path: Path) -> tuple[Path, Path]:
     }
     payload["receipt_sha256"] = driver.selector.canonical_sha256(payload)
     _write_json(receipt, payload)
-    return run_root.absolute(), receipt.absolute()
+    absolute_root = run_root.absolute()
+    _failed_v3_attempt(absolute_root)
+    return absolute_root, receipt.absolute()
 
 
 def _gate_report(*, passed: bool, step: int) -> dict[str, Any]:
@@ -254,6 +311,7 @@ def _checkpoint_validator(
 
 def test_screen_stops_generation_at_first_passing_endpoint(tmp_path: Path) -> None:
     run_root, completion = _production_run(tmp_path)
+    prior_before = driver.validate_prior_failed_attempt(run_root)
     reports = {
         16: _gate_report(passed=False, step=16),
         32: _gate_report(passed=True, step=32),
@@ -343,8 +401,30 @@ def test_screen_stops_generation_at_first_passing_endpoint(tmp_path: Path) -> No
     assert receipt["evaluated_endpoint_steps"] == [16, 32]
     assert receipt["production_completion_receipt"]["global_step"] == 64
     assert receipt["endpoint_screen"]["hard32_accessed"] is False
+    assert driver.SCHEMA == "rwkv_ms_scene_hard_failure_endpoint_screen.v4"
+    assert driver.PROTOCOL_SCHEMA.endswith(".v4")
+    assert driver.SCREEN_DIRNAME == "train32_endpoint_screen_v2"
     protocol_path = run_root / driver.SCREEN_DIRNAME / driver.PROTOCOL_FILENAME
     protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    assert protocol["schema"] == driver.PROTOCOL_SCHEMA
+    assert protocol["prior_failed_attempt"] == prior_before
+    assert receipt["endpoint_screen"]["prior_failed_attempt"] == prior_before
+    assert prior_before["status"] == "failed"
+    assert prior_before["failure_stage"] == "checkpoint_16_focused_gate"
+    assert (
+        prior_before["failure_reason"]
+        == "protected_evaluation_fingerprint_mismatch"
+    )
+    assert prior_before["recorded_fingerprint"] != prior_before[
+        "recomputed_fingerprint_payload_sha256"
+    ]
+    assert prior_before["focused_gate_present"] is False
+    assert prior_before["selection_receipt_present"] is False
+    assert prior_before["artifact_count"] == 11
+    assert prior_before["artifact_inventory_sha256"] == (
+        driver.selector.canonical_sha256(prior_before["artifacts"])
+    )
+    assert driver.validate_prior_failed_attempt(run_root) == prior_before
     preflight = protocol["evaluator_preflight"]
     assert preflight["endpoint_steps"] == list(driver.ENDPOINT_STEPS)
     assert preflight["all_returned_zero"] is True
@@ -656,6 +736,99 @@ def test_static_contract_rejects_condition_drift(
 
     with pytest.raises(driver.EndpointScreenError, match="seven-condition"):
         driver.validate_static_contract()
+
+
+def test_screen_requires_exact_failed_v3_fingerprint_lineage(tmp_path: Path) -> None:
+    run_root, completion = _production_run(tmp_path)
+    manifest_path = (
+        run_root
+        / driver.PRIOR_SCREEN_DIRNAME
+        / f"checkpoint-{driver.PRIOR_FAILED_STEP}"
+        / "manifest.json"
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    corrected = driver.selector.canonical_sha256(manifest["fingerprint_payload"])
+    manifest["fingerprint"] = corrected
+    _write_json(manifest_path, manifest)
+    for name in ("summary.json", "progress.json"):
+        path = manifest_path.parent / name
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["fingerprint"] = corrected
+        _write_json(path, payload)
+
+    with pytest.raises(
+        driver.EndpointScreenError,
+        match="does not prove the protected-evaluation fingerprint failure",
+    ):
+        driver.screen_endpoints(
+            run_root=run_root,
+            completion_receipt=completion,
+            environment={},
+            command_runner=lambda *args: pytest.fail("command must not run"),
+            source_validator=_source_validator,
+            checkpoint_validator=_checkpoint_validator,
+        )
+
+    assert not (run_root / driver.SCREEN_DIRNAME).exists()
+
+
+def test_screen_requires_preserved_prior_v3_attempt(tmp_path: Path) -> None:
+    run_root, completion = _production_run(tmp_path)
+    shutil.rmtree(run_root / driver.PRIOR_SCREEN_DIRNAME)
+
+    with pytest.raises(
+        driver.selector.SelectionError,
+        match="prior failed Train32 endpoint attempt",
+    ):
+        driver.screen_endpoints(
+            run_root=run_root,
+            completion_receipt=completion,
+            environment={},
+            command_runner=lambda *args: pytest.fail("command must not run"),
+            source_validator=_source_validator,
+            checkpoint_validator=_checkpoint_validator,
+        )
+
+    assert not (run_root / driver.SCREEN_DIRNAME).exists()
+
+
+def test_screen_rejects_prior_v3_mutation_during_preflight(tmp_path: Path) -> None:
+    run_root, completion = _production_run(tmp_path)
+    calls = 0
+
+    def mutate_prior_attempt(
+        command: Sequence[str],
+        cwd: Path,
+        environment: Mapping[str, str],
+    ) -> int:
+        nonlocal calls
+        del command, cwd, environment
+        calls += 1
+        if calls == 1:
+            prior_artifact = (
+                run_root
+                / driver.PRIOR_SCREEN_DIRNAME
+                / f"checkpoint-{driver.PRIOR_FAILED_STEP}"
+                / f"{driver.CONDITIONS[0]}.jsonl"
+            )
+            prior_artifact.write_text("mutated\n", encoding="utf-8")
+        return 0
+
+    with pytest.raises(
+        driver.EndpointScreenError,
+        match="changed during evaluator preflight",
+    ):
+        driver.screen_endpoints(
+            run_root=run_root,
+            completion_receipt=completion,
+            environment={},
+            command_runner=mutate_prior_attempt,
+            source_validator=_source_validator,
+            checkpoint_validator=_checkpoint_validator,
+        )
+
+    assert calls == len(driver.ENDPOINT_STEPS)
+    assert not (run_root / driver.SCREEN_DIRNAME).exists()
 
 
 def test_screen_requires_fresh_output(tmp_path: Path) -> None:

@@ -89,6 +89,17 @@ PROTECTED_CONTRACT_NAMES = {
     SCENE_HARD_FAILURE_TRAIN_OVERFIT_CONTRACT,
     SCENE_HARD_FAILURE_HARD32_CONTRACT,
 }
+HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES = (
+    (
+        56,
+        "8c856ddd10d3f2172a7d4b87a8ab653c4b31d78ff3f29b91b299450e110a1375",
+    ),
+)
+HARD32_BASE_FAILURE_IDENTITIES = tuple(
+    (index, HARD32_ROW_HASHES[index])
+    for index in HARD32_ROW_INDICES
+    if index != HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES[0][0]
+)
 
 
 def _valid_condition_set(conditions: Iterable[str]) -> bool:
@@ -558,6 +569,15 @@ def _strict_exact(record: Mapping[str, Any]) -> bool:
     )
 
 
+def _frozen_base_outcome_exact(record: Mapping[str, Any]) -> bool:
+    """Match the recovered-boundary evidence used to freeze Hard32 outcomes."""
+
+    score = record["score_recovered"]
+    gold = score.get("gold_boundaries")
+    predicted = score.get("predicted_boundaries")
+    return isinstance(gold, list) and isinstance(predicted, list) and predicted == gold
+
+
 def _train_reciprocal_same_cardinality_switches(
     records: Mapping[str, Sequence[Mapping[str, Any]]],
 ) -> dict[str, Any]:
@@ -703,16 +723,44 @@ def build_focused_recovery_gate(
     summaries = {
         condition: _task_summary(records[condition]) for condition in condition_order
     }
+    base_outcome_exact = (
+        _frozen_base_outcome_exact if stage == "hard32" else _strict_exact
+    )
     base_failure_ordinals = [
         ordinal
         for ordinal, record in enumerate(records["base_full"])
-        if not _strict_exact(record)
+        if not base_outcome_exact(record)
     ]
     base_success_ordinals = [
         ordinal
         for ordinal, record in enumerate(records["base_full"])
-        if _strict_exact(record)
+        if base_outcome_exact(record)
     ]
+    if stage == "hard32":
+        observed_failure_identities = tuple(
+            (
+                int(records["base_full"][ordinal]["source_index"]),
+                str(records["base_full"][ordinal]["row_sha256"]),
+            )
+            for ordinal in base_failure_ordinals
+        )
+        observed_success_identities = tuple(
+            (
+                int(records["base_full"][ordinal]["source_index"]),
+                str(records["base_full"][ordinal]["row_sha256"]),
+            )
+            for ordinal in base_success_ordinals
+        )
+        _require(
+            observed_failure_identities == HARD32_BASE_FAILURE_IDENTITIES,
+            "Hard32 frozen-base failure identities differ from the authoritative "
+            "31-row cohort",
+        )
+        _require(
+            observed_success_identities == HARD32_BASE_SUCCESS_SENTINEL_IDENTITIES,
+            "Hard32 frozen-base success sentinel identity differs from the "
+            "authoritative one-row cohort",
+        )
     _require(base_failure_ordinals, "focused gate requires frozen-base failures")
 
     failure_records = {
@@ -772,29 +820,46 @@ def build_focused_recovery_gate(
     def source_indices(ordinals: Iterable[int]) -> list[int]:
         return [int(records["base_full"][ordinal]["source_index"]) for ordinal in ordinals]
 
+    def row_identities(ordinals: Iterable[int]) -> list[dict[str, Any]]:
+        return [
+            {
+                "source_index": int(records["base_full"][ordinal]["source_index"]),
+                "row_sha256": str(records["base_full"][ordinal]["row_sha256"]),
+            }
+            for ordinal in ordinals
+        ]
+
+    full_f1 = {
+        condition: float(summaries[condition]["primary_metric"])
+        for condition in condition_order
+    }
     failure_f1 = {
         condition: float(failure_summaries[condition]["primary_metric"])
         for condition in condition_order
     }
-    deltas = {
-        "normal_full_minus_base_full": (
-            failure_f1["normal_full"] - failure_f1["base_full"]
-        ),
-        "normal_full_minus_no_write_full": (
-            failure_f1["normal_full"] - failure_f1["no_write_full"]
-        ),
-        "state_only_minus_state_only_donor": (
-            failure_f1["state_only"] - failure_f1["state_only_donor"]
-        ),
-        "state_only_minus_state_only_no_write": (
-            failure_f1["state_only"] - failure_f1["state_only_no_write"]
-        ),
-    }
-    if OPTIONAL_SHUFFLED_CONDITION in failure_f1:
-        deltas["state_only_minus_state_only_shuffled"] = (
-            failure_f1["state_only"]
-            - failure_f1[OPTIONAL_SHUFFLED_CONDITION]
-        )
+
+    def f1_deltas(f1: Mapping[str, float]) -> dict[str, float]:
+        result = {
+            "normal_full_minus_base_full": f1["normal_full"] - f1["base_full"],
+            "normal_full_minus_no_write_full": (
+                f1["normal_full"] - f1["no_write_full"]
+            ),
+            "state_only_minus_state_only_donor": (
+                f1["state_only"] - f1["state_only_donor"]
+            ),
+            "state_only_minus_state_only_no_write": (
+                f1["state_only"] - f1["state_only_no_write"]
+            ),
+        }
+        if OPTIONAL_SHUFFLED_CONDITION in f1:
+            result["state_only_minus_state_only_shuffled"] = (
+                f1["state_only"] - f1[OPTIONAL_SHUFFLED_CONDITION]
+            )
+        return result
+
+    full_f1_deltas = f1_deltas(full_f1)
+    failure_f1_deltas = f1_deltas(failure_f1)
+    deltas = full_f1_deltas if stage == "hard32" else failure_f1_deltas
     f1_lift_threshold = HARD32_MIN_F1_LIFT if stage == "hard32" else 0.0
     f1_lift_operator = ">=" if stage == "hard32" else ">"
     recovery_advantage_threshold = (
@@ -947,16 +1012,26 @@ def build_focused_recovery_gate(
         "source_indices": source_indices(range(row_count)),
         "criterion": {
             "primary_metric": PRIMARY_METRIC,
-            "primary_cohort": "rows_failed_by_frozen_base_full",
+            "primary_cohort": (
+                "all_32_frozen_hard32_rows"
+                if stage == "hard32"
+                else "rows_failed_by_frozen_base_full"
+            ),
             "format_gate_ratio": FORMAT_GATE_RATIO,
             "loss_logit_or_semantic_nll_can_satisfy_gate": False,
         },
         "condition_scores": summaries,
+        "f1_deltas": {
+            "acceptance": deltas,
+            "full_cohort": full_f1_deltas,
+            "base_failure_diagnostic": failure_f1_deltas,
+        },
         "base_failure_cohort": {
             "rows": len(base_failure_ordinals),
             "source_indices": source_indices(base_failure_ordinals),
+            "row_identities": row_identities(base_failure_ordinals),
             "condition_scores": failure_summaries,
-            "f1_deltas": deltas,
+            "f1_deltas": failure_f1_deltas,
             "normal_full_recoveries": source_indices(normal_recoveries),
             "state_only_recoveries": source_indices(state_recoveries),
             "no_write_full_recoveries": source_indices(no_write_recoveries),
@@ -971,6 +1046,7 @@ def build_focused_recovery_gate(
         "base_success_sentinel": {
             "rows": len(base_success_ordinals),
             "source_indices": source_indices(base_success_ordinals),
+            "row_identities": row_identities(base_success_ordinals),
             "normal_full_regressions": source_indices(normal_regressions),
             "state_only_regressions": source_indices(state_regressions),
         },
