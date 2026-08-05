@@ -7,7 +7,9 @@ the failed seed-42 V3 value readout. They are selection runs, not acceptance
 proofs:
 
 - all 384 training rows were trained and evaluated with `eval_split=train`;
-- the untouched 192-row heldout split was not evaluated;
+- these four screens did not evaluate or pass the 192 heldout rows to the
+  model; the base heldout split had already been evaluated by the earlier
+  failed seed-42 proof, so it is training-held-out but not investigator-blind;
 - evaluation was teacher-forced (`--no-greedy`) under `correct`, `donor`,
   `value_swap`, `shuffled_slots`, and `no_write` interventions;
 - all 42 memory layers were trained with batch size 4, learning rate `2e-4`,
@@ -53,6 +55,11 @@ Every screen also had:
 
 The train-only gates are marked `acceptance_eligible: false` by design because
 they do not evaluate heldout greedy answers.
+
+`load_source_bundle()` reads and validates both source partitions before it
+selects the train rows. Accordingly, "train-only" here means that heldout rows
+are neither trained on, evaluated, nor used for selection metrics. It does not
+mean that the heldout JSONL file is unopened.
 
 ## Integrity receipts
 
@@ -125,6 +132,13 @@ satisfies all of the following:
 - teacher-forced whole-answer exact is at least 95% for `correct` and
   `value_swap`; the redundant `donor` aggregate must also be at least 95% for
   compatibility;
+- teacher-forced whole-answer exact is at least 95% for the paired
+  `target_slot_rewrite` intervention, and at least 95% of correct/rewrite pairs
+  are jointly exact with different predicted outputs;
+- every rewrite changes exactly the addressed record, preserves all three
+  non-target records byte-for-byte, uses an alternate mapping offset from the
+  row's own split, and every heldout rewrite key/value binding is absent from
+  all training bindings;
 - correct, query-counterfactual, value-swap, and shuffled-slot semantic routing
   are each at least 95%;
 - no-write whole-answer exact is at most 35% and no-write routes are absent in
@@ -132,14 +146,14 @@ satisfies all of the following:
 - occupancy and forced writes are exact, runtime counterfactual states are
   byte-identical, all router gradients are finite and nonzero, and split/source/
   model integrity passes; and
-- the heldout proof protocol includes the paired same-query memory-flip metric
-  described above.
+- the signed train-screen receipt reports `train_screen_passed: true` under the
+  exact rank-32/768 selected protocol.
 
 If the train gate passes, run one acceptance-eligible rank-32 seed-42 heldout
 proof with greedy decoding, then seeds 43 and 44 only after seed 42 passes. If
-the train gate fails, do not access heldout: classify whether only value swap
-fails (paired value-binding training) or correct readout also fails (oracle-slot
-value-path localization).
+the train gate fails, do not evaluate heldout again: classify whether only
+value swap/rewrite fails (paired value-binding training) or correct readout also
+fails (oracle-slot value-path localization).
 
 ## Selected command
 
@@ -167,5 +181,41 @@ HF_ENDPOINT=https://hf-mirror.com python -m \
   --epochs 8 \
   --max-steps 768 \
   --no-greedy \
-  --output-dir experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_train_screen_seed42_rank32_s768_r1
+  --output-dir experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_train_gate_seed42_rank32_s768_r1
+```
+
+## Locked heldout command
+
+This command is permitted only after the signed train screen reports
+`train_screen_passed: true`. Omitting `--no-greedy` keeps greedy evaluation
+enabled. The runner rejects heldout requests that differ from the selected
+configuration or execute fewer than 768 updates. It also requires and
+revalidates the signed passing train-screen receipt, then binds that receipt
+into the heldout protocol, evaluation, and run receipt.
+
+```bash
+HF_ENDPOINT=https://hf-mirror.com python -m \
+  experiments.rethinking_rwkv_ms_gemma.run_synthetic_compositional_associative_retrieval_v3 \
+  --source-manifest experiments/rethinking_rwkv_ms_gemma/local_artifacts/synthetic_compositional_associative_canary_v3/source_manifest.json \
+  --model-path /root/X/.cache/hf/gemma-4-E4B-it-a4c2d58 \
+  --profile proof \
+  --seed 42 \
+  --eval-split heldout \
+  --batch-size 4 \
+  --eval-batch-size 8 \
+  --learning-rate 2e-4 \
+  --answer-weight 1.0 \
+  --route-weight 1.0 \
+  --max-grad-norm 1.0 \
+  --device cuda:0 \
+  --dtype bfloat16 \
+  --attn-implementation sdpa \
+  --target-layers all \
+  --key-dim 32 \
+  --temperature 16.0 \
+  --rank 32 \
+  --epochs 8 \
+  --max-steps 768 \
+  --train-screen-receipt experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_train_gate_seed42_rank32_s768_r1/run_receipt.json \
+  --output-dir experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_proof_seed42_rank32_s768_causal_r1
 ```
