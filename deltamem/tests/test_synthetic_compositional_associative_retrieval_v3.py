@@ -27,8 +27,13 @@ def heldout_rows(tokenizer):
 
 
 def test_delta_config_locks_explicit_four_slot_topology() -> None:
-    config = runner.build_delta_config(target_layers=(0, 1), key_dim=16, temperature=8.0)
+    config = runner.build_delta_config(
+        target_layers=(0, 1), rank=16, key_dim=16, temperature=8.0
+    )
 
+    assert config.rank == 16
+    assert config.alpha == 32
+    assert config.alpha / config.rank == 2.0
     assert config.memory_backend == "rwkv_ms"
     assert config.memory_readout_mode == "projected_kv_slots"
     assert config.memory_write_granularity == "token"
@@ -37,6 +42,11 @@ def test_delta_config_locks_explicit_four_slot_topology() -> None:
     assert config.projected_kv_temperature == 8.0
     assert config.projected_kv_update_cosine_threshold == 1.0
     assert config.target_layers == (0, 1)
+
+
+def test_delta_config_rejects_nonpositive_value_rank() -> None:
+    with pytest.raises(ValueError, match="value rank must be positive"):
+        runner.build_delta_config(rank=0)
 
 
 def test_examples_bind_correct_donor_swap_shuffle_and_no_write(

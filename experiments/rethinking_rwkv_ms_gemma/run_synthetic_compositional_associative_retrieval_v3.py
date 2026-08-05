@@ -105,12 +105,15 @@ def configure_hf_mirror() -> str:
 def build_delta_config(
     *,
     target_layers: Sequence[int] = TARGET_LAYERS,
+    rank: int = 4,
     key_dim: int = 32,
     temperature: float = 16.0,
 ) -> HFDeltaMemConfig:
+    if rank <= 0:
+        raise ValueError("Projected-KV value rank must be positive")
     return HFDeltaMemConfig(
-        rank=4,
-        alpha=8,
+        rank=rank,
+        alpha=2 * rank,
         memory_backend="rwkv_ms",
         rwkv_ms_num_states=canary.RWKV_MS_NUM_STATES,
         rwkv_ms_chunk_size=128,
@@ -1440,6 +1443,7 @@ def run_experiment(
     dtype_name: str,
     attn_implementation: str,
     target_layers: Sequence[int],
+    rank: int,
     key_dim: int,
     temperature: float,
     greedy: bool,
@@ -1473,6 +1477,7 @@ def run_experiment(
     set_seed(seed)
     delta_config = build_delta_config(
         target_layers=target_layers,
+        rank=rank,
         key_dim=key_dim,
         temperature=temperature,
     )
@@ -1499,6 +1504,7 @@ def run_experiment(
             "dtype": dtype_name,
             "attn_implementation": attn_implementation,
             "target_layers": list(target_layers),
+            "projected_kv_value_rank": rank,
             "projected_kv_key_dim": key_dim,
             "projected_kv_temperature": temperature,
             "greedy_answer_evaluation": greedy,
@@ -1808,6 +1814,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--attn-implementation", default="sdpa")
     parser.add_argument("--target-layers", type=_parse_target_layers, default=TARGET_LAYERS)
+    parser.add_argument("--rank", type=int, default=4)
     parser.add_argument("--key-dim", type=int, default=32)
     parser.add_argument("--temperature", type=float, default=16.0)
     parser.add_argument(
@@ -1851,6 +1858,7 @@ def main() -> None:
             dtype_name=args.dtype,
             attn_implementation=args.attn_implementation,
             target_layers=args.target_layers,
+            rank=args.rank,
             key_dim=args.key_dim,
             temperature=args.temperature,
             greedy=args.greedy,
