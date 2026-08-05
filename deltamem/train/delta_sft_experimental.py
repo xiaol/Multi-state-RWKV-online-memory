@@ -251,6 +251,7 @@ def _preserve_delta_runtime(model):
         "last_lambda_mean",
         "last_write_routes",
         "last_read_routes",
+        "last_read_route_logits",
         "last_base_o_norm",
         "last_delta_o_norm",
         "last_delta_o_ratio",
@@ -266,6 +267,10 @@ def _preserve_delta_runtime(model):
         "write_enabled",
         "write_message_ids",
         "write_sentence_ids",
+        "projected_kv_write_key_mask",
+        "projected_kv_write_value_mask",
+        "projected_kv_write_slot_indices",
+        "projected_kv_read_query_mask",
     )
     snapshots = []
     for _, module in iter_delta_mem_modules(model):
