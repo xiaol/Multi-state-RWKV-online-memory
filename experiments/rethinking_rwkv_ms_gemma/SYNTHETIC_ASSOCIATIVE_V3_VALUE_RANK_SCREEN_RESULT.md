@@ -135,12 +135,14 @@ satisfies all of the following:
 - teacher-forced whole-answer exact is at least 95% for the paired
   `target_slot_rewrite` intervention, and at least 95% of correct/rewrite pairs
   are jointly exact with different predicted outputs;
+- teacher-forced whole-answer exact is at least 95% after the fixed physical
+  slot permutation in `shuffled_slots`;
 - every rewrite changes exactly the addressed record, preserves all three
   non-target records byte-for-byte, uses an alternate mapping offset from the
   row's own split, and every heldout rewrite key/value binding is absent from
   all training bindings;
-- correct, query-counterfactual, value-swap, and shuffled-slot semantic routing
-  are each at least 95%;
+- correct, query-counterfactual, value-swap, target-slot-rewrite, and
+  shuffled-slot semantic routing are each at least 95%;
 - no-write whole-answer exact is at most 35% and no-write routes are absent in
   every possible module-row;
 - occupancy and forced writes are exact, runtime counterfactual states are
@@ -154,6 +156,31 @@ proof with greedy decoding, then seeds 43 and 44 only after seed 42 passes. If
 the train gate fails, do not evaluate heldout again: classify whether only
 value swap/rewrite fails (paired value-binding training) or correct readout also
 fails (oracle-slot value-path localization).
+
+## Revision-4 diagnostic and protocol audit
+
+The first rank-32/768 train run completed all 768 selected updates and passed
+every measured revision-4 gate criterion. Correct, donor, value-swap, and
+target-slot-rewrite teacher-forced exact were each 384/384; paired correct/
+rewrite exact output flips were 384/384; correct routing was 99.820%,
+value-swap routing was 99.795%, target-rewrite routing was 99.783%, and
+no-write exact was 0/384. Independent receipt validation with model hashes
+passed.
+
+That receipt is diagnostic rather than admissible proof evidence. The
+revision-4 provenance set hashed `deltamem/core/delta.py` but omitted its actual
+implementation in `delta_impl.py` and local import dependencies. It also
+reported value-swap and target-rewrite routing without making both explicit
+gate criteria, and it did not gate shuffled-slot answer correctness. Revision 5
+closes those gaps, removes the broad experimental trainer import from the proof
+runner, and treats revision-4 receipts as integrity-only legacy artifacts. Its
+validator binds the acceptance thresholds back to the source manifest,
+recomputes answer/routing/rewrite/query aggregates from row-level predictions,
+checks the saved adapter config and final state, and propagates model-hash
+verification through the linked train screen. The formal train screen must
+therefore be rerun from byte-clean committed revision-5 sources before any
+heldout launch. Routing thresholds refer to the aggregate across all 42 memory
+modules; they do not claim a 95% minimum for every individual layer.
 
 ## Selected command
 
@@ -181,7 +208,7 @@ HF_ENDPOINT=https://hf-mirror.com python -m \
   --epochs 8 \
   --max-steps 768 \
   --no-greedy \
-  --output-dir experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_train_gate_seed42_rank32_s768_r1
+  --output-dir experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_train_gate_seed42_rank32_s768_r2
 ```
 
 ## Locked heldout command
@@ -216,6 +243,23 @@ HF_ENDPOINT=https://hf-mirror.com python -m \
   --rank 32 \
   --epochs 8 \
   --max-steps 768 \
-  --train-screen-receipt experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_train_gate_seed42_rank32_s768_r1/run_receipt.json \
-  --output-dir experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_proof_seed42_rank32_s768_causal_r1
+  --train-screen-receipt experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_train_gate_seed42_rank32_s768_r2/run_receipt.json \
+  --output-dir experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_proof_seed42_rank32_s768_causal_r2
+```
+
+After seed 42 passes, repeat the exact command for seeds 43 and 44 with fresh
+output directories (GPUs may differ). A three-seed claim requires a single
+proof-set certificate; three independent `passed: true` fields are not a
+substitute:
+
+```bash
+HF_ENDPOINT=https://hf-mirror.com python -m \
+  experiments.rethinking_rwkv_ms_gemma.run_synthetic_compositional_associative_retrieval_v3 \
+  --source-manifest experiments/rethinking_rwkv_ms_gemma/local_artifacts/synthetic_compositional_associative_canary_v3/source_manifest.json \
+  --model-path /root/X/.cache/hf/gemma-4-E4B-it-a4c2d58 \
+  --proof-set-output experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_proof_set_rank32_s768_causal_r2.json \
+  --proof-receipts \
+    experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_proof_seed42_rank32_s768_causal_r2/run_receipt.json \
+    experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_proof_seed43_rank32_s768_causal_r2/run_receipt.json \
+    experiments/rethinking_rwkv_ms_gemma/local_artifacts/v3_proof_seed44_rank32_s768_causal_r2/run_receipt.json
 ```

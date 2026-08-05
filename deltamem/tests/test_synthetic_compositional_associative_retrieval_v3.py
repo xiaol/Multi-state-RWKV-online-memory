@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
+import json
 import os
+from pathlib import Path
 
 import pytest
 import torch
@@ -423,6 +425,185 @@ def _answer_prediction_result(examples, *, greedy: bool = True):
     }
 
 
+def _complete_condition_evidence(
+    examples,
+    *,
+    condition: str,
+    module_names: tuple[str, ...],
+    greedy: bool,
+):
+    rows = len(examples)
+    answer_predictions = {
+        example.row_id: {
+            "expected_answer_token_ids": list(example.expected_answer_token_ids),
+            "teacher_forced_prediction_token_ids": list(
+                example.expected_answer_token_ids
+            ),
+            "teacher_forced_exact": True,
+            "greedy_generated_token_ids": (
+                list(example.expected_answer_token_ids) if greedy else None
+            ),
+            "greedy_exact": True if greedy else None,
+        }
+        for example in examples
+    }
+    token_total = sum(len(example.expected_answer_token_ids) for example in examples)
+    positive = condition != "no_write"
+    if positive:
+        routes = {
+            example.row_id: {
+                module_name: int(example.target_slot) for module_name in module_names
+            }
+            for example in examples
+        }
+        layer_metrics = {
+            module_name: {"correct": rows, "total": rows, "accuracy": 1.0}
+            for module_name in module_names
+        }
+        state_digests = {
+            example.row_id: canary.canonical_sha256(example.memory_state_id)
+            for example in examples
+        }
+        route_total = rows * len(module_names)
+        occupancy_total = route_total
+        forced_total = route_total * canary.RECORDS_PER_EPISODE
+    else:
+        routes = {}
+        layer_metrics = {
+            module_name: {"correct": 0, "total": 0, "accuracy": None}
+            for module_name in module_names
+        }
+        state_digests = {}
+        route_total = occupancy_total = forced_total = 0
+    return {
+        "condition": condition,
+        "rows": rows,
+        "teacher_forced_answer_exact_count": rows,
+        "teacher_forced_answer_exact_accuracy": 1.0,
+        "teacher_forced_answer_token_correct": token_total,
+        "teacher_forced_answer_token_total": token_total,
+        "teacher_forced_answer_token_accuracy": 1.0,
+        "greedy_answer_evaluated": greedy,
+        "greedy_answer_exact_count": rows if greedy else None,
+        "greedy_answer_exact_accuracy": 1.0 if greedy else None,
+        "answer_predictions_by_row": answer_predictions,
+        "semantic_route_correct": route_total,
+        "semantic_route_total": route_total,
+        "semantic_route_accuracy": 1.0 if positive else None,
+        "route_by_layer": layer_metrics,
+        "route_predictions_by_row": routes,
+        "full_occupancy_count": occupancy_total,
+        "full_occupancy_total": occupancy_total,
+        "full_occupancy_fraction": 1.0 if positive else None,
+        "forced_write_route_correct": forced_total,
+        "forced_write_route_total": forced_total,
+        "forced_write_route_accuracy": 1.0 if positive else None,
+        "route_absent_module_rows": 0 if positive else rows * len(module_names),
+        "route_possible_module_rows": rows * len(module_names),
+        "route_absent_fraction": 0.0 if positive else 1.0,
+        "state_digest_by_row": state_digests,
+    }
+
+
+def test_evaluation_evidence_is_recomputed_from_rows(
+    tokenizer,
+    train_rows,
+) -> None:
+    selected = runner.select_complete_memory_states(train_rows, 4)
+    module_names = ("model.language_model.layers.0.self_attn",)
+    examples_by_condition = {
+        condition: runner.build_condition_examples(
+            selected,
+            tokenizer,
+            condition,
+            all_rows=train_rows,
+        )
+        for condition in runner.CONDITIONS
+    }
+    conditions = {
+        condition: _complete_condition_evidence(
+            examples,
+            condition=condition,
+            module_names=module_names,
+            greedy=True,
+        )
+        for condition, examples in examples_by_condition.items()
+    }
+    evaluation = {
+        "eval_rows": 4,
+        "conditions": conditions,
+        "query_counterfactual_audit": runner.query_counterfactual_audit(
+            examples_by_condition["correct"], conditions["correct"]
+        ),
+        "target_slot_rewrite_audit": runner.target_slot_rewrite_audit(
+            examples_by_condition["correct"],
+            examples_by_condition["target_slot_rewrite"],
+            conditions["correct"],
+            conditions["target_slot_rewrite"],
+        ),
+    }
+    protocol = {
+        "eval_split": "train",
+        "eval_limit": 4,
+        "target_layers": [0],
+        "greedy_answer_evaluation": True,
+    }
+    receipt = {
+        "model_attachment": {"replaced_modules": list(module_names)},
+        "training": {
+            "router_gradient_audit": {
+                "modules": 1,
+                "finite_nonzero_modules": 1,
+                "all_modules_finite_nonzero": True,
+                "records": [
+                    {
+                        "module": module_names[0],
+                        "layer": 0,
+                        "projected_kv_key_route_grad_norm": 0.5,
+                        "finite_nonzero": True,
+                    }
+                ],
+            }
+        },
+    }
+    source = {
+        "model": {"path": str(canary.DEFAULT_MODEL_PATH)},
+        "partitions": {"train": train_rows, "heldout": []},
+    }
+
+    runner._validate_evaluation_evidence(
+        evaluation,
+        source=source,
+        protocol=protocol,
+        receipt=receipt,
+    )
+
+    corrupted = copy.deepcopy(evaluation)
+    corrupted["conditions"]["correct"][
+        "teacher_forced_answer_exact_count"
+    ] = 3
+    with pytest.raises(ValueError, match="answer aggregate binding differs"):
+        runner._validate_evaluation_evidence(
+            corrupted,
+            source=source,
+            protocol=protocol,
+            receipt=receipt,
+        )
+
+    corrupted = copy.deepcopy(evaluation)
+    first_row = selected[0]["row_id"]
+    corrupted["conditions"]["correct"]["route_predictions_by_row"][first_row][
+        module_names[0]
+    ] = 3
+    with pytest.raises(ValueError, match="route aggregate binding differs"):
+        runner._validate_evaluation_evidence(
+            corrupted,
+            source=source,
+            protocol=protocol,
+            receipt=receipt,
+        )
+
+
 def test_target_slot_rewrite_audit_binds_same_row_output_flips(
     tokenizer,
     train_rows,
@@ -564,6 +745,18 @@ def test_acceptance_gate_is_conjunctive() -> None:
     assert failed["criteria"]["heldout_value_swap_expected_answer_accuracy"] is False
 
     evaluation["conditions"]["value_swap"]["greedy_answer_exact_accuracy"] = 1.0
+    evaluation["conditions"]["value_swap"]["semantic_route_accuracy"] = 0.94
+    failed = runner.build_gate(
+        evaluation,
+        training=training,
+        split_audit_passed=True,
+        input_immutability_passed=True,
+        require_greedy=True,
+    )
+    assert failed["passed"] is False
+    assert failed["criteria"]["heldout_value_swap_semantic_route_accuracy"] is False
+
+    evaluation["conditions"]["value_swap"]["semantic_route_accuracy"] = 1.0
     evaluation["conditions"]["target_slot_rewrite"][
         "greedy_answer_exact_accuracy"
     ] = 0.94
@@ -585,6 +778,27 @@ def test_acceptance_gate_is_conjunctive() -> None:
     evaluation["conditions"]["target_slot_rewrite"][
         "greedy_answer_exact_accuracy"
     ] = 1.0
+    evaluation["conditions"]["target_slot_rewrite"][
+        "semantic_route_accuracy"
+    ] = 0.94
+    failed = runner.build_gate(
+        evaluation,
+        training=training,
+        split_audit_passed=True,
+        input_immutability_passed=True,
+        require_greedy=True,
+    )
+    assert failed["passed"] is False
+    assert (
+        failed["criteria"][
+            "heldout_target_slot_rewrite_semantic_route_accuracy"
+        ]
+        is False
+    )
+
+    evaluation["conditions"]["target_slot_rewrite"][
+        "semantic_route_accuracy"
+    ] = 1.0
     evaluation["target_slot_rewrite_audit"][
         "greedy_joint_exact_output_flip_fraction"
     ] = 0.94
@@ -603,11 +817,31 @@ def test_acceptance_gate_is_conjunctive() -> None:
         is False
     )
 
+    evaluation["target_slot_rewrite_audit"][
+        "greedy_joint_exact_output_flip_fraction"
+    ] = 1.0
+    evaluation["conditions"]["shuffled_slots"][
+        "greedy_answer_exact_accuracy"
+    ] = 0.94
+    failed = runner.build_gate(
+        evaluation,
+        training=training,
+        split_audit_passed=True,
+        input_immutability_passed=True,
+        require_greedy=True,
+    )
+    assert failed["passed"] is False
+    assert (
+        failed["criteria"]["heldout_shuffled_slot_expected_answer_accuracy"]
+        is False
+    )
+
 
 def test_condition_contract_binds_new_artifacts_and_allows_legacy_absence() -> None:
     contract = runner._condition_contract()
 
     assert contract["conditions"] == list(runner.CONDITIONS)
+    assert "shuffled_slots" in contract["positive_answer_conditions"]
     assert contract["target_slot_rewrite"]["changed_write_records"] == 1
     assert contract["target_slot_rewrite"]["train_rewrite_offsets"] == list(
         canary.TRAIN_OFFSETS
@@ -628,6 +862,48 @@ def test_condition_contract_binds_new_artifacts_and_allows_legacy_absence() -> N
         runner._validate_condition_contract_binding(contract, mutated, contract)
     with pytest.raises(ValueError, match="condition contract differs"):
         runner._validate_condition_contract_binding(contract, None, contract)
+
+    legacy = runner._legacy_revision_4_condition_contract()
+    assert "shuffled_slots" not in legacy["positive_answer_conditions"]
+    runner._validate_condition_contract_binding(
+        copy.deepcopy(legacy),
+        copy.deepcopy(legacy),
+        copy.deepcopy(legacy),
+        expected=legacy,
+    )
+
+
+def test_acceptance_contract_is_bound_to_the_canary_spec() -> None:
+    contract = runner._acceptance_contract()
+
+    runner._validate_acceptance_contract_binding(
+        copy.deepcopy(contract),
+        copy.deepcopy(contract),
+        copy.deepcopy(contract),
+    )
+    relaxed = copy.deepcopy(contract)
+    relaxed["heldout_answer_accuracy_min"] = 0.0
+    with pytest.raises(ValueError, match="acceptance contract differs"):
+        runner._validate_acceptance_contract_binding(contract, relaxed, contract)
+
+
+def test_proof_provenance_binds_transitive_outer_memory_sources() -> None:
+    required = {
+        "deltamem/__init__.py",
+        "deltamem/core/__init__.py",
+        "deltamem/core/backbone_compat.py",
+        "deltamem/core/delta.py",
+        "deltamem/core/delta_impl.py",
+        "deltamem/core/hrm_rwkv7.py",
+        "deltamem/kernels/__init__.py",
+        "deltamem/kernels/affine_scan.py",
+    }
+    bound = set(runner.PROOF_SOURCE_RELATIVE_PATHS)
+    repository = Path(runner.__file__).resolve().parents[2]
+
+    assert required <= bound
+    assert "deltamem/train/delta_sft_experimental.py" not in bound
+    assert all((repository / relative_path).is_file() for relative_path in bound)
 
 
 def _selected_protocol_fixture(*, screen: bool):
@@ -672,6 +948,7 @@ def _selected_protocol_fixture(*, screen: bool):
         "eval_limit": common["eval_limit"],
         "greedy_answer_evaluation": mode["greedy_answer_evaluation"],
         "train_screen_binding": train_screen_binding,
+        "acceptance_contract": runner._acceptance_contract(),
         "condition_contract": runner._condition_contract(),
         "selected_protocol_contract": contract,
     }
@@ -745,6 +1022,17 @@ def test_selected_protocol_eligibility_locks_every_common_field() -> None:
     )
     assert result["acceptance_eligible"] is False
     assert runner._selected_heldout_request_matches(missing_screen) is False
+
+    relaxed_acceptance = copy.deepcopy(protocol)
+    relaxed_acceptance["acceptance_contract"]["heldout_answer_accuracy_min"] = 0.0
+    result = runner.build_protocol_eligibility(
+        relaxed_acceptance,
+        evaluation,
+        training,
+    )
+    assert result["acceptance_eligible"] is False
+    assert result["current_contracts_present"] is False
+    assert runner._selected_heldout_request_matches(relaxed_acceptance) is False
 
 
 def test_selected_train_screen_has_a_first_class_teacher_forced_gate() -> None:
@@ -856,4 +1144,98 @@ def test_signed_payload_rejects_mutation() -> None:
     with pytest.raises(ValueError, match="canonical SHA-256 differs"):
         runner._validate_signed_payload(
             signed, hash_field="sha256", description="fixture"
+        )
+
+
+def test_proof_set_requires_all_three_common_bound_seed_receipts(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    code_provenance = {
+        "git_commit": "a" * 40,
+        "source_sha256_by_path": {},
+    }
+    train_screen_binding = {
+        "receipt_path": "/proof/train/run_receipt.json",
+        "receipt_file_sha256": "1" * 64,
+        "receipt_sha256": "2" * 64,
+        "evaluation_sha256": "3" * 64,
+        "seed": runner.SELECTED_TRAIN_SCREEN_SEED,
+        "current_protocol_valid": True,
+        "train_screen_passed": True,
+    }
+    receipt_paths = []
+    for seed in (42, 43, 44):
+        path = tmp_path / f"seed-{seed}.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "seed": seed,
+                    "protocol_revision": runner.CURRENT_PROTOCOL_REVISION,
+                    "source_before": {"manifest_sha256": "4" * 64},
+                    "model_before": {"identity_sha256": "5" * 64},
+                    "train_screen_binding": train_screen_binding,
+                    "code_provenance": code_provenance,
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipt_paths.append(path)
+
+    def fake_validate(path, **_kwargs):
+        receipt = json.loads(Path(path).read_text(encoding="utf-8"))
+        seed = receipt["seed"]
+        return {
+            "valid": True,
+            "receipt_path": str(Path(path).resolve()),
+            "receipt_file_sha256": str(seed) * 32,
+            "receipt_sha256": str(seed + 1) * 32,
+            "evaluation_sha256": str(seed + 2) * 32,
+            "seed": seed,
+            "current_protocol_valid": True,
+            "gate": {
+                "passed": True,
+                "acceptance_eligible": True,
+                "required_seed_passes": 3,
+                "answer_metric": "greedy_whole_answer_exact",
+            },
+        }
+
+    monkeypatch.setattr(runner, "validate_receipt", fake_validate)
+    monkeypatch.setattr(runner, "_validate_code_provenance", lambda _binding: None)
+    monkeypatch.setattr(
+        runner,
+        "_capture_code_provenance",
+        lambda: copy.deepcopy(code_provenance),
+    )
+
+    output = tmp_path / "proof-set.json"
+    created = runner.create_proof_set(
+        receipt_paths,
+        output_path=output,
+        source_manifest=tmp_path / "source.json",
+        model_path=tmp_path / "model",
+    )
+    validated = runner.validate_proof_set(
+        output,
+        source_manifest=tmp_path / "source.json",
+        model_path=tmp_path / "model",
+        verify_model_hashes=True,
+    )
+
+    assert created["aggregate_passed"] is True
+    assert validated["aggregate_passed"] is True
+    assert validated["required_seeds"] == [42, 43, 44]
+
+    receipt_paths[-1].write_text(
+        receipt_paths[-1].read_text(encoding="utf-8").replace('"seed": 44', '"seed": 45'),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="exact required seeds"):
+        runner._proof_set_payload(
+            receipt_paths,
+            source_manifest=tmp_path / "source.json",
+            model_path=tmp_path / "model",
+            verify_model_hashes=True,
+            require_current_checkout=False,
         )

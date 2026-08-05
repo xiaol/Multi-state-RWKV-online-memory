@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 import hashlib
 import json
@@ -19,7 +19,9 @@ import time
 from typing import Any, Iterable, Mapping, Sequence
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 import transformers
 from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 
@@ -38,12 +40,6 @@ from deltamem.core.delta import (
     set_delta_mem_write_enabled,
     snapshot_delta_mem_weights,
 )
-from deltamem.train.delta_sft_experimental import (
-    _disable_training_cache,
-    _promote_trainable_parameters_to_fp32,
-    _temporarily_disable_delta_heads,
-    checkpoint_frozen_mlp_activations,
-)
 from experiments.rethinking_rwkv_ms_gemma import (
     prepare_synthetic_compositional_associative_retrieval_canary_v3 as canary,
 )
@@ -52,6 +48,7 @@ from experiments.rethinking_rwkv_ms_gemma import (
 RUN_SCHEMA = "rwkv_ms_synthetic_compositional_associative_run.v3"
 EVALUATION_SCHEMA = "rwkv_ms_synthetic_compositional_associative_eval.v3"
 PROTOCOL_SCHEMA = "rwkv_ms_synthetic_compositional_associative_protocol.v3"
+PROOF_SET_SCHEMA = "rwkv_ms_synthetic_compositional_associative_proof_set.v1"
 HF_MIRROR_ENDPOINT = "https://hf-mirror.com"
 TARGET_LAYERS = tuple(range(42))
 CONDITIONS = (
@@ -67,9 +64,12 @@ POSITIVE_ANSWER_CONDITIONS = (
     "donor",
     "value_swap",
     "target_slot_rewrite",
+    "shuffled_slots",
 )
+LEGACY_REVISION_4_POSITIVE_ANSWER_CONDITIONS = POSITIVE_ANSWER_CONDITIONS[:-1]
 TARGET_SLOT_REWRITE_THRESHOLD = "heldout_value_swap_expected_answer_accuracy_min"
-CURRENT_PROTOCOL_REVISION = 4
+CURRENT_PROTOCOL_REVISION = 5
+LEGACY_PROTOCOL_REVISIONS = frozenset({4})
 SELECTED_PROOF_EPOCHS = 8
 SELECTED_PROOF_MAX_STEPS = 768
 SELECTED_PROOF_BATCH_SIZE = 4
@@ -93,9 +93,120 @@ PROOF_SOURCE_RELATIVE_PATHS = (
         "experiments/rethinking_rwkv_ms_gemma/"
         "prepare_synthetic_compositional_associative_retrieval_canary_v3.py"
     ),
+    "deltamem/__init__.py",
+    "deltamem/core/__init__.py",
+    "deltamem/core/backbone_compat.py",
     "deltamem/core/delta.py",
-    "deltamem/train/delta_sft_experimental.py",
+    "deltamem/core/delta_impl.py",
+    "deltamem/core/hrm_rwkv7.py",
+    "deltamem/kernels/__init__.py",
+    "deltamem/kernels/affine_scan.py",
 )
+
+
+class FrozenMLPActivationCheckpointWrapper(nn.Module):
+    def __init__(self, module: nn.Module) -> None:
+        super().__init__()
+        self.module = module
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        should_checkpoint = (
+            self.training
+            and torch.is_grad_enabled()
+            and hidden_states.requires_grad
+        )
+        if not should_checkpoint:
+            return self.module(hidden_states)
+        return checkpoint(self.module, hidden_states, use_reentrant=False)
+
+
+def checkpoint_frozen_mlp_activations(model: nn.Module) -> list[str]:
+    candidates: list[tuple[str, nn.Module]] = []
+    missing_mlp_layers: list[str] = []
+    for attention_name, _ in iter_delta_mem_modules(model):
+        parent_name, attention_attribute = attention_name.rsplit(".", 1)
+        if attention_attribute != "self_attn":
+            continue
+        parent = model.get_submodule(parent_name)
+        module = getattr(parent, "mlp", None)
+        if module is None:
+            missing_mlp_layers.append(parent_name)
+            continue
+        candidates.append((f"{parent_name}.mlp", module))
+
+    if missing_mlp_layers:
+        raise ValueError(
+            "Frozen MLP activation checkpointing requires an MLP beside every selected "
+            "Delta-Mem attention; missing MLP in: " + ", ".join(missing_mlp_layers)
+        )
+    if not candidates:
+        raise ValueError(
+            "Frozen MLP activation checkpointing found no decoder MLPs beside "
+            "Delta-Mem attention modules"
+        )
+
+    trainable_parameters = [
+        f"{name}.{parameter_name}"
+        for name, module in candidates
+        if not isinstance(module, FrozenMLPActivationCheckpointWrapper)
+        for parameter_name, parameter in module.named_parameters()
+        if parameter.requires_grad
+    ]
+    if trainable_parameters:
+        preview = ", ".join(trainable_parameters[:8])
+        if len(trainable_parameters) > 8:
+            preview += f", ... ({len(trainable_parameters)} total)"
+        raise ValueError(
+            "Frozen MLP activation checkpointing requires every selected MLP parameter "
+            f"to be frozen; trainable parameters: {preview}"
+        )
+
+    checkpointed: list[str] = []
+    for name, module in candidates:
+        if isinstance(module, FrozenMLPActivationCheckpointWrapper):
+            checkpointed.append(name)
+            continue
+        parent_name, attribute = name.rsplit(".", 1)
+        parent = model.get_submodule(parent_name)
+        setattr(parent, attribute, FrozenMLPActivationCheckpointWrapper(module))
+        checkpointed.append(name)
+    return checkpointed
+
+
+@contextmanager
+def _temporarily_disable_delta_heads(model):
+    active_heads = []
+    for _, module in iter_delta_mem_modules(model):
+        active_heads.append((module, module.active_delta_heads))
+        module.active_delta_heads = frozenset()
+    try:
+        yield
+    finally:
+        for module, module_active_heads in active_heads:
+            module.active_delta_heads = module_active_heads
+
+
+def _disable_training_cache(model) -> None:
+    config = model.config
+    config.use_cache = False
+    get_text_config = getattr(config, "get_text_config", None)
+    if not callable(get_text_config):
+        return
+    try:
+        text_config = get_text_config(decoder=True)
+    except TypeError:
+        text_config = get_text_config()
+    if text_config is not None:
+        text_config.use_cache = False
+
+
+def _promote_trainable_parameters_to_fp32(model) -> None:
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        if not parameter.is_floating_point():
+            raise TypeError(f"Trainable parameter {name} must be floating point")
+        parameter.data = parameter.data.to(dtype=torch.float32)
 
 
 def _selected_protocol_contract() -> dict[str, Any]:
@@ -258,6 +369,7 @@ def _selected_heldout_request_matches(protocol: Mapping[str, Any]) -> bool:
         is proof["greedy_answer_evaluation"]
         and _train_screen_binding_is_valid(protocol.get("train_screen_binding"))
         and protocol.get("condition_contract") == _condition_contract()
+        and protocol.get("acceptance_contract") == _acceptance_contract()
         and protocol.get("selected_protocol_contract")
         == _selected_protocol_contract()
     )
@@ -349,19 +461,26 @@ def build_protocol_eligibility(
         protocol.get("condition_contract") == _condition_contract()
         and evaluation.get("condition_contract") == _condition_contract()
     )
+    current_acceptance_contract_present = (
+        protocol.get("acceptance_contract") == _acceptance_contract()
+        and evaluation.get("acceptance_contract") == _acceptance_contract()
+    )
     base = (
         common_matches
         and artifact_fields_match
         and full_partitions
         and selected_contract_present
         and current_condition_contract_present
+        and current_acceptance_contract_present
     )
     return {
         "selected_common_configuration_matches": common_matches,
         "cross_artifact_protocol_fields_match": artifact_fields_match,
         "full_train_and_evaluation_partitions": full_partitions,
         "current_contracts_present": (
-            selected_contract_present and current_condition_contract_present
+            selected_contract_present
+            and current_condition_contract_present
+            and current_acceptance_contract_present
         ),
         "train_screen_eligible": base and screen_mode_matches,
         "acceptance_eligible": base and proof_mode_matches,
@@ -397,11 +516,31 @@ def _condition_contract() -> dict[str, Any]:
     }
 
 
-def _validate_condition_contract_binding(*contracts: Any) -> None:
+def _legacy_revision_4_condition_contract() -> dict[str, Any]:
+    contract = _condition_contract()
+    contract["positive_answer_conditions"] = list(
+        LEGACY_REVISION_4_POSITIVE_ANSWER_CONDITIONS
+    )
+    return contract
+
+
+def _acceptance_contract() -> dict[str, Any]:
+    return dict(canary.canary_spec()["acceptance_gate"])
+
+
+def _validate_acceptance_contract_binding(*contracts: Any) -> None:
+    expected = _acceptance_contract()
+    if any(contract != expected for contract in contracts):
+        raise ValueError("V3 run acceptance contract differs")
+
+
+def _validate_condition_contract_binding(
+    *contracts: Any, expected: Mapping[str, Any] | None = None
+) -> None:
     if all(contract is None for contract in contracts):
         return
-    expected = _condition_contract()
-    if any(contract != expected for contract in contracts):
+    bound_contract = _condition_contract() if expected is None else expected
+    if any(contract != bound_contract for contract in contracts):
         raise ValueError("V3 run condition contract differs")
 
 
@@ -2163,9 +2302,17 @@ def build_gate(
             answer_accuracy("value_swap")
             >= acceptance["heldout_value_swap_expected_answer_accuracy_min"]
         ),
+        "heldout_value_swap_semantic_route_accuracy": (
+            conditions["value_swap"]["semantic_route_accuracy"]
+            >= acceptance["heldout_semantic_route_accuracy_min"]
+        ),
         "heldout_target_slot_rewrite_expected_answer_accuracy": (
             answer_accuracy("target_slot_rewrite")
             >= target_slot_rewrite_threshold
+        ),
+        "heldout_target_slot_rewrite_semantic_route_accuracy": (
+            conditions["target_slot_rewrite"]["semantic_route_accuracy"]
+            >= acceptance["heldout_semantic_route_accuracy_min"]
         ),
         "target_slot_rewrite_pair_contract": (
             rewrite_audit["pair_contract_passed_fraction"] == 1.0
@@ -2184,6 +2331,10 @@ def build_gate(
         "shuffled_slot_semantic_route_accuracy": (
             conditions["shuffled_slots"]["semantic_route_accuracy"]
             >= acceptance["heldout_semantic_route_accuracy_min"]
+        ),
+        "heldout_shuffled_slot_expected_answer_accuracy": (
+            answer_accuracy("shuffled_slots")
+            >= acceptance["heldout_answer_accuracy_min"]
         ),
         "runtime_query_states_are_byte_identical": (
             query_audit["runtime_byte_identical_state_fraction"] == 1.0
@@ -2282,6 +2433,348 @@ def _write_json(path: Path, value: Mapping[str, Any]) -> None:
     )
 
 
+def _validated_token_ids(value: Any, *, description: str) -> tuple[int, ...]:
+    if not isinstance(value, list) or any(type(token) is not int for token in value):
+        raise ValueError(f"V3 {description} token IDs differ")
+    return tuple(value)
+
+
+def _validate_count_fraction(
+    result: Mapping[str, Any],
+    *,
+    count_field: str,
+    total_field: str,
+    fraction_field: str,
+    expected_total: int,
+    description: str,
+) -> None:
+    count = result.get(count_field)
+    total = result.get(total_field)
+    if (
+        type(count) is not int
+        or type(total) is not int
+        or total != expected_total
+        or count < 0
+        or count > total
+    ):
+        raise ValueError(f"V3 {description} count binding differs")
+    expected_fraction = count / total if total else None
+    if result.get(fraction_field) != expected_fraction:
+        raise ValueError(f"V3 {description} fraction binding differs")
+
+
+def _validate_condition_metric_binding(
+    result: Any,
+    examples: Sequence[EpisodeExample],
+    *,
+    condition: str,
+    module_names: Sequence[str],
+    require_greedy: bool,
+) -> None:
+    if not isinstance(result, Mapping) or not examples:
+        raise ValueError(f"V3 {condition} condition evidence is absent")
+    expected_by_row = {example.row_id: example for example in examples}
+    if len(expected_by_row) != len(examples):
+        raise ValueError(f"V3 {condition} condition row IDs are not unique")
+    predictions = result.get("answer_predictions_by_row")
+    if not isinstance(predictions, Mapping) or set(predictions) != set(expected_by_row):
+        raise ValueError(f"V3 {condition} answer prediction rows differ")
+
+    teacher_exact_count = 0
+    teacher_token_correct = 0
+    teacher_token_total = 0
+    greedy_exact_count = 0
+    for row_id, example in expected_by_row.items():
+        prediction = predictions[row_id]
+        if not isinstance(prediction, Mapping):
+            raise ValueError(f"V3 {condition} answer prediction differs")
+        expected = _validated_token_ids(
+            prediction.get("expected_answer_token_ids"),
+            description=f"{condition} expected-answer",
+        )
+        teacher = _validated_token_ids(
+            prediction.get("teacher_forced_prediction_token_ids"),
+            description=f"{condition} teacher-forced prediction",
+        )
+        if expected != example.expected_answer_token_ids or len(teacher) != len(expected):
+            raise ValueError(f"V3 {condition} expected-answer binding differs")
+        teacher_exact = teacher == expected
+        if prediction.get("teacher_forced_exact") is not teacher_exact:
+            raise ValueError(f"V3 {condition} teacher-forced exact binding differs")
+        teacher_exact_count += int(teacher_exact)
+        teacher_token_correct += sum(
+            predicted == target
+            for predicted, target in zip(teacher, expected, strict=True)
+        )
+        teacher_token_total += len(expected)
+
+        if require_greedy:
+            generated = _validated_token_ids(
+                prediction.get("greedy_generated_token_ids"),
+                description=f"{condition} greedy prediction",
+            )
+            greedy_exact = generated == expected
+            if prediction.get("greedy_exact") is not greedy_exact:
+                raise ValueError(f"V3 {condition} greedy exact binding differs")
+            greedy_exact_count += int(greedy_exact)
+        elif (
+            prediction.get("greedy_generated_token_ids") is not None
+            or prediction.get("greedy_exact") is not None
+        ):
+            raise ValueError(f"V3 {condition} unexpectedly contains greedy evidence")
+
+    rows = len(examples)
+    expected_answer_metrics = {
+        "condition": condition,
+        "rows": rows,
+        "teacher_forced_answer_exact_count": teacher_exact_count,
+        "teacher_forced_answer_exact_accuracy": teacher_exact_count / rows,
+        "teacher_forced_answer_token_correct": teacher_token_correct,
+        "teacher_forced_answer_token_total": teacher_token_total,
+        "teacher_forced_answer_token_accuracy": (
+            teacher_token_correct / teacher_token_total
+        ),
+        "greedy_answer_evaluated": require_greedy,
+        "greedy_answer_exact_count": greedy_exact_count if require_greedy else None,
+        "greedy_answer_exact_accuracy": (
+            greedy_exact_count / rows if require_greedy else None
+        ),
+    }
+    if any(result.get(field) != value for field, value in expected_answer_metrics.items()):
+        raise ValueError(f"V3 {condition} answer aggregate binding differs")
+
+    route_predictions = result.get("route_predictions_by_row")
+    route_by_layer = result.get("route_by_layer")
+    if not isinstance(route_predictions, Mapping) or not isinstance(
+        route_by_layer, Mapping
+    ):
+        raise ValueError(f"V3 {condition} route evidence is absent")
+    if set(route_by_layer) != set(module_names):
+        raise ValueError(f"V3 {condition} route module binding differs")
+    positive = condition != "no_write"
+    layer_metrics: dict[str, dict[str, Any]] = {}
+    route_correct = 0
+    route_total = 0
+    if positive:
+        if set(route_predictions) != set(expected_by_row):
+            raise ValueError(f"V3 {condition} route prediction rows differ")
+        for module_name in module_names:
+            layer_correct = 0
+            for row_id, example in expected_by_row.items():
+                row_routes = route_predictions[row_id]
+                if not isinstance(row_routes, Mapping) or set(row_routes) != set(
+                    module_names
+                ):
+                    raise ValueError(f"V3 {condition} row route modules differ")
+                predicted = row_routes[module_name]
+                if type(predicted) is not int or example.target_slot is None:
+                    raise ValueError(f"V3 {condition} row route prediction differs")
+                layer_correct += int(predicted == example.target_slot)
+            layer_metrics[module_name] = {
+                "correct": layer_correct,
+                "total": rows,
+                "accuracy": layer_correct / rows,
+            }
+            route_correct += layer_correct
+            route_total += rows
+    else:
+        if route_predictions:
+            raise ValueError("V3 no-write route predictions are present")
+        layer_metrics = {
+            module_name: {"correct": 0, "total": 0, "accuracy": None}
+            for module_name in module_names
+        }
+    expected_route_metrics = {
+        "semantic_route_correct": route_correct,
+        "semantic_route_total": route_total,
+        "semantic_route_accuracy": route_correct / route_total if route_total else None,
+        "route_by_layer": layer_metrics,
+        "route_absent_module_rows": 0 if positive else rows * len(module_names),
+        "route_possible_module_rows": rows * len(module_names),
+        "route_absent_fraction": 0.0 if positive else 1.0,
+    }
+    if any(result.get(field) != value for field, value in expected_route_metrics.items()):
+        raise ValueError(f"V3 {condition} route aggregate binding differs")
+
+    state_digests = result.get("state_digest_by_row")
+    if not isinstance(state_digests, Mapping):
+        raise ValueError(f"V3 {condition} state digest evidence is absent")
+    if positive:
+        if set(state_digests) != set(expected_by_row) or any(
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+            for digest in state_digests.values()
+        ):
+            raise ValueError(f"V3 {condition} state digest binding differs")
+    elif state_digests:
+        raise ValueError("V3 no-write state digests are present")
+
+    occupancy_total = rows * len(module_names) if positive else 0
+    forced_route_total = (
+        rows * len(module_names) * canary.RECORDS_PER_EPISODE if positive else 0
+    )
+    _validate_count_fraction(
+        result,
+        count_field="full_occupancy_count",
+        total_field="full_occupancy_total",
+        fraction_field="full_occupancy_fraction",
+        expected_total=occupancy_total,
+        description=f"{condition} occupancy",
+    )
+    _validate_count_fraction(
+        result,
+        count_field="forced_write_route_correct",
+        total_field="forced_write_route_total",
+        fraction_field="forced_write_route_accuracy",
+        expected_total=forced_route_total,
+        description=f"{condition} forced-write route",
+    )
+
+
+def _expected_proof_module_names(protocol: Mapping[str, Any]) -> tuple[str, ...]:
+    target_layers = protocol.get("target_layers")
+    if not isinstance(target_layers, list) or any(
+        type(layer) is not int for layer in target_layers
+    ):
+        raise ValueError("V3 proof target-layer binding differs")
+    return tuple(
+        f"model.language_model.layers.{layer}.self_attn" for layer in target_layers
+    )
+
+
+def _validate_router_gradient_binding(
+    training: Mapping[str, Any], module_names: Sequence[str]
+) -> None:
+    audit = training.get("router_gradient_audit")
+    if not isinstance(audit, Mapping) or not isinstance(audit.get("records"), list):
+        raise ValueError("V3 router gradient evidence is absent")
+    records = audit["records"]
+    if len(records) != len(module_names):
+        raise ValueError("V3 router gradient module count differs")
+    finite_nonzero = 0
+    for module_name, record in zip(module_names, records, strict=True):
+        if not isinstance(record, Mapping):
+            raise ValueError("V3 router gradient record differs")
+        norm = record.get("projected_kv_key_route_grad_norm")
+        try:
+            expected_layer = int(module_name.split(".")[-2])
+        except (ValueError, IndexError) as error:
+            raise ValueError("V3 router gradient module name differs") from error
+        passed = type(norm) in (int, float) and math.isfinite(norm) and norm > 0.0
+        if (
+            record.get("module") != module_name
+            or record.get("layer") != expected_layer
+            or record.get("finite_nonzero") is not passed
+        ):
+            raise ValueError("V3 router gradient record binding differs")
+        finite_nonzero += int(passed)
+    if (
+        audit.get("modules") != len(records)
+        or audit.get("finite_nonzero_modules") != finite_nonzero
+        or audit.get("all_modules_finite_nonzero")
+        is not (finite_nonzero == len(records))
+    ):
+        raise ValueError("V3 router gradient aggregate binding differs")
+
+
+def _validate_evaluation_evidence(
+    evaluation: Mapping[str, Any],
+    *,
+    source: Mapping[str, Any],
+    protocol: Mapping[str, Any],
+    receipt: Mapping[str, Any],
+) -> None:
+    eval_split = protocol.get("eval_split")
+    if eval_split not in canary.PARTITION_ORDER:
+        raise ValueError("V3 evaluation split binding differs")
+    eval_rows = select_complete_memory_states(
+        source["partitions"][eval_split], protocol.get("eval_limit")
+    )
+    if evaluation.get("eval_rows") != len(eval_rows):
+        raise ValueError("V3 evaluation row count differs")
+    conditions = evaluation.get("conditions")
+    if not isinstance(conditions, Mapping) or set(conditions) != set(CONDITIONS):
+        raise ValueError("V3 evaluation condition set differs")
+    module_names = _expected_proof_module_names(protocol)
+    attachment = receipt.get("model_attachment")
+    if (
+        not isinstance(attachment, Mapping)
+        or attachment.get("replaced_modules") != list(module_names)
+    ):
+        raise ValueError("V3 proof module attachment binding differs")
+    tokenizer = _load_tokenizer(source["model"]["path"])
+    examples_by_condition: dict[str, list[EpisodeExample]] = {}
+    require_greedy = bool(protocol.get("greedy_answer_evaluation"))
+    for condition in CONDITIONS:
+        examples = build_condition_examples(
+            eval_rows,
+            tokenizer,
+            condition,
+            all_rows=source["partitions"][eval_split],
+        )
+        examples_by_condition[condition] = examples
+        _validate_condition_metric_binding(
+            conditions[condition],
+            examples,
+            condition=condition,
+            module_names=module_names,
+            require_greedy=require_greedy,
+        )
+    expected_query_audit = query_counterfactual_audit(
+        examples_by_condition["correct"], conditions["correct"]
+    )
+    if evaluation.get("query_counterfactual_audit") != expected_query_audit:
+        raise ValueError("V3 query-counterfactual audit binding differs")
+    expected_rewrite_audit = target_slot_rewrite_audit(
+        examples_by_condition["correct"],
+        examples_by_condition["target_slot_rewrite"],
+        conditions["correct"],
+        conditions["target_slot_rewrite"],
+    )
+    if evaluation.get("target_slot_rewrite_audit") != expected_rewrite_audit:
+        raise ValueError("V3 target-slot rewrite audit binding differs")
+    _validate_router_gradient_binding(receipt["training"], module_names)
+
+
+def _validate_adapter_artifact_binding(
+    adapter: Mapping[str, Any],
+    *,
+    protocol: Mapping[str, Any],
+    training: Mapping[str, Any],
+) -> None:
+    config_path = Path(str(adapter.get("config_path", ""))).expanduser().resolve()
+    weights_path = Path(str(adapter.get("weights_path", ""))).expanduser().resolve()
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    if (
+        config != protocol.get("delta_config")
+        or canary.canonical_sha256(config) != protocol.get("delta_config_sha256")
+    ):
+        raise ValueError("V3 adapter config protocol binding differs")
+    state = torch.load(weights_path, map_location="cpu", weights_only=True)
+    if not isinstance(state, Mapping) or not state or any(
+        not isinstance(name, str) or not isinstance(tensor, torch.Tensor)
+        for name, tensor in state.items()
+    ):
+        raise ValueError("V3 adapter state artifact differs")
+    final_adapter_sha256 = _state_dict_sha256(
+        {name: tensor.float() for name, tensor in state.items()}
+    )
+    weight_diff = training.get("adapter_weight_diff")
+    if (
+        final_adapter_sha256 != training.get("final_adapter_sha256")
+        or training.get("initial_adapter_sha256") == final_adapter_sha256
+        or not isinstance(weight_diff, Mapping)
+        or type(weight_diff.get("max_abs_diff")) not in (int, float)
+        or type(weight_diff.get("total_abs_diff")) not in (int, float)
+        or not math.isfinite(weight_diff["max_abs_diff"])
+        or not math.isfinite(weight_diff["total_abs_diff"])
+        or weight_diff["max_abs_diff"] <= 0.0
+        or weight_diff["total_abs_diff"] <= 0.0
+    ):
+        raise ValueError("V3 trained adapter state binding differs")
+
+
 def _validate_training_progress_binding(
     receipt: Mapping[str, Any],
     training: Mapping[str, Any],
@@ -2350,13 +2843,7 @@ def _load_model_and_tokenizer(
     attn_implementation: str,
     delta_config: HFDeltaMemConfig,
 ) -> tuple[torch.nn.Module, Any, list[str], list[str], list[str]]:
-    tokenizer = AutoTokenizer.from_pretrained(
-        source["model"]["path"],
-        local_files_only=True,
-        trust_remote_code=False,
-    )
-    if tokenizer.pad_token_id is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer = _load_tokenizer(source["model"]["path"])
     model = AutoModelForCausalLM.from_pretrained(
         source["model"]["path"],
         torch_dtype=dtype,
@@ -2375,6 +2862,17 @@ def _load_model_and_tokenizer(
             f"Attached {len(replaced)} layers, expected {len(delta_config.target_layers)}"
         )
     return model, tokenizer, replaced, trainable_names, checkpointed_mlps
+
+
+def _load_tokenizer(model_path: str | Path) -> Any:
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_path,
+        local_files_only=True,
+        trust_remote_code=False,
+    )
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    return tokenizer
 
 
 def run_experiment(
@@ -2432,7 +2930,7 @@ def run_experiment(
             train_screen_receipt,
             source_manifest=source_manifest,
             model_path=model_path,
-            verify_model_hashes=False,
+            verify_model_hashes=True,
         )
         train_screen_binding = _train_screen_binding_from_validation(
             screen_validation
@@ -2485,6 +2983,7 @@ def run_experiment(
             "projected_kv_temperature": temperature,
             "greedy_answer_evaluation": greedy,
             "train_screen_binding": train_screen_binding,
+            "acceptance_contract": _acceptance_contract(),
             "condition_contract": _condition_contract(),
             "selected_protocol_contract": _selected_protocol_contract(),
             "code_provenance": code_provenance,
@@ -2609,7 +3108,8 @@ def run_experiment(
         "eval_split": eval_split,
         "eval_rows": len(eval_rows),
         "source": source_before,
-        "acceptance_contract": source["manifest"]["spec"]["acceptance_gate"],
+        "acceptance_contract": _acceptance_contract(),
+        "model": model_before,
         "condition_contract": _condition_contract(),
         "selected_protocol_contract": _selected_protocol_contract(),
         "code_provenance": code_provenance,
@@ -2648,6 +3148,7 @@ def run_experiment(
                 resolved_output / "protocol.json"
             ),
             "protocol_sha256": protocol["protocol_sha256"],
+            "acceptance_contract": _acceptance_contract(),
             "condition_contract": _condition_contract(),
             "selected_protocol_contract": _selected_protocol_contract(),
             "code_provenance": code_provenance,
@@ -2763,24 +3264,33 @@ def validate_receipt(
         or receipt.get("gate") != evaluation.get("gate")
     ):
         raise ValueError("V3 run protocol/evaluation binding differs")
-    _validate_condition_contract_binding(
-        receipt.get("condition_contract"),
-        protocol.get("condition_contract"),
-        evaluation.get("condition_contract"),
-    )
     revisions = (
         receipt.get("protocol_revision"),
         protocol.get("protocol_revision"),
         evaluation.get("protocol_revision"),
     )
-    current_protocol = revisions == (
-        CURRENT_PROTOCOL_REVISION,
-        CURRENT_PROTOCOL_REVISION,
-        CURRENT_PROTOCOL_REVISION,
-    )
-    if not current_protocol and any(revision is not None for revision in revisions):
+    if len(set(revisions)) != 1:
         raise ValueError("V3 run protocol revision binding differs")
+    revision = revisions[0]
+    current_protocol = revision == CURRENT_PROTOCOL_REVISION
+    if (
+        not current_protocol
+        and revision is not None
+        and revision not in LEGACY_PROTOCOL_REVISIONS
+    ):
+        raise ValueError("V3 run protocol revision is unsupported")
     if current_protocol:
+        _validate_condition_contract_binding(
+            receipt.get("condition_contract"),
+            protocol.get("condition_contract"),
+            evaluation.get("condition_contract"),
+        )
+        _validate_acceptance_contract_binding(
+            receipt.get("acceptance_contract"),
+            protocol.get("acceptance_contract"),
+            evaluation.get("acceptance_contract"),
+            source["manifest"]["spec"].get("acceptance_gate"),
+        )
         _validate_selected_protocol_contract_binding(
             receipt.get("selected_protocol_contract"),
             protocol.get("selected_protocol_contract"),
@@ -2800,6 +3310,8 @@ def validate_receipt(
             or receipt.get("profile") != evaluation.get("profile")
             or receipt.get("source_before") != protocol.get("source")
             or receipt.get("source_before") != evaluation.get("source")
+            or receipt.get("model_before") != protocol.get("model")
+            or receipt.get("model_before") != evaluation.get("model")
             or protocol.get("eval_split") != evaluation.get("eval_split")
             or receipt.get("train_screen_binding")
             != protocol.get("train_screen_binding")
@@ -2821,7 +3333,7 @@ def validate_receipt(
                 linked_path,
                 source_manifest=source_manifest,
                 model_path=model_path,
-                verify_model_hashes=False,
+                verify_model_hashes=verify_model_hashes,
             )
             if (
                 _train_screen_binding_from_validation(linked_validation)
@@ -2834,6 +3346,12 @@ def validate_receipt(
         if not isinstance(training, Mapping):
             raise ValueError("V3 run training receipt is absent")
         _validate_training_progress_binding(receipt, training)
+        _validate_evaluation_evidence(
+            evaluation,
+            source=source,
+            protocol=protocol,
+            receipt=receipt,
+        )
         recomputed_metric_gate = build_gate(
             evaluation,
             training=training,
@@ -2856,8 +3374,16 @@ def validate_receipt(
         )
         if receipt.get("gate") != recomputed_gate:
             raise ValueError("V3 run gate recomputation differs")
-    elif receipt.get("gate", {}).get("passed") is True:
-        raise ValueError("Legacy V3 receipts cannot carry a passing proof gate")
+    else:
+        if revision == 4:
+            _validate_condition_contract_binding(
+                receipt.get("condition_contract"),
+                protocol.get("condition_contract"),
+                evaluation.get("condition_contract"),
+                expected=_legacy_revision_4_condition_contract(),
+            )
+        if receipt.get("gate", {}).get("passed") is True:
+            raise ValueError("Legacy V3 receipts cannot carry a passing proof gate")
     adapter = receipt.get("adapter")
     if not isinstance(adapter, dict):
         raise ValueError("V3 run adapter binding is absent")
@@ -2869,6 +3395,12 @@ def validate_receipt(
             or adapter.get(f"{prefix}_sha256") != canary.sha256_file(artifact_path)
         ):
             raise ValueError(f"V3 run adapter {prefix} binding differs")
+    if current_protocol:
+        _validate_adapter_artifact_binding(
+            adapter,
+            protocol=protocol,
+            training=receipt["training"],
+        )
     return {
         "valid": True,
         "receipt_path": str(path),
@@ -2878,6 +3410,182 @@ def validate_receipt(
         "seed": receipt["seed"],
         "gate": receipt["gate"],
         "current_protocol_valid": current_protocol,
+    }
+
+
+def _proof_set_payload(
+    receipt_paths: Sequence[Path],
+    *,
+    source_manifest: Path,
+    model_path: Path,
+    verify_model_hashes: bool,
+    require_current_checkout: bool,
+) -> dict[str, Any]:
+    required_seeds = tuple(
+        int(seed) for seed in _acceptance_contract()["training_seeds"]
+    )
+    if len(receipt_paths) != len(required_seeds):
+        raise ValueError(
+            f"V3 proof set requires exactly {len(required_seeds)} heldout receipts"
+        )
+    entries: list[tuple[int, dict[str, Any], Mapping[str, Any]]] = []
+    seen_paths: set[Path] = set()
+    for raw_path in receipt_paths:
+        path = raw_path.expanduser().resolve()
+        if path in seen_paths:
+            raise ValueError("V3 proof set receipt paths are not unique")
+        seen_paths.add(path)
+        validation = validate_receipt(
+            path,
+            source_manifest=source_manifest,
+            model_path=model_path,
+            verify_model_hashes=verify_model_hashes,
+        )
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        seed = validation.get("seed")
+        gate = validation.get("gate")
+        if (
+            type(seed) is not int
+            or validation.get("current_protocol_valid") is not True
+            or not isinstance(gate, Mapping)
+            or gate.get("passed") is not True
+            or gate.get("acceptance_eligible") is not True
+            or gate.get("required_seed_passes") != len(required_seeds)
+        ):
+            raise ValueError("V3 proof set contains a non-passing heldout receipt")
+        entries.append((seed, validation, receipt))
+    entries.sort(key=lambda item: item[0])
+    if tuple(seed for seed, _, _ in entries) != required_seeds:
+        raise ValueError("V3 proof set does not contain the exact required seeds")
+
+    first_receipt = entries[0][2]
+    common_fields = {
+        "protocol_revision": first_receipt.get("protocol_revision"),
+        "source": first_receipt.get("source_before"),
+        "model": first_receipt.get("model_before"),
+        "train_screen_binding": first_receipt.get("train_screen_binding"),
+        "code_provenance": first_receipt.get("code_provenance"),
+    }
+    if (
+        common_fields["protocol_revision"] != CURRENT_PROTOCOL_REVISION
+        or not _train_screen_binding_is_valid(common_fields["train_screen_binding"])
+    ):
+        raise ValueError("V3 proof set common protocol binding differs")
+    for _, _, receipt in entries[1:]:
+        candidate = {
+            "protocol_revision": receipt.get("protocol_revision"),
+            "source": receipt.get("source_before"),
+            "model": receipt.get("model_before"),
+            "train_screen_binding": receipt.get("train_screen_binding"),
+            "code_provenance": receipt.get("code_provenance"),
+        }
+        if candidate != common_fields:
+            raise ValueError("V3 proof set receipts do not share common bindings")
+    _validate_code_provenance(common_fields["code_provenance"])
+    if require_current_checkout and _capture_code_provenance() != common_fields[
+        "code_provenance"
+    ]:
+        raise ValueError("V3 proof set must be created from the proof-run commit")
+
+    receipt_bindings = [
+        {
+            "seed": seed,
+            "receipt_path": validation["receipt_path"],
+            "receipt_file_sha256": validation["receipt_file_sha256"],
+            "receipt_sha256": validation["receipt_sha256"],
+            "evaluation_sha256": validation["evaluation_sha256"],
+            "answer_metric": validation["gate"]["answer_metric"],
+            "gate_passed": True,
+        }
+        for seed, validation, _ in entries
+    ]
+    return {
+        "schema": PROOF_SET_SCHEMA,
+        "protocol_revision": CURRENT_PROTOCOL_REVISION,
+        "required_seeds": list(required_seeds),
+        "required_seed_passes": len(required_seeds),
+        "source": common_fields["source"],
+        "model": common_fields["model"],
+        "train_screen_binding": common_fields["train_screen_binding"],
+        "code_provenance": common_fields["code_provenance"],
+        "receipt_bindings": receipt_bindings,
+        "aggregate_passed": True,
+    }
+
+
+def create_proof_set(
+    receipt_paths: Sequence[Path],
+    *,
+    output_path: Path,
+    source_manifest: Path,
+    model_path: Path,
+) -> dict[str, Any]:
+    resolved_output = output_path.expanduser().resolve()
+    if resolved_output.exists() or resolved_output.is_symlink():
+        raise ValueError(f"V3 proof-set output must be fresh: {resolved_output}")
+    payload = _proof_set_payload(
+        receipt_paths,
+        source_manifest=source_manifest,
+        model_path=model_path,
+        verify_model_hashes=True,
+        require_current_checkout=True,
+    )
+    proof_set = _signed_payload(payload, "proof_set_sha256")
+    resolved_output.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(resolved_output, proof_set)
+    return {
+        "valid": True,
+        "aggregate_passed": True,
+        "proof_set_path": str(resolved_output),
+        "proof_set_file_sha256": canary.sha256_file(resolved_output),
+        "proof_set_sha256": proof_set["proof_set_sha256"],
+        "required_seeds": payload["required_seeds"],
+    }
+
+
+def validate_proof_set(
+    proof_set_path: Path,
+    *,
+    source_manifest: Path,
+    model_path: Path,
+    verify_model_hashes: bool,
+) -> dict[str, Any]:
+    path = proof_set_path.expanduser().resolve()
+    if not path.is_file() or path.is_symlink():
+        raise ValueError(f"V3 proof set is invalid: {path}")
+    proof_set = json.loads(path.read_text(encoding="utf-8"))
+    proof_set_sha256 = _validate_signed_payload(
+        proof_set,
+        hash_field="proof_set_sha256",
+        description="V3 proof set",
+    )
+    if proof_set.get("schema") != PROOF_SET_SCHEMA:
+        raise ValueError("V3 proof-set schema differs")
+    bindings = proof_set.get("receipt_bindings")
+    if not isinstance(bindings, list) or any(
+        not isinstance(binding, Mapping)
+        or not isinstance(binding.get("receipt_path"), str)
+        for binding in bindings
+    ):
+        raise ValueError("V3 proof-set receipt bindings differ")
+    recomputed = _proof_set_payload(
+        [Path(binding["receipt_path"]) for binding in bindings],
+        source_manifest=source_manifest,
+        model_path=model_path,
+        verify_model_hashes=verify_model_hashes,
+        require_current_checkout=False,
+    )
+    unsigned = dict(proof_set)
+    unsigned.pop("proof_set_sha256", None)
+    if unsigned != recomputed:
+        raise ValueError("V3 proof-set recomputation differs")
+    return {
+        "valid": True,
+        "aggregate_passed": True,
+        "proof_set_path": str(path),
+        "proof_set_file_sha256": canary.sha256_file(path),
+        "proof_set_sha256": proof_set_sha256,
+        "required_seeds": recomputed["required_seeds"],
     }
 
 
@@ -2892,6 +3600,9 @@ def parse_args() -> argparse.Namespace:
     destination = parser.add_mutually_exclusive_group(required=True)
     destination.add_argument("--output-dir", type=Path)
     destination.add_argument("--validate-receipt", type=Path)
+    destination.add_argument("--proof-set-output", type=Path)
+    destination.add_argument("--validate-proof-set", type=Path)
+    parser.add_argument("--proof-receipts", type=Path, nargs="+")
     parser.add_argument("--profile", choices=("microfit", "proof"), default="proof")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--train-limit", type=int)
@@ -2929,13 +3640,35 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     if args.validate_receipt is not None:
+        if args.proof_receipts is not None:
+            raise ValueError("--proof-receipts is only valid with --proof-set-output")
         result = validate_receipt(
             args.validate_receipt,
             source_manifest=args.source_manifest,
             model_path=args.model_path,
             verify_model_hashes=args.verify_model_hashes,
         )
+    elif args.validate_proof_set is not None:
+        if args.proof_receipts is not None:
+            raise ValueError("--proof-receipts is only valid with --proof-set-output")
+        result = validate_proof_set(
+            args.validate_proof_set,
+            source_manifest=args.source_manifest,
+            model_path=args.model_path,
+            verify_model_hashes=args.verify_model_hashes,
+        )
+    elif args.proof_set_output is not None:
+        if args.proof_receipts is None:
+            raise ValueError("--proof-set-output requires --proof-receipts")
+        result = create_proof_set(
+            args.proof_receipts,
+            output_path=args.proof_set_output,
+            source_manifest=args.source_manifest,
+            model_path=args.model_path,
+        )
     else:
+        if args.proof_receipts is not None:
+            raise ValueError("--proof-receipts is only valid with --proof-set-output")
         max_steps = None if args.max_steps == 0 else args.max_steps
         result = run_experiment(
             source_manifest=args.source_manifest,
