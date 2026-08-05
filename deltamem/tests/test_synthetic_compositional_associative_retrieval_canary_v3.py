@@ -62,6 +62,7 @@ def test_spec_locks_compositional_heldout_contract() -> None:
     }
     assert v3.SOURCE_CONTRACT["requires_record_local_collator"] is True
     assert v3.SOURCE_CONTRACT["compatible_with_flat_episode_write_collator"] is False
+    assert v3.SOURCE_CONTRACT["answer_target_mask_and_labels_explicit"] is True
     assert v3.SOURCE_CONTRACT["hard32_accessed"] is False
     assert v3.SOURCE_CONTRACT["protected_evaluation_included"] is False
 
@@ -164,10 +165,34 @@ def test_rows_expose_exact_record_major_masks_and_query_route(
         assert row["read_route_target_mask"] == row["read_route"][
             "query_key_token_mask"
         ]
+        assert row["read_answer_target_mask"] == row["read_route"][
+            "answer_token_mask"
+        ]
         assert len(row["read_route_target_mask"]) == len(
             row["read_route_input_ids"]
         )
+        assert len(row["read_answer_target_mask"]) == len(
+            row["read_route_input_ids"]
+        )
+        assert len(row["read_answer_labels"]) == len(row["read_route_input_ids"])
         assert any(row["read_route_target_mask"])
+        assert any(row["read_answer_target_mask"])
+        assert not any(
+            query_selected and answer_selected
+            for query_selected, answer_selected in zip(
+                row["read_route_target_mask"],
+                row["read_answer_target_mask"],
+                strict=True,
+            )
+        )
+        assert row["read_answer_labels"] == [
+            token_id if selected else -100
+            for token_id, selected in zip(
+                row["read_route_input_ids"],
+                row["read_answer_target_mask"],
+                strict=True,
+            )
+        ]
         assert len(row["messages"]) == 3
         assert all(
             record["content"] not in json.dumps(row["messages"])

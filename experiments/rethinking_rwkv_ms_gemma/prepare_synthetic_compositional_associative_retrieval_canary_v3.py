@@ -28,7 +28,7 @@ ROW_MANIFEST_SCHEMA = "rwkv_ms_synthetic_compositional_associative_row_manifest.
 SPLIT_MANIFEST_SCHEMA = "rwkv_ms_synthetic_compositional_associative_split.v3"
 TASK_NAME = "synthetic-compositional-associative-retrieval"
 SOURCE_PURPOSE = "heldout_semantic_addressing_canary_v3"
-GENERATOR_VERSION = "isolated-record-factorized-pairs-v1"
+GENERATOR_VERSION = "isolated-record-factorized-pairs-v2"
 
 HF_MIRROR_ENDPOINT = "https://hf-mirror.com"
 DEFAULT_MODEL_PATH = Path("/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58")
@@ -79,6 +79,7 @@ SOURCE_CONTRACT = {
     "query_visible_during_read": True,
     "query_excluded_from_record_writes": True,
     "key_value_write_masks_explicit": True,
+    "answer_target_mask_and_labels_explicit": True,
     "heldout_record_order_patterns_unseen_in_train": True,
 }
 
@@ -556,6 +557,7 @@ def _encode_read_route(
     tokenizer: Any,
     messages: Sequence[Mapping[str, str]],
     query_key: str,
+    answer_text: str,
 ) -> dict[str, Any]:
     rendered = tokenizer.apply_chat_template(
         list(messages),
@@ -584,6 +586,7 @@ def _encode_read_route(
     if input_ids != [int(value) for value in direct_ids]:
         raise ValueError("Rendered and direct chat-template token IDs differ")
     key_span = _span(rendered, query_key)
+    answer_span = _span(rendered, answer_text)
     route = _encode_spans_from_tokenization(
         rendered,
         input_ids=input_ids,
@@ -592,7 +595,7 @@ def _encode_read_route(
             [int(offset[0]), int(offset[1])]
             for offset in encoded["offset_mapping"]
         ],
-        spans={"query_key": key_span},
+        spans={"query_key": key_span, "answer": answer_span},
     )
     return {
         "rendered_text": rendered,
@@ -603,6 +606,10 @@ def _encode_read_route(
         "query_key_token_positions": route["query_key_token_positions"],
         "query_key_token_ids": route["query_key_token_ids"],
         "query_key_char_span": route["query_key_char_span"],
+        "answer_token_mask": route["answer_token_mask"],
+        "answer_token_positions": route["answer_token_positions"],
+        "answer_token_ids": route["answer_token_ids"],
+        "answer_char_span": route["answer_char_span"],
         "token_offsets": route["token_offsets"],
         "input_ids_sha256": route["input_ids_sha256"],
     }
@@ -714,7 +721,20 @@ def build_partition_rows(tokenizer: Any, split: str) -> list[dict[str, Any]]:
                         {"role": "user", "content": query_text},
                         {"role": "assistant", "content": answer_text},
                     ]
-                    read_route = _encode_read_route(tokenizer, messages, query_key)
+                    read_route = _encode_read_route(
+                        tokenizer,
+                        messages,
+                        query_key,
+                        answer_text,
+                    )
+                    read_answer_labels = [
+                        token_id if selected else -100
+                        for token_id, selected in zip(
+                            read_route["input_ids"],
+                            read_route["answer_token_mask"],
+                            strict=True,
+                        )
+                    ]
                     row_id = f"{memory_state_id}-query-slot-{target_slot}"
                     swapped_source_slot = source_slot_by_destination_slot[target_slot]
                     swapped_target_value = str(records[swapped_source_slot]["value"])
@@ -768,6 +788,10 @@ def build_partition_rows(tokenizer: Any, split: str) -> list[dict[str, Any]]:
                         "read_route_target_mask": read_route[
                             "query_key_token_mask"
                         ],
+                        "read_answer_target_mask": read_route[
+                            "answer_token_mask"
+                        ],
+                        "read_answer_labels": read_answer_labels,
                         "query_route_target_slot": target_slot,
                         "read_route": read_route,
                         "read_route_sha256": canonical_sha256(read_route),
@@ -1013,15 +1037,27 @@ def _validate_partition_rows(split: str, rows: Sequence[Mapping[str, Any]]) -> N
         _validate_span_encoding(
             read_route,
             str(read_route["rendered_text"]),
-            ("query_key",),
+            ("query_key", "answer"),
         )
+        expected_answer_labels = [
+            token_id if selected else -100
+            for token_id, selected in zip(
+                read_route["input_ids"],
+                read_route["answer_token_mask"],
+                strict=True,
+            )
+        ]
         if (
             str(read_route["rendered_text"]).count(str(target["key"])) != 1
+            or str(read_route["rendered_text"]).count(answer_text) != 1
             or row.get("read_route_sha256") != canonical_sha256(read_route)
             or row.get("read_route_input_ids") != read_route["input_ids"]
             or row.get("read_route_attention_mask") != read_route["attention_mask"]
             or row.get("read_route_target_mask")
             != read_route["query_key_token_mask"]
+            or row.get("read_answer_target_mask")
+            != read_route["answer_token_mask"]
+            or row.get("read_answer_labels") != expected_answer_labels
             or row.get("query_route_target_slot") != target_slot
         ):
             raise ValueError(f"{split} row {ordinal} route-supervision projection differs")
