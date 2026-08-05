@@ -48,6 +48,7 @@ from deltamem.core.delta import (
     normalize_memory_backend,
     normalize_memory_fusion_placement,
     normalize_memory_readout_mode,
+    normalize_rwkv_ms_write_mode,
     normalize_state_update_mode,
     reset_delta_mem_states,
     save_delta_mem_adapter,
@@ -235,6 +236,12 @@ def _temporarily_disable_delta_heads(model):
 def _preserve_delta_runtime(model):
     runtime_attributes = (
         "delta_state",
+        "direct_last_hidden",
+        "projected_last_hidden",
+        "projected_kv_keys",
+        "projected_kv_values",
+        "projected_kv_occupied",
+        "projected_kv_surprise",
         "rwkv_ms_positions",
         "rwkv_ms_previous_source",
         "read_context_mask",
@@ -993,6 +1000,20 @@ _SCENE_STATE_V15_FOUR_CYCLE_PAIRS = (
     (11, 18), (0, 17), (6, 21), (4, 27),
 )
 _SCENE_MEMORY_V8_WARMUP_STEPS = 4
+_SCENE_STATE_ASSOCIATIVE_CANARY_SOURCE_SCHEMA = (
+    "rwkv_ms_synthetic_associative_retrieval_source.v1"
+)
+_SCENE_STATE_ASSOCIATIVE_CANARY_DONOR_INDICES = (1, 0, 3, 2)
+_SCENE_STATE_LEGACY_EPISODE_CONTRACT = {
+    "episode_recent_messages": 0,
+    "write_phase": "system + user",
+    "read_supervision": "system + assistant",
+}
+_SCENE_STATE_ASSOCIATIVE_CANARY_EPISODE_CONTRACT = {
+    "episode_recent_messages": 1,
+    "write_phase": "system + two record messages",
+    "read_supervision": "system + query + assistant",
+}
 _SCENE_MEMORY_V8_SOURCE_SCHEMA = "rwkv_ms_scene_memory_v8_source.v1"
 _SCENE_MEMORY_V8_CURRICULUM_SCHEMA = (
     "rwkv_ms_scene_memory_v8_curriculum_binding.v1"
@@ -6672,26 +6693,55 @@ class DeltaMemTrainer(Trainer):
         batch_size: int,
     ) -> None:
         for _, module in iter_delta_mem_modules(model):
-            if module.delta_state is None:
-                continue
-            active_state = module.delta_state
-            full_state = active_state.new_zeros((batch_size, *active_state.shape[1:]))
-            full_state[active_rows.to(device=active_state.device)] = active_state
-            module.delta_state = full_state
-            if module.rwkv_ms_positions is not None:
-                active_positions = module.rwkv_ms_positions
-                full_positions = active_positions.new_zeros((batch_size,))
-                full_positions[active_rows.to(device=active_positions.device)] = active_positions
-                module.rwkv_ms_positions = full_positions
-            if module.rwkv_ms_previous_source is not None:
-                active_previous_source = module.rwkv_ms_previous_source
-                full_previous_source = active_previous_source.new_zeros(
-                    (batch_size, *active_previous_source.shape[1:])
+            if module.delta_state is not None:
+                active_state = module.delta_state
+                full_state = active_state.new_zeros((batch_size, *active_state.shape[1:]))
+                full_state[active_rows.to(device=active_state.device)] = active_state
+                module.delta_state = full_state
+                if module.rwkv_ms_positions is not None:
+                    active_positions = module.rwkv_ms_positions
+                    full_positions = active_positions.new_zeros((batch_size,))
+                    full_positions[active_rows.to(device=active_positions.device)] = active_positions
+                    module.rwkv_ms_positions = full_positions
+                if module.rwkv_ms_previous_source is not None:
+                    active_previous_source = module.rwkv_ms_previous_source
+                    full_previous_source = active_previous_source.new_zeros(
+                        (batch_size, *active_previous_source.shape[1:])
+                    )
+                    full_previous_source[
+                        active_rows.to(device=active_previous_source.device)
+                    ] = active_previous_source
+                    module.rwkv_ms_previous_source = full_previous_source
+            if module.direct_last_hidden is not None:
+                active_hidden = module.direct_last_hidden
+                full_hidden = active_hidden.new_zeros((batch_size, *active_hidden.shape[1:]))
+                full_hidden[active_rows.to(device=active_hidden.device)] = active_hidden
+                module.direct_last_hidden = full_hidden
+            if module.projected_last_hidden is not None:
+                active_projected = module.projected_last_hidden
+                full_projected = active_projected.new_zeros(
+                    (batch_size, *active_projected.shape[1:])
                 )
-                full_previous_source[
-                    active_rows.to(device=active_previous_source.device)
-                ] = active_previous_source
-                module.rwkv_ms_previous_source = full_previous_source
+                full_projected[
+                    active_rows.to(device=active_projected.device)
+                ] = active_projected
+                module.projected_last_hidden = full_projected
+            for attribute in (
+                "projected_kv_keys",
+                "projected_kv_values",
+                "projected_kv_occupied",
+                "projected_kv_surprise",
+            ):
+                active_slots = getattr(module, attribute)
+                if active_slots is None:
+                    continue
+                full_slots = active_slots.new_zeros(
+                    (batch_size, *active_slots.shape[1:])
+                )
+                full_slots[
+                    active_rows.to(device=active_slots.device)
+                ] = active_slots
+                setattr(module, attribute, full_slots)
 
     def _corrupt_online_state(
         self,
@@ -6700,7 +6750,15 @@ class DeltaMemTrainer(Trainer):
         corrupted: dict[str, torch.Tensor] = {}
         for name, tensor in online_state.items():
             corrupt = tensor.clone()
-            if corrupt.ndim == 3:
+            if name.endswith(".__projected_kv_keys"):
+                corrupt = torch.roll(corrupt, shifts=1, dims=-1)
+            elif name.endswith(".__projected_kv_values"):
+                corrupt = torch.flip(corrupt, dims=(-1,))
+            elif name.endswith(
+                (".__projected_kv_occupied", ".__projected_kv_surprise")
+            ):
+                pass
+            elif corrupt.ndim == 3:
                 size = corrupt.size(-1)
                 row_perm = torch.roll(torch.arange(size, device=corrupt.device), shifts=1)
                 col_perm = torch.arange(size - 1, -1, -1, device=corrupt.device)
@@ -7043,13 +7101,24 @@ class DeltaMemTrainer(Trainer):
     ) -> dict[str, torch.Tensor]:
         state: dict[str, torch.Tensor] = {}
         for name, module in iter_delta_mem_modules(model):
-            if module.delta_state is None:
-                continue
-            state[name] = module.delta_state
-            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_positions is not None:
-                state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions
-            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_previous_source is not None:
-                state[f"{name}.__rwkv_ms_previous_source"] = module.rwkv_ms_previous_source
+            if module.delta_state is not None:
+                state[name] = module.delta_state
+                if module.memory_backend == "rwkv_ms" and module.rwkv_ms_positions is not None:
+                    state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions
+                if module.memory_backend == "rwkv_ms" and module.rwkv_ms_previous_source is not None:
+                    state[f"{name}.__rwkv_ms_previous_source"] = module.rwkv_ms_previous_source
+            if module.direct_last_hidden is not None:
+                state[f"{name}.__direct_last_hidden"] = module.direct_last_hidden
+            if module.projected_last_hidden is not None:
+                state[f"{name}.__projected_last_hidden"] = module.projected_last_hidden
+            for suffix, tensor in (
+                ("__projected_kv_keys", module.projected_kv_keys),
+                ("__projected_kv_values", module.projected_kv_values),
+                ("__projected_kv_occupied", module.projected_kv_occupied),
+                ("__projected_kv_surprise", module.projected_kv_surprise),
+            ):
+                if tensor is not None:
+                    state[f"{name}.{suffix}"] = tensor
         return state
 
     def _stack_batch_tensor(self, tensor: torch.Tensor, repeats: int) -> torch.Tensor:
@@ -19501,11 +19570,12 @@ def _scene_state_source_manifest_identity(
     )
     if not isinstance(episode_contract, dict):
         raise ValueError("Scene-state source manifest omits contract.episode_contract")
-    required_episode_contract = {
-        "episode_recent_messages": 0,
-        "write_phase": "system + user",
-        "read_supervision": "system + assistant",
-    }
+    source_schema = manifest.get("schema")
+    required_episode_contract = (
+        _SCENE_STATE_ASSOCIATIVE_CANARY_EPISODE_CONTRACT
+        if source_schema == _SCENE_STATE_ASSOCIATIVE_CANARY_SOURCE_SCHEMA
+        else _SCENE_STATE_LEGACY_EPISODE_CONTRACT
+    )
     episode_contract_mismatches = {
         key: episode_contract.get(key)
         for key, expected in required_episode_contract.items()
@@ -19516,6 +19586,20 @@ def _scene_state_source_manifest_identity(
             "Scene-state source manifest has an incompatible episode contract: "
             f"{episode_contract_mismatches}"
         )
+    locked_identity_donor_indices: list[int] | None = None
+    if source_schema == _SCENE_STATE_ASSOCIATIVE_CANARY_SOURCE_SCHEMA:
+        declared_donor_indices = contract.get("identity_donor_indices")
+        if (
+            not isinstance(declared_donor_indices, list)
+            or any(type(value) is not int for value in declared_donor_indices)
+            or tuple(declared_donor_indices)
+            != _SCENE_STATE_ASSOCIATIVE_CANARY_DONOR_INDICES
+        ):
+            raise ValueError(
+                "Associative scene-state source manifest requires "
+                "contract.identity_donor_indices=[1, 0, 3, 2]"
+            )
+        locked_identity_donor_indices = list(declared_donor_indices)
     train_path_raw = train_data.get("path")
     train_sha256 = train_data.get("sha256")
     train_file = getattr(args, "train_file", None)
@@ -19532,10 +19616,10 @@ def _scene_state_source_manifest_identity(
         raise ValueError(
             "Scene-state source manifest train SHA-256 differs from --train-file"
         )
-    return {
+    identity: dict[str, object] = {
         "path": str(manifest_path),
         "file_sha256": actual_sha256,
-        "schema": manifest.get("schema"),
+        "schema": source_schema,
         "train_file": str(resolved_train_file),
         "train_file_sha256": actual_train_sha256,
         "train_rows": train_partition.get("rows", train_data.get("rows")),
@@ -19549,6 +19633,9 @@ def _scene_state_source_manifest_identity(
             )
         },
     }
+    if locked_identity_donor_indices is not None:
+        identity["identity_donor_indices"] = locked_identity_donor_indices
+    return identity
 
 
 def _scene_state_v8_curriculum_binding(
@@ -21068,6 +21155,15 @@ def parse_args() -> argparse.Namespace:
         default="fixed_chunk",
         choices=["fixed_chunk"],
     )
+    parser.add_argument(
+        "--rwkv-ms-write-mode",
+        default="recurrent",
+        choices=["recurrent", "last_token_overwrite"],
+        help=(
+            "Use the native recurrent RWKV write or the single final-token "
+            "outer-product localization canary."
+        ),
+    )
     parser.add_argument("--rwkv-ms-erase-gate", type=float, default=1.0)
     parser.add_argument("--rwkv-ms-read-top-k", type=int, default=0)
     parser.add_argument("--rwkv-ms-output-init-scale", type=float, default=0.02)
@@ -21166,7 +21262,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--memory-readout-mode",
         default="delta",
-        choices=["delta"],
+        choices=[
+            "delta",
+            "direct_last_hidden",
+            "projected_last_hidden",
+            "projected_kv_slots",
+        ],
+    )
+    parser.add_argument("--projected-kv-key-dim", type=int, default=32)
+    parser.add_argument("--projected-kv-temperature", type=float, default=16.0)
+    parser.add_argument(
+        "--projected-kv-update-cosine-threshold",
+        type=float,
+        default=0.95,
     )
     parser.add_argument(
         "--memory-write-source",
@@ -21811,9 +21919,25 @@ def parse_args() -> argparse.Namespace:
             )
         if args.training_mode != "episode":
             raise ValueError("scene_state_identity_ce requires training-mode=episode")
-        if args.episode_recent_messages != 0:
+        bound_episode_contract = scene_state_source_identity["episode_contract"]
+        bound_episode_recent_messages = bound_episode_contract[
+            "episode_recent_messages"
+        ]
+        if args.episode_recent_messages != bound_episode_recent_messages:
             raise ValueError(
-                "scene_state_identity_ce requires episode-recent-messages=0"
+                "scene_state_identity_ce episode-recent-messages differs from the "
+                "bound source manifest: "
+                f"argument={args.episode_recent_messages} "
+                f"manifest={bound_episode_recent_messages}"
+            )
+        if (
+            scene_state_source_identity["schema"]
+            == _SCENE_STATE_ASSOCIATIVE_CANARY_SOURCE_SCHEMA
+            and args.validation_split_ratio != 0.0
+        ):
+            raise ValueError(
+                "The associative scene-state canary requires "
+                "validation-split-ratio=0"
             )
         if args.assistant_loss_mode != "final_assistant_only":
             raise ValueError(
@@ -24401,6 +24525,7 @@ def materialize_scene_state_identity_pairs(
     split: Dataset,
     *,
     split_name: str,
+    locked_donor_indices: list[int] | tuple[int, ...] | None = None,
 ) -> tuple[Dataset, dict[str, object]]:
     sample_count = len(split)
     if sample_count < 2 or sample_count % 2 != 0:
@@ -24598,13 +24723,49 @@ def materialize_scene_state_identity_pairs(
     else:
         pairs = baseline_pairs
     pairing_refinement_applied = pairs != baseline_pairs
+    pairing_locked = locked_donor_indices is not None
 
-    donor_indices = [-1] * sample_count
-    for left, right in pairs:
-        donor_indices[left] = right
-        donor_indices[right] = left
-    if any(index < 0 for index in donor_indices):
-        raise RuntimeError("Scene-state donor pairing did not cover every row")
+    if locked_donor_indices is None:
+        donor_indices = [-1] * sample_count
+        for left, right in pairs:
+            donor_indices[left] = right
+            donor_indices[right] = left
+        if any(index < 0 for index in donor_indices):
+            raise RuntimeError("Scene-state donor pairing did not cover every row")
+    else:
+        if not isinstance(locked_donor_indices, (list, tuple)):
+            raise ValueError("Locked scene-state donor indices must be a list or tuple")
+        donor_indices = list(locked_donor_indices)
+        if len(donor_indices) != sample_count:
+            raise ValueError(
+                "Locked scene-state donor indices must cover every row exactly once"
+            )
+        if any(type(index) is not int for index in donor_indices):
+            raise ValueError("Locked scene-state donor indices must contain only integers")
+        if any(index < 0 or index >= sample_count for index in donor_indices):
+            raise ValueError("Locked scene-state donor index is out of range")
+        if sorted(donor_indices) != list(range(sample_count)):
+            raise ValueError("Locked scene-state donor indices must be a permutation")
+        for source_index, donor_index in enumerate(donor_indices):
+            if donor_index == source_index:
+                raise ValueError("Locked scene-state donor pairs must be label-distinct")
+            if donor_indices[donor_index] != source_index:
+                raise ValueError("Locked scene-state donor map must be symmetric")
+            if (
+                labels[source_index]["label_sha256"]
+                == labels[donor_index]["label_sha256"]
+            ):
+                raise ValueError("Locked scene-state donor pairs must be label-distinct")
+            _select_scene_state_identity_target_with_metadata(
+                rows[source_index],
+                rows[donor_index],
+            )
+        pairs = [
+            (source_index, donor_index)
+            for source_index, donor_index in enumerate(donor_indices)
+            if source_index < donor_index
+        ]
+        pairing_refinement_applied = False
 
     donor_columns: dict[str, list[list[int]]] = {
         "scene_state_donor_write_input_ids": [],
@@ -24737,6 +24898,14 @@ def materialize_scene_state_identity_pairs(
         "pairs_sha256": _canonical_json_sha256(pair_audit),
         "pairs": pair_audit,
     }
+    if pairing_locked:
+        split_manifest.update(
+            {
+                "pairing_locked": True,
+                "pairing_scope": "locked_source_manifest_train_indices",
+                "locked_donor_indices": donor_indices,
+            }
+        )
     split_manifest["manifest_sha256"] = _canonical_json_sha256(split_manifest)
     return paired, split_manifest
 
@@ -25191,6 +25360,13 @@ def build_scene_state_identity_pairing_manifest(
         "tokenized_dataset_sha256": tokenized_dataset_sha256,
         "splits": splits,
     }
+    if train_manifest.get("pairing_locked") is True:
+        manifest.update(
+            {
+                "pairing_locked": True,
+                "locked_donor_indices": train_manifest["locked_donor_indices"],
+            }
+        )
     manifest["manifest_sha256"] = _canonical_json_sha256(manifest)
     return manifest
 
@@ -25244,7 +25420,7 @@ def persist_scene_state_identity_pairing_manifest(
 def _scene_state_identity_protocol_pairing_summary(
     manifest: dict[str, object],
 ) -> dict[str, object]:
-    return {
+    summary = {
         "pairing_version": manifest["pairing_version"],
         "pairing_refinement": manifest["pairing_refinement"],
         "pairing_refinement_applied": manifest[
@@ -25304,6 +25480,14 @@ def _scene_state_identity_protocol_pairing_summary(
             for split_name, split_manifest in manifest["splits"].items()
         },
     }
+    if manifest.get("pairing_locked") is True:
+        summary.update(
+            {
+                "pairing_locked": True,
+                "locked_donor_indices": manifest["locked_donor_indices"],
+            }
+        )
+    return summary
 
 
 def _content_contrast_protocol_pairing_summary(
@@ -25819,6 +26003,14 @@ def build_training_protocol(
         "episode_read_write_enabled": args.episode_read_write_enabled,
         "memory_write_source": args.memory_write_source,
         "memory_write_granularity": args.memory_write_granularity,
+        "memory_readout_mode": args.memory_readout_mode,
+        "projected_kv_key_dim": getattr(args, "projected_kv_key_dim", 32),
+        "projected_kv_temperature": getattr(args, "projected_kv_temperature", 16.0),
+        "projected_kv_update_cosine_threshold": getattr(
+            args,
+            "projected_kv_update_cosine_threshold",
+            0.95,
+        ),
         "memory_fusion_mode": getattr(args, "memory_fusion_mode", "add"),
         "memory_fusion_gate_init": getattr(args, "memory_fusion_gate_init", 0.1),
         "memory_fusion_placement": getattr(
@@ -25837,6 +26029,7 @@ def build_training_protocol(
             1.0,
         ),
         "rwkv_ms_output_init_scale": getattr(args, "rwkv_ms_output_init_scale", 0.02),
+        "rwkv_ms_write_mode": getattr(args, "rwkv_ms_write_mode", "recurrent"),
         "rwkv_ms_semantics_version": getattr(args, "rwkv_ms_semantics_version", 2),
         "memory_loss_mode": args.memory_loss_mode,
         "memory_dropout_no_memory_prob": args.memory_dropout_no_memory_prob,
@@ -27970,10 +28163,19 @@ def main() -> None:
             eval_manifest=eval_pairing_manifest,
         )
     if args.memory_loss_mode == "scene_state_identity_ce":
+        source_identity = _scene_state_source_manifest_identity(args)
+        locked_donor_indices = (
+            source_identity["identity_donor_indices"]
+            if source_identity is not None
+            and source_identity["schema"]
+            == _SCENE_STATE_ASSOCIATIVE_CANARY_SOURCE_SCHEMA
+            else None
+        )
         train_dataset, train_scene_pairing_manifest = (
             materialize_scene_state_identity_pairs(
                 train_dataset,
                 split_name="train",
+                locked_donor_indices=locked_donor_indices,
             )
         )
         eval_scene_pairing_manifest = None
@@ -28063,6 +28265,7 @@ def main() -> None:
         rwkv_ms_num_states=args.rwkv_ms_num_states,
         rwkv_ms_chunk_size=args.rwkv_ms_chunk_size,
         rwkv_ms_boundary_mode=args.rwkv_ms_boundary_mode,
+        rwkv_ms_write_mode=normalize_rwkv_ms_write_mode(args.rwkv_ms_write_mode),
         rwkv_ms_erase_gate=args.rwkv_ms_erase_gate,
         rwkv_ms_read_top_k=args.rwkv_ms_read_top_k,
         rwkv_ms_output_init_scale=args.rwkv_ms_output_init_scale,
@@ -28103,6 +28306,11 @@ def main() -> None:
         online_gain=args.online_gain,
         target_layers=requested_target_layers,
         memory_readout_mode=normalize_memory_readout_mode(args.memory_readout_mode),
+        projected_kv_key_dim=args.projected_kv_key_dim,
+        projected_kv_temperature=args.projected_kv_temperature,
+        projected_kv_update_cosine_threshold=(
+            args.projected_kv_update_cosine_threshold
+        ),
         memory_write_source=args.memory_write_source,
         memory_write_granularity=args.memory_write_granularity,
         memory_write_proposals_per_message=args.memory_write_proposals_per_message,
@@ -28698,9 +28906,15 @@ def main() -> None:
             "memory_full_ce_max_length": args.memory_full_ce_max_length,
             "output_init": args.output_init,
             "rwkv_ms_output_init_scale": args.rwkv_ms_output_init_scale,
+            "rwkv_ms_write_mode": args.rwkv_ms_write_mode,
             "rwkv_ms_semantics_version": args.rwkv_ms_semantics_version,
             "base_slice_ref_width": args.base_slice_ref_width,
             "memory_readout_mode": args.memory_readout_mode,
+            "projected_kv_key_dim": args.projected_kv_key_dim,
+            "projected_kv_temperature": args.projected_kv_temperature,
+            "projected_kv_update_cosine_threshold": (
+                args.projected_kv_update_cosine_threshold
+            ),
             "seed": args.seed,
             "data_seed": args.data_seed,
             "validation_split_ratio": args.validation_split_ratio,

@@ -17,6 +17,7 @@ from deltamem.core.delta_impl import (
     VALID_MEMORY_FUSION_PLACEMENTS,
     VALID_MEMORY_PARTITION_BASIS,
     VALID_MEMORY_PARTITION_ROUTING,
+    VALID_RWKV_MS_WRITE_MODES,
     VALID_STATE_UPDATE_MODES,
     collect_delta_mem_gate_stats,
     collect_delta_mem_output_ratio_stats,
@@ -39,6 +40,7 @@ from deltamem.core.delta_impl import (
     normalize_memory_fusion_placement,
     normalize_memory_partition_basis,
     normalize_memory_partition_routing,
+    normalize_rwkv_ms_write_mode,
     normalize_state_update_mode,
     reset_delta_mem_states,
     save_delta_mem_adapter,
@@ -54,15 +56,21 @@ from deltamem.core.delta_impl import (
     DeltaMemAttention as ExperimentalDeltaMemAttention,
 )
 
-VALID_MEMORY_READOUT_MODES = ("delta",)
+VALID_MEMORY_READOUT_MODES = (
+    "delta",
+    "direct_last_hidden",
+    "projected_last_hidden",
+    "projected_kv_slots",
+)
 
 
 def normalize_memory_readout_mode(mode: str) -> str:
     normalized = str(mode).strip().lower()
-    if normalized != "delta":
+    if normalized not in VALID_MEMORY_READOUT_MODES:
         raise ValueError(
-            "Mainline Delta-Mem only supports memory_readout_mode='delta'. "
-            "Use deltamem.core.delta_impl for experimental readouts."
+            "Mainline Delta-Mem only supports memory_readout_mode='delta', "
+            "'direct_last_hidden', 'projected_last_hidden', or "
+            "'projected_kv_slots'."
         )
     return normalized
 
@@ -71,18 +79,22 @@ def normalize_memory_readout_mode(mode: str) -> str:
 class HFDeltaMemConfig(ExperimentalHFDeltaMemConfig):
     def __post_init__(self) -> None:
         super().__post_init__()
-        if self.memory_readout_mode != "delta":
+        if self.memory_readout_mode not in VALID_MEMORY_READOUT_MODES:
             raise ValueError(
-                "Mainline HFDeltaMemConfig only supports memory_readout_mode='delta'. "
+                "Mainline HFDeltaMemConfig only supports memory_readout_mode='delta', "
+                "'direct_last_hidden', 'projected_last_hidden', or "
+                "'projected_kv_slots'. "
                 "Archived synthetic_kv / latent_context / memory_branch readouts were removed."
             )
 
 
 class DeltaMemAttention(ExperimentalDeltaMemAttention):
     def __init__(self, base: Qwen3Attention | SmolLM3Attention, config: HFDeltaMemConfig) -> None:
-        if config.memory_readout_mode != "delta":
+        if config.memory_readout_mode not in VALID_MEMORY_READOUT_MODES:
             raise ValueError(
-                "Mainline DeltaMemAttention only supports memory_readout_mode='delta'."
+                "Mainline DeltaMemAttention only supports memory_readout_mode='delta', "
+                "'direct_last_hidden', 'projected_last_hidden', or "
+                "'projected_kv_slots'."
             )
         super().__init__(base, config)
 
@@ -96,9 +108,11 @@ def _get_parent_module(root, module_name: str):
 
 
 def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
-    if config.memory_readout_mode != "delta":
+    if config.memory_readout_mode not in VALID_MEMORY_READOUT_MODES:
         raise ValueError(
-            "attach_delta_mem in mainline only supports memory_readout_mode='delta'."
+            "attach_delta_mem in mainline only supports memory_readout_mode='delta', "
+            "'direct_last_hidden', 'projected_last_hidden', or "
+            "'projected_kv_slots'."
         )
     supported_types = (Qwen3Attention, SmolLM3Attention)
     if Qwen3_5Attention is not None:
@@ -162,6 +176,7 @@ __all__ = [
     "VALID_MEMORY_PARTITION_BASIS",
     "VALID_MEMORY_PARTITION_ROUTING",
     "VALID_MEMORY_READOUT_MODES",
+    "VALID_RWKV_MS_WRITE_MODES",
     "VALID_STATE_UPDATE_MODES",
     "DeltaMemAttention",
     "HFDeltaMemConfig",
@@ -188,6 +203,7 @@ __all__ = [
     "normalize_memory_partition_basis",
     "normalize_memory_partition_routing",
     "normalize_memory_readout_mode",
+    "normalize_rwkv_ms_write_mode",
     "normalize_state_update_mode",
     "reset_delta_mem_states",
     "save_delta_mem_adapter",

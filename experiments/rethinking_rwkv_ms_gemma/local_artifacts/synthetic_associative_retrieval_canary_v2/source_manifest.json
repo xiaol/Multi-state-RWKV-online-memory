@@ -1,0 +1,258 @@
+{
+  "canary": {
+    "episode_recent_messages": 1,
+    "identical_donor_causal_prefixes": true,
+    "identity_donor_indices": [
+      1,
+      0,
+      3,
+      2
+    ],
+    "max_read_length": 128,
+    "max_write_length": 128,
+    "minimum_required_occupied_slots": 2,
+    "pairing_manifest_sha256": "de5cdaac65fc323433d05f6caf4e051f976dea8d14279d8fca8dc68f2a0a7fc9",
+    "query_excluded_from_every_write": true,
+    "query_visible_in_every_read": true,
+    "record_proposals_per_row": 2,
+    "rows": [
+      {
+        "answer": 1,
+        "case_id": "mapping_0_alpha",
+        "donor_index": 1,
+        "donor_target_token_id": 236778,
+        "mapping_index": 0,
+        "query_excluded_from_write": true,
+        "query_key": "ALPHA",
+        "query_visible_in_read": true,
+        "record_proposal_count": 2,
+        "state_only_read_token_count": 62,
+        "state_only_read_token_ids_sha256": "27cfd7f49af21517210bfc323d33b1ed3baa93bd7cc773a5ee189bb47517a71f",
+        "target_label_position": 58,
+        "target_token_id": 236770,
+        "target_token_text": "1",
+        "write_message_ids_sha256": "4531b663635e8ef2be75404a048893311e370e31aa7803d125f6318d4536aa39",
+        "write_token_count": 68,
+        "write_token_ids_sha256": "ea95ab2fee396190a74a9a9a025159c3f603f2d8a6894c464a633acb3a91732a"
+      },
+      {
+        "answer": 2,
+        "case_id": "mapping_1_alpha",
+        "donor_index": 0,
+        "donor_target_token_id": 236770,
+        "mapping_index": 1,
+        "query_excluded_from_write": true,
+        "query_key": "ALPHA",
+        "query_visible_in_read": true,
+        "record_proposal_count": 2,
+        "state_only_read_token_count": 62,
+        "state_only_read_token_ids_sha256": "ac02eea5b00b73007a94aa7fbd1690c6f5c0b6076acfc72dcf44d00f0d89b65e",
+        "target_label_position": 58,
+        "target_token_id": 236778,
+        "target_token_text": "2",
+        "write_message_ids_sha256": "4531b663635e8ef2be75404a048893311e370e31aa7803d125f6318d4536aa39",
+        "write_token_count": 68,
+        "write_token_ids_sha256": "eb0ec86f23f2462bf1834f2af82aeaf7ff321f80282ddd4a840450a7f0d364a9"
+      },
+      {
+        "answer": 2,
+        "case_id": "mapping_0_beta",
+        "donor_index": 3,
+        "donor_target_token_id": 236770,
+        "mapping_index": 0,
+        "query_excluded_from_write": true,
+        "query_key": "BETA",
+        "query_visible_in_read": true,
+        "record_proposal_count": 2,
+        "state_only_read_token_count": 62,
+        "state_only_read_token_ids_sha256": "a886e9d81bf3785ec87c35f8c1c810b8be974841de2ec63ea457b85b4362fb16",
+        "target_label_position": 58,
+        "target_token_id": 236778,
+        "target_token_text": "2",
+        "write_message_ids_sha256": "4531b663635e8ef2be75404a048893311e370e31aa7803d125f6318d4536aa39",
+        "write_token_count": 68,
+        "write_token_ids_sha256": "ea95ab2fee396190a74a9a9a025159c3f603f2d8a6894c464a633acb3a91732a"
+      },
+      {
+        "answer": 1,
+        "case_id": "mapping_1_beta",
+        "donor_index": 2,
+        "donor_target_token_id": 236778,
+        "mapping_index": 1,
+        "query_excluded_from_write": true,
+        "query_key": "BETA",
+        "query_visible_in_read": true,
+        "record_proposal_count": 2,
+        "state_only_read_token_count": 62,
+        "state_only_read_token_ids_sha256": "01febe1b212fdbc85bf91288d451530cae7055bf41fe15e341c3ae346d6ee81c",
+        "target_label_position": 58,
+        "target_token_id": 236770,
+        "target_token_text": "1",
+        "write_message_ids_sha256": "4531b663635e8ef2be75404a048893311e370e31aa7803d125f6318d4536aa39",
+        "write_token_count": 68,
+        "write_token_ids_sha256": "eb0ec86f23f2462bf1834f2af82aeaf7ff321f80282ddd4a840450a7f0d364a9"
+      }
+    ],
+    "target_label_positions": [
+      58,
+      58,
+      58,
+      58
+    ],
+    "target_span_tokens": 1,
+    "target_token_ids": [
+      236770,
+      236778,
+      236778,
+      236770
+    ],
+    "tokenizer_class": "GemmaTokenizer",
+    "write_granularity": "message_mean"
+  },
+  "contract": {
+    "episode_contract": {
+      "episode_recent_messages": 1,
+      "read_supervision": "system + query + assistant",
+      "write_phase": "system + two record messages"
+    },
+    "identity_donor_indices": [
+      1,
+      0,
+      3,
+      2
+    ],
+    "protected_evaluation_included": false,
+    "query_excluded_from_writes": true,
+    "query_visible_during_read": true,
+    "synthetic_data_only": true
+  },
+  "manifest_sha256": "c10fa82735f545a82ee426377bcde069467e9c3b982aa27c3407380b9b4db066",
+  "model": {
+    "artifacts": {
+      "chat_template.jinja": {
+        "bytes": 17336,
+        "sha256": "2f1b4d75d067bae3fe44e676721c7f077d243bc007156cb9c2f8b5836613d082"
+      },
+      "config.json": {
+        "bytes": 5145,
+        "sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4"
+      },
+      "model.safetensors": {
+        "bytes": 15992595884,
+        "sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503"
+      },
+      "tokenizer.json": {
+        "bytes": 32169626,
+        "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+      },
+      "tokenizer_config.json": {
+        "bytes": 2095,
+        "sha256": "90c3a3ba5bf53818383a58e1a776cbcacd2a038d4812eaa373e1522f2d06f3df"
+      }
+    },
+    "identity_sha256": "554deae79721a9f6e85623cc4e2f8d20b88facd1f0276556fb0cbd8ee05cc478",
+    "path": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58"
+  },
+  "partitions": {
+    "train": {
+      "data": {
+        "bytes": 1850,
+        "path": "/root/X/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/synthetic_associative_retrieval_canary_v2/train.jsonl",
+        "sha256": "6d0bf5a5aeaf8f68451557562accfcd2accc2162f41809d7ad2af38787ed934d"
+      },
+      "row_manifest": {
+        "bytes": 3340,
+        "path": "/root/X/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/synthetic_associative_retrieval_canary_v2/source_rows.jsonl",
+        "sha256": "327972719a4f630362b7f7d57071b56a346e97955860b79a1ed989c1ff2c03c5"
+      },
+      "rows": 4,
+      "source_split": "train"
+    }
+  },
+  "purpose": "train_only_projected_kv_addressing_canary_v1",
+  "schema": "rwkv_ms_synthetic_associative_retrieval_source.v1",
+  "spec": {
+    "cases": [
+      {
+        "answer": 1,
+        "case_id": "mapping_0_alpha",
+        "donor_index": 1,
+        "mapping": {
+          "ALPHA": 1,
+          "BETA": 2
+        },
+        "mapping_index": 0,
+        "query_key": "ALPHA"
+      },
+      {
+        "answer": 2,
+        "case_id": "mapping_1_alpha",
+        "donor_index": 0,
+        "mapping": {
+          "ALPHA": 2,
+          "BETA": 1
+        },
+        "mapping_index": 1,
+        "query_key": "ALPHA"
+      },
+      {
+        "answer": 2,
+        "case_id": "mapping_0_beta",
+        "donor_index": 3,
+        "mapping": {
+          "ALPHA": 1,
+          "BETA": 2
+        },
+        "mapping_index": 0,
+        "query_key": "BETA"
+      },
+      {
+        "answer": 1,
+        "case_id": "mapping_1_beta",
+        "donor_index": 2,
+        "mapping": {
+          "ALPHA": 2,
+          "BETA": 1
+        },
+        "mapping_index": 1,
+        "query_key": "BETA"
+      }
+    ],
+    "episode_contract": {
+      "episode_recent_messages": 1,
+      "read_supervision": "system + query + assistant",
+      "write_phase": "system + two record messages"
+    },
+    "gate0": {
+      "minimum_pair_logit_margin": 5.0,
+      "model_role": "frozen_full_context_no_adapter",
+      "required_exact_generations": 4
+    },
+    "memory_topology": {
+      "backend": "rwkv_ms",
+      "expected_record_proposals": 2,
+      "num_states": 2,
+      "projected_kv_key_dim": 32,
+      "readout": "projected_kv_slots",
+      "write_granularity": "message_mean"
+    },
+    "objective": {
+      "atomic_batch_size": 4,
+      "locked_donor_indices": [
+        1,
+        0,
+        3,
+        2
+      ],
+      "memory_loss_mode": "scene_state_identity_ce",
+      "target_mode": "first_distinguishing_semantic_token",
+      "target_span_tokens": 1
+    },
+    "purpose": "train_only_projected_kv_addressing_canary_v1",
+    "schema": "rwkv_ms_synthetic_associative_retrieval_source.v1",
+    "system_prompt": "You are a deterministic associative lookup engine. Use the two memory records to answer the final query. Reply with exactly {\"boundaries\":[N]} and no other text.",
+    "task": "synthetic-query-selected-associative-retrieval"
+  },
+  "spec_sha256": "7b67be4076b32fd79f2919ad1cc5b446ae1dc9c108bc937fe86733bb0c133503",
+  "task": "synthetic-query-selected-associative-retrieval"
+}

@@ -29,10 +29,15 @@ TOKENIZED_DATASET_ROOT = Path(
 
 
 def _validate_mainline_args(args) -> None:
-    if args.memory_readout_mode != "delta":
+    if args.memory_readout_mode not in {
+        "delta",
+        "direct_last_hidden",
+        "projected_last_hidden",
+        "projected_kv_slots",
+    }:
         raise ValueError(
-            "Mainline trainer only supports --memory-readout-mode delta. "
-            "Use deltamem.train.delta_sft_experimental for experimental readouts."
+            "Mainline trainer only supports --memory-readout-mode delta, "
+            "direct_last_hidden, projected_last_hidden, or projected_kv_slots."
         )
 
 

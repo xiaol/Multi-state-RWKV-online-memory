@@ -1,0 +1,356 @@
+{
+  "cases": [
+    {
+      "donor_content": "{\"boundaries\":[2]}",
+      "donor_response_nll": {
+        "mean_nll": 2.0529463291168213,
+        "sum_nll": 10.264731407165527,
+        "token_count": 5,
+        "token_nll": [
+          1.5497195136049413e-06,
+          6.079655122448457e-06,
+          0.012517224065959454,
+          10.25019359588623,
+          0.002012848388403654
+        ]
+      },
+      "donor_response_token_ids": [
+        14937,
+        179872,
+        89045,
+        236778,
+        21111
+      ],
+      "generation": {
+        "decoded_text": "{\"boundaries\":[1]}",
+        "exact": true,
+        "generated_token_ids": [
+          14937,
+          179872,
+          89045,
+          236770,
+          21111,
+          106
+        ]
+      },
+      "memory_value": "MEMORY RECORD. KEY ALPHA. VALUE 1.",
+      "pair_target": {
+        "donor_target_logit": 18.875,
+        "donor_target_token_id": 236778,
+        "first_distinguishing_response_ordinal": 3,
+        "shared_response_prefix_sha256": "23af1b72b159508b810b5e92c5d839f083b1699b3eff60632d1e521854682e5c",
+        "shared_response_prefix_token_count": 3,
+        "source_minus_donor_logit_margin": 10.25,
+        "source_target_logit": 29.125,
+        "source_target_token_id": 236770
+      },
+      "prompt_token_count": 85,
+      "prompt_token_ids_sha256": "f055dc29192d67061f53398a3fe7b0acac78691566855587e2598deb093efc10",
+      "target_content": "{\"boundaries\":[1]}",
+      "target_minus_donor_mean_nll": -2.0504024759866297,
+      "target_response_nll": {
+        "mean_nll": 0.0025438531301915646,
+        "sum_nll": 0.012719265185296535,
+        "token_count": 5,
+        "token_nll": [
+          1.5497195136049413e-06,
+          6.079655122448457e-06,
+          0.012517224065959454,
+          0.00019333878299221396,
+          1.0728830375228426e-06
+        ]
+      },
+      "target_response_token_ids": [
+        14937,
+        179872,
+        89045,
+        236770,
+        21111
+      ]
+    },
+    {
+      "donor_content": "{\"boundaries\":[1]}",
+      "donor_response_nll": {
+        "mean_nll": 2.2529306411743164,
+        "sum_nll": 11.264653205871582,
+        "token_count": 5,
+        "token_nll": [
+          1.311301275563892e-06,
+          3.6954811548639555e-06,
+          0.011052812449634075,
+          11.25007152557373,
+          0.0035233343951404095
+        ]
+      },
+      "donor_response_token_ids": [
+        14937,
+        179872,
+        89045,
+        236770,
+        21111
+      ],
+      "generation": {
+        "decoded_text": "{\"boundaries\":[2]}",
+        "exact": true,
+        "generated_token_ids": [
+          14937,
+          179872,
+          89045,
+          236778,
+          21111,
+          106
+        ]
+      },
+      "memory_value": "MEMORY RECORD. KEY ALPHA. VALUE 2.",
+      "pair_target": {
+        "donor_target_logit": 17.75,
+        "donor_target_token_id": 236770,
+        "first_distinguishing_response_ordinal": 3,
+        "shared_response_prefix_sha256": "23af1b72b159508b810b5e92c5d839f083b1699b3eff60632d1e521854682e5c",
+        "shared_response_prefix_token_count": 3,
+        "source_minus_donor_logit_margin": 11.25,
+        "source_target_logit": 29.0,
+        "source_target_token_id": 236778
+      },
+      "prompt_token_count": 85,
+      "prompt_token_ids_sha256": "fdd50cc41506d2099c6dc9681db8e364097da0a975b886b38598ada7e5168a7e",
+      "target_content": "{\"boundaries\":[2]}",
+      "target_minus_donor_mean_nll": -2.250704701291397,
+      "target_response_nll": {
+        "mean_nll": 0.0022259398829191923,
+        "sum_nll": 0.011129699647426605,
+        "token_count": 5,
+        "token_nll": [
+          1.311301275563892e-06,
+          3.6954811548639555e-06,
+          0.011052812449634075,
+          7.152301259338856e-05,
+          3.576278118089249e-07
+        ]
+      },
+      "target_response_token_ids": [
+        14937,
+        179872,
+        89045,
+        236778,
+        21111
+      ]
+    },
+    {
+      "donor_content": "{\"boundaries\":[1]}",
+      "donor_response_nll": {
+        "mean_nll": 1.9546931982040405,
+        "sum_nll": 9.773466110229492,
+        "token_count": 5,
+        "token_nll": [
+          9.536738616588991e-07,
+          8.940656698541716e-06,
+          0.016040565446019173,
+          9.750092506408691,
+          0.007323088590055704
+        ]
+      },
+      "donor_response_token_ids": [
+        14937,
+        179872,
+        89045,
+        236770,
+        21111
+      ],
+      "generation": {
+        "decoded_text": "{\"boundaries\":[2]}",
+        "exact": true,
+        "generated_token_ids": [
+          14937,
+          179872,
+          89045,
+          236778,
+          21111,
+          106
+        ]
+      },
+      "memory_value": "MEMORY RECORD. KEY ALPHA. VALUE 1.",
+      "pair_target": {
+        "donor_target_logit": 19.5,
+        "donor_target_token_id": 236770,
+        "first_distinguishing_response_ordinal": 3,
+        "shared_response_prefix_sha256": "23af1b72b159508b810b5e92c5d839f083b1699b3eff60632d1e521854682e5c",
+        "shared_response_prefix_token_count": 3,
+        "source_minus_donor_logit_margin": 9.75,
+        "source_target_logit": 29.25,
+        "source_target_token_id": 236778
+      },
+      "prompt_token_count": 85,
+      "prompt_token_ids_sha256": "02a2c138bbf50e10b651e41c9edb5b1abcb6b87623f9ce222f7ee5eab2ae60e2",
+      "target_content": "{\"boundaries\":[2]}",
+      "target_minus_donor_mean_nll": -1.9514645340386778,
+      "target_response_nll": {
+        "mean_nll": 0.0032286641653627157,
+        "sum_nll": 0.016143320128321648,
+        "token_count": 5,
+        "token_nll": [
+          9.536738616588991e-07,
+          8.940656698541716e-06,
+          0.016040565446019173,
+          9.226373367710039e-05,
+          5.960462772236497e-07
+        ]
+      },
+      "target_response_token_ids": [
+        14937,
+        179872,
+        89045,
+        236778,
+        21111
+      ]
+    },
+    {
+      "donor_content": "{\"boundaries\":[2]}",
+      "donor_response_nll": {
+        "mean_nll": 1.7784614562988281,
+        "sum_nll": 8.89230728149414,
+        "token_count": 5,
+        "token_nll": [
+          1.5497195136049413e-06,
+          1.4424220353248529e-05,
+          0.01603962667286396,
+          8.875197410583496,
+          0.0010536124464124441
+        ]
+      },
+      "donor_response_token_ids": [
+        14937,
+        179872,
+        89045,
+        236778,
+        21111
+      ],
+      "generation": {
+        "decoded_text": "{\"boundaries\":[1]}",
+        "exact": true,
+        "generated_token_ids": [
+          14937,
+          179872,
+          89045,
+          236770,
+          21111,
+          106
+        ]
+      },
+      "memory_value": "MEMORY RECORD. KEY ALPHA. VALUE 2.",
+      "pair_target": {
+        "donor_target_logit": 20.25,
+        "donor_target_token_id": 236778,
+        "first_distinguishing_response_ordinal": 3,
+        "shared_response_prefix_sha256": "23af1b72b159508b810b5e92c5d839f083b1699b3eff60632d1e521854682e5c",
+        "shared_response_prefix_token_count": 3,
+        "source_minus_donor_logit_margin": 8.875,
+        "source_target_logit": 29.125,
+        "source_target_token_id": 236770
+      },
+      "prompt_token_count": 85,
+      "prompt_token_ids_sha256": "6da26e35e622dd955bbd8d93bdce36827b448dcd5a39775243fb6d89c96d5177",
+      "target_content": "{\"boundaries\":[1]}",
+      "target_minus_donor_mean_nll": -1.7752105239778757,
+      "target_response_nll": {
+        "mean_nll": 0.0032509323209524155,
+        "sum_nll": 0.016254661604762077,
+        "token_count": 5,
+        "token_nll": [
+          1.5497195136049413e-06,
+          1.4424220353248529e-05,
+          0.01603962667286396,
+          0.00019762947340495884,
+          1.4305104514278355e-06
+        ]
+      },
+      "target_response_token_ids": [
+        14937,
+        179872,
+        89045,
+        236770,
+        21111
+      ]
+    }
+  ],
+  "created_at_utc": "2026-08-05T11:11:13.610520+00:00",
+  "gate": {
+    "criteria": {
+      "exact_full_context_generation_4_of_4": true,
+      "finite_pair_target_margins": true,
+      "pair_target_margin_at_least_5_all_rows": true
+    },
+    "exact_generation_count": 4,
+    "minimum_pair_target_logit_margin": 8.875,
+    "pair_target_logit_margins": [
+      10.25,
+      11.25,
+      9.75,
+      8.875
+    ],
+    "passed": true,
+    "required_exact_generation_count": 4,
+    "required_minimum_pair_target_logit_margin": 5.0
+  },
+  "generation_contract": {
+    "decoded_exactness": "strip_outer_whitespace_then_exact_assistant_content",
+    "do_sample": false,
+    "max_new_tokens": 16,
+    "use_cache": true
+  },
+  "identity_donor_indices": [
+    1,
+    0,
+    3,
+    2
+  ],
+  "model": {
+    "artifacts": {
+      "chat_template.jinja": {
+        "bytes": 17336,
+        "sha256": "2f1b4d75d067bae3fe44e676721c7f077d243bc007156cb9c2f8b5836613d082"
+      },
+      "config.json": {
+        "bytes": 5145,
+        "sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4"
+      },
+      "model.safetensors": {
+        "bytes": 15992595884,
+        "sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503"
+      },
+      "tokenizer.json": {
+        "bytes": 32169626,
+        "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+      },
+      "tokenizer_config.json": {
+        "bytes": 2095,
+        "sha256": "90c3a3ba5bf53818383a58e1a776cbcacd2a038d4812eaa373e1522f2d06f3df"
+      }
+    },
+    "identity_sha256": "554deae79721a9f6e85623cc4e2f8d20b88facd1f0276556fb0cbd8ee05cc478",
+    "path": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58"
+  },
+  "receipt_sha256": "195c0e5463d2e0a92e25e3819f0c7df400a5b6cd8cf1d69c31cff5cd8eba0fc7",
+  "runtime": {
+    "adapter_loaded": false,
+    "attn_implementation": "sdpa",
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "grad_enabled": false,
+    "hf_endpoint": "https://hf-mirror.com",
+    "python": "3.12.13",
+    "torch": "2.6.0+cu128",
+    "transformers": "5.14.1"
+  },
+  "schema": "rwkv_ms_synthetic_associative_retrieval_gate0.v1",
+  "source": {
+    "manifest_file_sha256": "ceb3e1c691d82047f5610dc3e2e716648910ed69c4d9bf520b8f3e864fe182b9",
+    "manifest_path": "/root/X/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/synthetic_associative_retrieval_canary_v2/source_manifest.json",
+    "manifest_sha256": "c10fa82735f545a82ee426377bcde069467e9c3b982aa27c3407380b9b4db066",
+    "rows_path": "/root/X/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/synthetic_associative_retrieval_canary_v2/source_rows.jsonl",
+    "rows_sha256": "327972719a4f630362b7f7d57071b56a346e97955860b79a1ed989c1ff2c03c5",
+    "schema": "rwkv_ms_synthetic_associative_retrieval_source.v1",
+    "train_path": "/root/X/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/synthetic_associative_retrieval_canary_v2/train.jsonl",
+    "train_sha256": "6d0bf5a5aeaf8f68451557562accfcd2accc2162f41809d7ad2af38787ed934d"
+  }
+}

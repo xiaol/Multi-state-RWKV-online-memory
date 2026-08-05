@@ -5,7 +5,7 @@ import math
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -47,9 +47,15 @@ VALID_DELTA_HEADS = ("q", "k", "v", "o")
 VALID_MEMORY_BACKENDS = ("delta_rule", "rwkv_ms")
 VALID_STATE_UPDATE_MODES = ("standard", "lambda_outside", "no_lambda")
 VALID_RWKV_MS_BOUNDARY_MODES = ("fixed_chunk",)
+VALID_RWKV_MS_WRITE_MODES = ("recurrent", "last_token_overwrite")
 VALID_MEMORY_PARTITION_ROUTING = ("soft",)
 VALID_MEMORY_PARTITION_BASIS = ("shared",)
-VALID_MEMORY_READOUT_MODES = ("delta",)
+VALID_MEMORY_READOUT_MODES = (
+    "delta",
+    "direct_last_hidden",
+    "projected_last_hidden",
+    "projected_kv_slots",
+)
 VALID_MEMORY_WRITE_SOURCES = ("learned_hidden",)
 VALID_MEMORY_WRITE_GRANULARITIES = (
     "token",
@@ -129,6 +135,16 @@ def normalize_rwkv_ms_boundary_mode(mode: str) -> str:
     return normalized
 
 
+def normalize_rwkv_ms_write_mode(mode: str) -> str:
+    normalized = str(mode).strip().lower().replace("-", "_")
+    if normalized not in VALID_RWKV_MS_WRITE_MODES:
+        raise ValueError(
+            "Unsupported RWKV-MS write mode: "
+            f"{mode}; expected one of {VALID_RWKV_MS_WRITE_MODES}"
+        )
+    return normalized
+
+
 def normalize_memory_partition_routing(mode: str) -> str:
     normalized = str(mode).strip().lower()
     if normalized not in VALID_MEMORY_PARTITION_ROUTING:
@@ -153,7 +169,8 @@ def normalize_memory_readout_mode(mode: str) -> str:
     normalized = str(mode).strip().lower()
     if normalized not in VALID_MEMORY_READOUT_MODES:
         raise ValueError(
-            "Only memory_readout_mode='delta' is still supported. "
+            "Only memory_readout_mode='delta', 'direct_last_hidden', "
+            "'projected_last_hidden', or 'projected_kv_slots' is supported. "
             f"Got {mode!r}."
         )
     return normalized
@@ -288,6 +305,9 @@ class HFDeltaMemConfig:
     memory_reader_residual_scale: float = 0.1
     memory_reader_read_only: bool = True
     memory_readout_mode: str = "delta"
+    projected_kv_key_dim: int = 32
+    projected_kv_temperature: float = 16.0
+    projected_kv_update_cosine_threshold: float = 0.95
     memory_write_source: str = "learned_hidden"
     memory_write_granularity: str = "token"
     memory_write_proposals_per_message: int = 2
@@ -316,8 +336,10 @@ class HFDeltaMemConfig:
     rwkv_ms_num_states: int = 4
     rwkv_ms_chunk_size: int = 1024
     rwkv_ms_boundary_mode: str = "fixed_chunk"
+    rwkv_ms_write_mode: str = "recurrent"
     rwkv_ms_erase_gate: float = 1.0
     rwkv_ms_read_top_k: int = 0
+    rwkv_ms_mask_empty_slots: bool = False
     rwkv_ms_output_init_scale: float = 0.02
     rwkv_ms_semantics_version: int = 2
 
@@ -348,8 +370,18 @@ class HFDeltaMemConfig:
             "rwkv_ms_boundary_mode",
             normalize_rwkv_ms_boundary_mode(self.rwkv_ms_boundary_mode),
         )
+        object.__setattr__(
+            self,
+            "rwkv_ms_write_mode",
+            normalize_rwkv_ms_write_mode(self.rwkv_ms_write_mode),
+        )
+        if self.rwkv_ms_write_mode != "recurrent" and self.memory_backend != "rwkv_ms":
+            raise ValueError(
+                "Non-recurrent RWKV-MS write modes require memory_backend='rwkv_ms'"
+            )
         object.__setattr__(self, "rwkv_ms_erase_gate", float(self.rwkv_ms_erase_gate))
         object.__setattr__(self, "rwkv_ms_read_top_k", int(self.rwkv_ms_read_top_k))
+        object.__setattr__(self, "rwkv_ms_mask_empty_slots", bool(self.rwkv_ms_mask_empty_slots))
         object.__setattr__(
             self,
             "rwkv_ms_output_init_scale",
@@ -555,6 +587,44 @@ class HFDeltaMemConfig:
             "memory_readout_mode",
             normalize_memory_readout_mode(self.memory_readout_mode),
         )
+        projected_kv_key_dim = int(self.projected_kv_key_dim)
+        projected_kv_temperature = float(self.projected_kv_temperature)
+        projected_kv_update_cosine_threshold = float(
+            self.projected_kv_update_cosine_threshold
+        )
+        if projected_kv_key_dim < 1:
+            raise ValueError("projected_kv_key_dim must be >= 1")
+        if not math.isfinite(projected_kv_temperature) or projected_kv_temperature <= 0.0:
+            raise ValueError("projected_kv_temperature must be finite and > 0")
+        if not math.isfinite(projected_kv_update_cosine_threshold) or not (
+            -1.0 <= projected_kv_update_cosine_threshold <= 1.0
+        ):
+            raise ValueError(
+                "projected_kv_update_cosine_threshold must be finite and satisfy "
+                "-1 <= value <= 1"
+            )
+        object.__setattr__(self, "projected_kv_key_dim", projected_kv_key_dim)
+        object.__setattr__(self, "projected_kv_temperature", projected_kv_temperature)
+        object.__setattr__(
+            self,
+            "projected_kv_update_cosine_threshold",
+            projected_kv_update_cosine_threshold,
+        )
+        if self.memory_readout_mode == "projected_kv_slots":
+            if self.memory_backend != "rwkv_ms":
+                raise ValueError(
+                    "memory_readout_mode='projected_kv_slots' requires "
+                    "memory_backend='rwkv_ms'"
+                )
+        elif (
+            projected_kv_key_dim != 32
+            or projected_kv_temperature != 16.0
+            or projected_kv_update_cosine_threshold != 0.95
+        ):
+            raise ValueError(
+                "projected_kv_* options require "
+                "memory_readout_mode='projected_kv_slots'"
+            )
         object.__setattr__(
             self,
             "memory_write_source",
@@ -627,7 +697,9 @@ class HFDeltaMemConfig:
             )
         if self.latent_memory_layers:
             raise ValueError(
-                "latent memory readouts are archived; active Delta-Mem only supports memory_readout_mode='delta'."
+                "latent memory readouts are archived; active Delta-Mem only supports "
+                "memory_readout_mode='delta', 'direct_last_hidden', or "
+                "'projected_last_hidden', or 'projected_kv_slots'."
             )
         if self.num_state_heads > 1 and self.num_memory_partitions > 1:
             raise ValueError(
@@ -715,11 +787,19 @@ class DeltaMemAttention(nn.Module):
         self.state_read_dim = self.rank * self.num_state_heads
         self.multi_head_state = self.num_state_heads > 1
         self.memory_backend = config.memory_backend
+        self.memory_readout_mode = config.memory_readout_mode
+        self.projected_kv_key_dim = config.projected_kv_key_dim
+        self.projected_kv_temperature = config.projected_kv_temperature
+        self.projected_kv_update_cosine_threshold = (
+            config.projected_kv_update_cosine_threshold
+        )
         self.rwkv_ms_num_states = config.rwkv_ms_num_states
         self.rwkv_ms_chunk_size = config.rwkv_ms_chunk_size
         self.rwkv_ms_boundary_mode = config.rwkv_ms_boundary_mode
+        self.rwkv_ms_write_mode = config.rwkv_ms_write_mode
         self.rwkv_ms_erase_gate = config.rwkv_ms_erase_gate
         self.rwkv_ms_read_top_k = config.rwkv_ms_read_top_k
+        self.rwkv_ms_mask_empty_slots = config.rwkv_ms_mask_empty_slots
         self.rwkv_ms_output_init_scale = config.rwkv_ms_output_init_scale
         self.rwkv_ms_semantics_version = config.rwkv_ms_semantics_version
         self.delta_scaling = config.alpha / config.rank
@@ -818,6 +898,10 @@ class DeltaMemAttention(nn.Module):
             requires_grad=memory_qk_trainable,
         )
         self.memory_v_proj = nn.Parameter(torch.empty(self.state_read_dim, hidden_size))
+        if self.memory_readout_mode == "projected_kv_slots":
+            self.projected_kv_key_proj = nn.Parameter(
+                torch.empty(self.projected_kv_key_dim, hidden_size)
+            )
 
         self.delta_q_proj = nn.Parameter(torch.empty(self.query_out_features, self.state_read_dim))
         self.delta_k_proj = nn.Parameter(torch.empty(self.key_out_features, self.state_read_dim))
@@ -842,6 +926,12 @@ class DeltaMemAttention(nn.Module):
 
         self.reset_parameters()
         self.delta_state: torch.Tensor | None = None
+        self.direct_last_hidden: torch.Tensor | None = None
+        self.projected_last_hidden: torch.Tensor | None = None
+        self.projected_kv_keys: torch.Tensor | None = None
+        self.projected_kv_values: torch.Tensor | None = None
+        self.projected_kv_occupied: torch.Tensor | None = None
+        self.projected_kv_surprise: torch.Tensor | None = None
         self.rwkv_ms_positions: torch.Tensor | None = None
         self.rwkv_ms_previous_source: torch.Tensor | None = None
         self.read_context_mask: torch.Tensor | None = None
@@ -869,6 +959,7 @@ class DeltaMemAttention(nn.Module):
         self.last_memory_residual_norm: torch.Tensor | None = None
         self.last_memory_residual_ratio: torch.Tensor | None = None
         self.last_memory_residual_gain: torch.Tensor | None = None
+        self._eval_memory_delta_controller: Callable[..., torch.Tensor] | None = None
         self._pending_post_attention_delta: tuple[
             torch.Tensor | None,
             torch.Tensor | None,
@@ -955,6 +1046,8 @@ class DeltaMemAttention(nn.Module):
         nn.init.kaiming_uniform_(self.memory_q_proj, a=math.sqrt(5))
         nn.init.kaiming_uniform_(self.memory_k_proj, a=math.sqrt(5))
         nn.init.kaiming_uniform_(self.memory_v_proj, a=math.sqrt(5))
+        if self.memory_readout_mode == "projected_kv_slots":
+            nn.init.kaiming_uniform_(self.projected_kv_key_proj, a=math.sqrt(5))
         self._init_delta_head(self.delta_q_proj, self._query_projection_weight())
         if self.is_gemma4_attention and self.is_kv_shared_layer:
             nn.init.zeros_(self.delta_k_proj)
@@ -993,6 +1086,12 @@ class DeltaMemAttention(nn.Module):
 
     def reset_state(self) -> None:
         self.delta_state = None
+        self.direct_last_hidden = None
+        self.projected_last_hidden = None
+        self.projected_kv_keys = None
+        self.projected_kv_values = None
+        self.projected_kv_occupied = None
+        self.projected_kv_surprise = None
         self.rwkv_ms_positions = None
         self.rwkv_ms_previous_source = None
         self.read_context_mask = None
@@ -1038,6 +1137,8 @@ class DeltaMemAttention(nn.Module):
         self.write_sentence_ids = sentence_ids
 
     def is_trainable_parameter(self, sub_name: str) -> bool:
+        if sub_name == "projected_kv_key_proj":
+            return self.memory_readout_mode == "projected_kv_slots"
         if sub_name in {"memory_q_proj", "memory_k_proj"}:
             return self.memory_backend != "rwkv_ms"
         if sub_name == "memory_v_proj":
@@ -1200,15 +1301,69 @@ class DeltaMemAttention(nn.Module):
         delta_v = self._project_delta_head(reads, self.delta_v_proj, "v")
         return delta_q, delta_k, delta_v
 
+    def _add_memory_delta(
+        self,
+        reference: torch.Tensor,
+        raw_delta: torch.Tensor | None,
+        *,
+        head_name: str,
+        token_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        if raw_delta is None:
+            return reference
+        controller = self._eval_memory_delta_controller
+        if controller is None:
+            return reference + raw_delta.to(dtype=reference.dtype)
+        if self.training:
+            raise RuntimeError("Memory-delta interventions are restricted to eval mode")
+        output = controller(self, head_name, reference, raw_delta, token_mask)
+        if not torch.is_tensor(output):
+            raise TypeError("Memory-delta intervention must return a tensor")
+        if output.shape != reference.shape:
+            raise ValueError(
+                "Memory-delta intervention changed the projection shape: "
+                f"head={head_name} reference={tuple(reference.shape)} "
+                f"output={tuple(output.shape)}"
+            )
+        if output.device != reference.device or output.dtype != reference.dtype:
+            raise ValueError(
+                "Memory-delta intervention changed projection device or dtype: "
+                f"head={head_name} reference={reference.device}/{reference.dtype} "
+                f"output={output.device}/{output.dtype}"
+            )
+        return output
+
     def _apply_delta_qkv(
         self,
         hidden_states: torch.Tensor,
         delta_q: torch.Tensor | None,
         delta_k: torch.Tensor | None,
         delta_v: torch.Tensor | None,
+        token_mask: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None]:
         if self.has_packed_qkv_proj:
             packed_qkv = self.base.qkv_proj(hidden_states)
+            if self._eval_memory_delta_controller is not None:
+                query_states, key_states, value_states = self._split_packed_qkv(packed_qkv)
+                query_states = self._add_memory_delta(
+                    query_states,
+                    delta_q,
+                    head_name="q",
+                    token_mask=token_mask,
+                )
+                key_states = self._add_memory_delta(
+                    key_states,
+                    delta_k,
+                    head_name="k",
+                    token_mask=token_mask,
+                )
+                value_states = self._add_memory_delta(
+                    value_states,
+                    delta_v,
+                    head_name="v",
+                    token_mask=token_mask,
+                )
+                return query_states, key_states, value_states, None
             packed_delta_parts = []
             for delta_part, width in (
                 (delta_q, self.query_out_features),
@@ -1228,14 +1383,26 @@ class DeltaMemAttention(nn.Module):
             query_states, output_gate = self._split_qwen3_5_query_gate(projected_query)
         else:
             query_states = projected_query
-        if delta_q is not None:
-            query_states = query_states + delta_q.to(hidden_states.dtype)
+        query_states = self._add_memory_delta(
+            query_states,
+            delta_q,
+            head_name="q",
+            token_mask=token_mask,
+        )
         key_states = self.base.k_proj(hidden_states)
-        if delta_k is not None:
-            key_states = key_states + delta_k.to(hidden_states.dtype)
+        key_states = self._add_memory_delta(
+            key_states,
+            delta_k,
+            head_name="k",
+            token_mask=token_mask,
+        )
         value_states = self.base.v_proj(hidden_states) if self.base.v_proj is not None else key_states
-        if delta_v is not None:
-            value_states = value_states + delta_v.to(hidden_states.dtype)
+        value_states = self._add_memory_delta(
+            value_states,
+            delta_v,
+            head_name="v",
+            token_mask=token_mask,
+        )
         return query_states, key_states, value_states, output_gate
 
     def _forward_gemma4_shared_kv_attention(
@@ -1259,8 +1426,12 @@ class DeltaMemAttention(nn.Module):
         input_shape = hidden_states.shape[:-1]
         hidden_shape = (*input_shape, -1, self.head_dim)
         query_states = self.base.q_proj(hidden_states)
-        if delta_q is not None:
-            query_states = query_states + delta_q.to(dtype=hidden_states.dtype)
+        query_states = self._add_memory_delta(
+            query_states,
+            delta_q,
+            head_name="q",
+            token_mask=read_mask,
+        )
         query_states = self._normalize_query_states(query_states.view(hidden_shape)).transpose(
             1, 2
         )
@@ -2468,6 +2639,7 @@ class DeltaMemAttention(nn.Module):
         slot_reads: torch.Tensor,
         q_t: torch.Tensor,
         valid_t: torch.Tensor | None,
+        occupied_slots: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if self.rwkv_ms_semantics_version >= 2:
             scores = F.cosine_similarity(
@@ -2478,6 +2650,12 @@ class DeltaMemAttention(nn.Module):
             )
         else:
             scores = (slot_reads * q_t.unsqueeze(2)).sum(dim=-1) / math.sqrt(float(self.rank))
+        if self.rwkv_ms_mask_empty_slots:
+            if occupied_slots is None:
+                occupied_slots = slot_reads.ne(0).any(dim=-1)
+            all_slots_empty = ~occupied_slots.any(dim=-1, keepdim=True)
+            routable_slots = occupied_slots | all_slots_empty
+            scores = scores.masked_fill(~routable_slots, torch.finfo(scores.dtype).min)
         if 0 < self.rwkv_ms_read_top_k < scores.size(-1):
             top_scores, top_indices = torch.topk(scores, k=self.rwkv_ms_read_top_k, dim=-1)
             masked_scores = torch.full_like(scores, torch.finfo(scores.dtype).min)
@@ -2486,6 +2664,94 @@ class DeltaMemAttention(nn.Module):
         if valid_t is not None:
             routes = routes * valid_t.view(valid_t.size(0), 1, 1).to(dtype=routes.dtype)
         return routes
+
+    def _rwkv_ms_last_token_overwrite(
+        self,
+        state: torch.Tensor,
+        r_seq: torch.Tensor,
+        k_seq: torch.Tensor,
+        v_seq: torch.Tensor,
+        g_seq: torch.Tensor,
+        token_mask: Optional[torch.Tensor],
+        next_previous_source: torch.Tensor,
+        *,
+        update_positions: bool,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        batch_size, seq_len, _, _ = r_seq.shape
+        current_state = state.float()
+        positions = self._ensure_rwkv_ms_positions(
+            batch_size,
+            r_seq.device,
+        ).clone()
+        if token_mask is None:
+            valid_tokens = torch.ones(
+                batch_size,
+                seq_len,
+                dtype=torch.bool,
+                device=r_seq.device,
+            )
+        else:
+            valid_tokens = token_mask.to(device=r_seq.device, dtype=torch.bool)
+
+        token_indices = torch.arange(seq_len, device=r_seq.device).unsqueeze(0)
+        last_valid_indices = torch.where(valid_tokens, token_indices, -1).amax(dim=1)
+        has_valid_token = last_valid_indices.ge(0)
+        gather_indices = last_valid_indices.clamp_min(0).view(batch_size, 1, 1, 1)
+        gather_indices = gather_indices.expand(-1, 1, self.num_state_heads, self.rank)
+        last_k = k_seq.gather(1, gather_indices).squeeze(1)
+        last_v = v_seq.gather(1, gather_indices).squeeze(1)
+
+        valid_counts = valid_tokens.sum(dim=1, dtype=torch.long)
+        last_positions = positions + valid_counts.clamp_min(1) - 1
+        slot_indices = self._rwkv_ms_slot_indices(last_positions)
+        selected_slots = F.one_hot(
+            slot_indices,
+            num_classes=self.rwkv_ms_num_states,
+        ).to(dtype=current_state.dtype)
+        selected_slots = selected_slots * has_valid_token.unsqueeze(-1).to(
+            dtype=current_state.dtype
+        )
+        write_outer = last_v.unsqueeze(2).unsqueeze(-1) * last_k.unsqueeze(2).unsqueeze(-2)
+        state_mask = selected_slots.view(
+            batch_size,
+            1,
+            self.rwkv_ms_num_states,
+            1,
+            1,
+        )
+        next_state = write_outer * state_mask + current_state * (1.0 - state_mask)
+
+        occupied_slots = current_state.ne(0).any(dim=(-1, -2))
+        read_steps: list[torch.Tensor] = []
+        read_routes: list[torch.Tensor] = []
+        write_routes: list[torch.Tensor] = []
+        for token_idx in range(seq_len):
+            r_t = r_seq[:, token_idx]
+            valid_t = None if token_mask is None else valid_tokens[:, token_idx]
+            slot_reads = torch.einsum("bhsij,bhj->bhsi", current_state, r_t)
+            routes = self._rwkv_ms_read_routes(
+                slot_reads,
+                r_t,
+                valid_t,
+                occupied_slots=occupied_slots,
+            )
+            read_t = torch.einsum("bhs,bhsi->bhi", routes, slot_reads)
+            read_steps.append(read_t.reshape(batch_size, self.state_read_dim))
+            read_routes.append(routes.mean(dim=1))
+            is_selected_token = has_valid_token & last_valid_indices.eq(token_idx)
+            write_routes.append(
+                selected_slots
+                * is_selected_token.unsqueeze(-1).to(dtype=selected_slots.dtype)
+            )
+
+        reads = torch.stack(read_steps, dim=1).to(dtype=g_seq.dtype)
+        reads = self.hrm_rwkv7_core.readout(reads, g_seq)
+        self.last_read_routes = torch.stack(read_routes, dim=1)
+        self.last_write_routes = torch.stack(write_routes, dim=1)
+        if update_positions:
+            self.rwkv_ms_positions = (positions + valid_counts).detach()
+            self.rwkv_ms_previous_source = next_previous_source
+        return next_state, reads
 
     def _rwkv_ms_scan(
         self,
@@ -2524,9 +2790,20 @@ class DeltaMemAttention(nn.Module):
             return_previous=True,
         )
         r_seq = self._rwkv_ms_project_heads(features.r).float()
-        w_seq = self._rwkv_ms_project_heads(features.w).float()
         k_seq = self._rwkv_ms_project_heads(features.k).float()
         v_seq = self._rwkv_ms_project_heads(features.v).float()
+        if self.rwkv_ms_write_mode == "last_token_overwrite":
+            return self._rwkv_ms_last_token_overwrite(
+                state,
+                r_seq,
+                k_seq,
+                v_seq,
+                features.g,
+                token_mask,
+                next_previous_source,
+                update_positions=update_positions,
+            )
+        w_seq = self._rwkv_ms_project_heads(features.w).float()
         a_seq = self._rwkv_ms_project_heads(features.a).float()
         b_seq = self._rwkv_ms_project_heads(features.b).float()
         keep_seq, erase_seq, write_seq = self._rwkv_ms_update_coefficients(beta_seq, lambda_seq)
@@ -2553,7 +2830,13 @@ class DeltaMemAttention(nn.Module):
             valid_t = None if token_mask is None else token_mask[:, token_idx]
 
             slot_reads = torch.einsum("bhsij,bhj->bhsi", current_state, r_t)
-            routes = self._rwkv_ms_read_routes(slot_reads, r_t, valid_t)
+            occupied_slots = current_state.ne(0).any(dim=(-1, -2))
+            routes = self._rwkv_ms_read_routes(
+                slot_reads,
+                r_t,
+                valid_t,
+                occupied_slots=occupied_slots,
+            )
             read_t = torch.einsum("bhs,bhsi->bhi", routes, slot_reads)
             read_steps.append(read_t.reshape(batch_size, self.state_read_dim))
             read_routes.append(routes.mean(dim=1))
@@ -2636,7 +2919,13 @@ class DeltaMemAttention(nn.Module):
             r_t = r_seq[:, token_idx]
             valid_t = None if token_mask is None else token_mask[:, token_idx]
             slot_reads = torch.einsum("bhsij,bhj->bhsi", current_state, r_t)
-            routes = self._rwkv_ms_read_routes(slot_reads, r_t, valid_t)
+            occupied_slots = current_state.ne(0).any(dim=(-1, -2))
+            routes = self._rwkv_ms_read_routes(
+                slot_reads,
+                r_t,
+                valid_t,
+                occupied_slots=occupied_slots,
+            )
             read_t = torch.einsum("bhs,bhsi->bhi", routes, slot_reads)
             read_steps.append(read_t.reshape(batch_size, self.state_read_dim))
             read_routes.append(routes.mean(dim=1))
@@ -2691,6 +2980,395 @@ class DeltaMemAttention(nn.Module):
             read_route_seq,
             token_mask,
         )
+
+    def _last_valid_hidden(
+        self,
+        hidden_states: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        batch_size, seq_len, hidden_size = hidden_states.shape
+        if hidden_size != self.hidden_size:
+            raise ValueError(
+                "Last-hidden capture width does not match the attention hidden size: "
+                f"expected={self.hidden_size} actual={hidden_size}"
+            )
+        if token_mask is None:
+            return hidden_states[:, -1, :]
+        if tuple(token_mask.shape) != (batch_size, seq_len):
+            raise ValueError(
+                "Last-hidden capture mask must match the model token shape: "
+                f"expected={(batch_size, seq_len)} actual={tuple(token_mask.shape)}"
+            )
+        valid_tokens = token_mask.to(device=hidden_states.device, dtype=torch.bool)
+        token_indices = torch.arange(seq_len, device=hidden_states.device).unsqueeze(0)
+        last_valid_indices = torch.where(valid_tokens, token_indices, -1).amax(dim=1)
+        has_valid_token = last_valid_indices.ge(0)
+        gather_indices = last_valid_indices.clamp_min(0).view(batch_size, 1, 1)
+        gather_indices = gather_indices.expand(-1, 1, hidden_size)
+        captured = hidden_states.gather(dim=1, index=gather_indices).squeeze(1)
+        return captured * has_valid_token.unsqueeze(-1).to(captured.dtype)
+
+    def _capture_direct_last_hidden(
+        self,
+        hidden_states: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> None:
+        self.direct_last_hidden = self._last_valid_hidden(hidden_states, token_mask)
+
+    def _capture_projected_last_hidden(
+        self,
+        hidden_states: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> None:
+        captured = self._last_valid_hidden(hidden_states, token_mask)
+        normalized_hidden = F.rms_norm(
+            captured.float(),
+            (self.hidden_size,),
+            eps=1e-6,
+        )
+        self.projected_last_hidden = F.linear(
+            normalized_hidden,
+            self.memory_v_proj.float(),
+        ).to(dtype=self.memory_v_proj.dtype)
+
+    def _direct_last_hidden_token_reads(
+        self,
+        hidden_states: torch.Tensor,
+    ) -> torch.Tensor:
+        batch_size, seq_len, _ = hidden_states.shape
+        saved_hidden = self.direct_last_hidden
+        if saved_hidden is None:
+            return torch.zeros(
+                batch_size,
+                seq_len,
+                self.state_read_dim,
+                device=hidden_states.device,
+                dtype=self.memory_v_proj.dtype,
+            )
+        if tuple(saved_hidden.shape) != (batch_size, self.hidden_size):
+            raise ValueError(
+                "Saved direct-hidden state does not match the current batch: "
+                f"expected={(batch_size, self.hidden_size)} actual={tuple(saved_hidden.shape)}"
+            )
+        normalized_hidden = F.rms_norm(
+            saved_hidden.float(),
+            (self.hidden_size,),
+            eps=1e-6,
+        )
+        row_reads = F.linear(normalized_hidden, self.memory_v_proj.float())
+        row_reads = row_reads.to(dtype=self.memory_v_proj.dtype)
+        return row_reads.unsqueeze(1).expand(-1, seq_len, -1)
+
+    def _projected_last_hidden_token_reads(
+        self,
+        hidden_states: torch.Tensor,
+    ) -> torch.Tensor:
+        batch_size, seq_len, _ = hidden_states.shape
+        projected_hidden = self.projected_last_hidden
+        if projected_hidden is None:
+            return torch.zeros(
+                batch_size,
+                seq_len,
+                self.state_read_dim,
+                device=hidden_states.device,
+                dtype=self.memory_v_proj.dtype,
+            )
+        if tuple(projected_hidden.shape) != (batch_size, self.state_read_dim):
+            raise ValueError(
+                "Saved projected-hidden state does not match the current batch: "
+                f"expected={(batch_size, self.state_read_dim)} "
+                f"actual={tuple(projected_hidden.shape)}"
+            )
+        return projected_hidden.unsqueeze(1).expand(-1, seq_len, -1)
+
+    def _projected_kv_write_proposals(
+        self,
+        hidden_states: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+        if self.memory_write_granularity == "message_mean":
+            proposal_hidden, proposal_mask, _ = self._build_message_write_means(
+                hidden_states,
+                token_mask,
+            )
+            return proposal_hidden, proposal_mask
+        if self.memory_write_granularity == "sentence_mean":
+            proposal_hidden, proposal_mask, _ = self._build_sentence_write_means(
+                hidden_states,
+                token_mask,
+            )
+            return proposal_hidden, proposal_mask
+
+        batch_size, seq_len, _ = hidden_states.shape
+        if token_mask is None:
+            valid_tokens = torch.ones(
+                batch_size,
+                seq_len,
+                device=hidden_states.device,
+                dtype=torch.bool,
+            )
+        else:
+            if tuple(token_mask.shape) != (batch_size, seq_len):
+                raise ValueError(
+                    "Projected-KV token mask must match the model token shape: "
+                    f"expected={(batch_size, seq_len)} actual={tuple(token_mask.shape)}"
+                )
+            valid_tokens = token_mask.to(device=hidden_states.device, dtype=torch.bool)
+        token_indices = torch.arange(seq_len, device=hidden_states.device).unsqueeze(0)
+        last_valid_indices = torch.where(valid_tokens, token_indices, -1).amax(dim=1)
+        proposal_mask = last_valid_indices.ge(0).unsqueeze(1)
+        gather_indices = last_valid_indices.clamp_min(0).view(batch_size, 1, 1)
+        proposal_hidden = hidden_states.gather(
+            dim=1,
+            index=gather_indices.expand(-1, 1, self.hidden_size),
+        )
+        return proposal_hidden, proposal_mask
+
+    def _projected_kv_project_hidden(
+        self,
+        hidden_states: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        normalized_hidden = F.rms_norm(
+            hidden_states.float(),
+            (self.hidden_size,),
+            eps=1e-6,
+        )
+        keys = F.linear(normalized_hidden, self.projected_kv_key_proj.float())
+        keys = F.normalize(keys, dim=-1, eps=1e-6).to(
+            dtype=self.projected_kv_key_proj.dtype
+        )
+        values = F.linear(normalized_hidden, self.memory_v_proj.float()).to(
+            dtype=self.memory_v_proj.dtype
+        )
+        return keys, values
+
+    def _ensure_projected_kv_slot_state(
+        self,
+        batch_size: int,
+        device: torch.device,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        sidecars = (
+            self.projected_kv_keys,
+            self.projected_kv_values,
+            self.projected_kv_occupied,
+            self.projected_kv_surprise,
+        )
+        if any(sidecar is None for sidecar in sidecars) and not all(
+            sidecar is None for sidecar in sidecars
+        ):
+            raise RuntimeError("Projected-KV slot state is incomplete")
+        needs_init = all(sidecar is None for sidecar in sidecars)
+        if not needs_init:
+            assert self.projected_kv_keys is not None
+            needs_init = (
+                self.projected_kv_keys.size(0) != batch_size
+                or self.projected_kv_keys.device != device
+            )
+        if needs_init:
+            self.projected_kv_keys = torch.zeros(
+                batch_size,
+                self.rwkv_ms_num_states,
+                self.projected_kv_key_dim,
+                device=device,
+                dtype=self.projected_kv_key_proj.dtype,
+            )
+            self.projected_kv_values = torch.zeros(
+                batch_size,
+                self.rwkv_ms_num_states,
+                self.state_read_dim,
+                device=device,
+                dtype=self.memory_v_proj.dtype,
+            )
+            self.projected_kv_occupied = torch.zeros(
+                batch_size,
+                self.rwkv_ms_num_states,
+                device=device,
+                dtype=torch.bool,
+            )
+            self.projected_kv_surprise = torch.zeros(
+                batch_size,
+                self.rwkv_ms_num_states,
+                device=device,
+                dtype=torch.float32,
+            )
+        assert self.projected_kv_keys is not None
+        assert self.projected_kv_values is not None
+        assert self.projected_kv_occupied is not None
+        assert self.projected_kv_surprise is not None
+        expected_shapes = (
+            (batch_size, self.rwkv_ms_num_states, self.projected_kv_key_dim),
+            (batch_size, self.rwkv_ms_num_states, self.state_read_dim),
+            (batch_size, self.rwkv_ms_num_states),
+            (batch_size, self.rwkv_ms_num_states),
+        )
+        for label, sidecar, expected_shape in zip(
+            ("keys", "values", "occupied", "surprise"),
+            (
+                self.projected_kv_keys,
+                self.projected_kv_values,
+                self.projected_kv_occupied,
+                self.projected_kv_surprise,
+            ),
+            expected_shapes,
+        ):
+            if tuple(sidecar.shape) != expected_shape:
+                raise ValueError(
+                    f"Projected-KV {label} state has shape {tuple(sidecar.shape)}; "
+                    f"expected {expected_shape}"
+                )
+        return (
+            self.projected_kv_keys,
+            self.projected_kv_values,
+            self.projected_kv_occupied,
+            self.projected_kv_surprise,
+        )
+
+    def _write_projected_kv_slots(
+        self,
+        hidden_states: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> None:
+        proposal_hidden, proposal_mask = self._projected_kv_write_proposals(
+            hidden_states,
+            token_mask,
+        )
+        if proposal_hidden is None or proposal_mask is None:
+            self.last_write_routes = None
+            return
+        proposal_keys, proposal_values = self._projected_kv_project_hidden(
+            proposal_hidden
+        )
+        batch_size, num_proposals, _ = proposal_keys.shape
+        keys, values, occupied, surprise = self._ensure_projected_kv_slot_state(
+            batch_size,
+            hidden_states.device,
+        )
+        write_routes: list[torch.Tensor] = []
+        for proposal_idx in range(num_proposals):
+            candidate_key = proposal_keys[:, proposal_idx]
+            candidate_value = proposal_values[:, proposal_idx]
+            candidate_valid = proposal_mask[:, proposal_idx].to(
+                device=hidden_states.device,
+                dtype=torch.bool,
+            )
+
+            cosine = torch.einsum(
+                "bck,bk->bc",
+                keys.float(),
+                candidate_key.float(),
+            ).clamp(min=-1.0, max=1.0)
+            masked_cosine = cosine.masked_fill(~occupied, -torch.inf)
+            closest_cosine, closest_index = masked_cosine.max(dim=-1)
+            has_occupied = occupied.any(dim=-1)
+            candidate_surprise = torch.where(
+                has_occupied,
+                1.0 - closest_cosine,
+                torch.ones_like(closest_cosine),
+            )
+            matching = (
+                candidate_valid
+                & has_occupied
+                & closest_cosine.ge(self.projected_kv_update_cosine_threshold)
+            )
+
+            has_empty = (~occupied).any(dim=-1)
+            empty_index = (~occupied).to(dtype=torch.int64).argmax(dim=-1)
+            minimum_surprise, minimum_index = surprise.masked_fill(
+                ~occupied,
+                torch.inf,
+            ).min(dim=-1)
+            evict = (
+                candidate_valid
+                & ~matching
+                & ~has_empty
+                & candidate_surprise.ge(minimum_surprise)
+            )
+            insert = candidate_valid & ~matching & has_empty
+            should_update = matching | insert | evict
+            target_index = torch.where(
+                matching,
+                closest_index,
+                torch.where(insert, empty_index, minimum_index),
+            )
+            selected = F.one_hot(
+                target_index,
+                num_classes=self.rwkv_ms_num_states,
+            ).to(dtype=torch.bool)
+            selected = selected & should_update.unsqueeze(-1)
+            keys = torch.where(
+                selected.unsqueeze(-1),
+                candidate_key.unsqueeze(1),
+                keys,
+            )
+            values = torch.where(
+                selected.unsqueeze(-1),
+                candidate_value.unsqueeze(1),
+                values,
+            )
+            occupied = occupied | selected
+            surprise = torch.where(
+                selected,
+                candidate_surprise.detach().unsqueeze(-1).to(dtype=torch.float32),
+                surprise,
+            )
+            write_routes.append(selected.to(dtype=proposal_values.dtype))
+
+        self.projected_kv_keys = keys
+        self.projected_kv_values = values
+        self.projected_kv_occupied = occupied
+        self.projected_kv_surprise = surprise
+        self.last_write_routes = torch.stack(write_routes, dim=1)
+
+    def _projected_kv_slot_token_reads(
+        self,
+        hidden_states: torch.Tensor,
+    ) -> torch.Tensor:
+        batch_size, seq_len, _ = hidden_states.shape
+        sidecars = (
+            self.projected_kv_keys,
+            self.projected_kv_values,
+            self.projected_kv_occupied,
+            self.projected_kv_surprise,
+        )
+        if all(sidecar is None for sidecar in sidecars):
+            self.last_read_routes = None
+            return torch.zeros(
+                batch_size,
+                seq_len,
+                self.state_read_dim,
+                device=hidden_states.device,
+                dtype=self.memory_v_proj.dtype,
+            )
+        keys, values, occupied, _ = self._ensure_projected_kv_slot_state(
+            batch_size,
+            hidden_states.device,
+        )
+        query_keys, _ = self._projected_kv_project_hidden(hidden_states)
+        cosine = torch.einsum(
+            "btk,bck->btc",
+            query_keys.float(),
+            keys.float(),
+        ).clamp(min=-1.0, max=1.0)
+        has_memory = occupied.any(dim=-1, keepdim=True)
+        routable = occupied.clone()
+        routable[:, 0] |= ~has_memory.squeeze(-1)
+        logits = (cosine * self.projected_kv_temperature).masked_fill(
+            ~routable.unsqueeze(1),
+            -torch.inf,
+        )
+        soft_routes = torch.softmax(logits, dim=-1)
+        hard_routes = F.one_hot(
+            logits.argmax(dim=-1),
+            num_classes=self.rwkv_ms_num_states,
+        ).to(dtype=soft_routes.dtype)
+        routes = hard_routes + soft_routes - soft_routes.detach()
+        routes = routes * has_memory.unsqueeze(1).to(dtype=routes.dtype)
+        self.last_read_routes = routes
+        return torch.einsum(
+            "btc,bcd->btd",
+            routes,
+            values.float(),
+        ).to(dtype=self.memory_v_proj.dtype)
 
     def _fuse_delta_o_output(
         self,
@@ -2785,13 +3463,22 @@ class DeltaMemAttention(nn.Module):
                 token_mask,
             )
             return reference_output
-        applied_correction = fused_delta_o.to(reference_output.dtype)
+        if self._eval_memory_delta_controller is None:
+            applied_correction = fused_delta_o.to(reference_output.dtype)
+            fused_output = reference_output + applied_correction
+        else:
+            fused_output = self._add_memory_delta(
+                reference_output,
+                fused_delta_o,
+                head_name="o",
+                token_mask=token_mask,
+            )
+            applied_correction = fused_output - reference_output
         self._record_applied_memory_correction(
             reference_output,
             applied_correction,
             token_mask,
         )
-        fused_output = reference_output + applied_correction
         self.last_fused_o_ratio = self._masked_ratio_mean(
             fused_output.norm(dim=-1),
             reference_output.norm(dim=-1),
@@ -3080,93 +3767,130 @@ class DeltaMemAttention(nn.Module):
             seq_len=seq_len,
             device=hidden_states.device,
         )
-        token_memory_q_seq, token_memory_k_seq, token_memory_v_seq, beta_seq, lambda_seq = (
-            self._memory_sequence_projections(hidden_states)
-        )
-        token_memory_q_seq, token_memory_k_seq, token_memory_v_seq = self._partition_memory_projections(
-            token_memory_q_seq,
-            token_memory_k_seq,
-            token_memory_v_seq,
-        )
-        write_route_seq, read_route_seq = self._memory_partition_routes(hidden_states, token_mask)
-        stats_beta = beta_seq
-        stats_lambda = lambda_seq
-        stats_mask = token_mask
-        if self.num_memory_partitions > 1:
-            self.last_write_routes = write_route_seq
-            self.last_read_routes = read_route_seq
+        if self.memory_readout_mode in {
+            "direct_last_hidden",
+            "projected_last_hidden",
+            "projected_kv_slots",
+        }:
+            if self.write_enabled:
+                if self.memory_readout_mode == "direct_last_hidden":
+                    self._capture_direct_last_hidden(hidden_states, token_mask)
+                elif self.memory_readout_mode == "projected_last_hidden":
+                    self._capture_projected_last_hidden(hidden_states, token_mask)
+                else:
+                    self._write_projected_kv_slots(hidden_states, token_mask)
+                reads = torch.zeros(
+                    batch_size,
+                    seq_len,
+                    self.state_read_dim,
+                    device=hidden_states.device,
+                    dtype=self.memory_v_proj.dtype,
+                )
+            else:
+                if self.memory_readout_mode == "direct_last_hidden":
+                    reads = self._direct_last_hidden_token_reads(hidden_states)
+                elif self.memory_readout_mode == "projected_last_hidden":
+                    reads = self._projected_last_hidden_token_reads(hidden_states)
+                else:
+                    reads = self._projected_kv_slot_token_reads(hidden_states)
+            stats_beta = hidden_states.new_zeros((batch_size, seq_len, 1, 1))
+            stats_lambda = torch.zeros_like(stats_beta)
+            stats_mask = token_mask
+            if self.memory_readout_mode != "projected_kv_slots":
+                self.last_write_routes = None
+                self.last_read_routes = None
+            elif self.write_enabled:
+                self.last_read_routes = None
+            else:
+                self.last_write_routes = None
         else:
-            self.last_write_routes = None
-            self.last_read_routes = None
-        if self.write_enabled:
-            state_before_write = state
-            write_hidden = None
-            write_mask = None
-            write_message_ids = None
-            if self.memory_write_granularity == "message_mean":
-                write_hidden, write_mask, write_message_ids = self._build_message_write_means(
-                    hidden_states,
-                    token_mask,
-                )
-            elif self.memory_write_granularity == "sentence_mean":
-                write_hidden, write_mask, write_message_ids = self._build_sentence_write_means(
-                    hidden_states,
-                    token_mask,
-                )
-            if write_hidden is not None and write_mask is not None:
-                write_memory_q_seq, write_memory_k_seq, write_memory_v_seq, stats_beta, stats_lambda = (
-                    self._memory_sequence_projections(write_hidden)
-                )
-                write_memory_q_seq, write_memory_k_seq, write_memory_v_seq = self._partition_memory_projections(
-                    write_memory_q_seq,
-                    write_memory_k_seq,
-                    write_memory_v_seq,
-                )
-                proposal_write_route_seq, proposal_read_route_seq = self._memory_partition_routes(
-                    write_hidden,
-                    write_mask,
-                    message_ids=write_message_ids,
-                )
-                if self.num_memory_partitions > 1:
-                    self.last_write_routes = proposal_write_route_seq
-                    self.last_read_routes = proposal_read_route_seq
-                state, _ = self._memory_backend_scan(
-                    state,
-                    write_memory_q_seq,
-                    write_memory_k_seq,
-                    write_memory_v_seq,
-                    stats_beta,
-                    stats_lambda,
-                    write_route_seq=proposal_write_route_seq if self.num_memory_partitions > 1 else None,
-                    read_route_seq=proposal_read_route_seq if self.num_memory_partitions > 1 else None,
-                    token_mask=write_mask,
-                )
+            token_memory_q_seq, token_memory_k_seq, token_memory_v_seq, beta_seq, lambda_seq = (
+                self._memory_sequence_projections(hidden_states)
+            )
+            token_memory_q_seq, token_memory_k_seq, token_memory_v_seq = self._partition_memory_projections(
+                token_memory_q_seq,
+                token_memory_k_seq,
+                token_memory_v_seq,
+            )
+            write_route_seq, read_route_seq = self._memory_partition_routes(hidden_states, token_mask)
+            stats_beta = beta_seq
+            stats_lambda = lambda_seq
+            stats_mask = token_mask
+            if self.num_memory_partitions > 1:
+                self.last_write_routes = write_route_seq
+                self.last_read_routes = read_route_seq
+            else:
+                self.last_write_routes = None
+                self.last_read_routes = None
+            if self.write_enabled:
+                state_before_write = state
+                write_hidden = None
+                write_mask = None
+                write_message_ids = None
+                if self.memory_write_granularity == "message_mean":
+                    write_hidden, write_mask, write_message_ids = self._build_message_write_means(
+                        hidden_states,
+                        token_mask,
+                    )
+                elif self.memory_write_granularity == "sentence_mean":
+                    write_hidden, write_mask, write_message_ids = self._build_sentence_write_means(
+                        hidden_states,
+                        token_mask,
+                    )
+                if write_hidden is not None and write_mask is not None:
+                    write_memory_q_seq, write_memory_k_seq, write_memory_v_seq, stats_beta, stats_lambda = (
+                        self._memory_sequence_projections(write_hidden)
+                    )
+                    write_memory_q_seq, write_memory_k_seq, write_memory_v_seq = self._partition_memory_projections(
+                        write_memory_q_seq,
+                        write_memory_k_seq,
+                        write_memory_v_seq,
+                    )
+                    proposal_write_route_seq, proposal_read_route_seq = self._memory_partition_routes(
+                        write_hidden,
+                        write_mask,
+                        message_ids=write_message_ids,
+                    )
+                    if self.num_memory_partitions > 1:
+                        self.last_write_routes = proposal_write_route_seq
+                        self.last_read_routes = proposal_read_route_seq
+                    state, _ = self._memory_backend_scan(
+                        state,
+                        write_memory_q_seq,
+                        write_memory_k_seq,
+                        write_memory_v_seq,
+                        stats_beta,
+                        stats_lambda,
+                        write_route_seq=proposal_write_route_seq if self.num_memory_partitions > 1 else None,
+                        read_route_seq=proposal_read_route_seq if self.num_memory_partitions > 1 else None,
+                        token_mask=write_mask,
+                    )
+                    reads = self._memory_backend_token_reads(
+                        state_before_write,
+                        token_memory_v_seq if self.memory_backend == "rwkv_ms" else token_memory_q_seq,
+                        read_route_seq,
+                        token_mask,
+                    )
+                    stats_mask = write_mask
+                else:
+                    state, reads = self._memory_backend_scan(
+                        state,
+                        token_memory_q_seq,
+                        token_memory_k_seq,
+                        token_memory_v_seq,
+                        beta_seq,
+                        lambda_seq,
+                        write_route_seq=write_route_seq if self.num_memory_partitions > 1 else None,
+                        read_route_seq=read_route_seq if self.num_memory_partitions > 1 else None,
+                        token_mask=token_mask,
+                    )
+            else:
                 reads = self._memory_backend_token_reads(
-                    state_before_write,
+                    state,
                     token_memory_v_seq if self.memory_backend == "rwkv_ms" else token_memory_q_seq,
                     read_route_seq,
                     token_mask,
                 )
-                stats_mask = write_mask
-            else:
-                state, reads = self._memory_backend_scan(
-                    state,
-                    token_memory_q_seq,
-                    token_memory_k_seq,
-                    token_memory_v_seq,
-                    beta_seq,
-                    lambda_seq,
-                    write_route_seq=write_route_seq if self.num_memory_partitions > 1 else None,
-                    read_route_seq=read_route_seq if self.num_memory_partitions > 1 else None,
-                    token_mask=token_mask,
-                )
-        else:
-            reads = self._memory_backend_token_reads(
-                state,
-                token_memory_v_seq if self.memory_backend == "rwkv_ms" else token_memory_q_seq,
-                read_route_seq,
-                token_mask,
-            )
         if read_mask is not None:
             reads = reads * read_mask.unsqueeze(-1).to(dtype=reads.dtype)
             if (
@@ -3226,6 +3950,7 @@ class DeltaMemAttention(nn.Module):
             delta_q,
             delta_k,
             delta_v,
+            read_mask,
         )
 
         query_states = query_states.view(hidden_shape)
@@ -3994,21 +4719,93 @@ def get_delta_mem_partition_regularization(model: nn.Module) -> dict[str, torch.
 def get_delta_mem_online_state(model: nn.Module) -> dict[str, torch.Tensor]:
     state: dict[str, torch.Tensor] = {}
     for name, module in iter_delta_mem_modules(model):
-        if module.delta_state is None:
-            continue
-        state[name] = module.delta_state.detach().cpu().clone()
-        if module.memory_backend == "rwkv_ms" and module.rwkv_ms_positions is not None:
-            state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions.detach().cpu().clone()
-        if module.memory_backend == "rwkv_ms" and module.rwkv_ms_previous_source is not None:
-            state[f"{name}.__rwkv_ms_previous_source"] = (
-                module.rwkv_ms_previous_source.detach().cpu().clone()
+        if module.delta_state is not None:
+            state[name] = module.delta_state.detach().cpu().clone()
+            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_positions is not None:
+                state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions.detach().cpu().clone()
+            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_previous_source is not None:
+                state[f"{name}.__rwkv_ms_previous_source"] = (
+                    module.rwkv_ms_previous_source.detach().cpu().clone()
+                )
+        if module.direct_last_hidden is not None:
+            state[f"{name}.__direct_last_hidden"] = (
+                module.direct_last_hidden.detach().cpu().clone()
             )
+        if module.projected_last_hidden is not None:
+            state[f"{name}.__projected_last_hidden"] = (
+                module.projected_last_hidden.detach().cpu().clone()
+            )
+        for suffix, tensor in (
+            ("__projected_kv_keys", module.projected_kv_keys),
+            ("__projected_kv_values", module.projected_kv_values),
+            ("__projected_kv_occupied", module.projected_kv_occupied),
+            ("__projected_kv_surprise", module.projected_kv_surprise),
+        ):
+            if tensor is not None:
+                state[f"{name}.{suffix}"] = tensor.detach().cpu().clone()
     return state
 
 
 def load_delta_mem_online_state(model: nn.Module, state: dict[str, torch.Tensor]) -> None:
     module_map = dict(model.named_modules())
     for name, tensor in state.items():
+        projected_kv_suffixes = {
+            ".__projected_kv_keys": ("projected_kv_keys", None),
+            ".__projected_kv_values": ("projected_kv_values", None),
+            ".__projected_kv_occupied": ("projected_kv_occupied", torch.bool),
+            ".__projected_kv_surprise": ("projected_kv_surprise", torch.float32),
+        }
+        matched_projected_kv_suffix = next(
+            (suffix for suffix in projected_kv_suffixes if name.endswith(suffix)),
+            None,
+        )
+        if matched_projected_kv_suffix is not None:
+            module_name = name[: -len(matched_projected_kv_suffix)]
+            module = module_map[module_name]
+            if not isinstance(module, DeltaMemAttention):
+                raise TypeError(f"{module_name} is not a DeltaMemAttention")
+            if module.memory_readout_mode != "projected_kv_slots":
+                raise ValueError(
+                    f"{module_name} does not use projected_kv_slots readout"
+                )
+            attribute, fixed_dtype = projected_kv_suffixes[
+                matched_projected_kv_suffix
+            ]
+            if fixed_dtype is None:
+                fixed_dtype = (
+                    module.projected_kv_key_proj.dtype
+                    if attribute == "projected_kv_keys"
+                    else module.memory_v_proj.dtype
+                )
+            setattr(
+                module,
+                attribute,
+                tensor.to(
+                    device=module.memory_v_proj.device,
+                    dtype=fixed_dtype,
+                ),
+            )
+            continue
+        if name.endswith(".__projected_last_hidden"):
+            module_name = name[: -len(".__projected_last_hidden")]
+            module = module_map[module_name]
+            if not isinstance(module, DeltaMemAttention):
+                raise TypeError(f"{module_name} is not a DeltaMemAttention")
+            module.projected_last_hidden = tensor.to(
+                device=module.memory_v_proj.device,
+                dtype=module.memory_v_proj.dtype,
+            )
+            continue
+        if name.endswith(".__direct_last_hidden"):
+            module_name = name[: -len(".__direct_last_hidden")]
+            module = module_map[module_name]
+            if not isinstance(module, DeltaMemAttention):
+                raise TypeError(f"{module_name} is not a DeltaMemAttention")
+            module.direct_last_hidden = tensor.to(
+                device=module.base.q_proj.weight.device,
+                dtype=module.base.q_proj.weight.dtype,
+            )
+            continue
         if name.endswith(".__rwkv_ms_positions"):
             module_name = name[: -len(".__rwkv_ms_positions")]
             module = module_map[module_name]
