@@ -906,6 +906,88 @@ def test_proof_provenance_binds_transitive_outer_memory_sources() -> None:
     assert all((repository / relative_path).is_file() for relative_path in bound)
 
 
+def test_heldout_and_train_screen_must_share_code_provenance() -> None:
+    provenance = {
+        "git_commit": "a" * 40,
+        "source_sha256_by_path": {"runner.py": "b" * 64},
+    }
+
+    runner._validate_linked_train_screen_provenance(
+        {"code_provenance": copy.deepcopy(provenance)},
+        provenance,
+    )
+    changed = copy.deepcopy(provenance)
+    changed["git_commit"] = "c" * 40
+    with pytest.raises(ValueError, match="code provenance differs"):
+        runner._validate_linked_train_screen_provenance(
+            {"code_provenance": changed},
+            provenance,
+        )
+
+
+def test_recorded_model_must_match_before_after_and_source() -> None:
+    model = {"path": "/model", "identity_sha256": "a" * 64}
+
+    runner._validate_recorded_model_binding(
+        {"model_before": copy.deepcopy(model), "model_after": copy.deepcopy(model)},
+        model,
+    )
+    changed = copy.deepcopy(model)
+    changed["identity_sha256"] = "b" * 64
+    with pytest.raises(ValueError, match="recorded model binding differs"):
+        runner._validate_recorded_model_binding(
+            {"model_before": model, "model_after": changed},
+            model,
+        )
+
+
+def test_model_attachment_is_recomputed_from_adapter_state() -> None:
+    module_name = "model.language_model.layers.0.self_attn"
+    protocol = {
+        "target_layers": [0],
+        "delta_config": runner.build_delta_config(target_layers=(0,)).to_dict(),
+    }
+    adapter_state = {
+        f"{module_name}.delta_scale_raw": torch.zeros(3),
+        f"{module_name}.memory_q_proj": torch.zeros(5),
+        f"{module_name}.projected_kv_key_proj": torch.zeros(7),
+        f"{module_name}.delta_q_proj": torch.zeros(11),
+        f"{module_name}.delta_k_proj": torch.zeros(13),
+        f"{module_name}.memory_v_proj": torch.zeros(17),
+        f"{module_name}.hrm_rwkv7_core.ln_x.bias": torch.zeros(19),
+    }
+    trainable_names = [
+        f"{module_name}.delta_scale_raw",
+        f"{module_name}.projected_kv_key_proj",
+        f"{module_name}.delta_q_proj",
+        f"{module_name}.memory_v_proj",
+    ]
+    attachment = {
+        "replaced_modules": [module_name],
+        "trainable_parameter_names": trainable_names,
+        "checkpointed_frozen_mlps": ["model.language_model.layers.0.mlp"],
+        "trainable_parameter_count": 3 + 7 + 11 + 17,
+    }
+
+    runner._validate_model_attachment_binding(
+        attachment,
+        protocol=protocol,
+        adapter_state=adapter_state,
+    )
+    corrupted = copy.deepcopy(attachment)
+    corrupted["trainable_parameter_names"].append(
+        f"{module_name}.memory_q_proj"
+    )
+    with pytest.raises(
+        ValueError, match="frozen-base model attachment binding differs"
+    ):
+        runner._validate_model_attachment_binding(
+            corrupted,
+            protocol=protocol,
+            adapter_state=adapter_state,
+        )
+
+
 def _selected_protocol_fixture(*, screen: bool):
     source = {"train_rows": 384, "heldout_rows": 192}
     contract = runner._selected_protocol_contract()

@@ -405,6 +405,25 @@ def _train_screen_binding_from_validation(
     }
 
 
+def _validate_linked_train_screen_provenance(
+    validation: Mapping[str, Any],
+    expected_code_provenance: Any,
+) -> None:
+    if validation.get("code_provenance") != expected_code_provenance:
+        raise ValueError("V3 heldout/train-screen code provenance differs")
+
+
+def _validate_recorded_model_binding(
+    receipt: Mapping[str, Any],
+    expected_model: Any,
+) -> None:
+    if (
+        receipt.get("model_before") != expected_model
+        or receipt.get("model_after") != expected_model
+    ):
+        raise ValueError("V3 run recorded model binding differs")
+
+
 def build_protocol_eligibility(
     protocol: Mapping[str, Any],
     evaluation: Mapping[str, Any],
@@ -2742,6 +2761,7 @@ def _validate_adapter_artifact_binding(
     *,
     protocol: Mapping[str, Any],
     training: Mapping[str, Any],
+    model_attachment: Any,
 ) -> None:
     config_path = Path(str(adapter.get("config_path", ""))).expanduser().resolve()
     weights_path = Path(str(adapter.get("weights_path", ""))).expanduser().resolve()
@@ -2757,6 +2777,11 @@ def _validate_adapter_artifact_binding(
         for name, tensor in state.items()
     ):
         raise ValueError("V3 adapter state artifact differs")
+    _validate_model_attachment_binding(
+        model_attachment,
+        protocol=protocol,
+        adapter_state=state,
+    )
     final_adapter_sha256 = _state_dict_sha256(
         {name: tensor.float() for name, tensor in state.items()}
     )
@@ -2773,6 +2798,89 @@ def _validate_adapter_artifact_binding(
         or weight_diff["total_abs_diff"] <= 0.0
     ):
         raise ValueError("V3 trained adapter state binding differs")
+
+
+def _adapter_parameter_is_trainable(
+    sub_name: str,
+    config: Mapping[str, Any],
+) -> bool:
+    if sub_name == "projected_kv_key_proj":
+        return config.get("memory_readout_mode") == "projected_kv_slots"
+    if sub_name in {"memory_q_proj", "memory_k_proj"}:
+        return config.get("memory_backend") != "rwkv_ms"
+    if sub_name == "memory_v_proj":
+        return True
+    if sub_name == "hrm_rwkv7_core.ln_x.bias":
+        return False
+    delta_heads = config.get("delta_heads")
+    if not isinstance(delta_heads, (list, tuple)) or any(
+        not isinstance(head, str) for head in delta_heads
+    ):
+        raise ValueError("V3 adapter delta-head config differs")
+    active_delta_heads = set(delta_heads)
+    if sub_name == "delta_q_proj":
+        return "q" in active_delta_heads
+    if sub_name == "delta_k_proj":
+        return "k" in active_delta_heads
+    if sub_name == "delta_v_proj":
+        return "v" in active_delta_heads
+    if sub_name == "delta_o_proj":
+        return "o" in active_delta_heads
+    if sub_name == "delta_o_rmsnorm_weight":
+        return config.get("delta_o_rmsnorm") is True and "o" in active_delta_heads
+    if sub_name == "memory_fusion_residual_gain_raw":
+        return (
+            config.get("memory_fusion_placement")
+            == "post_attention_residual_hybrid"
+            and "o" in active_delta_heads
+        )
+    if sub_name.startswith("memory_fusion_"):
+        return (
+            config.get("memory_fusion_mode") == "content_gated_add"
+            and "o" in active_delta_heads
+        )
+    if sub_name == "delta_scale_raw":
+        return config.get("trainable_delta_scale") is True
+    return True
+
+
+def _validate_model_attachment_binding(
+    attachment: Any,
+    *,
+    protocol: Mapping[str, Any],
+    adapter_state: Mapping[str, torch.Tensor],
+) -> None:
+    module_names = _expected_proof_module_names(protocol)
+    config = protocol.get("delta_config")
+    if not isinstance(config, Mapping):
+        raise ValueError("V3 adapter config protocol binding differs")
+    state_names = list(adapter_state)
+    expected_trainable_names: list[str] = []
+    assigned_names: set[str] = set()
+    for module_name in module_names:
+        prefix = f"{module_name}."
+        for name in state_names:
+            if not name.startswith(prefix):
+                continue
+            assigned_names.add(name)
+            sub_name = name[len(prefix) :]
+            if _adapter_parameter_is_trainable(sub_name, config):
+                expected_trainable_names.append(name)
+    if assigned_names != set(state_names):
+        raise ValueError("V3 adapter state module binding differs")
+    expected = {
+        "replaced_modules": list(module_names),
+        "trainable_parameter_names": expected_trainable_names,
+        "checkpointed_frozen_mlps": [
+            module_name.removesuffix(".self_attn") + ".mlp"
+            for module_name in module_names
+        ],
+        "trainable_parameter_count": sum(
+            adapter_state[name].numel() for name in expected_trainable_names
+        ),
+    }
+    if attachment != expected:
+        raise ValueError("V3 frozen-base model attachment binding differs")
 
 
 def _validate_training_progress_binding(
@@ -2939,6 +3047,10 @@ def run_experiment(
             raise ValueError(
                 "Heldout proof requires a passing current-protocol train screen"
             )
+        _validate_linked_train_screen_provenance(
+            screen_validation,
+            code_provenance,
+        )
 
     device = torch.device(device_name)
     dtype = _dtype(dtype_name)
@@ -3225,6 +3337,7 @@ def validate_receipt(
         or receipt.get("input_immutability_passed") is not True
     ):
         raise ValueError("V3 run source binding differs")
+    _validate_recorded_model_binding(receipt, source["model"])
     if verify_model_hashes:
         current_model = canary.bind_model_artifacts(model_path)
         if (
@@ -3340,6 +3453,10 @@ def validate_receipt(
                 != train_screen_binding
             ):
                 raise ValueError("V3 heldout train-screen receipt binding differs")
+            _validate_linked_train_screen_provenance(
+                linked_validation,
+                code_provenance,
+            )
         elif train_screen_binding is not None:
             raise ValueError("V3 non-heldout run has a train-screen binding")
         training = receipt.get("training")
@@ -3400,6 +3517,7 @@ def validate_receipt(
             adapter,
             protocol=protocol,
             training=receipt["training"],
+            model_attachment=receipt.get("model_attachment"),
         )
     return {
         "valid": True,
@@ -3410,6 +3528,7 @@ def validate_receipt(
         "seed": receipt["seed"],
         "gate": receipt["gate"],
         "current_protocol_valid": current_protocol,
+        "code_provenance": receipt.get("code_provenance"),
     }
 
 
