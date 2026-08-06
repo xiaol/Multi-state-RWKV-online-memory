@@ -66,6 +66,11 @@ DEFAULT_TARGET_LAYERS = tuple(range(42))
 SHARED_STATE_BATCHING_POLICY = (
     "complete four-query shared-write families are kept in one evaluation batch"
 )
+ANSWER_LOGIT_POLICY = (
+    "full-sequence hidden states with vocabulary logits projected only at the union "
+    "of supervised causal answer-predictor positions; ignored labels and token-mean "
+    "cross-entropy are unchanged"
+)
 
 
 # These functions operate on a small duck-typed example/batch interface and are
@@ -2793,6 +2798,7 @@ def run_experiment(
         "attn_implementation": attn_implementation,
         "write_read_cache_policy": "every model invocation passes use_cache=False; writes and reads are separate",
         "query_encoding_policy": "Gemma chat-template address-only prefix and canonical JSON label tokenized as one full string with offset-derived disjoint masks and boundary-crossing rejection",
+        "answer_logit_policy": ANSWER_LOGIT_POLICY,
         "shared_state_batching_policy": SHARED_STATE_BATCHING_POLICY,
         "sealed_chain": sealed_chain,
         "thresholds": {
@@ -2820,6 +2826,7 @@ def run_experiment(
             "attn_implementation",
             "write_read_cache_policy",
             "query_encoding_policy",
+            "answer_logit_policy",
             "shared_state_batching_policy",
             "thresholds",
         )

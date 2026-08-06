@@ -499,6 +499,10 @@ def test_shared_runtime_write_read_and_greedy_calls_disable_cache(
     runner._read_episode_batch(model, batch, dtype=torch.float32)
     assert len(model.calls) == 1
     assert model.calls[0]["use_cache"] is False
+    assert torch.equal(
+        model.calls[0]["logits_to_keep"],
+        shared._answer_predictor_indices(batch.labels),
+    )
 
     model.calls.clear()
     runner._greedy_answer_predictions(
@@ -509,6 +513,7 @@ def test_shared_runtime_write_read_and_greedy_calls_disable_cache(
     )
     assert model.calls
     assert all(call["use_cache"] is False for call in model.calls)
+    assert all(call["logits_to_keep"] == 1 for call in model.calls)
 
 
 def test_state_identity_and_rewrite_output_change_audits(

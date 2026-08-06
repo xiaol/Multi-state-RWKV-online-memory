@@ -355,6 +355,36 @@ def test_answer_loss_and_exact_predictions_use_causal_predictor_positions() -> N
     assert predicted_ids == expected_ids == [(2, 3)]
 
 
+def test_compact_answer_logits_are_exactly_equivalent_to_full_logits() -> None:
+    labels = torch.tensor(
+        [
+            [-100, -100, 2, 3, -100, -100],
+            [-100, -100, -100, 4, 5, 6],
+        ]
+    )
+    logits = torch.randn(2, 6, 7)
+    predictor_indices = runner._answer_predictor_indices(labels)
+    compact_logits = logits.index_select(1, predictor_indices)
+
+    reference = F.cross_entropy(
+        logits[:, :-1].contiguous().float().view(-1, logits.size(-1)),
+        labels[:, 1:].contiguous().view(-1),
+        ignore_index=-100,
+    )
+    full_loss = runner.causal_answer_loss(logits, labels)
+    compact_loss = runner.causal_answer_loss(compact_logits, labels)
+
+    assert predictor_indices.tolist() == [1, 2, 3, 4]
+    assert torch.allclose(full_loss, reference)
+    assert torch.allclose(compact_loss, reference)
+    assert runner._answer_prediction_token_ids(
+        compact_logits, labels
+    ) == runner._answer_prediction_token_ids(logits, labels)
+    assert runner._answer_exact_predictions(
+        compact_logits, labels
+    ) == runner._answer_exact_predictions(logits, labels)
+
+
 def test_route_loss_pools_query_tokens_and_keeps_graph_connection() -> None:
     first = torch.tensor(
         [[[0.0, 0.0], [1.0, 3.0], [1.0, 3.0]]], requires_grad=True

@@ -1172,15 +1172,37 @@ def collate_examples(
     )
 
 
-def causal_answer_loss(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-    if logits.shape[:2] != labels.shape:
-        raise ValueError("Answer logits and labels are misaligned")
-    shifted_labels = labels[:, 1:].contiguous()
-    if not bool(shifted_labels.ne(-100).any().item()):
+def _answer_predictor_indices(labels: torch.Tensor) -> torch.Tensor:
+    if labels.ndim != 2 or labels.size(1) < 2:
+        raise ValueError("Answer labels must have a causal sequence axis")
+    supervised = labels[:, 1:].ne(-100)
+    if not bool(supervised.any().item()):
         raise ValueError("Answer labels contain no supervised predictor targets")
+    return supervised.any(dim=0).nonzero(as_tuple=False).flatten()
+
+
+def _answer_prediction_view(
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    if logits.ndim != 3 or logits.size(0) != labels.size(0):
+        raise ValueError("Answer logits and labels are misaligned")
+    predictor_indices = _answer_predictor_indices(labels)
+    if logits.size(1) == labels.size(1):
+        selected_logits = logits.index_select(1, predictor_indices)
+    elif logits.size(1) == predictor_indices.numel():
+        selected_logits = logits
+    else:
+        raise ValueError("Answer logits do not cover the supervised predictors")
+    selected_labels = labels.index_select(1, predictor_indices + 1)
+    return selected_logits, selected_labels, predictor_indices
+
+
+def causal_answer_loss(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    selected_logits, selected_labels, _ = _answer_prediction_view(logits, labels)
     return F.cross_entropy(
-        logits[:, :-1].contiguous().float().view(-1, logits.size(-1)),
-        shifted_labels.view(-1),
+        selected_logits.contiguous().float().view(-1, logits.size(-1)),
+        selected_labels.contiguous().view(-1),
         ignore_index=-100,
     )
 
@@ -1301,12 +1323,14 @@ def _read_episode_batch(
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     set_delta_mem_write_enabled(model, False)
     set_delta_mem_projected_kv_read_query_mask(model, batch.query_mask)
+    predictor_indices = _answer_predictor_indices(batch.labels)
     with _autocast_context(batch.read_input_ids.device, dtype):
         outputs = model(
             input_ids=batch.read_input_ids,
             attention_mask=batch.read_attention_mask,
             use_cache=False,
             return_dict=True,
+            logits_to_keep=predictor_indices,
         )
     return outputs.logits, collect_delta_mem_projected_kv_read_logits(model)
 
@@ -1315,14 +1339,14 @@ def _answer_prediction_token_ids(
     logits: torch.Tensor,
     labels: torch.Tensor,
 ) -> tuple[list[tuple[int, ...]], list[tuple[int, ...]]]:
-    shifted_predictions = logits[:, :-1].argmax(dim=-1)
-    shifted_labels = labels[:, 1:]
+    selected_logits, selected_labels, _ = _answer_prediction_view(logits, labels)
+    selected_predictions = selected_logits.argmax(dim=-1)
     predicted_rows: list[tuple[int, ...]] = []
     expected_rows: list[tuple[int, ...]] = []
     for row_index in range(labels.size(0)):
-        selected = shifted_labels[row_index].ne(-100)
-        expected = shifted_labels[row_index, selected]
-        predicted = shifted_predictions[row_index, selected]
+        selected = selected_labels[row_index].ne(-100)
+        expected = selected_labels[row_index, selected]
+        predicted = selected_predictions[row_index, selected]
         if expected.numel() == 0:
             raise ValueError("Evaluation row has no answer targets")
         predicted_rows.append(
@@ -1420,12 +1444,6 @@ def _greedy_answer_predictions(
         device=batch.read_input_ids.device,
     )
     generated: list[list[int]] = [[] for _ in batch.examples]
-    last_positions = torch.full(
-        (input_ids.size(0),),
-        input_ids.size(1) - 1,
-        dtype=torch.long,
-        device=input_ids.device,
-    )
     for step in range(max(expected_lengths)):
         set_delta_mem_write_enabled(model, False)
         set_delta_mem_projected_kv_read_query_mask(model, query_mask)
@@ -1435,9 +1453,9 @@ def _greedy_answer_predictions(
                 attention_mask=attention_mask,
                 use_cache=False,
                 return_dict=True,
+                logits_to_keep=1,
             )
-        row_indices = torch.arange(input_ids.size(0), device=input_ids.device)
-        next_tokens = outputs.logits[row_indices, last_positions].argmax(dim=-1)
+        next_tokens = outputs.logits[:, -1].argmax(dim=-1)
         for row_index, token in enumerate(next_tokens.detach().cpu().tolist()):
             if step < expected_lengths[row_index]:
                 generated[row_index].append(int(token))
@@ -1466,7 +1484,6 @@ def _greedy_answer_predictions(
             ),
             dim=1,
         )
-        last_positions = torch.full_like(last_positions, input_ids.size(1) - 1)
     return [tuple(tokens) for tokens in generated]
 
 
