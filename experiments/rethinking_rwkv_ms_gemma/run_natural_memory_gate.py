@@ -11,10 +11,15 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+import time
+from typing import Any, Callable, Iterable, Mapping, Sequence, TypeVar
 
 import torch
+import torch.distributed as torch_dist
+from torch.distributed.elastic.multiprocessing.errors import record
 
+from deltamem.core import delta as delta_core
+from deltamem.core import delta_impl
 from deltamem.core.delta import (
     iter_delta_mem_modules,
     load_delta_mem_adapter,
@@ -25,14 +30,18 @@ from deltamem.core.delta import (
 )
 from experiments.rethinking_rwkv_ms_gemma import prepare_natural_memory_gate as source
 from experiments.rethinking_rwkv_ms_gemma import (
+    natural_memory_distributed as distributed,
+)
+from experiments.rethinking_rwkv_ms_gemma import (
     run_synthetic_compositional_associative_retrieval_v3 as runtime,
 )
 
 
-RUN_SCHEMA = "rwkv_ms_natural_memory_gate_run.v1"
-EVALUATION_SCHEMA = "rwkv_ms_natural_memory_gate_evaluation.v1"
-PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_gate_protocol.v1"
-TRAIN_STEP_SCHEMA = "rwkv_ms_natural_memory_gate_train_step.v1"
+RUN_SCHEMA = "rwkv_ms_natural_memory_gate_run.v2"
+EVALUATION_SCHEMA = "rwkv_ms_natural_memory_gate_evaluation.v2"
+PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_gate_protocol.v2"
+TRAIN_STEP_SCHEMA = "rwkv_ms_natural_memory_gate_train_step.v2"
+DISTRIBUTED_PREFLIGHT_SCHEMA = "rwkv_ms_natural_memory_distributed_preflight.v1"
 HF_MIRROR_ENDPOINT = "https://hf-mirror.com"
 RECORDS_PER_EPISODE = 4
 CONDITIONS = (
@@ -63,6 +72,37 @@ CONTROL_CONDITIONS = CONDITIONS[5:]
 PROFILES = ("train", "development", "sealed_validation")
 FORMAL_PROFILES = ("development", "sealed_validation")
 DEFAULT_TARGET_LAYERS = tuple(range(42))
+PRODUCTION_SEED = 42
+PRODUCTION_EPOCHS = 8
+PRODUCTION_UPDATES = 768
+PRODUCTION_ADAPTER_RANK = 32
+PRODUCTION_KEY_DIM = 32
+PRODUCTION_TEMPERATURE = 16.0
+PRODUCTION_EVAL_BATCH_SIZE = 8
+PRODUCTION_LEARNING_RATE = 2e-4
+PRODUCTION_ANSWER_WEIGHT = 1.0
+PRODUCTION_ROUTE_WEIGHT = 1.0
+PRODUCTION_MAX_GRAD_NORM = 1.0
+PRODUCTION_DTYPE = "bfloat16"
+PRODUCTION_ATTN_IMPLEMENTATION = "sdpa"
+PRODUCTION_ANSWER_EXACT_MIN = 0.80
+PRODUCTION_ROUTE_ACCURACY_MIN = 0.95
+PRODUCTION_REWRITE_OUTPUT_CHANGE_MIN = 0.80
+DISTRIBUTED_PREFLIGHT_STEPS = 3
+MINIMUM_DISTRIBUTED_HEADROOM_BYTES = 5 * 1024**3
+DISTRIBUTED_STEP_PHASE_ORDER = (
+    "forward",
+    "objective_preparation",
+    "objective_global_sum",
+    "backward",
+    "local_gradient_validation",
+    "gradient_sum",
+    "global_gradient_clip",
+    "online_state_reset",
+    "adamw_step",
+    "metric_global_sum",
+)
+_T = TypeVar("_T")
 SHARED_STATE_BATCHING_POLICY = (
     "complete four-query shared-write families are kept in one evaluation batch"
 )
@@ -170,6 +210,1226 @@ def train_model(
         return result
     finally:
         runtime_progress.unlink(missing_ok=True)
+
+
+def _append_jsonl(path: Path, value: Mapping[str, Any]) -> None:
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                value,
+                ensure_ascii=True,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n"
+        )
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def _run_consensused_local_phase(
+    context: distributed.DistributedTrainingContext,
+    *,
+    phase: str,
+    operation: Callable[[], _T],
+) -> _T:
+    """Run rank-local work and publish failure before any later collective."""
+
+    result: _T | None = None
+    local_error: BaseException | None = None
+    try:
+        result = operation()
+    except BaseException as error:
+        local_error = error
+    distributed.phase_consensus(context, phase=phase, error=local_error)
+    if local_error is not None:
+        raise local_error
+    return result  # type: ignore[return-value]
+
+
+def _named_trainable_parameters(
+    model: torch.nn.Module,
+) -> tuple[tuple[str, torch.nn.Parameter], ...]:
+    return distributed.stable_named_parameters(
+        [
+            (name, parameter)
+            for name, parameter in model.named_parameters()
+            if parameter.requires_grad
+        ]
+    )
+
+
+def _named_adapter_parameters(
+    model: torch.nn.Module,
+) -> tuple[tuple[str, torch.nn.Parameter], ...]:
+    parameters: list[tuple[str, torch.nn.Parameter]] = []
+    for module_name, module in iter_delta_mem_modules(model):
+        for sub_name, parameter in module.named_parameters():
+            if not sub_name.startswith("base."):
+                parameters.append((f"{module_name}.{sub_name}", parameter))
+    return distributed.stable_named_parameters(parameters)
+
+
+def _prepare_distributed_scalar_sums(
+    context: distributed.DistributedTrainingContext,
+    values: Sequence[int | float],
+) -> torch.Tensor:
+    tensor = torch.tensor(values, dtype=torch.float64, device=context.device)
+    if tensor.ndim != 1 or tensor.numel() == 0:
+        raise ValueError("Distributed scalar statistics must be a nonempty vector")
+    if not bool(torch.isfinite(tensor).all().item()):
+        raise ValueError("Distributed scalar statistics must be finite")
+    return tensor
+
+
+def _distributed_scalar_sums(
+    context: distributed.DistributedTrainingContext,
+    tensor: torch.Tensor,
+) -> tuple[float, ...]:
+    if tensor.device != context.device or tensor.dtype != torch.float64:
+        raise ValueError("Prepared scalar statistics have the wrong device or dtype")
+    torch_dist.all_reduce(tensor, op=torch_dist.ReduceOp.SUM)
+    if not bool(torch.isfinite(tensor).all().item()):
+        raise RuntimeError("Reduced scalar statistics must be finite")
+    return tuple(float(value) for value in tensor.tolist())
+
+
+def _global_router_gradient_audit(
+    context: distributed.DistributedTrainingContext,
+    local_audit: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    rank_audits = distributed.gather_objects(context, dict(local_audit))
+    expected_modules = local_audit.get("modules")
+    passed = (
+        type(expected_modules) is int
+        and expected_modules > 0
+        and all(
+            audit.get("modules") == expected_modules
+            and audit.get("all_modules_finite_nonzero") is True
+            for audit in rank_audits
+        )
+    )
+    return {
+        "world_size": context.world_size,
+        "modules_per_rank": expected_modules,
+        "all_ranks_all_modules_finite_nonzero": passed,
+        "all_modules_finite_nonzero": passed,
+        "rank_audits": list(rank_audits),
+    }
+
+
+def train_model_distributed(
+    model: torch.nn.Module,
+    examples: Sequence[Any],
+    *,
+    context: distributed.DistributedTrainingContext,
+    seed: int,
+    epochs: int,
+    max_steps: int | None,
+    global_batch_size: int,
+    learning_rate: float,
+    answer_weight: float,
+    route_weight: float,
+    max_grad_norm: float,
+    pad_token_id: int,
+    dtype: torch.dtype,
+    progress_path: Path,
+    training_conditions: str | Sequence[str] = DEFAULT_TRAINING_CONDITIONS,
+    capture_step_evidence: bool = False,
+) -> dict[str, Any]:
+    """Train raw replicas with global normalization and explicit gradient SUM."""
+
+    if epochs <= 0 or learning_rate <= 0.0:
+        raise ValueError("Training epochs and learning rate must be positive")
+    if answer_weight <= 0.0 or route_weight <= 0.0:
+        raise ValueError("Both answer and route loss weights must be positive")
+    if global_batch_size <= 0 or global_batch_size % context.world_size:
+        raise ValueError("Global batch size must divide evenly across ranks")
+    local_batch_size = global_batch_size // context.world_size
+
+    def prepare_schedule() -> tuple[
+        list[str], tuple[distributed.GlobalTrainingStep, ...], str
+    ]:
+        prepared_row_ids = [str(example.row_id) for example in examples]
+        prepared_schedule, prepared_hash = distributed.build_global_training_schedule(
+            prepared_row_ids,
+            seed=seed,
+            epochs=epochs,
+            max_steps=max_steps,
+            world_size=context.world_size,
+            local_batch_size=local_batch_size,
+        )
+        return prepared_row_ids, prepared_schedule, prepared_hash
+
+    row_ids, schedule, schedule_sha256 = _run_consensused_local_phase(
+        context,
+        phase="training-schedule-preparation",
+        operation=prepare_schedule,
+    )
+    distributed.require_consensus(
+        context,
+        {
+            "ordered_row_ids_sha256": distributed.canonical_sha256(row_ids),
+            "schedule_sha256": schedule_sha256,
+            "steps": len(schedule),
+            "global_batch_size": global_batch_size,
+            "local_batch_size": local_batch_size,
+        },
+        description="training schedule",
+    )
+
+    def prepare_training_runtime() -> tuple[
+        tuple[tuple[str, torch.nn.Parameter], ...],
+        list[torch.nn.Parameter],
+        tuple[dict[str, Any], ...],
+        str,
+        torch.optim.AdamW,
+        Mapping[str, Any],
+        tuple[str, ...],
+    ]:
+        prepared_named_trainable = _named_trainable_parameters(model)
+        prepared_trainable = [parameter for _, parameter in prepared_named_trainable]
+        prepared_metadata = distributed.named_tensor_metadata(
+            prepared_named_trainable
+        )
+        prepared_metadata_hash = distributed.canonical_sha256(prepared_metadata)
+        prepared_optimizer = torch.optim.AdamW(
+            prepared_trainable,
+            lr=learning_rate,
+            weight_decay=0.0,
+            fused=context.device.type == "cuda",
+        )
+        model.train()
+        if context.device.type == "cuda":
+            torch.cuda.reset_peak_memory_stats(context.device)
+        prepared_memory = distributed.cuda_memory_snapshot(context)
+        prepared_conditions = _parse_training_conditions(training_conditions)
+        return (
+            prepared_named_trainable,
+            prepared_trainable,
+            prepared_metadata,
+            prepared_metadata_hash,
+            prepared_optimizer,
+            prepared_memory,
+            prepared_conditions,
+        )
+
+    (
+        named_trainable,
+        trainable,
+        trainable_metadata,
+        trainable_metadata_sha256,
+        optimizer,
+        memory_before,
+        selected_training_conditions,
+    ) = _run_consensused_local_phase(
+        context,
+        phase="training-runtime-preparation",
+        operation=prepare_training_runtime,
+    )
+    distributed.require_consensus(
+        context,
+        trainable_metadata_sha256,
+        description="trainable parameter metadata",
+    )
+    trainable_names_sha256 = distributed.canonical_sha256(
+        [value["name"] for value in trainable_metadata]
+    )
+    totals = {
+        "answer_loss": 0.0,
+        "route_loss": 0.0,
+        "total_loss": 0.0,
+        "answer_exact_correct": 0.0,
+        "answer_rows": 0.0,
+        "route_correct": 0.0,
+        "route_total": 0.0,
+        "full_occupancy_count": 0.0,
+        "full_occupancy_total": 0.0,
+        "forced_write_route_correct": 0.0,
+        "forced_write_route_total": 0.0,
+    }
+    router_gradient: Mapping[str, Any] | None = None
+    collective_evidence: Mapping[str, Any] | None = None
+    collective_evidence_by_step: list[Mapping[str, Any]] = []
+    step_evidence: list[Mapping[str, Any]] = []
+    started = time.time()
+    for schedule_step in schedule:
+        observed_phase_order: list[str] = []
+
+        def forward() -> tuple[
+            tuple[int, ...],
+            list[Any],
+            Any,
+            Mapping[str, Any],
+            torch.Tensor,
+            Mapping[str, torch.Tensor],
+            list[str],
+            torch.Tensor,
+            int,
+            torch.Tensor,
+            int,
+            Mapping[str, torch.Tensor],
+        ]:
+            prepared_local_indices = distributed.local_step_indices(
+                schedule_step,
+                process_rank=context.process_rank,
+                world_size=context.world_size,
+                local_batch_size=local_batch_size,
+            )
+            prepared_selected = [examples[index] for index in prepared_local_indices]
+            prepared_batch = collate_examples(
+                prepared_selected, pad_token_id=pad_token_id, device=context.device
+            )
+            optimizer.zero_grad(set_to_none=True)
+            prepared_write_audit = _write_episode_batch(
+                model, prepared_batch, dtype=dtype
+            )
+            prepared_logits, prepared_route_logits = _read_episode_batch(
+                model, prepared_batch, dtype=dtype
+            )
+            prepared_state_digests = (
+                _state_digests(model, len(prepared_selected))
+                if capture_step_evidence
+                else []
+            )
+            prepared_answer_sum, prepared_answer_tokens = (
+                distributed.answer_loss_sum_and_count(
+                    prepared_logits, prepared_batch.labels
+                )
+            )
+            (
+                prepared_route_sum,
+                prepared_route_rows,
+                prepared_route_predictions,
+            ) = distributed.route_loss_sum_and_predictions(
+                prepared_route_logits,
+                prepared_batch.query_mask,
+                prepared_batch.target_slots,
+            )
+            return (
+                prepared_local_indices,
+                prepared_selected,
+                prepared_batch,
+                prepared_write_audit,
+                prepared_logits,
+                prepared_route_logits,
+                prepared_state_digests,
+                prepared_answer_sum,
+                prepared_answer_tokens,
+                prepared_route_sum,
+                prepared_route_rows,
+                prepared_route_predictions,
+            )
+
+        (
+            local_indices,
+            selected,
+            batch,
+            write_audit,
+            logits,
+            route_logits,
+            local_online_state_digests,
+            local_answer_sum,
+            local_answer_tokens,
+            local_route_sum,
+            local_route_rows,
+            route_predictions,
+        ) = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-forward",
+            operation=forward,
+        )
+        observed_phase_order.append("forward")
+
+        local_objective_statistics = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-objective-preparation",
+            operation=lambda: distributed.prepare_objective_statistics(
+                answer_loss_sum=local_answer_sum,
+                answer_token_count=local_answer_tokens,
+                route_loss_sum=local_route_sum,
+                route_row_count=local_route_rows,
+            ),
+        )
+        observed_phase_order.append("objective_preparation")
+
+        objective = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-objective-global-sum",
+            operation=lambda: distributed.reduce_objective_statistics(
+                context, local_objective_statistics
+            ),
+        )
+        observed_phase_order.append("objective_global_sum")
+
+        def prepare_objective() -> tuple[torch.Tensor, Mapping[str, Any] | None]:
+            prepared_total_loss = (
+                answer_weight
+                * local_answer_sum
+                / int(objective["answer_token_count"])
+                + route_weight
+                * local_route_sum
+                / int(objective["route_row_count"])
+            )
+            if not bool(torch.isfinite(prepared_total_loss).item()):
+                raise RuntimeError("Distributed objective is non-finite")
+            if router_gradient is None:
+                prepared_router_gradient = runtime._router_gradient_audit(
+                    model,
+                    local_route_sum / int(objective["route_row_count"]),
+                )
+            else:
+                prepared_router_gradient = None
+            return prepared_total_loss, prepared_router_gradient
+
+        total_loss, local_router_gradient = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-objective",
+            operation=prepare_objective,
+        )
+        if router_gradient is None:
+            router_gradient = _run_consensused_local_phase(
+                context,
+                phase=f"step-{schedule_step.step}-router-gradient-audit",
+                operation=lambda: _global_router_gradient_audit(
+                    context, local_router_gradient or {}
+                ),
+            )
+
+        _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-backward",
+            operation=total_loss.backward,
+        )
+        observed_phase_order.append("backward")
+
+        def validate_gradients() -> Mapping[str, Any]:
+            prepared_validation = distributed.validate_local_gradients(named_trainable)
+            if prepared_validation["passed"] is not True:
+                raise RuntimeError(f"Invalid local gradients: {prepared_validation!r}")
+            return prepared_validation
+
+        gradient_validation = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-gradient-validation",
+            operation=validate_gradients,
+        )
+        observed_phase_order.append("local_gradient_validation")
+
+        collective_evidence = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-gradient-sum",
+            operation=lambda: distributed.sum_gradients(context, named_trainable),
+        )
+        collective_evidence_by_step.append(dict(collective_evidence))
+        observed_phase_order.append("gradient_sum")
+
+        def clip_gradients() -> torch.Tensor:
+            prepared_norm = torch.nn.utils.clip_grad_norm_(trainable, max_grad_norm)
+            if not bool(torch.isfinite(prepared_norm).item()):
+                raise RuntimeError("Distributed gradient norm is non-finite")
+            return prepared_norm
+
+        grad_norm = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-gradient-clip",
+            operation=clip_gradients,
+        )
+        observed_phase_order.append("global_gradient_clip")
+
+        _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-online-state-reset",
+            operation=lambda: reset_delta_mem_states(model),
+        )
+        observed_phase_order.append("online_state_reset")
+
+        _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-adamw-step",
+            operation=optimizer.step,
+        )
+        observed_phase_order.append("adamw_step")
+
+        def prepare_metrics() -> torch.Tensor:
+            exact, _, _ = _answer_exact_predictions(logits.detach(), batch.labels)
+            local_route_matches = sum(
+                int(prediction.eq(batch.target_slots).sum().item())
+                for prediction in route_predictions.values()
+            )
+            local_route_count = len(route_predictions) * len(selected)
+            return _prepare_distributed_scalar_sums(
+                context,
+                (
+                    sum(exact),
+                    len(exact),
+                    local_route_matches,
+                    local_route_count,
+                    write_audit["full_occupancy_count"],
+                    write_audit["full_occupancy_total"],
+                    write_audit["forced_write_route_match_count"],
+                    write_audit["forced_write_route_total"],
+                ),
+            )
+
+        local_metric_statistics = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-metric-preparation",
+            operation=prepare_metrics,
+        )
+        metrics = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-metric-global-sum",
+            operation=lambda: _distributed_scalar_sums(
+                context, local_metric_statistics
+            ),
+        )
+        observed_phase_order.append("metric_global_sum")
+
+        def prepare_step_record() -> dict[str, Any]:
+            if len(metrics) != 8 or any(
+                metrics[index] <= 0.0 for index in (1, 3, 5, 7)
+            ):
+                raise RuntimeError("Distributed metric denominators must be positive")
+            global_answer_loss = float(objective["answer_loss_sum"]) / int(
+                objective["answer_token_count"]
+            )
+            global_route_loss = float(objective["route_loss_sum"]) / int(
+                objective["route_row_count"]
+            )
+            global_total_loss = (
+                answer_weight * global_answer_loss
+                + route_weight * global_route_loss
+            )
+            return {
+                "schema": TRAIN_STEP_SCHEMA,
+                "step": schedule_step.step,
+                "epoch": schedule_step.epoch,
+                "rows": global_batch_size,
+                "local_rows_per_rank": local_batch_size,
+                "world_size": context.world_size,
+                "global_batch_size": global_batch_size,
+                "global_answer_tokens": int(objective["answer_token_count"]),
+                "answer_loss": global_answer_loss,
+                "route_loss": global_route_loss,
+                "total_loss": global_total_loss,
+                "gradient_norm_before_clip": float(
+                    grad_norm.detach().float().item()
+                ),
+                "gradient_reduction": "sum_before_global_clip",
+                "teacher_forced_answer_exact_accuracy": metrics[0] / metrics[1],
+                "semantic_route_accuracy": metrics[2] / metrics[3],
+                "full_occupancy_fraction": metrics[4] / metrics[5],
+                "forced_write_route_accuracy": metrics[6] / metrics[7],
+                "global_row_ids": list(schedule_step.global_row_ids),
+                "schedule_step_sha256": schedule_step.step_sha256,
+                "training_conditions": list(selected_training_conditions),
+            }
+
+        step_record = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-record-preparation",
+            operation=prepare_step_record,
+        )
+
+        primary_step_evidence: Mapping[str, Any] | None = None
+        if capture_step_evidence:
+            def prepare_local_evidence() -> dict[str, Any]:
+                return {
+                    "rank": context.process_rank,
+                    "local_row_ids": [row_ids[index] for index in local_indices],
+                    "local_online_state_sha256": list(local_online_state_digests),
+                    "local_answer_tokens": local_answer_tokens,
+                    "local_route_rows": local_route_rows,
+                    "trainable_metadata_sha256": trainable_metadata_sha256,
+                    "trainable_names_sha256": trainable_names_sha256,
+                    "gradient_validation": dict(gradient_validation),
+                    "gradient_collective": dict(collective_evidence),
+                    "adapter_state_sha256": _state_dict_sha256(
+                        snapshot_delta_mem_weights(model)
+                    ),
+                    "optimizer_state_sha256": distributed.tensor_mapping_sha256(
+                        optimizer.state_dict()
+                    ),
+                    "cuda_memory": distributed.cuda_memory_snapshot(context),
+                }
+
+            local_step_evidence = _run_consensused_local_phase(
+                context,
+                phase=f"step-{schedule_step.step}-evidence-preparation",
+                operation=prepare_local_evidence,
+            )
+            gathered_step_evidence = distributed.gather_objects(
+                context, local_step_evidence
+            )
+
+            def validate_step_evidence() -> Mapping[str, Any]:
+                if len(gathered_step_evidence) != context.world_size or any(
+                    not isinstance(value, Mapping)
+                    for value in gathered_step_evidence
+                ):
+                    raise distributed.DistributedTrainingError(
+                        f"Malformed rank evidence after step {schedule_step.step}"
+                    )
+                ordered_evidence = sorted(
+                    gathered_step_evidence, key=lambda value: value.get("rank", -1)
+                )
+                if [value.get("rank") for value in ordered_evidence] != list(
+                    range(context.world_size)
+                ):
+                    raise distributed.DistributedTrainingError(
+                        f"Rank evidence identity failed after step {schedule_step.step}"
+                    )
+                adapter_hashes = {
+                    value.get("adapter_state_sha256")
+                    for value in ordered_evidence
+                }
+                optimizer_hashes = {
+                    value.get("optimizer_state_sha256")
+                    for value in ordered_evidence
+                }
+                metadata_hashes = {
+                    value.get("trainable_metadata_sha256")
+                    for value in ordered_evidence
+                }
+                if (
+                    len(adapter_hashes) != 1
+                    or len(optimizer_hashes) != 1
+                    or metadata_hashes != {trainable_metadata_sha256}
+                ):
+                    raise distributed.DistributedTrainingError(
+                        f"Replica consensus failed after step {schedule_step.step}"
+                    )
+                return {
+                    "step": schedule_step.step,
+                    "global_row_ids": list(schedule_step.global_row_ids),
+                    "global_answer_tokens": int(objective["answer_token_count"]),
+                    "global_route_rows": int(objective["route_row_count"]),
+                    "phase_order": list(observed_phase_order),
+                    "ranks": list(ordered_evidence),
+                    "adapter_state_sha256": next(iter(adapter_hashes)),
+                    "optimizer_state_sha256": next(iter(optimizer_hashes)),
+                    "trainable_metadata_sha256": trainable_metadata_sha256,
+                    "trainable_names_sha256": trainable_names_sha256,
+                }
+
+            primary_step_evidence = _run_consensused_local_phase(
+                context,
+                phase=f"step-{schedule_step.step}-evidence-validation",
+                operation=validate_step_evidence,
+            )
+
+        def commit_progress() -> None:
+            if not context.is_primary:
+                return
+            _append_jsonl(progress_path, step_record)
+            print(
+                json.dumps(
+                    {
+                        "step": schedule_step.step,
+                        "answer_loss": round(step_record["answer_loss"], 6),
+                        "route_loss": round(step_record["route_loss"], 6),
+                        "answer_exact": round(
+                            step_record["teacher_forced_answer_exact_accuracy"], 4
+                        ),
+                        "route_accuracy": round(
+                            step_record["semantic_route_accuracy"], 4
+                        ),
+                    },
+                    ensure_ascii=True,
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+
+        _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-rank-zero-progress-commit",
+            operation=commit_progress,
+        )
+        if context.is_primary and primary_step_evidence is not None:
+            step_evidence.append(primary_step_evidence)
+
+        totals["answer_loss"] += step_record["answer_loss"]
+        totals["route_loss"] += step_record["route_loss"]
+        totals["total_loss"] += step_record["total_loss"]
+        totals["answer_exact_correct"] += metrics[0]
+        totals["answer_rows"] += metrics[1]
+        totals["route_correct"] += metrics[2]
+        totals["route_total"] += metrics[3]
+        totals["full_occupancy_count"] += metrics[4]
+        totals["full_occupancy_total"] += metrics[5]
+        totals["forced_write_route_correct"] += metrics[6]
+        totals["forced_write_route_total"] += metrics[7]
+
+    local_elapsed = _run_consensused_local_phase(
+        context,
+        phase="elapsed-time-preparation",
+        operation=lambda: float(time.time() - started),
+    )
+    elapsed_by_rank = distributed.gather_objects(context, local_elapsed)
+    elapsed_values = _run_consensused_local_phase(
+        context,
+        phase="elapsed-time-validation",
+        operation=lambda: tuple(float(value) for value in elapsed_by_rank),
+    )
+
+    final_adapter_hash, final_optimizer_hash = _run_consensused_local_phase(
+        context,
+        phase="final-replica-hash-preparation",
+        operation=lambda: (
+            _state_dict_sha256(snapshot_delta_mem_weights(model)),
+            distributed.tensor_mapping_sha256(optimizer.state_dict()),
+        ),
+    )
+    adapter_hashes = distributed.require_consensus(
+        context, final_adapter_hash, description="final adapter state"
+    )
+    optimizer_hashes = distributed.require_consensus(
+        context, final_optimizer_hash, description="final optimizer state"
+    )
+    memory_after = _run_consensused_local_phase(
+        context,
+        phase="final-cuda-memory-preparation",
+        operation=lambda: distributed.cuda_memory_snapshot(context),
+    )
+    rank_memory = distributed.gather_objects(
+        context,
+        {"before_training": memory_before, "after_training": memory_after},
+    )
+    validated_rank_memory = _run_consensused_local_phase(
+        context,
+        phase="final-cuda-memory-validation",
+        operation=lambda: tuple(
+            dict(value)
+            for value in rank_memory
+            if isinstance(value, Mapping)
+        ),
+    )
+    if len(validated_rank_memory) != context.world_size:
+        raise distributed.DistributedTrainingError(
+            "Final CUDA memory evidence is incomplete"
+        )
+
+    def prepare_progress_hash() -> str | None:
+        return source.sha256_file(progress_path) if context.is_primary else None
+
+    progress_sha256 = _run_consensused_local_phase(
+        context,
+        phase="rank-zero-progress-hash",
+        operation=prepare_progress_hash,
+    )
+
+    def prepare_result() -> dict[str, Any]:
+        if router_gradient is None or collective_evidence is None:
+            raise RuntimeError("Distributed training executed no optimization steps")
+        if len(collective_evidence_by_step) != len(schedule):
+            raise RuntimeError("Distributed collective evidence is incomplete")
+        denominators = (
+            totals["answer_rows"],
+            totals["route_total"],
+            totals["full_occupancy_total"],
+            totals["forced_write_route_total"],
+        )
+        if any(value <= 0.0 for value in denominators):
+            raise RuntimeError("Distributed aggregate metric denominator is zero")
+        return {
+            "steps": len(schedule),
+            "epochs_requested": epochs,
+            "max_steps": max_steps,
+            "elapsed_seconds": max(elapsed_values),
+            "mean_answer_loss": totals["answer_loss"] / len(schedule),
+            "mean_route_loss": totals["route_loss"] / len(schedule),
+            "mean_total_loss": totals["total_loss"] / len(schedule),
+            "teacher_forced_answer_exact_accuracy": (
+                totals["answer_exact_correct"] / totals["answer_rows"]
+            ),
+            "semantic_route_accuracy": (
+                totals["route_correct"] / totals["route_total"]
+            ),
+            "full_occupancy_fraction": (
+                totals["full_occupancy_count"] / totals["full_occupancy_total"]
+            ),
+            "forced_write_route_accuracy": (
+                totals["forced_write_route_correct"]
+                / totals["forced_write_route_total"]
+            ),
+            "router_gradient_audit": router_gradient,
+            "progress_schema": TRAIN_STEP_SCHEMA,
+            "progress_sha256": progress_sha256,
+            "distributed": {
+                "backend": context.backend,
+                "control_backend": context.control_backend,
+                "world_size": context.world_size,
+                "local_batch_size": local_batch_size,
+                "global_batch_size": global_batch_size,
+                "gradient_synchronization": "sum",
+                "gradient_clip_order": "after_sum_before_adamw",
+                "answer_loss_normalization": (
+                    "global_supervised_answer_token_count"
+                ),
+                "route_loss_normalization": "global_row_count_after_layer_mean",
+                "online_memory_state": "rank_local_never_reduced",
+                "schedule_sha256": schedule_sha256,
+                "ordered_row_ids_sha256": distributed.canonical_sha256(row_ids),
+                "trainable_metadata": list(trainable_metadata),
+                "trainable_metadata_sha256": trainable_metadata_sha256,
+                "trainable_names_sha256": trainable_names_sha256,
+                "collective_evidence": dict(collective_evidence),
+                "collective_evidence_by_step": [
+                    dict(value) for value in collective_evidence_by_step
+                ],
+                "rank_devices": [dict(value) for value in context.rank_devices],
+                "rank_memory": list(validated_rank_memory),
+                "final_adapter_state_sha256": adapter_hashes[0],
+                "final_optimizer_state_sha256": optimizer_hashes[0],
+                "step_evidence": step_evidence,
+            },
+        }
+
+    return _run_consensused_local_phase(
+        context,
+        phase="distributed-training-result-preparation",
+        operation=prepare_result,
+    )
+
+
+def _is_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _distributed_preflight_step_passed_unchecked(value: Any) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    ranks = value.get("ranks")
+    global_row_ids = value.get("global_row_ids")
+    if not isinstance(ranks, list) or not isinstance(global_row_ids, list):
+        return False
+    if any(not isinstance(rank, Mapping) for rank in ranks):
+        return False
+    if len(ranks) != distributed.REQUIRED_WORLD_SIZE or len(global_row_ids) != (
+        distributed.REQUIRED_GLOBAL_BATCH_SIZE
+    ):
+        return False
+    ordered_ranks = sorted(
+        ranks,
+        key=lambda rank: rank.get("rank", -1) if isinstance(rank, Mapping) else -1,
+    )
+    if [rank.get("rank") for rank in ordered_ranks] != list(
+        range(distributed.REQUIRED_WORLD_SIZE)
+    ):
+        return False
+    for rank in ordered_ranks:
+        local_rows = rank.get("local_row_ids")
+        local_digests = rank.get("local_online_state_sha256")
+        gradient_validation = rank.get("gradient_validation")
+        gradient_collective = rank.get("gradient_collective")
+        if (
+            not isinstance(local_rows, list)
+            or len(local_rows) != distributed.REQUIRED_LOCAL_BATCH_SIZE
+            or not all(isinstance(row_id, str) and row_id for row_id in local_rows)
+            or not isinstance(local_digests, list)
+            or len(local_digests) != distributed.REQUIRED_LOCAL_BATCH_SIZE
+            or not all(_is_sha256(digest) for digest in local_digests)
+            or type(rank.get("local_answer_tokens")) is not int
+            or rank["local_answer_tokens"] <= 0
+            or rank.get("local_route_rows") != distributed.REQUIRED_LOCAL_BATCH_SIZE
+            or not _is_sha256(rank.get("adapter_state_sha256"))
+            or not _is_sha256(rank.get("optimizer_state_sha256"))
+            or not _is_sha256(rank.get("trainable_metadata_sha256"))
+            or not _is_sha256(rank.get("trainable_names_sha256"))
+            or not isinstance(gradient_validation, Mapping)
+            or gradient_validation.get("passed") is not True
+            or type(gradient_validation.get("parameter_tensors")) is not int
+            or gradient_validation["parameter_tensors"] <= 0
+            or not isinstance(gradient_collective, Mapping)
+            or gradient_collective.get("gradient_tensors")
+            != gradient_validation["parameter_tensors"]
+            or type(gradient_collective.get("collective_buckets")) is not int
+            or gradient_collective["collective_buckets"] <= 0
+            or type(gradient_collective.get("all_reduce_bytes")) is not int
+            or gradient_collective["all_reduce_bytes"] <= 0
+            or not _is_sha256(gradient_collective.get("parameter_names_sha256"))
+            or gradient_collective.get("parameter_names_sha256")
+            != rank.get("trainable_names_sha256")
+            or not _is_sha256(gradient_collective.get("bucket_plan_sha256"))
+        ):
+            return False
+    local_rows = [
+        row_id
+        for rank in ordered_ranks
+        for row_id in rank["local_row_ids"]
+    ]
+    local_state_digests = [
+        digest
+        for rank in ordered_ranks
+        for digest in rank["local_online_state_sha256"]
+    ]
+    adapter_hashes = {
+        rank.get("adapter_state_sha256") for rank in ordered_ranks
+    }
+    optimizer_hashes = {
+        rank.get("optimizer_state_sha256") for rank in ordered_ranks
+    }
+    metadata_hashes = {
+        rank.get("trainable_metadata_sha256") for rank in ordered_ranks
+    }
+    names_hashes = {rank.get("trainable_names_sha256") for rank in ordered_ranks}
+    collective_hashes = {
+        distributed.canonical_sha256(rank["gradient_collective"])
+        for rank in ordered_ranks
+    }
+    return (
+        value.get("phase_order") == list(DISTRIBUTED_STEP_PHASE_ORDER)
+        and type(value.get("global_answer_tokens")) is int
+        and value["global_answer_tokens"] > 0
+        and value.get("global_answer_tokens")
+        == sum(rank.get("local_answer_tokens", 0) for rank in ordered_ranks)
+        and value.get("global_route_rows")
+        == sum(rank.get("local_route_rows", 0) for rank in ordered_ranks)
+        and value.get("global_route_rows")
+        == distributed.REQUIRED_GLOBAL_BATCH_SIZE
+        and local_rows == global_row_ids
+        and len(set(local_rows)) == distributed.REQUIRED_GLOBAL_BATCH_SIZE
+        and len(local_state_digests) == distributed.REQUIRED_GLOBAL_BATCH_SIZE
+        and all(_is_sha256(digest) for digest in local_state_digests)
+        and len(set(local_state_digests)) > 1
+        and len(adapter_hashes) == 1
+        and _is_sha256(next(iter(adapter_hashes), None))
+        and len(optimizer_hashes) == 1
+        and _is_sha256(next(iter(optimizer_hashes), None))
+        and value.get("adapter_state_sha256") == next(iter(adapter_hashes), None)
+        and value.get("optimizer_state_sha256")
+        == next(iter(optimizer_hashes), None)
+        and len(metadata_hashes) == 1
+        and value.get("trainable_metadata_sha256")
+        == next(iter(metadata_hashes), None)
+        and len(names_hashes) == 1
+        and value.get("trainable_names_sha256")
+        == next(iter(names_hashes), None)
+        and len(collective_hashes) == 1
+    )
+
+
+def _distributed_preflight_step_passed(value: Any) -> bool:
+    try:
+        return _distributed_preflight_step_passed_unchecked(value)
+    except Exception:
+        return False
+
+
+def _build_distributed_preflight_gate(
+    training: Mapping[str, Any],
+) -> dict[str, Any]:
+    distributed_evidence = training.get("distributed")
+    if not isinstance(distributed_evidence, Mapping):
+        distributed_evidence = {}
+    rank_devices = distributed_evidence.get("rank_devices")
+    if not isinstance(rank_devices, list):
+        rank_devices = []
+    rank_memory = distributed_evidence.get("rank_memory")
+    if not isinstance(rank_memory, list):
+        rank_memory = []
+    step_evidence = distributed_evidence.get("step_evidence")
+    if not isinstance(step_evidence, list):
+        step_evidence = []
+    initialization = distributed_evidence.get("initialization")
+    if not isinstance(initialization, Mapping):
+        initialization = {}
+    rank_immutability = distributed_evidence.get("rank_input_immutability")
+    if not isinstance(rank_immutability, list):
+        rank_immutability = []
+    collective_evidence = distributed_evidence.get("collective_evidence")
+    if not isinstance(collective_evidence, Mapping):
+        collective_evidence = {}
+    collective_evidence_by_step = distributed_evidence.get(
+        "collective_evidence_by_step"
+    )
+    if not isinstance(collective_evidence_by_step, list):
+        collective_evidence_by_step = []
+    trainable_metadata = distributed_evidence.get("trainable_metadata")
+    if not isinstance(trainable_metadata, list):
+        trainable_metadata = []
+    router_gradient_audit = training.get("router_gradient_audit")
+    if not isinstance(router_gradient_audit, Mapping):
+        router_gradient_audit = {}
+
+    headroom_by_rank: list[dict[str, int]] = []
+    memory_evidence_passed = len(rank_memory) == distributed.REQUIRED_WORLD_SIZE
+    for rank, record in enumerate(rank_memory):
+        after = record.get("after_training") if isinstance(record, Mapping) else None
+        if not isinstance(after, Mapping):
+            memory_evidence_passed = False
+            continue
+        required = (
+            "process_rank",
+            "total_bytes",
+            "free_bytes",
+            "peak_reserved_bytes",
+        )
+        if any(type(after.get(field)) is not int for field in required):
+            memory_evidence_passed = False
+            continue
+        isolated_headroom = after["total_bytes"] - after["peak_reserved_bytes"]
+        conservative_headroom = min(isolated_headroom, after["free_bytes"])
+        headroom_by_rank.append(
+            {
+                "rank": rank,
+                "process_rank": after["process_rank"],
+                "peak_reserved_bytes": after["peak_reserved_bytes"],
+                "isolated_headroom_bytes": isolated_headroom,
+                "observed_free_bytes": after["free_bytes"],
+                "conservative_headroom_bytes": conservative_headroom,
+            }
+        )
+        if (
+            after["process_rank"] != rank
+            or isolated_headroom < 0
+            or conservative_headroom < MINIMUM_DISTRIBUTED_HEADROOM_BYTES
+        ):
+            memory_evidence_passed = False
+
+    device_ranks = [
+        value.get("process_rank") for value in rank_devices
+        if isinstance(value, Mapping)
+    ]
+    device_uuids = [
+        value.get("device_uuid") for value in rank_devices
+        if isinstance(value, Mapping)
+    ]
+    device_pids = [
+        value.get("pid") for value in rank_devices if isinstance(value, Mapping)
+    ]
+    after_broadcast = initialization.get("hashes_after_broadcast")
+    if not isinstance(after_broadcast, list):
+        after_broadcast = []
+    final_adapter_hash = distributed_evidence.get("final_adapter_state_sha256")
+    final_optimizer_hash = distributed_evidence.get("final_optimizer_state_sha256")
+    source_hashes = {
+        value.get("source_snapshot_sha256")
+        for value in rank_immutability
+        if isinstance(value, Mapping)
+    }
+    model_hashes = {
+        value.get("model_snapshot_sha256")
+        for value in rank_immutability
+        if isinstance(value, Mapping)
+    }
+    step_numbers = [
+        step.get("step") if isinstance(step, Mapping) else None
+        for step in step_evidence
+    ]
+    trainable_metadata_valid = bool(trainable_metadata) and all(
+        isinstance(value, Mapping)
+        and isinstance(value.get("name"), str)
+        and value.get("name")
+        and value.get("requires_grad") is True
+        for value in trainable_metadata
+    )
+    computed_trainable_metadata_sha256 = (
+        distributed.canonical_sha256(trainable_metadata)
+        if trainable_metadata_valid
+        else None
+    )
+    computed_trainable_names_sha256 = (
+        distributed.canonical_sha256(
+            [value["name"] for value in trainable_metadata]
+        )
+        if trainable_metadata_valid
+        else None
+    )
+    collective_parameter_binding = (
+        len(collective_evidence_by_step) == DISTRIBUTED_PREFLIGHT_STEPS
+        and len(step_evidence) == DISTRIBUTED_PREFLIGHT_STEPS
+        and isinstance(collective_evidence, Mapping)
+        and dict(collective_evidence)
+        == dict(collective_evidence_by_step[-1])
+    )
+    if collective_parameter_binding:
+        for step, step_collective in zip(
+            step_evidence, collective_evidence_by_step, strict=True
+        ):
+            if not isinstance(step, Mapping) or not isinstance(
+                step_collective, Mapping
+            ):
+                collective_parameter_binding = False
+                break
+            ranks = step.get("ranks")
+            if not isinstance(ranks, list) or any(
+                not isinstance(rank, Mapping) for rank in ranks
+            ):
+                collective_parameter_binding = False
+                break
+            if (
+                step_collective.get("parameter_names_sha256")
+                != computed_trainable_names_sha256
+                or step.get("trainable_metadata_sha256")
+                != computed_trainable_metadata_sha256
+                or step.get("trainable_names_sha256")
+                != computed_trainable_names_sha256
+                or any(
+                    dict(rank.get("gradient_collective", {}))
+                    != dict(step_collective)
+                    for rank in ranks
+                )
+            ):
+                collective_parameter_binding = False
+                break
+    checks = {
+        "three_production_updates": (
+            training.get("steps") == DISTRIBUTED_PREFLIGHT_STEPS
+            and training.get("max_steps") == DISTRIBUTED_PREFLIGHT_STEPS
+            and len(step_evidence) == DISTRIBUTED_PREFLIGHT_STEPS
+            and step_numbers
+            == list(range(1, DISTRIBUTED_PREFLIGHT_STEPS + 1))
+        ),
+        "four_rank_topology": (
+            distributed_evidence.get("backend") == "nccl"
+            and distributed_evidence.get("control_backend") == "gloo"
+            and distributed_evidence.get("world_size")
+            == distributed.REQUIRED_WORLD_SIZE
+            and distributed_evidence.get("local_batch_size")
+            == distributed.REQUIRED_LOCAL_BATCH_SIZE
+            and distributed_evidence.get("global_batch_size")
+            == distributed.REQUIRED_GLOBAL_BATCH_SIZE
+        ),
+        "four_distinct_cuda_workers": (
+            len(rank_devices) == distributed.REQUIRED_WORLD_SIZE
+            and device_ranks == list(range(distributed.REQUIRED_WORLD_SIZE))
+            and len(set(device_uuids)) == distributed.REQUIRED_WORLD_SIZE
+            and len(set(device_pids)) == distributed.REQUIRED_WORLD_SIZE
+        ),
+        "complete_adapter_broadcast": (
+            len(after_broadcast) == distributed.REQUIRED_WORLD_SIZE
+            and len(set(after_broadcast)) == 1
+            and _is_sha256(next(iter(after_broadcast), None))
+            and initialization.get("synchronized_adapter_state_sha256")
+            == next(iter(after_broadcast), None)
+            and isinstance(initialization.get("broadcast"), Mapping)
+            and type(
+                initialization["broadcast"].get("parameter_tensors")
+            ) is int
+            and initialization["broadcast"]["parameter_tensors"] > 0
+            and _is_sha256(
+                initialization.get("complete_adapter_metadata_sha256")
+            )
+            and _is_sha256(initialization.get("complete_adapter_names_sha256"))
+            and initialization["broadcast"].get("parameter_names_sha256")
+            == initialization.get("complete_adapter_names_sha256")
+            and _is_sha256(
+                initialization["broadcast"].get("bucket_plan_sha256")
+            )
+            and type(initialization["broadcast"].get("broadcast_bytes")) is int
+            and initialization["broadcast"]["broadcast_bytes"] > 0
+        ),
+        "global_objective_and_row_ownership": (
+            len(step_evidence) == DISTRIBUTED_PREFLIGHT_STEPS
+            and all(_distributed_preflight_step_passed(step) for step in step_evidence)
+        ),
+        "collective_contract": (
+            distributed_evidence.get("gradient_synchronization") == "sum"
+            and distributed_evidence.get("gradient_clip_order")
+            == "after_sum_before_adamw"
+            and distributed_evidence.get("answer_loss_normalization")
+            == "global_supervised_answer_token_count"
+            and distributed_evidence.get("route_loss_normalization")
+            == "global_row_count_after_layer_mean"
+            and distributed_evidence.get("online_memory_state")
+            == "rank_local_never_reduced"
+        ),
+        "collective_parameter_binding": (
+            trainable_metadata_valid
+            and distributed_evidence.get("trainable_metadata_sha256")
+            == computed_trainable_metadata_sha256
+            and distributed_evidence.get("trainable_names_sha256")
+            == computed_trainable_names_sha256
+            and collective_parameter_binding
+        ),
+        "final_replica_consensus": (
+            _is_sha256(final_adapter_hash)
+            and _is_sha256(final_optimizer_hash)
+            and bool(step_evidence)
+            and step_evidence[-1].get("adapter_state_sha256")
+            == final_adapter_hash
+            and step_evidence[-1].get("optimizer_state_sha256")
+            == final_optimizer_hash
+        ),
+        "adapter_updated": training.get("adapter_changed") is True,
+        "router_gradients": router_gradient_audit.get(
+            "all_ranks_all_modules_finite_nonzero"
+        )
+        is True,
+        "rank_input_immutability": (
+            len(rank_immutability) == distributed.REQUIRED_WORLD_SIZE
+            and len(source_hashes) == 1
+            and len(model_hashes) == 1
+            and _is_sha256(next(iter(source_hashes), None))
+            and _is_sha256(next(iter(model_hashes), None))
+        ),
+        "communication_inclusive_memory_headroom": memory_evidence_passed,
+        "rank_zero_progress_evidence": _is_sha256(training.get("progress_sha256")),
+    }
+    return {
+        "schema": "rwkv_ms_natural_memory_distributed_preflight_gate.v1",
+        "minimum_headroom_bytes": MINIMUM_DISTRIBUTED_HEADROOM_BYTES,
+        "headroom_by_rank": headroom_by_rank,
+        "checks": checks,
+        "failed_checks": sorted(name for name, passed in checks.items() if not passed),
+        "passed": all(checks.values()),
+    }
+
+
+def build_distributed_preflight_gate(
+    training: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Validate preflight evidence without accepting or crashing on malformed data."""
+
+    try:
+        gate = _build_distributed_preflight_gate(training)
+    except Exception as error:
+        checks = {"evidence_well_formed": False}
+        return {
+            "schema": "rwkv_ms_natural_memory_distributed_preflight_gate.v1",
+            "minimum_headroom_bytes": MINIMUM_DISTRIBUTED_HEADROOM_BYTES,
+            "headroom_by_rank": [],
+            "checks": checks,
+            "failed_checks": ["evidence_well_formed"],
+            "evidence_error": {
+                "type": type(error).__name__,
+                "message": str(error),
+            },
+            "passed": False,
+        }
+    checks = {"evidence_well_formed": True, **gate["checks"]}
+    gate["checks"] = checks
+    gate["failed_checks"] = sorted(
+        name for name, passed in checks.items() if passed is not True
+    )
+    gate["passed"] = all(passed is True for passed in checks.values())
+    return gate
+
+
+def _preflight_code_bindings() -> dict[str, dict[str, Any]]:
+    paths = {
+        "natural_runner": Path(__file__).resolve(strict=True),
+        "distributed_primitives": Path(distributed.__file__).resolve(strict=True),
+        "shared_training_runtime": Path(runtime.__file__).resolve(strict=True),
+        "natural_source_builder": Path(source.__file__).resolve(strict=True),
+        "delta_api": Path(delta_core.__file__).resolve(strict=True),
+        "delta_implementation": Path(delta_impl.__file__).resolve(strict=True),
+    }
+    return {
+        name: {
+            "path": str(path),
+            "bytes": path.stat().st_size,
+            "sha256": source.sha256_file(path),
+        }
+        for name, path in paths.items()
+    }
 
 
 def load_pristine_base_model(
@@ -2532,13 +3792,16 @@ def run_experiment(
     attn_implementation: str = "sdpa",
     target_layers: Sequence[int] = DEFAULT_TARGET_LAYERS,
     training_conditions: Sequence[str] = DEFAULT_TRAINING_CONDITIONS,
-    rank: int = 4,
+    rank: int = PRODUCTION_ADAPTER_RANK,
     key_dim: int = 32,
     temperature: float = 16.0,
     greedy: bool = True,
-    answer_exact_min: float = 0.80,
-    route_accuracy_min: float = 0.95,
-    rewrite_output_change_min: float = 0.80,
+    answer_exact_min: float = PRODUCTION_ANSWER_EXACT_MIN,
+    route_accuracy_min: float = PRODUCTION_ROUTE_ACCURACY_MIN,
+    rewrite_output_change_min: float = PRODUCTION_REWRITE_OUTPUT_CHANGE_MIN,
+    distributed_context: distributed.DistributedTrainingContext | None = None,
+    capture_distributed_step_evidence: bool = False,
+    distributed_preflight: bool = False,
 ) -> dict[str, Any]:
     """Run a train/development screen or a sealed, optimizer-free evaluation."""
 
@@ -2581,78 +3844,386 @@ def run_experiment(
         )
     ):
         raise ValueError("Gate thresholds must be fractions in [0, 1]")
-
-    requested_output = output_dir.expanduser()
-    if requested_output.is_symlink():
-        raise ValueError(f"Natural run output must not be a symbolic link: {requested_output}")
-    resolved_output = requested_output.resolve()
-    if resolved_output.exists():
-        raise ValueError(f"Natural run output must be fresh: {resolved_output}")
-    bundle = load_profile_bundle(source_manifest, profile=profile)
-    model_root, model_artifact_paths = resolve_model_artifacts(
-        bundle.model_binding,
-        model_path=model_path,
-    )
-    source_before = snapshot_files(bundle.source_paths)
-    model_before = snapshot_files(model_artifact_paths)
-    sealed_chain: Mapping[str, Any] | None = None
-    if profile == "sealed_validation":
-        sealed_chain = validate_sealed_lock_chain(
-            bundle.sealed_manifest or bundle.development_manifest,
-            development_run_dir or Path(),
-            adapter_path=adapter_path or Path(),
-        )
-
-    device = torch.device(device_name)
-    dtype = _dtype(dtype_name)
-    layers = _parse_layers(target_layers)
-    selected_training_conditions = _parse_training_conditions(training_conditions)
-    delta_config = build_delta_config(
-        target_layers=layers,
-        rank=rank,
-        key_dim=key_dim,
-        temperature=temperature,
-    )
-    model_source = {"model": {"path": str(model_root)}}
-    model, tokenizer, replaced_layers, trainable_names, checkpointed_mlps = (
-        _load_model_and_tokenizer(
-            model_source,
-            device=device,
-            dtype=dtype,
-            attn_implementation=attn_implementation,
-            delta_config=delta_config,
-        )
-    )
-    if profile == "sealed_validation":
-        loaded_delta_config = load_delta_mem_adapter(model, adapter_path or Path())
-        if loaded_delta_config.to_dict() != delta_config.to_dict():
+    if profile == "development":
+        if distributed_context is None:
             raise ValueError(
-                "Sealed adapter configuration differs from the frozen requested configuration"
+                "Formal development training requires four-rank torchrun"
             )
-        for parameter in model.parameters():
-            parameter.requires_grad = False
-        trainable_audit = audit_trainable_parameters(
-            model,
-            expected_trainable_names=(),
-            allow_zero=True,
+        if (
+            distributed_context.world_size != distributed.REQUIRED_WORLD_SIZE
+            or batch_size != distributed.REQUIRED_GLOBAL_BATCH_SIZE
+            or batch_size // distributed_context.world_size
+            != distributed.REQUIRED_LOCAL_BATCH_SIZE
+        ):
+            raise ValueError(
+                "Formal development requires world size 4, local batch 1, "
+                "and global batch 4"
+            )
+    if profile == "sealed_validation" and distributed_context is not None:
+        raise ValueError("Sealed validation is a single-process evaluation")
+    if capture_distributed_step_evidence and distributed_context is None:
+        raise ValueError("Distributed step evidence requires torchrun")
+    if distributed_preflight:
+        if profile != "development" or distributed_context is None:
+            raise ValueError(
+                "Distributed preflight requires four-rank development torchrun"
+            )
+        if max_steps != DISTRIBUTED_PREFLIGHT_STEPS:
+            raise ValueError(
+                f"Distributed preflight requires exactly {DISTRIBUTED_PREFLIGHT_STEPS} updates"
+            )
+        capture_distributed_step_evidence = True
+    elif profile == "development" and max_steps != PRODUCTION_UPDATES:
+        raise ValueError(
+            f"Formal development requires exactly {PRODUCTION_UPDATES} updates"
         )
+    if profile == "development":
+        production_configuration = {
+            "seed": seed == PRODUCTION_SEED,
+            "epochs": epochs == PRODUCTION_EPOCHS,
+            "eval_batch_size": eval_batch_size == PRODUCTION_EVAL_BATCH_SIZE,
+            "learning_rate": learning_rate == PRODUCTION_LEARNING_RATE,
+            "answer_weight": answer_weight == PRODUCTION_ANSWER_WEIGHT,
+            "route_weight": route_weight == PRODUCTION_ROUTE_WEIGHT,
+            "max_grad_norm": max_grad_norm == PRODUCTION_MAX_GRAD_NORM,
+            "dtype": dtype_name == PRODUCTION_DTYPE,
+            "attn_implementation": (
+                attn_implementation == PRODUCTION_ATTN_IMPLEMENTATION
+            ),
+            "target_layers": tuple(target_layers) == DEFAULT_TARGET_LAYERS,
+            "training_conditions": (
+                tuple(training_conditions) == DEFAULT_TRAINING_CONDITIONS
+            ),
+            "adapter_rank": rank == PRODUCTION_ADAPTER_RANK,
+            "key_dim": key_dim == PRODUCTION_KEY_DIM,
+            "temperature": temperature == PRODUCTION_TEMPERATURE,
+            "answer_exact_min": answer_exact_min == PRODUCTION_ANSWER_EXACT_MIN,
+            "route_accuracy_min": (
+                route_accuracy_min == PRODUCTION_ROUTE_ACCURACY_MIN
+            ),
+            "rewrite_output_change_min": (
+                rewrite_output_change_min
+                == PRODUCTION_REWRITE_OUTPUT_CHANGE_MIN
+            ),
+        }
+        mismatches = [
+            name for name, matches in production_configuration.items() if not matches
+        ]
+        if mismatches:
+            raise ValueError(
+                "Formal development configuration differs from the profiled "
+                "production contract: " + ", ".join(mismatches)
+            )
+
+    def prepare_run_inputs() -> tuple[
+        Path,
+        ProfileBundle,
+        Path,
+        tuple[Path, ...],
+        Mapping[str, Any],
+        Mapping[str, Any],
+        Mapping[str, Any] | None,
+        torch.device,
+        torch.dtype,
+        tuple[int, ...],
+        tuple[str, ...],
+        Any,
+    ]:
+        requested_output = output_dir.expanduser()
+        if requested_output.is_symlink():
+            raise ValueError(
+                f"Natural run output must not be a symbolic link: {requested_output}"
+            )
+        prepared_output = requested_output.resolve()
+        if prepared_output.exists():
+            raise ValueError(f"Natural run output must be fresh: {prepared_output}")
+        prepared_bundle = load_profile_bundle(source_manifest, profile=profile)
+        prepared_model_root, prepared_model_artifacts = resolve_model_artifacts(
+            prepared_bundle.model_binding,
+            model_path=model_path,
+        )
+        prepared_source_before = snapshot_files(prepared_bundle.source_paths)
+        prepared_model_before = snapshot_files(prepared_model_artifacts)
+        prepared_sealed_chain: Mapping[str, Any] | None = None
+        if profile == "sealed_validation":
+            prepared_sealed_chain = validate_sealed_lock_chain(
+                prepared_bundle.sealed_manifest
+                or prepared_bundle.development_manifest,
+                development_run_dir or Path(),
+                adapter_path=adapter_path or Path(),
+            )
+        prepared_device = (
+            distributed_context.device
+            if distributed_context is not None
+            else torch.device(device_name)
+        )
+        if prepared_device.type == "cuda" and not torch.cuda.is_available():
+            raise RuntimeError("CUDA device requested but CUDA is unavailable")
+        if prepared_device.type == "cuda":
+            torch.cuda.set_device(prepared_device)
+            torch.backends.cuda.matmul.allow_tf32 = True
+        prepared_dtype = _dtype(dtype_name)
+        prepared_layers = _parse_layers(target_layers)
+        prepared_training_conditions = _parse_training_conditions(
+            training_conditions
+        )
+        prepared_delta_config = build_delta_config(
+            target_layers=prepared_layers,
+            rank=rank,
+            key_dim=key_dim,
+            temperature=temperature,
+        )
+        runtime.set_seed(seed)
+        return (
+            prepared_output,
+            prepared_bundle,
+            prepared_model_root,
+            prepared_model_artifacts,
+            prepared_source_before,
+            prepared_model_before,
+            prepared_sealed_chain,
+            prepared_device,
+            prepared_dtype,
+            prepared_layers,
+            prepared_training_conditions,
+            prepared_delta_config,
+        )
+
+    if distributed_context is None:
+        prepared_run_inputs = prepare_run_inputs()
     else:
-        trainable_audit = audit_trainable_parameters(
-            model,
-            expected_trainable_names=trainable_names,
+        prepared_run_inputs = _run_consensused_local_phase(
+            distributed_context,
+            phase="run-input-preparation",
+            operation=prepare_run_inputs,
         )
-    if not trainable_audit["passed"]:
-        raise ValueError("Only Delta-Mem parameters may be trainable")
+    (
+        resolved_output,
+        bundle,
+        model_root,
+        model_artifact_paths,
+        source_before,
+        model_before,
+        sealed_chain,
+        device,
+        dtype,
+        layers,
+        selected_training_conditions,
+        delta_config,
+    ) = prepared_run_inputs
+    if distributed_context is not None:
+        run_input_binding_sha256 = _run_consensused_local_phase(
+            distributed_context,
+            phase="run-input-binding-preparation",
+            operation=lambda: distributed.canonical_sha256(
+                {
+                    "resolved_output": str(resolved_output),
+                    "model_root": str(model_root),
+                    "model_artifact_paths": [
+                        str(path) for path in model_artifact_paths
+                    ],
+                    "source_files": source_before,
+                    "model_files": model_before,
+                    "model_binding_sha256": bundle.model_binding.get(
+                        "binding_sha256"
+                    ),
+                    "profile_eligibility": bundle.eligibility,
+                    "delta_mem_config": delta_config.to_dict(),
+                }
+            ),
+        )
+        distributed.require_consensus(
+            distributed_context,
+            run_input_binding_sha256,
+            description="run input binding",
+        )
+    model_source = {"model": {"path": str(model_root)}}
+    load_error: BaseException | None = None
+    try:
+        model, tokenizer, replaced_layers, trainable_names, checkpointed_mlps = (
+            _load_model_and_tokenizer(
+                model_source,
+                device=device,
+                dtype=dtype,
+                attn_implementation=attn_implementation,
+                delta_config=delta_config,
+            )
+        )
+    except BaseException as error:
+        load_error = error
+    if distributed_context is not None:
+        distributed.phase_consensus(
+            distributed_context,
+            phase="model-and-adapter-load",
+            error=load_error,
+        )
+    if load_error is not None:
+        raise load_error
+    def prepare_trainable_audit() -> Mapping[str, Any]:
+        if profile == "sealed_validation":
+            loaded_delta_config = load_delta_mem_adapter(model, adapter_path or Path())
+            if loaded_delta_config.to_dict() != delta_config.to_dict():
+                raise ValueError(
+                    "Sealed adapter configuration differs from the frozen requested "
+                    "configuration"
+                )
+            for parameter in model.parameters():
+                parameter.requires_grad = False
+            prepared_audit = audit_trainable_parameters(
+                model,
+                expected_trainable_names=(),
+                allow_zero=True,
+            )
+        else:
+            prepared_audit = audit_trainable_parameters(
+                model,
+                expected_trainable_names=trainable_names,
+            )
+        if not prepared_audit["passed"]:
+            raise ValueError("Only Delta-Mem parameters may be trainable")
+        return prepared_audit
 
-    pre_adapter_hash = _state_dict_sha256(snapshot_delta_mem_weights(model))
-    train_episodes = select_complete_episodes(bundle.train_episodes, train_limit)
-    eval_episodes = select_complete_episodes(bundle.evaluation_episodes, eval_limit)
-    if profile != "sealed_validation" and not train_episodes:
-        raise ValueError("Training profile selected no training episodes")
-    if not eval_episodes:
-        raise ValueError("Selected profile has no evaluation episodes")
+    if distributed_context is None:
+        trainable_audit = prepare_trainable_audit()
+    else:
+        trainable_audit = _run_consensused_local_phase(
+            distributed_context,
+            phase="initial-trainable-audit",
+            operation=prepare_trainable_audit,
+        )
 
-    resolved_output.mkdir(parents=True, exist_ok=False)
+    distributed_initialization: Mapping[str, Any] | None = None
+    if distributed_context is not None:
+        def prepare_adapter_initialization() -> tuple[
+            tuple[tuple[str, torch.nn.Parameter], ...],
+            tuple[dict[str, Any], ...],
+            str,
+            str,
+        ]:
+            prepared_parameters = _named_adapter_parameters(model)
+            prepared_metadata = distributed.named_tensor_metadata(prepared_parameters)
+            prepared_metadata_hash = distributed.canonical_sha256(prepared_metadata)
+            prepared_state_hash = _state_dict_sha256(
+                snapshot_delta_mem_weights(model)
+            )
+            return (
+                prepared_parameters,
+                prepared_metadata,
+                prepared_metadata_hash,
+                prepared_state_hash,
+            )
+
+        (
+            adapter_parameters,
+            adapter_metadata,
+            adapter_metadata_sha256,
+            adapter_hash_before_broadcast,
+        ) = _run_consensused_local_phase(
+            distributed_context,
+            phase="adapter-initialization-preparation",
+            operation=prepare_adapter_initialization,
+        )
+        distributed.require_consensus(
+            distributed_context,
+            adapter_metadata_sha256,
+            description="complete adapter parameter metadata",
+        )
+        hashes_before_broadcast = distributed.gather_objects(
+            distributed_context,
+            adapter_hash_before_broadcast,
+        )
+        broadcast_error: BaseException | None = None
+        try:
+            broadcast_evidence = distributed.broadcast_named_parameters(
+                distributed_context, adapter_parameters
+            )
+        except BaseException as error:
+            broadcast_error = error
+        distributed.phase_consensus(
+            distributed_context,
+            phase="complete-adapter-initialization-broadcast",
+            error=broadcast_error,
+        )
+        if broadcast_error is not None:
+            raise broadcast_error
+        synchronized_adapter_hash = _run_consensused_local_phase(
+            distributed_context,
+            phase="broadcast-adapter-hash-preparation",
+            operation=lambda: _state_dict_sha256(
+                snapshot_delta_mem_weights(model)
+            ),
+        )
+        hashes_after_broadcast = distributed.require_consensus(
+            distributed_context,
+            synchronized_adapter_hash,
+            description="broadcast adapter initialization",
+        )
+        distributed_initialization = {
+            "source_rank": 0,
+            "complete_adapter_metadata_sha256": adapter_metadata_sha256,
+            "complete_adapter_names_sha256": distributed.canonical_sha256(
+                [value["name"] for value in adapter_metadata]
+            ),
+            "hashes_before_broadcast": list(hashes_before_broadcast),
+            "hashes_after_broadcast": list(hashes_after_broadcast),
+            "synchronized_adapter_state_sha256": hashes_after_broadcast[0],
+            "broadcast": dict(broadcast_evidence),
+        }
+
+    def prepare_episode_selection() -> tuple[str, list[NaturalEpisode], list[NaturalEpisode]]:
+        prepared_adapter_hash = _state_dict_sha256(
+            snapshot_delta_mem_weights(model)
+        )
+        prepared_train_episodes = select_complete_episodes(
+            bundle.train_episodes, train_limit
+        )
+        prepared_eval_episodes = select_complete_episodes(
+            bundle.evaluation_episodes, eval_limit
+        )
+        if profile != "sealed_validation" and not prepared_train_episodes:
+            raise ValueError("Training profile selected no training episodes")
+        if not prepared_eval_episodes:
+            raise ValueError("Selected profile has no evaluation episodes")
+        return (
+            prepared_adapter_hash,
+            prepared_train_episodes,
+            prepared_eval_episodes,
+        )
+
+    if distributed_context is None:
+        pre_adapter_hash, train_episodes, eval_episodes = prepare_episode_selection()
+    else:
+        (
+            pre_adapter_hash,
+            train_episodes,
+            eval_episodes,
+        ) = _run_consensused_local_phase(
+            distributed_context,
+            phase="episode-selection-preparation",
+            operation=prepare_episode_selection,
+        )
+        distributed.require_consensus(
+            distributed_context,
+            pre_adapter_hash,
+            description="pre-training adapter state",
+        )
+
+    if distributed_context is None:
+        resolved_output.mkdir(parents=True, exist_ok=False)
+    else:
+        output_error: BaseException | None = None
+        if distributed_context.is_primary:
+            try:
+                resolved_output.mkdir(parents=True, exist_ok=False)
+            except BaseException as error:
+                output_error = error
+        distributed.phase_consensus(
+            distributed_context,
+            phase="rank-zero-output-creation",
+            error=output_error,
+        )
+        if output_error is not None:
+            raise output_error
     progress_path = resolved_output / "training_progress.jsonl"
     if profile == "sealed_validation":
         training: dict[str, Any] = {
@@ -2663,44 +4234,357 @@ def run_experiment(
         }
         adapter_files = dict((sealed_chain or {})["adapter_files"])
     else:
-        training_examples = build_training_examples(
-            train_episodes,
-            tokenizer,
-            selected_training_conditions,
-        )
-        training = dict(
-            train_model(
-                model,
-                training_examples,
-                seed=seed,
-                epochs=epochs,
-                max_steps=max_steps,
-                batch_size=batch_size,
-                learning_rate=learning_rate,
-                answer_weight=answer_weight,
-                route_weight=route_weight,
-                max_grad_norm=max_grad_norm,
-                pad_token_id=int(tokenizer.pad_token_id),
-                device=device,
-                dtype=dtype,
-                progress_path=progress_path,
-                training_conditions=selected_training_conditions,
+        if distributed_context is None:
+            training_examples = build_training_examples(
+                train_episodes,
+                tokenizer,
+                selected_training_conditions,
             )
-        )
-        post_train_audit = audit_trainable_parameters(
-            model,
-            expected_trainable_names=trainable_names,
-        )
-        if not post_train_audit["passed"]:
-            raise ValueError("Training changed the trainable-parameter boundary")
-        post_adapter_hash = _state_dict_sha256(snapshot_delta_mem_weights(model))
-        training["adapter_changed"] = post_adapter_hash != pre_adapter_hash
+        else:
+            training_examples = _run_consensused_local_phase(
+                distributed_context,
+                phase="training-example-construction",
+                operation=lambda: build_training_examples(
+                    train_episodes,
+                    tokenizer,
+                    selected_training_conditions,
+                ),
+            )
+            ordered_training_examples_sha256 = _run_consensused_local_phase(
+                distributed_context,
+                phase="ordered-training-example-hash-preparation",
+                operation=lambda: distributed.canonical_sha256(
+                    [example.row_id for example in training_examples]
+                ),
+            )
+            distributed.require_consensus(
+                distributed_context,
+                ordered_training_examples_sha256,
+                description="ordered training examples",
+            )
+        if distributed_context is None:
+            training = dict(
+                train_model(
+                    model,
+                    training_examples,
+                    seed=seed,
+                    epochs=epochs,
+                    max_steps=max_steps,
+                    batch_size=batch_size,
+                    learning_rate=learning_rate,
+                    answer_weight=answer_weight,
+                    route_weight=route_weight,
+                    max_grad_norm=max_grad_norm,
+                    pad_token_id=int(tokenizer.pad_token_id),
+                    device=device,
+                    dtype=dtype,
+                    progress_path=progress_path,
+                    training_conditions=selected_training_conditions,
+                )
+            )
+        else:
+            def run_distributed_training() -> dict[str, Any]:
+                prepared_training = dict(
+                    train_model_distributed(
+                        model,
+                        training_examples,
+                        context=distributed_context,
+                        seed=seed,
+                        epochs=epochs,
+                        max_steps=max_steps,
+                        global_batch_size=batch_size,
+                        learning_rate=learning_rate,
+                        answer_weight=answer_weight,
+                        route_weight=route_weight,
+                        max_grad_norm=max_grad_norm,
+                        pad_token_id=int(tokenizer.pad_token_id),
+                        dtype=dtype,
+                        progress_path=progress_path,
+                        training_conditions=selected_training_conditions,
+                        capture_step_evidence=capture_distributed_step_evidence,
+                    )
+                )
+                prepared_training["distributed"]["initialization"] = dict(
+                    distributed_initialization or {}
+                )
+                return prepared_training
+
+            training = _run_consensused_local_phase(
+                distributed_context,
+                phase="distributed-training-completion",
+                operation=run_distributed_training,
+            )
+
+        def prepare_post_training_evidence() -> tuple[
+            Mapping[str, Any], str, bool, Mapping[str, Any], Mapping[str, Any]
+        ]:
+            prepared_audit = audit_trainable_parameters(
+                model,
+                expected_trainable_names=trainable_names,
+            )
+            if not prepared_audit["passed"]:
+                raise ValueError("Training changed the trainable-parameter boundary")
+            prepared_adapter_hash = _state_dict_sha256(
+                snapshot_delta_mem_weights(model)
+            )
+            prepared_adapter_changed = prepared_adapter_hash != pre_adapter_hash
+            if not prepared_adapter_changed:
+                raise RuntimeError("Training produced no Delta-Mem parameter update")
+            prepared_source_after = assert_snapshot_unchanged(
+                source_before,
+                description="Natural distributed training source"
+                if distributed_context is not None
+                else "Natural training source",
+            )
+            prepared_model_after = assert_snapshot_unchanged(
+                model_before,
+                description="Natural distributed training model"
+                if distributed_context is not None
+                else "Natural training model",
+            )
+            return (
+                prepared_audit,
+                prepared_adapter_hash,
+                prepared_adapter_changed,
+                prepared_source_after,
+                prepared_model_after,
+            )
+
+        if distributed_context is None:
+            (
+                post_train_audit,
+                post_adapter_hash,
+                adapter_changed,
+                rank_source_after,
+                rank_model_after,
+            ) = prepare_post_training_evidence()
+        else:
+            (
+                post_train_audit,
+                post_adapter_hash,
+                adapter_changed,
+                rank_source_after,
+                rank_model_after,
+            ) = _run_consensused_local_phase(
+                distributed_context,
+                phase="post-training-evidence-preparation",
+                operation=prepare_post_training_evidence,
+            )
+        training["adapter_changed"] = adapter_changed
         training["adapter_state_sha256_before"] = pre_adapter_hash
         training["adapter_state_sha256_after"] = post_adapter_hash
-        if not training["adapter_changed"]:
-            raise RuntimeError("Training produced no Delta-Mem parameter update")
-        save_delta_mem_adapter(model, resolved_output / "adapter", delta_config)
-        adapter_files = snapshot_directory_files(resolved_output / "adapter")
+
+        if distributed_context is None:
+            save_delta_mem_adapter(model, resolved_output / "adapter", delta_config)
+            adapter_files = snapshot_directory_files(resolved_output / "adapter")
+        else:
+            post_training_binding = _run_consensused_local_phase(
+                distributed_context,
+                phase="post-training-binding-preparation",
+                operation=lambda: {
+                    "post_train_audit_sha256": distributed.canonical_sha256(
+                        post_train_audit
+                    ),
+                    "adapter_state_sha256_before": pre_adapter_hash,
+                    "adapter_state_sha256_after": post_adapter_hash,
+                    "adapter_changed": adapter_changed,
+                },
+            )
+            distributed.require_consensus(
+                distributed_context,
+                post_training_binding,
+                description="post-training adapter and trainable audit",
+            )
+            local_immutability_evidence = _run_consensused_local_phase(
+                distributed_context,
+                phase="rank-input-immutability-evidence-preparation",
+                operation=lambda: {
+                    "rank": distributed_context.process_rank,
+                    "source_snapshot_sha256": distributed.canonical_sha256(
+                        rank_source_after
+                    ),
+                    "model_snapshot_sha256": distributed.canonical_sha256(
+                        rank_model_after
+                    ),
+                },
+            )
+            rank_immutability = distributed.gather_objects(
+                distributed_context,
+                local_immutability_evidence,
+            )
+
+            def validate_rank_immutability() -> list[Mapping[str, Any]]:
+                if len(rank_immutability) != distributed_context.world_size or any(
+                    not isinstance(value, Mapping) for value in rank_immutability
+                ):
+                    raise distributed.DistributedTrainingError(
+                        "Input immutability evidence is malformed"
+                    )
+                ordered = sorted(
+                    rank_immutability, key=lambda value: value.get("rank", -1)
+                )
+                if [value.get("rank") for value in ordered] != list(
+                    range(distributed_context.world_size)
+                ):
+                    raise distributed.DistributedTrainingError(
+                        "Input immutability rank identities differ"
+                    )
+                if len(
+                    {value.get("source_snapshot_sha256") for value in ordered}
+                ) != 1 or len(
+                    {value.get("model_snapshot_sha256") for value in ordered}
+                ) != 1:
+                    raise distributed.DistributedTrainingError(
+                        "Input immutability snapshots differ across ranks"
+                    )
+                return list(ordered)
+
+            training["distributed"]["rank_input_immutability"] = (
+                _run_consensused_local_phase(
+                    distributed_context,
+                    phase="rank-input-immutability-validation",
+                    operation=validate_rank_immutability,
+                )
+            )
+            if distributed_preflight:
+                preflight_error: BaseException | None = None
+                preflight_receipt: Mapping[str, Any] | None = None
+                if distributed_context.is_primary:
+                    try:
+                        preflight_configuration = {
+                            "profile": profile,
+                            "seed": seed,
+                            "epochs": epochs,
+                            "optimizer_updates": max_steps,
+                            "world_size": distributed_context.world_size,
+                            "local_batch_size": (
+                                batch_size // distributed_context.world_size
+                            ),
+                            "global_batch_size": batch_size,
+                            "learning_rate": learning_rate,
+                            "answer_weight": answer_weight,
+                            "route_weight": route_weight,
+                            "max_grad_norm": max_grad_norm,
+                            "training_conditions": list(
+                                selected_training_conditions
+                            ),
+                            "target_layers": list(layers),
+                            "adapter_rank": rank,
+                            "key_dim": key_dim,
+                            "temperature": temperature,
+                            "dtype": dtype_name,
+                            "attn_implementation": attn_implementation,
+                            "thresholds": {
+                                "answer_exact_min": answer_exact_min,
+                                "route_accuracy_min": route_accuracy_min,
+                                "rewrite_output_change_min": (
+                                    rewrite_output_change_min
+                                ),
+                            },
+                            "delta_mem_config": delta_config.to_dict(),
+                        }
+                        preflight_gate = build_distributed_preflight_gate(training)
+                        preflight_receipt = _signed_payload(
+                            {
+                                "schema": DISTRIBUTED_PREFLIGHT_SCHEMA,
+                                "status": (
+                                    "passed" if preflight_gate["passed"] else "failed"
+                                ),
+                                "gate_passed": preflight_gate["passed"],
+                                "hf_endpoint": os.environ.get("HF_ENDPOINT"),
+                                "source_manifest_path": str(
+                                    source_manifest.expanduser().resolve(strict=True)
+                                ),
+                                "source_manifest_file_sha256": source.sha256_file(
+                                    source_manifest.expanduser().resolve(strict=True)
+                                ),
+                                "source_manifest_payload_sha256": (
+                                    bundle.development_manifest["manifest_receipt"][
+                                        "payload_sha256"
+                                    ]
+                                ),
+                                "model_binding_sha256": bundle.model_binding[
+                                    "binding_sha256"
+                                ],
+                                "configuration": preflight_configuration,
+                                "training": training,
+                                "gate": preflight_gate,
+                                "source_files_before": source_before,
+                                "source_files_after": rank_source_after,
+                                "model_files_before": model_before,
+                                "model_files_after": rank_model_after,
+                                "code_bindings": _preflight_code_bindings(),
+                            },
+                            "preflight_receipt_sha256",
+                        )
+                        _write_json(
+                            resolved_output / "preflight_receipt.json",
+                            preflight_receipt,
+                        )
+                        if not preflight_gate["passed"]:
+                            preflight_error = RuntimeError(
+                                "Distributed production preflight failed: "
+                                + ", ".join(preflight_gate["failed_checks"])
+                            )
+                    except BaseException as error:
+                        preflight_error = error
+                distributed.phase_consensus(
+                    distributed_context,
+                    phase="rank-zero-preflight-receipt",
+                    error=preflight_error,
+                )
+                if preflight_error is not None:
+                    raise preflight_error
+                was_primary = distributed_context.is_primary
+                worker_rank = distributed_context.process_rank
+                distributed.destroy_distributed_training(distributed_context)
+                del model
+                gc.collect()
+                if device.type == "cuda":
+                    torch.cuda.empty_cache()
+                if not was_primary:
+                    return {
+                        "output_dir": str(resolved_output),
+                        "distributed_worker_rank": worker_rank,
+                        "training_complete": True,
+                    }
+                return {
+                    "output_dir": str(resolved_output),
+                    "preflight_receipt": preflight_receipt,
+                    "gate": dict(preflight_receipt or {}).get("gate"),
+                }
+            save_error: BaseException | None = None
+            adapter_files = {}
+            if distributed_context.is_primary:
+                try:
+                    save_delta_mem_adapter(
+                        model, resolved_output / "adapter", delta_config
+                    )
+                    adapter_files = snapshot_directory_files(
+                        resolved_output / "adapter"
+                    )
+                except BaseException as error:
+                    save_error = error
+            distributed.phase_consensus(
+                distributed_context,
+                phase="rank-zero-adapter-save",
+                error=save_error,
+            )
+            if save_error is not None:
+                raise save_error
+            was_primary = distributed_context.is_primary
+            worker_rank = distributed_context.process_rank
+            distributed.destroy_distributed_training(distributed_context)
+            if not was_primary:
+                del model
+                gc.collect()
+                if device.type == "cuda":
+                    torch.cuda.empty_cache()
+                return {
+                    "output_dir": str(resolved_output),
+                    "distributed_worker_rank": worker_rank,
+                    "training_complete": True,
+                }
 
     evaluation_examples: dict[str, list[NaturalMemoryExample]] = {
         condition: build_condition_examples(eval_episodes, tokenizer, condition)
@@ -2778,6 +4662,45 @@ def run_experiment(
         model_before,
         description="Local model",
     )
+    if isinstance(training.get("distributed"), Mapping):
+        distributed_training = _require_mapping(
+            training["distributed"], "distributed training evidence"
+        )
+        training_topology: Mapping[str, Any] = {
+            "mode": "raw_model_replicas_explicit_gradient_sum",
+            "backend": distributed_training["backend"],
+            "control_backend": distributed_training["control_backend"],
+            "world_size": distributed_training["world_size"],
+            "local_batch_size": distributed_training["local_batch_size"],
+            "global_batch_size": distributed_training["global_batch_size"],
+            "gradient_synchronization": distributed_training[
+                "gradient_synchronization"
+            ],
+            "gradient_clip_order": distributed_training["gradient_clip_order"],
+            "answer_loss_normalization": distributed_training[
+                "answer_loss_normalization"
+            ],
+            "route_loss_normalization": distributed_training[
+                "route_loss_normalization"
+            ],
+            "online_memory_state": distributed_training["online_memory_state"],
+        }
+    elif sealed_chain is not None:
+        locked_topology_protocol = _require_mapping(
+            sealed_chain.get("development_protocol"),
+            "locked development protocol",
+        )
+        training_topology = _require_mapping(
+            locked_topology_protocol.get("training_topology"),
+            "locked development training topology",
+        )
+    else:
+        training_topology = {
+            "mode": "single_process",
+            "world_size": 1,
+            "local_batch_size": batch_size,
+            "global_batch_size": batch_size,
+        }
     protocol = {
         "schema": PROTOCOL_SCHEMA,
         "runner_schema": RUN_SCHEMA,
@@ -2800,6 +4723,7 @@ def run_experiment(
         "query_encoding_policy": "Gemma chat-template address-only prefix and canonical JSON label tokenized as one full string with offset-derived disjoint masks and boundary-crossing rejection",
         "answer_logit_policy": ANSWER_LOGIT_POLICY,
         "shared_state_batching_policy": SHARED_STATE_BATCHING_POLICY,
+        "training_topology": dict(training_topology),
         "sealed_chain": sealed_chain,
         "thresholds": {
             "answer_exact_min": answer_exact_min,
@@ -2828,6 +4752,7 @@ def run_experiment(
             "query_encoding_policy",
             "answer_logit_policy",
             "shared_state_batching_policy",
+            "training_topology",
             "thresholds",
         )
         mismatches = [
@@ -2841,7 +4766,7 @@ def run_experiment(
                 + ", ".join(mismatches)
             )
     training_configuration = {
-        "schema": "rwkv_ms_natural_memory_gate_training_configuration.v1",
+        "schema": "rwkv_ms_natural_memory_gate_training_configuration.v2",
         "profile": profile,
         "seed": seed,
         "training_conditions": list(selected_training_conditions),
@@ -2849,7 +4774,9 @@ def run_experiment(
         "eval_limit": eval_limit,
         "epochs": epochs,
         "max_steps": max_steps,
+        "batch_size_semantics": "global_training_rows_per_optimizer_update",
         "batch_size": batch_size,
+        "training_topology": dict(training_topology),
         "eval_batch_size": eval_batch_size,
         "greedy_answer_evaluation": greedy,
         "learning_rate": learning_rate,
@@ -2978,51 +4905,100 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "correct_state"
         ),
     )
-    parser.add_argument("--rank", type=int, default=4)
+    parser.add_argument("--rank", type=int, default=PRODUCTION_ADAPTER_RANK)
     parser.add_argument("--key-dim", type=int, default=32)
     parser.add_argument("--temperature", type=float, default=16.0)
     parser.add_argument("--no-greedy", dest="greedy", action="store_false")
-    parser.add_argument("--answer-exact-min", type=float, default=0.80)
-    parser.add_argument("--route-accuracy-min", type=float, default=0.95)
-    parser.add_argument("--rewrite-output-change-min", type=float, default=0.80)
+    parser.add_argument(
+        "--answer-exact-min", type=float, default=PRODUCTION_ANSWER_EXACT_MIN
+    )
+    parser.add_argument(
+        "--route-accuracy-min", type=float, default=PRODUCTION_ROUTE_ACCURACY_MIN
+    )
+    parser.add_argument(
+        "--rewrite-output-change-min",
+        type=float,
+        default=PRODUCTION_REWRITE_OUTPUT_CHANGE_MIN,
+    )
+    parser.add_argument(
+        "--capture-distributed-step-evidence",
+        action="store_true",
+        help="Record per-rank adapter, optimizer, and CUDA evidence at every step",
+    )
+    parser.add_argument(
+        "--distributed-preflight",
+        action="store_true",
+        help="Run exactly three production training steps and emit a signed receipt",
+    )
     parser.set_defaults(greedy=True)
     return parser.parse_args(argv)
 
 
+@record
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
-    result = run_experiment(
-        source_manifest=args.source_manifest,
-        output_dir=args.output_dir,
-        profile=args.profile,
-        model_path=args.model_path,
-        adapter_path=args.adapter_path,
-        development_run_dir=args.development_run_dir,
-        seed=args.seed,
-        train_limit=args.train_limit,
-        eval_limit=args.eval_limit,
-        epochs=args.epochs,
-        max_steps=args.max_steps,
-        batch_size=args.batch_size,
-        eval_batch_size=args.eval_batch_size,
-        learning_rate=args.learning_rate,
-        answer_weight=args.answer_weight,
-        route_weight=args.route_weight,
-        max_grad_norm=args.max_grad_norm,
-        device_name=args.device,
-        dtype_name=args.dtype,
-        attn_implementation=args.attn_implementation,
-        target_layers=_parse_layers(args.target_layers),
-        training_conditions=_parse_training_conditions(args.training_conditions),
-        rank=args.rank,
-        key_dim=args.key_dim,
-        temperature=args.temperature,
-        greedy=args.greedy,
-        answer_exact_min=args.answer_exact_min,
-        route_accuracy_min=args.route_accuracy_min,
-        rewrite_output_change_min=args.rewrite_output_change_min,
-    )
-    print(json.dumps({"output_dir": result["output_dir"], "gate": result["gate"]}, sort_keys=True))
+    context = distributed.initialize_distributed_training(args.device)
+    try:
+        result = run_experiment(
+            source_manifest=args.source_manifest,
+            output_dir=args.output_dir,
+            profile=args.profile,
+            model_path=args.model_path,
+            adapter_path=args.adapter_path,
+            development_run_dir=args.development_run_dir,
+            seed=args.seed,
+            train_limit=args.train_limit,
+            eval_limit=args.eval_limit,
+            epochs=args.epochs,
+            max_steps=args.max_steps,
+            batch_size=args.batch_size,
+            eval_batch_size=args.eval_batch_size,
+            learning_rate=args.learning_rate,
+            answer_weight=args.answer_weight,
+            route_weight=args.route_weight,
+            max_grad_norm=args.max_grad_norm,
+            device_name=args.device,
+            dtype_name=args.dtype,
+            attn_implementation=args.attn_implementation,
+            target_layers=_parse_layers(args.target_layers),
+            training_conditions=_parse_training_conditions(
+                args.training_conditions
+            ),
+            rank=args.rank,
+            key_dim=args.key_dim,
+            temperature=args.temperature,
+            greedy=args.greedy,
+            answer_exact_min=args.answer_exact_min,
+            route_accuracy_min=args.route_accuracy_min,
+            rewrite_output_change_min=args.rewrite_output_change_min,
+            distributed_context=context,
+            capture_distributed_step_evidence=(
+                args.capture_distributed_step_evidence
+            ),
+            distributed_preflight=args.distributed_preflight,
+        )
+    finally:
+        distributed.destroy_distributed_training(context)
+    if "distributed_worker_rank" in result:
+        print(
+            json.dumps(
+                {
+                    "output_dir": result["output_dir"],
+                    "distributed_worker_rank": result[
+                        "distributed_worker_rank"
+                    ],
+                    "training_complete": result["training_complete"],
+                },
+                sort_keys=True,
+            )
+        )
+    else:
+        print(
+            json.dumps(
+                {"output_dir": result["output_dir"], "gate": result["gate"]},
+                sort_keys=True,
+            )
+        )
     return 0
 
 

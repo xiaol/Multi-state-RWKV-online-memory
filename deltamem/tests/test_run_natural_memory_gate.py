@@ -971,6 +971,245 @@ def test_formal_profile_rejects_disabled_greedy_before_opening_source(
         )
 
 
+def _formal_distributed_context(
+    process_rank: int = 0,
+) -> runner.distributed.DistributedTrainingContext:
+    return runner.distributed.DistributedTrainingContext(
+        process_rank=process_rank,
+        local_rank=process_rank,
+        world_size=4,
+        device=torch.device("cpu"),
+        backend="nccl",
+        control_backend="gloo",
+        control_group=object(),
+        rank_devices=(),
+    )
+
+
+def test_formal_development_locks_profiled_rank_before_opening_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HF_ENDPOINT", runner.HF_MIRROR_ENDPOINT)
+
+    with pytest.raises(ValueError, match="adapter_rank"):
+        runner.run_experiment(
+            source_manifest=tmp_path / "missing-manifest.json",
+            output_dir=tmp_path / "output",
+            profile="development",
+            rank=4,
+            distributed_context=_formal_distributed_context(),
+        )
+
+
+def test_distributed_preflight_requires_exact_three_step_production_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HF_ENDPOINT", runner.HF_MIRROR_ENDPOINT)
+
+    with pytest.raises(ValueError, match="exactly 3 updates"):
+        runner.run_experiment(
+            source_manifest=tmp_path / "missing-manifest.json",
+            output_dir=tmp_path / "output",
+            profile="development",
+            distributed_context=_formal_distributed_context(),
+            distributed_preflight=True,
+        )
+
+
+@pytest.mark.parametrize("process_rank", [0, 2])
+def test_distributed_preflight_primary_and_worker_complete_lifecycle(
+    process_rank: int,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_manifest = tmp_path / "manifest.json"
+    source_manifest.write_text("{}\n", encoding="utf-8")
+    model_root = tmp_path / "model"
+    model_root.mkdir()
+    model_artifact = model_root / "model.safetensors"
+    model_artifact.write_bytes(b"frozen-model")
+    output_dir = tmp_path / f"preflight-rank-{process_rank}"
+    context = _formal_distributed_context(process_rank)
+    model = torch.nn.Linear(1, 1, bias=False)
+    tokenizer = SimpleNamespace(pad_token_id=0)
+    phases: list[str] = []
+    destroyed: list[runner.distributed.DistributedTrainingContext] = []
+    bundle = runner.ProfileBundle(
+        profile="development",
+        train_episodes=(object(),),
+        evaluation_episodes=(object(),),
+        evaluation_split="development",
+        development_manifest={
+            "manifest_receipt": {"payload_sha256": "a" * 64},
+        },
+        sealed_manifest=None,
+        source_paths=(source_manifest,),
+        model_binding={"binding_sha256": "b" * 64},
+        eligibility={"opened_splits": ["train", "development"]},
+    )
+
+    monkeypatch.setenv("HF_ENDPOINT", runner.HF_MIRROR_ENDPOINT)
+    monkeypatch.setattr(runner, "load_profile_bundle", lambda *_args, **_kwargs: bundle)
+    monkeypatch.setattr(
+        runner,
+        "resolve_model_artifacts",
+        lambda *_args, **_kwargs: (model_root, (model_artifact,)),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_load_model_and_tokenizer",
+        lambda *_args, **_kwargs: (
+            model,
+            tokenizer,
+            (0,),
+            ("weight",),
+            (),
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "audit_trainable_parameters",
+        lambda *_args, **_kwargs: {"passed": True},
+    )
+    monkeypatch.setattr(
+        runner,
+        "_named_adapter_parameters",
+        lambda current_model: (("weight", current_model.weight),),
+    )
+    monkeypatch.setattr(
+        runner,
+        "snapshot_delta_mem_weights",
+        lambda current_model: {"weight": current_model.weight.detach().clone()},
+    )
+    monkeypatch.setattr(
+        runner.distributed,
+        "broadcast_named_parameters",
+        lambda *_args, **_kwargs: {
+            "parameter_tensors": 1,
+            "parameter_names_sha256": "c" * 64,
+            "bucket_plan_sha256": "d" * 64,
+            "collective_buckets": 1,
+            "broadcast_bytes": 4,
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "select_complete_episodes",
+        lambda episodes, _limit: list(episodes),
+    )
+    monkeypatch.setattr(
+        runner,
+        "build_training_examples",
+        lambda *_args, **_kwargs: [SimpleNamespace(row_id=f"row-{index}") for index in range(4)],
+    )
+
+    def fake_train_model_distributed(
+        current_model: torch.nn.Linear,
+        *_args: Any,
+        **_kwargs: Any,
+    ) -> dict[str, Any]:
+        with torch.no_grad():
+            current_model.weight.add_(1.0)
+        return {
+            "steps": runner.DISTRIBUTED_PREFLIGHT_STEPS,
+            "max_steps": runner.DISTRIBUTED_PREFLIGHT_STEPS,
+            "progress_sha256": "e" * 64,
+            "router_gradient_audit": {
+                "all_ranks_all_modules_finite_nonzero": True,
+            },
+            "distributed": {},
+        }
+
+    monkeypatch.setattr(runner, "train_model_distributed", fake_train_model_distributed)
+
+    def gather_objects(
+        current: runner.distributed.DistributedTrainingContext,
+        value: Any,
+    ) -> tuple[Any, ...]:
+        assert current is context
+        if isinstance(value, dict) and "source_snapshot_sha256" in value:
+            return tuple(dict(value, rank=rank) for rank in range(current.world_size))
+        return tuple(value for _ in range(current.world_size))
+
+    monkeypatch.setattr(runner.distributed, "gather_objects", gather_objects)
+    monkeypatch.setattr(
+        runner.distributed,
+        "require_consensus",
+        lambda current, value, **_kwargs: tuple(value for _ in range(current.world_size)),
+    )
+
+    def phase_consensus(
+        current: runner.distributed.DistributedTrainingContext,
+        *,
+        phase: str,
+        error: BaseException | None,
+    ) -> None:
+        assert current is context
+        assert error is None
+        phases.append(phase)
+
+    monkeypatch.setattr(runner.distributed, "phase_consensus", phase_consensus)
+    monkeypatch.setattr(
+        runner.distributed,
+        "destroy_distributed_training",
+        lambda current: destroyed.append(current),
+    )
+    monkeypatch.setattr(
+        runner,
+        "build_distributed_preflight_gate",
+        lambda _training: {"passed": True, "failed_checks": []},
+    )
+    monkeypatch.setattr(runner, "_preflight_code_bindings", lambda: {})
+    monkeypatch.setattr(
+        runner,
+        "build_condition_examples",
+        lambda *_args, **_kwargs: pytest.fail("preflight entered evaluation"),
+    )
+
+    result = runner.run_experiment(
+        source_manifest=source_manifest,
+        output_dir=output_dir,
+        profile="development",
+        max_steps=runner.DISTRIBUTED_PREFLIGHT_STEPS,
+        distributed_context=context,
+        distributed_preflight=True,
+    )
+
+    assert phases[-1] == "rank-zero-preflight-receipt"
+    assert destroyed == [context]
+    if process_rank == 0:
+        receipt_path = output_dir / "preflight_receipt.json"
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        assert receipt["schema"] == runner.DISTRIBUTED_PREFLIGHT_SCHEMA
+        assert receipt["status"] == "passed"
+        assert receipt["gate_passed"] is True
+        assert len(receipt["preflight_receipt_sha256"]) == 64
+        assert _canonical(result["preflight_receipt"]) == _canonical(receipt)
+        assert result["gate"] == receipt["gate"]
+    else:
+        assert not output_dir.exists()
+        assert result == {
+            "output_dir": str(output_dir.resolve()),
+            "distributed_worker_rank": process_rank,
+            "training_complete": True,
+        }
+
+
+def test_natural_cli_defaults_to_profiled_rank_32() -> None:
+    args = runner.parse_args(
+        [
+            "--source-manifest",
+            "manifest.json",
+            "--output-dir",
+            "output",
+        ]
+    )
+
+    assert args.rank == runner.PRODUCTION_ADAPTER_RANK == 32
+
+
 def test_natural_training_progress_rewrites_shared_runtime_schema(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
