@@ -155,7 +155,9 @@ def _install_toy_training_runtime(
         assert current is context
         gathered_values.append(value)
         values = [value for _ in range(context.world_size)]
-        if (
+        if isinstance(value, Mapping) and "active_names" in value:
+            values = [dict(value, rank=rank) for rank in range(context.world_size)]
+        elif (
             isinstance(value, Mapping)
             and "local_row_ids" in value
             and "adapter_state_sha256" in value
@@ -252,9 +254,17 @@ def test_invalid_local_gradients_are_consensused_before_gradient_sum(
         "validate_local_gradients",
         lambda named_trainable: {
             "parameter_tensors": 1,
-            "missing": ["adapter"],
-            "nonfinite": [],
-            "non_fp32": [],
+            "parameter_names_sha256": distributed.canonical_sha256(["adapter"]),
+            "active_gradient_tensors": 1,
+            "active_names_sha256": distributed.canonical_sha256(["adapter"]),
+            "missing_gradient_tensors": 0,
+            "missing_names_sha256": distributed.canonical_sha256([]),
+            "nonfinite_gradient_tensors": 1,
+            "nonfinite_names_sha256": distributed.canonical_sha256(["adapter"]),
+            "nonfinite_preview": ["adapter"],
+            "non_fp32_gradient_tensors": 0,
+            "non_fp32_names_sha256": distributed.canonical_sha256([]),
+            "non_fp32_preview": [],
             "passed": False,
         },
     )

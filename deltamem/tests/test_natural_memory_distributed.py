@@ -234,7 +234,7 @@ def _mock_control_consensus(
         phase: str,
         error: BaseException | None,
     ) -> None:
-        assert context.process_rank == 0
+        assert 0 <= context.process_rank < context.world_size
         assert context.world_size == 4
         assert context.device == torch.device("cpu")
         phases.append((phase, error))
@@ -252,8 +252,19 @@ def _mock_control_consensus(
         assert description
         return (value,) * context.world_size
 
+    def fake_gather_objects(
+        context: distributed.DistributedTrainingContext,
+        value: Any,
+    ) -> tuple[Any, ...]:
+        if isinstance(value, dict) and "active_names" in value:
+            return tuple(
+                dict(value, rank=rank) for rank in range(context.world_size)
+            )
+        return (value,) * context.world_size
+
     monkeypatch.setattr(distributed, "phase_consensus", fake_phase_consensus)
     monkeypatch.setattr(distributed, "require_consensus", fake_require_consensus)
+    monkeypatch.setattr(distributed, "gather_objects", fake_gather_objects)
     return phases
 
 
@@ -305,6 +316,10 @@ def test_gradient_collective_sums_before_global_clipping(
     pre_clip_norm = torch.nn.utils.clip_grad_norm_([first, second], max_norm=1.0)
 
     assert evidence["gradient_tensors"] == 2
+    assert evidence["trainable_parameter_tensors"] == 2
+    assert evidence["global_active_parameter_indices"] == [0, 1]
+    assert evidence["global_inactive_parameter_indices"] == []
+    assert evidence["materialized_zero_gradient_tensors_by_rank"] == [0, 0, 0, 0]
     assert len(collectives) == 1
     assert collectives[0].tolist() == pytest.approx([0.4, 0.3])
     assert float(pre_clip_norm) == pytest.approx(2.0)
@@ -367,10 +382,14 @@ def test_gradient_flatten_failure_prevents_data_collective(
 
     assert [phase for phase, _ in phases] == [
         "sum-gradients-preparation",
+        "sum-gradients-active-union-validation",
+        "sum-gradients-zero-materialization",
+        "sum-gradients-collective-preparation",
         "sum-gradients-bucket-0-flatten-readiness",
     ]
     assert phases[0][1] is None
-    assert isinstance(phases[1][1], RuntimeError)
+    assert all(error is None for _, error in phases[:-1])
+    assert isinstance(phases[-1][1], RuntimeError)
 
 
 def test_postcollective_broadcast_failure_is_consensused(
@@ -433,6 +452,9 @@ def test_postcollective_gradient_failure_is_consensused(
     assert collective_calls == 1
     assert [phase for phase, _ in phases] == [
         "sum-gradients-preparation",
+        "sum-gradients-active-union-validation",
+        "sum-gradients-zero-materialization",
+        "sum-gradients-collective-preparation",
         "sum-gradients-bucket-0-flatten-readiness",
         "sum-gradients-bucket-0-collective",
         "sum-gradients-bucket-0-post-collective-apply",
@@ -440,7 +462,7 @@ def test_postcollective_gradient_failure_is_consensused(
     assert isinstance(phases[-1][1], RuntimeError)
 
 
-def test_gradient_validation_rejects_missing_nonfinite_and_non_fp32() -> None:
+def test_gradient_validation_permits_missing_and_rejects_invalid_present_gradients() -> None:
     missing = torch.nn.Parameter(torch.tensor([0.0]))
     nonfinite = torch.nn.Parameter(torch.tensor([0.0]))
     nonfinite.grad = torch.tensor([float("nan")])
@@ -452,9 +474,102 @@ def test_gradient_validation_rejects_missing_nonfinite_and_non_fp32() -> None:
     )
 
     assert evidence["passed"] is False
-    assert evidence["missing"] == ["missing"]
-    assert evidence["nonfinite"] == ["nonfinite"]
-    assert evidence["non_fp32"] == ["half"]
+    assert evidence["missing_gradient_tensors"] == 1
+    assert evidence["nonfinite_gradient_tensors"] == 1
+    assert evidence["nonfinite_preview"] == ["nonfinite"]
+    assert evidence["non_fp32_gradient_tensors"] == 1
+    assert evidence["non_fp32_preview"] == ["half"]
+
+    missing_only = distributed.validate_local_gradients([("missing", missing)])
+    assert missing_only["passed"] is True
+    assert missing_only["active_gradient_tensors"] == 0
+    assert missing_only["missing_gradient_tensors"] == 1
+
+
+def test_global_inactive_gradient_remains_none_and_optimizer_skips_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    active = torch.nn.Parameter(torch.tensor([1.0]))
+    inactive = torch.nn.Parameter(torch.tensor([2.0]))
+    optimizer = torch.optim.AdamW([active, inactive], lr=0.1, weight_decay=0.0)
+    active.grad = torch.tensor([0.5])
+    inactive_before = inactive.detach().clone()
+
+    _mock_control_consensus(monkeypatch)
+    monkeypatch.setattr(distributed.dist, "all_reduce", lambda tensor, *, op: None)
+    evidence = distributed.sum_gradients(
+        _fake_context(), [("inactive", inactive), ("active", active)]
+    )
+    optimizer.step()
+
+    assert evidence["global_active_parameter_indices"] == [0]
+    assert evidence["global_inactive_parameter_indices"] == [1]
+    assert evidence["gradient_tensors"] == 1
+    assert inactive.grad is None
+    assert torch.equal(inactive.detach(), inactive_before)
+    assert inactive not in optimizer.state
+
+
+def test_rank_missing_global_active_gradient_is_zero_filled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = _fake_context()
+    context = distributed.DistributedTrainingContext(
+        process_rank=1,
+        local_rank=1,
+        world_size=context.world_size,
+        device=context.device,
+        backend=context.backend,
+        control_backend=context.control_backend,
+        control_group=context.control_group,
+        rank_devices=context.rank_devices,
+    )
+    common = torch.nn.Parameter(torch.tensor([0.0]))
+    exclusive = torch.nn.Parameter(torch.tensor([0.0]))
+    dormant = torch.nn.Parameter(torch.tensor([0.0]))
+    common.grad = torch.tensor([0.5])
+    _mock_control_consensus(monkeypatch)
+
+    def gather_active(
+        current: distributed.DistributedTrainingContext,
+        value: Any,
+    ) -> tuple[Any, ...]:
+        del value
+        assert current is context
+        names_by_rank = [
+            ["common", "exclusive"],
+            ["common"],
+            ["common"],
+            ["common"],
+        ]
+        return tuple(
+            {
+                "rank": rank,
+                "active_names": names,
+                "active_gradient_tensors": len(names),
+                "active_names_sha256": distributed.canonical_sha256(names),
+            }
+            for rank, names in enumerate(names_by_rank)
+        )
+
+    def sum_from_all_ranks(tensor: torch.Tensor, *, op: object) -> None:
+        assert op == distributed.dist.ReduceOp.SUM
+        assert tensor.tolist() == [0.5, 0.0]
+        tensor.copy_(torch.tensor([2.0, 4.0]))
+
+    monkeypatch.setattr(distributed, "gather_objects", gather_active)
+    monkeypatch.setattr(distributed.dist, "all_reduce", sum_from_all_ranks)
+    evidence = distributed.sum_gradients(
+        context,
+        [("common", common), ("exclusive", exclusive), ("dormant", dormant)],
+    )
+
+    assert common.grad.tolist() == [2.0]
+    assert exclusive.grad.tolist() == [4.0]
+    assert dormant.grad is None
+    assert evidence["global_active_parameter_indices"] == [0, 2]
+    assert evidence["global_inactive_parameter_indices"] == [1]
+    assert evidence["materialized_zero_gradient_tensors_by_rank"] == [0, 1, 1, 1]
 
 
 def test_tensor_mapping_hash_is_stable_and_sensitive() -> None:
@@ -577,16 +692,26 @@ def test_rank_failure_propagates_before_objective_collective(tmp_path: Path) -> 
 def _valid_preflight_training() -> dict:
     trainable_metadata = [
         {
-            "name": "adapter.weight",
+            "name": name,
             "shape": [4],
             "dtype": "torch.float32",
             "requires_grad": True,
         }
+        for name in ("adapter.active", "adapter.dormant", "adapter.rank_only")
     ]
     trainable_metadata_sha256 = distributed.canonical_sha256(trainable_metadata)
-    trainable_names_sha256 = distributed.canonical_sha256(["adapter.weight"])
+    trainable_names = [value["name"] for value in trainable_metadata]
+    trainable_names_sha256 = distributed.canonical_sha256(trainable_names)
+    global_active_names = ["adapter.active", "adapter.rank_only"]
+    global_inactive_names = ["adapter.dormant"]
+    active_names_by_rank = [
+        global_active_names,
+        ["adapter.active"],
+        ["adapter.active"],
+        ["adapter.active"],
+    ]
     complete_adapter_names_sha256 = distributed.canonical_sha256(
-        ["adapter.frozen", "adapter.weight"]
+        ["adapter.active", "adapter.dormant", "adapter.frozen", "adapter.rank_only"]
     )
     step_evidence = []
     collective_evidence_by_step = []
@@ -595,11 +720,29 @@ def _valid_preflight_training() -> dict:
         optimizer_hash = f"{step + 16:064x}"
         global_rows = [f"step-{step}-rank-{rank}" for rank in range(4)]
         gradient_collective = {
-            "gradient_tensors": 1,
-            "parameter_names_sha256": trainable_names_sha256,
+            "trainable_parameter_tensors": len(trainable_names),
+            "trainable_names_sha256": trainable_names_sha256,
+            "gradient_tensors": len(global_active_names),
+            "global_active_parameter_indices": [0, 2],
+            "global_active_names_sha256": distributed.canonical_sha256(
+                global_active_names
+            ),
+            "global_inactive_parameter_indices": [1],
+            "global_inactive_names_sha256": distributed.canonical_sha256(
+                global_inactive_names
+            ),
+            "per_rank_active_gradients": [
+                {
+                    "rank": rank,
+                    "active_gradient_tensors": len(names),
+                    "active_names_sha256": distributed.canonical_sha256(names),
+                }
+                for rank, names in enumerate(active_names_by_rank)
+            ],
+            "materialized_zero_gradient_tensors_by_rank": [0, 1, 1, 1],
             "bucket_plan_sha256": f"{step + 32:064x}",
             "collective_buckets": 1,
-            "all_reduce_bytes": 16,
+            "all_reduce_bytes": 32,
         }
         collective_evidence_by_step.append(gradient_collective)
         ranks = [
@@ -612,10 +755,28 @@ def _valid_preflight_training() -> dict:
                 "trainable_metadata_sha256": trainable_metadata_sha256,
                 "trainable_names_sha256": trainable_names_sha256,
                 "gradient_validation": {
-                    "parameter_tensors": 1,
-                    "missing": [],
-                    "nonfinite": [],
-                    "non_fp32": [],
+                    "parameter_tensors": len(trainable_names),
+                    "parameter_names_sha256": trainable_names_sha256,
+                    "active_gradient_tensors": len(active_names_by_rank[rank]),
+                    "active_names_sha256": distributed.canonical_sha256(
+                        active_names_by_rank[rank]
+                    ),
+                    "missing_gradient_tensors": (
+                        len(trainable_names) - len(active_names_by_rank[rank])
+                    ),
+                    "missing_names_sha256": distributed.canonical_sha256(
+                        [
+                            name
+                            for name in trainable_names
+                            if name not in set(active_names_by_rank[rank])
+                        ]
+                    ),
+                    "nonfinite_gradient_tensors": 0,
+                    "nonfinite_names_sha256": distributed.canonical_sha256([]),
+                    "nonfinite_preview": [],
+                    "non_fp32_gradient_tensors": 0,
+                    "non_fp32_names_sha256": distributed.canonical_sha256([]),
+                    "non_fp32_preview": [],
                     "passed": True,
                 },
                 "gradient_collective": gradient_collective,
@@ -653,6 +814,9 @@ def _valid_preflight_training() -> dict:
             "local_batch_size": 1,
             "global_batch_size": 4,
             "gradient_synchronization": "sum",
+            "unused_gradient_policy": (
+                "global_active_union_zero_fill_rank_missing_skip_global_inactive"
+            ),
             "gradient_clip_order": "after_sum_before_adamw",
             "answer_loss_normalization": "global_supervised_answer_token_count",
             "route_loss_normalization": "global_row_count_after_layer_mean",
@@ -671,7 +835,7 @@ def _valid_preflight_training() -> dict:
                 "hashes_after_broadcast": ["b" * 64] * 4,
                 "synchronized_adapter_state_sha256": "b" * 64,
                 "broadcast": {
-                    "parameter_tensors": 2,
+                    "parameter_tensors": 4,
                     "parameter_names_sha256": complete_adapter_names_sha256,
                     "bucket_plan_sha256": "f" * 64,
                     "collective_buckets": 1,
@@ -795,8 +959,23 @@ def test_distributed_preflight_gate_rejects_malformed_evidence_without_crashing(
 def test_distributed_preflight_gate_binds_collectives_to_trainable_names() -> None:
     training = _valid_preflight_training()
     training["distributed"]["collective_evidence_by_step"][1][
-        "parameter_names_sha256"
+        "trainable_names_sha256"
     ] = "9" * 64
+
+    gate = runner.build_distributed_preflight_gate(training)
+
+    assert gate["passed"] is False
+    assert "collective_parameter_binding" in gate["failed_checks"]
+
+
+def test_distributed_preflight_gate_resolves_active_indices_against_metadata() -> None:
+    training = _valid_preflight_training()
+    training["distributed"]["collective_evidence_by_step"][1][
+        "global_active_parameter_indices"
+    ] = [0, 1]
+    training["distributed"]["collective_evidence_by_step"][1][
+        "global_inactive_parameter_indices"
+    ] = [2]
 
     gate = runner.build_distributed_preflight_gate(training)
 
@@ -829,23 +1008,47 @@ def _gloo_reference_worker(
             rank_devices=(),
         )
         weight = torch.nn.Parameter(torch.tensor([0.5 + process_rank]))
-        distributed.broadcast_named_parameters(context, [("weight", weight)])
-        optimizer = torch.optim.AdamW([weight], lr=0.1, weight_decay=0.0)
+        rank_only = torch.nn.Parameter(torch.tensor([0.25 + process_rank]))
+        dormant = torch.nn.Parameter(torch.tensor([-0.75 + process_rank]))
+        named_parameters = [
+            ("dormant", dormant),
+            ("rank_only", rank_only),
+            ("weight", weight),
+        ]
+        distributed.broadcast_named_parameters(context, named_parameters)
+        optimizer = torch.optim.AdamW(
+            [weight, rank_only, dormant], lr=0.1, weight_decay=0.0
+        )
         x = torch.tensor([float(process_rank + 1)])
         target = 2.0 * x
+        collective_hashes = []
         for _ in range(3):
             optimizer.zero_grad(set_to_none=True)
             local_loss = (weight * x - target).square().sum() / world_size
+            if process_rank == 0:
+                local_loss = local_loss + (rank_only - 1.0).square().sum() / world_size
             local_loss.backward()
-            distributed.sum_gradients(context, [("weight", weight)])
-            torch.nn.utils.clip_grad_norm_([weight], max_norm=1.0)
+            collective = distributed.sum_gradients(context, named_parameters)
+            collective_hashes.append(distributed.canonical_sha256(collective))
+            torch.nn.utils.clip_grad_norm_(
+                [weight, rank_only, dormant], max_norm=1.0
+            )
             optimizer.step()
         payload = {
             "rank": process_rank,
             "pid": __import__("os").getpid(),
             "weight": float(weight.detach().item()),
+            "rank_only": float(rank_only.detach().item()),
+            "dormant": float(dormant.detach().item()),
+            "dormant_grad_is_none": dormant.grad is None,
+            "collective_hashes": collective_hashes,
+            "last_collective": collective,
             "model_sha256": distributed.tensor_mapping_sha256(
-                {"weight": weight.detach()}
+                {
+                    "weight": weight.detach(),
+                    "rank_only": rank_only.detach(),
+                    "dormant": dormant.detach(),
+                }
             ),
             "optimizer_sha256": distributed.tensor_mapping_sha256(
                 optimizer.state_dict()
@@ -874,22 +1077,57 @@ def test_real_four_process_gloo_matches_serial_three_step_reference(
     ]
 
     serial_weight = torch.nn.Parameter(torch.tensor([0.5]))
+    serial_rank_only = torch.nn.Parameter(torch.tensor([0.25]))
+    serial_dormant = torch.nn.Parameter(torch.tensor([-0.75]))
     serial_optimizer = torch.optim.AdamW(
-        [serial_weight], lr=0.1, weight_decay=0.0
+        [serial_weight, serial_rank_only, serial_dormant],
+        lr=0.1,
+        weight_decay=0.0,
     )
     x = torch.arange(1, 5, dtype=torch.float32)
     target = 2.0 * x
     for _ in range(3):
         serial_optimizer.zero_grad(set_to_none=True)
-        serial_loss = (serial_weight * x - target).square().mean()
+        serial_loss = (
+            (serial_weight * x - target).square().mean()
+            + (serial_rank_only - 1.0).square().sum() / 4
+        )
         serial_loss.backward()
-        torch.nn.utils.clip_grad_norm_([serial_weight], max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(
+            [serial_weight, serial_rank_only, serial_dormant], max_norm=1.0
+        )
         serial_optimizer.step()
 
     assert len({payload["pid"] for payload in rank_payloads}) == 4
     assert len({payload["model_sha256"] for payload in rank_payloads}) == 1
     assert len({payload["optimizer_sha256"] for payload in rank_payloads}) == 1
+    assert len(
+        {
+            tuple(payload["collective_hashes"])
+            for payload in rank_payloads
+        }
+    ) == 1
     assert [payload["weight"] for payload in rank_payloads] == pytest.approx(
         [float(serial_weight.detach().item())] * 4,
         abs=1e-7,
+    )
+    assert [payload["rank_only"] for payload in rank_payloads] == pytest.approx(
+        [float(serial_rank_only.detach().item())] * 4,
+        abs=1e-7,
+    )
+    assert [payload["dormant"] for payload in rank_payloads] == pytest.approx(
+        [float(serial_dormant.detach().item())] * 4,
+        abs=1e-7,
+    )
+    assert all(payload["dormant_grad_is_none"] is True for payload in rank_payloads)
+    assert all(
+        payload["last_collective"]["global_active_parameter_indices"] == [1, 2]
+        for payload in rank_payloads
+    )
+    assert all(
+        payload["last_collective"][
+            "materialized_zero_gradient_tensors_by_rank"
+        ]
+        == [0, 1, 1, 1]
+        for payload in rank_payloads
     )

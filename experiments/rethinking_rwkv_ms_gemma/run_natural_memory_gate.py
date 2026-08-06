@@ -964,6 +964,9 @@ def train_model_distributed(
                 "local_batch_size": local_batch_size,
                 "global_batch_size": global_batch_size,
                 "gradient_synchronization": "sum",
+                "unused_gradient_policy": (
+                    "global_active_union_zero_fill_rank_missing_skip_global_inactive"
+                ),
                 "gradient_clip_order": "after_sum_before_adamw",
                 "answer_loss_normalization": (
                     "global_supervised_answer_token_count"
@@ -1000,6 +1003,114 @@ def _is_sha256(value: Any) -> bool:
         and len(value) == 64
         and all(character in "0123456789abcdef" for character in value)
     )
+
+
+def _local_gradient_validation_passed(
+    value: Any,
+    *,
+    trainable_names_sha256: Any,
+) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    parameter_tensors = value.get("parameter_tensors")
+    active_tensors = value.get("active_gradient_tensors")
+    missing_tensors = value.get("missing_gradient_tensors")
+    return (
+        value.get("passed") is True
+        and type(parameter_tensors) is int
+        and parameter_tensors > 0
+        and value.get("parameter_names_sha256") == trainable_names_sha256
+        and type(active_tensors) is int
+        and active_tensors >= 0
+        and type(missing_tensors) is int
+        and missing_tensors >= 0
+        and active_tensors + missing_tensors == parameter_tensors
+        and _is_sha256(value.get("active_names_sha256"))
+        and _is_sha256(value.get("missing_names_sha256"))
+        and value.get("nonfinite_gradient_tensors") == 0
+        and value.get("nonfinite_names_sha256")
+        == distributed.canonical_sha256([])
+        and value.get("nonfinite_preview") == []
+        and value.get("non_fp32_gradient_tensors") == 0
+        and value.get("non_fp32_names_sha256")
+        == distributed.canonical_sha256([])
+        and value.get("non_fp32_preview") == []
+    )
+
+
+def _active_union_collective_passed(
+    value: Any,
+    *,
+    trainable_names: Sequence[str] | None = None,
+) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    trainable_tensors = value.get("trainable_parameter_tensors")
+    active_tensors = value.get("gradient_tensors")
+    global_active = value.get("global_active_parameter_indices")
+    global_inactive = value.get("global_inactive_parameter_indices")
+    per_rank = value.get("per_rank_active_gradients")
+    materialized = value.get("materialized_zero_gradient_tensors_by_rank")
+    if (
+        type(trainable_tensors) is not int
+        or trainable_tensors <= 0
+        or not _is_sha256(value.get("trainable_names_sha256"))
+        or type(active_tensors) is not int
+        or active_tensors <= 0
+        or not isinstance(global_active, list)
+        or not isinstance(global_inactive, list)
+        or any(type(index) is not int for index in global_active)
+        or any(type(index) is not int for index in global_inactive)
+        or len(global_active) != active_tensors
+        or len(global_active) + len(global_inactive) != trainable_tensors
+        or len(set(global_active)) != len(global_active)
+        or len(set(global_inactive)) != len(global_inactive)
+        or set(global_active) & set(global_inactive)
+        or global_active != sorted(global_active)
+        or global_inactive != sorted(global_inactive)
+        or set(global_active) | set(global_inactive) != set(range(trainable_tensors))
+        or not _is_sha256(value.get("global_active_names_sha256"))
+        or not _is_sha256(value.get("global_inactive_names_sha256"))
+        or not isinstance(per_rank, list)
+        or len(per_rank) != distributed.REQUIRED_WORLD_SIZE
+        or any(not isinstance(record, Mapping) for record in per_rank)
+        or not isinstance(materialized, list)
+        or len(materialized) != distributed.REQUIRED_WORLD_SIZE
+        or type(value.get("collective_buckets")) is not int
+        or value["collective_buckets"] <= 0
+        or type(value.get("all_reduce_bytes")) is not int
+        or value["all_reduce_bytes"] <= 0
+        or not _is_sha256(value.get("bucket_plan_sha256"))
+    ):
+        return False
+    if trainable_names is not None:
+        ordered_trainable = list(trainable_names)
+        if len(ordered_trainable) != trainable_tensors:
+            return False
+        resolved_active = [ordered_trainable[index] for index in global_active]
+        resolved_inactive = [ordered_trainable[index] for index in global_inactive]
+        if (
+            len(set(ordered_trainable)) != len(ordered_trainable)
+            or value.get("trainable_names_sha256")
+            != distributed.canonical_sha256(ordered_trainable)
+            or value.get("global_active_names_sha256")
+            != distributed.canonical_sha256(resolved_active)
+            or value.get("global_inactive_names_sha256")
+            != distributed.canonical_sha256(resolved_inactive)
+        ):
+            return False
+    for rank, record in enumerate(per_rank):
+        local_active_tensors = record.get("active_gradient_tensors")
+        if (
+            record.get("rank") != rank
+            or type(local_active_tensors) is not int
+            or not 0 <= local_active_tensors <= active_tensors
+            or not _is_sha256(record.get("active_names_sha256"))
+            or type(materialized[rank]) is not int
+            or materialized[rank] != active_tensors - local_active_tensors
+        ):
+            return False
+    return True
 
 
 def _distributed_preflight_step_passed_unchecked(value: Any) -> bool:
@@ -1042,21 +1153,25 @@ def _distributed_preflight_step_passed_unchecked(value: Any) -> bool:
             or not _is_sha256(rank.get("optimizer_state_sha256"))
             or not _is_sha256(rank.get("trainable_metadata_sha256"))
             or not _is_sha256(rank.get("trainable_names_sha256"))
-            or not isinstance(gradient_validation, Mapping)
-            or gradient_validation.get("passed") is not True
-            or type(gradient_validation.get("parameter_tensors")) is not int
-            or gradient_validation["parameter_tensors"] <= 0
-            or not isinstance(gradient_collective, Mapping)
-            or gradient_collective.get("gradient_tensors")
-            != gradient_validation["parameter_tensors"]
-            or type(gradient_collective.get("collective_buckets")) is not int
-            or gradient_collective["collective_buckets"] <= 0
-            or type(gradient_collective.get("all_reduce_bytes")) is not int
-            or gradient_collective["all_reduce_bytes"] <= 0
-            or not _is_sha256(gradient_collective.get("parameter_names_sha256"))
-            or gradient_collective.get("parameter_names_sha256")
+            or not _local_gradient_validation_passed(
+                gradient_validation,
+                trainable_names_sha256=rank.get("trainable_names_sha256"),
+            )
+            or not _active_union_collective_passed(gradient_collective)
+            or gradient_collective.get("trainable_parameter_tensors")
+            != gradient_validation.get("parameter_tensors")
+            or gradient_collective.get("trainable_names_sha256")
             != rank.get("trainable_names_sha256")
-            or not _is_sha256(gradient_collective.get("bucket_plan_sha256"))
+        ):
+            return False
+        collective_rank = gradient_collective["per_rank_active_gradients"][
+            rank["rank"]
+        ]
+        if (
+            collective_rank.get("active_gradient_tensors")
+            != gradient_validation.get("active_gradient_tensors")
+            or collective_rank.get("active_names_sha256")
+            != gradient_validation.get("active_names_sha256")
         ):
             return False
     local_rows = [
@@ -1235,10 +1350,13 @@ def _build_distributed_preflight_gate(
         if trainable_metadata_valid
         else None
     )
+    computed_trainable_names = (
+        [value["name"] for value in trainable_metadata]
+        if trainable_metadata_valid
+        else []
+    )
     computed_trainable_names_sha256 = (
-        distributed.canonical_sha256(
-            [value["name"] for value in trainable_metadata]
-        )
+        distributed.canonical_sha256(computed_trainable_names)
         if trainable_metadata_valid
         else None
     )
@@ -1265,7 +1383,11 @@ def _build_distributed_preflight_gate(
                 collective_parameter_binding = False
                 break
             if (
-                step_collective.get("parameter_names_sha256")
+                not _active_union_collective_passed(
+                    step_collective,
+                    trainable_names=computed_trainable_names,
+                )
+                or step_collective.get("trainable_names_sha256")
                 != computed_trainable_names_sha256
                 or step.get("trainable_metadata_sha256")
                 != computed_trainable_metadata_sha256
@@ -1332,6 +1454,8 @@ def _build_distributed_preflight_gate(
         ),
         "collective_contract": (
             distributed_evidence.get("gradient_synchronization") == "sum"
+            and distributed_evidence.get("unused_gradient_policy")
+            == "global_active_union_zero_fill_rank_missing_skip_global_inactive"
             and distributed_evidence.get("gradient_clip_order")
             == "after_sum_before_adamw"
             and distributed_evidence.get("answer_loss_normalization")

@@ -714,6 +714,8 @@ def validate_local_gradients(
     named_trainable: Sequence[tuple[str, torch.nn.Parameter]],
 ) -> Mapping[str, Any]:
     ordered = stable_named_parameters(named_trainable)
+    parameter_names = [name for name, _ in ordered]
+    active = [name for name, parameter in ordered if parameter.grad is not None]
     missing = [name for name, parameter in ordered if parameter.grad is None]
     nonfinite = [
         name
@@ -728,10 +730,80 @@ def validate_local_gradients(
     ]
     return {
         "parameter_tensors": len(ordered),
-        "missing": missing,
-        "nonfinite": nonfinite,
-        "non_fp32": non_fp32,
-        "passed": not missing and not nonfinite and not non_fp32,
+        "parameter_names_sha256": canonical_sha256(parameter_names),
+        "active_gradient_tensors": len(active),
+        "active_names_sha256": canonical_sha256(active),
+        "missing_gradient_tensors": len(missing),
+        "missing_names_sha256": canonical_sha256(missing),
+        "nonfinite_gradient_tensors": len(nonfinite),
+        "nonfinite_names_sha256": canonical_sha256(nonfinite),
+        "nonfinite_preview": nonfinite[:8],
+        "non_fp32_gradient_tensors": len(non_fp32),
+        "non_fp32_names_sha256": canonical_sha256(non_fp32),
+        "non_fp32_preview": non_fp32[:8],
+        "passed": not nonfinite and not non_fp32,
+    }
+
+
+def _validated_active_gradient_union(
+    gathered: Sequence[Any],
+    *,
+    parameter_names: Sequence[str],
+    world_size: int,
+) -> Mapping[str, Any]:
+    if len(gathered) != world_size or any(
+        not isinstance(value, Mapping) for value in gathered
+    ):
+        raise RuntimeError("Distributed active-gradient evidence is malformed")
+    ordered_parameter_names = tuple(parameter_names)
+    parameter_name_set = set(ordered_parameter_names)
+    per_rank: list[dict[str, Any]] = []
+    active_sets: list[set[str]] = []
+    for expected_rank, value in enumerate(gathered):
+        rank = value.get("rank")
+        active_names = value.get("active_names")
+        if rank != expected_rank or not isinstance(active_names, list):
+            raise RuntimeError("Distributed active-gradient rank evidence is malformed")
+        if any(not isinstance(name, str) for name in active_names):
+            raise RuntimeError("Distributed active-gradient names are malformed")
+        active_set = set(active_names)
+        expected_order = [
+            name for name in ordered_parameter_names if name in active_set
+        ]
+        if (
+            len(active_names) != len(active_set)
+            or active_set - parameter_name_set
+            or active_names != expected_order
+            or value.get("active_gradient_tensors") != len(active_names)
+            or value.get("active_names_sha256") != canonical_sha256(active_names)
+        ):
+            raise RuntimeError("Distributed active-gradient evidence is inconsistent")
+        active_sets.append(active_set)
+        per_rank.append(
+            {
+                "rank": expected_rank,
+                "active_gradient_tensors": len(active_names),
+                "active_names_sha256": canonical_sha256(active_names),
+            }
+        )
+
+    global_active_set = set().union(*active_sets)
+    global_active_names = [
+        name for name in ordered_parameter_names if name in global_active_set
+    ]
+    global_inactive_names = [
+        name for name in ordered_parameter_names if name not in global_active_set
+    ]
+    materialized_by_rank = [
+        len(global_active_set - active_set) for active_set in active_sets
+    ]
+    return {
+        "global_active_names": global_active_names,
+        "global_active_names_sha256": canonical_sha256(global_active_names),
+        "global_inactive_names": global_inactive_names,
+        "global_inactive_names_sha256": canonical_sha256(global_inactive_names),
+        "per_rank_active_gradients": per_rank,
+        "materialized_zero_gradient_tensors_by_rank": materialized_by_rank,
     }
 
 
@@ -742,9 +814,7 @@ def sum_gradients(
     bucket_bytes: int = GRADIENT_BUCKET_BYTES,
 ) -> Mapping[str, Any]:
     def prepare() -> tuple[
-        tuple[tuple[str, torch.nn.Parameter], ...],
-        tuple[tuple[tuple[str, torch.Tensor], ...], ...],
-        str,
+        tuple[tuple[str, torch.nn.Parameter], ...], dict[str, Any]
     ]:
         ordered_parameters = stable_named_parameters(named_trainable)
         if any(
@@ -755,8 +825,67 @@ def sum_gradients(
         validation = validate_local_gradients(ordered_parameters)
         if validation["passed"] is not True:
             raise RuntimeError(f"Invalid local gradients: {validation!r}")
+        active_names = [
+            name for name, parameter in ordered_parameters if parameter.grad is not None
+        ]
+        local_active = {
+            "rank": context.process_rank,
+            "active_names": active_names,
+            "active_gradient_tensors": len(active_names),
+            "active_names_sha256": canonical_sha256(active_names),
+        }
+        return ordered_parameters, local_active
+
+    ordered, local_active = _consensual_operation(
+        context,
+        phase="sum-gradients-preparation",
+        operation=prepare,
+    )
+    gathered_active = gather_objects(context, local_active)
+    parameter_names = [name for name, _ in ordered]
+    union = _consensual_operation(
+        context,
+        phase="sum-gradients-active-union-validation",
+        operation=lambda: _validated_active_gradient_union(
+            gathered_active,
+            parameter_names=parameter_names,
+            world_size=context.world_size,
+        ),
+    )
+    global_active_names = tuple(union["global_active_names"])
+    global_active_set = set(global_active_names)
+
+    def materialize_missing_active_gradients() -> int:
+        materialized = 0
+        with torch.no_grad():
+            for name, parameter in ordered:
+                if name in global_active_set and parameter.grad is None:
+                    parameter.grad = torch.zeros_like(
+                        parameter, memory_format=torch.preserve_format
+                    )
+                    materialized += 1
+        expected = union["materialized_zero_gradient_tensors_by_rank"][
+            context.process_rank
+        ]
+        if materialized != expected:
+            raise RuntimeError(
+                "Materialized zero-gradient count differs from active-union evidence"
+            )
+        return materialized
+
+    _consensual_operation(
+        context,
+        phase="sum-gradients-zero-materialization",
+        operation=materialize_missing_active_gradients,
+    )
+
+    def prepare_collective() -> tuple[
+        tuple[tuple[tuple[str, torch.Tensor], ...], ...], str
+    ]:
         named_gradients = tuple(
-            (name, parameter.grad) for name, parameter in ordered_parameters
+            (name, parameter.grad)
+            for name, parameter in ordered
+            if name in global_active_set
         )
         _validate_collective_tensors(context, named_gradients)
         prepared_buckets = _tensor_buckets(
@@ -767,15 +896,19 @@ def sum_gradients(
             {
                 "operation": "sum_gradients",
                 "bucket_bytes": bucket_bytes,
+                "trainable_parameter_names_sha256": canonical_sha256(parameter_names),
+                "global_active_names_sha256": union[
+                    "global_active_names_sha256"
+                ],
                 "buckets": _collective_bucket_plan(prepared_buckets),
             }
         )
-        return ordered_parameters, prepared_buckets, plan_sha256
+        return prepared_buckets, plan_sha256
 
-    ordered, buckets, plan_sha256 = _consensual_operation(
+    buckets, plan_sha256 = _consensual_operation(
         context,
-        phase="sum-gradients-preparation",
-        operation=prepare,
+        phase="sum-gradients-collective-preparation",
+        operation=prepare_collective,
     )
     require_consensus(
         context,
@@ -814,16 +947,38 @@ def sum_gradients(
         validation = validate_local_gradients(ordered)
         if validation["passed"] is not True:
             raise RuntimeError(f"Invalid globally summed gradients: {validation!r}")
+        active_after_sum = tuple(
+            name for name, parameter in ordered if parameter.grad is not None
+        )
+        if active_after_sum != global_active_names:
+            raise RuntimeError(
+                "Globally summed gradients differ from the active-gradient union"
+            )
 
     _consensual_operation(
         context,
         phase="sum-gradients-final-validation",
         operation=validate_applied_gradients,
     )
+    global_active_indices = [
+        index for index, name in enumerate(parameter_names) if name in global_active_set
+    ]
+    global_inactive_indices = [
+        index for index, name in enumerate(parameter_names) if name not in global_active_set
+    ]
     return {
-        "gradient_tensors": len(ordered),
-        "parameter_names_sha256": canonical_sha256(
-            [name for name, _ in ordered]
+        "trainable_parameter_tensors": len(ordered),
+        "trainable_names_sha256": canonical_sha256(parameter_names),
+        "gradient_tensors": len(global_active_names),
+        "global_active_parameter_indices": global_active_indices,
+        "global_active_names_sha256": union["global_active_names_sha256"],
+        "global_inactive_parameter_indices": global_inactive_indices,
+        "global_inactive_names_sha256": union[
+            "global_inactive_names_sha256"
+        ],
+        "per_rank_active_gradients": list(union["per_rank_active_gradients"]),
+        "materialized_zero_gradient_tensors_by_rank": list(
+            union["materialized_zero_gradient_tensors_by_rank"]
         ),
         "bucket_plan_sha256": plan_sha256,
         "collective_buckets": len(buckets),
