@@ -991,6 +991,7 @@ def _episode(
         if donor is None:
             return None
         donor_plan.append(donor)
+        excluded_components.add(donor[0].component_id)
     correct_records = [
         _state_record(
             item,
@@ -1416,6 +1417,31 @@ def verify_manifest_receipt(manifest: Mapping[str, Any]) -> bool:
     )
 
 
+def protocol_definition() -> dict[str, Any]:
+    return {
+        "records_per_episode": 4,
+        "query_variants_per_episode": 4,
+        "state_variants": [
+            "correct_state",
+            "donor_state",
+            "value_swap",
+            "target_slot_rewrite",
+            "shuffled_slots",
+            "no_state",
+            "pristine_frozen_base",
+        ],
+        "donor_rule": "all four target keys retained; every semantic value factor transferred from a distinct external component",
+        "value_swap_rule": "derangement of in-episode semantic value factors; every destination value changes",
+        "target_rewrite_rule": "only queried slot changes; alternate chosen outside donor and swap values when label cardinality permits",
+        "answer_absence_rule": "serialized target and all state values absent from read_prompt",
+        "write_scope": "one natural key/value record per write; no cross-record text",
+        "read_cache_rule": "read prompt is address only; trainer must preserve outer state and disable writes",
+        "source_hash_scope": "record_payload_sha256 hashes JSON records only and is never runtime tensor-state evidence",
+        "runtime_state_audit_required": True,
+        "pristine_base_rule": "load the frozen Gemma base without attaching the memory adapter",
+    }
+
+
 def build_dataset(
     *,
     output_dir: Path,
@@ -1471,6 +1497,8 @@ def build_dataset(
     if not source_audit["signature_audit"]["signature_components_atomic"]:
         raise AssertionError("Normalized passage signatures are not component-atomic")
     model = _model_binding(model_id, model_revision, model_path, endpoint)
+    protocol = protocol_definition()
+    generator_source_sha256 = sha256_file(Path(__file__).resolve(strict=True))
     benchmark_contract = {
         "schema": SCHEMA,
         "source_sha256": {
@@ -1480,6 +1508,8 @@ def build_dataset(
         "split_seed": split_seed,
         "split_fractions": SPLIT_FRACTIONS,
         "component_assignment_sha256": sha256_text(canonical_json(component_split)),
+        "generator_source_sha256": generator_source_sha256,
+        "protocol_definition_sha256": sha256_text(canonical_json(protocol)),
         "episodes_per_task_per_output_split": episodes_per_task,
         "records_per_episode": 4,
         "query_targets_per_episode": 4,
@@ -1517,6 +1547,7 @@ def build_dataset(
         "sealed_lock": sealed_lock,
         "hf_endpoint": endpoint,
         "model_binding": model,
+        "generator_source_sha256": generator_source_sha256,
         "benchmark_contract": benchmark_contract,
         "benchmark_contract_sha256": benchmark_contract_sha256,
         "source_policy": {
@@ -1548,28 +1579,7 @@ def build_dataset(
             **episode_audit,
         },
         "output_sha256": output_hashes,
-        "protocol": {
-            "records_per_episode": 4,
-            "query_variants_per_episode": 4,
-            "state_variants": [
-                "correct_state",
-                "donor_state",
-                "value_swap",
-                "target_slot_rewrite",
-                "shuffled_slots",
-                "no_state",
-                "pristine_frozen_base",
-            ],
-            "donor_rule": "all four target keys retained; every semantic value factor transferred from an external component",
-            "value_swap_rule": "derangement of in-episode semantic value factors; every destination value changes",
-            "target_rewrite_rule": "only queried slot changes; alternate chosen outside donor and swap values when label cardinality permits",
-            "answer_absence_rule": "serialized target and all state values absent from read_prompt",
-            "write_scope": "one natural key/value record per write; no cross-record text",
-            "read_cache_rule": "read prompt is address only; trainer must preserve outer state and disable writes",
-            "source_hash_scope": "record_payload_sha256 hashes JSON records only and is never runtime tensor-state evidence",
-            "runtime_state_audit_required": True,
-            "pristine_base_rule": "load the frozen Gemma base without attaching the memory adapter",
-        },
+        "protocol": protocol,
     }
     manifest["manifest_receipt"] = {
         "algorithm": "sha256",

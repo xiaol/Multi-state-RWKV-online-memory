@@ -35,7 +35,7 @@ def _sources(tmp_path: Path) -> dict[str, Path]:
     attribution_rows = []
     narrative_rows = []
     scene_rows = []
-    for index in range(40):
+    for index in range(100):
         unique_fill = hashlib.sha256(f"fixture-passage-{index}".encode()).hexdigest()
         passage = f"passage-{index}-{unique_fill}"
         attribution_rows.append(
@@ -79,10 +79,10 @@ def test_load_items_preserves_native_granularity(tmp_path: Path) -> None:
     paths = _sources(tmp_path)
     items, audit = gate.load_items(paths, enforce_pinned_sources=False)
 
-    assert len([item for item in items if item.task == "attribution"]) == 40
-    assert len([item for item in items if item.task == "narrative"]) == 80
-    assert len([item for item in items if item.task == "scene"]) == 80
-    assert audit["row_count"] == 120
+    assert len([item for item in items if item.task == "attribution"]) == 100
+    assert len([item for item in items if item.task == "narrative"]) == 200
+    assert len([item for item in items if item.task == "scene"]) == 200
+    assert audit["row_count"] == 300
     assert audit["component_count"] < audit["row_count"]
     assert audit["signature_audit"]["signature_components_atomic"] is True
     assert audit["signature_audit"]["cross_component_signature_overlap_count"] == 0
@@ -152,6 +152,7 @@ def test_episode_controls_are_four_slot_and_answer_free(tmp_path: Path) -> None:
         donor["value_json"] != correct["value_json"]
         for correct, donor in zip(correct_records, donor_records, strict=True)
     )
+    assert len(set(episode["donor_source_component_ids"])) == 4
     assert all(
         swapped["value_json"] != correct["value_json"]
         for correct, swapped in zip(correct_records, swapped_records, strict=True)
