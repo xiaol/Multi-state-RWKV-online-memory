@@ -923,6 +923,8 @@ def _as_cuda_oom_worker_payload(payload: dict) -> dict:
     phase["status"] = "cuda_out_of_memory"
     phase["step"] = None
     phase["error"] = dict(error)
+    for later_phase_name in profiler.PROFILE_PHASE_NAMES[2:]:
+        payload["phases"][later_phase_name] = None
     payload["execution_gate"] = {
         "required_optimizer_steps": profiler.PRODUCTION_PROFILE_OPTIMIZER_STEPS,
         "completed_optimizer_steps": 0,
@@ -932,6 +934,10 @@ def _as_cuda_oom_worker_payload(payload: dict) -> dict:
         "error": dict(error),
         "passed": False,
     }
+    payload["memory_gate"] = profiler.build_memory_gate(
+        initial_snapshot=payload["phases"]["fresh_model_load"]["before"],
+        phases=[payload["phases"]["fresh_model_load"], phase],
+    )
     payload["status"] = "failed"
     payload["gate_passed"] = False
     return _resign_worker_payload(payload)
@@ -975,7 +981,7 @@ def _invocation_evidence(
     result_path = tmp_path / "result.json"
     stdout_path = tmp_path / "stdout.log"
     stderr_path = tmp_path / "stderr.log"
-    result_path.write_text(json.dumps(payload), encoding="utf-8")
+    result_path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
     stdout_path.write_text("", encoding="utf-8")
     stderr_path.write_text("", encoding="utf-8")
     expected_command = profiler.build_worker_command(
@@ -1393,7 +1399,9 @@ def _run_fake_orchestrator(
             manifest_path=source_manifest,
         )
         payload, returncode = transform(batch_size, payload)
-        worker_output.write_text(json.dumps(payload), encoding="utf-8")
+        worker_output.write_text(
+            json.dumps(payload, sort_keys=True), encoding="utf-8"
+        )
         return SimpleNamespace(
             args=profiler.build_worker_command(
                 source_manifest=source_manifest,
@@ -1427,6 +1435,10 @@ def test_signed_exploratory_oom_receipts_do_not_fail_launch(
     receipt = _run_fake_orchestrator(tmp_path, monkeypatch, transform)
 
     assert profiler.verify_signed_payload(receipt, "profile_receipt_sha256")
+    assert all(
+        worker["cuda_oom_evidence_passed"] is True
+        for worker in receipt["workers"][1:]
+    )
     assert receipt["gate_passed"] is True
     assert receipt["gate"]["launch_gate"]["passed"] is True
     assert receipt["gate"]["exploration"] == {
@@ -1440,6 +1452,54 @@ def test_signed_exploratory_oom_receipts_do_not_fail_launch(
         "insufficient_headroom_local_batch_sizes": [],
         "malformed_or_unclassified_local_batch_sizes": [],
     }
+
+
+@pytest.mark.parametrize(
+    "evidence_change",
+    ["phase_order", "phase_tail", "execution_gate", "error", "memory"],
+)
+def test_malformed_exploratory_oom_evidence_fails_overall_gate(
+    tmp_path: Path,
+    monkeypatch,
+    evidence_change: str,
+) -> None:
+    def transform(batch_size: int, payload: dict) -> tuple[dict, int]:
+        if batch_size != 2:
+            return payload, 0
+        payload = _as_cuda_oom_worker_payload(payload)
+        if evidence_change == "phase_order":
+            failed_phase = payload["phases"][profiler.PROFILE_PHASE_NAMES[1]]
+            payload["phases"][profiler.PROFILE_PHASE_NAMES[1]] = None
+            payload["phases"][profiler.PROFILE_PHASE_NAMES[2]] = failed_phase
+        elif evidence_change == "phase_tail":
+            payload["phases"][profiler.PROFILE_PHASE_NAMES[2]] = dict(
+                _fake_worker_payload(2, 1002, "c" * 64)["phases"][
+                    profiler.PROFILE_PHASE_NAMES[2]
+                ]
+            )
+        elif evidence_change == "execution_gate":
+            payload["execution_gate"]["completed_optimizer_steps"] = 1
+        elif evidence_change == "error":
+            payload["execution_gate"]["error"]["message"] = "different error"
+        else:
+            failed_phase = payload["phases"][profiler.PROFILE_PHASE_NAMES[1]]
+            failed_phase["peak_reserved_bytes"] = (
+                failed_phase["after"]["reserved_bytes"] - 1
+            )
+        return _resign_worker_payload(payload), 1
+
+    receipt = _run_fake_orchestrator(tmp_path, monkeypatch, transform)
+
+    worker = receipt["workers"][1]
+    assert worker["cuda_out_of_memory_observed"] is True
+    assert worker["cuda_oom_evidence_passed"] is False
+    assert receipt["gate"]["launch_gate"]["passed"] is True
+    assert receipt["gate"]["exploration"][
+        "malformed_or_unclassified_local_batch_sizes"
+    ] == [2]
+    assert receipt["gate"]["exploration"]["complete"] is False
+    assert receipt["gate_passed"] is False
+    assert receipt["status"] == "failed"
 
 
 def test_signed_exploratory_headroom_failure_does_not_fail_launch(
@@ -1512,8 +1572,10 @@ def test_invalid_exploratory_receipt_is_a_separate_incomplete_audit(
 
     receipt = _run_fake_orchestrator(tmp_path, monkeypatch, transform)
 
-    assert receipt["gate_passed"] is True
+    assert receipt["gate_passed"] is False
+    assert receipt["status"] == "failed"
     assert receipt["gate"]["launch_gate"]["passed"] is True
+    assert "exploration_complete" in receipt["gate"]["failed_checks"]
     exploration = receipt["gate"]["exploration"]
     assert exploration["complete"] is False
     assert exploration["outcomes_by_local_batch_size"] == {
@@ -1521,6 +1583,41 @@ def test_invalid_exploratory_receipt_is_a_separate_incomplete_audit(
         "4": "passed",
     }
     assert exploration["malformed_or_unclassified_local_batch_sizes"] == [2]
+
+
+def test_main_returns_nonzero_for_incomplete_exploratory_audit(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    receipt = {
+        "gate_passed": False,
+        "gate": {
+            "launch_gate": {"passed": True},
+            "exploration": {"complete": False},
+        },
+    }
+    monkeypatch.setattr(
+        profiler,
+        "run_orchestrator",
+        lambda **kwargs: {
+            "output_dir": str(tmp_path / "profile"),
+            "receipt_path": str(tmp_path / "profile" / "profile_receipt.json"),
+            "receipt": receipt,
+        },
+    )
+
+    returncode = profiler.main(
+        [
+            "--source-manifest",
+            str(tmp_path / "manifest.json"),
+            "--output-dir",
+            str(tmp_path / "profile"),
+            "--device",
+            "cuda:3",
+        ]
+    )
+
+    assert returncode == 1
 
 
 def _valid_profile_workers() -> list[dict]:
@@ -1539,8 +1636,13 @@ def _valid_profile_workers() -> list[dict]:
                 "hf_endpoint_passed": True,
                 "device_binding_passed": True,
                 "cuda_out_of_memory_observed": False,
+                "cuda_oom_evidence_passed": False,
                 "worker_evidence_passed": True,
                 "worker_evidence_failed_checks": [],
+                "worker_evidence_checks": {
+                    "immutable_snapshots": True,
+                    "trainable_boundary": True,
+                },
                 "model_binding_sha256": "a" * 64,
                 "source_manifest_payload_sha256": "b" * 64,
                 "source_manifest_file_sha256": "c" * 64,
@@ -1557,6 +1659,51 @@ def _valid_profile_workers() -> list[dict]:
             }
         )
     return workers
+
+
+def test_distributed_profile_target_locks_four_gpu_global_batch_four() -> None:
+    target = profiler._distributed_training_target()
+    workers = _valid_profile_workers()
+
+    result = profiler.build_profile_gate(workers)
+
+    assert target["world_size"] == 4
+    assert target["local_batch_size"] == 1
+    assert target["global_batch_size"] == 4
+    assert target["world_size"] * target["local_batch_size"] == target[
+        "global_batch_size"
+    ]
+    assert result["launch_gate"]["selected_world_size"] == 4
+    assert result["launch_gate"]["selected_local_batch_size"] == 1
+    assert result["launch_gate"]["selected_global_batch_size"] == 4
+    assert result["passed"] is True
+
+
+@pytest.mark.parametrize("evidence_change", ["missing", "duplicate", "reordered"])
+def test_profile_gate_fails_closed_on_inexact_exploratory_evidence(
+    evidence_change: str,
+) -> None:
+    workers = _valid_profile_workers()
+    if evidence_change == "missing":
+        workers = [
+            worker
+            for worker in workers
+            if worker["profiled_local_batch_size"] != 2
+        ]
+    elif evidence_change == "duplicate":
+        duplicate = dict(workers[1])
+        duplicate["subprocess_pid"] = 2002
+        workers.insert(2, duplicate)
+    else:
+        workers[1:] = reversed(workers[1:])
+
+    result = profiler.build_profile_gate(workers)
+
+    assert result["launch_gate"]["passed"] is True
+    assert result["profile_set_complete"] is False
+    assert result["exploration"]["complete"] is False
+    assert "exploration_complete" in result["failed_checks"]
+    assert result["passed"] is False
 
 
 @pytest.mark.parametrize(

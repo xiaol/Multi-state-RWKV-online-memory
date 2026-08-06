@@ -1654,9 +1654,8 @@ def _device_evidence_passed(
 
 
 def _memory_gate_matches_phases(result: Mapping[str, Any]) -> bool:
-    memory_gate = result.get("memory_gate")
     phases = result.get("phases")
-    if not isinstance(memory_gate, Mapping) or not isinstance(phases, Mapping):
+    if not isinstance(phases, Mapping):
         return False
     if set(phases) != set(PROFILE_PHASE_NAMES):
         return False
@@ -1665,6 +1664,16 @@ def _memory_gate_matches_phases(result: Mapping[str, Any]) -> bool:
         not isinstance(phase, Mapping) or phase.get("status") != "passed"
         for phase in measured_phases
     ):
+        return False
+    return _memory_gate_matches_measured_phases(result, measured_phases)
+
+
+def _memory_gate_matches_measured_phases(
+    result: Mapping[str, Any],
+    measured_phases: Sequence[Mapping[str, Any]],
+) -> bool:
+    memory_gate = result.get("memory_gate")
+    if not isinstance(memory_gate, Mapping) or not measured_phases:
         return False
     load_before = measured_phases[0].get("before")
     if not isinstance(load_before, Mapping):
@@ -1794,6 +1803,103 @@ def _cuda_oom_observed(result: Mapping[str, Any]) -> bool:
     )
 
 
+def _valid_cuda_oom_error(value: Any) -> bool:
+    return (
+        isinstance(value, Mapping)
+        and value.get("type") == "OutOfMemoryError"
+        and isinstance(value.get("message"), str)
+        and bool(value["message"])
+        and _is_sha256(value.get("traceback_sha256"))
+    )
+
+
+def _cuda_oom_evidence_passed(result: Mapping[str, Any]) -> bool:
+    phases = result.get("phases")
+    if not isinstance(phases, Mapping) or set(phases) != set(PROFILE_PHASE_NAMES):
+        return False
+    load_phase = phases[PROFILE_PHASE_NAMES[0]]
+    if not isinstance(load_phase, Mapping) or load_phase.get("status") != "passed":
+        return False
+
+    optimizer_names = tuple(name for name, _, _ in PROFILE_STRESS_SEQUENCE)
+    oom_indices = [
+        index
+        for index, name in enumerate(optimizer_names)
+        if isinstance(phases[name], Mapping)
+        and phases[name].get("status") == "cuda_out_of_memory"
+    ]
+    if len(oom_indices) != 1:
+        return False
+    oom_index = oom_indices[0]
+    measured_phases: list[Mapping[str, Any]] = [load_phase]
+    expected_completion: dict[str, bool] = {}
+    oom_error: Mapping[str, Any] | None = None
+    for index, (name, _, router_audit) in enumerate(PROFILE_STRESS_SEQUENCE):
+        phase = phases[name]
+        expected_completion[name] = index < oom_index
+        if index < oom_index:
+            if not (
+                isinstance(phase, Mapping)
+                and phase.get("status") == "passed"
+                and isinstance(phase.get("step"), Mapping)
+                and phase.get("error") is None
+                and phase.get("includes_first_step_router_gradient_audit")
+                is router_audit
+            ):
+                return False
+            measured_phases.append(phase)
+        elif index == oom_index:
+            if not (
+                isinstance(phase, Mapping)
+                and phase.get("status") == "cuda_out_of_memory"
+                and phase.get("step") is None
+                and phase.get("includes_first_step_router_gradient_audit")
+                is router_audit
+                and _valid_cuda_oom_error(phase.get("error"))
+            ):
+                return False
+            oom_error = phase["error"]
+            measured_phases.append(phase)
+        elif phase is not None:
+            return False
+
+    execution_gate = result.get("execution_gate")
+    phase_completion = (
+        execution_gate.get("phase_completion")
+        if isinstance(execution_gate, Mapping)
+        else None
+    )
+    if not (
+        isinstance(execution_gate, Mapping)
+        and type(execution_gate.get("required_optimizer_steps")) is int
+        and execution_gate["required_optimizer_steps"]
+        == PRODUCTION_PROFILE_OPTIMIZER_STEPS
+        and type(execution_gate.get("completed_optimizer_steps")) is int
+        and execution_gate["completed_optimizer_steps"] == oom_index
+        and isinstance(phase_completion, Mapping)
+        and dict(phase_completion) == expected_completion
+        and execution_gate.get("error") == oom_error
+        and execution_gate.get("passed") is False
+    ):
+        return False
+
+    device = result.get("device")
+    total_bytes = (
+        device.get("reported_total_memory_bytes")
+        if isinstance(device, Mapping)
+        else None
+    )
+    return (
+        type(total_bytes) is int
+        and total_bytes > 0
+        and all(
+            _valid_phase_memory(phase, total_bytes=total_bytes)
+            for phase in measured_phases
+        )
+        and _memory_gate_matches_measured_phases(result, measured_phases)
+    )
+
+
 def _worker_invocation_evidence(
     *,
     batch_size: int,
@@ -1854,6 +1960,8 @@ def _worker_invocation_evidence(
         batch_size=batch_size,
         device_name=device_name,
     )
+    cuda_oom_observed = _cuda_oom_observed(result)
+    cuda_oom_evidence_passed = _cuda_oom_evidence_passed(result)
     device_passed = worker_evidence["device_binding_passed"]
     memory_gate_consistent = worker_evidence[
         "memory_gate_recomputation_passed"
@@ -1882,7 +1990,8 @@ def _worker_invocation_evidence(
             "hf_endpoint_passed": endpoint_passed,
             "device_binding_passed": device_passed,
             "status": result.get("status"),
-            "cuda_out_of_memory_observed": _cuda_oom_observed(result),
+            "cuda_out_of_memory_observed": cuda_oom_observed,
+            "cuda_oom_evidence_passed": cuda_oom_evidence_passed,
             "model_binding_sha256": result.get("model_binding_sha256"),
             "source_manifest_payload_sha256": result.get(
                 "source_manifest_payload_sha256"
@@ -2064,6 +2173,7 @@ def build_profile_gate(
             bound
             and worker.get("status") == "failed"
             and worker.get("cuda_out_of_memory_observed") is True
+            and worker.get("cuda_oom_evidence_passed") is True
             and worker.get("subprocess_returncode") == 1
             and worker.get("gate_passed") is False
         ):
@@ -2100,6 +2210,9 @@ def build_profile_gate(
         ),
         "malformed_or_unclassified_local_batch_sizes": exploratory_unclassified,
     }
+    failed_checks = list(launch_failed_checks)
+    if not exploration_complete:
+        failed_checks.append("exploration_complete")
     return {
         "profiled_local_batch_sizes": profiled,
         "required_local_batch_sizes": required,
@@ -2116,8 +2229,8 @@ def build_profile_gate(
         "expected_bindings": dict(expected_bindings or {}),
         "launch_gate": launch_gate,
         "exploration": exploration,
-        "failed_checks": launch_failed_checks,
-        "passed": launch_gate["passed"],
+        "failed_checks": failed_checks,
+        "passed": launch_gate["passed"] and exploration_complete,
     }
 
 
