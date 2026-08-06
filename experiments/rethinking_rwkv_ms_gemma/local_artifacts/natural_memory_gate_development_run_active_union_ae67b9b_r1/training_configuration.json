@@ -1,0 +1,40 @@
+{
+  "answer_weight": 1.0,
+  "batch_size": 4,
+  "batch_size_semantics": "global_training_rows_per_optimizer_update",
+  "device": "cuda",
+  "dtype": "bfloat16",
+  "epochs": 8,
+  "eval_batch_size": 8,
+  "eval_limit": null,
+  "greedy_answer_evaluation": true,
+  "learning_rate": 0.0002,
+  "max_grad_norm": 1.0,
+  "max_steps": 768,
+  "profile": "development",
+  "route_weight": 1.0,
+  "schema": "rwkv_ms_natural_memory_gate_training_configuration.v2",
+  "seed": 42,
+  "thresholds": {
+    "answer_exact_min": 0.8,
+    "rewrite_output_change_min": 0.8,
+    "route_accuracy_min": 0.95
+  },
+  "train_limit": null,
+  "training_conditions": [
+    "correct_state"
+  ],
+  "training_topology": {
+    "answer_loss_normalization": "global_supervised_answer_token_count",
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "global_batch_size": 4,
+    "gradient_clip_order": "after_sum_before_adamw",
+    "gradient_synchronization": "sum",
+    "local_batch_size": 1,
+    "mode": "raw_model_replicas_explicit_gradient_sum",
+    "online_memory_state": "rank_local_never_reduced",
+    "route_loss_normalization": "global_row_count_after_layer_mean",
+    "world_size": 4
+  }
+}
