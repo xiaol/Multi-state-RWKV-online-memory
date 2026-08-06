@@ -34,7 +34,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 
 SCHEMA = "novel_natural_causal_memory_gate.v2"
-SEALED_LOCK_SCHEMA = "novel_natural_causal_memory_gate.sealed_lock.v1"
+SEALED_LOCK_SCHEMA = "novel_natural_causal_memory_gate.sealed_lock.v2"
 HF_MIRROR = "https://hf-mirror.com"
 DEFAULT_SOURCE_ROOT = Path(
     os.environ.get(
@@ -1386,11 +1386,14 @@ def _validate_sealed_lock_receipt(
         "development_manifest_payload_sha256",
         "runner_protocol_sha256",
         "training_configuration_sha256",
+        "development_run_receipt_sha256",
+        "adapter_files_sha256",
     )
     if (
         not isinstance(receipt, Mapping)
         or receipt.get("schema") != SEALED_LOCK_SCHEMA
         or receipt.get("configuration_frozen") is not True
+        or receipt.get("development_gate_passed") is not True
         or receipt.get("benchmark_contract_sha256")
         != benchmark_contract_sha256
         or any(not _is_sha256(receipt.get(field)) for field in required_digests)

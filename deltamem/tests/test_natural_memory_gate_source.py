@@ -75,6 +75,20 @@ def _sources(tmp_path: Path) -> dict[str, Path]:
     return paths
 
 
+def _sealed_lock(benchmark_contract_sha256: str, development_manifest_sha256: str) -> dict:
+    return {
+        "schema": gate.SEALED_LOCK_SCHEMA,
+        "configuration_frozen": True,
+        "development_gate_passed": True,
+        "benchmark_contract_sha256": benchmark_contract_sha256,
+        "development_manifest_payload_sha256": development_manifest_sha256,
+        "runner_protocol_sha256": "a" * 64,
+        "training_configuration_sha256": "b" * 64,
+        "development_run_receipt_sha256": "c" * 64,
+        "adapter_files_sha256": "d" * 64,
+    }
+
+
 def test_load_items_preserves_native_granularity(tmp_path: Path) -> None:
     paths = _sources(tmp_path)
     items, audit = gate.load_items(paths, enforce_pinned_sources=False)
@@ -221,6 +235,7 @@ def test_generation_is_byte_deterministic(tmp_path: Path) -> None:
 
 
 def test_sealed_profile_requires_and_binds_frozen_lock_receipt(tmp_path: Path) -> None:
+    assert gate.SEALED_LOCK_SCHEMA == "novel_natural_causal_memory_gate.sealed_lock.v2"
     paths = _sources(tmp_path)
     development = gate.build_dataset(
         output_dir=tmp_path / "development-package",
@@ -241,16 +256,10 @@ def test_sealed_profile_requires_and_binds_frozen_lock_receipt(tmp_path: Path) -
             enforce_pinned_sources=False,
         )
 
-    lock = {
-        "schema": gate.SEALED_LOCK_SCHEMA,
-        "configuration_frozen": True,
-        "benchmark_contract_sha256": development["benchmark_contract_sha256"],
-        "development_manifest_payload_sha256": development["manifest_receipt"][
-            "payload_sha256"
-        ],
-        "runner_protocol_sha256": "a" * 64,
-        "training_configuration_sha256": "b" * 64,
-    }
+    lock = _sealed_lock(
+        development["benchmark_contract_sha256"],
+        development["manifest_receipt"]["payload_sha256"],
+    )
     lock_path = tmp_path / "sealed-lock.json"
     lock_path.write_text(json.dumps(lock), encoding="utf-8")
     sealed_dir = tmp_path / "sealed-package"
@@ -273,6 +282,52 @@ def test_sealed_profile_requires_and_binds_frozen_lock_receipt(tmp_path: Path) -
     assert (sealed_dir / "sealed_validation.jsonl").is_file()
     assert not (sealed_dir / "train.jsonl").exists()
     assert not (sealed_dir / "development.jsonl").exists()
+
+
+@pytest.mark.parametrize(
+    ("removed_field", "updates"),
+    [
+        pytest.param("development_gate_passed", {}, id="missing-development-gate"),
+        pytest.param(None, {"development_gate_passed": False}, id="failed-development-gate"),
+        pytest.param(
+            "development_run_receipt_sha256",
+            {},
+            id="missing-development-run-receipt",
+        ),
+        pytest.param(
+            None,
+            {"development_run_receipt_sha256": "not-a-sha256"},
+            id="malformed-development-run-receipt",
+        ),
+        pytest.param("adapter_files_sha256", {}, id="missing-adapter-files-digest"),
+        pytest.param(
+            None,
+            {"adapter_files_sha256": "D" * 64},
+            id="malformed-adapter-files-digest",
+        ),
+    ],
+)
+def test_sealed_lock_rejects_unproven_development_release(
+    tmp_path: Path,
+    removed_field: str | None,
+    updates: dict,
+) -> None:
+    benchmark_contract_sha256 = "0" * 64
+    lock = _sealed_lock(benchmark_contract_sha256, "1" * 64)
+    if removed_field is not None:
+        lock.pop(removed_field)
+    lock.update(updates)
+    lock_path = tmp_path / "invalid-sealed-lock.json"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="does not bind a frozen development protocol",
+    ):
+        gate._validate_sealed_lock_receipt(
+            lock_path,
+            benchmark_contract_sha256=benchmark_contract_sha256,
+        )
 
 
 def test_formal_build_requires_pinned_gemma4_weights(tmp_path: Path) -> None:
