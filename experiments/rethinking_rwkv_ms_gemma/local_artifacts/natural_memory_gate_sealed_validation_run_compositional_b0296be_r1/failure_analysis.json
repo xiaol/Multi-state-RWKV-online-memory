@@ -1,0 +1,63 @@
+{
+  "config": {
+    "dtype": "bfloat16",
+    "key_dim": 32,
+    "rank": 32,
+    "temperature": 16.0,
+    "target_layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41]
+  },
+  "diagnostic_replay": {
+    "adapter_receipt_sha256": "75198f2429218ca9747ebb486c66f7fae84bd0ad05d6932bb8015512f57a9f30",
+    "evaluation_sha256": "3d8aba76fd13acbfdc8ae7475f34dadc305635eac7e98c892a22f39c67a37042",
+    "method": "replayed the two complete four-query families with the frozen adapter and measured pooled projected-KV route logits",
+    "model_path": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "hf_endpoint": "https://hf-mirror.com"
+  },
+  "failures": [
+    {
+      "condition": "correct_state",
+      "episode_id": "sealed_validation:attribution:attribution:36b5f8622154548e7ca2:e000003",
+      "layer": 19,
+      "logits": [7.71875, 8.3125, 1.46875, 7.0],
+      "margin_target_minus_best_other": -0.59375,
+      "predicted_slot": 1,
+      "row_id": "sealed_validation:attribution:attribution:36b5f8622154548e7ca2:e000003:q0",
+      "target_slot": 0,
+      "task": "attribution",
+      "uncertain": true
+    },
+    {
+      "condition": "correct_state",
+      "episode_id": "sealed_validation:attribution:attribution:8f0c6b12758986e0700a:e000023",
+      "layer": 19,
+      "logits": [7.53125, 4.0625, 8.375, 6.15625],
+      "margin_target_minus_best_other": -0.84375,
+      "predicted_slot": 2,
+      "row_id": "sealed_validation:attribution:attribution:8f0c6b12758986e0700a:e000023:q0",
+      "target_slot": 0,
+      "task": "attribution",
+      "uncertain": true
+    }
+  ],
+  "gate": {
+    "failed_checks": ["correct_state.all_four_routes"],
+    "passed": false,
+    "correct_state_route_correct": 16126,
+    "correct_state_route_total": 16128,
+    "correct_state_route_accuracy": 0.9998759920634921,
+    "donor_state_route_accuracy": 0.999937996031746,
+    "value_swap_route_accuracy": 1.0,
+    "target_slot_rewrite_route_accuracy": 1.0,
+    "shuffled_slots_route_accuracy": 0.9998759920634921,
+    "all_positive_conditions_full_occupancy": true,
+    "all_positive_conditions_forced_write_route": true
+  },
+  "interpretation": {
+    "answer_quality_failure": false,
+    "next_move": "screen a new adapter with stronger route separation and/or larger projected key dimension on the training split before resealing",
+    "protocol_change_required": true,
+    "route_failure_type": "content-address collision at one intermediate layer on two held-out attribution queries"
+  },
+  "run_receipt_sha256": "16b49547b6c31d175bb5367a4e5140a4305a84d7db00f12746a7a4c1c3d2cd32",
+  "schema": "rwkv_ms_natural_memory_gate_failure_analysis.v1"
+}
