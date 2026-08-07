@@ -1296,7 +1296,7 @@ def test_distributed_preflight_primary_and_worker_complete_lifecycle(
         }
 
 
-def test_natural_cli_defaults_to_profiled_rank_32() -> None:
+def test_natural_cli_defaults_to_profiled_route64_contract() -> None:
     args = runner.parse_args(
         [
             "--source-manifest",
@@ -1307,6 +1307,7 @@ def test_natural_cli_defaults_to_profiled_rank_32() -> None:
     )
 
     assert args.rank == runner.PRODUCTION_ADAPTER_RANK == 32
+    assert args.key_dim == runner.PRODUCTION_KEY_DIM == 64
     assert args.max_steps == runner.PRODUCTION_UPDATES == 3840
     assert runner._parse_training_conditions(args.training_conditions) == (
         runner.SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS

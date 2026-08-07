@@ -96,7 +96,10 @@ PRODUCTION_UPDATES = (
     // distributed.REQUIRED_GLOBAL_BATCH_SIZE
 )
 PRODUCTION_ADAPTER_RANK = 32
-PRODUCTION_KEY_DIM = 32
+# The first sealed run exposed two genuine held-out content-address collisions
+# at layer 19.  Widen only the projected address key; rank, value path, losses,
+# and all acceptance thresholds remain frozen.
+PRODUCTION_KEY_DIM = 64
 PRODUCTION_TEMPERATURE = 16.0
 PRODUCTION_EVAL_BATCH_SIZE = 8
 PRODUCTION_LEARNING_RATE = 2e-4
