@@ -84,8 +84,10 @@ def _sealed_lock(benchmark_contract_sha256: str, development_manifest_sha256: st
         "development_manifest_payload_sha256": development_manifest_sha256,
         "runner_protocol_sha256": "a" * 64,
         "training_configuration_sha256": "b" * 64,
-        "development_run_receipt_sha256": "c" * 64,
-        "adapter_files_sha256": "d" * 64,
+        "training_dataset_audit_sha256": "c" * 64,
+        "evaluation_sha256": "d" * 64,
+        "development_run_receipt_sha256": "e" * 64,
+        "adapter_files_sha256": "f" * 64,
     }
 
 
@@ -235,7 +237,7 @@ def test_generation_is_byte_deterministic(tmp_path: Path) -> None:
 
 
 def test_sealed_profile_requires_and_binds_frozen_lock_receipt(tmp_path: Path) -> None:
-    assert gate.SEALED_LOCK_SCHEMA == "novel_natural_causal_memory_gate.sealed_lock.v2"
+    assert gate.SEALED_LOCK_SCHEMA == "novel_natural_causal_memory_gate.sealed_lock.v3"
     paths = _sources(tmp_path)
     development = gate.build_dataset(
         output_dir=tmp_path / "development-package",
@@ -301,9 +303,24 @@ def test_sealed_profile_requires_and_binds_frozen_lock_receipt(tmp_path: Path) -
         ),
         pytest.param("adapter_files_sha256", {}, id="missing-adapter-files-digest"),
         pytest.param(
+            "training_dataset_audit_sha256",
+            {},
+            id="missing-training-dataset-audit-digest",
+        ),
+        pytest.param(
+            "evaluation_sha256",
+            {},
+            id="missing-evaluation-digest",
+        ),
+        pytest.param(
             None,
             {"adapter_files_sha256": "D" * 64},
             id="malformed-adapter-files-digest",
+        ),
+        pytest.param(
+            None,
+            {"evaluation_sha256": "not-a-sha256"},
+            id="malformed-evaluation-digest",
         ),
     ],
 )

@@ -30,32 +30,38 @@ from deltamem.core.delta import reset_delta_mem_states, snapshot_delta_mem_weigh
 from experiments.rethinking_rwkv_ms_gemma import run_natural_memory_gate as gate
 
 
-PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_protocol.v2"
-WORKER_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_worker.v2"
-RECEIPT_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_receipt.v2"
+PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_protocol.v3"
+WORKER_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_worker.v3"
+RECEIPT_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_receipt.v3"
+PADDED_SELECTION_SCHEMA = "rwkv_ms_natural_memory_gate_padded_selection.v2"
+ANSWER_LOGIT_SELECTION_SCHEMA = (
+    "rwkv_ms_natural_memory_gate_answer_logit_selection.v2"
+)
 HF_MIRROR_ENDPOINT = "https://hf-mirror.com"
 PROFILED_LOCAL_BATCH_SIZES = (1, 2, 4)
 REQUIRED_LOCAL_BATCH_SIZES = (1,)
 EXPLORATORY_LOCAL_BATCH_SIZES = (2, 4)
-DISTRIBUTED_WORLD_SIZE = 4
-DISTRIBUTED_LOCAL_BATCH_SIZE = 1
-DISTRIBUTED_GLOBAL_BATCH_SIZE = 4
-DISTRIBUTED_TRAINING_UPDATES = 768
+DISTRIBUTED_WORLD_SIZE = gate.distributed.REQUIRED_WORLD_SIZE
+DISTRIBUTED_LOCAL_BATCH_SIZE = gate.distributed.REQUIRED_LOCAL_BATCH_SIZE
+DISTRIBUTED_GLOBAL_BATCH_SIZE = gate.distributed.REQUIRED_GLOBAL_BATCH_SIZE
+DISTRIBUTED_TRAINING_UPDATES = gate.PRODUCTION_UPDATES
+PRODUCTION_TRAINING_ROWS = gate.PRODUCTION_TRAINING_ROWS
+PRODUCTION_EPOCHS = gate.PRODUCTION_EPOCHS
 MINIMUM_HEADROOM_BYTES = 5 * 1024**3
-PRODUCTION_RANK = 32
-PRODUCTION_KEY_DIM = 32
-PRODUCTION_TEMPERATURE = 16.0
-PRODUCTION_TARGET_LAYERS = tuple(range(42))
-PRODUCTION_DTYPE = "bfloat16"
-PRODUCTION_ATTN_IMPLEMENTATION = "sdpa"
+PRODUCTION_RANK = gate.PRODUCTION_ADAPTER_RANK
+PRODUCTION_KEY_DIM = gate.PRODUCTION_KEY_DIM
+PRODUCTION_TEMPERATURE = gate.PRODUCTION_TEMPERATURE
+PRODUCTION_TARGET_LAYERS = gate.DEFAULT_TARGET_LAYERS
+PRODUCTION_DTYPE = gate.PRODUCTION_DTYPE
+PRODUCTION_ATTN_IMPLEMENTATION = gate.PRODUCTION_ATTN_IMPLEMENTATION
 PRODUCTION_PROFILE = "development"
 PRODUCTION_OPTIMIZER = "torch.optim.AdamW"
 PRODUCTION_OPTIMIZER_FUSED = True
-PRODUCTION_LEARNING_RATE = 2e-4
+PRODUCTION_LEARNING_RATE = gate.PRODUCTION_LEARNING_RATE
 PRODUCTION_WEIGHT_DECAY = 0.0
-PRODUCTION_ANSWER_WEIGHT = 1.0
-PRODUCTION_ROUTE_WEIGHT = 1.0
-PRODUCTION_MAX_GRAD_NORM = 1.0
+PRODUCTION_ANSWER_WEIGHT = gate.PRODUCTION_ANSWER_WEIGHT
+PRODUCTION_ROUTE_WEIGHT = gate.PRODUCTION_ROUTE_WEIGHT
+PRODUCTION_MAX_GRAD_NORM = gate.PRODUCTION_MAX_GRAD_NORM
 PRODUCTION_PROFILE_OPTIMIZER_STEPS = 3
 WORKER_TIMEOUT_SECONDS = 30 * 60
 PROFILE_STRESS_SEQUENCE = (
@@ -86,7 +92,10 @@ def _distributed_training_target() -> dict[str, Any]:
         "world_size": DISTRIBUTED_WORLD_SIZE,
         "local_batch_size": DISTRIBUTED_LOCAL_BATCH_SIZE,
         "global_batch_size": DISTRIBUTED_GLOBAL_BATCH_SIZE,
+        "unique_training_rows": PRODUCTION_TRAINING_ROWS,
+        "complete_epochs": PRODUCTION_EPOCHS,
         "optimizer_updates": DISTRIBUTED_TRAINING_UPDATES,
+        "complete_epoch_schedule": True,
         "replication": "one raw full-model replica per rank",
         "gradient_synchronization": (
             "sum trainable gradients across ranks before global clipping and "
@@ -101,6 +110,30 @@ def _distributed_training_target() -> dict[str, Any]:
             "gradient summation"
         ),
         "online_memory_state": "rank-local and never reduced",
+    }
+
+
+def _production_training_dataset_contract() -> dict[str, Any]:
+    return {
+        "schema": gate.TRAINING_DATASET_AUDIT_SCHEMA,
+        "training_conditions": list(gate.DEFAULT_TRAINING_CONDITIONS),
+        "tasks": list(gate.PRODUCTION_TASKS),
+        "rows_per_condition_task": {
+            condition: {
+                task: gate.PRODUCTION_ROWS_PER_CONDITION_TASK
+                for task in gate.PRODUCTION_TASKS
+            }
+            for condition in gate.DEFAULT_TRAINING_CONDITIONS
+        },
+        "source_query_condition_families": (
+            gate.PRODUCTION_ROWS_PER_CONDITION_TASK * len(gate.PRODUCTION_TASKS)
+        ),
+        "unique_training_rows": PRODUCTION_TRAINING_ROWS,
+        "complete_epochs": PRODUCTION_EPOCHS,
+        "global_batch_size": DISTRIBUTED_GLOBAL_BATCH_SIZE,
+        "optimizer_updates": DISTRIBUTED_TRAINING_UPDATES,
+        "row_id_policy": gate.TRAINING_ROW_ID_POLICY,
+        "sampling_policy": gate.TRAINING_SAMPLING_POLICY,
     }
 
 
@@ -179,6 +212,7 @@ def _production_configuration(
     configuration = {
         "profile": PRODUCTION_PROFILE,
         "training_conditions": list(gate.DEFAULT_TRAINING_CONDITIONS),
+        "training_dataset_contract": _production_training_dataset_contract(),
         "rank": PRODUCTION_RANK,
         "target_layers": list(PRODUCTION_TARGET_LAYERS),
         "key_dim": PRODUCTION_KEY_DIM,
@@ -292,6 +326,23 @@ def _length_vector(profile: Mapping[str, Any]) -> tuple[int, ...]:
     )
 
 
+def _selection_candidate_corpus(
+    profiled: Sequence[tuple[Any, Mapping[str, Any]]],
+) -> dict[str, Any]:
+    observed_conditions = {profile["condition"] for _, profile in profiled}
+    return {
+        "rows": len(profiled),
+        "conditions": [
+            condition
+            for condition in gate.DEFAULT_TRAINING_CONDITIONS
+            if condition in observed_conditions
+        ],
+        "row_id_set_sha256": sha256_text(
+            canonical_json(sorted(profile["row_id"] for _, profile in profiled))
+        ),
+    }
+
+
 def _dimension_partitions(dimensions: tuple[int, ...]) -> tuple[tuple[tuple[int, ...], ...], ...]:
     if not dimensions:
         return ((),)
@@ -332,8 +383,12 @@ def select_padded_workload_examples(
     if batch_size <= 0 or len(examples) < batch_size:
         raise ValueError("Batch size must be positive and no larger than the corpus")
     profiled = [(example, _example_token_profile(example)) for example in examples]
-    if any(profile["condition"] != "correct_state" for _, profile in profiled):
-        raise ValueError("Padded-workload selection accepts only correct_state examples")
+    allowed_conditions = set(gate.DEFAULT_TRAINING_CONDITIONS)
+    if any(profile["condition"] not in allowed_conditions for _, profile in profiled):
+        raise ValueError(
+            "Padded-workload selection accepts only supervised positive "
+            "training conditions"
+        )
     profiled.sort(key=lambda item: item[1]["row_id"])
     row_ids = [profile["row_id"] for _, profile in profiled]
     if len(set(row_ids)) != len(row_ids):
@@ -407,7 +462,8 @@ def select_padded_workload_examples(
         [profile for _, profile in profiled], batch_size
     )
     audit = {
-        "schema": "rwkv_ms_natural_memory_gate_padded_selection.v1",
+        "schema": PADDED_SELECTION_SCHEMA,
+        "candidate_corpus": _selection_candidate_corpus(profiled),
         "method": (
             "exact five-dimension set-partition maximization with deterministic "
             "marginal-workload fill, total/read/write-length secondary ordering, "
@@ -488,8 +544,12 @@ def select_answer_logit_examples(
         )
         for example in examples
     ]
-    if any(profile["condition"] != "correct_state" for _, profile in profiled):
-        raise ValueError("Answer-logit selection accepts only correct_state examples")
+    allowed_conditions = set(gate.DEFAULT_TRAINING_CONDITIONS)
+    if any(profile["condition"] not in allowed_conditions for _, profile in profiled):
+        raise ValueError(
+            "Answer-logit selection accepts only supervised positive training "
+            "conditions"
+        )
     profiled.sort(key=lambda item: item[1]["row_id"])
     row_ids = [profile["row_id"] for _, profile in profiled]
     if len(set(row_ids)) != len(row_ids):
@@ -592,7 +652,8 @@ def select_answer_logit_examples(
         )[:batch_size]
     )
     audit = {
-        "schema": "rwkv_ms_natural_memory_gate_answer_logit_selection.v1",
+        "schema": ANSWER_LOGIT_SELECTION_SCHEMA,
+        "candidate_corpus": _selection_candidate_corpus(profiled),
         "method": (
             "exact cardinality-bounded interval-union dynamic programming with "
             "deterministic activation-workload fill and row-id final tie breaks"
@@ -609,6 +670,38 @@ def select_answer_logit_examples(
         ),
     }
     return [item[0] for item in selected_pairs], selected_profiles, audit
+
+
+def _build_production_training_dataset_audit(
+    examples: Sequence[Any],
+) -> dict[str, Any]:
+    audit = gate.audit_training_dataset(
+        examples,
+        gate.DEFAULT_TRAINING_CONDITIONS,
+    )
+    audit = gate.bind_production_training_contract(
+        audit,
+        epochs=PRODUCTION_EPOCHS,
+        global_batch_size=DISTRIBUTED_GLOBAL_BATCH_SIZE,
+        requested_max_steps=DISTRIBUTED_TRAINING_UPDATES,
+        schedule_mode="complete",
+    )
+    if not audit["production_contract_passed"]:
+        failures = sorted(
+            name
+            for name, passed in audit["production_dataset_contract_checks"].items()
+            if not passed
+        )
+        failures.extend(
+            name
+            for name, passed in audit["schedule_contract_checks"].items()
+            if not passed
+        )
+        raise ValueError(
+            "CUDA profile training dataset differs from the compositional "
+            "production contract: " + ", ".join(failures)
+        )
+    return audit
 
 
 def _cuda_snapshot(device: torch.device) -> dict[str, int]:
@@ -1100,6 +1193,12 @@ def _profile_worker_on_initialized_device(
         tokenizer,
         gate.DEFAULT_TRAINING_CONDITIONS,
     )
+    training_dataset_audit = _build_production_training_dataset_audit(
+        training_examples
+    )
+    training_row_id_set_sha256 = sha256_text(
+        canonical_json(sorted(example.row_id for example in training_examples))
+    )
     activation_examples, activation_profiles, activation_selection_audit = (
         select_padded_workload_examples(training_examples, batch_size)
     )
@@ -1219,6 +1318,11 @@ def _profile_worker_on_initialized_device(
         "activation_selection_audit": activation_selection_audit,
         "answer_logit_selection_audit": answer_logit_selection_audit,
         "training_examples_considered": len(training_examples),
+        "training_row_id_set_sha256": training_row_id_set_sha256,
+        "training_dataset_audit": training_dataset_audit,
+        "training_dataset_audit_sha256": sha256_text(
+            canonical_json(training_dataset_audit)
+        ),
         "activation_stress_examples": activation_profiles,
         "activation_stress_examples_sha256": sha256_text(
             canonical_json(activation_profiles)
@@ -1519,6 +1623,28 @@ def _valid_optimizer_step(
     return router_audit is None
 
 
+def _training_dataset_evidence_passed(result: Mapping[str, Any]) -> bool:
+    audit = result.get("training_dataset_audit")
+    if not isinstance(audit, Mapping):
+        return False
+    try:
+        contract_passed = gate.validate_production_training_contract(
+            audit,
+            schedule_mode="complete",
+        )
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return False
+    return (
+        result.get("training_examples_considered") == PRODUCTION_TRAINING_ROWS
+        and _is_sha256(result.get("training_row_id_set_sha256"))
+        and audit.get("training_row_id_set_sha256")
+        == result.get("training_row_id_set_sha256")
+        and result.get("training_dataset_audit_sha256")
+        == sha256_text(canonical_json(audit))
+        and contract_passed
+    )
+
+
 def _selection_evidence_passed(
     result: Mapping[str, Any],
     *,
@@ -1529,6 +1655,11 @@ def _selection_evidence_passed(
     answer_profiles = result.get("answer_logit_stress_examples")
     activation_audit = result.get("activation_selection_audit")
     answer_audit = result.get("answer_logit_selection_audit")
+    candidate_corpus = {
+        "rows": PRODUCTION_TRAINING_ROWS,
+        "conditions": list(gate.DEFAULT_TRAINING_CONDITIONS),
+        "row_id_set_sha256": result.get("training_row_id_set_sha256"),
+    }
     if not (
         isinstance(activation_profiles, list)
         and isinstance(answer_profiles, list)
@@ -1536,8 +1667,10 @@ def _selection_evidence_passed(
         and len(answer_profiles) == batch_size
         and isinstance(activation_audit, Mapping)
         and isinstance(answer_audit, Mapping)
-        and type(result.get("training_examples_considered")) is int
-        and result["training_examples_considered"] >= batch_size
+        and result.get("training_examples_considered") == PRODUCTION_TRAINING_ROWS
+        and _is_sha256(result.get("training_row_id_set_sha256"))
+        and activation_audit.get("candidate_corpus") == candidate_corpus
+        and answer_audit.get("candidate_corpus") == candidate_corpus
         and result.get("activation_stress_examples_sha256")
         == sha256_text(canonical_json(activation_profiles))
         and result.get("answer_logit_stress_examples_sha256")
@@ -1547,7 +1680,11 @@ def _selection_evidence_passed(
     for profiles in (activation_profiles, answer_profiles):
         if any(
             not isinstance(profile, Mapping)
-            or profile.get("condition") != "correct_state"
+            or profile.get("condition") not in gate.DEFAULT_TRAINING_CONDITIONS
+            or not isinstance(profile.get("row_id"), str)
+            or not profile["row_id"].endswith(
+                f"::training-condition={profile.get('condition')}"
+            )
             for profile in profiles
         ):
             return False
@@ -1566,13 +1703,11 @@ def _selection_evidence_passed(
     except (KeyError, TypeError, ValueError):
         return False
     if not (
-        activation_audit.get("schema")
-        == "rwkv_ms_natural_memory_gate_padded_selection.v1"
+        activation_audit.get("schema") == PADDED_SELECTION_SCHEMA
         and activation_audit.get("selected_batch_is_exact_constrained_optimum")
         is True
         and activation_audit.get("selected") == activation_workload
-        and answer_audit.get("schema")
-        == "rwkv_ms_natural_memory_gate_answer_logit_selection.v1"
+        and answer_audit.get("schema") == ANSWER_LOGIT_SELECTION_SCHEMA
         and answer_audit.get("selected_batch_is_exact_constrained_optimum")
         is True
         and answer_audit.get("selected_answer_predictor_union_indices")
@@ -1729,6 +1864,7 @@ def _passing_worker_evidence(
         and execution_gate.get("error") is None
         and execution_gate.get("passed") is True
     )
+    training_dataset_passed = _training_dataset_evidence_passed(result)
     selection_passed = exact_phase_set and _selection_evidence_passed(
         result, batch_size=batch_size, phases=phases
     )
@@ -1765,6 +1901,7 @@ def _passing_worker_evidence(
         "phase_memory_evidence": phase_memory,
         "optimizer_step_evidence": optimizer_steps_passed,
         "execution_gate": execution_passed,
+        "training_dataset_contract": training_dataset_passed,
         "selection_evidence": selection_passed,
         "adapter_change": adapter_passed,
         "trainable_boundary": _trainable_evidence_passed(

@@ -17,6 +17,62 @@ from experiments.rethinking_rwkv_ms_gemma import (
 GIB = 1024**3
 
 
+def _production_training_dataset_audit() -> dict:
+    gate = profiler.gate
+    conditions = list(gate.DEFAULT_TRAINING_CONDITIONS)
+    tasks = list(gate.PRODUCTION_TASKS)
+    rows_per_condition_task = {
+        condition: {
+            task: gate.PRODUCTION_ROWS_PER_CONDITION_TASK for task in tasks
+        }
+        for condition in conditions
+    }
+    audit = {
+        "schema": gate.TRAINING_DATASET_AUDIT_SCHEMA,
+        "training_conditions": conditions,
+        "tasks": tasks,
+        "rows": gate.PRODUCTION_TRAINING_ROWS,
+        "unique_row_ids": True,
+        "row_id_policy": gate.TRAINING_ROW_ID_POLICY,
+        "row_id_policy_passed": True,
+        "sampling_policy": gate.TRAINING_SAMPLING_POLICY,
+        "payload_digest_policy": gate.TRAINING_PAYLOAD_DIGEST_POLICY,
+        "family_invariant_policy": gate.TRAINING_FAMILY_INVARIANT_POLICY,
+        "condition_set_exact": True,
+        "condition_task_strata_exact": True,
+        "condition_task_strata_balanced": True,
+        "rows_per_condition_task": rows_per_condition_task,
+        "answer_tokens_per_condition_task": rows_per_condition_task,
+        "rows_by_condition": {
+            condition: gate.PRODUCTION_ROWS_PER_CONDITION_TASK * len(tasks)
+            for condition in conditions
+        },
+        "rows_by_task": {
+            task: gate.PRODUCTION_ROWS_PER_CONDITION_TASK * len(conditions)
+            for task in tasks
+        },
+        "source_query_condition_families": (
+            gate.PRODUCTION_ROWS_PER_CONDITION_TASK * len(tasks)
+        ),
+        "complete_source_query_condition_families": (
+            gate.PRODUCTION_ROWS_PER_CONDITION_TASK * len(tasks)
+        ),
+        "paired_condition_coverage": True,
+        "family_invariants_passed": True,
+        "family_invariant_failure_count": 0,
+        "training_row_id_set_sha256": "a" * 64,
+        "ordered_training_examples_sha256": "b" * 64,
+        "passed": True,
+    }
+    return gate.bind_production_training_contract(
+        audit,
+        epochs=gate.PRODUCTION_EPOCHS,
+        global_batch_size=gate.distributed.REQUIRED_GLOBAL_BATCH_SIZE,
+        requested_max_steps=gate.PRODUCTION_UPDATES,
+        schedule_mode="complete",
+    )
+
+
 def _example(
     row_id: str,
     *,
@@ -76,18 +132,76 @@ def test_select_longest_examples_is_deterministic_and_tie_breaks_by_row() -> Non
     assert evidence[0]["total_unpadded_token_positions"] == 68
 
 
-def test_select_longest_examples_rejects_non_correct_state() -> None:
+def test_select_longest_examples_rejects_unsupervised_state() -> None:
     examples = [
         _example(
             "wrong",
             write_lengths=(10, 10, 10, 10),
             read_length=20,
-            condition="donor_state",
+            condition="no_state",
         )
     ]
 
-    with pytest.raises(ValueError, match="only correct_state"):
+    with pytest.raises(ValueError, match="supervised positive"):
         profiler.select_longest_examples(examples, 1)
+
+
+def test_stress_selectors_accept_all_supervised_positive_conditions() -> None:
+    examples = [
+        _example(
+            f"row-{condition}",
+            write_lengths=(10 + index, 11, 12, 13),
+            read_length=24,
+            condition=condition,
+            predictor_start=8 + index,
+            predictor_length=2,
+        )
+        for index, condition in enumerate(
+            profiler.gate.DEFAULT_TRAINING_CONDITIONS
+        )
+    ]
+
+    _, _, activation_audit = profiler.select_padded_workload_examples(
+        examples, 2
+    )
+    _, _, answer_audit = profiler.select_answer_logit_examples(examples, 2)
+
+    expected_conditions = list(profiler.gate.DEFAULT_TRAINING_CONDITIONS)
+    assert activation_audit["candidate_corpus"]["rows"] == 5
+    assert activation_audit["candidate_corpus"]["conditions"] == (
+        expected_conditions
+    )
+    assert answer_audit["candidate_corpus"] == activation_audit[
+        "candidate_corpus"
+    ]
+
+
+def test_profile_contract_binds_compositional_production_schedule() -> None:
+    configuration = profiler._production_configuration()
+    dataset = configuration["training_dataset_contract"]
+    target = profiler._distributed_training_target()
+
+    assert profiler.PROTOCOL_SCHEMA.endswith(".v3")
+    assert profiler.WORKER_SCHEMA.endswith(".v3")
+    assert profiler.RECEIPT_SCHEMA.endswith(".v3")
+    assert dataset["training_conditions"] == list(
+        profiler.gate.SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS
+    )
+    assert len(dataset["training_conditions"]) == 5
+    assert dataset["unique_training_rows"] == 1920
+    assert dataset["complete_epochs"] == 8
+    assert dataset["global_batch_size"] == 4
+    assert dataset["optimizer_updates"] == 3840
+    assert target["unique_training_rows"] == 1920
+    assert target["complete_epochs"] == 8
+    assert target["global_batch_size"] == 4
+    assert target["optimizer_updates"] == 3840
+    assert (
+        target["unique_training_rows"]
+        * target["complete_epochs"]
+        // target["global_batch_size"]
+        == target["optimizer_updates"]
+    )
 
 
 def test_selection_exactly_maximizes_batch_padded_workload() -> None:
@@ -739,9 +853,20 @@ def _fake_worker_payload(
         },
     }
     trainable_names_sha256 = "6" * 64
+    training_dataset_audit = _production_training_dataset_audit()
+    training_row_id_set_sha256 = training_dataset_audit[
+        "training_row_id_set_sha256"
+    ]
+    candidate_corpus = {
+        "rows": profiler.PRODUCTION_TRAINING_ROWS,
+        "conditions": list(profiler.gate.DEFAULT_TRAINING_CONDITIONS),
+        "row_id_set_sha256": training_row_id_set_sha256,
+    }
     activation_profiles = [
         {
-            "row_id": f"activation-max-{index}",
+            "row_id": (
+                f"activation-max-{index}::training-condition=correct_state"
+            ),
             "episode_id": f"activation-episode-{index}",
             "task": "narrative",
             "condition": "correct_state",
@@ -758,7 +883,9 @@ def _fake_worker_payload(
     answer_logit_profiles = [
         {
             **profile,
-            "row_id": f"answer-logit-max-{index}",
+            "row_id": (
+                f"answer-logit-max-{index}::training-condition=correct_state"
+            ),
             "episode_id": f"answer-logit-episode-{index}",
             "answer_predictor_start": 120,
             "answer_predictor_end_exclusive": 128,
@@ -844,7 +971,8 @@ def _fake_worker_payload(
                 ),
             },
             "activation_selection_audit": {
-                "schema": "rwkv_ms_natural_memory_gate_padded_selection.v1",
+                "schema": profiler.PADDED_SELECTION_SCHEMA,
+                "candidate_corpus": candidate_corpus,
                 "method": "exact constrained padded-workload maximization",
                 "dimensions": [
                     "write_0",
@@ -861,7 +989,8 @@ def _fake_worker_payload(
                 "selected_batch_is_exact_constrained_optimum": True,
             },
             "answer_logit_selection_audit": {
-                "schema": "rwkv_ms_natural_memory_gate_answer_logit_selection.v1",
+                "schema": profiler.ANSWER_LOGIT_SELECTION_SCHEMA,
+                "candidate_corpus": candidate_corpus,
                 "method": "exact constrained answer-predictor union maximization",
                 "selected_answer_predictor_union_indices": list(range(120, 128)),
                 "selected_answer_predictor_union_positions": 8,
@@ -873,7 +1002,12 @@ def _fake_worker_payload(
                     answer_logit_profiles, batch_size
                 ),
             },
-            "training_examples_considered": 384,
+            "training_examples_considered": profiler.PRODUCTION_TRAINING_ROWS,
+            "training_row_id_set_sha256": training_row_id_set_sha256,
+            "training_dataset_audit": training_dataset_audit,
+            "training_dataset_audit_sha256": profiler.sha256_text(
+                profiler.canonical_json(training_dataset_audit)
+            ),
             "activation_stress_examples": activation_profiles,
             "activation_stress_examples_sha256": profiler.sha256_text(
                 profiler.canonical_json(activation_profiles)
@@ -1088,6 +1222,26 @@ def test_worker_invocation_rejects_production_configuration_drift(
 
     assert result["configuration_passed"] is False
     assert result["gate_passed"] is False
+
+
+@pytest.mark.parametrize("audit_change", ["wrong_rows", "malformed_conditions"])
+def test_worker_invocation_rejects_training_dataset_contract_drift(
+    tmp_path: Path,
+    audit_change: str,
+) -> None:
+    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    if audit_change == "wrong_rows":
+        payload["training_dataset_audit"]["rows"] = 1919
+    else:
+        payload["training_dataset_audit"]["training_conditions"] = [[]]
+    payload["training_dataset_audit_sha256"] = profiler.sha256_text(
+        profiler.canonical_json(payload["training_dataset_audit"])
+    )
+    payload = _resign_worker_payload(payload)
+
+    result = _invocation_evidence(tmp_path, payload)
+
+    _assert_strict_worker_rejection(result, "training_dataset_contract")
 
 
 def test_worker_invocation_rejects_delta_configuration_drift(

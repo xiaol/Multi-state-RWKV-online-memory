@@ -689,6 +689,61 @@ def test_rank_failure_propagates_before_objective_collective(tmp_path: Path) -> 
     assert all('"rank":2' in payload["message"] for payload in payloads)
 
 
+def _valid_preflight_training_dataset_audit() -> dict:
+    conditions = list(runner.DEFAULT_TRAINING_CONDITIONS)
+    tasks = list(runner.PRODUCTION_TASKS)
+    rows_per_condition_task = {
+        condition: {
+            task: runner.PRODUCTION_ROWS_PER_CONDITION_TASK for task in tasks
+        }
+        for condition in conditions
+    }
+    audit = {
+        "schema": runner.TRAINING_DATASET_AUDIT_SCHEMA,
+        "training_conditions": conditions,
+        "tasks": tasks,
+        "rows": runner.PRODUCTION_TRAINING_ROWS,
+        "unique_row_ids": True,
+        "row_id_policy": runner.TRAINING_ROW_ID_POLICY,
+        "row_id_policy_passed": True,
+        "sampling_policy": runner.TRAINING_SAMPLING_POLICY,
+        "payload_digest_policy": runner.TRAINING_PAYLOAD_DIGEST_POLICY,
+        "family_invariant_policy": runner.TRAINING_FAMILY_INVARIANT_POLICY,
+        "condition_set_exact": True,
+        "condition_task_strata_exact": True,
+        "condition_task_strata_balanced": True,
+        "rows_per_condition_task": rows_per_condition_task,
+        "answer_tokens_per_condition_task": rows_per_condition_task,
+        "rows_by_condition": {
+            condition: runner.PRODUCTION_ROWS_PER_CONDITION_TASK * len(tasks)
+            for condition in conditions
+        },
+        "rows_by_task": {
+            task: runner.PRODUCTION_ROWS_PER_CONDITION_TASK * len(conditions)
+            for task in tasks
+        },
+        "source_query_condition_families": (
+            runner.PRODUCTION_ROWS_PER_CONDITION_TASK * len(tasks)
+        ),
+        "complete_source_query_condition_families": (
+            runner.PRODUCTION_ROWS_PER_CONDITION_TASK * len(tasks)
+        ),
+        "paired_condition_coverage": True,
+        "family_invariants_passed": True,
+        "family_invariant_failure_count": 0,
+        "training_row_id_set_sha256": "1" * 64,
+        "ordered_training_examples_sha256": "2" * 64,
+        "passed": True,
+    }
+    return runner.bind_production_training_contract(
+        audit,
+        epochs=runner.PRODUCTION_EPOCHS,
+        global_batch_size=runner.distributed.REQUIRED_GLOBAL_BATCH_SIZE,
+        requested_max_steps=runner.DISTRIBUTED_PREFLIGHT_STEPS,
+        schedule_mode="preflight",
+    )
+
+
 def _valid_preflight_training() -> dict:
     trainable_metadata = [
         {
@@ -807,6 +862,7 @@ def _valid_preflight_training() -> dict:
         "router_gradient_audit": {
             "all_ranks_all_modules_finite_nonzero": True,
         },
+        "training_dataset_audit": _valid_preflight_training_dataset_audit(),
         "distributed": {
             "backend": "nccl",
             "control_backend": "gloo",
@@ -917,6 +973,16 @@ def test_distributed_preflight_gate_passes_only_complete_evidence() -> None:
                 1
             ].update({"optimizer_state_sha256": "f" * 64}),
             "global_objective_and_row_ownership",
+        ),
+        (
+            lambda training: training["training_dataset_audit"].update(
+                {
+                    "rows": 4,
+                    "passed": True,
+                    "production_contract_passed": True,
+                }
+            ),
+            "compositional_training_dataset",
         ),
     ],
 )

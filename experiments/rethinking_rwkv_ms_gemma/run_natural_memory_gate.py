@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
-from dataclasses import dataclass
+from collections import Counter, defaultdict
+from dataclasses import dataclass, replace
 import gc
 import hashlib
 import json
@@ -37,11 +37,19 @@ from experiments.rethinking_rwkv_ms_gemma import (
 )
 
 
-RUN_SCHEMA = "rwkv_ms_natural_memory_gate_run.v2"
-EVALUATION_SCHEMA = "rwkv_ms_natural_memory_gate_evaluation.v2"
-PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_gate_protocol.v2"
-TRAIN_STEP_SCHEMA = "rwkv_ms_natural_memory_gate_train_step.v2"
-DISTRIBUTED_PREFLIGHT_SCHEMA = "rwkv_ms_natural_memory_distributed_preflight.v1"
+RUN_SCHEMA = "rwkv_ms_natural_memory_gate_run.v3"
+EVALUATION_SCHEMA = "rwkv_ms_natural_memory_gate_evaluation.v3"
+PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_gate_protocol.v3"
+TRAINING_CONFIGURATION_SCHEMA = (
+    "rwkv_ms_natural_memory_gate_training_configuration.v3"
+)
+TRAIN_STEP_SCHEMA = "rwkv_ms_natural_memory_gate_train_step.v3"
+DISTRIBUTED_PREFLIGHT_SCHEMA = "rwkv_ms_natural_memory_distributed_preflight.v2"
+DISTRIBUTED_PREFLIGHT_GATE_SCHEMA = (
+    "rwkv_ms_natural_memory_distributed_preflight_gate.v2"
+)
+ACCEPTANCE_SCHEMA = "rwkv_ms_natural_memory_gate_acceptance.v1"
+TRAINING_DATASET_AUDIT_SCHEMA = "rwkv_ms_natural_memory_training_dataset_audit.v1"
 HF_MIRROR_ENDPOINT = "https://hf-mirror.com"
 RECORDS_PER_EPISODE = 4
 CONDITIONS = (
@@ -66,15 +74,27 @@ COUNTERFACTUAL_STATE_CONDITIONS = (
     "target_slot_rewrite",
     "shuffled_slots",
 )
-DEFAULT_TRAINING_CONDITIONS = ("correct_state",)
 SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS = POSITIVE_CONDITIONS
+BASELINE_TRAINING_CONDITIONS = ("correct_state",)
+DEFAULT_TRAINING_CONDITIONS = SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS
 CONTROL_CONDITIONS = CONDITIONS[5:]
 PROFILES = ("train", "development", "sealed_validation")
 FORMAL_PROFILES = ("development", "sealed_validation")
 DEFAULT_TARGET_LAYERS = tuple(range(42))
 PRODUCTION_SEED = 42
 PRODUCTION_EPOCHS = 8
-PRODUCTION_UPDATES = 768
+PRODUCTION_TASKS = ("attribution", "narrative", "scene")
+PRODUCTION_ROWS_PER_CONDITION_TASK = 128
+PRODUCTION_TRAINING_ROWS = (
+    len(SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS)
+    * len(PRODUCTION_TASKS)
+    * PRODUCTION_ROWS_PER_CONDITION_TASK
+)
+PRODUCTION_UPDATES = (
+    PRODUCTION_TRAINING_ROWS
+    * PRODUCTION_EPOCHS
+    // distributed.REQUIRED_GLOBAL_BATCH_SIZE
+)
 PRODUCTION_ADAPTER_RANK = 32
 PRODUCTION_KEY_DIM = 32
 PRODUCTION_TEMPERATURE = 16.0
@@ -110,6 +130,22 @@ ANSWER_LOGIT_POLICY = (
     "full-sequence hidden states with vocabulary logits projected only at the union "
     "of supervised causal answer-predictor positions; ignored labels and token-mean "
     "cross-entropy are unchanged"
+)
+TRAINING_ROW_ID_POLICY = (
+    "source query ID plus an explicit positive-condition suffix; evaluation IDs remain "
+    "source query IDs for cross-condition causal pairing"
+)
+TRAINING_SAMPLING_POLICY = (
+    "exactly balanced condition-task strata, shuffled over complete epochs; every "
+    "source query is supervised once under every selected positive condition per epoch"
+)
+TRAINING_PAYLOAD_DIGEST_POLICY = (
+    "canonical SHA-256 over every ordered encoded training-example field used by the "
+    "write, read, routing, and answer objectives"
+)
+TRAINING_FAMILY_INVARIANT_POLICY = (
+    "condition variants of one source query retain source split, episode, task, "
+    "semantic target, mapping offset, and encoded query prefix"
 )
 
 
@@ -1272,6 +1308,7 @@ def _build_distributed_preflight_gate(
     router_gradient_audit = training.get("router_gradient_audit")
     if not isinstance(router_gradient_audit, Mapping):
         router_gradient_audit = {}
+    training_dataset_audit = training.get("training_dataset_audit")
 
     headroom_by_rank: list[dict[str, int]] = []
     memory_evidence_passed = len(rank_memory) == distributed.REQUIRED_WORLD_SIZE
@@ -1496,9 +1533,16 @@ def _build_distributed_preflight_gate(
         ),
         "communication_inclusive_memory_headroom": memory_evidence_passed,
         "rank_zero_progress_evidence": _is_sha256(training.get("progress_sha256")),
+        "compositional_training_dataset": (
+            isinstance(training_dataset_audit, Mapping)
+            and validate_production_training_contract(
+                training_dataset_audit,
+                schedule_mode="preflight",
+            )
+        ),
     }
     return {
-        "schema": "rwkv_ms_natural_memory_distributed_preflight_gate.v1",
+        "schema": DISTRIBUTED_PREFLIGHT_GATE_SCHEMA,
         "minimum_headroom_bytes": MINIMUM_DISTRIBUTED_HEADROOM_BYTES,
         "headroom_by_rank": headroom_by_rank,
         "checks": checks,
@@ -1517,7 +1561,7 @@ def build_distributed_preflight_gate(
     except Exception as error:
         checks = {"evidence_well_formed": False}
         return {
-            "schema": "rwkv_ms_natural_memory_distributed_preflight_gate.v1",
+            "schema": DISTRIBUTED_PREFLIGHT_GATE_SCHEMA,
             "minimum_headroom_bytes": MINIMUM_DISTRIBUTED_HEADROOM_BYTES,
             "headroom_by_rank": [],
             "checks": checks,
@@ -2302,8 +2346,474 @@ def build_training_examples(
 ) -> list[NaturalMemoryExample]:
     examples: list[NaturalMemoryExample] = []
     for condition in _parse_training_conditions(training_conditions):
-        examples.extend(build_condition_examples(episodes, tokenizer, condition))
+        for example in build_condition_examples(episodes, tokenizer, condition):
+            suffix = f"::training-condition={condition}"
+            if suffix in example.row_id:
+                raise ValueError("Source query ID collides with the training ID policy")
+            examples.append(replace(example, row_id=example.row_id + suffix))
     return examples
+
+
+def audit_training_dataset(
+    examples: Sequence[NaturalMemoryExample],
+    training_conditions: str | Sequence[str] = DEFAULT_TRAINING_CONDITIONS,
+) -> dict[str, Any]:
+    """Prove exact condition/task balance and paired counterfactual coverage."""
+
+    selected_conditions = _parse_training_conditions(training_conditions)
+    if not examples:
+        raise ValueError("Training dataset audit requires at least one example")
+    tasks = tuple(sorted({example.task for example in examples}))
+    if not tasks or any(not task for task in tasks):
+        raise ValueError("Training dataset audit requires named tasks")
+
+    row_ids = [example.row_id for example in examples]
+    unique_row_ids = len(set(row_ids)) == len(row_ids)
+    observed_conditions = {example.condition for example in examples}
+    condition_set_exact = observed_conditions == set(selected_conditions)
+    condition_task_counts = Counter(
+        (example.condition, example.task) for example in examples
+    )
+    expected_strata = {
+        (condition, task) for condition in selected_conditions for task in tasks
+    }
+    strata_exact = set(condition_task_counts) == expected_strata
+    stratum_sizes = set(condition_task_counts.values())
+    strata_balanced = strata_exact and len(stratum_sizes) == 1
+
+    source_query_conditions: dict[str, list[str]] = defaultdict(list)
+    source_query_examples: dict[str, list[NaturalMemoryExample]] = defaultdict(list)
+    row_id_policy_passed = True
+    for example in examples:
+        suffix = f"::training-condition={example.condition}"
+        if not example.row_id.endswith(suffix):
+            row_id_policy_passed = False
+            continue
+        source_query_id = example.row_id[: -len(suffix)]
+        source_query_conditions[source_query_id].append(example.condition)
+        source_query_examples[source_query_id].append(example)
+    complete_condition_families = sum(
+        Counter(conditions) == Counter(selected_conditions)
+        for conditions in source_query_conditions.values()
+    )
+    family_total = len(source_query_conditions)
+    paired_condition_coverage = (
+        row_id_policy_passed
+        and family_total > 0
+        and complete_condition_families == family_total
+        and len(examples) == family_total * len(selected_conditions)
+    )
+
+    family_invariant_failures: list[str] = []
+    for source_query_id, family in source_query_examples.items():
+        if Counter(example.condition for example in family) != Counter(
+            selected_conditions
+        ):
+            family_invariant_failures.append(source_query_id)
+            continue
+        signatures = {
+            source.canonical_json(
+                {
+                    "source_split": example.source_split,
+                    "episode_id": example.episode_id,
+                    "task": example.task,
+                    "source_mapping_offset": example.source_mapping_offset,
+                    "semantic_target_slot": example.semantic_target_slot,
+                    "query_prefix_length": example.query_prefix_length,
+                    "read_input_prefix": list(
+                        example.read_input_ids[: example.query_prefix_length]
+                    ),
+                    "read_attention_prefix": list(
+                        example.read_attention_mask[: example.query_prefix_length]
+                    ),
+                    "query_mask_prefix": list(
+                        example.query_mask[: example.query_prefix_length]
+                    ),
+                }
+            )
+            for example in family
+        }
+        if len(signatures) != 1:
+            family_invariant_failures.append(source_query_id)
+    family_invariants_passed = not family_invariant_failures
+
+    payloads = [_training_example_payload(example) for example in examples]
+    row_id_set_sha256 = _sha256_json(sorted(row_ids))
+    ordered_training_examples_sha256 = _sha256_json(payloads)
+
+    answer_tokens = Counter()
+    rows_by_condition = Counter()
+    rows_by_task = Counter()
+    for example in examples:
+        answer_tokens[(example.condition, example.task)] += len(
+            example.expected_answer_token_ids
+        )
+        rows_by_condition[example.condition] += 1
+        rows_by_task[example.task] += 1
+
+    passed = (
+        unique_row_ids
+        and condition_set_exact
+        and strata_balanced
+        and paired_condition_coverage
+        and family_invariants_passed
+    )
+    return {
+        "schema": TRAINING_DATASET_AUDIT_SCHEMA,
+        "training_conditions": list(selected_conditions),
+        "tasks": list(tasks),
+        "rows": len(examples),
+        "unique_row_ids": unique_row_ids,
+        "row_id_policy": TRAINING_ROW_ID_POLICY,
+        "row_id_policy_passed": row_id_policy_passed,
+        "sampling_policy": TRAINING_SAMPLING_POLICY,
+        "payload_digest_policy": TRAINING_PAYLOAD_DIGEST_POLICY,
+        "family_invariant_policy": TRAINING_FAMILY_INVARIANT_POLICY,
+        "condition_set_exact": condition_set_exact,
+        "condition_task_strata_exact": strata_exact,
+        "condition_task_strata_balanced": strata_balanced,
+        "rows_per_condition_task": {
+            condition: {
+                task: condition_task_counts[(condition, task)] for task in tasks
+            }
+            for condition in selected_conditions
+        },
+        "answer_tokens_per_condition_task": {
+            condition: {
+                task: answer_tokens[(condition, task)] for task in tasks
+            }
+            for condition in selected_conditions
+        },
+        "rows_by_condition": {
+            condition: rows_by_condition[condition]
+            for condition in selected_conditions
+        },
+        "rows_by_task": {task: rows_by_task[task] for task in tasks},
+        "source_query_condition_families": family_total,
+        "complete_source_query_condition_families": complete_condition_families,
+        "paired_condition_coverage": paired_condition_coverage,
+        "family_invariants_passed": family_invariants_passed,
+        "family_invariant_failure_count": len(family_invariant_failures),
+        "training_row_id_set_sha256": row_id_set_sha256,
+        "ordered_training_examples_sha256": ordered_training_examples_sha256,
+        "passed": passed,
+    }
+
+
+def _training_example_payload(example: NaturalMemoryExample) -> dict[str, Any]:
+    """Return the encoded fields that determine one training objective row."""
+
+    return {
+        "row_id": example.row_id,
+        "memory_state_id": example.memory_state_id,
+        "source_split": example.source_split,
+        "source_mapping_offset": example.source_mapping_offset,
+        "condition": example.condition,
+        "write_records": list(example.write_records),
+        "write_slots": list(example.write_slots),
+        "read_input_ids": list(example.read_input_ids),
+        "read_attention_mask": list(example.read_attention_mask),
+        "query_mask": list(example.query_mask),
+        "answer_mask": list(example.answer_mask),
+        "labels": list(example.labels),
+        "target_slot": example.target_slot,
+        "expected_answer_token_ids": list(example.expected_answer_token_ids),
+        "expected_value": example.expected_value,
+        "target_slot_rewrite_selection": example.target_slot_rewrite_selection,
+        "episode_id": example.episode_id,
+        "task": example.task,
+        "semantic_target_slot": example.semantic_target_slot,
+        "write_record_ids": list(example.write_record_ids),
+        "write_semantic_slots": list(example.write_semantic_slots),
+        "write_value_jsons": list(example.write_value_jsons),
+        "record_payload_sha256": example.record_payload_sha256,
+        "binding_absent_from_training": example.binding_absent_from_training,
+        "query_prefix_length": example.query_prefix_length,
+    }
+
+
+def training_dataset_audit_checks(audit: Mapping[str, Any]) -> dict[str, bool]:
+    """Recompute the self-contained structural claims in a dataset audit."""
+
+    conditions = audit.get("training_conditions")
+    tasks = audit.get("tasks")
+    rows = audit.get("rows")
+    condition_task_counts = audit.get("rows_per_condition_task")
+    answer_token_counts = audit.get("answer_tokens_per_condition_task")
+    rows_by_condition = audit.get("rows_by_condition")
+    rows_by_task = audit.get("rows_by_task")
+    valid_conditions = (
+        isinstance(conditions, list)
+        and bool(conditions)
+        and all(isinstance(condition, str) and condition for condition in conditions)
+        and len(set(conditions)) == len(conditions)
+        and set(conditions).issubset(POSITIVE_CONDITIONS)
+    )
+    valid_tasks = (
+        isinstance(tasks, list)
+        and bool(tasks)
+        and tasks == sorted(tasks)
+        and all(isinstance(task, str) and task for task in tasks)
+        and len(set(tasks)) == len(tasks)
+    )
+    valid_rows = type(rows) is int and rows > 0
+    expected_keys = (
+        {(condition, task) for condition in conditions for task in tasks}
+        if valid_conditions and valid_tasks
+        else set()
+    )
+    observed_counts: dict[tuple[str, str], Any] = {}
+    observed_tokens: dict[tuple[str, str], Any] = {}
+    nested_counts_valid = isinstance(condition_task_counts, Mapping)
+    nested_tokens_valid = isinstance(answer_token_counts, Mapping)
+    if nested_counts_valid:
+        for condition, task_counts in condition_task_counts.items():
+            if not isinstance(task_counts, Mapping):
+                nested_counts_valid = False
+                continue
+            for task, count in task_counts.items():
+                observed_counts[(condition, task)] = count
+    if nested_tokens_valid:
+        for condition, task_counts in answer_token_counts.items():
+            if not isinstance(task_counts, Mapping):
+                nested_tokens_valid = False
+                continue
+            for task, count in task_counts.items():
+                observed_tokens[(condition, task)] = count
+    counts_shape = (
+        nested_counts_valid
+        and set(observed_counts) == expected_keys
+        and all(type(value) is int and value > 0 for value in observed_counts.values())
+    )
+    tokens_shape = (
+        nested_tokens_valid
+        and set(observed_tokens) == expected_keys
+        and all(type(value) is int and value > 0 for value in observed_tokens.values())
+    )
+    rows_total = counts_shape and sum(observed_counts.values()) == rows
+    strata_balanced = (
+        counts_shape
+        and bool(observed_counts)
+        and len(set(observed_counts.values())) == 1
+    )
+    rows_by_condition_valid = (
+        isinstance(rows_by_condition, Mapping)
+        and valid_conditions
+        and set(rows_by_condition) == set(conditions)
+        and all(
+            type(rows_by_condition[condition]) is int
+            and rows_by_condition[condition] > 0
+            for condition in conditions
+        )
+        and all(
+            rows_by_condition[condition]
+            == sum(observed_counts.get((condition, task), -1) for task in tasks)
+            for condition in conditions
+        )
+    )
+    rows_by_task_valid = (
+        isinstance(rows_by_task, Mapping)
+        and valid_tasks
+        and set(rows_by_task) == set(tasks)
+        and all(
+            type(rows_by_task[task]) is int and rows_by_task[task] > 0
+            for task in tasks
+        )
+        and all(
+            rows_by_task[task]
+            == sum(observed_counts.get((condition, task), -1) for condition in conditions)
+            for task in tasks
+        )
+    )
+    family_total = audit.get("source_query_condition_families")
+    complete_families = audit.get("complete_source_query_condition_families")
+    family_counts_valid = (
+        type(family_total) is int
+        and family_total > 0
+        and type(complete_families) is int
+        and complete_families == family_total
+        and valid_conditions
+        and valid_rows
+        and rows == family_total * len(conditions)
+    )
+    return {
+        "schema": audit.get("schema") == TRAINING_DATASET_AUDIT_SCHEMA,
+        "conditions_valid": valid_conditions,
+        "tasks_valid": valid_tasks,
+        "rows_valid": valid_rows,
+        "unique_row_ids": audit.get("unique_row_ids") is True,
+        "row_id_policy": audit.get("row_id_policy") == TRAINING_ROW_ID_POLICY,
+        "row_id_policy_passed": audit.get("row_id_policy_passed") is True,
+        "sampling_policy": audit.get("sampling_policy") == TRAINING_SAMPLING_POLICY,
+        "payload_digest_policy": audit.get("payload_digest_policy")
+        == TRAINING_PAYLOAD_DIGEST_POLICY,
+        "family_invariant_policy": audit.get("family_invariant_policy")
+        == TRAINING_FAMILY_INVARIANT_POLICY,
+        "condition_set_exact": audit.get("condition_set_exact") is True,
+        "condition_task_strata_exact": audit.get("condition_task_strata_exact") is True
+        and counts_shape,
+        "condition_task_strata_balanced": audit.get(
+            "condition_task_strata_balanced"
+        )
+        is True
+        and strata_balanced,
+        "answer_token_counts_valid": tokens_shape,
+        "rows_total_consistent": rows_total,
+        "rows_by_condition_consistent": rows_by_condition_valid,
+        "rows_by_task_consistent": rows_by_task_valid,
+        "paired_condition_coverage": audit.get("paired_condition_coverage") is True
+        and family_counts_valid,
+        "family_invariants_passed": audit.get("family_invariants_passed") is True
+        and audit.get("family_invariant_failure_count") == 0,
+        "training_row_id_set_sha256": _is_sha256(
+            audit.get("training_row_id_set_sha256")
+        ),
+        "ordered_training_examples_sha256": _is_sha256(
+            audit.get("ordered_training_examples_sha256")
+        ),
+        "passed": audit.get("passed") is True,
+    }
+
+
+def production_training_dataset_checks(
+    audit: Mapping[str, Any],
+) -> dict[str, bool]:
+    basic = training_dataset_audit_checks(audit)
+    rows_per_condition_task = audit.get("rows_per_condition_task")
+    expected_rows = {
+        condition: {
+            task: PRODUCTION_ROWS_PER_CONDITION_TASK for task in PRODUCTION_TASKS
+        }
+        for condition in SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS
+    }
+    checks = {
+        "audit_passed": all(basic.values()),
+        "conditions_exact": audit.get("training_conditions")
+        == list(SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS),
+        "tasks_exact": audit.get("tasks") == list(PRODUCTION_TASKS),
+        "rows_exact": audit.get("rows") == PRODUCTION_TRAINING_ROWS,
+        "rows_per_condition_task_exact": rows_per_condition_task == expected_rows,
+        "source_query_families_exact": audit.get(
+            "source_query_condition_families"
+        )
+        == PRODUCTION_ROWS_PER_CONDITION_TASK * len(PRODUCTION_TASKS),
+        "complete_source_query_families_exact": audit.get(
+            "complete_source_query_condition_families"
+        )
+        == PRODUCTION_ROWS_PER_CONDITION_TASK * len(PRODUCTION_TASKS),
+    }
+    checks.update({f"audit.{name}": passed for name, passed in basic.items()})
+    return checks
+
+
+def bind_production_training_contract(
+    audit: Mapping[str, Any],
+    *,
+    epochs: int,
+    global_batch_size: int,
+    requested_max_steps: int | None,
+    schedule_mode: str,
+) -> dict[str, Any]:
+    """Attach and validate the exact data/schedule contract used by a run."""
+
+    if schedule_mode not in {"complete", "preflight"}:
+        raise ValueError(f"Unknown training schedule mode: {schedule_mode}")
+    bound = dict(audit)
+    complete_epoch_updates = (
+        audit["rows"] * epochs // global_batch_size
+        if type(audit.get("rows")) is int
+        and audit["rows"] % global_batch_size == 0
+        else None
+    )
+    bound["schedule_contract"] = {
+        "epochs": epochs,
+        "global_batch_size": global_batch_size,
+        "rows_divide_global_batch": complete_epoch_updates is not None,
+        "complete_epoch_updates": complete_epoch_updates,
+        "requested_max_steps": requested_max_steps,
+        "complete_epoch_schedule_requested": (
+            requested_max_steps is None
+            or requested_max_steps == complete_epoch_updates
+        ),
+    }
+    dataset_checks = production_training_dataset_checks(bound)
+    bound["production_dataset_contract_checks"] = dataset_checks
+    bound["production_dataset_contract_passed"] = all(dataset_checks.values())
+    expected_schedule = (
+        schedule_mode == "preflight"
+        and epochs == PRODUCTION_EPOCHS
+        and global_batch_size == distributed.REQUIRED_GLOBAL_BATCH_SIZE
+        and requested_max_steps == DISTRIBUTED_PREFLIGHT_STEPS
+    ) or (
+        schedule_mode == "complete"
+        and epochs == PRODUCTION_EPOCHS
+        and global_batch_size == distributed.REQUIRED_GLOBAL_BATCH_SIZE
+        and requested_max_steps == PRODUCTION_UPDATES
+    )
+    schedule = bound["schedule_contract"]
+    schedule_checks = {
+        "schedule_mode": schedule_mode in {"complete", "preflight"},
+        "epochs_exact": epochs == PRODUCTION_EPOCHS,
+        "global_batch_exact": global_batch_size
+        == distributed.REQUIRED_GLOBAL_BATCH_SIZE,
+        "rows_divide_global_batch": schedule["rows_divide_global_batch"] is True,
+        "complete_epoch_updates_exact": complete_epoch_updates == PRODUCTION_UPDATES,
+        "requested_max_steps_exact": expected_schedule,
+        "complete_epoch_schedule_requested": schedule[
+            "complete_epoch_schedule_requested"
+        ]
+        is (schedule_mode == "complete"),
+    }
+    bound["schedule_mode"] = schedule_mode
+    bound["schedule_contract_checks"] = schedule_checks
+    bound["schedule_contract_passed"] = all(schedule_checks.values())
+    bound["production_contract_checks"] = {
+        "dataset": bound["production_dataset_contract_passed"],
+        "schedule": bound["schedule_contract_passed"],
+    }
+    bound["production_contract_passed"] = all(
+        bound["production_contract_checks"].values()
+    )
+    return bound
+
+
+def validate_production_training_contract(
+    audit: Mapping[str, Any], *, schedule_mode: str
+) -> bool:
+    """Recompute the bound production contract and reject self-reported spoofing."""
+
+    if not isinstance(audit, Mapping):
+        return False
+    try:
+        bound = bind_production_training_contract(
+            audit,
+            epochs=PRODUCTION_EPOCHS,
+            global_batch_size=distributed.REQUIRED_GLOBAL_BATCH_SIZE,
+            requested_max_steps=(
+                DISTRIBUTED_PREFLIGHT_STEPS
+                if schedule_mode == "preflight"
+                else PRODUCTION_UPDATES
+            ),
+            schedule_mode=schedule_mode,
+        )
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return False
+    return (
+        bound.get("production_dataset_contract_checks")
+        == audit.get("production_dataset_contract_checks")
+        and bound.get("production_dataset_contract_passed")
+        == audit.get("production_dataset_contract_passed")
+        and bound.get("schedule_contract") == audit.get("schedule_contract")
+        and bound.get("schedule_mode") == audit.get("schedule_mode")
+        and bound.get("schedule_contract_checks") == audit.get("schedule_contract_checks")
+        and bound.get("schedule_contract_passed")
+        == audit.get("schedule_contract_passed")
+        and bound.get("production_contract_checks")
+        == audit.get("production_contract_checks")
+        and bound.get("production_contract_passed")
+        == audit.get("production_contract_passed")
+        and audit.get("production_contract_passed") is True
+    )
 
 
 def _read_json_file(path: Path, description: str) -> Mapping[str, Any]:
@@ -3724,6 +4234,27 @@ def build_gate(
         and trainable_audit.get("passed") is True
     )
     checks["source_and_model.immutable"] = bool(immutability_passed)
+    if training is not None:
+        training_dataset_audit = training.get("training_dataset_audit", {})
+        try:
+            audit_checks = (
+                training_dataset_audit_checks(training_dataset_audit)
+                if isinstance(training_dataset_audit, Mapping)
+                else {}
+            )
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            audit_checks = {}
+        checks["training.dataset_audit"] = bool(audit_checks) and all(
+            audit_checks.values()
+        )
+        if formal_profile:
+            checks["training.compositional_production_dataset"] = (
+                isinstance(training_dataset_audit, Mapping)
+                and validate_production_training_contract(
+                    training_dataset_audit,
+                    schedule_mode="complete",
+                )
+            )
     if training is not None and training.get("optimizer_skipped") is not True:
         checks["training.adapter_changed"] = training.get("adapter_changed") is True
         checks["training.router_gradient"] = training.get(
@@ -3731,7 +4262,7 @@ def build_gate(
         ).get("all_modules_finite_nonzero") is True
 
     return {
-        "schema": "rwkv_ms_natural_memory_gate_acceptance.v1",
+        "schema": ACCEPTANCE_SCHEMA,
         "thresholds": {
             "answer_exact_min": thresholds.answer_exact_min,
             "route_accuracy_min": thresholds.route_accuracy_min,
@@ -3794,17 +4325,67 @@ def validate_sealed_lock_chain(
         raise ValueError(f"Development run directory is invalid: {run_dir}")
     protocol_path = run_dir / "protocol.json"
     training_path = run_dir / "training_configuration.json"
+    evaluation_path = run_dir / "evaluation.json"
     receipt_path = run_dir / "run_receipt.json"
-    for path in (protocol_path, training_path, receipt_path):
+    for path in (protocol_path, training_path, evaluation_path, receipt_path):
         if path.is_symlink() or not path.is_file():
             raise ValueError(f"Sealed lock chain artifact is missing: {path}")
     development_protocol = _read_json_file(protocol_path, "development protocol")
     development_training = _read_json_file(
         training_path, "development training configuration"
     )
-    protocol_hash = source.sha256_text(source.canonical_json(development_protocol))
-    training_hash = source.sha256_text(source.canonical_json(development_training))
+    development_evaluation = _read_json_file(
+        evaluation_path, "development evaluation"
+    )
+    if (
+        development_protocol.get("schema") != PROTOCOL_SCHEMA
+        or development_training.get("schema") != TRAINING_CONFIGURATION_SCHEMA
+        or development_evaluation.get("schema") != EVALUATION_SCHEMA
+    ):
+        raise ValueError("Development run uses an incompatible protocol schema")
+    if (
+        development_protocol.get("runner_schema") != RUN_SCHEMA
+        or development_protocol.get("profile") != "development"
+        or development_training.get("profile") != "development"
+        or development_evaluation.get("profile") != "development"
+    ):
+        raise ValueError("Development artifacts do not share the development profile")
+
+    protocol_hash = _sha256_json(development_protocol)
+    training_hash = _sha256_json(development_training)
+    evaluation_hash = _sha256_json(development_evaluation)
+    protocol_audit = _require_mapping(
+        development_protocol.get("training_dataset_audit"),
+        "development protocol training dataset audit",
+    )
+    training_dataset_audit = _require_mapping(
+        development_training.get("training_dataset_audit"),
+        "development training configuration dataset audit",
+    )
+    evaluation_training = _require_mapping(
+        development_evaluation.get("training"),
+        "development evaluation training evidence",
+    )
+    evaluation_audit = _require_mapping(
+        evaluation_training.get("training_dataset_audit"),
+        "development evaluation training dataset audit",
+    )
+    if not (
+        protocol_audit == training_dataset_audit == evaluation_audit
+    ):
+        raise ValueError(
+            "Development artifacts contain different training dataset audits"
+        )
+    if not validate_production_training_contract(
+        training_dataset_audit,
+        schedule_mode="complete",
+    ):
+        raise ValueError("Development training dataset audit is not production-valid")
+    training_dataset_audit_hash = _sha256_json(training_dataset_audit)
+
     receipt = _read_json_file(receipt_path, "development run receipt")
+    if receipt.get("schema") != RUN_SCHEMA:
+        raise ValueError("Development run receipt schema is incompatible")
     unsigned_receipt = dict(receipt)
     recorded_receipt_hash = unsigned_receipt.pop("run_receipt_sha256", None)
     if recorded_receipt_hash != _signed_payload(
@@ -3813,11 +4394,57 @@ def validate_sealed_lock_chain(
         raise ValueError("Development run receipt signature is invalid")
     if receipt.get("profile") != "development":
         raise ValueError("Sealed lock chain does not point to a development run")
+
+    evaluation_gate = _require_mapping(
+        development_evaluation.get("gate"), "development evaluation gate"
+    )
+    receipt_gate = _require_mapping(receipt.get("gate"), "development receipt gate")
+    if evaluation_gate != receipt_gate:
+        raise ValueError("Development receipt gate differs from the evaluation gate")
+    gate_checks = _require_mapping(
+        evaluation_gate.get("checks"), "development evaluation gate checks"
+    )
+    genuine_gate_pass = (
+        evaluation_gate.get("schema") == ACCEPTANCE_SCHEMA
+        and evaluation_gate.get("passed") is True
+        and evaluation_gate.get("failed_checks") == []
+        and bool(gate_checks)
+        and all(value is True for value in gate_checks.values())
+        and receipt.get("gate_passed") is True
+    )
+    if not genuine_gate_pass:
+        raise ValueError("Development evaluation does not prove a passing gate")
+
     manifest_payload_hash = receipt.get("source_manifest_payload_sha256")
+    if not _is_sha256(manifest_payload_hash):
+        raise ValueError("Development receipt has an invalid manifest payload digest")
+    expected_benchmark_hash = sealed_manifest.get("benchmark_contract_sha256")
+    required_lock_digests = (
+        "benchmark_contract_sha256",
+        "development_manifest_payload_sha256",
+        "runner_protocol_sha256",
+        "training_configuration_sha256",
+        "training_dataset_audit_sha256",
+        "evaluation_sha256",
+        "development_run_receipt_sha256",
+        "adapter_files_sha256",
+    )
+    if (
+        lock.get("schema") != source.SEALED_LOCK_SCHEMA
+        or lock.get("configuration_frozen") is not True
+        or lock.get("development_gate_passed") is not True
+        or not _is_sha256(expected_benchmark_hash)
+        or lock.get("benchmark_contract_sha256") != expected_benchmark_hash
+        or any(not _is_sha256(lock.get(name)) for name in required_lock_digests)
+        or sealed_lock.get("receipt_sha256") != _sha256_json(lock)
+    ):
+        raise ValueError("Sealed lock receipt is invalid or not frozen")
     required = {
         "development_manifest_payload_sha256": manifest_payload_hash,
         "runner_protocol_sha256": protocol_hash,
         "training_configuration_sha256": training_hash,
+        "training_dataset_audit_sha256": training_dataset_audit_hash,
+        "evaluation_sha256": evaluation_hash,
     }
     for name, value in required.items():
         if lock.get(name) != value:
@@ -3825,12 +4452,11 @@ def validate_sealed_lock_chain(
     if (
         receipt.get("protocol_sha256") != protocol_hash
         or receipt.get("training_configuration_sha256") != training_hash
+        or receipt.get("training_dataset_audit_sha256")
+        != training_dataset_audit_hash
+        or receipt.get("evaluation_sha256") != evaluation_hash
     ):
         raise ValueError("Development receipt does not bind its protocol files")
-    if receipt.get("gate_passed") is not True:
-        raise ValueError("Sealed lock chain points to a failing development run")
-    if lock.get("development_gate_passed") is not True:
-        raise ValueError("Sealed lock does not assert a passing development gate")
     if lock.get("development_run_receipt_sha256") != recorded_receipt_hash:
         raise ValueError("Sealed lock does not bind the signed development receipt")
     requested_adapter = adapter_path.expanduser()
@@ -3845,12 +4471,17 @@ def validate_sealed_lock_chain(
     if receipt.get("adapter_files") != adapter_files:
         raise ValueError("Sealed adapter artifacts differ from the development receipt")
     adapter_files_sha256 = _sha256_json(adapter_files)
-    if lock.get("adapter_files_sha256") != adapter_files_sha256:
+    if (
+        receipt.get("adapter_files_sha256") != adapter_files_sha256
+        or lock.get("adapter_files_sha256") != adapter_files_sha256
+    ):
         raise ValueError("Sealed lock does not bind the exact adapter artifacts")
     return {
         "development_run_dir": str(run_dir),
         "protocol_sha256": protocol_hash,
         "training_configuration_sha256": training_hash,
+        "training_dataset_audit_sha256": training_dataset_audit_hash,
+        "evaluation_sha256": evaluation_hash,
         "development_manifest_payload_sha256": manifest_payload_hash,
         "adapter_path": str(adapter),
         "adapter_files": adapter_files,
@@ -3858,6 +4489,7 @@ def validate_sealed_lock_chain(
         "development_run_receipt_sha256": recorded_receipt_hash,
         "development_protocol": development_protocol,
         "development_training_configuration": development_training,
+        "development_evaluation": development_evaluation,
         "passed": True,
     }
 
@@ -3900,25 +4532,25 @@ def run_experiment(
     model_path: Path | None = None,
     adapter_path: Path | None = None,
     development_run_dir: Path | None = None,
-    seed: int = 42,
+    seed: int = PRODUCTION_SEED,
     train_limit: int | None = None,
     eval_limit: int | None = None,
-    epochs: int = 8,
-    max_steps: int | None = 768,
-    batch_size: int = 4,
-    eval_batch_size: int = 8,
-    learning_rate: float = 2e-4,
-    answer_weight: float = 1.0,
-    route_weight: float = 1.0,
-    max_grad_norm: float = 1.0,
+    epochs: int = PRODUCTION_EPOCHS,
+    max_steps: int | None = PRODUCTION_UPDATES,
+    batch_size: int = distributed.REQUIRED_GLOBAL_BATCH_SIZE,
+    eval_batch_size: int = PRODUCTION_EVAL_BATCH_SIZE,
+    learning_rate: float = PRODUCTION_LEARNING_RATE,
+    answer_weight: float = PRODUCTION_ANSWER_WEIGHT,
+    route_weight: float = PRODUCTION_ROUTE_WEIGHT,
+    max_grad_norm: float = PRODUCTION_MAX_GRAD_NORM,
     device_name: str = "cuda",
-    dtype_name: str = "bfloat16",
-    attn_implementation: str = "sdpa",
+    dtype_name: str = PRODUCTION_DTYPE,
+    attn_implementation: str = PRODUCTION_ATTN_IMPLEMENTATION,
     target_layers: Sequence[int] = DEFAULT_TARGET_LAYERS,
     training_conditions: Sequence[str] = DEFAULT_TRAINING_CONDITIONS,
     rank: int = PRODUCTION_ADAPTER_RANK,
-    key_dim: int = 32,
-    temperature: float = 16.0,
+    key_dim: int = PRODUCTION_KEY_DIM,
+    temperature: float = PRODUCTION_TEMPERATURE,
     greedy: bool = True,
     answer_exact_min: float = PRODUCTION_ANSWER_EXACT_MIN,
     route_accuracy_min: float = PRODUCTION_ROUTE_ACCURACY_MIN,
@@ -4350,11 +4982,22 @@ def run_experiment(
             raise output_error
     progress_path = resolved_output / "training_progress.jsonl"
     if profile == "sealed_validation":
+        development_training_configuration = _require_mapping(
+            (sealed_chain or {}).get("development_training_configuration"),
+            "locked development training configuration",
+        )
+        training_dataset_audit = dict(
+            _require_mapping(
+                development_training_configuration.get("training_dataset_audit"),
+                "locked training dataset audit",
+            )
+        )
         training: dict[str, Any] = {
             "optimizer_skipped": True,
             "steps": 0,
             "adapter_changed": None,
             "router_gradient_audit": {"all_modules_finite_nonzero": True},
+            "training_dataset_audit": training_dataset_audit,
         }
         adapter_files = dict((sealed_chain or {})["adapter_files"])
     else:
@@ -4385,6 +5028,63 @@ def run_experiment(
                 distributed_context,
                 ordered_training_examples_sha256,
                 description="ordered training examples",
+            )
+        training_dataset_audit = audit_training_dataset(
+            training_examples,
+            selected_training_conditions,
+        )
+        if profile == "development":
+            training_dataset_audit = bind_production_training_contract(
+                training_dataset_audit,
+                epochs=epochs,
+                global_batch_size=batch_size,
+                requested_max_steps=max_steps,
+                schedule_mode=("preflight" if distributed_preflight else "complete"),
+            )
+            if not validate_production_training_contract(
+                training_dataset_audit,
+                schedule_mode=("preflight" if distributed_preflight else "complete"),
+            ):
+                failed_dataset_checks = sorted(
+                    name for name, passed in training_dataset_audit.get(
+                        "production_dataset_contract_checks", {}
+                    ).items()
+                    if not passed
+                )
+                raise ValueError(
+                    "Formal development training dataset differs from the "
+                    "compositional production contract: "
+                    + ", ".join(failed_dataset_checks)
+                )
+        else:
+            basic_checks = training_dataset_audit_checks(training_dataset_audit)
+            if not all(basic_checks.values()):
+                raise ValueError(
+                    "Training dataset audit is inconsistent: "
+                    + ", ".join(
+                        name for name, passed in basic_checks.items() if not passed
+                    )
+                )
+            complete_epoch_updates = (
+                len(training_examples) * epochs // batch_size
+                if len(training_examples) % batch_size == 0
+                else None
+            )
+            training_dataset_audit["schedule_contract"] = {
+                "epochs": epochs,
+                "global_batch_size": batch_size,
+                "rows_divide_global_batch": complete_epoch_updates is not None,
+                "complete_epoch_updates": complete_epoch_updates,
+                "requested_max_steps": max_steps,
+                "complete_epoch_schedule_requested": (
+                    max_steps is None or max_steps == complete_epoch_updates
+                ),
+            }
+        if distributed_context is not None:
+            distributed.require_consensus(
+                distributed_context,
+                distributed.canonical_sha256(training_dataset_audit),
+                description="training dataset audit",
             )
         if distributed_context is None:
             training = dict(
@@ -4438,6 +5138,7 @@ def run_experiment(
                 phase="distributed-training-completion",
                 operation=run_distributed_training,
             )
+        training["training_dataset_audit"] = training_dataset_audit
 
         def prepare_post_training_evidence() -> tuple[
             Mapping[str, Any], str, bool, Mapping[str, Any], Mapping[str, Any]
@@ -4832,6 +5533,7 @@ def run_experiment(
         "profile": profile,
         "conditions": list(CONDITIONS),
         "training_conditions": list(selected_training_conditions),
+        "training_dataset_audit": training_dataset_audit,
         "opened_splits": list(bundle.eligibility["opened_splits"]),
         "hf_endpoint": HF_MIRROR_ENDPOINT,
         "model_binding_sha256": bundle.model_binding["binding_sha256"],
@@ -4862,6 +5564,7 @@ def run_experiment(
         frozen_fields = (
             "conditions",
             "training_conditions",
+            "training_dataset_audit",
             "hf_endpoint",
             "model_binding_sha256",
             "target_layers",
@@ -4890,10 +5593,11 @@ def run_experiment(
                 + ", ".join(mismatches)
             )
     training_configuration = {
-        "schema": "rwkv_ms_natural_memory_gate_training_configuration.v2",
+        "schema": TRAINING_CONFIGURATION_SCHEMA,
         "profile": profile,
         "seed": seed,
         "training_conditions": list(selected_training_conditions),
+        "training_dataset_audit": training_dataset_audit,
         "train_limit": train_limit,
         "eval_limit": eval_limit,
         "epochs": epochs,
@@ -4959,6 +5663,7 @@ def run_experiment(
         "model_files_after": model_after,
         "protocol_sha256": protocol_hash,
         "training_configuration_sha256": training_configuration_hash,
+        "training_dataset_audit_sha256": _sha256_json(training_dataset_audit),
         "evaluation_sha256": _sha256_json(evaluation_payload),
         "replaced_layers": list(replaced_layers),
         "trainable_names": list(trainable_names),
@@ -4982,6 +5687,10 @@ def run_experiment(
             ]["payload_sha256"],
             "runner_protocol_sha256": protocol_hash,
             "training_configuration_sha256": training_configuration_hash,
+            "training_dataset_audit_sha256": _sha256_json(
+                training_dataset_audit
+            ),
+            "evaluation_sha256": _sha256_json(evaluation_payload),
             "development_run_receipt_sha256": receipt["run_receipt_sha256"],
             "adapter_files_sha256": adapter_files_sha256,
         }
@@ -5006,17 +5715,23 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--model-path", type=Path)
     parser.add_argument("--adapter-path", type=Path)
     parser.add_argument("--development-run-dir", type=Path)
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seed", type=int, default=PRODUCTION_SEED)
     parser.add_argument("--train-limit", type=int)
     parser.add_argument("--eval-limit", type=int)
-    parser.add_argument("--epochs", type=int, default=8)
-    parser.add_argument("--max-steps", type=int, default=768)
-    parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--eval-batch-size", type=int, default=8)
-    parser.add_argument("--learning-rate", type=float, default=2e-4)
-    parser.add_argument("--answer-weight", type=float, default=1.0)
-    parser.add_argument("--route-weight", type=float, default=1.0)
-    parser.add_argument("--max-grad-norm", type=float, default=1.0)
+    parser.add_argument("--epochs", type=int, default=PRODUCTION_EPOCHS)
+    parser.add_argument("--max-steps", type=int, default=PRODUCTION_UPDATES)
+    parser.add_argument(
+        "--batch-size", type=int, default=distributed.REQUIRED_GLOBAL_BATCH_SIZE
+    )
+    parser.add_argument(
+        "--eval-batch-size", type=int, default=PRODUCTION_EVAL_BATCH_SIZE
+    )
+    parser.add_argument(
+        "--learning-rate", type=float, default=PRODUCTION_LEARNING_RATE
+    )
+    parser.add_argument("--answer-weight", type=float, default=PRODUCTION_ANSWER_WEIGHT)
+    parser.add_argument("--route-weight", type=float, default=PRODUCTION_ROUTE_WEIGHT)
+    parser.add_argument("--max-grad-norm", type=float, default=PRODUCTION_MAX_GRAD_NORM)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", default="bfloat16")
     parser.add_argument("--attn-implementation", default="sdpa")
@@ -5025,13 +5740,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--training-conditions",
         default=",".join(DEFAULT_TRAINING_CONDITIONS),
         help=(
-            "Comma-separated positive memory conditions; formal default is "
-            "correct_state"
+            "Comma-separated positive memory conditions; the formal compositional "
+            "contract uses all five"
         ),
     )
     parser.add_argument("--rank", type=int, default=PRODUCTION_ADAPTER_RANK)
-    parser.add_argument("--key-dim", type=int, default=32)
-    parser.add_argument("--temperature", type=float, default=16.0)
+    parser.add_argument("--key-dim", type=int, default=PRODUCTION_KEY_DIM)
+    parser.add_argument("--temperature", type=float, default=PRODUCTION_TEMPERATURE)
     parser.add_argument("--no-greedy", dest="greedy", action="store_false")
     parser.add_argument(
         "--answer-exact-min", type=float, default=PRODUCTION_ANSWER_EXACT_MIN

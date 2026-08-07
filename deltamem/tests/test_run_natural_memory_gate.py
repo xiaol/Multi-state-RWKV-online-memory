@@ -70,6 +70,69 @@ def _payload_hash(records: list[dict[str, Any]]) -> str:
     return runner.source.sha256_text(_canonical(records))
 
 
+def _production_training_dataset_audit(
+    schedule_mode: str | None = None,
+) -> dict[str, Any]:
+    conditions = list(runner.DEFAULT_TRAINING_CONDITIONS)
+    tasks = list(runner.PRODUCTION_TASKS)
+    rows_per_condition_task = {
+        condition: {
+            task: runner.PRODUCTION_ROWS_PER_CONDITION_TASK for task in tasks
+        }
+        for condition in conditions
+    }
+    audit: dict[str, Any] = {
+        "schema": runner.TRAINING_DATASET_AUDIT_SCHEMA,
+        "training_conditions": conditions,
+        "tasks": tasks,
+        "rows": runner.PRODUCTION_TRAINING_ROWS,
+        "unique_row_ids": True,
+        "row_id_policy": runner.TRAINING_ROW_ID_POLICY,
+        "row_id_policy_passed": True,
+        "sampling_policy": runner.TRAINING_SAMPLING_POLICY,
+        "payload_digest_policy": runner.TRAINING_PAYLOAD_DIGEST_POLICY,
+        "family_invariant_policy": runner.TRAINING_FAMILY_INVARIANT_POLICY,
+        "condition_set_exact": True,
+        "condition_task_strata_exact": True,
+        "condition_task_strata_balanced": True,
+        "rows_per_condition_task": rows_per_condition_task,
+        "answer_tokens_per_condition_task": rows_per_condition_task,
+        "rows_by_condition": {
+            condition: runner.PRODUCTION_ROWS_PER_CONDITION_TASK * len(tasks)
+            for condition in conditions
+        },
+        "rows_by_task": {
+            task: runner.PRODUCTION_ROWS_PER_CONDITION_TASK * len(conditions)
+            for task in tasks
+        },
+        "source_query_condition_families": (
+            runner.PRODUCTION_ROWS_PER_CONDITION_TASK * len(tasks)
+        ),
+        "complete_source_query_condition_families": (
+            runner.PRODUCTION_ROWS_PER_CONDITION_TASK * len(tasks)
+        ),
+        "paired_condition_coverage": True,
+        "family_invariants_passed": True,
+        "family_invariant_failure_count": 0,
+        "training_row_id_set_sha256": "a" * 64,
+        "ordered_training_examples_sha256": "b" * 64,
+        "passed": True,
+    }
+    if schedule_mode is None:
+        return audit
+    return runner.bind_production_training_contract(
+        audit,
+        epochs=runner.PRODUCTION_EPOCHS,
+        global_batch_size=runner.distributed.REQUIRED_GLOBAL_BATCH_SIZE,
+        requested_max_steps=(
+            runner.DISTRIBUTED_PREFLIGHT_STEPS
+            if schedule_mode == "preflight"
+            else runner.PRODUCTION_UPDATES
+        ),
+        schedule_mode=schedule_mode,
+    )
+
+
 def _record(
     slot: int,
     value: str,
@@ -365,21 +428,29 @@ def test_query_encoding_rejects_a_token_crossing_the_answer_boundary(
         runner.encode_query_read(CrossingTokenizer(), query, query.gold_json)
 
 
-def test_training_curriculum_defaults_to_correct_state_and_allows_all_positive(
+def test_training_curriculum_defaults_to_balanced_paired_positive_states(
     episode: runner.NaturalEpisode,
     tokenizer: CharacterTokenizer,
 ) -> None:
     default_rows = runner.build_training_examples([episode], tokenizer)
-    assert len(default_rows) == 4
-    assert {row.condition for row in default_rows} == {"correct_state"}
+    assert len(default_rows) == 20
+    assert len({row.row_id for row in default_rows}) == 20
+    assert {row.condition for row in default_rows} == set(runner.POSITIVE_CONDITIONS)
+    audit = runner.audit_training_dataset(default_rows)
+    assert audit["passed"] is True
+    assert audit["source_query_condition_families"] == 4
+    assert audit["complete_source_query_condition_families"] == 4
+    assert audit["rows_per_condition_task"] == {
+        condition: {episode.task: 4} for condition in runner.POSITIVE_CONDITIONS
+    }
 
-    all_positive = runner.build_training_examples(
+    baseline = runner.build_training_examples(
         [episode],
         CharacterTokenizer(),
-        runner.SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS,
+        runner.BASELINE_TRAINING_CONDITIONS,
     )
-    assert len(all_positive) == 20
-    assert {row.condition for row in all_positive} == set(runner.POSITIVE_CONDITIONS)
+    assert len(baseline) == 4
+    assert {row.condition for row in baseline} == {"correct_state"}
 
     with pytest.raises(ValueError, match="positive memory conditions"):
         runner._parse_training_conditions("correct_state,no_state")
@@ -840,12 +911,35 @@ def test_gate_is_conjunctive_across_conditions_audits_and_artifact_checks() -> N
             "optimizer_skipped": False,
             "adapter_changed": True,
             "router_gradient_audit": {"all_modules_finite_nonzero": True},
+            "training_dataset_audit": _production_training_dataset_audit(
+                "complete"
+            ),
         },
     }
     evaluations = _passing_evaluations()
     gate = runner.build_gate(evaluations, **arguments)
     assert gate["passed"] is True
     assert gate["failed_checks"] == []
+
+    spoofed = deepcopy(arguments)
+    spoofed_audit = spoofed["training"]["training_dataset_audit"]
+    spoofed_audit["rows"] = 4
+    spoofed_audit["passed"] = True
+    spoofed_audit["production_contract_passed"] = True
+    rejected = runner.build_gate(evaluations, **spoofed)
+    assert rejected["passed"] is False
+    assert "training.dataset_audit" in rejected["failed_checks"]
+    assert "training.compositional_production_dataset" in rejected["failed_checks"]
+
+    malformed = deepcopy(arguments)
+    malformed["training"]["training_dataset_audit"] = {
+        "training_conditions": [[]],
+        "rows": "not-an-integer",
+    }
+    rejected = runner.build_gate(evaluations, **malformed)
+    assert rejected["passed"] is False
+    assert "training.dataset_audit" in rejected["failed_checks"]
+    assert "training.compositional_production_dataset" in rejected["failed_checks"]
 
     failing = deepcopy(evaluations)
     failing["value_swap"]["semantic_route_accuracy"] = 0.0
@@ -1104,6 +1198,11 @@ def test_distributed_preflight_primary_and_worker_complete_lifecycle(
         "build_training_examples",
         lambda *_args, **_kwargs: [SimpleNamespace(row_id=f"row-{index}") for index in range(4)],
     )
+    monkeypatch.setattr(
+        runner,
+        "audit_training_dataset",
+        lambda *_args, **_kwargs: _production_training_dataset_audit(),
+    )
 
     def fake_train_model_distributed(
         current_model: torch.nn.Linear,
@@ -1208,6 +1307,10 @@ def test_natural_cli_defaults_to_profiled_rank_32() -> None:
     )
 
     assert args.rank == runner.PRODUCTION_ADAPTER_RANK == 32
+    assert args.max_steps == runner.PRODUCTION_UPDATES == 3840
+    assert runner._parse_training_conditions(args.training_conditions) == (
+        runner.SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS
+    )
 
 
 def test_natural_training_progress_rewrites_shared_runtime_schema(
