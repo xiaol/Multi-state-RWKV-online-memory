@@ -1,0 +1,18 @@
+{
+  "benchmark_contract_sha256": "40f723903853587ab1de1f7f205d71229c03968453791a4720b684d84fd88d55",
+  "compatibility": {
+    "lock_schema_override": "novel_natural_causal_memory_gate.sealed_lock.v3",
+    "method": "byte-exact legacy dataset generator loaded with an in-memory v3 lock-schema compatibility override; generated split bytes are bound by the manifest hash",
+    "reason": "The v3 lock validator adds metadata-only fields to the generator file; the development benchmark contract binds the earlier byte-exact generator"
+  },
+  "generator_source_commit": "1bd57c4",
+  "generator_source_sha256": "6172aa46f516e465d569e7ebba3667369755e2a4b9e705c9ac9bb07bea31d1af",
+  "manifest_payload_sha256": "db6a7de8be0a030fe716b0824f4c4727c72f9c3e077e85236af54387e69234c5",
+  "schema": "rwkv_ms_natural_memory_gate_sealed_materialization_receipt.v1",
+  "sealed_lock_receipt_sha256": "635074f1e3e4b38601874b282a40c79b667fa584ed86ff41ad46124be2f10ce7",
+  "sealed_validation": {
+    "bytes": 6720385,
+    "path": "sealed_validation.jsonl",
+    "sha256": "7df3f966d0d862f539ebbb33254e2250ecf20719d172a9af0d06e8ada83e656f"
+  }
+}
