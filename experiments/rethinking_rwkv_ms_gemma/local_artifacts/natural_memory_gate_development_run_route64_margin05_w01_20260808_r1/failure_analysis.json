@@ -1,0 +1,91 @@
+{
+  "baseline_comparison": {
+    "answer_exact_delta": 3,
+    "baseline_correct_state_answer_exact": 381,
+    "baseline_correct_state_route_correct": 16118,
+    "baseline_family_layer_correct": 4022,
+    "baseline_run_receipt_sha256": "c9b219b65a47f4149f0199e5b26108a402d687387ab487d48cfbc69944a05a09",
+    "family_layer_correct_delta": -63,
+    "route_correct_delta": -69
+  },
+  "config": {
+    "dtype": "bfloat16",
+    "hard_negative_margin": 0.5,
+    "hard_negative_weight": 0.1,
+    "key_dim": 64,
+    "rank": 32,
+    "temperature": 16.0,
+    "target_layer_count": 42
+  },
+  "diagnostic_replay": {
+    "correct_state_route_rows": 16128,
+    "error_family_count": 46,
+    "errors_by_layer": {
+      "16": 5,
+      "18": 13,
+      "23": 8,
+      "25": 2,
+      "26": 31,
+      "28": 11,
+      "29": 6,
+      "30": 2,
+      "41": 1
+    },
+    "errors_by_task": {
+      "attribution": 53,
+      "narrative": 9,
+      "scene": 17
+    },
+    "hard_margin_violation_count": 145,
+    "margin_target_minus_best_other": {
+      "maximum": 24.0625,
+      "median": 9.1875,
+      "minimum": -8.5703125
+    },
+    "method": "replayed every correct-state development row with the frozen adapter and measured pooled projected-KV target logits against the hardest wrong slot",
+    "route_error_count": 79
+  },
+  "gate": {
+    "failed_checks": [
+      "correct_state.all_four_routes"
+    ],
+    "passed": false,
+    "protocol_sha256": "9a7b3f78bab2cbdc449c5c04e79e6d0cba4b88fa2ecb5683a80afa49c1c14b34",
+    "training_configuration_sha256": "8893a46b7b36815000fec4ddfc4036dc702e87a19496018423bece831ed4158e"
+  },
+  "integrity_audit": {
+    "adapter_files_sha256": "64507aaaad5427046724a0060e912eb4bbdd22b01af2c12d3634876f65a0fb62",
+    "evaluation_sha256": "93aab48bfeb24af431c64a8d8e03ce3a497e758b5ae0febb64d79113b7e74b5d",
+    "exact_schedule_sha256": "0f3b7d038db58c75dac67beea4317b2c724d33f52b9d2b8414a367e694bfdc72",
+    "model_immutable": true,
+    "protocol_sha256": "9a7b3f78bab2cbdc449c5c04e79e6d0cba4b88fa2ecb5683a80afa49c1c14b34",
+    "receipt_signature_valid": true,
+    "source_immutable": true,
+    "training_configuration_sha256": "8893a46b7b36815000fec4ddfc4036dc702e87a19496018423bece831ed4158e",
+    "training_dataset_audit_sha256": "8aaffab1b2815c678c6dfce39a990ea4a90c60c3b4e73290293932d824c2555a",
+    "updates": 3840
+  },
+  "interpretation": {
+    "answer_quality_failure": false,
+    "conclusion": "the hard-negative term improved answer exactness but substantially worsened held-out semantic routing, so it is rejected rather than retuned on sealed data",
+    "next_candidate": "restore CE-only routing and use a larger four-GPU batch to reduce noisy late updates while retaining complete balanced epochs",
+    "sealed_validation_authorized": false
+  },
+  "route_error_summary": {
+    "all_correct_state_answers_exact": true,
+    "correct_state_route_accuracy": 0.9951016865079365,
+    "correct_state_route_correct": 16049,
+    "correct_state_route_total": 16128,
+    "family_layer_accuracy": 0.9818948412698413,
+    "family_layer_correct": 3959,
+    "family_layer_total": 4032
+  },
+  "run_receipt_sha256": "ca6f2fde2ce94fae89b6c1f9fefee8dfb61af87ebd75060ddea821848e27ae6f",
+  "schema": "rwkv_ms_natural_memory_gate_failure_analysis.v1",
+  "training_stability": {
+    "epoch_7_route_accuracy": 1.0,
+    "epoch_8_route_accuracy": 0.9997147817460318,
+    "epoch_8_route_loss_mean": 0.002502037374231969,
+    "late_route_regression_observed": true
+  }
+}

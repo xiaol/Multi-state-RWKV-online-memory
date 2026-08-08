@@ -1,0 +1,260 @@
+{
+  "answer_logit_policy": "full-sequence hidden states with vocabulary logits projected only at the union of supervised causal answer-predictor positions; ignored labels and token-mean cross-entropy are unchanged",
+  "attn_implementation": "sdpa",
+  "conditions": [
+    "correct_state",
+    "donor_state",
+    "value_swap",
+    "target_slot_rewrite",
+    "shuffled_slots",
+    "no_state",
+    "pristine_frozen_base"
+  ],
+  "dtype": "bfloat16",
+  "eval_batch_size": 8,
+  "greedy_answer_evaluation": true,
+  "hard_negative_margin": 0.5,
+  "hard_negative_weight": 0.1,
+  "hf_endpoint": "https://hf-mirror.com",
+  "key_dim": 64,
+  "model_binding_sha256": "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66",
+  "opened_splits": [
+    "train",
+    "development"
+  ],
+  "profile": "development",
+  "query_encoding_policy": "Gemma chat-template address-only prefix and canonical JSON label tokenized as one full string with offset-derived disjoint masks and boundary-crossing rejection",
+  "rank": 32,
+  "route_objective": "layer_mean(cross_entropy + hard_negative_weight * relu(hard_negative_margin + hardest_wrong_logit - target_logit))",
+  "runner_schema": "rwkv_ms_natural_memory_gate_run.v3",
+  "schema": "rwkv_ms_natural_memory_gate_protocol.v3",
+  "sealed_chain": null,
+  "shared_state_batching_policy": "complete four-query shared-write families are kept in one evaluation batch",
+  "source_schema": "novel_natural_causal_memory_gate.v2",
+  "target_layers": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41
+  ],
+  "temperature": 16.0,
+  "thresholds": {
+    "answer_exact_min": 0.8,
+    "rewrite_output_change_min": 0.8,
+    "route_accuracy_min": 0.95
+  },
+  "training_conditions": [
+    "correct_state",
+    "donor_state",
+    "value_swap",
+    "target_slot_rewrite",
+    "shuffled_slots"
+  ],
+  "training_dataset_audit": {
+    "answer_tokens_per_condition_task": {
+      "correct_state": {
+        "attribution": 1600,
+        "narrative": 2006,
+        "scene": 576
+      },
+      "donor_state": {
+        "attribution": 1605,
+        "narrative": 2001,
+        "scene": 576
+      },
+      "shuffled_slots": {
+        "attribution": 1600,
+        "narrative": 2006,
+        "scene": 576
+      },
+      "target_slot_rewrite": {
+        "attribution": 1592,
+        "narrative": 1985,
+        "scene": 576
+      },
+      "value_swap": {
+        "attribution": 1585,
+        "narrative": 2006,
+        "scene": 576
+      }
+    },
+    "complete_source_query_condition_families": 384,
+    "condition_set_exact": true,
+    "condition_task_strata_balanced": true,
+    "condition_task_strata_exact": true,
+    "family_invariant_failure_count": 0,
+    "family_invariant_policy": "condition variants of one source query retain source split, episode, task, semantic target, mapping offset, and encoded query prefix",
+    "family_invariants_passed": true,
+    "ordered_training_examples_sha256": "a342f71e6d19d42a1c95c99e73b287556f07853073bf890fab58a57273e9704e",
+    "paired_condition_coverage": true,
+    "passed": true,
+    "payload_digest_policy": "canonical SHA-256 over every ordered encoded training-example field used by the write, read, routing, and answer objectives",
+    "production_contract_checks": {
+      "dataset": true,
+      "schedule": true
+    },
+    "production_contract_passed": true,
+    "production_dataset_contract_checks": {
+      "audit.answer_token_counts_valid": true,
+      "audit.condition_set_exact": true,
+      "audit.condition_task_strata_balanced": true,
+      "audit.condition_task_strata_exact": true,
+      "audit.conditions_valid": true,
+      "audit.family_invariant_policy": true,
+      "audit.family_invariants_passed": true,
+      "audit.ordered_training_examples_sha256": true,
+      "audit.paired_condition_coverage": true,
+      "audit.passed": true,
+      "audit.payload_digest_policy": true,
+      "audit.row_id_policy": true,
+      "audit.row_id_policy_passed": true,
+      "audit.rows_by_condition_consistent": true,
+      "audit.rows_by_task_consistent": true,
+      "audit.rows_total_consistent": true,
+      "audit.rows_valid": true,
+      "audit.sampling_policy": true,
+      "audit.schema": true,
+      "audit.tasks_valid": true,
+      "audit.training_row_id_set_sha256": true,
+      "audit.unique_row_ids": true,
+      "audit_passed": true,
+      "complete_source_query_families_exact": true,
+      "conditions_exact": true,
+      "rows_exact": true,
+      "rows_per_condition_task_exact": true,
+      "source_query_families_exact": true,
+      "tasks_exact": true
+    },
+    "production_dataset_contract_passed": true,
+    "row_id_policy": "source query ID plus an explicit positive-condition suffix; evaluation IDs remain source query IDs for cross-condition causal pairing",
+    "row_id_policy_passed": true,
+    "rows": 1920,
+    "rows_by_condition": {
+      "correct_state": 384,
+      "donor_state": 384,
+      "shuffled_slots": 384,
+      "target_slot_rewrite": 384,
+      "value_swap": 384
+    },
+    "rows_by_task": {
+      "attribution": 640,
+      "narrative": 640,
+      "scene": 640
+    },
+    "rows_per_condition_task": {
+      "correct_state": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "donor_state": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "shuffled_slots": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "target_slot_rewrite": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "value_swap": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      }
+    },
+    "sampling_policy": "exactly balanced condition-task strata, shuffled over complete epochs; every source query is supervised once under every selected positive condition per epoch",
+    "schedule_contract": {
+      "complete_epoch_schedule_requested": true,
+      "complete_epoch_updates": 3840,
+      "epochs": 8,
+      "global_batch_size": 4,
+      "requested_max_steps": 3840,
+      "rows_divide_global_batch": true
+    },
+    "schedule_contract_checks": {
+      "complete_epoch_schedule_requested": true,
+      "complete_epoch_updates_exact": true,
+      "epochs_exact": true,
+      "global_batch_exact": true,
+      "requested_max_steps_exact": true,
+      "rows_divide_global_batch": true,
+      "schedule_mode": true
+    },
+    "schedule_contract_passed": true,
+    "schedule_mode": "complete",
+    "schema": "rwkv_ms_natural_memory_training_dataset_audit.v1",
+    "source_query_condition_families": 384,
+    "tasks": [
+      "attribution",
+      "narrative",
+      "scene"
+    ],
+    "training_conditions": [
+      "correct_state",
+      "donor_state",
+      "value_swap",
+      "target_slot_rewrite",
+      "shuffled_slots"
+    ],
+    "training_row_id_set_sha256": "1adacb6741b38a2c45a493eb263dc413ea3830c48634fd1fd51213146bc685c4",
+    "unique_row_ids": true
+  },
+  "training_topology": {
+    "answer_loss_normalization": "global_supervised_answer_token_count",
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "global_batch_size": 4,
+    "gradient_clip_order": "after_sum_before_adamw",
+    "gradient_synchronization": "sum",
+    "local_batch_size": 1,
+    "mode": "raw_model_replicas_explicit_gradient_sum",
+    "online_memory_state": "rank_local_never_reduced",
+    "route_loss_normalization": "global_row_count_after_layer_mean",
+    "world_size": 4
+  },
+  "write_read_cache_policy": "every model invocation passes use_cache=False; writes and reads are separate"
+}
