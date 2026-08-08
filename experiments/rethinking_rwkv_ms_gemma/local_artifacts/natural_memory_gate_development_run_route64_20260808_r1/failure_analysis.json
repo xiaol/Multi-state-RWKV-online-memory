@@ -1,0 +1,181 @@
+{
+  "config": {
+    "dtype": "bfloat16",
+    "hard_negative_margin": 0.0,
+    "hard_negative_weight": 0.0,
+    "key_dim": 64,
+    "rank": 32,
+    "temperature": 16.0,
+    "target_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41
+    ]
+  },
+  "diagnostic_replay": {
+    "adapter_receipt_sha256": "c9b219b65a47f4149f0199e5b26108a402d687387ab487d48cfbc69944a05a09",
+    "evaluation_sha256": "12ca2467f8317afdcde9968423e2144c3d818fc86dad7cd506509b26fc88a516",
+    "method": "replayed each failing correct-state family with the frozen adapter and measured pooled projected-KV route logits; margins are target logit minus the largest wrong-slot logit",
+    "model_path": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "hf_endpoint": "https://hf-mirror.com",
+    "exact_address_family_count": 5
+  },
+  "failures": [
+    {
+      "row_id": "development:narrative:narrative:b6219d562063e635eb70:u9:e000005:q1",
+      "layer": 16,
+      "target_slot": 1,
+      "predicted_slot": 0,
+      "margin_target_minus_best_other": -0.25,
+      "address_length": 315
+    },
+    {
+      "row_id": "development:narrative:narrative:b6219d562063e635eb70:u9:e000006:q1",
+      "layer": 16,
+      "target_slot": 1,
+      "predicted_slot": 0,
+      "margin_target_minus_best_other": -0.25,
+      "address_length": 315
+    },
+    {
+      "row_id": "development:narrative:narrative:b6219d562063e635eb70:u9:e000007:q1",
+      "layer": 16,
+      "target_slot": 1,
+      "predicted_slot": 0,
+      "margin_target_minus_best_other": -0.25,
+      "address_length": 315
+    },
+    {
+      "row_id": "development:attribution:attribution:cf757a6fccdf2c2b9be9:e000018:q2",
+      "layer": 26,
+      "target_slot": 2,
+      "predicted_slot": 1,
+      "margin_target_minus_best_other": -0.28125,
+      "address_length": 181
+    },
+    {
+      "row_id": "development:attribution:attribution:609436c45940b2c1b086:e000007:q0",
+      "layer": 31,
+      "target_slot": 0,
+      "predicted_slot": 2,
+      "margin_target_minus_best_other": -0.8125,
+      "address_length": 302
+    },
+    {
+      "row_id": "development:attribution:attribution:74e03232eb56ebdc3880:e000011:q2",
+      "layer": 31,
+      "target_slot": 2,
+      "predicted_slot": 3,
+      "margin_target_minus_best_other": -0.5625,
+      "address_length": 481
+    },
+    {
+      "row_id": "development:attribution:attribution:77ea9696252bc6438d00:e000008:q2",
+      "layer": 31,
+      "target_slot": 2,
+      "predicted_slot": 0,
+      "margin_target_minus_best_other": -0.5,
+      "address_length": 302
+    },
+    {
+      "row_id": "development:attribution:attribution:163c5897f0af9a897d53:e000023:q0",
+      "layer": 38,
+      "target_slot": 0,
+      "predicted_slot": 1,
+      "margin_target_minus_best_other": -0.75,
+      "address_length": 159
+    },
+    {
+      "row_id": "development:attribution:attribution:163c5897f0af9a897d53:e000024:q0",
+      "layer": 38,
+      "target_slot": 0,
+      "predicted_slot": 1,
+      "margin_target_minus_best_other": -0.75,
+      "address_length": 159
+    },
+    {
+      "row_id": "development:attribution:attribution:435f1e79bed8d39fdded:e000013:q3",
+      "layer": 38,
+      "target_slot": 3,
+      "predicted_slot": 2,
+      "margin_target_minus_best_other": -0.5,
+      "address_length": 159
+    }
+  ],
+  "route_error_summary": {
+    "correct_state_route_correct": 16118,
+    "correct_state_route_total": 16128,
+    "correct_state_route_accuracy": 0.9993799603174603,
+    "family_layer_correct": 4022,
+    "family_layer_total": 4032,
+    "family_layer_accuracy": 0.9975198412698413,
+    "errors_by_layer": {
+      "16": 3,
+      "26": 1,
+      "31": 3,
+      "38": 3
+    },
+    "all_failures_answer_correct": true
+  },
+  "answer_errors": [
+    "development:attribution:attribution:271b1e518e5c82125f2d:e000027:q3",
+    "development:attribution:attribution:271b1e518e5c82125f2d:e000028:q3",
+    "development:attribution:attribution:609436c45940b2c1b086:e000007:q2"
+  ],
+  "gate": {
+    "failed_checks": [
+      "correct_state.all_four_routes"
+    ],
+    "passed": false,
+    "protocol_sha256": "1f9ed44ba18a89b4b1615752b2eec3a319e49c65d5536f2375ea7c29c174ba8a",
+    "training_configuration_sha256": "bfd6da5a13dc3434126a016d7693f1f9e52220d9772011829bfcda4a9c5c7b16"
+  },
+  "interpretation": {
+    "answer_quality_failure": false,
+    "route_failure_type": "five repeated held-out natural-address families with decisive wrong-slot rankings at layers 16, 26, 31, and 38",
+    "next_candidate": "retain key_dim=64, rank=32, temperature=16 and add hard-negative route hinge with margin=0.5 and weight=0.1",
+    "protocol_change_required": true,
+    "sealed_validation_authorized": false
+  },
+  "run_receipt_sha256": "c9b219b65a47f4149f0199e5b26108a402d687387ab487d48cfbc69944a05a09",
+  "schema": "rwkv_ms_natural_memory_gate_failure_analysis.v1"
+}
