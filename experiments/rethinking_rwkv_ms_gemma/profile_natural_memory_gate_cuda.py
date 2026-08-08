@@ -61,6 +61,8 @@ PRODUCTION_LEARNING_RATE = gate.PRODUCTION_LEARNING_RATE
 PRODUCTION_WEIGHT_DECAY = 0.0
 PRODUCTION_ANSWER_WEIGHT = gate.PRODUCTION_ANSWER_WEIGHT
 PRODUCTION_ROUTE_WEIGHT = gate.PRODUCTION_ROUTE_WEIGHT
+PRODUCTION_HARD_NEGATIVE_MARGIN = gate.PRODUCTION_HARD_NEGATIVE_MARGIN
+PRODUCTION_HARD_NEGATIVE_WEIGHT = gate.PRODUCTION_HARD_NEGATIVE_WEIGHT
 PRODUCTION_MAX_GRAD_NORM = gate.PRODUCTION_MAX_GRAD_NORM
 PRODUCTION_PROFILE_OPTIMIZER_STEPS = 3
 WORKER_TIMEOUT_SECONDS = 30 * 60
@@ -225,6 +227,8 @@ def _production_configuration(
         "weight_decay": PRODUCTION_WEIGHT_DECAY,
         "answer_weight": PRODUCTION_ANSWER_WEIGHT,
         "route_weight": PRODUCTION_ROUTE_WEIGHT,
+        "hard_negative_margin": PRODUCTION_HARD_NEGATIVE_MARGIN,
+        "hard_negative_weight": PRODUCTION_HARD_NEGATIVE_WEIGHT,
         "max_grad_norm": PRODUCTION_MAX_GRAD_NORM,
         "profile_optimizer_steps": PRODUCTION_PROFILE_OPTIMIZER_STEPS,
         "distributed_training_target": _distributed_training_target(),
@@ -836,7 +840,11 @@ def _execute_optimizer_step(
     if prior_liveness is not None:
         prior_liveness.answer_loss = None
     route_loss, route_predictions = gate.route_loss_and_predictions(
-        route_logits, batch.query_mask, batch.target_slots
+        route_logits,
+        batch.query_mask,
+        batch.target_slots,
+        hard_negative_margin=PRODUCTION_HARD_NEGATIVE_MARGIN,
+        hard_negative_weight=PRODUCTION_HARD_NEGATIVE_WEIGHT,
     )
     if prior_liveness is not None:
         prior_liveness.route_loss = None

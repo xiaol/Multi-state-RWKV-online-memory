@@ -166,6 +166,39 @@ def test_sharded_objective_and_gradients_match_monolithic_reference() -> None:
     )
 
 
+def test_hard_negative_route_objective_matches_single_process_helper() -> None:
+    _, _, route_logits, query_mask = _objective_inputs()
+    targets = torch.tensor([0, 1, 2, 3])
+    logits_by_layer = {
+        "layer-0": route_logits,
+        "layer-1": route_logits.flip(-1),
+    }
+
+    single_loss, single_predictions = runner.route_loss_and_predictions(
+        logits_by_layer,
+        query_mask,
+        targets,
+        hard_negative_margin=0.5,
+        hard_negative_weight=0.1,
+    )
+    loss_sum, row_count, distributed_predictions = (
+        distributed.route_loss_sum_and_predictions(
+            logits_by_layer,
+            query_mask,
+            targets,
+            hard_negative_margin=0.5,
+            hard_negative_weight=0.1,
+        )
+    )
+
+    assert torch.allclose(single_loss, loss_sum / row_count)
+    assert distributed_predictions.keys() == single_predictions.keys()
+    assert all(
+        torch.equal(distributed_predictions[name], single_predictions[name])
+        for name in single_predictions
+    )
+
+
 def test_objective_statistics_are_validated_before_collective(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

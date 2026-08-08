@@ -405,6 +405,38 @@ def test_route_loss_pools_query_tokens_and_keeps_graph_connection() -> None:
     assert second.grad is not None and torch.count_nonzero(second.grad).item() > 0
 
 
+def test_route_loss_adds_only_violated_hard_negative_margins() -> None:
+    logits = torch.tensor(
+        [
+            [[1.0, 2.0, -1.0, -2.0]],
+            [[4.0, 3.0, 0.0, -1.0]],
+        ],
+        requires_grad=True,
+    )
+    query_mask = torch.ones(2, 1, dtype=torch.bool)
+    targets = torch.tensor([0, 0])
+
+    base, base_predictions = runner.route_loss_and_predictions(
+        {"layer": logits}, query_mask, targets
+    )
+    with_margin, predictions = runner.route_loss_and_predictions(
+        {"layer": logits},
+        query_mask,
+        targets,
+        hard_negative_margin=0.5,
+        hard_negative_weight=0.1,
+    )
+    with_margin.backward()
+
+    assert predictions.keys() == base_predictions.keys() == {"layer"}
+    assert torch.equal(predictions["layer"], torch.tensor([1, 0]))
+    assert torch.equal(base_predictions["layer"], predictions["layer"])
+    assert float((with_margin - base).item()) == pytest.approx(0.075)
+    assert logits.grad is not None
+    assert logits.grad[0, 0, 0] < 0.0
+    assert logits.grad[0, 0, 1] > 0.0
+
+
 def test_query_counterfactual_audit_requires_all_four_routes_and_identical_state(
     train_rows,
 ) -> None:

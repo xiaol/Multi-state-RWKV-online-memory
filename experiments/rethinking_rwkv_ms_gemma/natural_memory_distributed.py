@@ -414,16 +414,32 @@ def route_loss_sum_and_predictions(
     logits_by_module: Mapping[str, torch.Tensor],
     query_mask: torch.Tensor,
     target_slots: torch.Tensor,
+    *,
+    hard_negative_margin: float = 0.0,
+    hard_negative_weight: float = 0.0,
 ) -> tuple[torch.Tensor, int, dict[str, torch.Tensor]]:
     if not logits_by_module:
         raise RuntimeError("No graph-connected projected-KV route logits were exposed")
     if bool(target_slots.lt(0).any().item()):
         raise ValueError("Route loss requires a target slot for every row")
+    if hard_negative_margin < 0.0 or hard_negative_weight < 0.0:
+        raise ValueError("Hard-negative margin and weight must be nonnegative")
     losses: list[torch.Tensor] = []
     predictions: dict[str, torch.Tensor] = {}
     for name in sorted(logits_by_module):
         selected = selected_route_logits(logits_by_module[name], query_mask)
-        losses.append(F.cross_entropy(selected, target_slots, reduction="sum"))
+        loss = F.cross_entropy(selected, target_slots, reduction="sum")
+        if hard_negative_weight > 0.0:
+            target = selected.gather(1, target_slots.unsqueeze(1)).squeeze(1)
+            negative = selected.masked_fill(
+                F.one_hot(target_slots, selected.size(-1)).to(dtype=torch.bool),
+                -torch.inf,
+            ).amax(dim=1)
+            hard_negative_loss = F.relu(
+                hard_negative_margin + negative - target
+            ).sum()
+            loss = loss + hard_negative_weight * hard_negative_loss
+        losses.append(loss)
         predictions[name] = selected.argmax(dim=-1)
     return torch.stack(losses).mean(), int(target_slots.numel()), predictions
 

@@ -105,6 +105,10 @@ PRODUCTION_EVAL_BATCH_SIZE = 8
 PRODUCTION_LEARNING_RATE = 2e-4
 PRODUCTION_ANSWER_WEIGHT = 1.0
 PRODUCTION_ROUTE_WEIGHT = 1.0
+# The key64 development run still had decisive wrong-slot rankings.  Keep the
+# existing route CE and add a small hardest-negative hinge for the next screen.
+PRODUCTION_HARD_NEGATIVE_MARGIN = 0.5
+PRODUCTION_HARD_NEGATIVE_WEIGHT = 0.1
 PRODUCTION_MAX_GRAD_NORM = 1.0
 PRODUCTION_DTYPE = "bfloat16"
 PRODUCTION_ATTN_IMPLEMENTATION = "sdpa"
@@ -188,6 +192,8 @@ def train_model(
     dtype: torch.dtype,
     progress_path: Path,
     training_conditions: str | Sequence[str] = DEFAULT_TRAINING_CONDITIONS,
+    hard_negative_margin: float = 0.0,
+    hard_negative_weight: float = 0.0,
 ) -> dict[str, Any]:
     """Reuse the proven optimizer loop while emitting natural-run evidence."""
 
@@ -213,6 +219,8 @@ def train_model(
                 device=device,
                 dtype=dtype,
                 progress_path=runtime_progress,
+                hard_negative_margin=hard_negative_margin,
+                hard_negative_weight=hard_negative_weight,
             )
         )
         records: list[dict[str, Any]] = []
@@ -375,6 +383,8 @@ def train_model_distributed(
     progress_path: Path,
     training_conditions: str | Sequence[str] = DEFAULT_TRAINING_CONDITIONS,
     capture_step_evidence: bool = False,
+    hard_negative_margin: float = 0.0,
+    hard_negative_weight: float = 0.0,
 ) -> dict[str, Any]:
     """Train raw replicas with global normalization and explicit gradient SUM."""
 
@@ -382,6 +392,8 @@ def train_model_distributed(
         raise ValueError("Training epochs and learning rate must be positive")
     if answer_weight <= 0.0 or route_weight <= 0.0:
         raise ValueError("Both answer and route loss weights must be positive")
+    if hard_negative_margin < 0.0 or hard_negative_weight < 0.0:
+        raise ValueError("Hard-negative margin and weight must be nonnegative")
     if global_batch_size <= 0 or global_batch_size % context.world_size:
         raise ValueError("Global batch size must divide evenly across ranks")
     local_batch_size = global_batch_size // context.world_size
@@ -544,6 +556,8 @@ def train_model_distributed(
                 prepared_route_logits,
                 prepared_batch.query_mask,
                 prepared_batch.target_slots,
+                hard_negative_margin=hard_negative_margin,
+                hard_negative_weight=hard_negative_weight,
             )
             return (
                 prepared_local_indices,
@@ -4545,6 +4559,8 @@ def run_experiment(
     learning_rate: float = PRODUCTION_LEARNING_RATE,
     answer_weight: float = PRODUCTION_ANSWER_WEIGHT,
     route_weight: float = PRODUCTION_ROUTE_WEIGHT,
+    hard_negative_margin: float = PRODUCTION_HARD_NEGATIVE_MARGIN,
+    hard_negative_weight: float = PRODUCTION_HARD_NEGATIVE_WEIGHT,
     max_grad_norm: float = PRODUCTION_MAX_GRAD_NORM,
     device_name: str = "cuda",
     dtype_name: str = PRODUCTION_DTYPE,
@@ -4585,6 +4601,8 @@ def run_experiment(
         raise ValueError("max_steps must be positive when supplied")
     if epochs <= 0 or batch_size <= 0 or eval_batch_size <= 0:
         raise ValueError("Training and evaluation sizes must be positive")
+    if hard_negative_margin < 0.0 or hard_negative_weight < 0.0:
+        raise ValueError("Hard-negative margin and weight must be nonnegative")
     if eval_batch_size < RECORDS_PER_EPISODE:
         raise ValueError(
             "Evaluation batch size must hold a complete four-query state family"
@@ -4644,6 +4662,12 @@ def run_experiment(
             "learning_rate": learning_rate == PRODUCTION_LEARNING_RATE,
             "answer_weight": answer_weight == PRODUCTION_ANSWER_WEIGHT,
             "route_weight": route_weight == PRODUCTION_ROUTE_WEIGHT,
+            "hard_negative_margin": (
+                hard_negative_margin == PRODUCTION_HARD_NEGATIVE_MARGIN
+            ),
+            "hard_negative_weight": (
+                hard_negative_weight == PRODUCTION_HARD_NEGATIVE_WEIGHT
+            ),
             "max_grad_norm": max_grad_norm == PRODUCTION_MAX_GRAD_NORM,
             "dtype": dtype_name == PRODUCTION_DTYPE,
             "attn_implementation": (
@@ -5101,6 +5125,8 @@ def run_experiment(
                     learning_rate=learning_rate,
                     answer_weight=answer_weight,
                     route_weight=route_weight,
+                    hard_negative_margin=hard_negative_margin,
+                    hard_negative_weight=hard_negative_weight,
                     max_grad_norm=max_grad_norm,
                     pad_token_id=int(tokenizer.pad_token_id),
                     device=device,
@@ -5123,6 +5149,8 @@ def run_experiment(
                         learning_rate=learning_rate,
                         answer_weight=answer_weight,
                         route_weight=route_weight,
+                        hard_negative_margin=hard_negative_margin,
+                        hard_negative_weight=hard_negative_weight,
                         max_grad_norm=max_grad_norm,
                         pad_token_id=int(tokenizer.pad_token_id),
                         dtype=dtype,
@@ -5292,6 +5320,8 @@ def run_experiment(
                             "learning_rate": learning_rate,
                             "answer_weight": answer_weight,
                             "route_weight": route_weight,
+                            "hard_negative_margin": hard_negative_margin,
+                            "hard_negative_weight": hard_negative_weight,
                             "max_grad_norm": max_grad_norm,
                             "training_conditions": list(
                                 selected_training_conditions
@@ -5544,6 +5574,12 @@ def run_experiment(
         "rank": rank,
         "key_dim": key_dim,
         "temperature": temperature,
+        "hard_negative_margin": hard_negative_margin,
+        "hard_negative_weight": hard_negative_weight,
+        "route_objective": (
+            "layer_mean(cross_entropy + hard_negative_weight * "
+            "relu(hard_negative_margin + hardest_wrong_logit - target_logit))"
+        ),
         "eval_batch_size": eval_batch_size,
         "greedy_answer_evaluation": greedy,
         "dtype": dtype_name,
@@ -5574,6 +5610,9 @@ def run_experiment(
             "rank",
             "key_dim",
             "temperature",
+            "hard_negative_margin",
+            "hard_negative_weight",
+            "route_objective",
             "eval_batch_size",
             "greedy_answer_evaluation",
             "dtype",
@@ -5613,6 +5652,8 @@ def run_experiment(
         "learning_rate": learning_rate,
         "answer_weight": answer_weight,
         "route_weight": route_weight,
+        "hard_negative_margin": hard_negative_margin,
+        "hard_negative_weight": hard_negative_weight,
         "max_grad_norm": max_grad_norm,
         "device": device_name,
         "dtype": dtype_name,
@@ -5734,6 +5775,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--answer-weight", type=float, default=PRODUCTION_ANSWER_WEIGHT)
     parser.add_argument("--route-weight", type=float, default=PRODUCTION_ROUTE_WEIGHT)
+    parser.add_argument(
+        "--hard-negative-margin",
+        type=float,
+        default=PRODUCTION_HARD_NEGATIVE_MARGIN,
+    )
+    parser.add_argument(
+        "--hard-negative-weight",
+        type=float,
+        default=PRODUCTION_HARD_NEGATIVE_WEIGHT,
+    )
     parser.add_argument("--max-grad-norm", type=float, default=PRODUCTION_MAX_GRAD_NORM)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", default="bfloat16")
@@ -5798,6 +5849,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             learning_rate=args.learning_rate,
             answer_weight=args.answer_weight,
             route_weight=args.route_weight,
+            hard_negative_margin=args.hard_negative_margin,
+            hard_negative_weight=args.hard_negative_weight,
             max_grad_norm=args.max_grad_norm,
             device_name=args.device,
             dtype_name=args.dtype,

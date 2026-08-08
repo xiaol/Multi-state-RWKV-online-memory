@@ -1225,16 +1225,32 @@ def route_loss_and_predictions(
     logits_by_module: Mapping[str, torch.Tensor],
     query_mask: torch.Tensor,
     target_slots: torch.Tensor,
+    *,
+    hard_negative_margin: float = 0.0,
+    hard_negative_weight: float = 0.0,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     if not logits_by_module:
         raise RuntimeError("No graph-connected projected-KV route logits were exposed")
     if bool(target_slots.lt(0).any().item()):
         raise ValueError("Route loss requires a target slot for every row")
+    if hard_negative_margin < 0.0 or hard_negative_weight < 0.0:
+        raise ValueError("Hard-negative margin and weight must be nonnegative")
     losses: list[torch.Tensor] = []
     predictions: dict[str, torch.Tensor] = {}
     for name, logits in logits_by_module.items():
         selected = selected_route_logits(logits, query_mask)
-        losses.append(F.cross_entropy(selected, target_slots))
+        loss = F.cross_entropy(selected, target_slots)
+        if hard_negative_weight > 0.0:
+            target = selected.gather(1, target_slots.unsqueeze(1)).squeeze(1)
+            negative = selected.masked_fill(
+                F.one_hot(target_slots, selected.size(-1)).to(dtype=torch.bool),
+                -torch.inf,
+            ).amax(dim=1)
+            hard_negative_loss = F.relu(
+                hard_negative_margin + negative - target
+            ).mean()
+            loss = loss + hard_negative_weight * hard_negative_loss
+        losses.append(loss)
         predictions[name] = selected.argmax(dim=-1)
     return torch.stack(losses).mean(), predictions
 
@@ -2139,11 +2155,15 @@ def train_model(
     device: torch.device,
     dtype: torch.dtype,
     progress_path: Path,
+    hard_negative_margin: float = 0.0,
+    hard_negative_weight: float = 0.0,
 ) -> dict[str, Any]:
     if epochs <= 0 or learning_rate <= 0.0:
         raise ValueError("Training epochs and learning rate must be positive")
     if answer_weight <= 0.0 or route_weight <= 0.0:
         raise ValueError("Both answer and route loss weights must be positive")
+    if hard_negative_margin < 0.0 or hard_negative_weight < 0.0:
+        raise ValueError("Hard-negative margin and weight must be nonnegative")
     trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
     if not trainable:
         raise RuntimeError("Frozen-Gemma runner found no trainable memory parameters")
@@ -2185,7 +2205,11 @@ def train_model(
             logits, route_logits = _read_episode_batch(model, batch, dtype=dtype)
             answer_loss = causal_answer_loss(logits, batch.labels)
             route_loss, route_predictions = route_loss_and_predictions(
-                route_logits, batch.query_mask, batch.target_slots
+                route_logits,
+                batch.query_mask,
+                batch.target_slots,
+                hard_negative_margin=hard_negative_margin,
+                hard_negative_weight=hard_negative_weight,
             )
             total_loss = answer_weight * answer_loss + route_weight * route_loss
             if not bool(torch.isfinite(total_loss).item()):

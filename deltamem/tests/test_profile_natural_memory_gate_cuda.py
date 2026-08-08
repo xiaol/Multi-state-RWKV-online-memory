@@ -426,9 +426,13 @@ def test_execute_optimizer_step_uses_real_update_sequence(monkeypatch) -> None:
         calls.append("answer_loss")
         return (model.weight - 3.0).square().mean()
 
-    def fake_route_loss(route_logits, query_mask, slots):
+    def fake_route_loss(route_logits, query_mask, slots, **objective):
         assert prior_liveness.answer_loss is None
         assert prior_liveness.route_loss is not None
+        assert objective == {
+            "hard_negative_margin": profiler.PRODUCTION_HARD_NEGATIVE_MARGIN,
+            "hard_negative_weight": profiler.PRODUCTION_HARD_NEGATIVE_WEIGHT,
+        }
         calls.append("route_loss")
         return (model.weight - 2.0).square().mean(), {"layer": slots.clone()}
 
