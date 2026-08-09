@@ -1,0 +1,31 @@
+{
+  "amendment_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_amendment_without_receipt",
+    "payload_sha256": "45617f1445c905465ae62aeb0e9451bed86840f23b077cb0900f07cc26507e0b"
+  },
+  "authorized_replication_ids": [
+    "r4",
+    "r5"
+  ],
+  "created_at": "2026-08-10T06:55:43+08:00",
+  "discovered_before_training_output": true,
+  "original_protocol": {
+    "file_sha256": "b2acfec36776e3037ef3f1040a555700bafaa89a81f958b3a7d37c54cf60ca1f",
+    "git_commit": "cc321e5737a34f7c9154ce9e89a6a2b040414d50",
+    "payload_sha256": "674ae300d0bdbc9aad9dd7f26777a4070542cfd4e5136665e1b0d426ed951a37"
+  },
+  "rationale": "Protocol V2 was frozen in a prior pushed commit after generator-feasibility-only seed screening. This amendment changes only the runner's preregistration constants from the exhausted V1 contract to exact V2 bindings and authorizes its already frozen R4 and R5 optimizer seeds.",
+  "runner_change": {
+    "new_sha256": "82a5b6f7e6de76b0a2f64cb4ec4528fd0e807a5904f0c52341e599f015338700",
+    "old_sha256": "003120441abd85e0b43db94156d7ca47163d6ab92b0ecf34aec28e88012a0f00"
+  },
+  "schema": "rwkv_ms_natural_memory_replication_protocol_amendment.v1",
+  "scope": {
+    "classification": "infrastructure_only",
+    "data_changed": false,
+    "gate_changed": false,
+    "hyperparameters_changed": false,
+    "training_math_changed": false
+  }
+}

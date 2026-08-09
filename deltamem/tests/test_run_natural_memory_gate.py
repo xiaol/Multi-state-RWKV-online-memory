@@ -1082,7 +1082,7 @@ def _formal_distributed_context(
 
 def _replication_protocol_path() -> Path:
     return Path(runner.__file__).with_name(
-        "natural_memory_replication_protocol_v1.json"
+        "natural_memory_replication_protocol_v2.json"
     )
 
 
@@ -1159,30 +1159,30 @@ def test_nondefault_formal_seed_requires_replication_authorization(
         )
 
 
-def test_valid_r2_replication_authorization_is_bound(tmp_path: Path) -> None:
+def test_valid_r4_replication_authorization_is_bound(tmp_path: Path) -> None:
     authorization = runner.validate_replication_authorization(
-        source_manifest=_write_replication_manifest(tmp_path, split_seed=20260810),
+        source_manifest=_write_replication_manifest(tmp_path, split_seed=20260813),
         profile="development",
-        seed=43,
+        seed=45,
         replication_protocol=_replication_protocol_path(),
         replication_amendment=_write_replication_amendment(tmp_path),
-        replication_id="r2",
+        replication_id="r4",
     )
 
     assert authorization is not None
-    assert authorization["replication_id"] == "r2"
-    assert authorization["split_seed"] == 20260810
-    assert authorization["training_seed"] == 43
+    assert authorization["replication_id"] == "r4"
+    assert authorization["split_seed"] == 20260813
+    assert authorization["training_seed"] == 45
     assert authorization["scope"]["training_math_changed"] is False
 
 
 @pytest.mark.parametrize(
     ("replication_id", "seed", "split_seed", "runner_sha256", "error"),
     [
-        ("unknown", 43, 20260810, None, "not uniquely preregistered"),
-        ("r2", 44, 20260810, None, "Training seed differs"),
-        ("r2", 43, 20260811, None, "split seed differs"),
-        ("r2", 43, 20260810, "0" * 64, "does not authorize this runner"),
+        ("unknown", 45, 20260813, None, "not uniquely preregistered"),
+        ("r4", 46, 20260813, None, "Training seed differs"),
+        ("r4", 45, 20260814, None, "split seed differs"),
+        ("r4", 45, 20260813, "0" * 64, "does not authorize this runner"),
     ],
 )
 def test_replication_authorization_rejects_mismatched_bindings(

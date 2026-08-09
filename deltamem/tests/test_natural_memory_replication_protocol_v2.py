@@ -50,3 +50,26 @@ def test_v2_preserves_frozen_contract_and_binds_feasible_seeds() -> None:
         v2["native_validation_contract"]["selection_rule"]
         == "r4_preselected_before_materialization_and_independent_of_development_or_sealed_metrics"
     )
+
+
+def test_v2_amendment_authorizes_only_the_current_runner() -> None:
+    protocol = json.loads(
+        (EXPERIMENTS / "natural_memory_replication_protocol_v2.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    amendment = json.loads(
+        (
+            EXPERIMENTS
+            / "natural_memory_replication_protocol_v2_amendment_runner_authorization.json"
+        ).read_text(encoding="utf-8")
+    )
+    receipt = amendment.pop("amendment_receipt")
+    assert receipt["payload_sha256"] == canonical_sha256(amendment)
+    runner_path = EXPERIMENTS / "run_natural_memory_gate.py"
+    assert amendment["runner_change"]["new_sha256"] == hashlib.sha256(
+        runner_path.read_bytes()
+    ).hexdigest()
+    assert amendment["authorized_replication_ids"] == [
+        replication["id"] for replication in protocol["replications"]
+    ]
