@@ -1,0 +1,43 @@
+{
+  "archived_at": "2026-08-10T03:55:09+08:00",
+  "code_binding": {
+    "git_commit": "a2937e2dea697ba170a46004647edcba21619dad",
+    "runner_sha256": "003120441abd85e0b43db94156d7ca47163d6ab92b0ecf34aec28e88012a0f00"
+  },
+  "diagnosis": "The single-process launcher used the default device string cuda, but torch.cuda.set_device requires an indexed torch.device such as cuda:0.",
+  "diagnostic_receipt_sha256": "05d543cba9e2c0c2138310a56c1fa1299ec951cddc5ece6e9ec778cbd047e41a",
+  "error": {
+    "message": "ValueError: Expected a torch.device with a specified index or an integer, but got:cuda",
+    "type": "ValueError"
+  },
+  "failure_effects": {
+    "adapter_loaded": false,
+    "evaluation_metrics_emitted": false,
+    "evaluation_rows_processed_by_model": 0,
+    "model_loaded": false,
+    "optimizer_updates": 0,
+    "output_directory_created": false,
+    "source_splits_parsed_for_validation": [
+      "sealed_validation"
+    ]
+  },
+  "hf_endpoint": "https://hf-mirror.com",
+  "replication": {
+    "id": "r2",
+    "split_seed": 20260810,
+    "training_seed": 43
+  },
+  "requested_device": "cuda",
+  "requested_output": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r2_sealed_run_split20260810_seed43",
+  "resolution": {
+    "device": "cuda:0",
+    "evaluation_contract_changed": false,
+    "sealed_metrics_available_for_tuning": false
+  },
+  "schema": "rwkv_ms_natural_memory_replication_diagnostic.v1",
+  "sealed_package": {
+    "manifest_payload_sha256": "9a5ee16636ed5531d8d5e1a1726d00d7b69d4c436c1334b7c5ea0b900cf465cf",
+    "sealed_validation_sha256": "5e9d86f0c4ce4559c5bcaff68c24e53d369c95895f490bfa7022e4df6e3da7be"
+  },
+  "status": "invalid_launch_failed_before_model_evaluation"
+}
