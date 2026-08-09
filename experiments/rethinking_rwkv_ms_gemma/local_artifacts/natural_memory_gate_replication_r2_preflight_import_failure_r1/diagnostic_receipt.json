@@ -1,0 +1,41 @@
+{
+  "archived_at": "2026-08-10T02:08:21+08:00",
+  "code_binding": {
+    "git_commit": "3e11c5f7add83585a5eb0f29e49b663fa77e35bf",
+    "runner_sha256": "003120441abd85e0b43db94156d7ca47163d6ab92b0ecf34aec28e88012a0f00"
+  },
+  "diagnosis": "torchrun received a Python file path instead of module mode, so worker sys.path did not include the repository root and the runner could not import deltamem.",
+  "diagnostic_receipt_sha256": "32ca9e2ec8503ed5314a0fd744ebc9eaedde07b44b1c6bf777cb35837d9d82f6",
+  "error": {
+    "message": "ModuleNotFoundError: No module named 'deltamem'",
+    "root_cause_rank": 3,
+    "type": "ModuleNotFoundError"
+  },
+  "failure_effects": {
+    "model_loaded": false,
+    "optimizer_updates": 0,
+    "output_directory_created": false,
+    "runner_imported": false,
+    "source_splits_opened": []
+  },
+  "hf_endpoint": "https://hf-mirror.com",
+  "invocation": {
+    "entrypoint": "experiments/rethinking_rwkv_ms_gemma/run_natural_memory_gate.py",
+    "entrypoint_mode": "file",
+    "nproc_per_node": 4,
+    "standalone": true
+  },
+  "replication": {
+    "id": "r2",
+    "split_seed": 20260810,
+    "training_seed": 43
+  },
+  "requested_output": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r2_development_preflight_split20260810_seed43_r1",
+  "resolution": {
+    "entrypoint": "experiments.rethinking_rwkv_ms_gemma.run_natural_memory_gate",
+    "entrypoint_mode": "module",
+    "training_contract_changed": false
+  },
+  "schema": "rwkv_ms_natural_memory_replication_diagnostic.v1",
+  "status": "failed_closed_before_runner_import"
+}
