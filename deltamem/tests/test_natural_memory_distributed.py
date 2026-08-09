@@ -166,6 +166,139 @@ def test_sharded_objective_and_gradients_match_monolithic_reference() -> None:
     )
 
 
+def test_batch_sixteen_objective_matches_four_local_batch_four_ranks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert distributed.REQUIRED_WORLD_SIZE == 4
+    assert distributed.REQUIRED_LOCAL_BATCH_SIZE == 4
+    assert distributed.REQUIRED_GLOBAL_BATCH_SIZE == 16
+
+    generator = torch.Generator().manual_seed(23)
+    hidden_size = 5
+    vocabulary_size = 11
+    answer_features = torch.randn(16, 8, hidden_size, generator=generator)
+    route_features = torch.randn(16, 8, hidden_size, generator=generator)
+    labels = torch.full((16, 8), -100, dtype=torch.long)
+    answer_lengths = (1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 1, 3)
+    for row, length in enumerate(answer_lengths):
+        labels[row, 1 : length + 1] = (
+            torch.arange(length) + row
+        ) % vocabulary_size
+    query_mask = torch.zeros(16, 8, dtype=torch.bool)
+    for row in range(16):
+        query_mask[row, : row % 4 + 1] = True
+    targets = torch.arange(16) % 4
+    initial_answer_weight = torch.randn(
+        hidden_size, vocabulary_size, generator=generator
+    )
+    initial_route_weight = torch.randn(hidden_size, 4, generator=generator)
+
+    monolithic_answer_weight = (
+        initial_answer_weight.clone().requires_grad_(True)
+    )
+    monolithic_route_weight = initial_route_weight.clone().requires_grad_(True)
+    monolithic_answer_logits = answer_features @ monolithic_answer_weight
+    monolithic_route_logits = route_features @ monolithic_route_weight
+    monolithic_answer_sum, monolithic_answer_count = (
+        distributed.answer_loss_sum_and_count(monolithic_answer_logits, labels)
+    )
+    monolithic_route_sum, monolithic_route_count, _ = (
+        distributed.route_loss_sum_and_predictions(
+            {"layer": monolithic_route_logits}, query_mask, targets
+        )
+    )
+    monolithic_loss = (
+        monolithic_answer_sum / monolithic_answer_count
+        + monolithic_route_sum / monolithic_route_count
+    )
+    monolithic_loss.backward()
+
+    local_objectives = []
+    prepared_statistics = []
+    for process_rank in range(distributed.REQUIRED_WORLD_SIZE):
+        start = process_rank * distributed.REQUIRED_LOCAL_BATCH_SIZE
+        stop = start + distributed.REQUIRED_LOCAL_BATCH_SIZE
+        local_answer_weight = initial_answer_weight.clone().requires_grad_(True)
+        local_route_weight = initial_route_weight.clone().requires_grad_(True)
+        local_answer_sum, local_answer_count = distributed.answer_loss_sum_and_count(
+            answer_features[start:stop] @ local_answer_weight,
+            labels[start:stop],
+        )
+        local_route_sum, local_route_count, _ = (
+            distributed.route_loss_sum_and_predictions(
+                {"layer": route_features[start:stop] @ local_route_weight},
+                query_mask[start:stop],
+                targets[start:stop],
+            )
+        )
+        assert local_route_count == distributed.REQUIRED_LOCAL_BATCH_SIZE
+        local_objectives.append(
+            (
+                local_answer_weight,
+                local_route_weight,
+                local_answer_sum,
+                local_route_sum,
+            )
+        )
+        prepared_statistics.append(
+            distributed.prepare_objective_statistics(
+                answer_loss_sum=local_answer_sum,
+                answer_token_count=local_answer_count,
+                route_loss_sum=local_route_sum,
+                route_row_count=local_route_count,
+            )
+        )
+
+    assert [int(values[2].item()) for values in prepared_statistics] == [6, 14, 22, 18]
+    global_statistics = torch.stack(prepared_statistics).sum(dim=0)
+
+    def fake_all_reduce(values: torch.Tensor, *, op: object) -> None:
+        assert op == distributed.dist.ReduceOp.SUM
+        values.copy_(global_statistics)
+
+    monkeypatch.setattr(distributed.dist, "all_reduce", fake_all_reduce)
+    objective = distributed.reduce_objective_statistics(
+        _fake_context(), prepared_statistics[0].clone()
+    )
+
+    assert objective["answer_token_count"] == monolithic_answer_count == 60
+    assert objective["route_row_count"] == monolithic_route_count == 16
+    assert objective["answer_loss_sum"] == pytest.approx(
+        float(monolithic_answer_sum.detach().item())
+    )
+    assert objective["route_loss_sum"] == pytest.approx(
+        float(monolithic_route_sum.detach().item())
+    )
+
+    local_losses = []
+    for (
+        local_answer_weight,
+        local_route_weight,
+        local_answer_sum,
+        local_route_sum,
+    ) in local_objectives:
+        local_loss = (
+            local_answer_sum / int(objective["answer_token_count"])
+            + local_route_sum / int(objective["route_row_count"])
+        )
+        local_loss.backward()
+        local_losses.append(local_loss.detach())
+
+    assert torch.stack(local_losses).sum().item() == pytest.approx(
+        monolithic_loss.detach().item()
+    )
+    assert torch.allclose(
+        torch.stack([values[0].grad for values in local_objectives]).sum(dim=0),
+        monolithic_answer_weight.grad,
+        atol=1e-6,
+    )
+    assert torch.allclose(
+        torch.stack([values[1].grad for values in local_objectives]).sum(dim=0),
+        monolithic_route_weight.grad,
+        atol=1e-6,
+    )
+
+
 def test_hard_negative_route_objective_matches_single_process_helper() -> None:
     _, _, route_logits, query_mask = _objective_inputs()
     targets = torch.tensor([0, 1, 2, 3])
