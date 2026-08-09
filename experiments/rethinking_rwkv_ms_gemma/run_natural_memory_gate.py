@@ -105,10 +105,12 @@ PRODUCTION_EVAL_BATCH_SIZE = 8
 PRODUCTION_LEARNING_RATE = 2e-4
 PRODUCTION_ANSWER_WEIGHT = 1.0
 PRODUCTION_ROUTE_WEIGHT = 1.0
-# The key64 development run still had decisive wrong-slot rankings.  Keep the
-# existing route CE and add a small hardest-negative hinge for the next screen.
-PRODUCTION_HARD_NEGATIVE_MARGIN = 0.5
-PRODUCTION_HARD_NEGATIVE_WEIGHT = 0.1
+# The hard-negative screen improved correct-state answers but broadened development
+# route errors and regressed several counterfactual answer metrics.
+# Return to the stronger CE-only baseline while the larger four-GPU batch reduces
+# noisy late optimizer updates from 3,840 to 960 over the same eight epochs.
+PRODUCTION_HARD_NEGATIVE_MARGIN = 0.0
+PRODUCTION_HARD_NEGATIVE_WEIGHT = 0.0
 PRODUCTION_MAX_GRAD_NORM = 1.0
 PRODUCTION_DTYPE = "bfloat16"
 PRODUCTION_ATTN_IMPLEMENTATION = "sdpa"
@@ -117,6 +119,16 @@ PRODUCTION_ROUTE_ACCURACY_MIN = 0.95
 PRODUCTION_REWRITE_OUTPUT_CHANGE_MIN = 0.80
 DISTRIBUTED_PREFLIGHT_STEPS = 3
 MINIMUM_DISTRIBUTED_HEADROOM_BYTES = 5 * 1024**3
+CURRENT_PRODUCTION_COMPLETE_SCHEDULE = (
+    PRODUCTION_EPOCHS,
+    distributed.REQUIRED_GLOBAL_BATCH_SIZE,
+    PRODUCTION_UPDATES,
+)
+LEGACY_LOCAL_BATCH_ONE_COMPLETE_SCHEDULE = (8, 4, 3840)
+RETAINED_PRODUCTION_COMPLETE_SCHEDULES = (
+    CURRENT_PRODUCTION_COMPLETE_SCHEDULE,
+    LEGACY_LOCAL_BATCH_ONE_COMPLETE_SCHEDULE,
+)
 DISTRIBUTED_STEP_PHASE_ORDER = (
     "forward",
     "objective_preparation",
@@ -2730,11 +2742,15 @@ def bind_production_training_contract(
     global_batch_size: int,
     requested_max_steps: int | None,
     schedule_mode: str,
+    expected_complete_schedule: tuple[int, int, int] | None = None,
 ) -> dict[str, Any]:
     """Attach and validate the exact data/schedule contract used by a run."""
 
     if schedule_mode not in {"complete", "preflight"}:
         raise ValueError(f"Unknown training schedule mode: {schedule_mode}")
+    expected_epochs, expected_global_batch, expected_complete_updates = (
+        expected_complete_schedule or CURRENT_PRODUCTION_COMPLETE_SCHEDULE
+    )
     bound = dict(audit)
     complete_epoch_updates = (
         audit["rows"] * epochs // global_batch_size
@@ -2758,23 +2774,24 @@ def bind_production_training_contract(
     bound["production_dataset_contract_passed"] = all(dataset_checks.values())
     expected_schedule = (
         schedule_mode == "preflight"
-        and epochs == PRODUCTION_EPOCHS
-        and global_batch_size == distributed.REQUIRED_GLOBAL_BATCH_SIZE
+        and epochs == expected_epochs
+        and global_batch_size == expected_global_batch
         and requested_max_steps == DISTRIBUTED_PREFLIGHT_STEPS
     ) or (
         schedule_mode == "complete"
-        and epochs == PRODUCTION_EPOCHS
-        and global_batch_size == distributed.REQUIRED_GLOBAL_BATCH_SIZE
-        and requested_max_steps == PRODUCTION_UPDATES
+        and epochs == expected_epochs
+        and global_batch_size == expected_global_batch
+        and requested_max_steps == expected_complete_updates
     )
     schedule = bound["schedule_contract"]
     schedule_checks = {
         "schedule_mode": schedule_mode in {"complete", "preflight"},
-        "epochs_exact": epochs == PRODUCTION_EPOCHS,
-        "global_batch_exact": global_batch_size
-        == distributed.REQUIRED_GLOBAL_BATCH_SIZE,
+        "epochs_exact": epochs == expected_epochs,
+        "global_batch_exact": global_batch_size == expected_global_batch,
         "rows_divide_global_batch": schedule["rows_divide_global_batch"] is True,
-        "complete_epoch_updates_exact": complete_epoch_updates == PRODUCTION_UPDATES,
+        "complete_epoch_updates_exact": (
+            complete_epoch_updates == expected_complete_updates
+        ),
         "requested_max_steps_exact": expected_schedule,
         "complete_epoch_schedule_requested": schedule[
             "complete_epoch_schedule_requested"
@@ -2794,24 +2811,29 @@ def bind_production_training_contract(
     return bound
 
 
-def validate_production_training_contract(
-    audit: Mapping[str, Any], *, schedule_mode: str
+def _validate_production_training_contract_for_schedule(
+    audit: Mapping[str, Any],
+    *,
+    schedule_mode: str,
+    expected_complete_schedule: tuple[int, int, int],
 ) -> bool:
-    """Recompute the bound production contract and reject self-reported spoofing."""
-
     if not isinstance(audit, Mapping):
         return False
+    expected_epochs, expected_global_batch, expected_complete_updates = (
+        expected_complete_schedule
+    )
     try:
         bound = bind_production_training_contract(
             audit,
-            epochs=PRODUCTION_EPOCHS,
-            global_batch_size=distributed.REQUIRED_GLOBAL_BATCH_SIZE,
+            epochs=expected_epochs,
+            global_batch_size=expected_global_batch,
             requested_max_steps=(
                 DISTRIBUTED_PREFLIGHT_STEPS
                 if schedule_mode == "preflight"
-                else PRODUCTION_UPDATES
+                else expected_complete_updates
             ),
             schedule_mode=schedule_mode,
+            expected_complete_schedule=expected_complete_schedule,
         )
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
         return False
@@ -2830,6 +2852,38 @@ def validate_production_training_contract(
         and bound.get("production_contract_passed")
         == audit.get("production_contract_passed")
         and audit.get("production_contract_passed") is True
+    )
+
+
+def validate_production_training_contract(
+    audit: Mapping[str, Any], *, schedule_mode: str
+) -> bool:
+    """Validate only the current production schedule for a new launch."""
+
+    return _validate_production_training_contract_for_schedule(
+        audit,
+        schedule_mode=schedule_mode,
+        expected_complete_schedule=CURRENT_PRODUCTION_COMPLETE_SCHEDULE,
+    )
+
+
+def validate_retained_production_training_contract(
+    audit: Mapping[str, Any], *, schedule_mode: str
+) -> bool:
+    """Validate an immutable current or explicitly retained proof schedule."""
+
+    if schedule_mode != "complete":
+        return validate_production_training_contract(
+            audit,
+            schedule_mode=schedule_mode,
+        )
+    return any(
+        _validate_production_training_contract_for_schedule(
+            audit,
+            schedule_mode=schedule_mode,
+            expected_complete_schedule=schedule,
+        )
+        for schedule in RETAINED_PRODUCTION_COMPLETE_SCHEDULES
     )
 
 
@@ -4393,7 +4447,7 @@ def validate_sealed_lock_chain(
         raise ValueError(
             "Development artifacts contain different training dataset audits"
         )
-    if not validate_production_training_contract(
+    if not validate_retained_production_training_contract(
         training_dataset_audit,
         schedule_mode="complete",
     ):
@@ -4633,8 +4687,8 @@ def run_experiment(
             != distributed.REQUIRED_LOCAL_BATCH_SIZE
         ):
             raise ValueError(
-                "Formal development requires world size 4, local batch 1, "
-                "and global batch 4"
+                "Formal development requires world size 4, local batch 4, "
+                "and global batch 16"
             )
     if profile == "sealed_validation" and distributed_context is not None:
         raise ValueError("Sealed validation is a single-process evaluation")
@@ -5577,8 +5631,12 @@ def run_experiment(
         "hard_negative_margin": hard_negative_margin,
         "hard_negative_weight": hard_negative_weight,
         "route_objective": (
-            "layer_mean(cross_entropy + hard_negative_weight * "
-            "relu(hard_negative_margin + hardest_wrong_logit - target_logit))"
+            "layer_mean(cross_entropy)"
+            if hard_negative_weight == 0.0
+            else (
+                "layer_mean(cross_entropy + hard_negative_weight * "
+                "relu(hard_negative_margin + hardest_wrong_logit - target_logit))"
+            )
         ),
         "eval_batch_size": eval_batch_size,
         "greedy_answer_evaluation": greedy,

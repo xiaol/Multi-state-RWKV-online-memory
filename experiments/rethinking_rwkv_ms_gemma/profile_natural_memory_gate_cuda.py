@@ -39,8 +39,8 @@ ANSWER_LOGIT_SELECTION_SCHEMA = (
 )
 HF_MIRROR_ENDPOINT = "https://hf-mirror.com"
 PROFILED_LOCAL_BATCH_SIZES = (1, 2, 4)
-REQUIRED_LOCAL_BATCH_SIZES = (1,)
-EXPLORATORY_LOCAL_BATCH_SIZES = (2, 4)
+REQUIRED_LOCAL_BATCH_SIZES = (4,)
+EXPLORATORY_LOCAL_BATCH_SIZES = (1, 2)
 DISTRIBUTED_WORLD_SIZE = gate.distributed.REQUIRED_WORLD_SIZE
 DISTRIBUTED_LOCAL_BATCH_SIZE = gate.distributed.REQUIRED_LOCAL_BATCH_SIZE
 DISTRIBUTED_GLOBAL_BATCH_SIZE = gate.distributed.REQUIRED_GLOBAL_BATCH_SIZE
@@ -2452,7 +2452,7 @@ def run_orchestrator(
             ),
             "measurement_policy": (
                 "each local batch runs sequentially in a fresh Python process and fresh "
-                "model; local batch 1 is launch-critical while local batches 2 and 4 "
+                "model; local batch 4 is launch-critical while local batches 1 and 2 "
                 "are exploratory observations; "
                 "measure fresh load, activation-max cold AdamW with router audit, "
                 "answer-logit-max AdamW with activation-max prior liveness and router "

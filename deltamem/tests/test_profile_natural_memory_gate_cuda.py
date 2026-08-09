@@ -190,12 +190,12 @@ def test_profile_contract_binds_compositional_production_schedule() -> None:
     assert len(dataset["training_conditions"]) == 5
     assert dataset["unique_training_rows"] == 1920
     assert dataset["complete_epochs"] == 8
-    assert dataset["global_batch_size"] == 4
-    assert dataset["optimizer_updates"] == 3840
+    assert dataset["global_batch_size"] == 16
+    assert dataset["optimizer_updates"] == 960
     assert target["unique_training_rows"] == 1920
     assert target["complete_epochs"] == 8
-    assert target["global_batch_size"] == 4
-    assert target["optimizer_updates"] == 3840
+    assert target["global_batch_size"] == 16
+    assert target["optimizer_updates"] == 960
     assert (
         target["unique_training_rows"]
         * target["complete_epochs"]
@@ -365,8 +365,8 @@ def test_memory_gate_fails_below_five_gib() -> None:
 
 def test_profiled_local_batch_sizes_and_explicit_cuda_device_are_locked() -> None:
     assert profiler.PROFILED_LOCAL_BATCH_SIZES == (1, 2, 4)
-    assert profiler.REQUIRED_LOCAL_BATCH_SIZES == (1,)
-    assert profiler.EXPLORATORY_LOCAL_BATCH_SIZES == (2, 4)
+    assert profiler.REQUIRED_LOCAL_BATCH_SIZES == (4,)
+    assert profiler.EXPLORATORY_LOCAL_BATCH_SIZES == (1, 2)
     assert profiler._parse_batch_sizes("1,2,4") == (1, 2, 4)
     assert profiler._parse_cuda_device("cuda:3") == torch.device("cuda:3")
     with pytest.raises(
@@ -1513,8 +1513,8 @@ def test_orchestrator_binds_three_distinct_worker_processes(
     assert receipt["gate"]["launch_gate"]["passed"] is True
     assert receipt["gate"]["exploration"] == {
         "complete": True,
-        "outcomes_by_local_batch_size": {"2": "passed", "4": "passed"},
-        "passing_local_batch_sizes": [2, 4],
+        "outcomes_by_local_batch_size": {"1": "passed", "2": "passed"},
+        "passing_local_batch_sizes": [1, 2],
         "cuda_oom_local_batch_sizes": [],
         "insufficient_headroom_local_batch_sizes": [],
         "malformed_or_unclassified_local_batch_sizes": [],
@@ -1595,18 +1595,19 @@ def test_signed_exploratory_oom_receipts_do_not_fail_launch(
     assert profiler.verify_signed_payload(receipt, "profile_receipt_sha256")
     assert all(
         worker["cuda_oom_evidence_passed"] is True
-        for worker in receipt["workers"][1:]
+        for worker in receipt["workers"]
+        if worker["profiled_local_batch_size"] in (1, 2)
     )
     assert receipt["gate_passed"] is True
     assert receipt["gate"]["launch_gate"]["passed"] is True
     assert receipt["gate"]["exploration"] == {
         "complete": True,
         "outcomes_by_local_batch_size": {
+            "1": "cuda_out_of_memory",
             "2": "cuda_out_of_memory",
-            "4": "cuda_out_of_memory",
         },
         "passing_local_batch_sizes": [],
-        "cuda_oom_local_batch_sizes": [2, 4],
+        "cuda_oom_local_batch_sizes": [1, 2],
         "insufficient_headroom_local_batch_sizes": [],
         "malformed_or_unclassified_local_batch_sizes": [],
     }
@@ -1684,14 +1685,14 @@ def test_signed_exploratory_headroom_failure_does_not_fail_launch(
     exploration = receipt["gate"]["exploration"]
     assert exploration["complete"] is True
     assert exploration["outcomes_by_local_batch_size"] == {
+        "1": "passed",
         "2": "insufficient_headroom",
-        "4": "passed",
     }
     assert exploration["insufficient_headroom_local_batch_sizes"] == [2]
     assert exploration["malformed_or_unclassified_local_batch_sizes"] == []
 
 
-def test_signed_required_batch_one_oom_fails_launch(
+def test_signed_required_batch_four_oom_fails_launch(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -1737,8 +1738,8 @@ def test_invalid_exploratory_receipt_is_a_separate_incomplete_audit(
     exploration = receipt["gate"]["exploration"]
     assert exploration["complete"] is False
     assert exploration["outcomes_by_local_batch_size"] == {
+        "1": "passed",
         "2": "malformed_or_unclassified",
-        "4": "passed",
     }
     assert exploration["malformed_or_unclassified_local_batch_sizes"] == [2]
 
@@ -1819,21 +1820,21 @@ def _valid_profile_workers() -> list[dict]:
     return workers
 
 
-def test_distributed_profile_target_locks_four_gpu_global_batch_four() -> None:
+def test_distributed_profile_target_locks_four_gpu_global_batch_sixteen() -> None:
     target = profiler._distributed_training_target()
     workers = _valid_profile_workers()
 
     result = profiler.build_profile_gate(workers)
 
     assert target["world_size"] == 4
-    assert target["local_batch_size"] == 1
-    assert target["global_batch_size"] == 4
+    assert target["local_batch_size"] == 4
+    assert target["global_batch_size"] == 16
     assert target["world_size"] * target["local_batch_size"] == target[
         "global_batch_size"
     ]
     assert result["launch_gate"]["selected_world_size"] == 4
-    assert result["launch_gate"]["selected_local_batch_size"] == 1
-    assert result["launch_gate"]["selected_global_batch_size"] == 4
+    assert result["launch_gate"]["selected_local_batch_size"] == 4
+    assert result["launch_gate"]["selected_global_batch_size"] == 16
     assert result["passed"] is True
 
 
@@ -1876,7 +1877,13 @@ def test_profile_gate_rejects_cross_worker_binding_drift(
     binding_field: str,
 ) -> None:
     workers = _valid_profile_workers()
-    workers[0][binding_field] = "9" * 64
+    required_worker = next(
+        worker
+        for worker in workers
+        if worker["profiled_local_batch_size"]
+        == profiler.DISTRIBUTED_LOCAL_BATCH_SIZE
+    )
+    required_worker[binding_field] = "9" * 64
 
     result = profiler.build_profile_gate(
         workers,
@@ -1893,7 +1900,13 @@ def test_profile_gate_rejects_cross_worker_binding_drift(
 
 def test_profile_gate_rejects_missing_worker_binding() -> None:
     workers = _valid_profile_workers()
-    del workers[0]["delta_api_file_sha256"]
+    required_worker = next(
+        worker
+        for worker in workers
+        if worker["profiled_local_batch_size"]
+        == profiler.DISTRIBUTED_LOCAL_BATCH_SIZE
+    )
+    del required_worker["delta_api_file_sha256"]
 
     result = profiler.build_profile_gate(workers)
 

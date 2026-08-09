@@ -76,6 +76,35 @@ def _production_training_dataset_audit() -> dict[str, Any]:
     )
 
 
+def _literal_legacy_training_dataset_audit() -> dict[str, Any]:
+    audit = _production_training_dataset_audit()
+    audit["schedule_contract"] = {
+        "epochs": 8,
+        "global_batch_size": 4,
+        "rows_divide_global_batch": True,
+        "complete_epoch_updates": 3840,
+        "requested_max_steps": 3840,
+        "complete_epoch_schedule_requested": True,
+    }
+    audit["schedule_mode"] = "complete"
+    audit["schedule_contract_checks"] = {
+        "schedule_mode": True,
+        "epochs_exact": True,
+        "global_batch_exact": True,
+        "rows_divide_global_batch": True,
+        "complete_epoch_updates_exact": True,
+        "requested_max_steps_exact": True,
+        "complete_epoch_schedule_requested": True,
+    }
+    audit["schedule_contract_passed"] = True
+    audit["production_contract_checks"] = {
+        "dataset": True,
+        "schedule": True,
+    }
+    audit["production_contract_passed"] = True
+    return audit
+
+
 def _passing_gate() -> dict[str, Any]:
     return {
         "schema": runner.ACCEPTANCE_SCHEMA,
@@ -226,6 +255,52 @@ def test_sealed_lock_chain_accepts_complete_retained_evidence(tmp_path: Path) ->
     assert result["adapter_files_sha256"] == runner._sha256_json(
         runner.snapshot_directory_files(chain["adapter_dir"])
     )
+
+
+def test_sealed_lock_chain_accepts_literal_legacy_batch_four_schedule(
+    tmp_path: Path,
+) -> None:
+    chain = _write_chain(tmp_path)
+    legacy_audit = _literal_legacy_training_dataset_audit()
+    protocol_path = chain["run_dir"] / "protocol.json"
+    protocol = _read_json(protocol_path)
+    protocol["training_dataset_audit"] = deepcopy(legacy_audit)
+    _write_json(protocol_path, protocol)
+    training_path = chain["run_dir"] / "training_configuration.json"
+    training = _read_json(training_path)
+    training["training_dataset_audit"] = deepcopy(legacy_audit)
+    _write_json(training_path, training)
+    evaluation_path = chain["run_dir"] / "evaluation.json"
+    evaluation = _read_json(evaluation_path)
+    evaluation["training"]["training_dataset_audit"] = deepcopy(legacy_audit)
+    _write_json(evaluation_path, evaluation)
+    _rebind_chain(chain)
+
+    assert runner.validate_production_training_contract(
+        legacy_audit,
+        schedule_mode="complete",
+    ) is False
+    assert runner.validate_retained_production_training_contract(
+        legacy_audit,
+        schedule_mode="complete",
+    ) is True
+    assert _validate(chain)["passed"] is True
+
+
+def test_retained_schedule_allowlist_rejects_unrecognized_batch_geometry() -> None:
+    unsupported = _literal_legacy_training_dataset_audit()
+    unsupported["schedule_contract"].update(
+        {
+            "global_batch_size": 8,
+            "complete_epoch_updates": 1920,
+            "requested_max_steps": 1920,
+        }
+    )
+
+    assert runner.validate_retained_production_training_contract(
+        unsupported,
+        schedule_mode="complete",
+    ) is False
 
 
 def test_sealed_lock_chain_requires_retained_evaluation(tmp_path: Path) -> None:

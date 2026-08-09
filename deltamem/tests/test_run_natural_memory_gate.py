@@ -1311,14 +1311,15 @@ def test_natural_cli_defaults_to_profiled_route64_contract() -> None:
     assert (
         args.hard_negative_margin
         == runner.PRODUCTION_HARD_NEGATIVE_MARGIN
-        == 0.5
+        == 0.0
     )
     assert (
         args.hard_negative_weight
         == runner.PRODUCTION_HARD_NEGATIVE_WEIGHT
-        == 0.1
+        == 0.0
     )
-    assert args.max_steps == runner.PRODUCTION_UPDATES == 3840
+    assert args.batch_size == runner.distributed.REQUIRED_GLOBAL_BATCH_SIZE == 16
+    assert args.max_steps == runner.PRODUCTION_UPDATES == 960
     assert runner._parse_training_conditions(args.training_conditions) == (
         runner.SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS
     )

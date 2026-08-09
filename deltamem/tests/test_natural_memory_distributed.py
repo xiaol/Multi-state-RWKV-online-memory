@@ -806,7 +806,10 @@ def _valid_preflight_training() -> dict:
     for step in range(1, runner.DISTRIBUTED_PREFLIGHT_STEPS + 1):
         adapter_hash = f"{step:064x}"
         optimizer_hash = f"{step + 16:064x}"
-        global_rows = [f"step-{step}-rank-{rank}" for rank in range(4)]
+        global_rows = [
+            f"step-{step}-row-{row}"
+            for row in range(distributed.REQUIRED_GLOBAL_BATCH_SIZE)
+        ]
         gradient_collective = {
             "trainable_parameter_tensors": len(trainable_names),
             "trainable_names_sha256": trainable_names_sha256,
@@ -833,52 +836,57 @@ def _valid_preflight_training() -> dict:
             "all_reduce_bytes": 32,
         }
         collective_evidence_by_step.append(gradient_collective)
-        ranks = [
-            {
-                "rank": rank,
-                "local_row_ids": [global_rows[rank]],
-                "local_online_state_sha256": [f"{step * 16 + rank:064x}"],
-                "local_answer_tokens": rank + 1,
-                "local_route_rows": 1,
-                "trainable_metadata_sha256": trainable_metadata_sha256,
-                "trainable_names_sha256": trainable_names_sha256,
-                "gradient_validation": {
-                    "parameter_tensors": len(trainable_names),
-                    "parameter_names_sha256": trainable_names_sha256,
-                    "active_gradient_tensors": len(active_names_by_rank[rank]),
-                    "active_names_sha256": distributed.canonical_sha256(
-                        active_names_by_rank[rank]
-                    ),
-                    "missing_gradient_tensors": (
-                        len(trainable_names) - len(active_names_by_rank[rank])
-                    ),
-                    "missing_names_sha256": distributed.canonical_sha256(
-                        [
-                            name
-                            for name in trainable_names
-                            if name not in set(active_names_by_rank[rank])
-                        ]
-                    ),
-                    "nonfinite_gradient_tensors": 0,
-                    "nonfinite_names_sha256": distributed.canonical_sha256([]),
-                    "nonfinite_preview": [],
-                    "non_fp32_gradient_tensors": 0,
-                    "non_fp32_names_sha256": distributed.canonical_sha256([]),
-                    "non_fp32_preview": [],
-                    "passed": True,
-                },
-                "gradient_collective": gradient_collective,
-                "adapter_state_sha256": adapter_hash,
-                "optimizer_state_sha256": optimizer_hash,
-            }
-            for rank in range(4)
-        ]
+        ranks = []
+        for rank in range(distributed.REQUIRED_WORLD_SIZE):
+            start = rank * distributed.REQUIRED_LOCAL_BATCH_SIZE
+            stop = start + distributed.REQUIRED_LOCAL_BATCH_SIZE
+            ranks.append(
+                {
+                    "rank": rank,
+                    "local_row_ids": global_rows[start:stop],
+                    "local_online_state_sha256": [
+                        f"{step * 64 + row:064x}" for row in range(start, stop)
+                    ],
+                    "local_answer_tokens": rank + 1,
+                    "local_route_rows": distributed.REQUIRED_LOCAL_BATCH_SIZE,
+                    "trainable_metadata_sha256": trainable_metadata_sha256,
+                    "trainable_names_sha256": trainable_names_sha256,
+                    "gradient_validation": {
+                        "parameter_tensors": len(trainable_names),
+                        "parameter_names_sha256": trainable_names_sha256,
+                        "active_gradient_tensors": len(active_names_by_rank[rank]),
+                        "active_names_sha256": distributed.canonical_sha256(
+                            active_names_by_rank[rank]
+                        ),
+                        "missing_gradient_tensors": (
+                            len(trainable_names) - len(active_names_by_rank[rank])
+                        ),
+                        "missing_names_sha256": distributed.canonical_sha256(
+                            [
+                                name
+                                for name in trainable_names
+                                if name not in set(active_names_by_rank[rank])
+                            ]
+                        ),
+                        "nonfinite_gradient_tensors": 0,
+                        "nonfinite_names_sha256": distributed.canonical_sha256([]),
+                        "nonfinite_preview": [],
+                        "non_fp32_gradient_tensors": 0,
+                        "non_fp32_names_sha256": distributed.canonical_sha256([]),
+                        "non_fp32_preview": [],
+                        "passed": True,
+                    },
+                    "gradient_collective": gradient_collective,
+                    "adapter_state_sha256": adapter_hash,
+                    "optimizer_state_sha256": optimizer_hash,
+                }
+            )
         step_evidence.append(
             {
                 "step": step,
                 "global_row_ids": global_rows,
                 "global_answer_tokens": 10,
-                "global_route_rows": 4,
+                "global_route_rows": distributed.REQUIRED_GLOBAL_BATCH_SIZE,
                 "phase_order": list(runner.DISTRIBUTED_STEP_PHASE_ORDER),
                 "ranks": ranks,
                 "adapter_state_sha256": adapter_hash,
@@ -900,8 +908,8 @@ def _valid_preflight_training() -> dict:
             "backend": "nccl",
             "control_backend": "gloo",
             "world_size": 4,
-            "local_batch_size": 1,
-            "global_batch_size": 4,
+            "local_batch_size": distributed.REQUIRED_LOCAL_BATCH_SIZE,
+            "global_batch_size": distributed.REQUIRED_GLOBAL_BATCH_SIZE,
             "gradient_synchronization": "sum",
             "unused_gradient_policy": (
                 "global_active_union_zero_fill_rank_missing_skip_global_inactive"
