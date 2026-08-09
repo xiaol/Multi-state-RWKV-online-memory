@@ -1,0 +1,43 @@
+{
+  "archived_at": "2026-08-10T04:44:37+08:00",
+  "code_binding": {
+    "generator_sha256": "a737e9f5db35777c84227bfec30e73f24ae001b4a1c6173e020682b65b8892a9",
+    "git_commit": "16f61dc9cfa1baa9d30bea7fbf6baee93a656ecd"
+  },
+  "diagnosis": "The preregistered split seed produces a pinned-corpus component assignment whose maximum item-fraction absolute error exceeds the immutable 0.03 tolerance.",
+  "diagnostic_receipt_sha256": "cb619a5b2f1675ed3b54fa033226f7b3cedbeee25cbeaadf8e7f0168dabaf567",
+  "error": {
+    "message": "Pinned corpus split balance exceeds the 0.03 absolute tolerance",
+    "type": "ValueError"
+  },
+  "failure_effects": {
+    "development_episodes_emitted": 0,
+    "model_binding_opened": false,
+    "optimizer_updates": 0,
+    "output_directory_created": false,
+    "sealed_split_materialized": false,
+    "source_training_corpora_opened": true
+  },
+  "hf_endpoint": "https://hf-mirror.com",
+  "policy_outcome": {
+    "r3_sealed_evaluation_authorized": false,
+    "r3_training_authorized": false,
+    "seed_substitution_authorized": false
+  },
+  "preregistered_protocol": {
+    "file_sha256": "d1ffe49e3889397537d1924b05093f299f63bd60beb4913faf88761f15c676c7",
+    "payload_sha256": "3bd9e16456bb89a84ec980a2453cb76844de87c85abb249fba3b1bdbd9cb0a35"
+  },
+  "replication": {
+    "id": "r3",
+    "split_seed": 20260811,
+    "training_seed": 44
+  },
+  "schema": "rwkv_ms_natural_memory_replication_diagnostic.v1",
+  "split_balance": {
+    "maximum_item_fraction_abs_error": 0.16774193548387095,
+    "maximum_item_fraction_abs_error_limit": 0.03,
+    "passed": false
+  },
+  "status": "preregistered_development_package_materialization_failed_closed"
+}
