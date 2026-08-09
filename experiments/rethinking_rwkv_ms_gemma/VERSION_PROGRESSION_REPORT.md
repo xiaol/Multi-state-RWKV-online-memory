@@ -1,51 +1,42 @@
-# Multi-State RWKV Online Memory: V1-V16 Progression Report
+# Multi-State RWKV Online Memory: V1-V16 and Formal Gate Progression
 
-Snapshot: 2026-07-28 07:47 CST
+Snapshot: 2026-08-09 17:05 CST
 
 ## Executive conclusion
 
-V16 is the strongest version on the narrow in-sample causal-memory probe, but it
-is not a successful model version yet. On its 32 training pairs it improves the
-exact-pair first-distinguishing-token gap to `+0.07031`, while its completed
-attribution validation result is only `16/30`, versus `25/30` for the Gemma base
-and `19/30` for V15. Training is complete, while the full V16 dataset benchmark
-remains incomplete.
+The post-V16 formal natural-memory program has now produced the result that the
+earlier versions did not: semantic, compositional addressing through the outer
+online memory passes a genuinely held-out sealed gate. The frozen key64/rank32
+adapter was evaluated once on 96 passage-disjoint sealed episodes and 384
+queries, with no optimizer and no exposed train or development rows. All 52
+acceptance checks pass.
 
-A fresh, unnumbered post-V16 all-layer V6-style scene pilot has now completed.
-It trains rank-4 `q,o` memory on all 42 Gemma4 E4B layers and lowers the final
-32-update mean training CE to `0.291`. On its fixed 32-row validation slice,
-`normal_full` recovered micro-F1 is `0.1868`, versus `0.1379` for both Gemma base
-and the same adapter with writes disabled. State-only F1 is `0.0851` versus
-`0.0000` for zero state, but donor-state F1 is also `0.0851`. The pilot therefore
-shows write and state-presence effects, not a positive aggregate state-identity
-advantage. No test split or full validation benchmark was run.
+Correct-state routing is `16128/16128` across all 42 layers, and all
+`4032/4032` family-layer cells route all four queries correctly. Greedy
+structured answers are exact on `379/384` rows. Rewriting only the queried slot
+changes the output on `384/384` pairs and jointly flips to the exact alternate
+answer on `378/384` pairs (`98.4375%`). No-state and pristine-frozen-base outputs
+are exactly equivalent, while every audited counterfactual state has different
+runtime tensors and write payloads. Source files, model weights, adapter files,
+the development protocol, and the training configuration remain hash-bound and
+unchanged.
 
-Separately, `scene_memory_v6` is a new all-42-layer candidate that has not been
-trained. Its frozen source, full 1,804-row training partition, seeded step-0
-adapter, tokenized-cache identity, and protected validation code pass the
-pre-training audit. The authoritative run3 prepare-only receipt is valid and no
-optimizer update has occurred. The current decision is **GO for one disposable
-update of smoke training only**. A direct 512-update Stage 1 launch is not
-authorized until that smoke produces a valid all-layer activity and frozen-K/V
-receipt with sufficient VRAM headroom.
+This is a successful proof under the exact formal benchmark contract, not a
+claim of universal long-context memory or broad structured-task transfer. It is
+one sealed split and one training seed. The older V16 attribution regression and
+the post-V16 scene pilot's lack of aggregate donor discrimination remain valid
+historical results on different protocols. The best next goal is therefore a
+preregistered replication on new locked splits, not further tuning against this
+now-open sealed package.
 
-The project made four real advances:
-
-1. Training loss fell from a final-epoch mean of `6.864` on the V2 loss probe to
-   `1.626` in V6 after switching to the content-control probe, semantics v2, and
-   24 layers. These are training-set results on two different 32-row probes.
-2. The trainable memory path expanded from 6 layers to all 42 layers under the
-   available VRAM budget.
-3. V16 produces a measurable causal effect at the first history-dependent
-   answer token on the same 32 pairs used for training.
-4. The post-V16 scene pilot produces write-dependent and state-presence effects
-   on a fixed official-validation slice with no exact row or prompt overlap,
-   although not a correct-state-over-donor advantage.
-
-It has not yet produced the result that matters: a positive correct-state over
-donor-state advantage on held-out memory validation with passage-level overlap
-audited, followed by a positive full structured-task validation delta over the
-same base model.
+Four GPUs were already used by both comparable key64 runs. The final run changed
+local batch from 1 to 4 and global batch from 4 to 16; outer memory remained
+rank-local, and only adapter gradients and weights were synchronized. Keeping
+eight complete epochs reduced optimizer events from `3840` to `960`. This batch
+and schedule change coincided with the gate pass and cut full-run wall time from
+`9653.18s` to `2703.20s`, a `3.57x` speedup. A still larger batch would change
+the frozen optimization contract again, so it belongs in a separate
+development-only systems ablation rather than this proof chain.
 
 ## Comparison rules
 
@@ -76,6 +67,90 @@ same base model.
 - The new `scene_memory_v6` candidate is distinct from both historical V6 and
   the completed 32-row pilot. It uses all 1,804 official scene-v4 training rows
   as its source partition and is still at `global_step=0`.
+- The post-V16 formal gate is a separate passage-disjoint benchmark and is not
+  numerically comparable with V1-V16 training losses or the scene pilot's F1.
+- Sealed rows were materialized only after a passing development receipt froze
+  the benchmark, adapter, protocol, training audit, and configuration. Sealed
+  validation performed zero optimizer updates and cannot justify tuning this
+  same candidate further.
+- Formal training used four DDP ranks. Each rank held only its own local online
+  state; DDP synchronized parameter gradients, not memory states.
+
+## Post-V16 formal natural-memory progression
+
+| Milestone | Addressing / objective | Local / global batch; updates | Correct-state routing | Four-query family-layers | Greedy exact | Gate |
+|---|---|---:|---:|---:|---:|---:|
+| Initial development | key32; correct-state-only CE | `1 / 4`; `768` | `16128/16128` | `4032/4032` | `281/384` | `40/52`, fail |
+| Compositional development | key32; five-state CE | `1 / 4`; `3840` | `16128/16128` | `4032/4032` | `371/384` | `54/54`, pass |
+| First sealed validation | frozen key32 adapter | optimizer skipped | `16126/16128` | `4030/4032` | `372/384` | `51/52`, fail |
+| Fresh key64 development | key64; five-state CE | `1 / 4`; `3840` | `16118/16128` | `4022/4032` | `381/384` | `53/54`, fail |
+| Hard-negative development | key64; CE plus route margin | `1 / 4`; `3840` | `16049/16128` | `3959/4032` | `384/384` | `53/54`, fail |
+| CE-only batch16 development | key64; five-state CE | `4 / 16`; `960` | `16128/16128` | `4032/4032` | `368/384` | `54/54`, pass |
+| Final sealed validation | frozen key64 batch16 adapter | optimizer skipped | `16128/16128` | `4032/4032` | `379/384` | `52/52`, pass |
+
+The sequence identifies the earlier experimental loop. Correct answers could
+improve while worst-case physical-slot identity regressed: widening keys alone
+left 10 development route errors, and the direct hard-negative hinge expanded
+that to 79 despite reaching `384/384` correct-state answers. The successful
+change was not a new retrieval objective. Returning to five-state CE while
+increasing the synchronized batch stabilized the late training trajectory and
+restored exact four-query family routing.
+
+The final sealed positive-state results are:
+
+| Condition | Semantic routes | Greedy exact answers | Full occupancy |
+|---|---:|---:|---:|
+| `correct_state` | `16128/16128` | `379/384` | `16128/16128` |
+| `donor_state` | `16126/16128` | `383/384` | `16128/16128` |
+| `value_swap` | `16126/16128` | `379/384` | `16128/16128` |
+| `target_slot_rewrite` | `16128/16128` | `380/384` | `16128/16128` |
+| `shuffled_slots` | `16128/16128` | `379/384` | `16128/16128` |
+
+All positive conditions wrote through all four physical slots. `no_state` and
+`pristine_frozen_base` had zero writes, no routes, `0/384` exact answers, and
+identical greedy and teacher-forced outputs. The counterfactual pair contract,
+runtime tensor difference, write-payload difference, source/model immutability,
+and exact no-state/base equivalence fractions are all `1.0`.
+
+The frozen package is commit `43d9bf6`; the passing sealed evidence is commit
+`32e1768`. The principal bound hashes are listed below. The run, evaluation,
+protocol, and configuration values are canonical JSON hashes; the sealed JSONL
+value hashes the raw file bytes.
+
+- benchmark contract: `1ece969d3279a43b5f431afa07094b3d52d024da6f890cf0e5a801c8d9fe4a4d`
+- sealed manifest payload: `ba80f3fc96572bc72abb687c4ebd7815a04908f370ba381f3f022d955c7bb9db`
+- sealed JSONL: `993da6f594c219b13cd7bd82425b167300cc4ecd4d243f4a87337c55a162894b`
+- development lock: `e7fcf438cf3116eeb25f5bd08d5d7a6cb6271a6159f0d4dc8b31cb2553313f7d`
+- adapter aggregate: `cdc8182af1f28577534c6303def603eea43054e953cd1a8bbc9c8211078b218a`
+- sealed run receipt: `ad1c51b6bedfa25fd05b040a827774c7ff6b4c86338e01c6565c55dd80032e0a`
+- sealed evaluation: `12f3d7a30fb8d9a753a915a180f0021954bd2c7ee9f711309924ea703b1c7552`
+- sealed protocol: `1e17d51f994845f7b955d0594062fc2d6ff033928c68a2712e3a277c72cbeb02`
+- sealed training configuration: `bc6544ab12d86bb4ca8250b0550b3dfbe930f849d67d97bb7e3f272257e8c940`
+
+### Recommended next goal
+
+Freeze this proof artifact and run two preregistered replications, each with a
+new split seed and optimizer seed, the same key64/rank32 architecture, the same
+five-state CE objective, and the same four-GPU local-4/global-16 schedule. Each
+replication should make one development decision and one sealed run, with no
+sealed-data-driven retry. The target is three total independently locked sealed
+results, all passing the complete gate; any failure should be archived and
+analyzed before a new protocol is declared.
+
+Other useful directions, in priority order, are:
+
+1. Scale the address space from four slots to 8 and 16 while preserving shuffled
+   physical-slot causality and worst-family reporting.
+2. Extend retention across longer write/read gaps and intervening unrelated
+   records without changing the answer-recovery task.
+3. Measure downstream transfer on a separately locked structured-task benchmark
+   after the replication gate, including base and no-memory comparisons.
+4. If replication exposes route instability, train complete four-query families
+   with a family-worst-case route objective or train-only confusable addresses;
+   do not tune those methods on the current sealed rows.
+5. Profile global batch 32 as a development-only throughput experiment. It may
+   be faster, but it halves optimizer events again and therefore requires a new
+   profile, preflight, development decision, and sealed lock.
 
 ## Checkpoint lineage
 
