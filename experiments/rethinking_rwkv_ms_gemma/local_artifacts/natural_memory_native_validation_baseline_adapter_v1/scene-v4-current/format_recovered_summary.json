@@ -1,0 +1,791 @@
+{
+  "bootstrap_protocol": {
+    "confidence_level": 0.95,
+    "interval": "paired percentile interval with deterministic type-7 interpolation",
+    "replicates": 10000,
+    "resampling_unit": "Paired evaluation rows. Narrative units and scene TP/FP/FN remain clustered within their source row.",
+    "seed": 20260724
+  },
+  "condition_diagnostics": {
+    "scene-v4-current": {
+      "base": {
+        "coverage": 0.9647058823529412,
+        "max_token_hit_rate": 0.16470588235294117,
+        "max_token_hits": 28,
+        "recovered_rows": 164,
+        "rows": 170
+      },
+      "normal": {
+        "coverage": 0.9647058823529412,
+        "max_token_hit_rate": 0.16470588235294117,
+        "max_token_hits": 28,
+        "recovered_rows": 164,
+        "rows": 170
+      }
+    }
+  },
+  "conditions": {
+    "base": {
+      "metrics": {
+        "scene-v4-current": {
+          "coverage": 0.9647058823529412,
+          "fn": 84,
+          "fp": 698,
+          "invalid_indices_counted_as_fp": 53,
+          "macro_sample_f1": 0.19564925508332903,
+          "micro_f1": 0.18200836820083682,
+          "precision": 0.11082802547770701,
+          "predicted_unique_indices": 785,
+          "primary_metric": 0.18200836820083682,
+          "primary_metric_name": "format_recovered_micro_f1",
+          "recall": 0.5087719298245614,
+          "recovered_rows": 164,
+          "samples": 170,
+          "tp": 87,
+          "unrecovered_rows": 6
+        }
+      },
+      "resources": {
+        "by_task": {
+          "scene-v4-current": {
+            "elapsed_seconds": 1178.946733628516,
+            "hit_max_new_tokens": 28,
+            "input_tokens": 86192,
+            "max_peak_cuda_memory_bytes": 16194942976,
+            "mean_elapsed_seconds": 6.934980786050095,
+            "median_elapsed_seconds": 4.17613365498255,
+            "output_tokens": 9860,
+            "p95_elapsed_seconds": 15.518479968479369,
+            "samples": 170
+          }
+        },
+        "memory_trace": {
+          "by_layer": {},
+          "records_with_trace": 0,
+          "trace_points": 0
+        },
+        "overall": {
+          "elapsed_seconds": 1178.946733628516,
+          "hit_max_new_tokens": 28,
+          "input_tokens": 86192,
+          "max_peak_cuda_memory_bytes": 16194942976,
+          "mean_elapsed_seconds": 6.934980786050095,
+          "median_elapsed_seconds": 4.17613365498255,
+          "output_tokens": 9860,
+          "p95_elapsed_seconds": 15.518479968479369,
+          "samples": 170
+        }
+      }
+    },
+    "normal": {
+      "metrics": {
+        "scene-v4-current": {
+          "coverage": 0.9647058823529412,
+          "fn": 84,
+          "fp": 698,
+          "invalid_indices_counted_as_fp": 53,
+          "macro_sample_f1": 0.19564925508332903,
+          "micro_f1": 0.18200836820083682,
+          "precision": 0.11082802547770701,
+          "predicted_unique_indices": 785,
+          "primary_metric": 0.18200836820083682,
+          "primary_metric_name": "format_recovered_micro_f1",
+          "recall": 0.5087719298245614,
+          "recovered_rows": 164,
+          "samples": 170,
+          "tp": 87,
+          "unrecovered_rows": 6
+        }
+      },
+      "resources": {
+        "by_task": {
+          "scene-v4-current": {
+            "elapsed_seconds": 3561.202634734742,
+            "hit_max_new_tokens": 28,
+            "input_tokens": 86192,
+            "max_peak_cuda_memory_bytes": 16253893632,
+            "mean_elapsed_seconds": 20.948250792557307,
+            "median_elapsed_seconds": 13.297037366515724,
+            "output_tokens": 9860,
+            "p95_elapsed_seconds": 50.83521616687649,
+            "samples": 170
+          }
+        },
+        "memory_trace": {
+          "by_layer": {},
+          "records_with_trace": 0,
+          "trace_points": 0
+        },
+        "overall": {
+          "elapsed_seconds": 3561.202634734742,
+          "hit_max_new_tokens": 28,
+          "input_tokens": 86192,
+          "max_peak_cuda_memory_bytes": 16253893632,
+          "mean_elapsed_seconds": 20.948250792557307,
+          "median_elapsed_seconds": 13.297037366515724,
+          "output_tokens": 9860,
+          "p95_elapsed_seconds": 50.83521616687649,
+          "samples": 170
+        }
+      }
+    }
+  },
+  "diagnostic_kind": "conservative format-recovered structured-task transfer evaluation",
+  "legacy_multitask_selection_criterion": {
+    "all_gates_passed": false,
+    "bootstrap_replicates": 10000,
+    "bootstrap_seed": 20260724,
+    "complete": false,
+    "criterion_version": "novel_agent_validation_selection_v1",
+    "overall_passed": false,
+    "required_split": "val",
+    "required_tasks": [
+      "attribution-v3.2",
+      "narrative-v3.2",
+      "scene-v4-current"
+    ],
+    "split": "val",
+    "status": "incomplete",
+    "tasks": {
+      "attribution-v3.2": {
+        "all_rows": null,
+        "applied_excluded_zero_based_indices": [],
+        "clean_selection": null,
+        "clean_selection_exclusion_note": null,
+        "configured_excluded_zero_based_indices": [],
+        "criterion_eligible": false,
+        "criterion_passed": false,
+        "evaluated_rows": 0,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.05,
+            "value": null
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.05,
+            "value": null
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.0,
+            "value": null
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.03333333333333333,
+            "value": null
+          }
+        },
+        "gates_passed": false,
+        "official_expected_rows": 30,
+        "selection_rows": 0,
+        "split": "val",
+        "status": "not_evaluated"
+      },
+      "narrative-v3.2": {
+        "all_rows": null,
+        "applied_excluded_zero_based_indices": [],
+        "clean_selection": null,
+        "clean_selection_exclusion_note": "Zero-based validation row 25 duplicates training content with conflicting labels; it remains in all-row metrics and is excluded only from checkpoint selection.",
+        "configured_excluded_zero_based_indices": [
+          25
+        ],
+        "criterion_eligible": false,
+        "criterion_passed": false,
+        "evaluated_rows": 0,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.05,
+            "value": null
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.05,
+            "value": null
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.0,
+            "value": null
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.02,
+            "value": null
+          }
+        },
+        "gates_passed": false,
+        "official_expected_rows": 39,
+        "selection_rows": 0,
+        "split": "val",
+        "status": "not_evaluated"
+      },
+      "scene-v4-current": {
+        "all_rows": {
+          "coverage": {
+            "base": 0.9647058823529412,
+            "normal": 0.9647058823529412,
+            "normal_minus_base": 0.0
+          },
+          "max_token_hit_rate": {
+            "base": 0.16470588235294117,
+            "normal": 0.16470588235294117,
+            "normal_minus_base": 0.0
+          },
+          "recovered": {
+            "base": 0.18200836820083682,
+            "bootstrap_mean": 0.0,
+            "bootstrap_standard_error": 0.0,
+            "ci_95_percentile": [
+              0.0,
+              0.0
+            ],
+            "metric_name": "format_recovered_micro_f1",
+            "normal": 0.18200836820083682,
+            "normal_minus_base": 0.0,
+            "probability_negative": 0.0,
+            "probability_positive": 0.0,
+            "probability_zero": 1.0
+          },
+          "strict": {
+            "base": 0.03690036900369004,
+            "metric_name": "strict_f1",
+            "normal": 0.03690036900369004,
+            "normal_minus_base": 0.0
+          }
+        },
+        "applied_excluded_zero_based_indices": [],
+        "availability": "complete",
+        "clean_selection": {
+          "coverage": {
+            "base": 0.9647058823529412,
+            "normal": 0.9647058823529412,
+            "normal_minus_base": 0.0
+          },
+          "max_token_hit_rate": {
+            "base": 0.16470588235294117,
+            "normal": 0.16470588235294117,
+            "normal_minus_base": 0.0
+          },
+          "recovered": {
+            "base": 0.18200836820083682,
+            "bootstrap_mean": 0.0,
+            "bootstrap_standard_error": 0.0,
+            "ci_95_percentile": [
+              0.0,
+              0.0
+            ],
+            "metric_name": "format_recovered_micro_f1",
+            "normal": 0.18200836820083682,
+            "normal_minus_base": 0.0,
+            "probability_negative": 0.0,
+            "probability_positive": 0.0,
+            "probability_zero": 1.0
+          },
+          "strict": {
+            "base": 0.03690036900369004,
+            "metric_name": "strict_f1",
+            "normal": 0.03690036900369004,
+            "normal_minus_base": 0.0
+          }
+        },
+        "clean_selection_exclusion_note": null,
+        "configured_excluded_zero_based_indices": [],
+        "criterion_eligible": true,
+        "criterion_passed": true,
+        "evaluated_rows": 170,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": -0.05,
+            "value": 0.0
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": true,
+            "threshold": 0.05,
+            "value": 0.0
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": 0.0,
+            "value": 0.0
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": -0.03,
+            "value": 0.0
+          }
+        },
+        "gates_passed": true,
+        "official_expected_rows": 170,
+        "selection_rows": 170,
+        "split": "val",
+        "status": "pass"
+      }
+    },
+    "thresholds": {
+      "coverage_normal_minus_base_floor": -0.05,
+      "max_token_hit_rate_normal_minus_base_ceiling": 0.05,
+      "recovered_ci_95_upper_floor": 0.0,
+      "recovered_metric_normal_minus_base_floor_by_task": {
+        "attribution-v3.2": -0.03333333333333333,
+        "narrative-v3.2": -0.02,
+        "scene-v4-current": -0.03
+      }
+    }
+  },
+  "non_official": true,
+  "normal_vs_base": {
+    "scene-v4-current": {
+      "base": 0.18200836820083682,
+      "bootstrap_mean": 0.0,
+      "bootstrap_standard_error": 0.0,
+      "ci_95_percentile": [
+        0.0,
+        0.0
+      ],
+      "metric_name": "format_recovered_micro_f1",
+      "normal": 0.18200836820083682,
+      "normal_minus_base": 0.0,
+      "probability_negative": 0.0,
+      "probability_positive": 0.0,
+      "probability_zero": 1.0
+    }
+  },
+  "normal_vs_no_write": {},
+  "paired_bootstrap_comparisons": {
+    "normal_minus_base": {
+      "scene-v4-current": {
+        "base": 0.18200836820083682,
+        "bootstrap_mean": 0.0,
+        "bootstrap_standard_error": 0.0,
+        "ci_95_percentile": [
+          0.0,
+          0.0
+        ],
+        "metric_name": "format_recovered_micro_f1",
+        "normal": 0.18200836820083682,
+        "normal_minus_base": 0.0,
+        "probability_negative": 0.0,
+        "probability_positive": 0.0,
+        "probability_zero": 1.0
+      }
+    },
+    "normal_minus_no_write": {}
+  },
+  "paired_changes": {
+    "scene-v4-current": {
+      "fp_added_by_normal": 0,
+      "fp_removed_by_normal": 0,
+      "gold_both_hit": 87,
+      "gold_both_missed": 84,
+      "gold_gained_by_normal": 0,
+      "gold_lost_by_normal": 0,
+      "sample_f1_changes": {
+        "normal_better": 0,
+        "normal_worse": 0,
+        "tie": 170
+      },
+      "shared_fp": 698
+    }
+  },
+  "provenance": {
+    "analyzer": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/analyze_novel_agent_eval.py",
+      "sha256": "6d9fb129868865c95f766cfd3964a936d053b83c9bdb09276645084932570825"
+    },
+    "dataset_training_root": "/root/X/.cache/hf/novel-agent-sft-dataset/training",
+    "datasets": {
+      "scene-v4-current": {
+        "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v4-scene-boundary-detection/val.jsonl",
+        "rows": 170,
+        "sha256": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513"
+      }
+    },
+    "eval_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_baseline_adapter_v1/scene-v4-current",
+    "raw_generations": {
+      "base": {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_baseline_adapter_v1/scene-v4-current/base.jsonl",
+        "rows": 170,
+        "sha256": "e11b787e9119a6d76efb0ca44f36820289ccdcb3f112ee52b75e0b5eab5ef59d"
+      },
+      "normal": {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_baseline_adapter_v1/scene-v4-current/normal.jsonl",
+        "rows": 170,
+        "sha256": "e13bb456287c51bce42398818e6a72740ee3d75844f741237f8c3641990e4502"
+      }
+    },
+    "strict_artifacts": {
+      "manifest": {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_baseline_adapter_v1/scene-v4-current/manifest.json",
+        "sha256": "96c69fb410f07a444fe2674cac092e8b6ddf477394258eb1e1c9c9b75fe7beae"
+      },
+      "strict_summary": {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_baseline_adapter_v1/scene-v4-current/summary.json",
+        "sha256": "cb4b412c4d1db7afc3744ffcf9871894c6beeca76035218ff3419050751164e2"
+      }
+    }
+  },
+  "recovery_rules": {
+    "attribution": {
+      "accepted_aliases": [
+        "best_candidate",
+        "character",
+        "chosen_character",
+        "role",
+        "selected_character",
+        "speaker",
+        "target_character",
+        "角色"
+      ],
+      "not_recovered": "No fuzzy, substring, transliteration, or gold-name matching.",
+      "rule": "All present accepted aliases must be strings that agree after trimming; the value must exactly match a candidate parsed from the prompt."
+    },
+    "narrative": {
+      "accepted_structures": [
+        "an object whose only key is labels and whose value is a label list",
+        "a top-level label list",
+        "a non-empty direct unit-id to type object"
+      ],
+      "allowed_types": [
+        "action",
+        "dialogue",
+        "narration",
+        "scene_description",
+        "thought"
+      ],
+      "duplicate_rule": "Identical duplicates collapse; conflicting duplicates reject the row.",
+      "scoring_rule": "Author unit accuracy scores gold unit IDs; extra predicted IDs are audited but do not enter the denominator.",
+      "unit_id_normalization": "Only decimal N and exact bracketed [N] forms."
+    },
+    "scene": {
+      "accepted_explicit_keys": [
+        "after_paragraph",
+        "boundaries",
+        "boundary"
+      ],
+      "accepted_structures": "Top-level dictionaries or lists recursively composed of explicit boundary keys and scalar boundary values; nested raw lists are rejected.",
+      "integer_normalization": "Only integer N, decimal string N, and exact P<N> string forms.",
+      "not_recovered": "No inference from start/end spans, segment text, prose, adjacency, type fields, or implicit binary 0/1 decisions.",
+      "range_rule": "No shifting, clamping, dropping, or Boolean interpretation; literal zero and out-of-range indices remain predictions and therefore false positives."
+    },
+    "unrecoverable_row_scoring": "An unrecoverable attribution row is incorrect, an unrecoverable narrative row has no predicted labels, and an unrecoverable scene row predicts an empty boundary set.",
+    "version": "conservative-explicit-schema-v1"
+  },
+  "reference_comparison": {
+    "base": {
+      "scene-v4-current": {
+        "artifact_metric": 0.27385892116182575,
+        "artifact_metric_name": "micro_f1",
+        "artifact_source": "native_validation_reference_results/results/scene_boundary_final.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "format_recovered_metric": 0.18200836820083682,
+        "format_recovered_minus_artifact": -0.09185055296098893,
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      }
+    },
+    "normal": {
+      "scene-v4-current": {
+        "artifact_metric": 0.27385892116182575,
+        "artifact_metric_name": "micro_f1",
+        "artifact_source": "native_validation_reference_results/results/scene_boundary_final.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "format_recovered_metric": 0.18200836820083682,
+        "format_recovered_minus_artifact": -0.09185055296098893,
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      }
+    }
+  },
+  "scene_v6_gate_analysis": {
+    "contract": {
+      "name": "generic",
+      "phase": "generic"
+    },
+    "status": "not_requested"
+  },
+  "selection_criterion": {
+    "all_gates_passed": false,
+    "bootstrap_replicates": 10000,
+    "bootstrap_seed": 20260724,
+    "complete": false,
+    "criterion_version": "novel_agent_validation_selection_v1",
+    "overall_passed": false,
+    "required_split": "val",
+    "required_tasks": [
+      "attribution-v3.2",
+      "narrative-v3.2",
+      "scene-v4-current"
+    ],
+    "split": "val",
+    "status": "incomplete",
+    "tasks": {
+      "attribution-v3.2": {
+        "all_rows": null,
+        "applied_excluded_zero_based_indices": [],
+        "clean_selection": null,
+        "clean_selection_exclusion_note": null,
+        "configured_excluded_zero_based_indices": [],
+        "criterion_eligible": false,
+        "criterion_passed": false,
+        "evaluated_rows": 0,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.05,
+            "value": null
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.05,
+            "value": null
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.0,
+            "value": null
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.03333333333333333,
+            "value": null
+          }
+        },
+        "gates_passed": false,
+        "official_expected_rows": 30,
+        "selection_rows": 0,
+        "split": "val",
+        "status": "not_evaluated"
+      },
+      "narrative-v3.2": {
+        "all_rows": null,
+        "applied_excluded_zero_based_indices": [],
+        "clean_selection": null,
+        "clean_selection_exclusion_note": "Zero-based validation row 25 duplicates training content with conflicting labels; it remains in all-row metrics and is excluded only from checkpoint selection.",
+        "configured_excluded_zero_based_indices": [
+          25
+        ],
+        "criterion_eligible": false,
+        "criterion_passed": false,
+        "evaluated_rows": 0,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.05,
+            "value": null
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.05,
+            "value": null
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.0,
+            "value": null
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.02,
+            "value": null
+          }
+        },
+        "gates_passed": false,
+        "official_expected_rows": 39,
+        "selection_rows": 0,
+        "split": "val",
+        "status": "not_evaluated"
+      },
+      "scene-v4-current": {
+        "all_rows": {
+          "coverage": {
+            "base": 0.9647058823529412,
+            "normal": 0.9647058823529412,
+            "normal_minus_base": 0.0
+          },
+          "max_token_hit_rate": {
+            "base": 0.16470588235294117,
+            "normal": 0.16470588235294117,
+            "normal_minus_base": 0.0
+          },
+          "recovered": {
+            "base": 0.18200836820083682,
+            "bootstrap_mean": 0.0,
+            "bootstrap_standard_error": 0.0,
+            "ci_95_percentile": [
+              0.0,
+              0.0
+            ],
+            "metric_name": "format_recovered_micro_f1",
+            "normal": 0.18200836820083682,
+            "normal_minus_base": 0.0,
+            "probability_negative": 0.0,
+            "probability_positive": 0.0,
+            "probability_zero": 1.0
+          },
+          "strict": {
+            "base": 0.03690036900369004,
+            "metric_name": "strict_f1",
+            "normal": 0.03690036900369004,
+            "normal_minus_base": 0.0
+          }
+        },
+        "applied_excluded_zero_based_indices": [],
+        "availability": "complete",
+        "clean_selection": {
+          "coverage": {
+            "base": 0.9647058823529412,
+            "normal": 0.9647058823529412,
+            "normal_minus_base": 0.0
+          },
+          "max_token_hit_rate": {
+            "base": 0.16470588235294117,
+            "normal": 0.16470588235294117,
+            "normal_minus_base": 0.0
+          },
+          "recovered": {
+            "base": 0.18200836820083682,
+            "bootstrap_mean": 0.0,
+            "bootstrap_standard_error": 0.0,
+            "ci_95_percentile": [
+              0.0,
+              0.0
+            ],
+            "metric_name": "format_recovered_micro_f1",
+            "normal": 0.18200836820083682,
+            "normal_minus_base": 0.0,
+            "probability_negative": 0.0,
+            "probability_positive": 0.0,
+            "probability_zero": 1.0
+          },
+          "strict": {
+            "base": 0.03690036900369004,
+            "metric_name": "strict_f1",
+            "normal": 0.03690036900369004,
+            "normal_minus_base": 0.0
+          }
+        },
+        "clean_selection_exclusion_note": null,
+        "configured_excluded_zero_based_indices": [],
+        "criterion_eligible": true,
+        "criterion_passed": true,
+        "evaluated_rows": 170,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": -0.05,
+            "value": 0.0
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": true,
+            "threshold": 0.05,
+            "value": 0.0
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": 0.0,
+            "value": 0.0
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": -0.03,
+            "value": 0.0
+          }
+        },
+        "gates_passed": true,
+        "official_expected_rows": 170,
+        "selection_rows": 170,
+        "split": "val",
+        "status": "pass"
+      }
+    },
+    "thresholds": {
+      "coverage_normal_minus_base_floor": -0.05,
+      "max_token_hit_rate_normal_minus_base_ceiling": 0.05,
+      "recovered_ci_95_upper_floor": 0.0,
+      "recovered_metric_normal_minus_base_floor_by_task": {
+        "attribution-v3.2": -0.03333333333333333,
+        "narrative-v3.2": -0.02,
+        "scene-v4-current": -0.03
+      }
+    }
+  },
+  "split": "val",
+  "strict_comparison": {
+    "base": {
+      "scene-v4-current": {
+        "format_recovered_metric": 0.18200836820083682,
+        "format_recovered_minus_strict": 0.1451079991971468,
+        "strict_metric": 0.03690036900369004,
+        "strict_metric_name": "strict_f1"
+      }
+    },
+    "normal": {
+      "scene-v4-current": {
+        "format_recovered_metric": 0.18200836820083682,
+        "format_recovered_minus_strict": 0.1451079991971468,
+        "strict_metric": 0.03690036900369004,
+        "strict_metric_name": "strict_f1"
+      }
+    }
+  },
+  "transfer_evaluation_caveat": "The adapter was not trained on these structured task prompts or labels.",
+  "validation": {
+    "condition_keys_identical": true,
+    "expected_rows_per_condition": 170,
+    "gold_matches_dataset": true,
+    "matched_rows_per_condition": {
+      "base": 170,
+      "normal": 170
+    },
+    "row_hashes_match_dataset": true,
+    "strict_fingerprint": "d78678a3ba1a33ee539d0c8d3f8e5a2e6ad2ee4019fa325bd4ebc9a1f8dc8caf",
+    "strict_summary_complete": true,
+    "task_rows": {
+      "scene-v4-current": 170
+    }
+  },
+  "warning": "These metrics are diagnostic only. They recover explicit formatting variants from frozen raw generations and do not replace the strict author-compatible evaluation."
+}

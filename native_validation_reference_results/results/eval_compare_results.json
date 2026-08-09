@@ -1,0 +1,22 @@
+{
+  "+Stage2 v3.2": {
+    "narrative-type-classification": {
+      "json_ok": 39,
+      "json_rate": 1.0,
+      "accuracy": 0.6946264744429882,
+      "total_units": 1526
+    },
+    "scene-boundary-detection": {
+      "json_ok": 35,
+      "json_rate": 1.0,
+      "precision": 0.16393442622950818,
+      "recall": 0.2564102564102564,
+      "f1": 0.2
+    },
+    "attribution-best-candidate": {
+      "json_ok": 30,
+      "json_rate": 1.0,
+      "best_accuracy": 0.8666666666666667
+    }
+  }
+}

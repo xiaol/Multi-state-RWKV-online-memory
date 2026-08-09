@@ -1,0 +1,80 @@
+{
+  "schema": "rwkv_ms_native_novel_agent_validation.v1",
+  "candidate": "natural_memory_gate_development_run_route64_batch16_ce_20260809_r1",
+  "split": "val",
+  "test_or_hard32_opened": false,
+  "conditions": [
+    "base",
+    "normal"
+  ],
+  "normal_fusion_profile": "native",
+  "success_rule": {
+    "memory_at_least_base_on_all_three_tasks": true,
+    "memory_strictly_better_on_at_least_two_tasks": false,
+    "strictly_better_task_count": 0,
+    "passed": false
+  },
+  "format_recovered_metrics": {
+    "attribution-v3.2": {
+      "metric": "accuracy",
+      "base": 0.8333333333333334,
+      "normal": 0.8333333333333334,
+      "normal_minus_base": 0.0,
+      "prediction_disagreements": 0,
+      "rows": 30
+    },
+    "narrative-v3.2": {
+      "metric": "unit_accuracy",
+      "base": 0.6432022084195997,
+      "normal": 0.6432022084195997,
+      "normal_minus_base": 0.0,
+      "prediction_disagreements": 0,
+      "rows": 39
+    },
+    "scene-v4-current": {
+      "metric": "micro_f1",
+      "base": 0.18200836820083682,
+      "normal": 0.18200836820083682,
+      "normal_minus_base": 0.0,
+      "normal_better_rows": 0,
+      "normal_worse_rows": 0,
+      "tied_rows": 170,
+      "rows": 170
+    }
+  },
+  "strict_metrics": {
+    "attribution-v3.2": {
+      "metric": "accuracy",
+      "base": 0.0,
+      "normal": 0.0
+    },
+    "narrative-v3.2": {
+      "metric": "unit_accuracy",
+      "base": 0.0,
+      "normal": 0.0
+    },
+    "scene-v4-current": {
+      "metric": "micro_f1",
+      "base": 0.03690036900369004,
+      "normal": 0.03690036900369004
+    }
+  },
+  "interpretation": {
+    "outcome": "no_native_transfer",
+    "candidate_regressed": false,
+    "candidate_improved": false,
+    "raw_generation_identity": "All recovered predictions were identical between base and normal.",
+    "format_caveat": "Gemma used explicit but author-incompatible JSON aliases on attribution and narrative; conservative recovery was therefore used for diagnosis.",
+    "reference_caveat": "The upstream Qwen3-8B artifacts use task-specific LoRA and the test split, so they are context rather than an apples-to-apples comparator."
+  },
+  "distributed_execution": {
+    "narrative_sharded": true,
+    "physical_gpus": [
+      0,
+      1,
+      3
+    ],
+    "merge_audit": "narrative-v3.2/distributed_shard_merge.json",
+    "independent_example_invariant": "Each example resets online state, so disjoint row shards preserve batch-one generation semantics."
+  }
+}

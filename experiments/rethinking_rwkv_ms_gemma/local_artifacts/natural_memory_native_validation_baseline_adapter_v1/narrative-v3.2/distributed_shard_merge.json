@@ -1,0 +1,76 @@
+{
+  "complete": true,
+  "condition": "normal",
+  "fingerprint": "8e41f9206e9b9d4e26b5e3144fe8a45cbb05539f6217c625e29df5193a19f05e",
+  "output_path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_baseline_adapter_v1/narrative-v3.2/normal.jsonl",
+  "output_sha256": "04f194a867771e3220b418ef4f774aecc92444144924baa6f97ba602120daada",
+  "rows": 39,
+  "schema": "novel_agent_eval_distributed_merge.v1",
+  "shards": [
+    {
+      "generated_rows": 13,
+      "owned_indices": [
+        3,
+        4,
+        7,
+        8,
+        10,
+        17,
+        22,
+        23,
+        27,
+        31,
+        34,
+        35,
+        38
+      ],
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_baseline_adapter_v1/narrative-shards/gpu0",
+      "physical_gpu": 0,
+      "plan_sha256": "bf4ad47f166bd989b519a3ac635cbf89680fb44aefece6d42fced6b2a9080acb",
+      "records_sha256": "9163f7f6581125b57be04db28a9927661575110f73072554ae88453dc08cd52d"
+    },
+    {
+      "generated_rows": 12,
+      "owned_indices": [
+        2,
+        6,
+        11,
+        13,
+        14,
+        15,
+        16,
+        20,
+        25,
+        29,
+        30,
+        37
+      ],
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_baseline_adapter_v1/narrative-shards/gpu1",
+      "physical_gpu": 1,
+      "plan_sha256": "8de14ff2839ac6af30388b51430ebce6c335617134e326cec0d522ffccac4436",
+      "records_sha256": "bd729d87d854a46f66c7d61652b9007a1952f1ed27708568e63bfd268f71a10f"
+    },
+    {
+      "generated_rows": 12,
+      "owned_indices": [
+        5,
+        9,
+        12,
+        18,
+        19,
+        21,
+        24,
+        26,
+        28,
+        32,
+        33,
+        36
+      ],
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_baseline_adapter_v1/narrative-shards/gpu3",
+      "physical_gpu": 3,
+      "plan_sha256": "9fb2757ab25d0bd47484a02e228ab1d882876116a02ac1dca266178528d3c473",
+      "records_sha256": "b9f0d19bd5b9b6120607ff3209a588af9bee4f677669a0a3af70a2d3641e7974"
+    }
+  ],
+  "task": "narrative-v3.2"
+}
