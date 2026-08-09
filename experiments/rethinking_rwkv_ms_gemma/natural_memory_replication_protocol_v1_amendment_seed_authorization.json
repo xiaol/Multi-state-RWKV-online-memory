@@ -1,0 +1,31 @@
+{
+  "amendment_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_amendment_without_receipt",
+    "payload_sha256": "2675a725648e39c2bfbba4c7896960494554eb548bd15fc173093516bf8b57fa"
+  },
+  "authorized_replication_ids": [
+    "r2",
+    "r3"
+  ],
+  "created_at": "2026-08-10T01:57:41+08:00",
+  "discovered_before_training_output": true,
+  "original_protocol": {
+    "file_sha256": "d1ffe49e3889397537d1924b05093f299f63bd60beb4913faf88761f15c676c7",
+    "git_commit": "c26ef032f1e60a6eb56d56dd9a132e51d8df3bdc",
+    "payload_sha256": "3bd9e16456bb89a84ec980a2453cb76844de87c85abb249fba3b1bdbd9cb0a35"
+  },
+  "rationale": "The first R2 distributed preflight failed closed before output creation because the runner accepted only the baseline seed 42 even though the immutable preregistration declares R2 seed 43 and R3 seed 44. This amendment adds receipt-bound authorization for those existing seeds only.",
+  "runner_change": {
+    "new_sha256": "003120441abd85e0b43db94156d7ca47163d6ab92b0ecf34aec28e88012a0f00",
+    "old_sha256": "56fde92d21b7b19bbb04cf8624c8acc0b2e29cf3d3b3d188f6f5bcb112164931"
+  },
+  "schema": "rwkv_ms_natural_memory_replication_protocol_amendment.v1",
+  "scope": {
+    "classification": "infrastructure_only",
+    "data_changed": false,
+    "gate_changed": false,
+    "hyperparameters_changed": false,
+    "training_math_changed": false
+  }
+}

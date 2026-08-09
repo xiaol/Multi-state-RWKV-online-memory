@@ -48,6 +48,13 @@ DISTRIBUTED_PREFLIGHT_SCHEMA = "rwkv_ms_natural_memory_distributed_preflight.v2"
 DISTRIBUTED_PREFLIGHT_GATE_SCHEMA = (
     "rwkv_ms_natural_memory_distributed_preflight_gate.v2"
 )
+REPLICATION_PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_replication_protocol.v1"
+REPLICATION_AMENDMENT_SCHEMA = (
+    "rwkv_ms_natural_memory_replication_protocol_amendment.v1"
+)
+REPLICATION_AUTHORIZATION_SCHEMA = (
+    "rwkv_ms_natural_memory_replication_authorization.v1"
+)
 ACCEPTANCE_SCHEMA = "rwkv_ms_natural_memory_gate_acceptance.v1"
 TRAINING_DATASET_AUDIT_SCHEMA = "rwkv_ms_natural_memory_training_dataset_audit.v1"
 HF_MIRROR_ENDPOINT = "https://hf-mirror.com"
@@ -82,6 +89,18 @@ PROFILES = ("train", "development", "sealed_validation")
 FORMAL_PROFILES = ("development", "sealed_validation")
 DEFAULT_TARGET_LAYERS = tuple(range(42))
 PRODUCTION_SEED = 42
+PREREGISTERED_REPLICATION_PROTOCOL_COMMIT = (
+    "c26ef032f1e60a6eb56d56dd9a132e51d8df3bdc"
+)
+PREREGISTERED_REPLICATION_PROTOCOL_FILE_SHA256 = (
+    "d1ffe49e3889397537d1924b05093f299f63bd60beb4913faf88761f15c676c7"
+)
+PREREGISTERED_REPLICATION_PROTOCOL_PAYLOAD_SHA256 = (
+    "3bd9e16456bb89a84ec980a2453cb76844de87c85abb249fba3b1bdbd9cb0a35"
+)
+PREREGISTERED_REPLICATION_RUNNER_SHA256 = (
+    "56fde92d21b7b19bbb04cf8624c8acc0b2e29cf3d3b3d188f6f5bcb112164931"
+)
 PRODUCTION_EPOCHS = 8
 PRODUCTION_TASKS = ("attribution", "narrative", "scene")
 PRODUCTION_ROWS_PER_CONDITION_TASK = 128
@@ -2901,6 +2920,187 @@ def _read_json_file(path: Path, description: str) -> Mapping[str, Any]:
     return _require_mapping(value, description)
 
 
+def _verify_replication_receipt(
+    payload: Mapping[str, Any],
+    *,
+    receipt_field: str,
+    payload_scope: str,
+    description: str,
+) -> str:
+    receipt = _require_mapping(payload.get(receipt_field), f"{description} receipt")
+    unsigned = dict(payload)
+    unsigned.pop(receipt_field, None)
+    payload_sha256 = _sha256_json(unsigned)
+    if (
+        receipt.get("algorithm") != "sha256"
+        or receipt.get("payload_scope") != payload_scope
+        or receipt.get("payload_sha256") != payload_sha256
+    ):
+        raise ValueError(f"{description} self-receipt is invalid")
+    return payload_sha256
+
+
+def validate_replication_authorization(
+    *,
+    source_manifest: Path,
+    profile: str,
+    seed: int,
+    replication_protocol: Path | None,
+    replication_amendment: Path | None,
+    replication_id: str | None,
+) -> Mapping[str, Any] | None:
+    """Authorize only the non-default seeds frozen before replication."""
+
+    authorization_arguments = (
+        replication_protocol,
+        replication_amendment,
+        replication_id,
+    )
+    if not any(value is not None for value in authorization_arguments):
+        if profile in FORMAL_PROFILES and seed != PRODUCTION_SEED:
+            raise ValueError(
+                "A non-default formal seed requires replication authorization"
+            )
+        return None
+    if not all(value is not None for value in authorization_arguments):
+        raise ValueError(
+            "Replication authorization requires protocol, amendment, and ID"
+        )
+    if profile not in FORMAL_PROFILES:
+        raise ValueError("Replication authorization is restricted to formal profiles")
+
+    protocol_path = (replication_protocol or Path()).expanduser().resolve(strict=True)
+    protocol = _read_json_file(protocol_path, "replication protocol")
+    protocol_file_sha256 = source.sha256_file(protocol_path)
+    protocol_payload_sha256 = _verify_replication_receipt(
+        protocol,
+        receipt_field="protocol_receipt",
+        payload_scope="canonical_protocol_without_receipt",
+        description="Replication protocol",
+    )
+    protocol_runner_sha256 = _require_mapping(
+        protocol.get("source_code_sha256"),
+        "replication protocol source code bindings",
+    ).get("runner")
+    if (
+        protocol.get("schema") != REPLICATION_PROTOCOL_SCHEMA
+        or protocol_file_sha256
+        != PREREGISTERED_REPLICATION_PROTOCOL_FILE_SHA256
+        or protocol_payload_sha256
+        != PREREGISTERED_REPLICATION_PROTOCOL_PAYLOAD_SHA256
+        or protocol_runner_sha256 != PREREGISTERED_REPLICATION_RUNNER_SHA256
+    ):
+        raise ValueError("Replication protocol differs from the preregistered contract")
+
+    amendment_path = (replication_amendment or Path()).expanduser().resolve(
+        strict=True
+    )
+    amendment = _read_json_file(amendment_path, "replication amendment")
+    amendment_payload_sha256 = _verify_replication_receipt(
+        amendment,
+        receipt_field="amendment_receipt",
+        payload_scope="canonical_amendment_without_receipt",
+        description="Replication amendment",
+    )
+    original_protocol = _require_mapping(
+        amendment.get("original_protocol"),
+        "replication amendment original protocol binding",
+    )
+    expected_original_protocol = {
+        "git_commit": PREREGISTERED_REPLICATION_PROTOCOL_COMMIT,
+        "file_sha256": PREREGISTERED_REPLICATION_PROTOCOL_FILE_SHA256,
+        "payload_sha256": PREREGISTERED_REPLICATION_PROTOCOL_PAYLOAD_SHA256,
+    }
+    runner_change = _require_mapping(
+        amendment.get("runner_change"),
+        "replication amendment runner change",
+    )
+    current_runner_sha256 = source.sha256_file(Path(__file__).resolve())
+    scope = _require_mapping(
+        amendment.get("scope"),
+        "replication amendment scope",
+    )
+    expected_scope = {
+        "classification": "infrastructure_only",
+        "data_changed": False,
+        "gate_changed": False,
+        "hyperparameters_changed": False,
+        "training_math_changed": False,
+    }
+    replications = _require_sequence(
+        protocol.get("replications"),
+        "replication protocol replications",
+    )
+    protocol_replication_ids = [
+        replication.get("id")
+        for replication in replications
+        if isinstance(replication, Mapping)
+    ]
+    if (
+        amendment.get("schema") != REPLICATION_AMENDMENT_SCHEMA
+        or dict(original_protocol) != expected_original_protocol
+        or runner_change.get("old_sha256")
+        != PREREGISTERED_REPLICATION_RUNNER_SHA256
+        or runner_change.get("new_sha256") != current_runner_sha256
+        or dict(scope) != expected_scope
+        or amendment.get("authorized_replication_ids")
+        != protocol_replication_ids
+        or amendment.get("discovered_before_training_output") is not True
+    ):
+        raise ValueError("Replication amendment does not authorize this runner")
+
+    matches = [
+        replication
+        for replication in replications
+        if isinstance(replication, Mapping)
+        and replication.get("id") == replication_id
+    ]
+    if len(matches) != 1:
+        raise ValueError("Replication ID is not uniquely preregistered")
+    replication = matches[0]
+    if replication.get("training_seed") != seed:
+        raise ValueError("Training seed differs from the preregistered replication")
+    split_seed = replication.get("split_seed")
+    if type(split_seed) is not int:
+        raise ValueError("Preregistered replication split seed is invalid")
+
+    manifest_path = source_manifest.expanduser().resolve(strict=True)
+    manifest = _read_json_file(manifest_path, "replication source manifest")
+    if (
+        manifest.get("schema") != source.SCHEMA
+        or manifest.get("hf_endpoint") != HF_MIRROR_ENDPOINT
+        or not source.verify_manifest_receipt(manifest)
+    ):
+        raise ValueError("Replication source manifest receipt is invalid")
+    benchmark_split_seed = _require_mapping(
+        manifest.get("benchmark_contract"),
+        "replication benchmark contract",
+    ).get("split_seed")
+    policy_split_seed = _require_mapping(
+        manifest.get("split_policy"),
+        "replication split policy",
+    ).get("seed")
+    if benchmark_split_seed != split_seed or policy_split_seed != split_seed:
+        raise ValueError("Source manifest split seed differs from the replication")
+
+    return {
+        "schema": REPLICATION_AUTHORIZATION_SCHEMA,
+        "replication_id": replication_id,
+        "split_seed": split_seed,
+        "training_seed": seed,
+        "protocol_file": protocol_path.name,
+        "protocol_file_sha256": protocol_file_sha256,
+        "protocol_payload_sha256": protocol_payload_sha256,
+        "protocol_git_commit": PREREGISTERED_REPLICATION_PROTOCOL_COMMIT,
+        "amendment_file": amendment_path.name,
+        "amendment_file_sha256": source.sha256_file(amendment_path),
+        "amendment_payload_sha256": amendment_payload_sha256,
+        "runner_original_sha256": PREREGISTERED_REPLICATION_RUNNER_SHA256,
+        "runner_authorized_sha256": current_runner_sha256,
+        "scope": dict(scope),
+    }
+
+
 def snapshot_files(paths: Iterable[Path]) -> dict[str, dict[str, Any]]:
     snapshot: dict[str, dict[str, Any]] = {}
     for raw_path in paths:
@@ -4603,6 +4803,9 @@ def run_experiment(
     model_path: Path | None = None,
     adapter_path: Path | None = None,
     development_run_dir: Path | None = None,
+    replication_protocol: Path | None = None,
+    replication_amendment: Path | None = None,
+    replication_id: str | None = None,
     seed: int = PRODUCTION_SEED,
     train_limit: int | None = None,
     eval_limit: int | None = None,
@@ -4635,6 +4838,14 @@ def run_experiment(
     """Run a train/development screen or a sealed, optimizer-free evaluation."""
 
     configure_hf_mirror()
+    replication_authorization = validate_replication_authorization(
+        source_manifest=source_manifest,
+        profile=profile,
+        seed=seed,
+        replication_protocol=replication_protocol,
+        replication_amendment=replication_amendment,
+        replication_id=replication_id,
+    )
     if profile == "sealed_validation" and adapter_path is None:
         raise ValueError("Sealed validation requires a frozen development adapter")
     if profile != "sealed_validation" and adapter_path is not None:
@@ -4710,7 +4921,12 @@ def run_experiment(
         )
     if profile == "development":
         production_configuration = {
-            "seed": seed == PRODUCTION_SEED,
+            "seed": seed
+            == (
+                replication_authorization.get("training_seed")
+                if replication_authorization is not None
+                else PRODUCTION_SEED
+            ),
             "epochs": epochs == PRODUCTION_EPOCHS,
             "eval_batch_size": eval_batch_size == PRODUCTION_EVAL_BATCH_SIZE,
             "learning_rate": learning_rate == PRODUCTION_LEARNING_RATE,
@@ -5394,6 +5610,7 @@ def run_experiment(
                                 ),
                             },
                             "delta_mem_config": delta_config.to_dict(),
+                            "replication_authorization": replication_authorization,
                         }
                         preflight_gate = build_distributed_preflight_gate(training)
                         preflight_receipt = _signed_payload(
@@ -5618,6 +5835,7 @@ def run_experiment(
         "runner_schema": RUN_SCHEMA,
         "source_schema": source.SCHEMA,
         "profile": profile,
+        "replication_authorization": replication_authorization,
         "conditions": list(CONDITIONS),
         "training_conditions": list(selected_training_conditions),
         "training_dataset_audit": training_dataset_audit,
@@ -5659,6 +5877,7 @@ def run_experiment(
             sealed_chain.get("development_protocol"), "locked development protocol"
         )
         frozen_fields = (
+            "replication_authorization",
             "conditions",
             "training_conditions",
             "training_dataset_audit",
@@ -5695,6 +5914,7 @@ def run_experiment(
     training_configuration = {
         "schema": TRAINING_CONFIGURATION_SCHEMA,
         "profile": profile,
+        "replication_authorization": replication_authorization,
         "seed": seed,
         "training_conditions": list(selected_training_conditions),
         "training_dataset_audit": training_dataset_audit,
@@ -5817,6 +6037,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--model-path", type=Path)
     parser.add_argument("--adapter-path", type=Path)
     parser.add_argument("--development-run-dir", type=Path)
+    parser.add_argument("--replication-protocol", type=Path)
+    parser.add_argument("--replication-amendment", type=Path)
+    parser.add_argument("--replication-id")
     parser.add_argument("--seed", type=int, default=PRODUCTION_SEED)
     parser.add_argument("--train-limit", type=int)
     parser.add_argument("--eval-limit", type=int)
@@ -5897,6 +6120,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             model_path=args.model_path,
             adapter_path=args.adapter_path,
             development_run_dir=args.development_run_dir,
+            replication_protocol=args.replication_protocol,
+            replication_amendment=args.replication_amendment,
+            replication_id=args.replication_id,
             seed=args.seed,
             train_limit=args.train_limit,
             eval_limit=args.eval_limit,

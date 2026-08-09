@@ -1080,6 +1080,184 @@ def _formal_distributed_context(
     )
 
 
+def _replication_protocol_path() -> Path:
+    return Path(runner.__file__).with_name(
+        "natural_memory_replication_protocol_v1.json"
+    )
+
+
+def _write_replication_manifest(tmp_path: Path, *, split_seed: int) -> Path:
+    manifest = {
+        "schema": runner.source.SCHEMA,
+        "hf_endpoint": runner.HF_MIRROR_ENDPOINT,
+        "benchmark_contract": {"split_seed": split_seed},
+        "split_policy": {"seed": split_seed},
+    }
+    manifest["manifest_receipt"] = {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_manifest_without_receipt",
+        "payload_sha256": runner._sha256_json(manifest),
+    }
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    return path
+
+
+def _write_replication_amendment(
+    tmp_path: Path,
+    *,
+    runner_sha256: str | None = None,
+) -> Path:
+    protocol = json.loads(_replication_protocol_path().read_text(encoding="utf-8"))
+    amendment = {
+        "schema": runner.REPLICATION_AMENDMENT_SCHEMA,
+        "original_protocol": {
+            "git_commit": runner.PREREGISTERED_REPLICATION_PROTOCOL_COMMIT,
+            "file_sha256": runner.PREREGISTERED_REPLICATION_PROTOCOL_FILE_SHA256,
+            "payload_sha256": (
+                runner.PREREGISTERED_REPLICATION_PROTOCOL_PAYLOAD_SHA256
+            ),
+        },
+        "runner_change": {
+            "old_sha256": runner.PREREGISTERED_REPLICATION_RUNNER_SHA256,
+            "new_sha256": runner_sha256
+            or runner.source.sha256_file(Path(runner.__file__).resolve()),
+        },
+        "scope": {
+            "classification": "infrastructure_only",
+            "data_changed": False,
+            "gate_changed": False,
+            "hyperparameters_changed": False,
+            "training_math_changed": False,
+        },
+        "authorized_replication_ids": [
+            replication["id"] for replication in protocol["replications"]
+        ],
+        "discovered_before_training_output": True,
+    }
+    amendment["amendment_receipt"] = {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_amendment_without_receipt",
+        "payload_sha256": runner._sha256_json(amendment),
+    }
+    path = tmp_path / "amendment.json"
+    path.write_text(json.dumps(amendment), encoding="utf-8")
+    return path
+
+
+def test_nondefault_formal_seed_requires_replication_authorization(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="requires replication authorization"):
+        runner.validate_replication_authorization(
+            source_manifest=tmp_path / "missing.json",
+            profile="development",
+            seed=43,
+            replication_protocol=None,
+            replication_amendment=None,
+            replication_id=None,
+        )
+
+
+def test_valid_r2_replication_authorization_is_bound(tmp_path: Path) -> None:
+    authorization = runner.validate_replication_authorization(
+        source_manifest=_write_replication_manifest(tmp_path, split_seed=20260810),
+        profile="development",
+        seed=43,
+        replication_protocol=_replication_protocol_path(),
+        replication_amendment=_write_replication_amendment(tmp_path),
+        replication_id="r2",
+    )
+
+    assert authorization is not None
+    assert authorization["replication_id"] == "r2"
+    assert authorization["split_seed"] == 20260810
+    assert authorization["training_seed"] == 43
+    assert authorization["scope"]["training_math_changed"] is False
+
+
+@pytest.mark.parametrize(
+    ("replication_id", "seed", "split_seed", "runner_sha256", "error"),
+    [
+        ("unknown", 43, 20260810, None, "not uniquely preregistered"),
+        ("r2", 44, 20260810, None, "Training seed differs"),
+        ("r2", 43, 20260811, None, "split seed differs"),
+        ("r2", 43, 20260810, "0" * 64, "does not authorize this runner"),
+    ],
+)
+def test_replication_authorization_rejects_mismatched_bindings(
+    replication_id: str,
+    seed: int,
+    split_seed: int,
+    runner_sha256: str | None,
+    error: str,
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match=error):
+        runner.validate_replication_authorization(
+            source_manifest=_write_replication_manifest(
+                tmp_path,
+                split_seed=split_seed,
+            ),
+            profile="development",
+            seed=seed,
+            replication_protocol=_replication_protocol_path(),
+            replication_amendment=_write_replication_amendment(
+                tmp_path,
+                runner_sha256=runner_sha256,
+            ),
+            replication_id=replication_id,
+        )
+
+
+def test_replication_authorization_rejects_invalid_amendment_receipt(
+    tmp_path: Path,
+) -> None:
+    amendment_path = _write_replication_amendment(tmp_path)
+    amendment = json.loads(amendment_path.read_text(encoding="utf-8"))
+    amendment["amendment_receipt"]["payload_sha256"] = "0" * 64
+    amendment_path.write_text(json.dumps(amendment), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="self-receipt is invalid"):
+        runner.validate_replication_authorization(
+            source_manifest=_write_replication_manifest(
+                tmp_path,
+                split_seed=20260810,
+            ),
+            profile="development",
+            seed=43,
+            replication_protocol=_replication_protocol_path(),
+            replication_amendment=amendment_path,
+            replication_id="r2",
+        )
+
+
+def test_replication_authorization_rejects_modified_protocol(tmp_path: Path) -> None:
+    protocol = json.loads(_replication_protocol_path().read_text(encoding="utf-8"))
+    protocol["replications"][0]["training_seed"] = 99
+    protocol.pop("protocol_receipt")
+    protocol["protocol_receipt"] = {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_protocol_without_receipt",
+        "payload_sha256": runner._sha256_json(protocol),
+    }
+    protocol_path = tmp_path / "modified_protocol.json"
+    protocol_path.write_text(json.dumps(protocol), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="differs from the preregistered contract"):
+        runner.validate_replication_authorization(
+            source_manifest=_write_replication_manifest(
+                tmp_path,
+                split_seed=20260810,
+            ),
+            profile="development",
+            seed=43,
+            replication_protocol=protocol_path,
+            replication_amendment=_write_replication_amendment(tmp_path),
+            replication_id="r2",
+        )
+
+
 def test_formal_development_locks_profiled_rank_before_opening_source(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1323,6 +1501,27 @@ def test_natural_cli_defaults_to_profiled_route64_contract() -> None:
     assert runner._parse_training_conditions(args.training_conditions) == (
         runner.SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS
     )
+
+
+def test_natural_cli_parses_replication_authorization() -> None:
+    args = runner.parse_args(
+        [
+            "--source-manifest",
+            "manifest.json",
+            "--output-dir",
+            "output",
+            "--replication-protocol",
+            "protocol.json",
+            "--replication-amendment",
+            "amendment.json",
+            "--replication-id",
+            "r2",
+        ]
+    )
+
+    assert args.replication_protocol == Path("protocol.json")
+    assert args.replication_amendment == Path("amendment.json")
+    assert args.replication_id == "r2"
 
 
 def test_natural_training_progress_rewrites_shared_runtime_schema(

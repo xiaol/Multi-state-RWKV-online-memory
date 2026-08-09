@@ -1,0 +1,48 @@
+{
+  "amendment_resolution": {
+    "amendment_file_sha256": "a6d53c31ae372020063cfab4a56587e9f437828fbb01bb49caf59047e48c87a2",
+    "amendment_payload_sha256": "2675a725648e39c2bfbba4c7896960494554eb548bd15fc173093516bf8b57fa",
+    "authorized_runner_sha256": "003120441abd85e0b43db94156d7ca47163d6ab92b0ecf34aec28e88012a0f00",
+    "classification": "infrastructure_only"
+  },
+  "archived_at": "2026-08-10T02:00:48+08:00",
+  "diagnosis": "The formal runner hard-coded baseline seed 42 and therefore rejected preregistered R2 training seed 43 before run input preparation.",
+  "diagnostic_receipt_sha256": "ddc0a4c73ac8b13720cc9da11fe927e7722aeaa12079578a066edce46f0866c1",
+  "error": {
+    "message": "Formal development configuration differs from the profiled production contract: seed",
+    "type": "ValueError"
+  },
+  "failure_effects": {
+    "model_loaded": false,
+    "optimizer_updates": 0,
+    "output_directory_created": false,
+    "source_splits_opened": []
+  },
+  "hf_endpoint": "https://hf-mirror.com",
+  "original_runner_sha256": "56fde92d21b7b19bbb04cf8624c8acc0b2e29cf3d3b3d188f6f5bcb112164931",
+  "preregistered_protocol": {
+    "file_sha256": "d1ffe49e3889397537d1924b05093f299f63bd60beb4913faf88761f15c676c7",
+    "git_commit": "c26ef032f1e60a6eb56d56dd9a132e51d8df3bdc",
+    "payload_sha256": "3bd9e16456bb89a84ec980a2453cb76844de87c85abb249fba3b1bdbd9cb0a35"
+  },
+  "replication": {
+    "id": "r2",
+    "split_seed": 20260810,
+    "training_seed": 43
+  },
+  "requested_configuration": {
+    "distributed_preflight": true,
+    "global_batch_size": 16,
+    "local_batch_size": 4,
+    "optimizer_updates": 3,
+    "profile": "development",
+    "world_size": 4
+  },
+  "requested_output": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r2_development_run_split20260810_seed43",
+  "schema": "rwkv_ms_natural_memory_replication_diagnostic.v1",
+  "source_manifest": {
+    "file_sha256": "cc481718c622004399dbcd2031782760334d6a3599aaf83ef2fdd9e86cd11af6",
+    "payload_sha256": "f35869f0dc22c812e0a1beffd574f3daa5ba9a82b68048ffc9b9914b7e98f5f1"
+  },
+  "status": "failed_closed_before_output"
+}
