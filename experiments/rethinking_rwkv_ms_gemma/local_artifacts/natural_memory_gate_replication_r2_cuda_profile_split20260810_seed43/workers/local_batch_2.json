@@ -1,0 +1,79 @@
+{
+  "cuda_oom_telemetry": {
+    "active_phase": {
+      "after": {
+        "allocated_bytes": 15940113408,
+        "free_bytes": 1900544,
+        "reserved_bytes": 15950938112,
+        "total_bytes": 42406903808
+      },
+      "before": {
+        "allocated_bytes": 0,
+        "free_bytes": 28300869632,
+        "reserved_bytes": 0,
+        "total_bytes": 42406903808
+      },
+      "elapsed_seconds": 31.840670671954285,
+      "error": {
+        "message": "CUDA out of memory. Tried to allocate 2.00 MiB. GPU 0 has a total capacity of 39.49 GiB of which 1.81 MiB is free. Process 1353982 has 24.14 GiB memory in use. Including non-PyTorch memory, this process has 15.33 GiB memory in use. Of the allocated memory 14.85 GiB is allocated by PyTorch, and 10.32 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)",
+        "traceback_sha256": "2bbb80aacb43fff16635d930fb6e671e0fbcb04e56012ae3836e4f0fe9978b13",
+        "type": "OutOfMemoryError"
+      },
+      "peak_allocated_bytes": 15940113408,
+      "peak_reserved_bytes": 15950938112,
+      "status": "cuda_out_of_memory"
+    },
+    "initial_snapshot": {
+      "allocated_bytes": 0,
+      "free_bytes": 28300869632,
+      "reserved_bytes": 0,
+      "total_bytes": 42406903808
+    }
+  },
+  "delta_api_file_sha256": "c2046cac168c4887a6e9dad6d867e343b513b093dd7aa29c3fd652faac36e326",
+  "delta_impl_file_sha256": "707490b5522d64aa7bb6e1646b66eb0b189c5887f7b69c34111e42f3d9a4a583",
+  "device": {
+    "capability": [
+      8,
+      0
+    ],
+    "index": 0,
+    "name": "NVIDIA A100-PCIE-40GB",
+    "reported_total_memory_bytes": 42406903808,
+    "requested": "cuda:0",
+    "torch_cuda_version": "12.8",
+    "torch_version": "2.6.0+cu128"
+  },
+  "device_requested": "cuda:0",
+  "error": {
+    "message": "CUDA out of memory. Tried to allocate 2.00 MiB. GPU 0 has a total capacity of 39.49 GiB of which 1.81 MiB is free. Process 1353982 has 24.14 GiB memory in use. Including non-PyTorch memory, this process has 15.33 GiB memory in use. Of the allocated memory 14.85 GiB is allocated by PyTorch, and 10.32 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)",
+    "traceback_sha256": "2bbb80aacb43fff16635d930fb6e671e0fbcb04e56012ae3836e4f0fe9978b13",
+    "type": "OutOfMemoryError"
+  },
+  "gate_passed": false,
+  "hf_endpoint": "https://hf-mirror.com",
+  "memory_gate": {
+    "device_free_before_load_bytes": 28300869632,
+    "device_total_bytes": 42406903808,
+    "environment_adjusted_reserved_headroom_bytes": 12349931520,
+    "headroom_definition": "minimum of total-minus-process-peak-reserved, initial-free-minus-incremental-process-peak-reserved, and observed post-phase free",
+    "headroom_passed": false,
+    "initial_process_reserved_bytes": 0,
+    "isolated_reserved_headroom_bytes": 26455965696,
+    "minimum_observed_free_after_phase_bytes": 1900544,
+    "minimum_required_headroom_bytes": 5368709120,
+    "peak_allocated_bytes": 15940113408,
+    "peak_reserved_bytes": 15950938112,
+    "post_peak_reserved_memory_headroom_bytes": 1900544
+  },
+  "natural_runner_file_sha256": "56fde92d21b7b19bbb04cf8624c8acc0b2e29cf3d3b3d188f6f5bcb112164931",
+  "pid": 1355125,
+  "profiled_local_batch_size": 2,
+  "profiler_file_sha256": "caef5035b55d1e9207b84f3c2112818f8ec1f08d23bc69c48a1f554f216d2489",
+  "schema": "rwkv_ms_natural_memory_gate_cuda_profile_worker.v3",
+  "shared_runtime_file_sha256": "d848b9bc8ae9e85b694b4b2f59faa78886d8fe5ccebf12214f4114d591ca1aa6",
+  "source_manifest_file_sha256": "cc481718c622004399dbcd2031782760334d6a3599aaf83ef2fdd9e86cd11af6",
+  "source_manifest_path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r2_development_split20260810_seed43/manifest.json",
+  "status": "failed",
+  "worker_receipt_sha256": "fd31aa0e583fb29cb0aca11ac8be6baffae6ef7fda303e8772c173327efd8b5b"
+}

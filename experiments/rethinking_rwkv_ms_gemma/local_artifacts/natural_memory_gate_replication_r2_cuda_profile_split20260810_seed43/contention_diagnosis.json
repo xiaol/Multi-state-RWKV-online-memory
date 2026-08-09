@@ -1,0 +1,27 @@
+{
+  "decision": "archive_failed_profile_and_repeat_unchanged_on_an_uncontended_gpu_before_preflight",
+  "diagnosis_receipt_sha256": "4b69e75db8375856c29fb866505d16e84d4951ac126d8df293ed8f52ee307583",
+  "failed_worker": {
+    "active_phase_initial_free_bytes": 28300869632,
+    "error_type": "OutOfMemoryError",
+    "external_process_pid_reported_by_cuda": 1353982,
+    "local_batch_size": 2,
+    "minimum_observed_free_after_phase_bytes": 1900544,
+    "status": "malformed_or_unclassified",
+    "worker_pid": 1355125,
+    "worker_receipt_sha256": "fd31aa0e583fb29cb0aca11ac8be6baffae6ef7fda303e8772c173327efd8b5b"
+  },
+  "interpretation": "the_cuda_reported_process_was_not_the_profile_worker_and_consumed_the_shared_physical_gpu_during_batch_2",
+  "launch_gate_passed": true,
+  "profile_gate_passed": false,
+  "profile_receipt_sha256": "09ac8d9d528aaf673560782969f84d062c3560e3c9fcef4b6819b4cf81baeac6",
+  "required_local_batch_4": {
+    "environment_adjusted_reserved_headroom_bytes": 9063235584,
+    "gate_passed": true,
+    "minimum_required_headroom_bytes": 5368709120,
+    "worker_pid": 1355456,
+    "worker_receipt_sha256": "c8d749b7849993470ae4333d786c4601dbc51b327cd28bdcc9291e09930a45b2"
+  },
+  "schema": "rwkv_ms_natural_memory_profile_contention_diagnosis.v1",
+  "training_launched": false
+}
