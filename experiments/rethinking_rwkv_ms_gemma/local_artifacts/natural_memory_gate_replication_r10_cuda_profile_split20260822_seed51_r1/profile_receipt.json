@@ -1,0 +1,861 @@
+{
+  "exploration_complete": true,
+  "gate": {
+    "common_bindings": {
+      "delta_api_file_sha256": [
+        "c2046cac168c4887a6e9dad6d867e343b513b093dd7aa29c3fd652faac36e326"
+      ],
+      "delta_impl_file_sha256": [
+        "707490b5522d64aa7bb6e1646b66eb0b189c5887f7b69c34111e42f3d9a4a583"
+      ],
+      "model_binding_sha256": [
+        "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66"
+      ],
+      "natural_runner_file_sha256": [
+        "e6149731fa74011d6b339016c40a0070285c37200c9a11bfcec85ad6f18f6371"
+      ],
+      "profiler_file_sha256": [
+        "50ef67e3e13ce6f726f0f1ec13e05a5e4755a192fad49c3f015f113070525563"
+      ],
+      "shared_runtime_file_sha256": [
+        "d848b9bc8ae9e85b694b4b2f59faa78886d8fe5ccebf12214f4114d591ca1aa6"
+      ],
+      "source_manifest_file_sha256": [
+        "1e7ffdbc356164bf1f64ad31fd3fc815f06d3197d8f7344f3759ce179525d8ec"
+      ],
+      "source_manifest_payload_sha256": [
+        "1fb9f10e6d898feb021b6798a051531aaed27a4fd31ef8d33cacedd9e93854b3"
+      ]
+    },
+    "expected_bindings": {
+      "delta_api_file_sha256": "c2046cac168c4887a6e9dad6d867e343b513b093dd7aa29c3fd652faac36e326",
+      "delta_impl_file_sha256": "707490b5522d64aa7bb6e1646b66eb0b189c5887f7b69c34111e42f3d9a4a583",
+      "model_binding_sha256": "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66",
+      "natural_runner_file_sha256": "e6149731fa74011d6b339016c40a0070285c37200c9a11bfcec85ad6f18f6371",
+      "profiler_file_sha256": "50ef67e3e13ce6f726f0f1ec13e05a5e4755a192fad49c3f015f113070525563",
+      "shared_runtime_file_sha256": "d848b9bc8ae9e85b694b4b2f59faa78886d8fe5ccebf12214f4114d591ca1aa6",
+      "source_manifest_file_sha256": "1e7ffdbc356164bf1f64ad31fd3fc815f06d3197d8f7344f3759ce179525d8ec",
+      "source_manifest_payload_sha256": "1fb9f10e6d898feb021b6798a051531aaed27a4fd31ef8d33cacedd9e93854b3"
+    },
+    "exploration": {
+      "complete": true,
+      "cuda_oom_local_batch_sizes": [],
+      "cuda_oom_local_microbatch_sizes": [],
+      "insufficient_headroom_local_batch_sizes": [],
+      "insufficient_headroom_local_microbatch_sizes": [],
+      "malformed_or_unclassified_local_batch_sizes": [],
+      "malformed_or_unclassified_local_microbatch_sizes": [],
+      "outcomes_by_local_batch_size": {
+        "1": "passed"
+      },
+      "outcomes_by_local_microbatch_size": {
+        "1": "passed"
+      },
+      "passing_local_batch_sizes": [
+        1
+      ],
+      "passing_local_microbatch_sizes": [
+        1
+      ]
+    },
+    "exploratory_local_batch_sizes": [
+      1
+    ],
+    "exploratory_local_microbatch_sizes": [
+      1
+    ],
+    "failed_checks": [],
+    "launch_gate": {
+      "checks": {
+        "required_artifact_binding": true,
+        "required_fresh_process_isolation": true,
+        "required_local_batch_present": true,
+        "required_memory_headroom": true,
+        "required_optimizer_execution": true,
+        "required_worker_gate": true,
+        "required_worker_invocation_binding": true,
+        "required_worker_receipt_valid": true
+      },
+      "failed_checks": [],
+      "passed": true,
+      "selected_global_batch_size": 16,
+      "selected_gradient_accumulation_steps": 2,
+      "selected_local_batch_size": 4,
+      "selected_local_microbatch_size": 2,
+      "selected_local_optimizer_batch_size": 4,
+      "selected_world_size": 4
+    },
+    "observed_local_batch_sizes": [
+      1,
+      2
+    ],
+    "observed_local_microbatch_sizes": [
+      1,
+      2
+    ],
+    "passed": true,
+    "profile_set_complete": true,
+    "profiled_local_batch_sizes": [
+      1,
+      2
+    ],
+    "profiled_local_microbatch_sizes": [
+      1,
+      2
+    ],
+    "required_artifact_binding_passed": true,
+    "required_fresh_process_isolation_passed": true,
+    "required_local_batch_sizes": [
+      2
+    ],
+    "required_local_microbatch_sizes": [
+      2
+    ],
+    "required_memory_headroom_passed": true,
+    "required_optimizer_execution_passed": true,
+    "required_worker_invocation_binding_passed": true,
+    "required_worker_receipts_valid": true
+  },
+  "gate_passed": true,
+  "launch_gate_passed": true,
+  "parent_pid": 1449723,
+  "profile_receipt_sha256": "ec8c1a1c1ebca82910a885510b06380f56ad2159afd584fd0a7a445b9aba049f",
+  "protocol": {
+    "bytes": 10191,
+    "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r10_cuda_profile_split20260822_seed51_r1/protocol.json",
+    "protocol_payload_sha256": "57a34a594c7c89ebc54c10087a3158df433dc82b9e1ff3b4f0c323715055f022",
+    "sha256": "ce64c3a63f13bf12e11f42b7841e95741f304001e60d2c77b039f2011e330bc3"
+  },
+  "schema": "rwkv_ms_natural_memory_gate_cuda_profile_receipt.v4",
+  "status": "passed",
+  "workers": [
+    {
+      "configuration": {
+        "answer_weight": 1.0,
+        "attn_implementation": "sdpa",
+        "delta_mem_config": {
+          "alpha": 64,
+          "base_slice_ref_width": 8,
+          "beta_bias_init": 0.0,
+          "couple_lambda": true,
+          "delta_heads": [
+            "q",
+            "o"
+          ],
+          "delta_o_rmsnorm": false,
+          "delta_o_rmsnorm_eps": 1e-06,
+          "delta_scale_granularity": "head",
+          "delta_scale_init": 0.1,
+          "delta_scale_max": 0.5,
+          "delta_scale_parameterization": "alpha_over_rank",
+          "global_memory_gate_bias_init": -2.0,
+          "global_memory_merge_mode": "gated_residual",
+          "global_memory_mode": "shared_rw",
+          "global_memory_read_logit_bias": 0.0,
+          "global_memory_read_top_k": 0,
+          "latent_gate_init": 0.01,
+          "latent_memory_hidden_size": 1024,
+          "latent_memory_init_std": 0.002,
+          "latent_memory_layers": [],
+          "latent_memory_residual_scale": 0.1,
+          "latent_memory_slots": 4,
+          "memory_backend": "rwkv_ms",
+          "memory_fusion_gate_init": 0.1,
+          "memory_fusion_mode": "add",
+          "memory_fusion_placement": "attention_output",
+          "memory_fusion_residual_scale": 1.0,
+          "memory_fusion_residual_scale_max": 1.0,
+          "memory_partition_basis": "shared",
+          "memory_partition_read_mode": "softmax",
+          "memory_partition_routing": "soft",
+          "memory_partition_sigmoid_gate_bias_init": -2.0,
+          "memory_reader_hidden_size": 1024,
+          "memory_reader_layers": [],
+          "memory_reader_read_only": true,
+          "memory_reader_residual_scale": 0.1,
+          "memory_readout_mode": "projected_kv_slots",
+          "memory_write_granularity": "token",
+          "memory_write_proposals_per_message": 2,
+          "memory_write_source": "learned_hidden",
+          "normalize_qk": true,
+          "num_global_memory_partitions": 0,
+          "num_memory_partitions": 1,
+          "num_state_heads": 1,
+          "online_gain": 0.2,
+          "output_init": "base_slice_fixed",
+          "projected_kv_key_dim": 64,
+          "projected_kv_temperature": 16.0,
+          "projected_kv_update_cosine_threshold": 1.0,
+          "rank": 32,
+          "rankwise_gates": true,
+          "rwkv_ms_boundary_mode": "fixed_chunk",
+          "rwkv_ms_chunk_size": 128,
+          "rwkv_ms_erase_gate": 1.0,
+          "rwkv_ms_mask_empty_slots": false,
+          "rwkv_ms_num_states": 4,
+          "rwkv_ms_output_init_scale": 0.02,
+          "rwkv_ms_read_top_k": 0,
+          "rwkv_ms_semantics_version": 2,
+          "rwkv_ms_write_mode": "recurrent",
+          "slot_read_top_k": 0,
+          "state_update_mode": "standard",
+          "synthetic_memory_slots": 1,
+          "target_layers": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41
+          ],
+          "target_modules": [
+            "self_attn"
+          ],
+          "tie_memory_partition_read_write": false,
+          "trainable_delta_scale": true
+        },
+        "distributed_training_target": {
+          "answer_loss_normalization": "local answer-token sum divided by the all-reduced global answer-token count before gradient summation",
+          "complete_epoch_schedule": true,
+          "complete_epochs": 8,
+          "global_batch_size": 16,
+          "gradient_accumulation_steps": 2,
+          "gradient_synchronization": "sum trainable gradients across ranks before global clipping and identical AdamW steps",
+          "local_batch_size": 4,
+          "local_microbatch_size": 2,
+          "online_memory_state": "rank-local, reset after every microbatch, and never reduced",
+          "optimizer_updates": 960,
+          "replication": "one raw full-model replica per rank",
+          "route_loss_normalization": "local route-loss sum divided by the all-reduced global row count before gradient summation",
+          "unique_training_rows": 1920,
+          "world_size": 4
+        },
+        "dtype": "bfloat16",
+        "hard_negative_margin": 0.0,
+        "hard_negative_weight": 0.0,
+        "key_dim": 64,
+        "learning_rate": 0.0002,
+        "max_grad_norm": 1.0,
+        "optimizer": "torch.optim.AdamW",
+        "optimizer_fused": true,
+        "profile": "development",
+        "profile_batch_role": "exploratory",
+        "profile_optimizer_steps": 3,
+        "profile_stress_sequence": [
+          {
+            "current_batch": "activation_max",
+            "phase": "cold_activation_stress_optimizer_step",
+            "router_gradient_audit": true
+          },
+          {
+            "current_batch": "answer_logit_max",
+            "phase": "activation_to_answer_logit_rollover_optimizer_step",
+            "router_gradient_audit": true
+          },
+          {
+            "current_batch": "activation_max",
+            "phase": "answer_logit_to_activation_rollover_optimizer_step",
+            "router_gradient_audit": false
+          }
+        ],
+        "profiled_gradient_accumulation_steps": 4,
+        "profiled_local_batch_size": 1,
+        "profiled_local_microbatch_size": 1,
+        "profiled_local_optimizer_batch_size": 4,
+        "rank": 32,
+        "route_weight": 1.0,
+        "target_layers": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41
+        ],
+        "temperature": 16.0,
+        "training_conditions": [
+          "correct_state",
+          "donor_state",
+          "value_swap",
+          "target_slot_rewrite",
+          "shuffled_slots"
+        ],
+        "training_dataset_contract": {
+          "complete_epochs": 8,
+          "global_batch_size": 16,
+          "optimizer_updates": 960,
+          "row_id_policy": "source query ID plus an explicit positive-condition suffix; evaluation IDs remain source query IDs for cross-condition causal pairing",
+          "rows_per_condition_task": {
+            "correct_state": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            },
+            "donor_state": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            },
+            "shuffled_slots": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            },
+            "target_slot_rewrite": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            },
+            "value_swap": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            }
+          },
+          "sampling_policy": "exactly balanced condition-task strata, shuffled over complete epochs; every source query is supervised once under every selected positive condition per epoch",
+          "schema": "rwkv_ms_natural_memory_training_dataset_audit.v1",
+          "source_query_condition_families": 384,
+          "tasks": [
+            "attribution",
+            "narrative",
+            "scene"
+          ],
+          "training_conditions": [
+            "correct_state",
+            "donor_state",
+            "value_swap",
+            "target_slot_rewrite",
+            "shuffled_slots"
+          ],
+          "unique_training_rows": 1920
+        },
+        "weight_decay": 0.0
+      },
+      "configuration_passed": true,
+      "cuda_oom_evidence_passed": false,
+      "cuda_out_of_memory_observed": false,
+      "delta_api_file_sha256": "c2046cac168c4887a6e9dad6d867e343b513b093dd7aa29c3fd652faac36e326",
+      "delta_impl_file_sha256": "707490b5522d64aa7bb6e1646b66eb0b189c5887f7b69c34111e42f3d9a4a583",
+      "device_binding_passed": true,
+      "execution_gate": {
+        "completed_optimizer_steps": 3,
+        "error": null,
+        "passed": true,
+        "phase_completion": {
+          "activation_to_answer_logit_rollover_optimizer_step": true,
+          "answer_logit_to_activation_rollover_optimizer_step": true,
+          "cold_activation_stress_optimizer_step": true
+        },
+        "required_optimizer_steps": 3
+      },
+      "execution_passed": true,
+      "fresh_process_isolation_passed": true,
+      "gate_passed": true,
+      "hf_endpoint_passed": true,
+      "memory_gate": {
+        "device_free_before_load_bytes": 41963356160,
+        "device_total_bytes": 42406903808,
+        "environment_adjusted_reserved_headroom_bytes": 22411608064,
+        "headroom_definition": "minimum of total-minus-process-peak-reserved, initial-free-minus-incremental-process-peak-reserved, and observed post-phase free",
+        "headroom_passed": true,
+        "initial_process_reserved_bytes": 0,
+        "isolated_reserved_headroom_bytes": 22855155712,
+        "minimum_observed_free_after_phase_bytes": 22302556160,
+        "minimum_required_headroom_bytes": 5368709120,
+        "peak_allocated_bytes": 19135952384,
+        "peak_reserved_bytes": 19551748096,
+        "post_peak_reserved_memory_headroom_bytes": 22302556160
+      },
+      "memory_gate_recomputation_passed": true,
+      "memory_headroom_passed": true,
+      "model_binding_sha256": "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66",
+      "natural_runner_file_sha256": "e6149731fa74011d6b339016c40a0070285c37200c9a11bfcec85ad6f18f6371",
+      "profiled_gradient_accumulation_steps": 4,
+      "profiled_local_batch_size": 1,
+      "profiled_local_microbatch_size": 1,
+      "profiled_local_optimizer_batch_size": 4,
+      "profiler_file_sha256": "50ef67e3e13ce6f726f0f1ec13e05a5e4755a192fad49c3f015f113070525563",
+      "reported_worker_pid": 1449934,
+      "result": {
+        "bytes": 74308,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r10_cuda_profile_split20260822_seed51_r1/workers/local_batch_1.json",
+        "sha256": "af0ec210e660ba6be586694f3ee0176dd0f583b9417ae2dbeb6e5846ba021479"
+      },
+      "result_valid": true,
+      "shared_runtime_file_sha256": "d848b9bc8ae9e85b694b4b2f59faa78886d8fe5ccebf12214f4114d591ca1aa6",
+      "source_manifest_file_sha256": "1e7ffdbc356164bf1f64ad31fd3fc815f06d3197d8f7344f3759ce179525d8ec",
+      "source_manifest_path_passed": true,
+      "source_manifest_payload_sha256": "1fb9f10e6d898feb021b6798a051531aaed27a4fd31ef8d33cacedd9e93854b3",
+      "status": "passed",
+      "stderr": {
+        "bytes": 463,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r10_cuda_profile_split20260822_seed51_r1/workers/local_batch_1.stderr.log",
+        "sha256": "361916c268949a0362fbfcce2b09d9f80294d3bdf909935a6201b0911d8ef102"
+      },
+      "stdout": {
+        "bytes": 0,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r10_cuda_profile_split20260822_seed51_r1/workers/local_batch_1.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "subprocess_pid": 1449934,
+      "subprocess_returncode": 0,
+      "worker_command_passed": true,
+      "worker_evidence_checks": {
+        "accumulation_configuration": true,
+        "adapter_change": true,
+        "device_evidence": true,
+        "execution_gate": true,
+        "immutable_snapshots": true,
+        "memory_gate_recomputation": true,
+        "memory_headroom": true,
+        "optimizer_step_evidence": true,
+        "phase_memory_evidence": true,
+        "phase_set": true,
+        "phase_status": true,
+        "selection_evidence": true,
+        "trainable_boundary": true,
+        "training_dataset_contract": true,
+        "worker_status": true
+      },
+      "worker_evidence_failed_checks": [],
+      "worker_evidence_passed": true,
+      "worker_receipt_sha256": "1cf0b850964cf2e3d04267a31dcab73c89dee2d7ded36e4166e3ffc2d2521f03"
+    },
+    {
+      "configuration": {
+        "answer_weight": 1.0,
+        "attn_implementation": "sdpa",
+        "delta_mem_config": {
+          "alpha": 64,
+          "base_slice_ref_width": 8,
+          "beta_bias_init": 0.0,
+          "couple_lambda": true,
+          "delta_heads": [
+            "q",
+            "o"
+          ],
+          "delta_o_rmsnorm": false,
+          "delta_o_rmsnorm_eps": 1e-06,
+          "delta_scale_granularity": "head",
+          "delta_scale_init": 0.1,
+          "delta_scale_max": 0.5,
+          "delta_scale_parameterization": "alpha_over_rank",
+          "global_memory_gate_bias_init": -2.0,
+          "global_memory_merge_mode": "gated_residual",
+          "global_memory_mode": "shared_rw",
+          "global_memory_read_logit_bias": 0.0,
+          "global_memory_read_top_k": 0,
+          "latent_gate_init": 0.01,
+          "latent_memory_hidden_size": 1024,
+          "latent_memory_init_std": 0.002,
+          "latent_memory_layers": [],
+          "latent_memory_residual_scale": 0.1,
+          "latent_memory_slots": 4,
+          "memory_backend": "rwkv_ms",
+          "memory_fusion_gate_init": 0.1,
+          "memory_fusion_mode": "add",
+          "memory_fusion_placement": "attention_output",
+          "memory_fusion_residual_scale": 1.0,
+          "memory_fusion_residual_scale_max": 1.0,
+          "memory_partition_basis": "shared",
+          "memory_partition_read_mode": "softmax",
+          "memory_partition_routing": "soft",
+          "memory_partition_sigmoid_gate_bias_init": -2.0,
+          "memory_reader_hidden_size": 1024,
+          "memory_reader_layers": [],
+          "memory_reader_read_only": true,
+          "memory_reader_residual_scale": 0.1,
+          "memory_readout_mode": "projected_kv_slots",
+          "memory_write_granularity": "token",
+          "memory_write_proposals_per_message": 2,
+          "memory_write_source": "learned_hidden",
+          "normalize_qk": true,
+          "num_global_memory_partitions": 0,
+          "num_memory_partitions": 1,
+          "num_state_heads": 1,
+          "online_gain": 0.2,
+          "output_init": "base_slice_fixed",
+          "projected_kv_key_dim": 64,
+          "projected_kv_temperature": 16.0,
+          "projected_kv_update_cosine_threshold": 1.0,
+          "rank": 32,
+          "rankwise_gates": true,
+          "rwkv_ms_boundary_mode": "fixed_chunk",
+          "rwkv_ms_chunk_size": 128,
+          "rwkv_ms_erase_gate": 1.0,
+          "rwkv_ms_mask_empty_slots": false,
+          "rwkv_ms_num_states": 4,
+          "rwkv_ms_output_init_scale": 0.02,
+          "rwkv_ms_read_top_k": 0,
+          "rwkv_ms_semantics_version": 2,
+          "rwkv_ms_write_mode": "recurrent",
+          "slot_read_top_k": 0,
+          "state_update_mode": "standard",
+          "synthetic_memory_slots": 1,
+          "target_layers": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41
+          ],
+          "target_modules": [
+            "self_attn"
+          ],
+          "tie_memory_partition_read_write": false,
+          "trainable_delta_scale": true
+        },
+        "distributed_training_target": {
+          "answer_loss_normalization": "local answer-token sum divided by the all-reduced global answer-token count before gradient summation",
+          "complete_epoch_schedule": true,
+          "complete_epochs": 8,
+          "global_batch_size": 16,
+          "gradient_accumulation_steps": 2,
+          "gradient_synchronization": "sum trainable gradients across ranks before global clipping and identical AdamW steps",
+          "local_batch_size": 4,
+          "local_microbatch_size": 2,
+          "online_memory_state": "rank-local, reset after every microbatch, and never reduced",
+          "optimizer_updates": 960,
+          "replication": "one raw full-model replica per rank",
+          "route_loss_normalization": "local route-loss sum divided by the all-reduced global row count before gradient summation",
+          "unique_training_rows": 1920,
+          "world_size": 4
+        },
+        "dtype": "bfloat16",
+        "hard_negative_margin": 0.0,
+        "hard_negative_weight": 0.0,
+        "key_dim": 64,
+        "learning_rate": 0.0002,
+        "max_grad_norm": 1.0,
+        "optimizer": "torch.optim.AdamW",
+        "optimizer_fused": true,
+        "profile": "development",
+        "profile_batch_role": "required",
+        "profile_optimizer_steps": 3,
+        "profile_stress_sequence": [
+          {
+            "current_batch": "activation_max",
+            "phase": "cold_activation_stress_optimizer_step",
+            "router_gradient_audit": true
+          },
+          {
+            "current_batch": "answer_logit_max",
+            "phase": "activation_to_answer_logit_rollover_optimizer_step",
+            "router_gradient_audit": true
+          },
+          {
+            "current_batch": "activation_max",
+            "phase": "answer_logit_to_activation_rollover_optimizer_step",
+            "router_gradient_audit": false
+          }
+        ],
+        "profiled_gradient_accumulation_steps": 2,
+        "profiled_local_batch_size": 2,
+        "profiled_local_microbatch_size": 2,
+        "profiled_local_optimizer_batch_size": 4,
+        "rank": 32,
+        "route_weight": 1.0,
+        "target_layers": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41
+        ],
+        "temperature": 16.0,
+        "training_conditions": [
+          "correct_state",
+          "donor_state",
+          "value_swap",
+          "target_slot_rewrite",
+          "shuffled_slots"
+        ],
+        "training_dataset_contract": {
+          "complete_epochs": 8,
+          "global_batch_size": 16,
+          "optimizer_updates": 960,
+          "row_id_policy": "source query ID plus an explicit positive-condition suffix; evaluation IDs remain source query IDs for cross-condition causal pairing",
+          "rows_per_condition_task": {
+            "correct_state": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            },
+            "donor_state": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            },
+            "shuffled_slots": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            },
+            "target_slot_rewrite": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            },
+            "value_swap": {
+              "attribution": 128,
+              "narrative": 128,
+              "scene": 128
+            }
+          },
+          "sampling_policy": "exactly balanced condition-task strata, shuffled over complete epochs; every source query is supervised once under every selected positive condition per epoch",
+          "schema": "rwkv_ms_natural_memory_training_dataset_audit.v1",
+          "source_query_condition_families": 384,
+          "tasks": [
+            "attribution",
+            "narrative",
+            "scene"
+          ],
+          "training_conditions": [
+            "correct_state",
+            "donor_state",
+            "value_swap",
+            "target_slot_rewrite",
+            "shuffled_slots"
+          ],
+          "unique_training_rows": 1920
+        },
+        "weight_decay": 0.0
+      },
+      "configuration_passed": true,
+      "cuda_oom_evidence_passed": false,
+      "cuda_out_of_memory_observed": false,
+      "delta_api_file_sha256": "c2046cac168c4887a6e9dad6d867e343b513b093dd7aa29c3fd652faac36e326",
+      "delta_impl_file_sha256": "707490b5522d64aa7bb6e1646b66eb0b189c5887f7b69c34111e42f3d9a4a583",
+      "device_binding_passed": true,
+      "execution_gate": {
+        "completed_optimizer_steps": 3,
+        "error": null,
+        "passed": true,
+        "phase_completion": {
+          "activation_to_answer_logit_rollover_optimizer_step": true,
+          "answer_logit_to_activation_rollover_optimizer_step": true,
+          "cold_activation_stress_optimizer_step": true
+        },
+        "required_optimizer_steps": 3
+      },
+      "execution_passed": true,
+      "fresh_process_isolation_passed": true,
+      "gate_passed": true,
+      "hf_endpoint_passed": true,
+      "memory_gate": {
+        "device_free_before_load_bytes": 41963356160,
+        "device_total_bytes": 42406903808,
+        "environment_adjusted_reserved_headroom_bytes": 19240714240,
+        "headroom_definition": "minimum of total-minus-process-peak-reserved, initial-free-minus-incremental-process-peak-reserved, and observed post-phase free",
+        "headroom_passed": true,
+        "initial_process_reserved_bytes": 0,
+        "isolated_reserved_headroom_bytes": 19684261888,
+        "minimum_observed_free_after_phase_bytes": 19131662336,
+        "minimum_required_headroom_bytes": 5368709120,
+        "peak_allocated_bytes": 22069827072,
+        "peak_reserved_bytes": 22722641920,
+        "post_peak_reserved_memory_headroom_bytes": 19131662336
+      },
+      "memory_gate_recomputation_passed": true,
+      "memory_headroom_passed": true,
+      "model_binding_sha256": "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66",
+      "natural_runner_file_sha256": "e6149731fa74011d6b339016c40a0070285c37200c9a11bfcec85ad6f18f6371",
+      "profiled_gradient_accumulation_steps": 2,
+      "profiled_local_batch_size": 2,
+      "profiled_local_microbatch_size": 2,
+      "profiled_local_optimizer_batch_size": 4,
+      "profiler_file_sha256": "50ef67e3e13ce6f726f0f1ec13e05a5e4755a192fad49c3f015f113070525563",
+      "reported_worker_pid": 1450419,
+      "result": {
+        "bytes": 65662,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r10_cuda_profile_split20260822_seed51_r1/workers/local_batch_2.json",
+        "sha256": "f164cffb963b2c4bf321b9863a2841064613c846102abc9314b64b55aff283fd"
+      },
+      "result_valid": true,
+      "shared_runtime_file_sha256": "d848b9bc8ae9e85b694b4b2f59faa78886d8fe5ccebf12214f4114d591ca1aa6",
+      "source_manifest_file_sha256": "1e7ffdbc356164bf1f64ad31fd3fc815f06d3197d8f7344f3759ce179525d8ec",
+      "source_manifest_path_passed": true,
+      "source_manifest_payload_sha256": "1fb9f10e6d898feb021b6798a051531aaed27a4fd31ef8d33cacedd9e93854b3",
+      "status": "passed",
+      "stderr": {
+        "bytes": 461,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r10_cuda_profile_split20260822_seed51_r1/workers/local_batch_2.stderr.log",
+        "sha256": "3d481e5732865e84d4e436f662e6ebdf6090ba3458c23bae3b0277ccb2016533"
+      },
+      "stdout": {
+        "bytes": 0,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r10_cuda_profile_split20260822_seed51_r1/workers/local_batch_2.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "subprocess_pid": 1450419,
+      "subprocess_returncode": 0,
+      "worker_command_passed": true,
+      "worker_evidence_checks": {
+        "accumulation_configuration": true,
+        "adapter_change": true,
+        "device_evidence": true,
+        "execution_gate": true,
+        "immutable_snapshots": true,
+        "memory_gate_recomputation": true,
+        "memory_headroom": true,
+        "optimizer_step_evidence": true,
+        "phase_memory_evidence": true,
+        "phase_set": true,
+        "phase_status": true,
+        "selection_evidence": true,
+        "trainable_boundary": true,
+        "training_dataset_contract": true,
+        "worker_status": true
+      },
+      "worker_evidence_failed_checks": [],
+      "worker_evidence_passed": true,
+      "worker_receipt_sha256": "63c658adc8e95b3443c64267c620535e07c4d1212ff5ced2bfbdafdb29f1889b"
+    }
+  ]
+}
