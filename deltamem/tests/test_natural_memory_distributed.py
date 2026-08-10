@@ -973,13 +973,30 @@ def _valid_preflight_training() -> dict:
         for rank in range(distributed.REQUIRED_WORLD_SIZE):
             start = rank * distributed.REQUIRED_LOCAL_BATCH_SIZE
             stop = start + distributed.REQUIRED_LOCAL_BATCH_SIZE
+            local_rows = global_rows[start:stop]
+            local_digests = [
+                f"{step * 64 + row:064x}" for row in range(start, stop)
+            ]
             ranks.append(
                 {
                     "rank": rank,
-                    "local_row_ids": global_rows[start:stop],
-                    "local_online_state_sha256": [
-                        f"{step * 64 + row:064x}" for row in range(start, stop)
+                    "local_row_ids": local_rows,
+                    "local_microbatch_row_ids": [
+                        local_rows[: distributed.REQUIRED_LOCAL_MICROBATCH_SIZE],
+                        local_rows[distributed.REQUIRED_LOCAL_MICROBATCH_SIZE :],
                     ],
+                    "local_online_state_sha256": local_digests,
+                    "local_online_state_sha256_by_microbatch": [
+                        local_digests[
+                            : distributed.REQUIRED_LOCAL_MICROBATCH_SIZE
+                        ],
+                        local_digests[
+                            distributed.REQUIRED_LOCAL_MICROBATCH_SIZE :
+                        ],
+                    ],
+                    "online_state_reset_count": (
+                        distributed.REQUIRED_GRADIENT_ACCUMULATION_STEPS
+                    ),
                     "local_answer_tokens": rank + 1,
                     "local_route_rows": distributed.REQUIRED_LOCAL_BATCH_SIZE,
                     "trainable_metadata_sha256": trainable_metadata_sha256,
@@ -1042,6 +1059,12 @@ def _valid_preflight_training() -> dict:
             "control_backend": "gloo",
             "world_size": 4,
             "local_batch_size": distributed.REQUIRED_LOCAL_BATCH_SIZE,
+            "local_microbatch_size": (
+                distributed.REQUIRED_LOCAL_MICROBATCH_SIZE
+            ),
+            "gradient_accumulation_steps": (
+                distributed.REQUIRED_GRADIENT_ACCUMULATION_STEPS
+            ),
             "global_batch_size": distributed.REQUIRED_GLOBAL_BATCH_SIZE,
             "gradient_synchronization": "sum",
             "unused_gradient_policy": (
@@ -1050,7 +1073,9 @@ def _valid_preflight_training() -> dict:
             "gradient_clip_order": "after_sum_before_adamw",
             "answer_loss_normalization": "global_supervised_answer_token_count",
             "route_loss_normalization": "global_row_count_after_layer_mean",
-            "online_memory_state": "rank_local_never_reduced",
+            "online_memory_state": (
+                "rank_local_reset_after_each_microbatch_never_reduced"
+            ),
             "rank_devices": [
                 {
                     "process_rank": rank,

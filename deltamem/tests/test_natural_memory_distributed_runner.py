@@ -46,14 +46,14 @@ def _context(process_rank: int = 0) -> distributed.DistributedTrainingContext:
 
 
 def _examples() -> list[SimpleNamespace]:
-    return [SimpleNamespace(row_id=f"row-{index}") for index in range(4)]
+    return [SimpleNamespace(row_id=f"row-{index}") for index in range(16)]
 
 
-def _batch() -> SimpleNamespace:
+def _batch(batch_size: int = 1) -> SimpleNamespace:
     return SimpleNamespace(
-        labels=torch.tensor([[-100, 1]], dtype=torch.long),
-        query_mask=torch.tensor([[True]]),
-        target_slots=torch.tensor([0], dtype=torch.long),
+        labels=torch.tensor([[-100, 1]], dtype=torch.long).repeat(batch_size, 1),
+        query_mask=torch.tensor([[True]]).repeat(batch_size, 1),
+        target_slots=torch.zeros(batch_size, dtype=torch.long),
     )
 
 
@@ -87,7 +87,11 @@ def _install_toy_training_runtime(
             "reserved_bytes": 0,
         },
     )
-    monkeypatch.setattr(runner, "collate_examples", lambda *args, **kwargs: _batch())
+    monkeypatch.setattr(
+        runner,
+        "collate_examples",
+        lambda examples, *args, **kwargs: _batch(len(examples)),
+    )
 
     def write_episode_batch(
         current_model: ToyOnlineMemoryModel,
@@ -113,9 +117,14 @@ def _install_toy_training_runtime(
         *,
         dtype: torch.dtype,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        del batch, dtype
-        logits = current_model.adapter[:3].view(1, 1, 3)
-        route_logits = {"toy.route": current_model.adapter.view(1, 1, 4)}
+        del dtype
+        batch_size = int(batch.labels.size(0))
+        logits = current_model.adapter[:3].view(1, 1, 3).expand(batch_size, -1, -1)
+        route_logits = {
+            "toy.route": current_model.adapter.view(1, 1, 4).expand(
+                batch_size, -1, -1
+            )
+        }
         return logits, route_logits
 
     monkeypatch.setattr(runner, "_write_episode_batch", write_episode_batch)
@@ -123,7 +132,7 @@ def _install_toy_training_runtime(
     monkeypatch.setattr(
         runner,
         "_answer_exact_predictions",
-        lambda logits, labels: ([True], None, None),
+        lambda logits, labels: ([True] * int(labels.size(0)), None, None),
     )
     monkeypatch.setattr(
         runner.runtime,
@@ -185,7 +194,7 @@ def _train_one_step(
         seed=11,
         epochs=1,
         max_steps=1,
-        global_batch_size=4,
+        global_batch_size=16,
         learning_rate=0.01,
         answer_weight=1.0,
         route_weight=1.0,
@@ -237,7 +246,7 @@ def test_injected_forward_failure_reaches_consensus_before_data_collective(
 
     with pytest.raises(
         distributed.DistributedTrainingError,
-        match="step-1-forward.*injected rank-two forward failure",
+        match="step-1-microbatch-preparation.*injected rank-two forward failure",
     ):
         _train_one_step(model, context, tmp_path / "progress.jsonl")
 
@@ -330,7 +339,15 @@ def test_update_order_is_backward_sum_clip_reset_then_adamw(
 
     _train_one_step(model, context, tmp_path / "progress.jsonl")
 
-    assert operations == ["backward", "sum", "clip", "reset", "adamw"]
+    assert operations == [
+        "backward",
+        "reset",
+        "backward",
+        "reset",
+        "sum",
+        "clip",
+        "adamw",
+    ]
 
 
 def test_capture_evidence_replica_mismatch_raises_distributed_error(
@@ -431,11 +448,11 @@ def test_metric_preparation_failure_stops_before_metric_collective(
 
     with pytest.raises(
         distributed.DistributedTrainingError,
-        match="step-1-metric-preparation.*injected metric preparation failure",
+        match="step-1-microbatch-1-metrics.*injected metric preparation failure",
     ):
         _train_one_step(model, context, tmp_path / "progress.jsonl")
 
-    assert len(collective_tensors) == 2
+    assert len(collective_tensors) == 1
     assert not (tmp_path / "progress.jsonl").exists()
 
 

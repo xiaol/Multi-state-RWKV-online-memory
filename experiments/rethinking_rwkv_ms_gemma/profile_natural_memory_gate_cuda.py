@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Profile natural-memory per-rank batches in isolated CUDA workers."""
+"""Profile accumulated natural-memory optimizer steps in isolated CUDA workers."""
 
 from __future__ import annotations
 
@@ -30,19 +30,33 @@ from deltamem.core.delta import reset_delta_mem_states, snapshot_delta_mem_weigh
 from experiments.rethinking_rwkv_ms_gemma import run_natural_memory_gate as gate
 
 
-PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_protocol.v3"
-WORKER_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_worker.v3"
-RECEIPT_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_receipt.v3"
+PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_protocol.v4"
+WORKER_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_worker.v4"
+RECEIPT_SCHEMA = "rwkv_ms_natural_memory_gate_cuda_profile_receipt.v4"
 PADDED_SELECTION_SCHEMA = "rwkv_ms_natural_memory_gate_padded_selection.v2"
 ANSWER_LOGIT_SELECTION_SCHEMA = (
     "rwkv_ms_natural_memory_gate_answer_logit_selection.v2"
 )
+ACCUMULATED_SELECTION_SCHEMA = (
+    "rwkv_ms_natural_memory_gate_accumulated_selection.v1"
+)
 HF_MIRROR_ENDPOINT = "https://hf-mirror.com"
-PROFILED_LOCAL_BATCH_SIZES = (1, 2, 4)
-REQUIRED_LOCAL_BATCH_SIZES = (4,)
-EXPLORATORY_LOCAL_BATCH_SIZES = (1, 2)
+PROFILED_LOCAL_MICROBATCH_SIZES = (1, 2)
+REQUIRED_LOCAL_MICROBATCH_SIZES = (2,)
+EXPLORATORY_LOCAL_MICROBATCH_SIZES = (1,)
+# Retain the old names as API aliases for V3 tooling. V4 evidence uses the
+# explicit microbatch names below.
+PROFILED_LOCAL_BATCH_SIZES = PROFILED_LOCAL_MICROBATCH_SIZES
+REQUIRED_LOCAL_BATCH_SIZES = REQUIRED_LOCAL_MICROBATCH_SIZES
+EXPLORATORY_LOCAL_BATCH_SIZES = EXPLORATORY_LOCAL_MICROBATCH_SIZES
 DISTRIBUTED_WORLD_SIZE = gate.distributed.REQUIRED_WORLD_SIZE
 DISTRIBUTED_LOCAL_BATCH_SIZE = gate.distributed.REQUIRED_LOCAL_BATCH_SIZE
+DISTRIBUTED_LOCAL_MICROBATCH_SIZE = (
+    gate.distributed.REQUIRED_LOCAL_MICROBATCH_SIZE
+)
+DISTRIBUTED_GRADIENT_ACCUMULATION_STEPS = (
+    gate.distributed.REQUIRED_GRADIENT_ACCUMULATION_STEPS
+)
 DISTRIBUTED_GLOBAL_BATCH_SIZE = gate.distributed.REQUIRED_GLOBAL_BATCH_SIZE
 DISTRIBUTED_TRAINING_UPDATES = gate.PRODUCTION_UPDATES
 PRODUCTION_TRAINING_ROWS = gate.PRODUCTION_TRAINING_ROWS
@@ -93,6 +107,10 @@ def _distributed_training_target() -> dict[str, Any]:
     return {
         "world_size": DISTRIBUTED_WORLD_SIZE,
         "local_batch_size": DISTRIBUTED_LOCAL_BATCH_SIZE,
+        "local_microbatch_size": DISTRIBUTED_LOCAL_MICROBATCH_SIZE,
+        "gradient_accumulation_steps": (
+            DISTRIBUTED_GRADIENT_ACCUMULATION_STEPS
+        ),
         "global_batch_size": DISTRIBUTED_GLOBAL_BATCH_SIZE,
         "unique_training_rows": PRODUCTION_TRAINING_ROWS,
         "complete_epochs": PRODUCTION_EPOCHS,
@@ -111,7 +129,9 @@ def _distributed_training_target() -> dict[str, Any]:
             "local route-loss sum divided by the all-reduced global row count before "
             "gradient summation"
         ),
-        "online_memory_state": "rank-local and never reduced",
+        "online_memory_state": (
+            "rank-local, reset after every microbatch, and never reduced"
+        ),
     }
 
 
@@ -250,6 +270,13 @@ def _production_configuration(
         else:
             raise ValueError(f"Unsupported profiled local batch size: {batch_size}")
         configuration["profiled_local_batch_size"] = int(batch_size)
+        configuration["profiled_local_microbatch_size"] = int(batch_size)
+        configuration["profiled_gradient_accumulation_steps"] = (
+            DISTRIBUTED_LOCAL_BATCH_SIZE // int(batch_size)
+        )
+        configuration["profiled_local_optimizer_batch_size"] = (
+            DISTRIBUTED_LOCAL_BATCH_SIZE
+        )
         configuration["profile_batch_role"] = role
     return configuration
 
@@ -294,9 +321,9 @@ def _parse_batch_sizes(value: str | Sequence[int]) -> tuple[int, ...]:
         result = tuple(int(part.strip()) for part in value.split(",") if part.strip())
     else:
         result = tuple(int(item) for item in value)
-    if result != PROFILED_LOCAL_BATCH_SIZES:
+    if result != PROFILED_LOCAL_MICROBATCH_SIZES:
         raise ValueError(
-            "Formal CUDA profile requires local batch sizes 1,2,4 in that order"
+            "Formal CUDA profile requires local microbatch sizes 1,2 in that order"
         )
     return result
 
@@ -676,6 +703,61 @@ def select_answer_logit_examples(
     return [item[0] for item in selected_pairs], selected_profiles, audit
 
 
+def select_accumulated_microbatches(
+    examples: Sequence[Any],
+    microbatch_size: int,
+    *,
+    selector: Callable[
+        [Sequence[Any], int],
+        tuple[list[Any], list[dict[str, Any]], dict[str, Any]],
+    ],
+) -> tuple[list[list[Any]], list[list[dict[str, Any]]], dict[str, Any]]:
+    """Select disjoint worst-case microbatches for one local optimizer step."""
+
+    if (
+        microbatch_size <= 0
+        or DISTRIBUTED_LOCAL_BATCH_SIZE % microbatch_size
+        or len(examples) < DISTRIBUTED_LOCAL_BATCH_SIZE
+    ):
+        raise ValueError("Microbatch size does not fill the local optimizer batch")
+    accumulation_steps = DISTRIBUTED_LOCAL_BATCH_SIZE // microbatch_size
+    remaining = list(examples)
+    selected_microbatches: list[list[Any]] = []
+    selected_profiles: list[list[dict[str, Any]]] = []
+    selection_audits: list[dict[str, Any]] = []
+    for _ in range(accumulation_steps):
+        selected, profiles, audit = selector(remaining, microbatch_size)
+        selected_ids = {str(example.row_id) for example in selected}
+        if len(selected_ids) != microbatch_size:
+            raise RuntimeError("Microbatch selector returned duplicate rows")
+        selected_microbatches.append(selected)
+        selected_profiles.append(profiles)
+        selection_audits.append(audit)
+        remaining = [
+            example for example in remaining if str(example.row_id) not in selected_ids
+        ]
+    row_ids = [
+        str(example.row_id)
+        for microbatch in selected_microbatches
+        for example in microbatch
+    ]
+    audit = {
+        "schema": ACCUMULATED_SELECTION_SCHEMA,
+        "local_optimizer_batch_size": DISTRIBUTED_LOCAL_BATCH_SIZE,
+        "local_microbatch_size": microbatch_size,
+        "gradient_accumulation_steps": accumulation_steps,
+        "selected_microbatch_row_ids": [
+            [str(example.row_id) for example in microbatch]
+            for microbatch in selected_microbatches
+        ],
+        "all_local_rows_unique": len(set(row_ids)) == len(row_ids),
+        "microbatch_selection_audits": selection_audits,
+    }
+    if not audit["all_local_rows_unique"]:
+        raise RuntimeError("Accumulated stress selection reused a local row")
+    return selected_microbatches, selected_profiles, audit
+
+
 def _build_production_training_dataset_audit(
     examples: Sequence[Any],
 ) -> dict[str, Any]:
@@ -807,7 +889,7 @@ def _summarize_trainable_audit(audit: Mapping[str, Any]) -> dict[str, Any]:
 
 def _execute_optimizer_step(
     model: torch.nn.Module,
-    batch: Any,
+    batches: Sequence[Any],
     optimizer: torch.optim.Optimizer,
     trainable: Sequence[torch.nn.Parameter],
     *,
@@ -815,52 +897,133 @@ def _execute_optimizer_step(
     include_router_gradient_audit: bool,
     rollover_liveness_holder: list[OptimizerStepLiveness] | None = None,
 ) -> tuple[dict[str, Any], OptimizerStepLiveness]:
+    if not batches or any(batch is None for batch in batches):
+        raise ValueError("Accumulated profiler step requires nonempty microbatches")
+    microbatch_size = len(batches[0].examples)
+    if (
+        microbatch_size <= 0
+        or any(len(batch.examples) != microbatch_size for batch in batches)
+        or microbatch_size * len(batches) != DISTRIBUTED_LOCAL_BATCH_SIZE
+    ):
+        raise ValueError("Profiler microbatches do not fill one local optimizer batch")
     prior_liveness = (
         rollover_liveness_holder[0]
         if rollover_liveness_holder is not None and rollover_liveness_holder
         else None
     )
-    write_audit = gate._write_episode_batch(model, batch, dtype=dtype)
-    if prior_liveness is not None:
-        prior_liveness.write_audit = None
-    logits, route_logits = gate._read_episode_batch(model, batch, dtype=dtype)
-    predictor_positions = gate.runtime._answer_predictor_indices(batch.labels)
-    expected_logit_shape = (
-        len(batch.examples),
-        predictor_positions.numel(),
+    answer_token_count = sum(
+        int(batch.labels[:, 1:].ne(-100).sum().item()) for batch in batches
     )
-    if logits.ndim != 3 or logits.shape[:2] != expected_logit_shape:
-        raise RuntimeError(
-            "Profiler read did not return compact supervised-position logits"
-        )
-    if prior_liveness is not None:
-        prior_liveness.logits = None
-        prior_liveness.route_logits = None
-    answer_loss = gate.causal_answer_loss(logits, batch.labels)
-    if prior_liveness is not None:
-        prior_liveness.answer_loss = None
-    route_loss, route_predictions = gate.route_loss_and_predictions(
-        route_logits,
-        batch.query_mask,
-        batch.target_slots,
-        hard_negative_margin=PRODUCTION_HARD_NEGATIVE_MARGIN,
-        hard_negative_weight=PRODUCTION_HARD_NEGATIVE_WEIGHT,
-    )
-    if prior_liveness is not None:
-        prior_liveness.route_loss = None
-        prior_liveness.route_predictions = None
-    total_loss = (
-        PRODUCTION_ANSWER_WEIGHT * answer_loss
-        + PRODUCTION_ROUTE_WEIGHT * route_loss
-    )
-    if prior_liveness is not None:
-        prior_liveness.total_loss = None
-    if not bool(torch.isfinite(total_loss).item()):
-        raise RuntimeError("Profiler encountered a non-finite training loss")
+    route_row_count = sum(int(batch.target_slots.numel()) for batch in batches)
+    if answer_token_count <= 0 or route_row_count != DISTRIBUTED_LOCAL_BATCH_SIZE:
+        raise RuntimeError("Profiler accumulated objective denominators are invalid")
+
+    answer_loss_sum = 0.0
+    route_loss_sum = 0.0
+    route_correct = 0
+    route_total = 0
+    full_occupancy_count = 0
+    full_occupancy_total = 0
+    forced_write_route_match_count = 0
+    forced_write_route_total = 0
+    microbatch_records: list[dict[str, Any]] = []
     router_audit = None
-    if include_router_gradient_audit:
-        router_audit = gate.runtime._router_gradient_audit(model, route_loss)
-    total_loss.backward()
+    write_audit = None
+    logits = None
+    route_logits = None
+    answer_loss = None
+    route_loss = None
+    route_predictions = None
+    total_loss = None
+    for microbatch_index, batch in enumerate(batches, start=1):
+        write_audit = gate._write_episode_batch(model, batch, dtype=dtype)
+        if prior_liveness is not None and microbatch_index == 1:
+            prior_liveness.write_audit = None
+        logits, route_logits = gate._read_episode_batch(model, batch, dtype=dtype)
+        predictor_positions = gate.runtime._answer_predictor_indices(batch.labels)
+        expected_logit_shape = (
+            len(batch.examples),
+            predictor_positions.numel(),
+        )
+        if logits.ndim != 3 or logits.shape[:2] != expected_logit_shape:
+            raise RuntimeError(
+                "Profiler read did not return compact supervised-position logits"
+            )
+        if prior_liveness is not None and microbatch_index == 1:
+            prior_liveness.logits = None
+            prior_liveness.route_logits = None
+        local_answer_sum, local_answer_tokens = (
+            gate.distributed.answer_loss_sum_and_count(logits, batch.labels)
+        )
+        answer_loss = local_answer_sum / answer_token_count
+        if prior_liveness is not None and microbatch_index == 1:
+            prior_liveness.answer_loss = None
+        (
+            local_route_sum,
+            local_route_rows,
+            route_predictions,
+        ) = gate.distributed.route_loss_sum_and_predictions(
+            route_logits,
+            batch.query_mask,
+            batch.target_slots,
+            hard_negative_margin=PRODUCTION_HARD_NEGATIVE_MARGIN,
+            hard_negative_weight=PRODUCTION_HARD_NEGATIVE_WEIGHT,
+        )
+        route_loss = local_route_sum / route_row_count
+        if prior_liveness is not None and microbatch_index == 1:
+            prior_liveness.route_loss = None
+            prior_liveness.route_predictions = None
+        total_loss = (
+            PRODUCTION_ANSWER_WEIGHT * answer_loss
+            + PRODUCTION_ROUTE_WEIGHT * route_loss
+        )
+        if prior_liveness is not None and microbatch_index == 1:
+            prior_liveness.total_loss = None
+        if not bool(torch.isfinite(total_loss).item()):
+            raise RuntimeError("Profiler encountered a non-finite training loss")
+        if include_router_gradient_audit and microbatch_index == 1:
+            router_audit = gate.runtime._router_gradient_audit(model, route_loss)
+        total_loss.backward()
+
+        microbatch_route_correct = sum(
+            int(prediction.eq(batch.target_slots).sum().item())
+            for prediction in route_predictions.values()
+        )
+        microbatch_route_total = len(route_predictions) * len(batch.examples)
+        answer_loss_sum += float(local_answer_sum.detach().float().item())
+        route_loss_sum += float(local_route_sum.detach().float().item())
+        route_correct += microbatch_route_correct
+        route_total += microbatch_route_total
+        full_occupancy_count += int(write_audit["full_occupancy_count"])
+        full_occupancy_total += int(write_audit["full_occupancy_total"])
+        forced_write_route_match_count += int(
+            write_audit["forced_write_route_match_count"]
+        )
+        forced_write_route_total += int(write_audit["forced_write_route_total"])
+        microbatch_records.append(
+            {
+                "microbatch": microbatch_index,
+                "rows": len(batch.examples),
+                "answer_tokens": local_answer_tokens,
+                "route_rows": local_route_rows,
+                "answer_predictor_positions": int(predictor_positions.numel()),
+                "answer_logit_shape": list(logits.shape),
+                "answer_logit_dtype": str(logits.dtype),
+                "route_correct": microbatch_route_correct,
+                "route_total": microbatch_route_total,
+                "online_state_reset_after_backward": True,
+            }
+        )
+        reset_delta_mem_states(model)
+        if microbatch_index < len(batches):
+            write_audit = None
+            logits = None
+            route_logits = None
+            answer_loss = None
+            route_loss = None
+            route_predictions = None
+            total_loss = None
+
     grad_norm = torch.nn.utils.clip_grad_norm_(
         trainable, PRODUCTION_MAX_GRAD_NORM
     )
@@ -871,32 +1034,31 @@ def _execute_optimizer_step(
         rollover_liveness_holder.clear()
     if not bool(torch.isfinite(grad_norm).item()):
         raise RuntimeError("Profiler encountered a non-finite gradient norm")
-    reset_delta_mem_states(model)
     optimizer.step()
-    route_correct = sum(
-        int(prediction.eq(batch.target_slots).sum().item())
-        for prediction in route_predictions.values()
-    )
-    route_total = len(route_predictions) * len(batch.examples)
+    normalized_answer_loss = answer_loss_sum / answer_token_count
+    normalized_route_loss = route_loss_sum / route_row_count
     result = {
-        "rows": len(batch.examples),
-        "answer_predictor_positions": int(predictor_positions.numel()),
-        "answer_logit_shape": list(logits.shape),
-        "answer_logit_dtype": str(logits.dtype),
-        "answer_loss": float(answer_loss.detach().float().item()),
-        "route_loss": float(route_loss.detach().float().item()),
-        "total_loss": float(total_loss.detach().float().item()),
+        "rows": DISTRIBUTED_LOCAL_BATCH_SIZE,
+        "local_optimizer_batch_size": DISTRIBUTED_LOCAL_BATCH_SIZE,
+        "local_microbatch_size": microbatch_size,
+        "gradient_accumulation_steps": len(batches),
+        "answer_token_count": answer_token_count,
+        "route_row_count": route_row_count,
+        "answer_loss": normalized_answer_loss,
+        "route_loss": normalized_route_loss,
+        "total_loss": (
+            PRODUCTION_ANSWER_WEIGHT * normalized_answer_loss
+            + PRODUCTION_ROUTE_WEIGHT * normalized_route_loss
+        ),
         "gradient_norm": float(grad_norm.detach().float().item()),
         "route_correct": route_correct,
         "route_total": route_total,
-        "full_occupancy_count": int(write_audit["full_occupancy_count"]),
-        "full_occupancy_total": int(write_audit["full_occupancy_total"]),
-        "forced_write_route_match_count": int(
-            write_audit["forced_write_route_match_count"]
-        ),
-        "forced_write_route_total": int(
-            write_audit["forced_write_route_total"]
-        ),
+        "full_occupancy_count": full_occupancy_count,
+        "full_occupancy_total": full_occupancy_total,
+        "forced_write_route_match_count": forced_write_route_match_count,
+        "forced_write_route_total": forced_write_route_total,
+        "online_state_reset_count": len(batches),
+        "microbatches": microbatch_records,
         "router_gradient_audit": router_audit,
     }
     if (
@@ -925,7 +1087,7 @@ def _execute_optimizer_step(
 
 def _measure_optimizer_step(
     model: torch.nn.Module,
-    examples: Sequence[Any],
+    examples: Sequence[Sequence[Any]],
     optimizer: torch.optim.Optimizer,
     trainable: Sequence[torch.nn.Parameter],
     *,
@@ -940,17 +1102,20 @@ def _measure_optimizer_step(
     torch.cuda.reset_peak_memory_stats(device)
     before = _cuda_snapshot(device)
     started = time.perf_counter()
-    batch = None
+    batches: list[Any] = []
     try:
-        batch = gate.collate_examples(
-            examples, pad_token_id=pad_token_id, device=device
-        )
+        batches = [
+            gate.collate_examples(
+                microbatch, pad_token_id=pad_token_id, device=device
+            )
+            for microbatch in examples
+        ]
         if prior_batch_holder is not None:
             prior_batch_holder.clear()
         optimizer.zero_grad(set_to_none=True)
         step, rollover_liveness = _execute_optimizer_step(
             model,
-            batch,
+            batches,
             optimizer,
             trainable,
             dtype=dtype,
@@ -979,7 +1144,7 @@ def _measure_optimizer_step(
                 ),
             }
         )
-        return phase, None, batch
+        return phase, None, batches
     torch.cuda.synchronize(device)
     phase = _phase_result(
         device,
@@ -991,7 +1156,7 @@ def _measure_optimizer_step(
     phase["includes_first_step_router_gradient_audit"] = (
         include_router_gradient_audit
     )
-    return phase, rollover_liveness, batch
+    return phase, rollover_liveness, batches
 
 
 def _measure_stress_sequence(
@@ -1077,8 +1242,8 @@ def _profile_worker(
     batch_size: int,
     device_name: str,
 ) -> dict[str, Any]:
-    if batch_size not in PROFILED_LOCAL_BATCH_SIZES:
-        raise ValueError(f"Unsupported profiled local batch size: {batch_size}")
+    if batch_size not in PROFILED_LOCAL_MICROBATCH_SIZES:
+        raise ValueError(f"Unsupported profiled local microbatch size: {batch_size}")
     os.environ["HF_ENDPOINT"] = HF_MIRROR_ENDPOINT
     gate.configure_hf_mirror(HF_MIRROR_ENDPOINT)
     device = _parse_cuda_device(device_name)
@@ -1208,19 +1373,32 @@ def _profile_worker_on_initialized_device(
         canonical_json(sorted(example.row_id for example in training_examples))
     )
     activation_examples, activation_profiles, activation_selection_audit = (
-        select_padded_workload_examples(training_examples, batch_size)
+        select_accumulated_microbatches(
+            training_examples,
+            batch_size,
+            selector=select_padded_workload_examples,
+        )
     )
     activation_profiles = [
-        {
-            **profile,
-            **_answer_predictor_profile(example),
-        }
-        for example, profile in zip(
+        [
+            {
+                **profile,
+                **_answer_predictor_profile(example),
+            }
+            for example, profile in zip(
+                microbatch_examples, microbatch_profiles, strict=True
+            )
+        ]
+        for microbatch_examples, microbatch_profiles in zip(
             activation_examples, activation_profiles, strict=True
         )
     ]
     answer_logit_examples, answer_logit_profiles, answer_logit_selection_audit = (
-        select_answer_logit_examples(training_examples, batch_size)
+        select_accumulated_microbatches(
+            training_examples,
+            batch_size,
+            selector=select_answer_logit_examples,
+        )
     )
     trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = torch.optim.AdamW(
@@ -1295,6 +1473,12 @@ def _profile_worker_on_initialized_device(
         "pid": os.getpid(),
         "hf_endpoint": os.environ["HF_ENDPOINT"],
         "device": _device_evidence(device),
+        "profiled_local_batch_size": batch_size,
+        "profiled_local_optimizer_batch_size": DISTRIBUTED_LOCAL_BATCH_SIZE,
+        "profiled_local_microbatch_size": batch_size,
+        "profiled_gradient_accumulation_steps": (
+            DISTRIBUTED_LOCAL_BATCH_SIZE // batch_size
+        ),
         "source_manifest_path": str(manifest_path),
         "source_manifest_file_sha256": sha256_file(manifest_path),
         "source_manifest_payload_sha256": manifest_payload_sha256,
@@ -1315,12 +1499,16 @@ def _profile_worker_on_initialized_device(
         "trainable_audit": _summarize_trainable_audit(audit),
         "selection_policy": {
             "activation_stress": (
-                "exactly maximize total batch-padded token positions across the four "
-                "write invocations and one read invocation"
+                "select disjoint exact microbatch maxima for total padded token "
+                "positions across the four write invocations and one read invocation"
             ),
             "answer_logit_stress": (
-                "exactly maximize the union of supervised causal answer-predictor "
-                "positions projected through the vocabulary head"
+                "select disjoint exact microbatch maxima for the union of supervised "
+                "causal answer-predictor positions projected through the vocabulary head"
+            ),
+            "accumulation": (
+                "one local optimizer batch of four rows split into sequential "
+                "microbatches with an online-state reset after every backward"
             ),
         },
         "activation_selection_audit": activation_selection_audit,
@@ -1392,6 +1580,13 @@ def _worker_failure_payload(
         "hf_endpoint": os.environ.get("HF_ENDPOINT"),
         "device_requested": device_name,
         "profiled_local_batch_size": batch_size,
+        "profiled_local_optimizer_batch_size": DISTRIBUTED_LOCAL_BATCH_SIZE,
+        "profiled_local_microbatch_size": batch_size,
+        "profiled_gradient_accumulation_steps": (
+            DISTRIBUTED_LOCAL_BATCH_SIZE // batch_size
+            if batch_size in PROFILED_LOCAL_MICROBATCH_SIZES
+            else None
+        ),
         "source_manifest_path": str(manifest_path),
         "source_manifest_file_sha256": (
             sha256_file(manifest_path) if manifest_path.is_file() else None
@@ -1484,13 +1679,27 @@ def _read_worker_result(path: Path, expected_batch_size: int) -> Mapping[str, An
     if not verify_signed_payload(value, "worker_receipt_sha256"):
         raise ValueError(f"Worker receipt signature differs: {path}")
     configuration = value.get("configuration")
-    configured_batch = (
-        configuration.get("profiled_local_batch_size")
-        if isinstance(configuration, Mapping)
-        else value.get("profiled_local_batch_size")
+    accumulation_steps = DISTRIBUTED_LOCAL_BATCH_SIZE // expected_batch_size
+    bindings = (
+        value.get("profiled_local_batch_size"),
+        value.get("profiled_local_optimizer_batch_size"),
+        value.get("profiled_local_microbatch_size"),
+        value.get("profiled_gradient_accumulation_steps"),
     )
-    if configured_batch != expected_batch_size:
-        raise ValueError(f"Worker batch binding differs: {path}")
+    if bindings != (
+        expected_batch_size,
+        DISTRIBUTED_LOCAL_BATCH_SIZE,
+        expected_batch_size,
+        accumulation_steps,
+    ):
+        raise ValueError(f"Worker microbatch binding differs: {path}")
+    if isinstance(configuration, Mapping) and (
+        configuration.get("profiled_local_batch_size"),
+        configuration.get("profiled_local_optimizer_batch_size"),
+        configuration.get("profiled_local_microbatch_size"),
+        configuration.get("profiled_gradient_accumulation_steps"),
+    ) != bindings:
+        raise ValueError(f"Worker configuration microbatch binding differs: {path}")
     return value
 
 
@@ -1567,27 +1776,59 @@ def _valid_phase_memory(value: Any, *, total_bytes: int) -> bool:
 def _valid_optimizer_step(
     value: Any,
     *,
-    batch_size: int,
-    predictor_positions: int,
+    microbatch_size: int,
+    predictor_positions: Sequence[int],
     include_router_gradient_audit: bool,
 ) -> bool:
     if not isinstance(value, Mapping):
         return False
-    shape = value.get("answer_logit_shape")
+    accumulation_steps = DISTRIBUTED_LOCAL_BATCH_SIZE // microbatch_size
+    microbatches = value.get("microbatches")
     if not (
         type(value.get("rows")) is int
-        and value["rows"] == batch_size
-        and type(value.get("answer_predictor_positions")) is int
-        and value["answer_predictor_positions"] == predictor_positions
-        and isinstance(shape, list)
-        and len(shape) == 3
-        and all(type(dimension) is int for dimension in shape)
-        and shape[0] == batch_size
-        and shape[1] == predictor_positions
-        and shape[2] > 0
-        and value.get("answer_logit_dtype") == str(torch.bfloat16)
+        and value["rows"] == DISTRIBUTED_LOCAL_BATCH_SIZE
+        and value.get("local_optimizer_batch_size")
+        == DISTRIBUTED_LOCAL_BATCH_SIZE
+        and value.get("local_microbatch_size") == microbatch_size
+        and value.get("gradient_accumulation_steps") == accumulation_steps
+        and value.get("online_state_reset_count") == accumulation_steps
+        and type(value.get("answer_token_count")) is int
+        and value["answer_token_count"] > 0
+        and value.get("route_row_count") == DISTRIBUTED_LOCAL_BATCH_SIZE
+        and isinstance(microbatches, list)
+        and len(microbatches) == accumulation_steps
+        and len(predictor_positions) == accumulation_steps
     ):
         return False
+    for index, (microbatch, expected_predictors) in enumerate(
+        zip(microbatches, predictor_positions, strict=True), start=1
+    ):
+        shape = microbatch.get("answer_logit_shape") if isinstance(
+            microbatch, Mapping
+        ) else None
+        if not (
+            isinstance(microbatch, Mapping)
+            and microbatch.get("microbatch") == index
+            and microbatch.get("rows") == microbatch_size
+            and type(microbatch.get("answer_tokens")) is int
+            and microbatch["answer_tokens"] > 0
+            and microbatch.get("route_rows") == microbatch_size
+            and microbatch.get("answer_predictor_positions")
+            == expected_predictors
+            and isinstance(shape, list)
+            and len(shape) == 3
+            and all(type(dimension) is int for dimension in shape)
+            and shape[0] == microbatch_size
+            and shape[1] == expected_predictors
+            and shape[2] > 0
+            and microbatch.get("answer_logit_dtype") == str(torch.bfloat16)
+            and type(microbatch.get("route_correct")) is int
+            and type(microbatch.get("route_total")) is int
+            and 0 <= microbatch["route_correct"] <= microbatch["route_total"]
+            and microbatch["route_total"] > 0
+            and microbatch.get("online_state_reset_after_backward") is True
+        ):
+            return False
     loss_fields = ("answer_loss", "route_loss", "total_loss", "gradient_norm")
     if not all(
         _is_finite_number(value.get(field)) and value[field] >= 0
@@ -1614,6 +1855,10 @@ def _valid_optimizer_step(
         return False
     if not (
         value["route_total"] > 0
+        and value["route_total"]
+        == sum(microbatch["route_total"] for microbatch in microbatches)
+        and value["route_correct"]
+        == sum(microbatch["route_correct"] for microbatch in microbatches)
         and 0 <= value["route_correct"] <= value["route_total"]
         and value["full_occupancy_total"] > 0
         and value["full_occupancy_count"] == value["full_occupancy_total"]
@@ -1663,73 +1908,121 @@ def _selection_evidence_passed(
     answer_profiles = result.get("answer_logit_stress_examples")
     activation_audit = result.get("activation_selection_audit")
     answer_audit = result.get("answer_logit_selection_audit")
-    candidate_corpus = {
-        "rows": PRODUCTION_TRAINING_ROWS,
-        "conditions": list(gate.DEFAULT_TRAINING_CONDITIONS),
-        "row_id_set_sha256": result.get("training_row_id_set_sha256"),
-    }
+    accumulation_steps = DISTRIBUTED_LOCAL_BATCH_SIZE // batch_size
+
+    def accumulated_selection_passed(
+        profiles_by_microbatch: Any,
+        audit: Any,
+        *,
+        selection_schema: str,
+    ) -> tuple[bool, list[int]]:
+        if not (
+            isinstance(profiles_by_microbatch, list)
+            and len(profiles_by_microbatch) == accumulation_steps
+            and isinstance(audit, Mapping)
+            and audit.get("schema") == ACCUMULATED_SELECTION_SCHEMA
+            and audit.get("local_optimizer_batch_size")
+            == DISTRIBUTED_LOCAL_BATCH_SIZE
+            and audit.get("local_microbatch_size") == batch_size
+            and audit.get("gradient_accumulation_steps") == accumulation_steps
+            and audit.get("all_local_rows_unique") is True
+        ):
+            return False, []
+        selection_audits = audit.get("microbatch_selection_audits")
+        selected_row_ids = audit.get("selected_microbatch_row_ids")
+        if not (
+            isinstance(selection_audits, list)
+            and len(selection_audits) == accumulation_steps
+            and isinstance(selected_row_ids, list)
+            and len(selected_row_ids) == accumulation_steps
+        ):
+            return False, []
+        observed_ids: list[str] = []
+        predictor_counts: list[int] = []
+        for index, (profiles, selection, expected_ids) in enumerate(
+            zip(
+                profiles_by_microbatch,
+                selection_audits,
+                selected_row_ids,
+                strict=True,
+            )
+        ):
+            if not (
+                isinstance(profiles, list)
+                and len(profiles) == batch_size
+                and isinstance(selection, Mapping)
+                and isinstance(expected_ids, list)
+                and len(expected_ids) == batch_size
+                and selection.get("schema") == selection_schema
+                and selection.get("selected_batch_is_exact_constrained_optimum")
+                is True
+                and isinstance(selection.get("candidate_corpus"), Mapping)
+                and selection["candidate_corpus"].get("rows")
+                == PRODUCTION_TRAINING_ROWS - index * batch_size
+                and _is_sha256(
+                    selection["candidate_corpus"].get("row_id_set_sha256")
+                )
+            ):
+                return False, []
+            if any(
+                not isinstance(profile, Mapping)
+                or profile.get("condition") not in gate.DEFAULT_TRAINING_CONDITIONS
+                or not isinstance(profile.get("row_id"), str)
+                or not profile["row_id"].endswith(
+                    f"::training-condition={profile.get('condition')}"
+                )
+                for profile in profiles
+            ):
+                return False, []
+            row_ids = [str(profile["row_id"]) for profile in profiles]
+            if row_ids != expected_ids:
+                return False, []
+            try:
+                workload = _padded_workload(profiles, batch_size)
+                predictor_union = _answer_predictor_union_indices(profiles)
+            except (KeyError, TypeError, ValueError):
+                return False, []
+            if selection_schema == PADDED_SELECTION_SCHEMA:
+                if selection.get("selected") != workload:
+                    return False, []
+            elif not (
+                selection.get("selected_answer_predictor_union_indices")
+                == list(predictor_union)
+                and selection.get("selected_answer_predictor_union_positions")
+                == len(predictor_union)
+                and selection.get("compact_logit_batch_position_factor")
+                == batch_size * len(predictor_union)
+                and selection.get("selected_padded_workload") == workload
+            ):
+                return False, []
+            observed_ids.extend(row_ids)
+            predictor_counts.append(len(predictor_union))
+        return len(set(observed_ids)) == DISTRIBUTED_LOCAL_BATCH_SIZE, predictor_counts
+
     if not (
-        isinstance(activation_profiles, list)
-        and isinstance(answer_profiles, list)
-        and len(activation_profiles) == batch_size
-        and len(answer_profiles) == batch_size
-        and isinstance(activation_audit, Mapping)
-        and isinstance(answer_audit, Mapping)
-        and result.get("training_examples_considered") == PRODUCTION_TRAINING_ROWS
+        result.get("training_examples_considered") == PRODUCTION_TRAINING_ROWS
         and _is_sha256(result.get("training_row_id_set_sha256"))
-        and activation_audit.get("candidate_corpus") == candidate_corpus
-        and answer_audit.get("candidate_corpus") == candidate_corpus
         and result.get("activation_stress_examples_sha256")
         == sha256_text(canonical_json(activation_profiles))
         and result.get("answer_logit_stress_examples_sha256")
         == sha256_text(canonical_json(answer_profiles))
     ):
         return False
-    for profiles in (activation_profiles, answer_profiles):
-        if any(
-            not isinstance(profile, Mapping)
-            or profile.get("condition") not in gate.DEFAULT_TRAINING_CONDITIONS
-            or not isinstance(profile.get("row_id"), str)
-            or not profile["row_id"].endswith(
-                f"::training-condition={profile.get('condition')}"
-            )
-            for profile in profiles
-        ):
-            return False
-        row_ids = [profile.get("row_id") for profile in profiles]
-        if any(not isinstance(row_id, str) or not row_id for row_id in row_ids):
-            return False
-        if len(set(row_ids)) != batch_size:
-            return False
-    try:
-        activation_workload = _padded_workload(activation_profiles, batch_size)
-        activation_predictors = len(
-            _answer_predictor_union_indices(activation_profiles)
-        )
-        answer_workload = _padded_workload(answer_profiles, batch_size)
-        answer_union = _answer_predictor_union_indices(answer_profiles)
-    except (KeyError, TypeError, ValueError):
-        return False
-    if not (
-        activation_audit.get("schema") == PADDED_SELECTION_SCHEMA
-        and activation_audit.get("selected_batch_is_exact_constrained_optimum")
-        is True
-        and activation_audit.get("selected") == activation_workload
-        and answer_audit.get("schema") == ANSWER_LOGIT_SELECTION_SCHEMA
-        and answer_audit.get("selected_batch_is_exact_constrained_optimum")
-        is True
-        and answer_audit.get("selected_answer_predictor_union_indices")
-        == list(answer_union)
-        and answer_audit.get("selected_answer_predictor_union_positions")
-        == len(answer_union)
-        and answer_audit.get("compact_logit_batch_position_factor")
-        == batch_size * len(answer_union)
-        and answer_audit.get("selected_padded_workload") == answer_workload
-    ):
+    activation_passed, activation_predictors = accumulated_selection_passed(
+        activation_profiles,
+        activation_audit,
+        selection_schema=PADDED_SELECTION_SCHEMA,
+    )
+    answer_passed, answer_predictors = accumulated_selection_passed(
+        answer_profiles,
+        answer_audit,
+        selection_schema=ANSWER_LOGIT_SELECTION_SCHEMA,
+    )
+    if not activation_passed or not answer_passed:
         return False
     predictor_counts = {
         "activation_max": activation_predictors,
-        "answer_logit_max": len(answer_union),
+        "answer_logit_max": answer_predictors,
     }
     vocab_sizes: set[int] = set()
     for name, current_batch, router_audit in PROFILE_STRESS_SEQUENCE:
@@ -1741,12 +2034,15 @@ def _selection_evidence_passed(
         step = phase.get("step")
         if not _valid_optimizer_step(
             step,
-            batch_size=batch_size,
+            microbatch_size=batch_size,
             predictor_positions=predictor_counts[current_batch],
             include_router_gradient_audit=router_audit,
         ):
             return False
-        vocab_sizes.add(step["answer_logit_shape"][2])
+        vocab_sizes.update(
+            microbatch["answer_logit_shape"][2]
+            for microbatch in step["microbatches"]
+        )
     return len(vocab_sizes) == 1
 
 
@@ -1836,6 +2132,16 @@ def _passing_worker_evidence(
     result: Mapping[str, Any], *, batch_size: int, device_name: str
 ) -> dict[str, Any]:
     phases = result.get("phases")
+    configuration = result.get("configuration")
+    accumulation_steps = DISTRIBUTED_LOCAL_BATCH_SIZE // batch_size
+    configuration_passed = (
+        isinstance(configuration, Mapping)
+        and configuration.get("profiled_local_optimizer_batch_size")
+        == DISTRIBUTED_LOCAL_BATCH_SIZE
+        and configuration.get("profiled_local_microbatch_size") == batch_size
+        and configuration.get("profiled_gradient_accumulation_steps")
+        == accumulation_steps
+    )
     exact_phase_set = (
         isinstance(phases, Mapping)
         and set(phases) == set(PROFILE_PHASE_NAMES)
@@ -1904,6 +2210,7 @@ def _passing_worker_evidence(
             result.get("status") == "passed"
             and result.get("gate_passed") is True
         ),
+        "accumulation_configuration": configuration_passed,
         "phase_set": exact_phase_set,
         "phase_status": phase_status,
         "phase_memory_evidence": phase_memory,
@@ -2058,6 +2365,11 @@ def _worker_invocation_evidence(
 ) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "profiled_local_batch_size": batch_size,
+        "profiled_local_optimizer_batch_size": DISTRIBUTED_LOCAL_BATCH_SIZE,
+        "profiled_local_microbatch_size": batch_size,
+        "profiled_gradient_accumulation_steps": (
+            DISTRIBUTED_LOCAL_BATCH_SIZE // batch_size
+        ),
         "subprocess_returncode": int(completed.returncode),
         "stdout": {
             "path": str(stdout_path),
@@ -2183,13 +2495,13 @@ def build_profile_gate(
     *,
     expected_bindings: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    profiled = list(PROFILED_LOCAL_BATCH_SIZES)
-    required = list(REQUIRED_LOCAL_BATCH_SIZES)
-    exploratory = list(EXPLORATORY_LOCAL_BATCH_SIZES)
-    actual = [worker.get("profiled_local_batch_size") for worker in workers]
+    profiled = list(PROFILED_LOCAL_MICROBATCH_SIZES)
+    required = list(REQUIRED_LOCAL_MICROBATCH_SIZES)
+    exploratory = list(EXPLORATORY_LOCAL_MICROBATCH_SIZES)
+    actual = [worker.get("profiled_local_microbatch_size") for worker in workers]
     profile_set_complete = actual == profiled
     workers_by_batch = {
-        worker.get("profiled_local_batch_size"): worker for worker in workers
+        worker.get("profiled_local_microbatch_size"): worker for worker in workers
     }
     required_present = all(actual.count(batch_size) == 1 for batch_size in required)
     required_workers = [
@@ -2270,6 +2582,11 @@ def build_profile_gate(
     launch_gate = {
         "selected_world_size": DISTRIBUTED_WORLD_SIZE,
         "selected_local_batch_size": DISTRIBUTED_LOCAL_BATCH_SIZE,
+        "selected_local_optimizer_batch_size": DISTRIBUTED_LOCAL_BATCH_SIZE,
+        "selected_local_microbatch_size": DISTRIBUTED_LOCAL_MICROBATCH_SIZE,
+        "selected_gradient_accumulation_steps": (
+            DISTRIBUTED_GRADIENT_ACCUMULATION_STEPS
+        ),
         "selected_global_batch_size": DISTRIBUTED_GLOBAL_BATCH_SIZE,
         "checks": launch_checks,
         "failed_checks": launch_failed_checks,
@@ -2347,6 +2664,15 @@ def build_profile_gate(
     )
     exploration = {
         "complete": exploration_complete,
+        "outcomes_by_local_microbatch_size": exploratory_outcomes,
+        "passing_local_microbatch_sizes": exploratory_passing,
+        "cuda_oom_local_microbatch_sizes": exploratory_oom,
+        "insufficient_headroom_local_microbatch_sizes": (
+            exploratory_insufficient_headroom
+        ),
+        "malformed_or_unclassified_local_microbatch_sizes": (
+            exploratory_unclassified
+        ),
         "outcomes_by_local_batch_size": exploratory_outcomes,
         "passing_local_batch_sizes": exploratory_passing,
         "cuda_oom_local_batch_sizes": exploratory_oom,
@@ -2359,6 +2685,10 @@ def build_profile_gate(
     if not exploration_complete:
         failed_checks.append("exploration_complete")
     return {
+        "profiled_local_microbatch_sizes": profiled,
+        "required_local_microbatch_sizes": required,
+        "exploratory_local_microbatch_sizes": exploratory,
+        "observed_local_microbatch_sizes": actual,
         "profiled_local_batch_sizes": profiled,
         "required_local_batch_sizes": required,
         "exploratory_local_batch_sizes": exploratory,
@@ -2437,10 +2767,17 @@ def run_orchestrator(
             "source_manifest_file_sha256": sha256_file(manifest_path),
             **parent_bindings,
             "device": str(device),
+            "profiled_local_microbatch_sizes": list(selected_batch_sizes),
+            "required_local_microbatch_sizes": list(
+                REQUIRED_LOCAL_MICROBATCH_SIZES
+            ),
+            "exploratory_local_microbatch_sizes": list(
+                EXPLORATORY_LOCAL_MICROBATCH_SIZES
+            ),
             "profiled_local_batch_sizes": list(selected_batch_sizes),
-            "required_local_batch_sizes": list(REQUIRED_LOCAL_BATCH_SIZES),
+            "required_local_batch_sizes": list(REQUIRED_LOCAL_MICROBATCH_SIZES),
             "exploratory_local_batch_sizes": list(
-                EXPLORATORY_LOCAL_BATCH_SIZES
+                EXPLORATORY_LOCAL_MICROBATCH_SIZES
             ),
             "distributed_training_target": _distributed_training_target(),
             "minimum_headroom_bytes": MINIMUM_HEADROOM_BYTES,
@@ -2451,9 +2788,9 @@ def run_orchestrator(
                 "and compact supervised answer-logit predictor-union width"
             ),
             "measurement_policy": (
-                "each local batch runs sequentially in a fresh Python process and fresh "
-                "model; local batch 4 is launch-critical while local batches 1 and 2 "
-                "are exploratory observations; "
+                "each local microbatch size runs sequentially in a fresh Python process "
+                "and fresh model; microbatch 2 with accumulation 2 is launch-critical "
+                "while microbatch 1 with accumulation 4 is exploratory; "
                 "measure fresh load, activation-max cold AdamW with router audit, "
                 "answer-logit-max AdamW with activation-max prior liveness and router "
                 "audit, then activation-max AdamW with answer-logit-max prior liveness; "
@@ -2565,7 +2902,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-manifest", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--device", required=True)
-    parser.add_argument("--local-batch-sizes", default="1,2,4")
+    parser.add_argument("--local-batch-sizes", default="1,2")
     parser.add_argument(
         "--worker-local-batch-size", type=int, help=argparse.SUPPRESS
     )

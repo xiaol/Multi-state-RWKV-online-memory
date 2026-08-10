@@ -43,10 +43,10 @@ PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_gate_protocol.v3"
 TRAINING_CONFIGURATION_SCHEMA = (
     "rwkv_ms_natural_memory_gate_training_configuration.v3"
 )
-TRAIN_STEP_SCHEMA = "rwkv_ms_natural_memory_gate_train_step.v3"
-DISTRIBUTED_PREFLIGHT_SCHEMA = "rwkv_ms_natural_memory_distributed_preflight.v2"
+TRAIN_STEP_SCHEMA = "rwkv_ms_natural_memory_gate_train_step.v4"
+DISTRIBUTED_PREFLIGHT_SCHEMA = "rwkv_ms_natural_memory_distributed_preflight.v3"
 DISTRIBUTED_PREFLIGHT_GATE_SCHEMA = (
-    "rwkv_ms_natural_memory_distributed_preflight_gate.v2"
+    "rwkv_ms_natural_memory_distributed_preflight_gate.v3"
 )
 REPLICATION_PROTOCOL_SCHEMA = "rwkv_ms_natural_memory_replication_protocol.v1"
 REPLICATION_AMENDMENT_SCHEMA = (
@@ -149,14 +149,20 @@ RETAINED_PRODUCTION_COMPLETE_SCHEDULES = (
     LEGACY_LOCAL_BATCH_ONE_COMPLETE_SCHEDULE,
 )
 DISTRIBUTED_STEP_PHASE_ORDER = (
-    "forward",
+    "microbatch_preparation",
+    "objective_denominator_preparation",
+    "objective_denominator_global_sum",
+    "microbatch_1_forward",
+    "microbatch_1_backward",
+    "microbatch_1_online_state_reset",
+    "microbatch_2_forward",
+    "microbatch_2_backward",
+    "microbatch_2_online_state_reset",
     "objective_preparation",
     "objective_global_sum",
-    "backward",
     "local_gradient_validation",
     "gradient_sum",
     "global_gradient_clip",
-    "online_state_reset",
     "adamw_step",
     "metric_global_sum",
 )
@@ -428,6 +434,12 @@ def train_model_distributed(
     if global_batch_size <= 0 or global_batch_size % context.world_size:
         raise ValueError("Global batch size must divide evenly across ranks")
     local_batch_size = global_batch_size // context.world_size
+    local_microbatch_size = min(
+        distributed.REQUIRED_LOCAL_MICROBATCH_SIZE, local_batch_size
+    )
+    if local_batch_size % local_microbatch_size:
+        raise ValueError("Local batch size must divide evenly into microbatches")
+    gradient_accumulation_steps = local_batch_size // local_microbatch_size
 
     def prepare_schedule() -> tuple[
         list[str], tuple[distributed.GlobalTrainingStep, ...], str
@@ -456,6 +468,8 @@ def train_model_distributed(
             "steps": len(schedule),
             "global_batch_size": global_batch_size,
             "local_batch_size": local_batch_size,
+            "local_microbatch_size": local_microbatch_size,
+            "gradient_accumulation_steps": gradient_accumulation_steps,
         },
         description="training schedule",
     )
@@ -538,19 +552,8 @@ def train_model_distributed(
     for schedule_step in schedule:
         observed_phase_order: list[str] = []
 
-        def forward() -> tuple[
-            tuple[int, ...],
-            list[Any],
-            Any,
-            Mapping[str, Any],
-            torch.Tensor,
-            Mapping[str, torch.Tensor],
-            list[str],
-            torch.Tensor,
-            int,
-            torch.Tensor,
-            int,
-            Mapping[str, torch.Tensor],
+        def prepare_microbatches() -> tuple[
+            tuple[int, ...], list[Any], list[Any], int, int
         ]:
             prepared_local_indices = distributed.local_step_indices(
                 schedule_step,
@@ -559,79 +562,278 @@ def train_model_distributed(
                 local_batch_size=local_batch_size,
             )
             prepared_selected = [examples[index] for index in prepared_local_indices]
-            prepared_batch = collate_examples(
-                prepared_selected, pad_token_id=pad_token_id, device=context.device
-            )
-            optimizer.zero_grad(set_to_none=True)
-            prepared_write_audit = _write_episode_batch(
-                model, prepared_batch, dtype=dtype
-            )
-            prepared_logits, prepared_route_logits = _read_episode_batch(
-                model, prepared_batch, dtype=dtype
-            )
-            prepared_state_digests = (
-                _state_digests(model, len(prepared_selected))
-                if capture_step_evidence
-                else []
-            )
-            prepared_answer_sum, prepared_answer_tokens = (
-                distributed.answer_loss_sum_and_count(
-                    prepared_logits, prepared_batch.labels
+            prepared_batches = [
+                collate_examples(
+                    prepared_selected[start : start + local_microbatch_size],
+                    pad_token_id=pad_token_id,
+                    device=context.device,
                 )
+                for start in range(0, local_batch_size, local_microbatch_size)
+            ]
+            if len(prepared_batches) != gradient_accumulation_steps:
+                raise RuntimeError("Prepared the wrong number of local microbatches")
+            prepared_answer_tokens = sum(
+                int(batch.labels[:, 1:].ne(-100).sum().item())
+                for batch in prepared_batches
             )
-            (
-                prepared_route_sum,
-                prepared_route_rows,
-                prepared_route_predictions,
-            ) = distributed.route_loss_sum_and_predictions(
-                prepared_route_logits,
-                prepared_batch.query_mask,
-                prepared_batch.target_slots,
-                hard_negative_margin=hard_negative_margin,
-                hard_negative_weight=hard_negative_weight,
+            prepared_route_rows = sum(
+                int(batch.target_slots.numel()) for batch in prepared_batches
             )
+            if prepared_answer_tokens <= 0 or prepared_route_rows != local_batch_size:
+                raise RuntimeError("Prepared microbatch denominators are invalid")
+            optimizer.zero_grad(set_to_none=True)
             return (
                 prepared_local_indices,
                 prepared_selected,
-                prepared_batch,
-                prepared_write_audit,
-                prepared_logits,
-                prepared_route_logits,
-                prepared_state_digests,
-                prepared_answer_sum,
+                prepared_batches,
                 prepared_answer_tokens,
-                prepared_route_sum,
                 prepared_route_rows,
-                prepared_route_predictions,
             )
 
         (
             local_indices,
             selected,
-            batch,
-            write_audit,
-            logits,
-            route_logits,
-            local_online_state_digests,
-            local_answer_sum,
+            microbatch_batches,
             local_answer_tokens,
-            local_route_sum,
             local_route_rows,
-            route_predictions,
         ) = _run_consensused_local_phase(
             context,
-            phase=f"step-{schedule_step.step}-forward",
-            operation=forward,
+            phase=f"step-{schedule_step.step}-microbatch-preparation",
+            operation=prepare_microbatches,
         )
-        observed_phase_order.append("forward")
+        observed_phase_order.append("microbatch_preparation")
+
+        local_denominator_statistics = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-objective-denominator-preparation",
+            operation=lambda: _prepare_distributed_scalar_sums(
+                context, (local_answer_tokens, local_route_rows)
+            ),
+        )
+        observed_phase_order.append("objective_denominator_preparation")
+
+        global_denominators = _run_consensused_local_phase(
+            context,
+            phase=f"step-{schedule_step.step}-objective-denominator-global-sum",
+            operation=lambda: _distributed_scalar_sums(
+                context, local_denominator_statistics
+            ),
+        )
+        observed_phase_order.append("objective_denominator_global_sum")
+        global_answer_tokens, global_route_rows = (
+            int(value) for value in global_denominators
+        )
+        if (
+            tuple(float(value) for value in (global_answer_tokens, global_route_rows))
+            != global_denominators
+            or global_answer_tokens <= 0
+            or global_route_rows != global_batch_size
+        ):
+            raise distributed.DistributedTrainingError(
+                "Global microbatch denominators are invalid"
+            )
+
+        local_answer_loss_sum = 0.0
+        local_route_loss_sum = 0.0
+        local_online_state_digests: list[str] = []
+        local_metric_values = [0.0] * 8
+
+        for microbatch_offset, batch in enumerate(microbatch_batches):
+            microbatch_number = microbatch_offset + 1
+            microbatch_selected = selected[
+                microbatch_offset
+                * local_microbatch_size : (microbatch_offset + 1)
+                * local_microbatch_size
+            ]
+
+            def forward_microbatch() -> tuple[
+                Mapping[str, Any],
+                torch.Tensor,
+                Mapping[str, torch.Tensor],
+                list[str],
+                torch.Tensor,
+                int,
+                torch.Tensor,
+                int,
+                Mapping[str, torch.Tensor],
+            ]:
+                prepared_write_audit = _write_episode_batch(
+                    model, batch, dtype=dtype
+                )
+                prepared_logits, prepared_route_logits = _read_episode_batch(
+                    model, batch, dtype=dtype
+                )
+                prepared_state_digests = (
+                    _state_digests(model, len(microbatch_selected))
+                    if capture_step_evidence
+                    else []
+                )
+                prepared_answer_sum, prepared_answer_tokens = (
+                    distributed.answer_loss_sum_and_count(
+                        prepared_logits, batch.labels
+                    )
+                )
+                (
+                    prepared_route_sum,
+                    prepared_route_rows,
+                    prepared_route_predictions,
+                ) = distributed.route_loss_sum_and_predictions(
+                    prepared_route_logits,
+                    batch.query_mask,
+                    batch.target_slots,
+                    hard_negative_margin=hard_negative_margin,
+                    hard_negative_weight=hard_negative_weight,
+                )
+                return (
+                    prepared_write_audit,
+                    prepared_logits,
+                    prepared_route_logits,
+                    prepared_state_digests,
+                    prepared_answer_sum,
+                    prepared_answer_tokens,
+                    prepared_route_sum,
+                    prepared_route_rows,
+                    prepared_route_predictions,
+                )
+
+            (
+                write_audit,
+                logits,
+                route_logits,
+                state_digests,
+                answer_sum,
+                answer_tokens,
+                route_sum,
+                route_rows,
+                route_predictions,
+            ) = _run_consensused_local_phase(
+                context,
+                phase=(
+                    f"step-{schedule_step.step}-microbatch-{microbatch_number}-forward"
+                ),
+                operation=forward_microbatch,
+            )
+            observed_phase_order.append(f"microbatch_{microbatch_number}_forward")
+            if answer_tokens <= 0 or route_rows != len(microbatch_selected):
+                raise distributed.DistributedTrainingError(
+                    f"Microbatch {microbatch_number} objective counts are invalid"
+                )
+
+            def prepare_microbatch_objective() -> tuple[
+                torch.Tensor, Mapping[str, Any] | None
+            ]:
+                prepared_total_loss = (
+                    answer_weight * answer_sum / global_answer_tokens
+                    + route_weight * route_sum / global_route_rows
+                )
+                if not bool(torch.isfinite(prepared_total_loss).item()):
+                    raise RuntimeError("Distributed objective is non-finite")
+                prepared_router_gradient = (
+                    runtime._router_gradient_audit(
+                        model, route_sum / global_route_rows
+                    )
+                    if router_gradient is None and microbatch_number == 1
+                    else None
+                )
+                return prepared_total_loss, prepared_router_gradient
+
+            total_loss, local_router_gradient = _run_consensused_local_phase(
+                context,
+                phase=(
+                    f"step-{schedule_step.step}-microbatch-{microbatch_number}-objective"
+                ),
+                operation=prepare_microbatch_objective,
+            )
+            if router_gradient is None and microbatch_number == 1:
+                router_gradient = _run_consensused_local_phase(
+                    context,
+                    phase=f"step-{schedule_step.step}-router-gradient-audit",
+                    operation=lambda: _global_router_gradient_audit(
+                        context, local_router_gradient or {}
+                    ),
+                )
+
+            _run_consensused_local_phase(
+                context,
+                phase=(
+                    f"step-{schedule_step.step}-microbatch-{microbatch_number}-backward"
+                ),
+                operation=total_loss.backward,
+            )
+            observed_phase_order.append(f"microbatch_{microbatch_number}_backward")
+
+            def prepare_microbatch_metrics() -> tuple[float, ...]:
+                exact, _, _ = _answer_exact_predictions(
+                    logits.detach(), batch.labels
+                )
+                route_matches = sum(
+                    int(prediction.eq(batch.target_slots).sum().item())
+                    for prediction in route_predictions.values()
+                )
+                route_count = len(route_predictions) * int(
+                    batch.target_slots.numel()
+                )
+                return (
+                    float(sum(exact)),
+                    float(len(exact)),
+                    float(route_matches),
+                    float(route_count),
+                    float(write_audit["full_occupancy_count"]),
+                    float(write_audit["full_occupancy_total"]),
+                    float(write_audit["forced_write_route_match_count"]),
+                    float(write_audit["forced_write_route_total"]),
+                )
+
+            microbatch_metrics = _run_consensused_local_phase(
+                context,
+                phase=(
+                    f"step-{schedule_step.step}-microbatch-{microbatch_number}-metrics"
+                ),
+                operation=prepare_microbatch_metrics,
+            )
+            local_answer_loss_sum += float(answer_sum.detach().float().item())
+            local_route_loss_sum += float(route_sum.detach().float().item())
+            local_online_state_digests.extend(state_digests)
+            for index, value in enumerate(microbatch_metrics):
+                local_metric_values[index] += value
+
+            _run_consensused_local_phase(
+                context,
+                phase=(
+                    f"step-{schedule_step.step}-microbatch-{microbatch_number}-"
+                    "online-state-reset"
+                ),
+                operation=lambda: reset_delta_mem_states(model),
+            )
+            observed_phase_order.append(
+                f"microbatch_{microbatch_number}_online_state_reset"
+            )
+            microbatch_batches[microbatch_offset] = None
+            answer_sum = None
+            batch = None
+            logits = None
+            local_router_gradient = None
+            route_logits = None
+            route_predictions = None
+            route_sum = None
+            total_loss = None
+            write_audit = None
 
         local_objective_statistics = _run_consensused_local_phase(
             context,
             phase=f"step-{schedule_step.step}-objective-preparation",
             operation=lambda: distributed.prepare_objective_statistics(
-                answer_loss_sum=local_answer_sum,
+                answer_loss_sum=torch.tensor(
+                    local_answer_loss_sum,
+                    dtype=torch.float64,
+                    device=context.device,
+                ),
                 answer_token_count=local_answer_tokens,
-                route_loss_sum=local_route_sum,
+                route_loss_sum=torch.tensor(
+                    local_route_loss_sum,
+                    dtype=torch.float64,
+                    device=context.device,
+                ),
                 route_row_count=local_route_rows,
             ),
         )
@@ -645,47 +847,13 @@ def train_model_distributed(
             ),
         )
         observed_phase_order.append("objective_global_sum")
-
-        def prepare_objective() -> tuple[torch.Tensor, Mapping[str, Any] | None]:
-            prepared_total_loss = (
-                answer_weight
-                * local_answer_sum
-                / int(objective["answer_token_count"])
-                + route_weight
-                * local_route_sum
-                / int(objective["route_row_count"])
+        if (
+            objective["answer_token_count"] != global_answer_tokens
+            or objective["route_row_count"] != global_route_rows
+        ):
+            raise distributed.DistributedTrainingError(
+                "Accumulated objective counts differ from prereduced denominators"
             )
-            if not bool(torch.isfinite(prepared_total_loss).item()):
-                raise RuntimeError("Distributed objective is non-finite")
-            if router_gradient is None:
-                prepared_router_gradient = runtime._router_gradient_audit(
-                    model,
-                    local_route_sum / int(objective["route_row_count"]),
-                )
-            else:
-                prepared_router_gradient = None
-            return prepared_total_loss, prepared_router_gradient
-
-        total_loss, local_router_gradient = _run_consensused_local_phase(
-            context,
-            phase=f"step-{schedule_step.step}-objective",
-            operation=prepare_objective,
-        )
-        if router_gradient is None:
-            router_gradient = _run_consensused_local_phase(
-                context,
-                phase=f"step-{schedule_step.step}-router-gradient-audit",
-                operation=lambda: _global_router_gradient_audit(
-                    context, local_router_gradient or {}
-                ),
-            )
-
-        _run_consensused_local_phase(
-            context,
-            phase=f"step-{schedule_step.step}-backward",
-            operation=total_loss.backward,
-        )
-        observed_phase_order.append("backward")
 
         def validate_gradients() -> Mapping[str, Any]:
             prepared_validation = distributed.validate_local_gradients(named_trainable)
@@ -723,43 +891,17 @@ def train_model_distributed(
 
         _run_consensused_local_phase(
             context,
-            phase=f"step-{schedule_step.step}-online-state-reset",
-            operation=lambda: reset_delta_mem_states(model),
-        )
-        observed_phase_order.append("online_state_reset")
-
-        _run_consensused_local_phase(
-            context,
             phase=f"step-{schedule_step.step}-adamw-step",
             operation=optimizer.step,
         )
         observed_phase_order.append("adamw_step")
 
-        def prepare_metrics() -> torch.Tensor:
-            exact, _, _ = _answer_exact_predictions(logits.detach(), batch.labels)
-            local_route_matches = sum(
-                int(prediction.eq(batch.target_slots).sum().item())
-                for prediction in route_predictions.values()
-            )
-            local_route_count = len(route_predictions) * len(selected)
-            return _prepare_distributed_scalar_sums(
-                context,
-                (
-                    sum(exact),
-                    len(exact),
-                    local_route_matches,
-                    local_route_count,
-                    write_audit["full_occupancy_count"],
-                    write_audit["full_occupancy_total"],
-                    write_audit["forced_write_route_match_count"],
-                    write_audit["forced_write_route_total"],
-                ),
-            )
-
         local_metric_statistics = _run_consensused_local_phase(
             context,
             phase=f"step-{schedule_step.step}-metric-preparation",
-            operation=prepare_metrics,
+            operation=lambda: _prepare_distributed_scalar_sums(
+                context, local_metric_values
+            ),
         )
         metrics = _run_consensused_local_phase(
             context,
@@ -791,6 +933,8 @@ def train_model_distributed(
                 "epoch": schedule_step.epoch,
                 "rows": global_batch_size,
                 "local_rows_per_rank": local_batch_size,
+                "local_microbatch_size": local_microbatch_size,
+                "gradient_accumulation_steps": gradient_accumulation_steps,
                 "world_size": context.world_size,
                 "global_batch_size": global_batch_size,
                 "global_answer_tokens": int(objective["answer_token_count"]),
@@ -822,7 +966,27 @@ def train_model_distributed(
                 return {
                     "rank": context.process_rank,
                     "local_row_ids": [row_ids[index] for index in local_indices],
+                    "local_microbatch_row_ids": [
+                        [
+                            row_ids[index]
+                            for index in local_indices[
+                                start : start + local_microbatch_size
+                            ]
+                        ]
+                        for start in range(
+                            0, local_batch_size, local_microbatch_size
+                        )
+                    ],
                     "local_online_state_sha256": list(local_online_state_digests),
+                    "local_online_state_sha256_by_microbatch": [
+                        local_online_state_digests[
+                            start : start + local_microbatch_size
+                        ]
+                        for start in range(
+                            0, local_batch_size, local_microbatch_size
+                        )
+                    ],
+                    "online_state_reset_count": gradient_accumulation_steps,
                     "local_answer_tokens": local_answer_tokens,
                     "local_route_rows": local_route_rows,
                     "trainable_metadata_sha256": trainable_metadata_sha256,
@@ -1046,6 +1210,8 @@ def train_model_distributed(
                 "control_backend": context.control_backend,
                 "world_size": context.world_size,
                 "local_batch_size": local_batch_size,
+                "local_microbatch_size": local_microbatch_size,
+                "gradient_accumulation_steps": gradient_accumulation_steps,
                 "global_batch_size": global_batch_size,
                 "gradient_synchronization": "sum",
                 "unused_gradient_policy": (
@@ -1056,7 +1222,9 @@ def train_model_distributed(
                     "global_supervised_answer_token_count"
                 ),
                 "route_loss_normalization": "global_row_count_after_layer_mean",
-                "online_memory_state": "rank_local_never_reduced",
+                "online_memory_state": (
+                    "rank_local_reset_after_each_microbatch_never_reduced"
+                ),
                 "schedule_sha256": schedule_sha256,
                 "ordered_row_ids_sha256": distributed.canonical_sha256(row_ids),
                 "trainable_metadata": list(trainable_metadata),
@@ -1220,16 +1388,50 @@ def _distributed_preflight_step_passed_unchecked(value: Any) -> bool:
         return False
     for rank in ordered_ranks:
         local_rows = rank.get("local_row_ids")
+        local_microbatch_rows = rank.get("local_microbatch_row_ids")
         local_digests = rank.get("local_online_state_sha256")
+        local_microbatch_digests = rank.get(
+            "local_online_state_sha256_by_microbatch"
+        )
         gradient_validation = rank.get("gradient_validation")
         gradient_collective = rank.get("gradient_collective")
         if (
             not isinstance(local_rows, list)
             or len(local_rows) != distributed.REQUIRED_LOCAL_BATCH_SIZE
             or not all(isinstance(row_id, str) and row_id for row_id in local_rows)
+            or not isinstance(local_microbatch_rows, list)
+            or len(local_microbatch_rows)
+            != distributed.REQUIRED_GRADIENT_ACCUMULATION_STEPS
+            or any(
+                not isinstance(microbatch, list)
+                or len(microbatch) != distributed.REQUIRED_LOCAL_MICROBATCH_SIZE
+                for microbatch in local_microbatch_rows
+            )
+            or [
+                row_id
+                for microbatch in local_microbatch_rows
+                for row_id in microbatch
+            ]
+            != local_rows
             or not isinstance(local_digests, list)
             or len(local_digests) != distributed.REQUIRED_LOCAL_BATCH_SIZE
             or not all(_is_sha256(digest) for digest in local_digests)
+            or not isinstance(local_microbatch_digests, list)
+            or len(local_microbatch_digests)
+            != distributed.REQUIRED_GRADIENT_ACCUMULATION_STEPS
+            or any(
+                not isinstance(microbatch, list)
+                or len(microbatch) != distributed.REQUIRED_LOCAL_MICROBATCH_SIZE
+                for microbatch in local_microbatch_digests
+            )
+            or [
+                digest
+                for microbatch in local_microbatch_digests
+                for digest in microbatch
+            ]
+            != local_digests
+            or rank.get("online_state_reset_count")
+            != distributed.REQUIRED_GRADIENT_ACCUMULATION_STEPS
             or type(rank.get("local_answer_tokens")) is not int
             or rank["local_answer_tokens"] <= 0
             or rank.get("local_route_rows") != distributed.REQUIRED_LOCAL_BATCH_SIZE
@@ -1501,6 +1703,10 @@ def _build_distributed_preflight_gate(
             == distributed.REQUIRED_WORLD_SIZE
             and distributed_evidence.get("local_batch_size")
             == distributed.REQUIRED_LOCAL_BATCH_SIZE
+            and distributed_evidence.get("local_microbatch_size")
+            == distributed.REQUIRED_LOCAL_MICROBATCH_SIZE
+            and distributed_evidence.get("gradient_accumulation_steps")
+            == distributed.REQUIRED_GRADIENT_ACCUMULATION_STEPS
             and distributed_evidence.get("global_batch_size")
             == distributed.REQUIRED_GLOBAL_BATCH_SIZE
         ),
@@ -1548,7 +1754,7 @@ def _build_distributed_preflight_gate(
             and distributed_evidence.get("route_loss_normalization")
             == "global_row_count_after_layer_mean"
             and distributed_evidence.get("online_memory_state")
-            == "rank_local_never_reduced"
+            == "rank_local_reset_after_each_microbatch_never_reduced"
         ),
         "collective_parameter_binding": (
             trainable_metadata_valid
@@ -4896,10 +5102,12 @@ def run_experiment(
             or batch_size != distributed.REQUIRED_GLOBAL_BATCH_SIZE
             or batch_size // distributed_context.world_size
             != distributed.REQUIRED_LOCAL_BATCH_SIZE
+            or distributed.REQUIRED_LOCAL_MICROBATCH_SIZE != 2
+            or distributed.REQUIRED_GRADIENT_ACCUMULATION_STEPS != 2
         ):
             raise ValueError(
-                "Formal development requires world size 4, local batch 4, "
-                "and global batch 16"
+                "Formal development requires world size 4, local optimizer batch 4, "
+                "local microbatch 2, accumulation 2, and global batch 16"
             )
     if profile == "sealed_validation" and distributed_context is not None:
         raise ValueError("Sealed validation is a single-process evaluation")
@@ -5586,6 +5794,12 @@ def run_experiment(
                             "local_batch_size": (
                                 batch_size // distributed_context.world_size
                             ),
+                            "local_microbatch_size": (
+                                distributed.REQUIRED_LOCAL_MICROBATCH_SIZE
+                            ),
+                            "gradient_accumulation_steps": (
+                                distributed.REQUIRED_GRADIENT_ACCUMULATION_STEPS
+                            ),
                             "global_batch_size": batch_size,
                             "learning_rate": learning_rate,
                             "answer_weight": answer_weight,
@@ -5801,6 +6015,12 @@ def run_experiment(
             "control_backend": distributed_training["control_backend"],
             "world_size": distributed_training["world_size"],
             "local_batch_size": distributed_training["local_batch_size"],
+            "local_microbatch_size": distributed_training[
+                "local_microbatch_size"
+            ],
+            "gradient_accumulation_steps": distributed_training[
+                "gradient_accumulation_steps"
+            ],
             "global_batch_size": distributed_training["global_batch_size"],
             "gradient_synchronization": distributed_training[
                 "gradient_synchronization"

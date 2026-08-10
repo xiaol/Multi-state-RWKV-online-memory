@@ -181,9 +181,9 @@ def test_profile_contract_binds_compositional_production_schedule() -> None:
     dataset = configuration["training_dataset_contract"]
     target = profiler._distributed_training_target()
 
-    assert profiler.PROTOCOL_SCHEMA.endswith(".v3")
-    assert profiler.WORKER_SCHEMA.endswith(".v3")
-    assert profiler.RECEIPT_SCHEMA.endswith(".v3")
+    assert profiler.PROTOCOL_SCHEMA.endswith(".v4")
+    assert profiler.WORKER_SCHEMA.endswith(".v4")
+    assert profiler.RECEIPT_SCHEMA.endswith(".v4")
     assert dataset["training_conditions"] == list(
         profiler.gate.SUPERVISED_COMPOSITIONAL_TRAINING_CONDITIONS
     )
@@ -195,6 +195,9 @@ def test_profile_contract_binds_compositional_production_schedule() -> None:
     assert target["unique_training_rows"] == 1920
     assert target["complete_epochs"] == 8
     assert target["global_batch_size"] == 16
+    assert target["local_batch_size"] == 4
+    assert target["local_microbatch_size"] == 2
+    assert target["gradient_accumulation_steps"] == 2
     assert target["optimizer_updates"] == 960
     assert (
         target["unique_training_rows"]
@@ -364,16 +367,16 @@ def test_memory_gate_fails_below_five_gib() -> None:
 
 
 def test_profiled_local_batch_sizes_and_explicit_cuda_device_are_locked() -> None:
-    assert profiler.PROFILED_LOCAL_BATCH_SIZES == (1, 2, 4)
-    assert profiler.REQUIRED_LOCAL_BATCH_SIZES == (4,)
-    assert profiler.EXPLORATORY_LOCAL_BATCH_SIZES == (1, 2)
-    assert profiler._parse_batch_sizes("1,2,4") == (1, 2, 4)
+    assert profiler.PROFILED_LOCAL_MICROBATCH_SIZES == (1, 2)
+    assert profiler.REQUIRED_LOCAL_MICROBATCH_SIZES == (2,)
+    assert profiler.EXPLORATORY_LOCAL_MICROBATCH_SIZES == (1,)
+    assert profiler._parse_batch_sizes("1,2") == (1, 2)
     assert profiler._parse_cuda_device("cuda:3") == torch.device("cuda:3")
     with pytest.raises(
         ValueError,
-        match="requires local batch sizes 1,2,4 in that order",
+        match="requires local microbatch sizes 1,2 in that order",
     ):
-        profiler._parse_batch_sizes("1,4,2")
+        profiler._parse_batch_sizes("2,1")
     with pytest.raises(ValueError, match="must be explicit"):
         profiler._parse_cuda_device("cuda")
 
@@ -382,12 +385,15 @@ def test_execute_optimizer_step_uses_real_update_sequence(monkeypatch) -> None:
     model = torch.nn.Linear(1, 1, bias=False)
     model.weight.data.fill_(1.0)
     target_slots = torch.tensor([0, 1])
-    batch = SimpleNamespace(
-        examples=[object(), object()],
-        labels=torch.tensor([[1, 1], [1, 1]]),
-        query_mask=torch.ones((2, 2), dtype=torch.bool),
-        target_slots=target_slots,
-    )
+    batches = [
+        SimpleNamespace(
+            examples=[object(), object()],
+            labels=torch.tensor([[-100, 1], [-100, 1]]),
+            query_mask=torch.ones((2, 2), dtype=torch.bool),
+            target_slots=target_slots,
+        )
+        for _ in range(2)
+    ]
     calls: list[str] = []
     prior_liveness = profiler.OptimizerStepLiveness(
         write_audit=object(),
@@ -403,7 +409,6 @@ def test_execute_optimizer_step_uses_real_update_sequence(monkeypatch) -> None:
     rollover_holder = [prior_liveness]
 
     def fake_write(model, batch, *, dtype):
-        assert prior_liveness.write_audit is not None
         calls.append("write")
         return {
             "full_occupancy_count": 2,
@@ -413,41 +418,41 @@ def test_execute_optimizer_step_uses_real_update_sequence(monkeypatch) -> None:
         }
 
     def fake_read(model, batch, *, dtype):
-        assert prior_liveness.write_audit is None
-        assert prior_liveness.logits is not None
         calls.append("read")
         logits = model.weight.reshape(1, 1, 1).expand(2, 1, 1)
         return logits, {"layer": logits}
 
-    def fake_answer_loss(logits, labels):
-        assert prior_liveness.logits is None
-        assert prior_liveness.route_logits is None
-        assert prior_liveness.answer_loss is not None
-        calls.append("answer_loss")
-        return (model.weight - 3.0).square().mean()
+    def fake_answer_sum(logits, labels):
+        calls.append("answer_sum")
+        return 2.0 * (model.weight - 3.0).square().mean(), 2
 
-    def fake_route_loss(route_logits, query_mask, slots, **objective):
-        assert prior_liveness.answer_loss is None
-        assert prior_liveness.route_loss is not None
+    def fake_route_sum(route_logits, query_mask, slots, **objective):
         assert objective == {
             "hard_negative_margin": profiler.PRODUCTION_HARD_NEGATIVE_MARGIN,
             "hard_negative_weight": profiler.PRODUCTION_HARD_NEGATIVE_WEIGHT,
         }
-        calls.append("route_loss")
-        return (model.weight - 2.0).square().mean(), {"layer": slots.clone()}
+        calls.append("route_sum")
+        return (
+            2.0 * (model.weight - 2.0).square().mean(),
+            2,
+            {"layer": slots.clone()},
+        )
 
     def fake_router_audit(model, route_loss):
-        assert prior_liveness.route_loss is None
-        assert prior_liveness.route_predictions is None
-        assert prior_liveness.total_loss is None
         calls.append("router_audit")
         return {"all_modules_finite_nonzero": True}
 
     monkeypatch.setattr(profiler.gate, "_write_episode_batch", fake_write)
     monkeypatch.setattr(profiler.gate, "_read_episode_batch", fake_read)
-    monkeypatch.setattr(profiler.gate, "causal_answer_loss", fake_answer_loss)
     monkeypatch.setattr(
-        profiler.gate, "route_loss_and_predictions", fake_route_loss
+        profiler.gate.distributed, "answer_loss_sum_and_count", fake_answer_sum
+    )
+    monkeypatch.setattr(
+        profiler.gate.distributed, "route_loss_sum_and_predictions", fake_route_sum
+    )
+    reset_calls: list[int] = []
+    monkeypatch.setattr(
+        profiler, "reset_delta_mem_states", lambda model: reset_calls.append(1)
     )
     monkeypatch.setattr(
         profiler.gate.runtime, "_router_gradient_audit", fake_router_audit
@@ -457,7 +462,7 @@ def test_execute_optimizer_step_uses_real_update_sequence(monkeypatch) -> None:
 
     result, liveness = profiler._execute_optimizer_step(
         model,
-        batch,
+        batches,
         optimizer,
         list(model.parameters()),
         dtype=torch.float32,
@@ -465,12 +470,130 @@ def test_execute_optimizer_step_uses_real_update_sequence(monkeypatch) -> None:
         rollover_liveness_holder=rollover_holder,
     )
 
-    assert calls == ["write", "read", "answer_loss", "route_loss", "router_audit"]
+    assert calls == [
+        "write", "read", "answer_sum", "route_sum", "router_audit",
+        "write", "read", "answer_sum", "route_sum",
+    ]
     assert not torch.equal(model.weight.detach(), before)
-    assert result["rows"] == 2
-    assert result["route_correct"] == result["route_total"] == 2
+    assert result["rows"] == 4
+    assert result["local_microbatch_size"] == 2
+    assert result["gradient_accumulation_steps"] == 2
+    assert result["route_correct"] == result["route_total"] == 4
+    assert reset_calls == [1, 1]
     assert liveness.logits.shape == (2, 1, 1)
     assert rollover_holder == []
+
+
+def test_accumulated_microbatches_match_unsplit_gradient_and_adamw(
+    monkeypatch,
+) -> None:
+    accumulated_model = torch.nn.Linear(1, 1, bias=False)
+    accumulated_model.weight.data.fill_(0.25)
+    unsplit_model = torch.nn.Linear(1, 1, bias=False)
+    unsplit_model.load_state_dict(accumulated_model.state_dict())
+    targets = torch.tensor([1.0, 2.0, 3.0, 4.0])
+    batches = [
+        SimpleNamespace(
+            examples=[object(), object()],
+            labels=torch.stack(
+                [
+                    torch.full((2,), -100.0),
+                    targets[offset : offset + 2],
+                ],
+                dim=1,
+            ),
+            query_mask=torch.ones((2, 1), dtype=torch.bool),
+            target_slots=torch.tensor([0, 1]),
+        )
+        for offset in (0, 2)
+    ]
+
+    monkeypatch.setattr(
+        profiler.gate,
+        "_write_episode_batch",
+        lambda model, batch, dtype: {
+            "full_occupancy_count": len(batch.examples),
+            "full_occupancy_total": len(batch.examples),
+            "forced_write_route_match_count": len(batch.examples),
+            "forced_write_route_total": len(batch.examples),
+        },
+    )
+
+    def fake_read(model, batch, *, dtype):
+        logits = model.weight.reshape(1, 1, 1).expand(len(batch.examples), 1, 1)
+        return logits, {"layer": logits}
+
+    def fake_answer_sum(logits, labels):
+        target = labels[:, 1].to(dtype=logits.dtype)
+        return (logits[:, 0, 0] - target).square().sum(), len(target)
+
+    def fake_route_sum(route_logits, query_mask, target_slots, **kwargs):
+        zero = next(iter(route_logits.values())).sum() * 0.0
+        return zero, len(target_slots), {"layer": target_slots.clone()}
+
+    monkeypatch.setattr(profiler.gate, "_read_episode_batch", fake_read)
+    monkeypatch.setattr(
+        profiler.gate.distributed,
+        "answer_loss_sum_and_count",
+        fake_answer_sum,
+    )
+    monkeypatch.setattr(
+        profiler.gate.distributed,
+        "route_loss_sum_and_predictions",
+        fake_route_sum,
+    )
+    monkeypatch.setattr(profiler, "reset_delta_mem_states", lambda model: None)
+    monkeypatch.setattr(
+        profiler.gate.runtime,
+        "_answer_predictor_indices",
+        lambda labels: torch.tensor([0]),
+    )
+
+    accumulated_optimizer = torch.optim.AdamW(
+        accumulated_model.parameters(),
+        lr=profiler.PRODUCTION_LEARNING_RATE,
+        weight_decay=profiler.PRODUCTION_WEIGHT_DECAY,
+    )
+    unsplit_optimizer = torch.optim.AdamW(
+        unsplit_model.parameters(),
+        lr=profiler.PRODUCTION_LEARNING_RATE,
+        weight_decay=profiler.PRODUCTION_WEIGHT_DECAY,
+    )
+    accumulated_optimizer.zero_grad(set_to_none=True)
+    profiler._execute_optimizer_step(
+        accumulated_model,
+        batches,
+        accumulated_optimizer,
+        list(accumulated_model.parameters()),
+        dtype=torch.float32,
+        include_router_gradient_audit=False,
+    )
+
+    unsplit_optimizer.zero_grad(set_to_none=True)
+    unsplit_predictions = unsplit_model.weight.reshape(1).expand(4)
+    unsplit_loss = (
+        profiler.PRODUCTION_ANSWER_WEIGHT
+        * (unsplit_predictions - targets).square().sum()
+        / len(targets)
+    )
+    unsplit_loss.backward()
+    torch.nn.utils.clip_grad_norm_(
+        list(unsplit_model.parameters()), profiler.PRODUCTION_MAX_GRAD_NORM
+    )
+    unsplit_optimizer.step()
+
+    torch.testing.assert_close(
+        accumulated_model.weight.grad,
+        unsplit_model.weight.grad,
+        rtol=1e-6,
+        atol=1e-7,
+    )
+    torch.testing.assert_close(
+        accumulated_model.weight,
+        unsplit_model.weight,
+        rtol=1e-6,
+        atol=1e-7,
+    )
 
 
 def test_measure_optimizer_step_preserves_cuda_oom_peak_evidence(monkeypatch) -> None:
@@ -513,7 +636,7 @@ def test_measure_optimizer_step_preserves_cuda_oom_peak_evidence(monkeypatch) ->
 
     result, liveness, batch = profiler._measure_optimizer_step(
         model,
-        [SimpleNamespace()],
+        [[SimpleNamespace()], [SimpleNamespace()]],
         optimizer,
         list(model.parameters()),
         pad_token_id=0,
@@ -528,7 +651,7 @@ def test_measure_optimizer_step_preserves_cuda_oom_peak_evidence(monkeypatch) ->
     assert result["error"]["type"] == "OutOfMemoryError"
     assert len(result["error"]["traceback_sha256"]) == 64
     assert liveness is None
-    assert isinstance(batch, SimpleNamespace)
+    assert len(batch) == 2
 
 
 def test_worker_preserves_setup_cuda_oom_telemetry(
@@ -578,7 +701,7 @@ def test_worker_preserves_setup_cuda_oom_telemetry(
 
     result = profiler._profile_worker(
         source_manifest=manifest,
-        batch_size=4,
+        batch_size=2,
         device_name="cuda:3",
     )
 
@@ -639,7 +762,7 @@ def test_measure_step_keeps_prior_batch_and_gradients_live_during_collation(
 
     result, liveness, batch = profiler._measure_optimizer_step(
         model,
-        [SimpleNamespace()],
+        [[SimpleNamespace()], [SimpleNamespace()]],
         optimizer,
         list(model.parameters()),
         pad_token_id=0,
@@ -651,7 +774,7 @@ def test_measure_step_keeps_prior_batch_and_gradients_live_during_collation(
 
     assert result["status"] == "passed"
     assert liveness is not None
-    assert isinstance(batch, SimpleNamespace)
+    assert len(batch) == 2
     assert prior_batch_holder == []
 
 
@@ -752,7 +875,11 @@ def _fake_worker_payload(
         include_router_gradient_audit: bool,
     ) -> dict:
         answer_predictor_positions = 8
-        route_total = len(profiler.PRODUCTION_TARGET_LAYERS) * batch_size
+        accumulation_steps = profiler.DISTRIBUTED_LOCAL_BATCH_SIZE // batch_size
+        microbatch_route_total = (
+            len(profiler.PRODUCTION_TARGET_LAYERS) * batch_size
+        )
+        route_total = microbatch_route_total * accumulation_steps
         full_occupancy_total = route_total
         forced_write_route_total = (
             profiler.gate.RECORDS_PER_EPISODE * route_total
@@ -788,14 +915,38 @@ def _fake_worker_payload(
             "elapsed_seconds": 2.0,
             "status": "passed",
             "step": {
-                "rows": batch_size,
-                "answer_predictor_positions": answer_predictor_positions,
-                "answer_logit_shape": [
-                    batch_size,
-                    answer_predictor_positions,
-                    262144,
+                "rows": profiler.DISTRIBUTED_LOCAL_BATCH_SIZE,
+                "local_optimizer_batch_size": (
+                    profiler.DISTRIBUTED_LOCAL_BATCH_SIZE
+                ),
+                "local_microbatch_size": batch_size,
+                "gradient_accumulation_steps": accumulation_steps,
+                "answer_token_count": (
+                    answer_predictor_positions
+                    * profiler.DISTRIBUTED_LOCAL_BATCH_SIZE
+                ),
+                "route_row_count": profiler.DISTRIBUTED_LOCAL_BATCH_SIZE,
+                "microbatches": [
+                    {
+                        "microbatch": index + 1,
+                        "rows": batch_size,
+                        "answer_tokens": answer_predictor_positions * batch_size,
+                        "route_rows": batch_size,
+                        "answer_predictor_positions": (
+                            answer_predictor_positions
+                        ),
+                        "answer_logit_shape": [
+                            batch_size,
+                            answer_predictor_positions,
+                            262144,
+                        ],
+                        "answer_logit_dtype": "torch.bfloat16",
+                        "route_correct": microbatch_route_total,
+                        "route_total": microbatch_route_total,
+                        "online_state_reset_after_backward": True,
+                    }
+                    for index in range(accumulation_steps)
                 ],
-                "answer_logit_dtype": "torch.bfloat16",
                 "answer_loss": 1.25,
                 "route_loss": 0.75,
                 "total_loss": 2.0,
@@ -806,6 +957,7 @@ def _fake_worker_payload(
                 "full_occupancy_total": full_occupancy_total,
                 "forced_write_route_match_count": forced_write_route_total,
                 "forced_write_route_total": forced_write_route_total,
+                "online_state_reset_count": accumulation_steps,
                 "router_gradient_audit": router_gradient_audit,
             },
             "includes_first_step_router_gradient_audit": (
@@ -866,46 +1018,100 @@ def _fake_worker_payload(
         "conditions": list(profiler.gate.DEFAULT_TRAINING_CONDITIONS),
         "row_id_set_sha256": training_row_id_set_sha256,
     }
+    accumulation_steps = profiler.DISTRIBUTED_LOCAL_BATCH_SIZE // batch_size
     activation_profiles = [
-        {
-            "row_id": (
-                f"activation-max-{index}::training-condition=correct_state"
-            ),
-            "episode_id": f"activation-episode-{index}",
-            "task": "narrative",
-            "condition": "correct_state",
-            "write_token_lengths": [64, 64, 64, 64],
-            "read_token_length": 128,
-            "total_unpadded_token_positions": 384,
-            "maximum_sequence_token_length": 128,
-            "answer_predictor_start": 120,
-            "answer_predictor_end_exclusive": 128,
-            "answer_predictor_positions": 8,
-        }
-        for index in range(batch_size)
+        [
+            {
+                "row_id": (
+                    f"activation-max-{microbatch}-{index}"
+                    "::training-condition=correct_state"
+                ),
+                "episode_id": f"activation-episode-{microbatch}-{index}",
+                "task": "narrative",
+                "condition": "correct_state",
+                "write_token_lengths": [64, 64, 64, 64],
+                "read_token_length": 128,
+                "total_unpadded_token_positions": 384,
+                "maximum_sequence_token_length": 128,
+                "answer_predictor_start": 120,
+                "answer_predictor_end_exclusive": 128,
+                "answer_predictor_positions": 8,
+            }
+            for index in range(batch_size)
+        ]
+        for microbatch in range(accumulation_steps)
     ]
     answer_logit_profiles = [
-        {
-            **profile,
-            "row_id": (
-                f"answer-logit-max-{index}::training-condition=correct_state"
-            ),
-            "episode_id": f"answer-logit-episode-{index}",
-            "answer_predictor_start": 120,
-            "answer_predictor_end_exclusive": 128,
-            "answer_predictor_positions": 8,
-        }
-        for index, profile in enumerate(activation_profiles)
+        [
+            {
+                **profile,
+                "row_id": (
+                    f"answer-logit-max-{microbatch}-{index}"
+                    "::training-condition=correct_state"
+                ),
+                "episode_id": f"answer-logit-episode-{microbatch}-{index}",
+            }
+            for index, profile in enumerate(profiles)
+        ]
+        for microbatch, profiles in enumerate(activation_profiles)
     ]
-    selected_padded_workload = profiler._padded_workload(
-        activation_profiles, batch_size
-    )
+
+    def accumulated_selection_audit(profiles, *, schema: str) -> dict:
+        selection_audits = []
+        selected_row_ids = []
+        for microbatch, microbatch_profiles in enumerate(profiles):
+            workload = profiler._padded_workload(
+                microbatch_profiles, batch_size
+            )
+            selection = {
+                "schema": schema,
+                "candidate_corpus": {
+                    **candidate_corpus,
+                    "rows": (
+                        profiler.PRODUCTION_TRAINING_ROWS
+                        - microbatch * batch_size
+                    ),
+                },
+                "selected_batch_is_exact_constrained_optimum": True,
+            }
+            if schema == profiler.PADDED_SELECTION_SCHEMA:
+                selection["selected"] = workload
+            else:
+                selection.update(
+                    {
+                        "selected_answer_predictor_union_indices": list(
+                            range(120, 128)
+                        ),
+                        "selected_answer_predictor_union_positions": 8,
+                        "compact_logit_batch_position_factor": batch_size * 8,
+                        "selected_padded_workload": workload,
+                    }
+                )
+            selection_audits.append(selection)
+            selected_row_ids.append(
+                [profile["row_id"] for profile in microbatch_profiles]
+            )
+        return {
+            "schema": profiler.ACCUMULATED_SELECTION_SCHEMA,
+            "local_optimizer_batch_size": profiler.DISTRIBUTED_LOCAL_BATCH_SIZE,
+            "local_microbatch_size": batch_size,
+            "gradient_accumulation_steps": accumulation_steps,
+            "selected_microbatch_row_ids": selected_row_ids,
+            "all_local_rows_unique": True,
+            "microbatch_selection_audits": selection_audits,
+        }
     return profiler.signed_payload(
         {
             "schema": profiler.WORKER_SCHEMA,
             "status": "passed",
             "pid": pid,
             "hf_endpoint": profiler.HF_MIRROR_ENDPOINT,
+            "profiled_local_batch_size": batch_size,
+            "profiled_local_optimizer_batch_size": (
+                profiler.DISTRIBUTED_LOCAL_BATCH_SIZE
+            ),
+            "profiled_local_microbatch_size": batch_size,
+            "profiled_gradient_accumulation_steps": accumulation_steps,
             "device": {
                 "requested": "cuda:3",
                 "index": 3,
@@ -974,38 +1180,14 @@ def _fake_worker_payload(
                     "positions projected through the vocabulary head"
                 ),
             },
-            "activation_selection_audit": {
-                "schema": profiler.PADDED_SELECTION_SCHEMA,
-                "candidate_corpus": candidate_corpus,
-                "method": "exact constrained padded-workload maximization",
-                "dimensions": [
-                    "write_0",
-                    "write_1",
-                    "write_2",
-                    "write_3",
-                    "read",
-                ],
-                "selected": dict(selected_padded_workload),
-                "unconstrained_per_dimension_upper_bound": dict(
-                    selected_padded_workload
-                ),
-                "upper_bound_coverage_fraction": 1.0,
-                "selected_batch_is_exact_constrained_optimum": True,
-            },
-            "answer_logit_selection_audit": {
-                "schema": profiler.ANSWER_LOGIT_SELECTION_SCHEMA,
-                "candidate_corpus": candidate_corpus,
-                "method": "exact constrained answer-predictor union maximization",
-                "selected_answer_predictor_union_indices": list(range(120, 128)),
-                "selected_answer_predictor_union_positions": 8,
-                "compact_logit_batch_position_factor": batch_size * 8,
-                "sum_of_top_individual_widths_upper_bound": batch_size * 8,
-                "upper_bound_coverage_fraction": 1.0,
-                "selected_batch_is_exact_constrained_optimum": True,
-                "selected_padded_workload": profiler._padded_workload(
-                    answer_logit_profiles, batch_size
-                ),
-            },
+            "activation_selection_audit": accumulated_selection_audit(
+                activation_profiles,
+                schema=profiler.PADDED_SELECTION_SCHEMA,
+            ),
+            "answer_logit_selection_audit": accumulated_selection_audit(
+                answer_logit_profiles,
+                schema=profiler.ANSWER_LOGIT_SELECTION_SCHEMA,
+            ),
             "training_examples_considered": profiler.PRODUCTION_TRAINING_ROWS,
             "training_row_id_set_sha256": training_row_id_set_sha256,
             "training_dataset_audit": training_dataset_audit,
@@ -1111,8 +1293,8 @@ def _invocation_evidence(
     tmp_path: Path,
     payload: dict,
     *,
-    batch_size: int = 4,
-    subprocess_pid: int = 1004,
+    batch_size: int = 2,
+    subprocess_pid: int = 1002,
     subprocess_returncode: int = 0,
     command_matches: bool = True,
 ) -> dict:
@@ -1149,7 +1331,7 @@ def _invocation_evidence(
 
 
 def test_worker_invocation_rejects_spoofed_subprocess_pid(tmp_path: Path) -> None:
-    payload = _fake_worker_payload(4, 2004, "c" * 64)
+    payload = _fake_worker_payload(2, 2002, "c" * 64)
 
     result = _invocation_evidence(tmp_path, payload, subprocess_pid=1004)
 
@@ -1160,7 +1342,7 @@ def test_worker_invocation_rejects_spoofed_subprocess_pid(tmp_path: Path) -> Non
 def test_worker_invocation_rejects_failed_nested_memory_gate(
     tmp_path: Path,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     payload["memory_gate"]["headroom_passed"] = False
     payload = _resign_worker_payload(payload)
 
@@ -1173,7 +1355,7 @@ def test_worker_invocation_rejects_failed_nested_memory_gate(
 def test_worker_invocation_recomputes_memory_gate_from_phases(
     tmp_path: Path,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     payload["phases"]["fresh_model_load"]["peak_reserved_bytes"] = 38 * GIB
     payload = _resign_worker_payload(payload)
 
@@ -1188,7 +1370,7 @@ def test_worker_invocation_rejects_launch_binding_drift(
     tmp_path: Path,
     drift: str,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     if drift == "endpoint":
         payload["hf_endpoint"] = "https://huggingface.co"
     elif drift == "device":
@@ -1218,7 +1400,7 @@ def test_worker_invocation_rejects_production_configuration_drift(
     field: str,
     invalid_value,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     payload["configuration"][field] = invalid_value
     payload = _resign_worker_payload(payload)
 
@@ -1233,7 +1415,7 @@ def test_worker_invocation_rejects_training_dataset_contract_drift(
     tmp_path: Path,
     audit_change: str,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     if audit_change == "wrong_rows":
         payload["training_dataset_audit"]["rows"] = 1919
     else:
@@ -1251,7 +1433,7 @@ def test_worker_invocation_rejects_training_dataset_contract_drift(
 def test_worker_invocation_rejects_delta_configuration_drift(
     tmp_path: Path,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     payload["configuration"]["delta_mem_config"]["rank"] = 16
     payload = _resign_worker_payload(payload)
 
@@ -1264,7 +1446,7 @@ def test_worker_invocation_rejects_delta_configuration_drift(
 def test_worker_invocation_accepts_complete_production_receipt(
     tmp_path: Path,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
 
     result = _invocation_evidence(tmp_path, payload)
 
@@ -1281,7 +1463,7 @@ def test_worker_invocation_rejects_nonzero_exit_with_passing_receipt(
     tmp_path: Path,
     returncode: int,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
 
     result = _invocation_evidence(
         tmp_path,
@@ -1299,7 +1481,7 @@ def test_worker_invocation_rejects_inexact_phase_set(
     tmp_path: Path,
     phase_change: str,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     if phase_change == "missing":
         del payload["phases"][profiler.PROFILE_PHASE_NAMES[-1]]
     else:
@@ -1314,7 +1496,7 @@ def test_worker_invocation_rejects_inexact_phase_set(
 
 
 def test_worker_invocation_rejects_failed_optimizer_phase(tmp_path: Path) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     phase = payload["phases"][profiler.PROFILE_PHASE_NAMES[2]]
     phase["status"] = "cuda_out_of_memory"
     phase["step"] = None
@@ -1335,7 +1517,7 @@ def test_worker_invocation_rejects_after_snapshot_above_phase_peak(
     tmp_path: Path,
     peak_kind: str,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     load_phase = payload["phases"]["fresh_model_load"]
     load_phase["after"][f"{peak_kind}_bytes"] = (
         load_phase[f"peak_{peak_kind}_bytes"] + 1
@@ -1350,7 +1532,7 @@ def test_worker_invocation_rejects_after_snapshot_above_phase_peak(
 def test_worker_invocation_rejects_contradictory_phase_completion(
     tmp_path: Path,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     optimizer_phase = profiler.PROFILE_PHASE_NAMES[1]
     payload["execution_gate"]["phase_completion"][optimizer_phase] = False
     payload = _resign_worker_payload(payload)
@@ -1365,12 +1547,15 @@ def test_worker_invocation_rejects_incomplete_optimizer_step_evidence(
     tmp_path: Path,
     step_change: str,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     step = payload["phases"][profiler.PROFILE_PHASE_NAMES[1]]["step"]
     if step_change == "missing_field":
         del step["gradient_norm"]
     else:
-        step["answer_logit_shape"][1] = step["answer_predictor_positions"] + 1
+        microbatch = step["microbatches"][0]
+        microbatch["answer_logit_shape"][1] = (
+            microbatch["answer_predictor_positions"] + 1
+        )
     payload = _resign_worker_payload(payload)
 
     result = _invocation_evidence(tmp_path, payload)
@@ -1392,7 +1577,7 @@ def test_worker_invocation_rejects_missing_or_changed_immutable_snapshots(
     artifact_kind: str,
     snapshot_change: str,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     before_field = f"{artifact_kind}_files_before"
     after_field = f"{artifact_kind}_files_after"
     if snapshot_change == "missing":
@@ -1408,7 +1593,7 @@ def test_worker_invocation_rejects_missing_or_changed_immutable_snapshots(
 
 
 def test_worker_invocation_rejects_unchanged_adapter(tmp_path: Path) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     payload["adapter_state_sha256_after"] = payload[
         "adapter_state_sha256_before"
     ]
@@ -1425,7 +1610,7 @@ def test_worker_invocation_rejects_failed_trainable_boundary(
     tmp_path: Path,
     audit_change: str,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     if audit_change == "failed_flag":
         payload["trainable_audit"]["only_delta_mem_parameters_trainable"] = False
         payload["trainable_audit"]["passed"] = False
@@ -1443,7 +1628,7 @@ def test_worker_invocation_rejects_device_identity_drift(
     tmp_path: Path,
     device_change: str,
 ) -> None:
-    payload = _fake_worker_payload(4, 1004, "c" * 64)
+    payload = _fake_worker_payload(2, 1002, "c" * 64)
     if device_change == "index":
         payload["device"]["index"] = 2
     else:
@@ -1456,7 +1641,7 @@ def test_worker_invocation_rejects_device_identity_drift(
     _assert_strict_worker_rejection(result, "device_evidence")
 
 
-def test_orchestrator_binds_three_distinct_worker_processes(
+def test_orchestrator_binds_two_distinct_microbatch_worker_processes(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -1506,19 +1691,15 @@ def test_orchestrator_binds_three_distinct_worker_processes(
         worker_runner=fake_runner,
     )
 
-    assert calls == [(1, "cuda:3"), (2, "cuda:3"), (4, "cuda:3")]
+    assert calls == [(1, "cuda:3"), (2, "cuda:3")]
     receipt = result["receipt"]
     assert receipt["gate_passed"] is True
-    assert receipt["gate"]["observed_local_batch_sizes"] == [1, 2, 4]
+    assert receipt["gate"]["observed_local_microbatch_sizes"] == [1, 2]
     assert receipt["gate"]["launch_gate"]["passed"] is True
-    assert receipt["gate"]["exploration"] == {
-        "complete": True,
-        "outcomes_by_local_batch_size": {"1": "passed", "2": "passed"},
-        "passing_local_batch_sizes": [1, 2],
-        "cuda_oom_local_batch_sizes": [],
-        "insufficient_headroom_local_batch_sizes": [],
-        "malformed_or_unclassified_local_batch_sizes": [],
-    }
+    exploration = receipt["gate"]["exploration"]
+    assert exploration["complete"] is True
+    assert exploration["outcomes_by_local_microbatch_size"] == {"1": "passed"}
+    assert exploration["passing_local_microbatch_sizes"] == [1]
     assert all(
         worker["worker_evidence_passed"] is True
         for worker in receipt["workers"]
@@ -1527,7 +1708,6 @@ def test_orchestrator_binds_three_distinct_worker_processes(
     assert [worker["subprocess_pid"] for worker in receipt["workers"]] == [
         1001,
         1002,
-        1004,
     ]
     assert Path(result["receipt_path"]).is_file()
 
@@ -1596,21 +1776,17 @@ def test_signed_exploratory_oom_receipts_do_not_fail_launch(
     assert all(
         worker["cuda_oom_evidence_passed"] is True
         for worker in receipt["workers"]
-        if worker["profiled_local_batch_size"] in (1, 2)
+        if worker["profiled_local_microbatch_size"]
+        in profiler.EXPLORATORY_LOCAL_MICROBATCH_SIZES
     )
     assert receipt["gate_passed"] is True
     assert receipt["gate"]["launch_gate"]["passed"] is True
-    assert receipt["gate"]["exploration"] == {
-        "complete": True,
-        "outcomes_by_local_batch_size": {
-            "1": "cuda_out_of_memory",
-            "2": "cuda_out_of_memory",
-        },
-        "passing_local_batch_sizes": [],
-        "cuda_oom_local_batch_sizes": [1, 2],
-        "insufficient_headroom_local_batch_sizes": [],
-        "malformed_or_unclassified_local_batch_sizes": [],
+    exploration = receipt["gate"]["exploration"]
+    assert exploration["complete"] is True
+    assert exploration["outcomes_by_local_microbatch_size"] == {
+        "1": "cuda_out_of_memory",
     }
+    assert exploration["cuda_oom_local_microbatch_sizes"] == [1]
 
 
 @pytest.mark.parametrize(
@@ -1623,7 +1799,7 @@ def test_malformed_exploratory_oom_evidence_fails_overall_gate(
     evidence_change: str,
 ) -> None:
     def transform(batch_size: int, payload: dict) -> tuple[dict, int]:
-        if batch_size != 2:
+        if batch_size != 1:
             return payload, 0
         payload = _as_cuda_oom_worker_payload(payload)
         if evidence_change == "phase_order":
@@ -1632,7 +1808,7 @@ def test_malformed_exploratory_oom_evidence_fails_overall_gate(
             payload["phases"][profiler.PROFILE_PHASE_NAMES[2]] = failed_phase
         elif evidence_change == "phase_tail":
             payload["phases"][profiler.PROFILE_PHASE_NAMES[2]] = dict(
-                _fake_worker_payload(2, 1002, "c" * 64)["phases"][
+                _fake_worker_payload(1, 1001, "c" * 64)["phases"][
                     profiler.PROFILE_PHASE_NAMES[2]
                 ]
             )
@@ -1649,13 +1825,13 @@ def test_malformed_exploratory_oom_evidence_fails_overall_gate(
 
     receipt = _run_fake_orchestrator(tmp_path, monkeypatch, transform)
 
-    worker = receipt["workers"][1]
+    worker = receipt["workers"][0]
     assert worker["cuda_out_of_memory_observed"] is True
     assert worker["cuda_oom_evidence_passed"] is False
     assert receipt["gate"]["launch_gate"]["passed"] is True
     assert receipt["gate"]["exploration"][
         "malformed_or_unclassified_local_batch_sizes"
-    ] == [2]
+    ] == [1]
     assert receipt["gate"]["exploration"]["complete"] is False
     assert receipt["gate_passed"] is False
     assert receipt["status"] == "failed"
@@ -1666,14 +1842,14 @@ def test_signed_exploratory_headroom_failure_does_not_fail_launch(
     monkeypatch,
 ) -> None:
     def transform(batch_size: int, payload: dict) -> tuple[dict, int]:
-        if batch_size == 2:
+        if batch_size == 1:
             return _as_headroom_failure_worker_payload(payload), 1
         return payload, 0
 
     receipt = _run_fake_orchestrator(tmp_path, monkeypatch, transform)
 
-    headroom_worker = receipt["workers"][1]
-    assert headroom_worker["profiled_local_batch_size"] == 2
+    headroom_worker = receipt["workers"][0]
+    assert headroom_worker["profiled_local_microbatch_size"] == 1
     assert headroom_worker["result_valid"] is True
     assert headroom_worker["cuda_out_of_memory_observed"] is False
     assert headroom_worker["memory_gate_recomputation_passed"] is True
@@ -1685,19 +1861,18 @@ def test_signed_exploratory_headroom_failure_does_not_fail_launch(
     exploration = receipt["gate"]["exploration"]
     assert exploration["complete"] is True
     assert exploration["outcomes_by_local_batch_size"] == {
-        "1": "passed",
-        "2": "insufficient_headroom",
+        "1": "insufficient_headroom",
     }
-    assert exploration["insufficient_headroom_local_batch_sizes"] == [2]
+    assert exploration["insufficient_headroom_local_microbatch_sizes"] == [1]
     assert exploration["malformed_or_unclassified_local_batch_sizes"] == []
 
 
-def test_signed_required_batch_four_oom_fails_launch(
+def test_signed_required_microbatch_two_oom_fails_launch(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     def transform(batch_size: int, payload: dict) -> tuple[dict, int]:
-        if batch_size == profiler.DISTRIBUTED_LOCAL_BATCH_SIZE:
+        if batch_size in profiler.REQUIRED_LOCAL_MICROBATCH_SIZES:
             return _as_cuda_oom_worker_payload(payload), 1
         return payload, 0
 
@@ -1720,7 +1895,7 @@ def test_invalid_exploratory_receipt_is_a_separate_incomplete_audit(
     invalidity: str,
 ) -> None:
     def transform(batch_size: int, payload: dict) -> tuple[dict, int]:
-        if batch_size != 2:
+        if batch_size != 1:
             return payload, 0
         if invalidity == "signature":
             payload["worker_receipt_sha256"] = "0" * 64
@@ -1738,10 +1913,9 @@ def test_invalid_exploratory_receipt_is_a_separate_incomplete_audit(
     exploration = receipt["gate"]["exploration"]
     assert exploration["complete"] is False
     assert exploration["outcomes_by_local_batch_size"] == {
-        "1": "passed",
-        "2": "malformed_or_unclassified",
+        "1": "malformed_or_unclassified",
     }
-    assert exploration["malformed_or_unclassified_local_batch_sizes"] == [2]
+    assert exploration["malformed_or_unclassified_local_microbatch_sizes"] == [1]
 
 
 def test_main_returns_nonzero_for_incomplete_exploratory_audit(
@@ -1785,6 +1959,13 @@ def _valid_profile_workers() -> list[dict]:
         workers.append(
             {
                 "profiled_local_batch_size": batch_size,
+                "profiled_local_optimizer_batch_size": (
+                    profiler.DISTRIBUTED_LOCAL_BATCH_SIZE
+                ),
+                "profiled_local_microbatch_size": batch_size,
+                "profiled_gradient_accumulation_steps": (
+                    profiler.DISTRIBUTED_LOCAL_BATCH_SIZE // batch_size
+                ),
                 "result_valid": True,
                 "status": "passed",
                 "subprocess_returncode": 0,
@@ -1828,12 +2009,17 @@ def test_distributed_profile_target_locks_four_gpu_global_batch_sixteen() -> Non
 
     assert target["world_size"] == 4
     assert target["local_batch_size"] == 4
+    assert target["local_microbatch_size"] == 2
+    assert target["gradient_accumulation_steps"] == 2
     assert target["global_batch_size"] == 16
     assert target["world_size"] * target["local_batch_size"] == target[
         "global_batch_size"
     ]
     assert result["launch_gate"]["selected_world_size"] == 4
     assert result["launch_gate"]["selected_local_batch_size"] == 4
+    assert result["launch_gate"]["selected_local_optimizer_batch_size"] == 4
+    assert result["launch_gate"]["selected_local_microbatch_size"] == 2
+    assert result["launch_gate"]["selected_gradient_accumulation_steps"] == 2
     assert result["launch_gate"]["selected_global_batch_size"] == 16
     assert result["passed"] is True
 
@@ -1847,14 +2033,14 @@ def test_profile_gate_fails_closed_on_inexact_exploratory_evidence(
         workers = [
             worker
             for worker in workers
-            if worker["profiled_local_batch_size"] != 2
+            if worker["profiled_local_microbatch_size"] != 1
         ]
     elif evidence_change == "duplicate":
-        duplicate = dict(workers[1])
-        duplicate["subprocess_pid"] = 2002
-        workers.insert(2, duplicate)
+        duplicate = dict(workers[0])
+        duplicate["subprocess_pid"] = 2001
+        workers.insert(1, duplicate)
     else:
-        workers[1:] = reversed(workers[1:])
+        workers[:] = reversed(workers)
 
     result = profiler.build_profile_gate(workers)
 
@@ -1880,8 +2066,8 @@ def test_profile_gate_rejects_cross_worker_binding_drift(
     required_worker = next(
         worker
         for worker in workers
-        if worker["profiled_local_batch_size"]
-        == profiler.DISTRIBUTED_LOCAL_BATCH_SIZE
+        if worker["profiled_local_microbatch_size"]
+        in profiler.REQUIRED_LOCAL_MICROBATCH_SIZES
     )
     required_worker[binding_field] = "9" * 64
 
@@ -1889,7 +2075,7 @@ def test_profile_gate_rejects_cross_worker_binding_drift(
         workers,
         expected_bindings={binding_field: "a" * 64}
         if binding_field == "model_binding_sha256"
-        else {binding_field: workers[1][binding_field]},
+        else {binding_field: workers[0][binding_field]},
     )
 
     assert result["required_artifact_binding_passed"] is False
@@ -1903,8 +2089,8 @@ def test_profile_gate_rejects_missing_worker_binding() -> None:
     required_worker = next(
         worker
         for worker in workers
-        if worker["profiled_local_batch_size"]
-        == profiler.DISTRIBUTED_LOCAL_BATCH_SIZE
+        if worker["profiled_local_microbatch_size"]
+        in profiler.REQUIRED_LOCAL_MICROBATCH_SIZES
     )
     del required_worker["delta_api_file_sha256"]
 
