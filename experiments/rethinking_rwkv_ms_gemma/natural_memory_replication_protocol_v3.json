@@ -1,0 +1,230 @@
+{
+  "baseline_proof": {
+    "adapter_files_sha256": "cdc8182af1f28577534c6303def603eea43054e953cd1a8bbc9c8211078b218a",
+    "benchmark_contract_sha256": "1ece969d3279a43b5f431afa07094b3d52d024da6f890cf0e5a801c8d9fe4a4d",
+    "development_evaluation_sha256": "82e341d3330c6e51ff100619662c70c24f874b49e7eefac2cc06d90609e1d150",
+    "development_run_receipt_sha256": "17e0cdee95605b75141c280b87e49600bdc2af99fadef3635860ef1726a31509",
+    "git_commit": "da3fc942bc0b8d101ab2aa9ae1212ec8801206ff",
+    "sealed_evaluation_sha256": "12f3d7a30fb8d9a753a915a180f0021954bd2c7ee9f711309924ea703b1c7552",
+    "sealed_manifest_payload_sha256": "ba80f3fc96572bc72abb687c4ebd7815a04908f370ba381f3f022d955c7bb9db",
+    "sealed_run_receipt_sha256": "ad1c51b6bedfa25fd05b040a827774c7ff6b4c86338e01c6565c55dd80032e0a",
+    "split_seed": 20260808,
+    "training_seed": 42
+  },
+  "capacity_preflight": {
+    "failure_is_terminal_for_replication": true,
+    "minimum_required_headroom_bytes": 5368709120,
+    "predecessor_failure": {
+      "completed_optimizer_steps": 2,
+      "failed_phase": "answer_logit_to_activation_rollover_optimizer_step",
+      "local_batch_size": 4,
+      "oom_request_bytes": 92274688,
+      "profile_receipt_payload_sha256": "c763dcdfda0597fe730d55689fd62c45d5dd13148831a952d5b8e5fef209a39b",
+      "replication_id": "r5"
+    },
+    "profile_before_distributed_preflight": true,
+    "required_local_batch_size": 4,
+    "seed_substitution_forbidden": true
+  },
+  "created_at": "2026-08-11T02:13:39+08:00",
+  "execution_contract": {
+    "hf_endpoint": "https://hf-mirror.com",
+    "model_binding_sha256": "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66",
+    "model_id": "google/gemma-4-E4B-it",
+    "model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "sealed_evaluation_device_count": 1,
+    "training_global_batch_size": 16,
+    "training_local_batch_size": 4,
+    "training_world_size": 4
+  },
+  "immutable_benchmark_contract": {
+    "build_profile_development": [
+      "train",
+      "development"
+    ],
+    "build_profile_sealed_validation": [
+      "sealed_validation"
+    ],
+    "episodes_per_task_per_output_split": 32,
+    "generator_source_sha256": "a737e9f5db35777c84227bfec30e73f24ae001b4a1c6173e020682b65b8892a9",
+    "query_targets_per_episode": 4,
+    "records_per_episode": 4,
+    "schema": "novel_natural_causal_memory_gate.v2",
+    "source_sha256": {
+      "attribution": "8c87ca259c2b0c19cc545bee4b32f342448d43826b2936817fd9792ea258216a",
+      "narrative": "3f7b2ffd2c5a48921a0e114be361f0127ca6e2713b1a94b53b406c5c2f084c0e",
+      "scene": "785fe54c0a4e5c64e33f64f9bc88d64719576407c21eb0d520f9dec5a59b8e22"
+    },
+    "split_fractions": {
+      "development": 0.2,
+      "sealed_validation": 0.2,
+      "train": 0.6
+    }
+  },
+  "immutable_training_contract": {
+    "answer_exact_min": 0.8,
+    "answer_weight": 1.0,
+    "attn_implementation": "sdpa",
+    "batch_size": 16,
+    "dtype": "bfloat16",
+    "epochs": 8,
+    "eval_batch_size": 8,
+    "greedy_answer_evaluation": true,
+    "hard_negative_margin": 0.0,
+    "hard_negative_weight": 0.0,
+    "key_dim": 64,
+    "learning_rate": 0.0002,
+    "max_grad_norm": 1.0,
+    "max_steps": 960,
+    "rank": 32,
+    "rewrite_output_change_min": 0.8,
+    "route_accuracy_min": 0.95,
+    "route_weight": 1.0,
+    "target_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41
+    ],
+    "temperature": 16.0,
+    "training_conditions": [
+      "correct_state",
+      "donor_state",
+      "value_swap",
+      "target_slot_rewrite",
+      "shuffled_slots"
+    ]
+  },
+  "native_validation_contract": {
+    "analyzer_source_sha256": "6d9fb129868865c95f766cfd3964a936d053b83c9bdb09276645084932570825",
+    "comparison": "paired_identical_rows_and_generation_configuration",
+    "evaluation_split": "validation",
+    "memory_candidate": "r6.adapter_files_sha256",
+    "metrics": {
+      "attribution": "accuracy",
+      "narrative": "unit_accuracy",
+      "scene": "boundary_f1"
+    },
+    "protected_splits_forbidden": [
+      "test",
+      "Hard32"
+    ],
+    "runner_source_sha256": "bb5f234b9c4c3163f1e617b712e99d5ce71f998862ccb79c06e37ad7992d5ffd",
+    "selection_rule": "r6_preselected_before_materialization_and_independent_of_development_or_sealed_metrics",
+    "success_rule": "memory_metric_gte_base_metric_on_all_three_tasks_and_memory_metric_gt_base_metric_on_at_least_two_tasks"
+  },
+  "policy": {
+    "development_gate": "all_named_checks_true_before_sealed_materialization",
+    "failure_handling": "archive_commit_and_push_without_hyperparameter_changes_or_sealed_retry",
+    "replication_count": 2,
+    "sealed_attempts_per_replication": 1,
+    "sealed_gate": "all_52_named_checks_true",
+    "sealed_rows_may_not_influence": [
+      "architecture",
+      "checkpoint_selection",
+      "dataset_generation",
+      "hyperparameters",
+      "native_validation_configuration"
+    ],
+    "status": "preregistered_before_replication_materialization"
+  },
+  "predecessor_protocol": {
+    "file": "natural_memory_replication_protocol_v2.json",
+    "file_sha256": "b2acfec36776e3037ef3f1040a555700bafaa89a81f958b3a7d37c54cf60ca1f",
+    "outcome": "terminal_protocol_failure",
+    "outcome_payload_sha256": "c5b961918f24a913acfb01fbe8edb4299f24fc90a8c347bac4f447839431e518",
+    "payload_sha256": "674ae300d0bdbc9aad9dd7f26777a4070542cfd4e5136665e1b0d426ed951a37",
+    "replacement_reason": "V2 produced no complete sealed pass: R4 failed 8 of 52 sealed checks and R5 failed the required local-batch-4 CUDA capacity gate before training. V3 preserves the contract and advances to the next two untouched feasible seeds."
+  },
+  "protocol_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "672fe39b626092f6758f8ee6a41a2d2c6181d5590648985b38cc0cca6659f453"
+  },
+  "replications": [
+    {
+      "development_package": "natural_memory_gate_replication_r6_development_split20260815_seed47",
+      "development_run": "natural_memory_gate_replication_r6_development_run_split20260815_seed47",
+      "id": "r6",
+      "sealed_package": "natural_memory_gate_replication_r6_sealed_split20260815_seed47",
+      "sealed_run": "natural_memory_gate_replication_r6_sealed_run_split20260815_seed47",
+      "split_seed": 20260815,
+      "status": "not_started",
+      "training_seed": 47
+    },
+    {
+      "development_package": "natural_memory_gate_replication_r7_development_split20260816_seed48",
+      "development_run": "natural_memory_gate_replication_r7_development_run_split20260816_seed48",
+      "id": "r7",
+      "sealed_package": "natural_memory_gate_replication_r7_sealed_split20260816_seed48",
+      "sealed_run": "natural_memory_gate_replication_r7_sealed_run_split20260816_seed48",
+      "split_seed": 20260816,
+      "status": "not_started",
+      "training_seed": 48
+    }
+  ],
+  "schema": "rwkv_ms_natural_memory_replication_protocol.v1",
+  "seed_feasibility_screen": {
+    "file": "local_artifacts/natural_memory_replication_v2_seed_feasibility_screen_20260812_count64/receipt.json",
+    "file_sha256": "33cc8007f5f39b53ee0bb5a859dece14949de7be11d5ac401b29d7fde780ee1a",
+    "git_commit": "c6809f9cb5e8411f62473a6495dd013981561c41",
+    "payload_sha256": "956b584f1b03abede7e228a5c9558cc7c7e75e38179850d23ce13b74948730a4",
+    "previously_preregistered_seeds": [
+      20260813,
+      20260814
+    ],
+    "selection_rule": "next_2_unused_feasible_seeds_in_ascending_preexisting_screen_order_after_v2",
+    "selected_component_assignment_sha256": {
+      "20260815": "5c8dacd1c9fc7137a6921f46c046ec1895d3216b8628803649f04dfe3b5c5af2",
+      "20260816": "cf021c32fa4a1e9a70ba8cb5bf2ab6949bcaefa0ebd34d2b37335166647aa0b7"
+    },
+    "selected_seeds": [
+      20260815,
+      20260816
+    ]
+  },
+  "source_code_sha256": {
+    "distributed": "af2688d6bd1b0750fd7923a986ca18ccf3a8615a51b673274aa5c261d293dc13",
+    "prepare": "a737e9f5db35777c84227bfec30e73f24ae001b4a1c6173e020682b65b8892a9",
+    "profile": "caef5035b55d1e9207b84f3c2112818f8ec1f08d23bc69c48a1f554f216d2489",
+    "runner": "82a5b6f7e6de76b0a2f64cb4ec4528fd0e807a5904f0c52341e599f015338700"
+  }
+}
