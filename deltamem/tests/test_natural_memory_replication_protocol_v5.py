@@ -139,3 +139,34 @@ def test_v5_source_hashes_bind_the_pre_authorization_runner() -> None:
             "85258bf99a8d51c5cae6a922eebd7099681b10e31b7cadcc7cb1d4265e88a54f"
         ),
     }
+
+
+def test_v5_amendment_authorizes_only_the_current_runner() -> None:
+    protocol = read_json(
+        EXPERIMENTS / "natural_memory_replication_protocol_v5.json"
+    )
+    amendment = read_json(
+        EXPERIMENTS
+        / "natural_memory_replication_protocol_v5_amendment_runner_authorization.json"
+    )
+    receipt = amendment.pop("amendment_receipt")
+    assert receipt == {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_amendment_without_receipt",
+        "payload_sha256": canonical_sha256(amendment),
+    }
+    runner_path = EXPERIMENTS / "run_natural_memory_gate.py"
+    assert amendment["runner_change"] == {
+        "new_sha256": hashlib.sha256(runner_path.read_bytes()).hexdigest(),
+        "old_sha256": protocol["source_code_sha256"]["runner"],
+    }
+    assert amendment["authorized_replication_ids"] == [
+        replication["id"] for replication in protocol["replications"]
+    ]
+    assert amendment["scope"] == {
+        "classification": "infrastructure_only",
+        "data_changed": False,
+        "gate_changed": False,
+        "hyperparameters_changed": False,
+        "training_math_changed": False,
+    }

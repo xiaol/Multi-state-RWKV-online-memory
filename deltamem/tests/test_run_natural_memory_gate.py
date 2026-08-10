@@ -1082,7 +1082,7 @@ def _formal_distributed_context(
 
 def _replication_protocol_path() -> Path:
     return Path(runner.__file__).with_name(
-        "natural_memory_replication_protocol_v4.json"
+        "natural_memory_replication_protocol_v5.json"
     )
 
 
@@ -1159,30 +1159,30 @@ def test_nondefault_formal_seed_requires_replication_authorization(
         )
 
 
-def test_valid_r8_replication_authorization_is_bound(tmp_path: Path) -> None:
+def test_valid_r10_replication_authorization_is_bound(tmp_path: Path) -> None:
     authorization = runner.validate_replication_authorization(
-        source_manifest=_write_replication_manifest(tmp_path, split_seed=20260817),
+        source_manifest=_write_replication_manifest(tmp_path, split_seed=20260822),
         profile="development",
-        seed=49,
+        seed=51,
         replication_protocol=_replication_protocol_path(),
         replication_amendment=_write_replication_amendment(tmp_path),
-        replication_id="r8",
+        replication_id="r10",
     )
 
     assert authorization is not None
-    assert authorization["replication_id"] == "r8"
-    assert authorization["split_seed"] == 20260817
-    assert authorization["training_seed"] == 49
+    assert authorization["replication_id"] == "r10"
+    assert authorization["split_seed"] == 20260822
+    assert authorization["training_seed"] == 51
     assert authorization["scope"]["training_math_changed"] is False
 
 
 @pytest.mark.parametrize(
     ("replication_id", "seed", "split_seed", "runner_sha256", "error"),
     [
-        ("unknown", 49, 20260817, None, "not uniquely preregistered"),
-        ("r8", 50, 20260817, None, "Training seed differs"),
-        ("r8", 49, 20260818, None, "split seed differs"),
-        ("r8", 49, 20260817, "0" * 64, "does not authorize this runner"),
+        ("unknown", 51, 20260822, None, "not uniquely preregistered"),
+        ("r10", 52, 20260822, None, "Training seed differs"),
+        ("r10", 51, 20260823, None, "split seed differs"),
+        ("r10", 51, 20260822, "0" * 64, "does not authorize this runner"),
     ],
 )
 def test_replication_authorization_rejects_mismatched_bindings(
@@ -1222,13 +1222,13 @@ def test_replication_authorization_rejects_invalid_amendment_receipt(
         runner.validate_replication_authorization(
             source_manifest=_write_replication_manifest(
                 tmp_path,
-                split_seed=20260817,
+                split_seed=20260822,
             ),
             profile="development",
-            seed=49,
+            seed=51,
             replication_protocol=_replication_protocol_path(),
             replication_amendment=amendment_path,
-            replication_id="r8",
+            replication_id="r10",
         )
 
 
@@ -1248,13 +1248,13 @@ def test_replication_authorization_rejects_modified_protocol(tmp_path: Path) -> 
         runner.validate_replication_authorization(
             source_manifest=_write_replication_manifest(
                 tmp_path,
-                split_seed=20260810,
+                split_seed=20260822,
             ),
             profile="development",
-            seed=43,
+            seed=51,
             replication_protocol=protocol_path,
             replication_amendment=_write_replication_amendment(tmp_path),
-            replication_id="r2",
+            replication_id="r10",
         )
 
 

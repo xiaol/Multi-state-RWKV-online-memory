@@ -1,0 +1,31 @@
+{
+  "amendment_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_amendment_without_receipt",
+    "payload_sha256": "32b835d78f70db8901a80f47ee334dabff04d6246eac9f26ac048473cedade9a"
+  },
+  "authorized_replication_ids": [
+    "r10",
+    "r11"
+  ],
+  "created_at": "2026-08-11T06:28:14+08:00",
+  "discovered_before_training_output": true,
+  "original_protocol": {
+    "file_sha256": "c411f84b7a333c9685b4ebf9b3d9fd9dd381c4cc1caa4da830c4767b673eb7d8",
+    "git_commit": "6180bb47d6d1822e7cb9403b874496c00bbb12e7",
+    "payload_sha256": "9a5556998e6baf526703b1df73052823db5fdca01c0796febe3797ad3902b83a"
+  },
+  "rationale": "Protocol V5 was frozen and pushed before materialization after selecting the next two untouched feasible seeds from the pre-existing training-only screen. This amendment changes only the runner's preregistration constants from terminal V4 to the exact V5 bindings and authorizes its frozen R10 and R11 optimizer seeds.",
+  "runner_change": {
+    "new_sha256": "e6149731fa74011d6b339016c40a0070285c37200c9a11bfcec85ad6f18f6371",
+    "old_sha256": "85258bf99a8d51c5cae6a922eebd7099681b10e31b7cadcc7cb1d4265e88a54f"
+  },
+  "schema": "rwkv_ms_natural_memory_replication_protocol_amendment.v1",
+  "scope": {
+    "classification": "infrastructure_only",
+    "data_changed": false,
+    "gate_changed": false,
+    "hyperparameters_changed": false,
+    "training_math_changed": false
+  }
+}
