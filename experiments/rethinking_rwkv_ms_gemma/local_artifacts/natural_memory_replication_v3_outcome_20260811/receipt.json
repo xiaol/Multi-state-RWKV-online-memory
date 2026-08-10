@@ -1,0 +1,115 @@
+{
+  "created_at": "2026-08-11T04:42:47+08:00",
+  "native_validation": {
+    "authorized": false,
+    "performed": false,
+    "reason": "Protocol V3 requires both preregistered replications to pass all 52 sealed checks before native validation. R6 failed the required local-batch-4 CUDA capacity gate before training and R7 failed 2 of 54 development checks, so neither replication authorized sealed materialization."
+  },
+  "outcome": {
+    "complete_replications_passing_sealed_gate": 0,
+    "goal_satisfied": false,
+    "replications_preregistered": 2,
+    "status": "terminal_protocol_failure"
+  },
+  "outcome_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_outcome_without_receipt",
+    "payload_sha256": "452acb9f41a5891b1733938fa59b19f017dc6480bc1d8396f2d12efa7b193122"
+  },
+  "protected_evaluation": {
+    "hard32_opened": false,
+    "test_opened": false
+  },
+  "protocol": {
+    "file": "natural_memory_replication_protocol_v3.json",
+    "file_sha256": "84f32aca8e9646b959bab579dfc146b16489d26c43145a080d6193a8bd710d4e",
+    "git_commit": "cdb60d2faa28d8f86264b8e9f05ed82a0fb98e8b",
+    "payload_sha256": "672fe39b626092f6758f8ee6a41a2d2c6181d5590648985b38cc0cca6659f453"
+  },
+  "replications": {
+    "r6": {
+      "cuda_profile": {
+        "completed_optimizer_steps": 3,
+        "environment_adjusted_reserved_headroom_bytes": 135659520,
+        "failed_checks": [
+          "required_worker_invocation_binding",
+          "required_memory_headroom",
+          "required_worker_gate"
+        ],
+        "git_commit": "7c5b02516acd0df489d9aa13681300b7e104dfe2",
+        "isolated_reserved_headroom_bytes": 579207168,
+        "minimum_observed_free_after_phase_bytes": 34996224,
+        "profile_receipt_file_sha256": "f4e88a6327cc9500f629ed72259dda8d09e54a5ad360f2dfc6bec832aa83583b",
+        "profile_receipt_payload_sha256": "4ba56eb1013978fc725f59edae818f81272a36e66e248cf75a7160f7d16d38ad",
+        "required_headroom_bytes": 5368709120,
+        "required_local_batch_size": 4,
+        "status": "failed"
+      },
+      "development_materialization": {
+        "binding_receipt_sha256": "4ac6d3e52019b70634c66a2bcab3ee48c43ae5f7e6099dbac556113bc6d8d028",
+        "git_commit": "c92fbff97067b813adeb3e15572524b49f555750",
+        "manifest_payload_sha256": "4443ea2324ed59f891abd12d4dd119ecd1fb43af8c9095ec5217a85f79df5bae",
+        "status": "passed"
+      },
+      "sealed_attempts": 0,
+      "sealed_package_materialized": false,
+      "split_seed": 20260815,
+      "status": "cuda_capacity_gate_failed_before_training",
+      "training_started": false,
+      "training_seed": 47
+    },
+    "r7": {
+      "cuda_profile": {
+        "git_commit": "1f682ce35c609f41cf1b7400e6f43b3d618ed103",
+        "profile_receipt_file_sha256": "6df95ba7e100966364c9c7ad29780854efe319516c2b303da86ca6cfd8f0d600",
+        "profile_receipt_payload_sha256": "57a9741c4d8e2e62a29ac73a6845056263c6bb17192b1eafeada694c6cb23d30",
+        "required_local_batch_size": 4,
+        "status": "passed"
+      },
+      "development": {
+        "adapter_files_sha256": "6845060834febb1737fdf0825adc2b7b0fef8eee7ce75a119590e7f4e972e976",
+        "failed_checks": [
+          "target_slot_rewrite.greedy_structured_json_exact_min",
+          "target_slot_rewrite.structured_json_exact_min"
+        ],
+        "gate_checks_passed": 52,
+        "gate_checks_total": 54,
+        "git_commit": "c14950eb2dc1b9f851528f448007ac3aa357e57f",
+        "run_receipt_file_sha256": "29f413c5924c9558be246b2e61be31b43289542b78b5a4876d2a4e4558e033a2",
+        "run_receipt_payload_sha256": "74844f96561bcfaa1e58316396d3e046841a141a10613716e09a00b841b92375",
+        "status": "failed",
+        "target_slot_rewrite_structured_json_exact_accuracy": {
+          "attribution_greedy": 0.71875,
+          "attribution_teacher_forced": 0.71875,
+          "overall_greedy": 0.90625,
+          "overall_teacher_forced": 0.90625
+        }
+      },
+      "development_materialization": {
+        "binding_receipt_sha256": "f14cd8b69d684f2fbf2860dde99875abb92623dafa623938826a8a1139932db0",
+        "git_commit": "6c2046ac4a929685d039db754e932a42e9ebeb5a",
+        "manifest_payload_sha256": "3d7e5978235a4fdd87cd5762a050160a6da9e5745c40dae261a9b1d02b0c6b63",
+        "status": "passed"
+      },
+      "distributed_preflight": {
+        "git_commit": "8d1236087e9b851e808123e624c709835ef240e6",
+        "minimum_conservative_headroom_bytes": 16388587520,
+        "preflight_receipt_file_sha256": "ff81c27352010418b079a4a152fe137975505860f69786caf830dd44278163fc",
+        "preflight_receipt_payload_sha256": "cf7996ab4922912b283098591dd1c71474ca9022c97452fa3e342c6443e327ad",
+        "status": "passed"
+      },
+      "sealed_attempts": 0,
+      "sealed_package_materialized": false,
+      "split_seed": 20260816,
+      "status": "development_gate_failed_without_sealed_materialization",
+      "training_seed": 48
+    }
+  },
+  "runner_authorization": {
+    "file": "natural_memory_replication_protocol_v3_amendment_runner_authorization.json",
+    "file_sha256": "2a679cc4778fc5bf3b92272a620d59846d5b902d79fad63ccf71d481effa8c20",
+    "git_commit": "d28141b6f6af9a237bde96323d6b4a49a36512f1",
+    "payload_sha256": "5dc1e45d67332f9c27227175b41f8d51f65bbd27c573ee05f6b166fd9890fcc9"
+  },
+  "schema": "rwkv_ms_natural_memory_replication_outcome.v1"
+}
