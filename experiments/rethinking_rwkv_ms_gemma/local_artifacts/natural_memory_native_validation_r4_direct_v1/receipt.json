@@ -1,0 +1,99 @@
+{
+  "schema": "rwkv_ms_direct_native_validation_receipt.v1",
+  "created_at": "2026-08-11T01:51:00+08:00",
+  "result": {
+    "file": "result.json",
+    "file_sha256": "6fcd2db94d3c23983c45f4a9b04676c1229624caba529e6d8c81985e21eb44a3",
+    "outcome": "no_native_transfer",
+    "success_rule_passed": false
+  },
+  "authorization": {
+    "file": "authorization.json",
+    "file_sha256": "3472ee26c575a406a2f692526c53de682703f0661d27ae56abf4b69d79871b94",
+    "git_commit": "f9bba7008c410d21dbfd362c2d3178ca5ee19e49",
+    "role": "diagnostic_native_transfer_measurement"
+  },
+  "candidate_binding": {
+    "id": "r4",
+    "adapter_file_sha256": "b43f8f603a4561e253a233ae28447b454850e53c1116c146e087a1c1c08f9ce3",
+    "adapter_config_sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4",
+    "adapter_files_aggregate_sha256": "09818927e84be5e609d544fa9677639b948887dc60d3dadcbc4f8e84d7f084c2",
+    "base_model_binding_sha256": "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f"
+  },
+  "code_binding": {
+    "runner_sha256": "bb5f234b9c4c3163f1e617b712e99d5ce71f998862ccb79c06e37ad7992d5ffd",
+    "analyzer_sha256": "6d9fb129868865c95f766cfd3964a936d053b83c9bdb09276645084932570825",
+    "sharder_sha256": "8ef66c4dbfc74647b30cf1ef3accbdfb4ccb0b8fb2dbbb38ff99f6391064c73b"
+  },
+  "evaluation_binding": {
+    "split": "val",
+    "conditions": [
+      "base",
+      "normal"
+    ],
+    "normal_fusion_profile": "native",
+    "hf_endpoint": "https://hf-mirror.com",
+    "reference_eval_sha256": "e2376fe36d61e915f566d974f17a14ebfff540a03f7ded233b369075a273a3ef",
+    "reference_scene_sha256": "6d7bbd8d7243051f221c7ba8dd7607f78a16da6de40eaf5290a3b533c7c69819",
+    "tasks": {
+      "attribution-v3.2": {
+        "rows_per_condition": 30,
+        "dataset_sha256": "01373fa09c89568a47927f19088f78bbf62cd4b7eb66803100c06e8a3f2152a4",
+        "base_sha256": "338b3ddbe6bcbceebedd576a8db23b697892c4b861ec724de3f09918fd87a351",
+        "normal_sha256": "dd84d3c21fbd5e2849996248762dc7be1c57b63bdcec9f10de11119cd5ab6679",
+        "manifest_sha256": "d4a7e4b9c43e38355c028b00d7326f618c28d22189d1793c6ceab6dee8f24b44",
+        "strict_summary_sha256": "ce26f7b7a475930c857ea8f5ddc40f4db00f55282bd8ef4ccae7edced41bf226",
+        "format_recovered_summary_sha256": "653563695c09c1e9e71fc9938972efa696f7a7f2fcb01db0ba59679c7c4509b0"
+      },
+      "narrative-v3.2": {
+        "rows_per_condition": 39,
+        "dataset_sha256": "4a1d27c543e715a069e6b3c8253021b0f86fe1690aac116da09eba43896e1b6a",
+        "base_sha256": "6a24871677000767400630a09d786702b64b249003894772cf95af385e1395fe",
+        "normal_sha256": "b517a4529e3f91139033389929d4388178b9a400302a4b4688aee45b330fe8a6",
+        "manifest_sha256": "01c6c925e115b52ab3fc37b9507deff1fb3c66471b8d736c576ffd538506d368",
+        "strict_summary_sha256": "ab017e1b3edd16e6cfcdac23aefbd78e2a68f8e4927fb67bb11257422a66d38c",
+        "format_recovered_summary_sha256": "a7d24f5a96df5061586ad60f41e2d7d7a4ac989779bf471ace0a467019bb6744",
+        "distributed_merge_sha256": "857b34695eaa23aef0b38a0a74e80a543de42ffbc1b0ea93494612851ca4bc5a"
+      },
+      "scene-v4-current": {
+        "rows_per_condition": 170,
+        "dataset_sha256": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513",
+        "base_sha256": "d12fc908a25c6f40bb11c600ae4785466c9a42e169dd390f8073723310e6949e",
+        "normal_sha256": "3dd3a39f5d61a7f4a6973d12fc347c3a8cf51e6214cf1935a7663bb681c294db",
+        "manifest_sha256": "a299ff8f44b0e74cdbf03e4683c2a12eae10e1c9de5d840c7c14a3b71800283e",
+        "strict_summary_sha256": "0c0b8232bccb66b753b8f9c0999fc737435f5d9195ed9c5a878816a661ea725f",
+        "format_recovered_summary_sha256": "d2507a7664de7caed5e85bee31d2b7121b41edd2161ef9ca4d0d3e44b11dd3f5",
+        "distributed_merge_sha256": "85f2965b066c7a9a032d1bbea60504d0c8c8740b76ab9921c8eb68bc5fa6da92"
+      }
+    }
+  },
+  "decision_binding": {
+    "normal_at_least_base_on_all_three_tasks": true,
+    "normal_strictly_better_task_count": 0,
+    "required_strictly_better_task_count": 2,
+    "success_rule_passed": false,
+    "raw_generation_disagreements_total": 0,
+    "recovered_prediction_disagreements_total": 0
+  },
+  "protocol_status": {
+    "v2_status_remains": "terminal_protocol_failure",
+    "v2_goal_satisfied": false,
+    "result_must_not_be_counted_as_v2_success": true
+  },
+  "protected_evaluation": {
+    "test_opened": false,
+    "hard32_opened": false
+  },
+  "verification": {
+    "evaluator_analyzer_sharder_tests_passed": 50,
+    "bootstrap_replicates_per_task": 10000,
+    "narrative_merge_complete": true,
+    "scene_merge_complete": true
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_receipt_without_receipt",
+    "payload_sha256": "f2caec1776ae1f8113297eea93ad4d6640cf8235976b8a1e8d994502b07f4cca"
+  }
+}

@@ -1,0 +1,787 @@
+{
+  "bootstrap_protocol": {
+    "confidence_level": 0.95,
+    "interval": "paired percentile interval with deterministic type-7 interpolation",
+    "replicates": 10000,
+    "resampling_unit": "Paired evaluation rows. Narrative units and scene TP/FP/FN remain clustered within their source row.",
+    "seed": 20260724
+  },
+  "condition_diagnostics": {
+    "narrative-v3.2": {
+      "base": {
+        "coverage": 1.0,
+        "max_token_hit_rate": 0.0,
+        "max_token_hits": 0,
+        "recovered_rows": 39,
+        "rows": 39
+      },
+      "normal": {
+        "coverage": 1.0,
+        "max_token_hit_rate": 0.0,
+        "max_token_hits": 0,
+        "recovered_rows": 39,
+        "rows": 39
+      }
+    }
+  },
+  "conditions": {
+    "base": {
+      "metrics": {
+        "narrative-v3.2": {
+          "accuracy": 0.6432022084195997,
+          "correct_units": 932,
+          "coverage": 1.0,
+          "extra_unit_ids": 0,
+          "gold_units": 1449,
+          "mean_sample_accuracy": 0.646360265684702,
+          "missing_gold_unit_ids": 0,
+          "primary_metric": 0.6432022084195997,
+          "primary_metric_name": "format_recovered_unit_accuracy",
+          "recovered_rows": 39,
+          "samples": 39,
+          "unrecovered_rows": 0
+        }
+      },
+      "resources": {
+        "by_task": {
+          "narrative-v3.2": {
+            "elapsed_seconds": 1671.938259380171,
+            "hit_max_new_tokens": 0,
+            "input_tokens": 47408,
+            "max_peak_cuda_memory_bytes": 16149676032,
+            "mean_elapsed_seconds": 42.87021177897874,
+            "median_elapsed_seconds": 44.631415506009944,
+            "output_tokens": 14121,
+            "p95_elapsed_seconds": 58.96019548607292,
+            "samples": 39
+          }
+        },
+        "memory_trace": {
+          "by_layer": {},
+          "records_with_trace": 0,
+          "trace_points": 0
+        },
+        "overall": {
+          "elapsed_seconds": 1671.938259380171,
+          "hit_max_new_tokens": 0,
+          "input_tokens": 47408,
+          "max_peak_cuda_memory_bytes": 16149676032,
+          "mean_elapsed_seconds": 42.87021177897874,
+          "median_elapsed_seconds": 44.631415506009944,
+          "output_tokens": 14121,
+          "p95_elapsed_seconds": 58.96019548607292,
+          "samples": 39
+        }
+      }
+    },
+    "normal": {
+      "metrics": {
+        "narrative-v3.2": {
+          "accuracy": 0.6432022084195997,
+          "correct_units": 932,
+          "coverage": 1.0,
+          "extra_unit_ids": 0,
+          "gold_units": 1449,
+          "mean_sample_accuracy": 0.646360265684702,
+          "missing_gold_unit_ids": 0,
+          "primary_metric": 0.6432022084195997,
+          "primary_metric_name": "format_recovered_unit_accuracy",
+          "recovered_rows": 39,
+          "samples": 39,
+          "unrecovered_rows": 0
+        }
+      },
+      "resources": {
+        "by_task": {
+          "narrative-v3.2": {
+            "elapsed_seconds": 5647.120844719466,
+            "hit_max_new_tokens": 0,
+            "input_tokens": 47408,
+            "max_peak_cuda_memory_bytes": 16208873472,
+            "mean_elapsed_seconds": 144.7979703774222,
+            "median_elapsed_seconds": 147.02184807497542,
+            "output_tokens": 14121,
+            "p95_elapsed_seconds": 194.47156912989448,
+            "samples": 39
+          }
+        },
+        "memory_trace": {
+          "by_layer": {},
+          "records_with_trace": 0,
+          "trace_points": 0
+        },
+        "overall": {
+          "elapsed_seconds": 5647.120844719466,
+          "hit_max_new_tokens": 0,
+          "input_tokens": 47408,
+          "max_peak_cuda_memory_bytes": 16208873472,
+          "mean_elapsed_seconds": 144.7979703774222,
+          "median_elapsed_seconds": 147.02184807497542,
+          "output_tokens": 14121,
+          "p95_elapsed_seconds": 194.47156912989448,
+          "samples": 39
+        }
+      }
+    }
+  },
+  "diagnostic_kind": "conservative format-recovered structured-task transfer evaluation",
+  "legacy_multitask_selection_criterion": {
+    "all_gates_passed": false,
+    "bootstrap_replicates": 10000,
+    "bootstrap_seed": 20260724,
+    "complete": false,
+    "criterion_version": "novel_agent_validation_selection_v1",
+    "overall_passed": false,
+    "required_split": "val",
+    "required_tasks": [
+      "attribution-v3.2",
+      "narrative-v3.2",
+      "scene-v4-current"
+    ],
+    "split": "val",
+    "status": "incomplete",
+    "tasks": {
+      "attribution-v3.2": {
+        "all_rows": null,
+        "applied_excluded_zero_based_indices": [],
+        "clean_selection": null,
+        "clean_selection_exclusion_note": null,
+        "configured_excluded_zero_based_indices": [],
+        "criterion_eligible": false,
+        "criterion_passed": false,
+        "evaluated_rows": 0,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.05,
+            "value": null
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.05,
+            "value": null
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.0,
+            "value": null
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.03333333333333333,
+            "value": null
+          }
+        },
+        "gates_passed": false,
+        "official_expected_rows": 30,
+        "selection_rows": 0,
+        "split": "val",
+        "status": "not_evaluated"
+      },
+      "narrative-v3.2": {
+        "all_rows": {
+          "coverage": {
+            "base": 1.0,
+            "normal": 1.0,
+            "normal_minus_base": 0.0
+          },
+          "max_token_hit_rate": {
+            "base": 0.0,
+            "normal": 0.0,
+            "normal_minus_base": 0.0
+          },
+          "recovered": {
+            "base": 0.6432022084195997,
+            "bootstrap_mean": 0.0,
+            "bootstrap_standard_error": 0.0,
+            "ci_95_percentile": [
+              0.0,
+              0.0
+            ],
+            "metric_name": "format_recovered_unit_accuracy",
+            "normal": 0.6432022084195997,
+            "normal_minus_base": 0.0,
+            "probability_negative": 0.0,
+            "probability_positive": 0.0,
+            "probability_zero": 1.0
+          },
+          "strict": {
+            "base": 0.0,
+            "metric_name": "strict_accuracy",
+            "normal": 0.0,
+            "normal_minus_base": 0.0
+          }
+        },
+        "applied_excluded_zero_based_indices": [
+          25
+        ],
+        "availability": "complete",
+        "clean_selection": {
+          "coverage": {
+            "base": 1.0,
+            "normal": 1.0,
+            "normal_minus_base": 0.0
+          },
+          "max_token_hit_rate": {
+            "base": 0.0,
+            "normal": 0.0,
+            "normal_minus_base": 0.0
+          },
+          "recovered": {
+            "base": 0.6395511921458625,
+            "bootstrap_mean": 0.0,
+            "bootstrap_standard_error": 0.0,
+            "ci_95_percentile": [
+              0.0,
+              0.0
+            ],
+            "metric_name": "format_recovered_unit_accuracy",
+            "normal": 0.6395511921458625,
+            "normal_minus_base": 0.0,
+            "probability_negative": 0.0,
+            "probability_positive": 0.0,
+            "probability_zero": 1.0
+          },
+          "strict": {
+            "base": 0.0,
+            "metric_name": "strict_accuracy",
+            "normal": 0.0,
+            "normal_minus_base": 0.0
+          }
+        },
+        "clean_selection_exclusion_note": "Zero-based validation row 25 duplicates training content with conflicting labels; it remains in all-row metrics and is excluded only from checkpoint selection.",
+        "configured_excluded_zero_based_indices": [
+          25
+        ],
+        "criterion_eligible": true,
+        "criterion_passed": true,
+        "evaluated_rows": 39,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": -0.05,
+            "value": 0.0
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": true,
+            "threshold": 0.05,
+            "value": 0.0
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": 0.0,
+            "value": 0.0
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": -0.02,
+            "value": 0.0
+          }
+        },
+        "gates_passed": true,
+        "official_expected_rows": 39,
+        "selection_rows": 38,
+        "split": "val",
+        "status": "pass"
+      },
+      "scene-v4-current": {
+        "all_rows": null,
+        "applied_excluded_zero_based_indices": [],
+        "clean_selection": null,
+        "clean_selection_exclusion_note": null,
+        "configured_excluded_zero_based_indices": [],
+        "criterion_eligible": false,
+        "criterion_passed": false,
+        "evaluated_rows": 0,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.05,
+            "value": null
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.05,
+            "value": null
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.0,
+            "value": null
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.03,
+            "value": null
+          }
+        },
+        "gates_passed": false,
+        "official_expected_rows": 170,
+        "selection_rows": 0,
+        "split": "val",
+        "status": "not_evaluated"
+      }
+    },
+    "thresholds": {
+      "coverage_normal_minus_base_floor": -0.05,
+      "max_token_hit_rate_normal_minus_base_ceiling": 0.05,
+      "recovered_ci_95_upper_floor": 0.0,
+      "recovered_metric_normal_minus_base_floor_by_task": {
+        "attribution-v3.2": -0.03333333333333333,
+        "narrative-v3.2": -0.02,
+        "scene-v4-current": -0.03
+      }
+    }
+  },
+  "non_official": true,
+  "normal_vs_base": {
+    "narrative-v3.2": {
+      "base": 0.6432022084195997,
+      "bootstrap_mean": 0.0,
+      "bootstrap_standard_error": 0.0,
+      "ci_95_percentile": [
+        0.0,
+        0.0
+      ],
+      "metric_name": "format_recovered_unit_accuracy",
+      "normal": 0.6432022084195997,
+      "normal_minus_base": 0.0,
+      "probability_negative": 0.0,
+      "probability_positive": 0.0,
+      "probability_zero": 1.0
+    }
+  },
+  "normal_vs_no_write": {},
+  "paired_bootstrap_comparisons": {
+    "normal_minus_base": {
+      "narrative-v3.2": {
+        "base": 0.6432022084195997,
+        "bootstrap_mean": 0.0,
+        "bootstrap_standard_error": 0.0,
+        "ci_95_percentile": [
+          0.0,
+          0.0
+        ],
+        "metric_name": "format_recovered_unit_accuracy",
+        "normal": 0.6432022084195997,
+        "normal_minus_base": 0.0,
+        "probability_negative": 0.0,
+        "probability_positive": 0.0,
+        "probability_zero": 1.0
+      }
+    },
+    "normal_minus_no_write": {}
+  },
+  "paired_changes": {
+    "narrative-v3.2": {
+      "both_correct": 932,
+      "both_wrong": 517,
+      "normal_gain": 0,
+      "normal_regression": 0,
+      "prediction_disagreements": 0,
+      "sample_accuracy_changes": {
+        "normal_better": 0,
+        "normal_worse": 0,
+        "tie": 39
+      }
+    }
+  },
+  "provenance": {
+    "analyzer": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/analyze_novel_agent_eval.py",
+      "sha256": "6d9fb129868865c95f766cfd3964a936d053b83c9bdb09276645084932570825"
+    },
+    "dataset_training_root": "/root/X/.cache/hf/novel-agent-sft-dataset/training",
+    "datasets": {
+      "narrative-v3.2": {
+        "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-narrative-type-classification/val.jsonl",
+        "rows": 39,
+        "sha256": "4a1d27c543e715a069e6b3c8253021b0f86fe1690aac116da09eba43896e1b6a"
+      }
+    },
+    "eval_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r4_direct_v1/narrative-v3.2",
+    "raw_generations": {
+      "base": {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r4_direct_v1/narrative-v3.2/base.jsonl",
+        "rows": 39,
+        "sha256": "6a24871677000767400630a09d786702b64b249003894772cf95af385e1395fe"
+      },
+      "normal": {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r4_direct_v1/narrative-v3.2/normal.jsonl",
+        "rows": 39,
+        "sha256": "b517a4529e3f91139033389929d4388178b9a400302a4b4688aee45b330fe8a6"
+      }
+    },
+    "strict_artifacts": {
+      "manifest": {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r4_direct_v1/narrative-v3.2/manifest.json",
+        "sha256": "01c6c925e115b52ab3fc37b9507deff1fb3c66471b8d736c576ffd538506d368"
+      },
+      "strict_summary": {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r4_direct_v1/narrative-v3.2/summary.json",
+        "sha256": "ab017e1b3edd16e6cfcdac23aefbd78e2a68f8e4927fb67bb11257422a66d38c"
+      }
+    }
+  },
+  "recovery_rules": {
+    "attribution": {
+      "accepted_aliases": [
+        "best_candidate",
+        "character",
+        "chosen_character",
+        "role",
+        "selected_character",
+        "speaker",
+        "target_character",
+        "角色"
+      ],
+      "not_recovered": "No fuzzy, substring, transliteration, or gold-name matching.",
+      "rule": "All present accepted aliases must be strings that agree after trimming; the value must exactly match a candidate parsed from the prompt."
+    },
+    "narrative": {
+      "accepted_structures": [
+        "an object whose only key is labels and whose value is a label list",
+        "a top-level label list",
+        "a non-empty direct unit-id to type object"
+      ],
+      "allowed_types": [
+        "action",
+        "dialogue",
+        "narration",
+        "scene_description",
+        "thought"
+      ],
+      "duplicate_rule": "Identical duplicates collapse; conflicting duplicates reject the row.",
+      "scoring_rule": "Author unit accuracy scores gold unit IDs; extra predicted IDs are audited but do not enter the denominator.",
+      "unit_id_normalization": "Only decimal N and exact bracketed [N] forms."
+    },
+    "scene": {
+      "accepted_explicit_keys": [
+        "after_paragraph",
+        "boundaries",
+        "boundary"
+      ],
+      "accepted_structures": "Top-level dictionaries or lists recursively composed of explicit boundary keys and scalar boundary values; nested raw lists are rejected.",
+      "integer_normalization": "Only integer N, decimal string N, and exact P<N> string forms.",
+      "not_recovered": "No inference from start/end spans, segment text, prose, adjacency, type fields, or implicit binary 0/1 decisions.",
+      "range_rule": "No shifting, clamping, dropping, or Boolean interpretation; literal zero and out-of-range indices remain predictions and therefore false positives."
+    },
+    "unrecoverable_row_scoring": "An unrecoverable attribution row is incorrect, an unrecoverable narrative row has no predicted labels, and an unrecoverable scene row predicts an empty boundary set.",
+    "version": "conservative-explicit-schema-v1"
+  },
+  "reference_comparison": {
+    "base": {
+      "narrative-v3.2": {
+        "artifact_metric": 0.6946264744429882,
+        "artifact_metric_name": "accuracy",
+        "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "format_recovered_metric": 0.6432022084195997,
+        "format_recovered_minus_artifact": -0.051424266023388454,
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      }
+    },
+    "normal": {
+      "narrative-v3.2": {
+        "artifact_metric": 0.6946264744429882,
+        "artifact_metric_name": "accuracy",
+        "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "format_recovered_metric": 0.6432022084195997,
+        "format_recovered_minus_artifact": -0.051424266023388454,
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      }
+    }
+  },
+  "scene_v6_gate_analysis": {
+    "contract": {
+      "name": "generic",
+      "phase": "generic"
+    },
+    "status": "not_requested"
+  },
+  "selection_criterion": {
+    "all_gates_passed": false,
+    "bootstrap_replicates": 10000,
+    "bootstrap_seed": 20260724,
+    "complete": false,
+    "criterion_version": "novel_agent_validation_selection_v1",
+    "overall_passed": false,
+    "required_split": "val",
+    "required_tasks": [
+      "attribution-v3.2",
+      "narrative-v3.2",
+      "scene-v4-current"
+    ],
+    "split": "val",
+    "status": "incomplete",
+    "tasks": {
+      "attribution-v3.2": {
+        "all_rows": null,
+        "applied_excluded_zero_based_indices": [],
+        "clean_selection": null,
+        "clean_selection_exclusion_note": null,
+        "configured_excluded_zero_based_indices": [],
+        "criterion_eligible": false,
+        "criterion_passed": false,
+        "evaluated_rows": 0,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.05,
+            "value": null
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.05,
+            "value": null
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.0,
+            "value": null
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.03333333333333333,
+            "value": null
+          }
+        },
+        "gates_passed": false,
+        "official_expected_rows": 30,
+        "selection_rows": 0,
+        "split": "val",
+        "status": "not_evaluated"
+      },
+      "narrative-v3.2": {
+        "all_rows": {
+          "coverage": {
+            "base": 1.0,
+            "normal": 1.0,
+            "normal_minus_base": 0.0
+          },
+          "max_token_hit_rate": {
+            "base": 0.0,
+            "normal": 0.0,
+            "normal_minus_base": 0.0
+          },
+          "recovered": {
+            "base": 0.6432022084195997,
+            "bootstrap_mean": 0.0,
+            "bootstrap_standard_error": 0.0,
+            "ci_95_percentile": [
+              0.0,
+              0.0
+            ],
+            "metric_name": "format_recovered_unit_accuracy",
+            "normal": 0.6432022084195997,
+            "normal_minus_base": 0.0,
+            "probability_negative": 0.0,
+            "probability_positive": 0.0,
+            "probability_zero": 1.0
+          },
+          "strict": {
+            "base": 0.0,
+            "metric_name": "strict_accuracy",
+            "normal": 0.0,
+            "normal_minus_base": 0.0
+          }
+        },
+        "applied_excluded_zero_based_indices": [
+          25
+        ],
+        "availability": "complete",
+        "clean_selection": {
+          "coverage": {
+            "base": 1.0,
+            "normal": 1.0,
+            "normal_minus_base": 0.0
+          },
+          "max_token_hit_rate": {
+            "base": 0.0,
+            "normal": 0.0,
+            "normal_minus_base": 0.0
+          },
+          "recovered": {
+            "base": 0.6395511921458625,
+            "bootstrap_mean": 0.0,
+            "bootstrap_standard_error": 0.0,
+            "ci_95_percentile": [
+              0.0,
+              0.0
+            ],
+            "metric_name": "format_recovered_unit_accuracy",
+            "normal": 0.6395511921458625,
+            "normal_minus_base": 0.0,
+            "probability_negative": 0.0,
+            "probability_positive": 0.0,
+            "probability_zero": 1.0
+          },
+          "strict": {
+            "base": 0.0,
+            "metric_name": "strict_accuracy",
+            "normal": 0.0,
+            "normal_minus_base": 0.0
+          }
+        },
+        "clean_selection_exclusion_note": "Zero-based validation row 25 duplicates training content with conflicting labels; it remains in all-row metrics and is excluded only from checkpoint selection.",
+        "configured_excluded_zero_based_indices": [
+          25
+        ],
+        "criterion_eligible": true,
+        "criterion_passed": true,
+        "evaluated_rows": 39,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": -0.05,
+            "value": 0.0
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": true,
+            "threshold": 0.05,
+            "value": 0.0
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": 0.0,
+            "value": 0.0
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": true,
+            "threshold": -0.02,
+            "value": 0.0
+          }
+        },
+        "gates_passed": true,
+        "official_expected_rows": 39,
+        "selection_rows": 38,
+        "split": "val",
+        "status": "pass"
+      },
+      "scene-v4-current": {
+        "all_rows": null,
+        "applied_excluded_zero_based_indices": [],
+        "clean_selection": null,
+        "clean_selection_exclusion_note": null,
+        "configured_excluded_zero_based_indices": [],
+        "criterion_eligible": false,
+        "criterion_passed": false,
+        "evaluated_rows": 0,
+        "gates": {
+          "coverage_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.05,
+            "value": null
+          },
+          "max_token_hit_rate_delta_ceiling": {
+            "operator": "<=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.05,
+            "value": null
+          },
+          "recovered_ci_upper_nonnegative": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": 0.0,
+            "value": null
+          },
+          "recovered_metric_delta_floor": {
+            "operator": ">=",
+            "passed": false,
+            "status": "not_evaluated",
+            "threshold": -0.03,
+            "value": null
+          }
+        },
+        "gates_passed": false,
+        "official_expected_rows": 170,
+        "selection_rows": 0,
+        "split": "val",
+        "status": "not_evaluated"
+      }
+    },
+    "thresholds": {
+      "coverage_normal_minus_base_floor": -0.05,
+      "max_token_hit_rate_normal_minus_base_ceiling": 0.05,
+      "recovered_ci_95_upper_floor": 0.0,
+      "recovered_metric_normal_minus_base_floor_by_task": {
+        "attribution-v3.2": -0.03333333333333333,
+        "narrative-v3.2": -0.02,
+        "scene-v4-current": -0.03
+      }
+    }
+  },
+  "split": "val",
+  "strict_comparison": {
+    "base": {
+      "narrative-v3.2": {
+        "format_recovered_metric": 0.6432022084195997,
+        "format_recovered_minus_strict": 0.6432022084195997,
+        "strict_metric": 0.0,
+        "strict_metric_name": "strict_accuracy"
+      }
+    },
+    "normal": {
+      "narrative-v3.2": {
+        "format_recovered_metric": 0.6432022084195997,
+        "format_recovered_minus_strict": 0.6432022084195997,
+        "strict_metric": 0.0,
+        "strict_metric_name": "strict_accuracy"
+      }
+    }
+  },
+  "transfer_evaluation_caveat": "The adapter was not trained on these structured task prompts or labels.",
+  "validation": {
+    "condition_keys_identical": true,
+    "expected_rows_per_condition": 39,
+    "gold_matches_dataset": true,
+    "matched_rows_per_condition": {
+      "base": 39,
+      "normal": 39
+    },
+    "row_hashes_match_dataset": true,
+    "strict_fingerprint": "9cb27569ccc5a2cb0e28c304ce72c80ef50f205a25f7f085f035ef60a324fcfb",
+    "strict_summary_complete": true,
+    "task_rows": {
+      "narrative-v3.2": 39
+    }
+  },
+  "warning": "These metrics are diagnostic only. They recover explicit formatting variants from frozen raw generations and do not replace the strict author-compatible evaluation."
+}
