@@ -19,36 +19,41 @@ def read_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_v4_preserves_frozen_contract_and_binds_next_untouched_seeds() -> None:
-    v3 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v3.json")
+def test_v5_preserves_scientific_contract_and_binds_accumulation() -> None:
     v4 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v4.json")
-    receipt = v4.pop("protocol_receipt")
+    v5 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v5.json")
+    receipt = v5.pop("protocol_receipt")
     assert receipt == {
         "algorithm": "sha256",
         "payload_scope": "canonical_protocol_without_receipt",
-        "payload_sha256": canonical_sha256(v4),
+        "payload_sha256": canonical_sha256(v5),
     }
 
     for field in (
         "baseline_proof",
-        "execution_contract",
         "immutable_benchmark_contract",
         "immutable_training_contract",
         "policy",
     ):
-        assert v4[field] == v3[field]
+        assert v5[field] == v4[field]
+
+    execution = v5["execution_contract"]
+    for field, value in v4["execution_contract"].items():
+        assert execution[field] == value
+    assert execution["training_local_microbatch_size"] == 2
+    assert execution["training_gradient_accumulation_steps"] == 2
+    assert execution["training_local_batch_size"] == 4
+    assert execution["training_global_batch_size"] == 16
 
     assert [
         (replication["id"], replication["split_seed"], replication["training_seed"])
-        for replication in v4["replications"]
-    ] == [("r8", 20260817, 49), ("r9", 20260818, 50)]
-    assert v4["policy"]["sealed_attempts_per_replication"] == 1
-    assert v4["policy"]["sealed_gate"] == "all_52_named_checks_true"
+        for replication in v5["replications"]
+    ] == [("r10", 20260822, 51), ("r11", 20260823, 52)]
 
 
-def test_v4_seed_selection_is_derived_only_from_the_preexisting_screen() -> None:
-    v4 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v4.json")
-    screen_binding = v4["seed_feasibility_screen"]
+def test_v5_seed_selection_is_training_only_and_next_feasible() -> None:
+    v5 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v5.json")
+    screen_binding = v5["seed_feasibility_screen"]
     screen_path = EXPERIMENTS / screen_binding["file"]
     assert hashlib.sha256(screen_path.read_bytes()).hexdigest() == screen_binding[
         "file_sha256"
@@ -72,24 +77,23 @@ def test_v4_seed_selection_is_derived_only_from_the_preexisting_screen() -> None
     }
 
     feasible = [row for row in screen["screened"] if row["feasible"]]
-    unused = [
+    selected = [
         row
         for row in feasible
         if row["seed"] not in screen_binding["previously_preregistered_seeds"]
-    ]
-    selected = unused[:2]
+    ][:2]
     assert [row["seed"] for row in selected] == screen_binding["selected_seeds"]
     assert {
         str(row["seed"]): row["component_assignment_sha256"] for row in selected
     } == screen_binding["selected_component_assignment_sha256"]
 
 
-def test_v4_preselects_native_candidate_and_keeps_protected_splits_closed() -> None:
-    v4 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v4.json")
-    native = v4["native_validation_contract"]
-    assert native["memory_candidate"] == "r8.adapter_files_sha256"
+def test_v5_preselects_native_candidate_and_keeps_protected_splits_closed() -> None:
+    v5 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v5.json")
+    native = v5["native_validation_contract"]
+    assert native["memory_candidate"] == "r10.adapter_files_sha256"
     assert native["selection_rule"] == (
-        "r8_preselected_before_materialization_and_independent_of_development_or_"
+        "r10_preselected_before_materialization_and_independent_of_development_or_"
         "sealed_metrics"
     )
     assert native["protected_splits_forbidden"] == ["test", "Hard32"]
@@ -99,51 +103,39 @@ def test_v4_preselects_native_candidate_and_keeps_protected_splits_closed() -> N
     )
 
 
-def test_v4_keeps_required_local_batch_four_as_a_terminal_preflight() -> None:
-    v4 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v4.json")
-    capacity = v4["capacity_preflight"]
+def test_v5_capacity_gate_binds_optimizer_batch_and_microbatches() -> None:
+    v5 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v5.json")
+    capacity = v5["capacity_preflight"]
     assert capacity["required_local_batch_size"] == 4
+    assert capacity["required_local_microbatch_size"] == 2
+    assert capacity["required_gradient_accumulation_steps"] == 2
     assert capacity["failure_is_terminal_for_replication"] is True
     assert capacity["seed_substitution_forbidden"] is True
     assert capacity["predecessor_failure"] == {
         "completed_optimizer_steps": 3,
-        "environment_adjusted_reserved_headroom_bytes": 135659520,
-        "local_batch_size": 4,
-        "minimum_observed_free_after_phase_bytes": 34996224,
+        "environment_adjusted_reserved_headroom_bytes": 110493696,
+        "local_optimizer_batch_size": 4,
+        "minimum_observed_free_after_phase_bytes": 513146880,
         "profile_receipt_payload_sha256": (
-            "4ba56eb1013978fc725f59edae818f81272a36e66e248cf75a7160f7d16d38ad"
+            "7f903e49de80833d42dc79a2fa961d1a3a054288dcea81e93a3ba799ad4bf2dd"
         ),
-        "replication_id": "r6",
+        "replication_id": "r8",
     }
 
 
-def test_v4_amendment_authorized_only_its_frozen_runner() -> None:
-    protocol = read_json(
-        EXPERIMENTS / "natural_memory_replication_protocol_v4.json"
-    )
-    amendment = read_json(
-        EXPERIMENTS
-        / "natural_memory_replication_protocol_v4_amendment_runner_authorization.json"
-    )
-    receipt = amendment.pop("amendment_receipt")
-    assert receipt == {
-        "algorithm": "sha256",
-        "payload_scope": "canonical_amendment_without_receipt",
-        "payload_sha256": canonical_sha256(amendment),
-    }
-    assert amendment["runner_change"] == {
-        "new_sha256": (
-            "bbf19c235b84f75a88fb8b7c7efc9c64535a4d950c826201d8e02d24c79d937b"
+def test_v5_source_hashes_bind_the_pre_authorization_runner() -> None:
+    v5 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v5.json")
+    assert v5["source_code_sha256"] == {
+        "distributed": (
+            "f1dffce7cebf47d3c3e864efca74a641fe221e1f903f8caea2e7badac0b6b9eb"
         ),
-        "old_sha256": protocol["source_code_sha256"]["runner"],
-    }
-    assert amendment["authorized_replication_ids"] == [
-        replication["id"] for replication in protocol["replications"]
-    ]
-    assert amendment["scope"] == {
-        "classification": "infrastructure_only",
-        "data_changed": False,
-        "gate_changed": False,
-        "hyperparameters_changed": False,
-        "training_math_changed": False,
+        "prepare": (
+            "a737e9f5db35777c84227bfec30e73f24ae001b4a1c6173e020682b65b8892a9"
+        ),
+        "profile": (
+            "50ef67e3e13ce6f726f0f1ec13e05a5e4755a192fad49c3f015f113070525563"
+        ),
+        "runner": (
+            "85258bf99a8d51c5cae6a922eebd7099681b10e31b7cadcc7cb1d4265e88a54f"
+        ),
     }
