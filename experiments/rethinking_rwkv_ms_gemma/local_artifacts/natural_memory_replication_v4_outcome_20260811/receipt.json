@@ -1,0 +1,84 @@
+{
+  "created_at": "2026-08-11T05:25:40+08:00",
+  "native_validation": {
+    "authorized": false,
+    "performed": false,
+    "reason": "Protocol V4 requires both preregistered replications to pass all 52 sealed checks before native validation. R8 failed the required local-batch-4 CUDA capacity gate before training, making the two-replication unlock impossible; R9 was therefore not materialized or run."
+  },
+  "outcome": {
+    "complete_replications_passing_sealed_gate": 0,
+    "goal_satisfied": false,
+    "replications_preregistered": 2,
+    "status": "terminal_protocol_failure"
+  },
+  "outcome_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_outcome_without_receipt",
+    "payload_sha256": "6adbb834a4946b37285cac30b8b2eaf561068319d24867b9640ee35dade96926"
+  },
+  "protected_evaluation": {
+    "hard32_opened": false,
+    "test_opened": false
+  },
+  "protocol": {
+    "file": "natural_memory_replication_protocol_v4.json",
+    "file_sha256": "298ba1d921dffae456344d1bdc8b2d6e4244be0efc080b8c56c1498977bcc423",
+    "git_commit": "15566239208b57bd2520ef8333e5ac1a0c7c7287",
+    "payload_sha256": "b7dfd59294f97ccd8034cb604840b842857ca4a4b64cb6fa74a83d1ac2c87389"
+  },
+  "replications": {
+    "r8": {
+      "cuda_profile": {
+        "completed_optimizer_steps": 3,
+        "environment_adjusted_reserved_headroom_bytes": 110493696,
+        "failed_checks": [
+          "required_worker_invocation_binding",
+          "required_memory_headroom",
+          "required_worker_gate"
+        ],
+        "git_commit": "20d12279d4dc9832dfa4a63e441f6d03de24d200",
+        "isolated_reserved_headroom_bytes": 554041344,
+        "minimum_observed_free_after_phase_bytes": 513146880,
+        "peak_allocated_bytes": 40628089856,
+        "peak_reserved_bytes": 41852862464,
+        "profile_receipt_file_sha256": "4b6147ce00de403d3235590650093be8cd99224b5dca415c56427d3a1e9f4f73",
+        "profile_receipt_payload_sha256": "7f903e49de80833d42dc79a2fa961d1a3a054288dcea81e93a3ba799ad4bf2dd",
+        "required_headroom_bytes": 5368709120,
+        "required_local_batch_size": 4,
+        "status": "failed"
+      },
+      "development_materialization": {
+        "binding_receipt_file_sha256": "9c3c9f049ad5f03501cb7cf7d21f8f11032bd834e7b1c2f239086c80037c7edc",
+        "binding_receipt_sha256": "6793aa54c4984de4d2cffb623f4fcc9a57aad191141ad2d01d269ebcdc7fa8e2",
+        "git_commit": "2125a8541390c50b532bb8a0a6e599b76d04e265",
+        "manifest_payload_sha256": "79e053c59443f89f29e6c91d4c737ee41f074e410d54d4d04d84033f6528c369",
+        "status": "passed"
+      },
+      "sealed_attempts": 0,
+      "sealed_package_materialized": false,
+      "split_seed": 20260817,
+      "status": "cuda_capacity_gate_failed_before_training",
+      "training_started": false,
+      "training_seed": 49
+    },
+    "r9": {
+      "development_materialization": {
+        "reason": "R8 made the two-replication V4 unlock impossible before R9 materialization",
+        "status": "not_started"
+      },
+      "sealed_attempts": 0,
+      "sealed_package_materialized": false,
+      "split_seed": 20260818,
+      "status": "not_started_after_terminal_predecessor_failure",
+      "training_started": false,
+      "training_seed": 50
+    }
+  },
+  "runner_authorization": {
+    "file": "natural_memory_replication_protocol_v4_amendment_runner_authorization.json",
+    "file_sha256": "d9a3a8c4a5b6ff13848149d32c3a6a03b27a27479aca8b1cb4f2de9192110d09",
+    "git_commit": "3e3566799dda113448846f512fcc2b6df5782a79",
+    "payload_sha256": "ba4c1d6fa765e04e21994b069cd38ddae944cbefc74cafddbacd030948ff5871"
+  },
+  "schema": "rwkv_ms_natural_memory_replication_outcome.v1"
+}
