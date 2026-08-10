@@ -52,7 +52,7 @@ def test_v2_preserves_frozen_contract_and_binds_feasible_seeds() -> None:
     )
 
 
-def test_v2_amendment_authorizes_only_the_current_runner() -> None:
+def test_v2_amendment_authorized_only_its_frozen_runner() -> None:
     protocol = json.loads(
         (EXPERIMENTS / "natural_memory_replication_protocol_v2.json").read_text(
             encoding="utf-8"
@@ -66,10 +66,9 @@ def test_v2_amendment_authorizes_only_the_current_runner() -> None:
     )
     receipt = amendment.pop("amendment_receipt")
     assert receipt["payload_sha256"] == canonical_sha256(amendment)
-    runner_path = EXPERIMENTS / "run_natural_memory_gate.py"
-    assert amendment["runner_change"]["new_sha256"] == hashlib.sha256(
-        runner_path.read_bytes()
-    ).hexdigest()
+    assert amendment["runner_change"]["new_sha256"] == (
+        "82a5b6f7e6de76b0a2f64cb4ec4528fd0e807a5904f0c52341e599f015338700"
+    )
     assert amendment["authorized_replication_ids"] == [
         replication["id"] for replication in protocol["replications"]
     ]

@@ -1,0 +1,31 @@
+{
+  "amendment_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_amendment_without_receipt",
+    "payload_sha256": "5dc1e45d67332f9c27227175b41f8d51f65bbd27c573ee05f6b166fd9890fcc9"
+  },
+  "authorized_replication_ids": [
+    "r6",
+    "r7"
+  ],
+  "created_at": "2026-08-11T02:25:41+08:00",
+  "discovered_before_training_output": true,
+  "original_protocol": {
+    "file_sha256": "84f32aca8e9646b959bab579dfc146b16489d26c43145a080d6193a8bd710d4e",
+    "git_commit": "cdb60d2faa28d8f86264b8e9f05ed82a0fb98e8b",
+    "payload_sha256": "672fe39b626092f6758f8ee6a41a2d2c6181d5590648985b38cc0cca6659f453"
+  },
+  "rationale": "Protocol V3 was frozen and pushed before materialization after selecting the next two untouched seeds from the pre-existing training-only feasibility screen. This amendment changes only the runner's preregistration constants from exhausted V2 to the exact V3 bindings and authorizes its frozen R6 and R7 optimizer seeds.",
+  "runner_change": {
+    "new_sha256": "6372f6197dd1152a22c9352fe1cdd62d472877ed965db5c6a841428a98095687",
+    "old_sha256": "82a5b6f7e6de76b0a2f64cb4ec4528fd0e807a5904f0c52341e599f015338700"
+  },
+  "schema": "rwkv_ms_natural_memory_replication_protocol_amendment.v1",
+  "scope": {
+    "classification": "infrastructure_only",
+    "data_changed": false,
+    "gate_changed": false,
+    "hyperparameters_changed": false,
+    "training_math_changed": false
+  }
+}
