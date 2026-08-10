@@ -19,14 +19,14 @@ def read_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_v3_preserves_frozen_contract_and_binds_next_untouched_seeds() -> None:
-    v2 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v2.json")
+def test_v4_preserves_frozen_contract_and_binds_next_untouched_seeds() -> None:
     v3 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v3.json")
-    receipt = v3.pop("protocol_receipt")
+    v4 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v4.json")
+    receipt = v4.pop("protocol_receipt")
     assert receipt == {
         "algorithm": "sha256",
         "payload_scope": "canonical_protocol_without_receipt",
-        "payload_sha256": canonical_sha256(v3),
+        "payload_sha256": canonical_sha256(v4),
     }
 
     for field in (
@@ -34,20 +34,21 @@ def test_v3_preserves_frozen_contract_and_binds_next_untouched_seeds() -> None:
         "execution_contract",
         "immutable_benchmark_contract",
         "immutable_training_contract",
+        "policy",
     ):
-        assert v3[field] == v2[field]
+        assert v4[field] == v3[field]
 
     assert [
         (replication["id"], replication["split_seed"], replication["training_seed"])
-        for replication in v3["replications"]
-    ] == [("r6", 20260815, 47), ("r7", 20260816, 48)]
-    assert v3["policy"]["sealed_attempts_per_replication"] == 1
-    assert v3["policy"]["sealed_gate"] == "all_52_named_checks_true"
+        for replication in v4["replications"]
+    ] == [("r8", 20260817, 49), ("r9", 20260818, 50)]
+    assert v4["policy"]["sealed_attempts_per_replication"] == 1
+    assert v4["policy"]["sealed_gate"] == "all_52_named_checks_true"
 
 
-def test_v3_seed_selection_is_derived_only_from_the_preexisting_screen() -> None:
-    v3 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v3.json")
-    screen_binding = v3["seed_feasibility_screen"]
+def test_v4_seed_selection_is_derived_only_from_the_preexisting_screen() -> None:
+    v4 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v4.json")
+    screen_binding = v4["seed_feasibility_screen"]
     screen_path = EXPERIMENTS / screen_binding["file"]
     assert hashlib.sha256(screen_path.read_bytes()).hexdigest() == screen_binding[
         "file_sha256"
@@ -83,12 +84,12 @@ def test_v3_seed_selection_is_derived_only_from_the_preexisting_screen() -> None
     } == screen_binding["selected_component_assignment_sha256"]
 
 
-def test_v3_preselects_native_candidate_and_keeps_protected_splits_closed() -> None:
-    v3 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v3.json")
-    native = v3["native_validation_contract"]
-    assert native["memory_candidate"] == "r6.adapter_files_sha256"
+def test_v4_preselects_native_candidate_and_keeps_protected_splits_closed() -> None:
+    v4 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v4.json")
+    native = v4["native_validation_contract"]
+    assert native["memory_candidate"] == "r8.adapter_files_sha256"
     assert native["selection_rule"] == (
-        "r6_preselected_before_materialization_and_independent_of_development_or_"
+        "r8_preselected_before_materialization_and_independent_of_development_or_"
         "sealed_metrics"
     )
     assert native["protected_splits_forbidden"] == ["test", "Hard32"]
@@ -98,31 +99,31 @@ def test_v3_preselects_native_candidate_and_keeps_protected_splits_closed() -> N
     )
 
 
-def test_v3_keeps_required_local_batch_four_as_a_terminal_preflight() -> None:
-    v3 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v3.json")
-    capacity = v3["capacity_preflight"]
+def test_v4_keeps_required_local_batch_four_as_a_terminal_preflight() -> None:
+    v4 = read_json(EXPERIMENTS / "natural_memory_replication_protocol_v4.json")
+    capacity = v4["capacity_preflight"]
     assert capacity["required_local_batch_size"] == 4
     assert capacity["failure_is_terminal_for_replication"] is True
     assert capacity["seed_substitution_forbidden"] is True
     assert capacity["predecessor_failure"] == {
-        "completed_optimizer_steps": 2,
-        "failed_phase": "answer_logit_to_activation_rollover_optimizer_step",
+        "completed_optimizer_steps": 3,
+        "environment_adjusted_reserved_headroom_bytes": 135659520,
         "local_batch_size": 4,
-        "oom_request_bytes": 92274688,
+        "minimum_observed_free_after_phase_bytes": 34996224,
         "profile_receipt_payload_sha256": (
-            "c763dcdfda0597fe730d55689fd62c45d5dd13148831a952d5b8e5fef209a39b"
+            "4ba56eb1013978fc725f59edae818f81272a36e66e248cf75a7160f7d16d38ad"
         ),
-        "replication_id": "r5",
+        "replication_id": "r6",
     }
 
 
-def test_v3_amendment_authorized_only_its_frozen_runner() -> None:
+def test_v4_amendment_authorizes_only_the_current_runner() -> None:
     protocol = read_json(
-        EXPERIMENTS / "natural_memory_replication_protocol_v3.json"
+        EXPERIMENTS / "natural_memory_replication_protocol_v4.json"
     )
     amendment = read_json(
         EXPERIMENTS
-        / "natural_memory_replication_protocol_v3_amendment_runner_authorization.json"
+        / "natural_memory_replication_protocol_v4_amendment_runner_authorization.json"
     )
     receipt = amendment.pop("amendment_receipt")
     assert receipt == {
@@ -130,10 +131,9 @@ def test_v3_amendment_authorized_only_its_frozen_runner() -> None:
         "payload_scope": "canonical_amendment_without_receipt",
         "payload_sha256": canonical_sha256(amendment),
     }
+    runner_path = EXPERIMENTS / "run_natural_memory_gate.py"
     assert amendment["runner_change"] == {
-        "new_sha256": (
-            "6372f6197dd1152a22c9352fe1cdd62d472877ed965db5c6a841428a98095687"
-        ),
+        "new_sha256": hashlib.sha256(runner_path.read_bytes()).hexdigest(),
         "old_sha256": protocol["source_code_sha256"]["runner"],
     }
     assert amendment["authorized_replication_ids"] == [

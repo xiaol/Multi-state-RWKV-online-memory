@@ -1,0 +1,31 @@
+{
+  "amendment_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_amendment_without_receipt",
+    "payload_sha256": "ba4c1d6fa765e04e21994b069cd38ddae944cbefc74cafddbacd030948ff5871"
+  },
+  "authorized_replication_ids": [
+    "r8",
+    "r9"
+  ],
+  "created_at": "2026-08-11T04:51:07+08:00",
+  "discovered_before_training_output": true,
+  "original_protocol": {
+    "file_sha256": "298ba1d921dffae456344d1bdc8b2d6e4244be0efc080b8c56c1498977bcc423",
+    "git_commit": "15566239208b57bd2520ef8333e5ac1a0c7c7287",
+    "payload_sha256": "b7dfd59294f97ccd8034cb604840b842857ca4a4b64cb6fa74a83d1ac2c87389"
+  },
+  "rationale": "Protocol V4 was frozen and pushed before materialization after selecting the next two untouched seeds from the pre-existing training-only feasibility screen. This amendment changes only the runner's preregistration constants from terminal V3 to the exact V4 bindings and authorizes its frozen R8 and R9 optimizer seeds.",
+  "runner_change": {
+    "new_sha256": "bbf19c235b84f75a88fb8b7c7efc9c64535a4d950c826201d8e02d24c79d937b",
+    "old_sha256": "6372f6197dd1152a22c9352fe1cdd62d472877ed965db5c6a841428a98095687"
+  },
+  "schema": "rwkv_ms_natural_memory_replication_protocol_amendment.v1",
+  "scope": {
+    "classification": "infrastructure_only",
+    "data_changed": false,
+    "gate_changed": false,
+    "hyperparameters_changed": false,
+    "training_math_changed": false
+  }
+}
