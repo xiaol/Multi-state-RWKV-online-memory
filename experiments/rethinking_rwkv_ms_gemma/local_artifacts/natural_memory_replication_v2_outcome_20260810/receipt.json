@@ -1,0 +1,111 @@
+{
+  "created_at": "2026-08-10T13:57:58+08:00",
+  "native_validation": {
+    "authorized": false,
+    "performed": false,
+    "reason": "Protocol V2 requires both preregistered replications to pass all 52 sealed checks before native validation. R4 failed its only sealed attempt and R5 failed the CUDA capacity gate before training."
+  },
+  "outcome": {
+    "complete_replications_passing_sealed_gate": 0,
+    "goal_satisfied": false,
+    "replications_preregistered": 2,
+    "status": "terminal_protocol_failure"
+  },
+  "outcome_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_outcome_without_receipt",
+    "payload_sha256": "c5b961918f24a913acfb01fbe8edb4299f24fc90a8c347bac4f447839431e518"
+  },
+  "protected_evaluation": {
+    "hard32_opened": false,
+    "test_opened": false
+  },
+  "protocol": {
+    "file": "natural_memory_replication_protocol_v2.json",
+    "file_sha256": "b2acfec36776e3037ef3f1040a555700bafaa89a81f958b3a7d37c54cf60ca1f",
+    "git_commit": "cc321e5737a34f7c9154ce9e89a6a2b040414d50",
+    "payload_sha256": "674ae300d0bdbc9aad9dd7f26777a4070542cfd4e5136665e1b0d426ed951a37"
+  },
+  "replications": {
+    "r4": {
+      "development": {
+        "adapter_files_sha256": "09818927e84be5e609d544fa9677639b948887dc60d3dadcbc4f8e84d7f084c2",
+        "gate_checks_passed": 54,
+        "gate_checks_total": 54,
+        "git_commit": "aa470e9ee67e9aa9dcec8c3568c30d449b4e2942",
+        "run_receipt_file_sha256": "f93b338944ee72e7ab77ea02ff2451b6a81da0608b2d03607b5a39ff82f45a95",
+        "run_receipt_payload_sha256": "19e1db9203f01ffb56e51602232ce5acaa05a00995f03de1e063979198066cdc",
+        "status": "passed"
+      },
+      "sealed": {
+        "attempts": 1,
+        "attribution_structured_json_exact_accuracy": {
+          "correct_state": 0.765625,
+          "donor_state": 0.7421875,
+          "shuffled_slots": 0.765625,
+          "target_slot_rewrite": 0.8203125,
+          "value_swap": 0.7890625
+        },
+        "failed_checks": [
+          "correct_state.greedy_structured_json_exact_min",
+          "correct_state.structured_json_exact_min",
+          "donor_state.greedy_structured_json_exact_min",
+          "donor_state.structured_json_exact_min",
+          "shuffled_slots.greedy_structured_json_exact_min",
+          "shuffled_slots.structured_json_exact_min",
+          "value_swap.greedy_structured_json_exact_min",
+          "value_swap.structured_json_exact_min"
+        ],
+        "gate_checks_passed": 44,
+        "gate_checks_total": 52,
+        "git_commit": "cfc85ed3a6711c8ef70ac0700b866eee7f575203",
+        "manifest_git_commit": "37bae12fec9cfa3fd3a42990cf4283a84820d074",
+        "manifest_payload_sha256": "d13a006507385fcff737d888a5b240bc6ed4c7ca70354981227a53ab1fdddd33",
+        "run_receipt_file_sha256": "9f8c2d1b8cad627864c060e3c0c92f3c5adde3c1b057e6fea89c5cf9f861b77b",
+        "run_receipt_payload_sha256": "6dfc6fdcff0aae9ec3c818fa8f4944f67f44717bcdf2df0e9582d1b267a21cc4",
+        "status": "failed"
+      },
+      "split_seed": 20260813,
+      "status": "sealed_gate_failed_without_retry",
+      "training_seed": 45
+    },
+    "r5": {
+      "cuda_profile": {
+        "attempts": [
+          {
+            "completed_optimizer_steps": 3,
+            "git_commit": "9de039551d6fffd6db3831a2b28917593bfa8d99",
+            "minimum_observed_free_bytes": 37093376,
+            "profile_receipt_payload_sha256": "8d47eb397e4705ad401457f9e8702eb232a439dea39b03cfec06875f73eccf0d",
+            "required_headroom_bytes": 5368709120,
+            "status": "insufficient_headroom"
+          },
+          {
+            "completed_optimizer_steps": 2,
+            "git_commit": "97deebbb40d4144babd3fa384947dfb3d81c2c76",
+            "minimum_observed_free_bytes": 74842112,
+            "oom_request_bytes": 92274688,
+            "profile_receipt_payload_sha256": "c763dcdfda0597fe730d55689fd62c45d5dd13148831a952d5b8e5fef209a39b",
+            "required_headroom_bytes": 5368709120,
+            "status": "cuda_out_of_memory"
+          }
+        ],
+        "required_local_batch_size": 4,
+        "status": "failed"
+      },
+      "development_materialization": {
+        "binding_receipt_sha256": "c7e6ff92f1399c4bfebd93d8c8a087f3e5a8be7395f1e186c3253dbc4085f846",
+        "git_commit": "3464f093afd5d5dbf50c1aec24512dbd85808020",
+        "manifest_payload_sha256": "6477fe00ac006f095dc21884da4db730953788063dd78d9bb7fe7df605aa2d06",
+        "status": "passed"
+      },
+      "sealed_attempts": 0,
+      "sealed_package_materialized": false,
+      "split_seed": 20260814,
+      "status": "cuda_capacity_gate_failed_before_training",
+      "training_started": false,
+      "training_seed": 46
+    }
+  },
+  "schema": "rwkv_ms_natural_memory_replication_outcome.v1"
+}
