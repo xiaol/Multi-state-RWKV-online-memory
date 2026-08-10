@@ -1,0 +1,75 @@
+{
+  "schema": "rwkv_ms_direct_native_validation_authorization.v1",
+  "created_at": "2026-08-11T00:04:51+08:00",
+  "authorization": {
+    "source": "user_directive_2026-08-10",
+    "directive": "find a way out; produce the native benchmark result",
+    "scope": "publisher_validation_only",
+    "overrides_v2_replication_prerequisite": true,
+    "does_not_override_protected_split_policy": true
+  },
+  "interpretation": {
+    "v2_status_remains": "terminal_protocol_failure",
+    "v2_goal_satisfied": false,
+    "result_role": "diagnostic_native_transfer_measurement",
+    "result_must_not_be_counted_as_a_v2_success": true
+  },
+  "candidate": {
+    "id": "r4",
+    "selection": "preselected_by_natural_memory_replication_protocol_v2_before_r4_materialization",
+    "adapter_dir": "../natural_memory_gate_replication_r4_development_run_split20260813_seed45/adapter",
+    "adapter_file_sha256": "b43f8f603a4561e253a233ae28447b454850e53c1116c146e087a1c1c08f9ce3",
+    "adapter_files_aggregate_sha256": "09818927e84be5e609d544fa9677639b948887dc60d3dadcbc4f8e84d7f084c2",
+    "config_sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4",
+    "development_gate": "54/54_pass",
+    "sealed_gate": "44/52_fail",
+    "sealed_attempts": 1
+  },
+  "base_model": {
+    "model_id": "google/gemma-4-E4B-it",
+    "revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "local_model_path": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "model_binding_sha256": "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66",
+    "model_safetensors_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4"
+  },
+  "evaluation": {
+    "hf_endpoint": "https://hf-mirror.com",
+    "split": "val",
+    "conditions": [
+      "base",
+      "normal"
+    ],
+    "normal_fusion_profile": "native",
+    "tasks": {
+      "attribution-v3.2": {
+        "rows": 30,
+        "metric": "format_recovered_accuracy",
+        "dataset_sha256": "01373fa09c89568a47927f19088f78bbf62cd4b7eb66803100c06e8a3f2152a4"
+      },
+      "narrative-v3.2": {
+        "rows": 39,
+        "metric": "format_recovered_unit_accuracy",
+        "dataset_sha256": "4a1d27c543e715a069e6b3c8253021b0f86fe1690aac116da09eba43896e1b6a"
+      },
+      "scene-v4-current": {
+        "rows": 170,
+        "metric": "format_recovered_micro_f1",
+        "dataset_sha256": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513"
+      }
+    },
+    "runner_sha256": "bb5f234b9c4c3163f1e617b712e99d5ce71f998862ccb79c06e37ad7992d5ffd",
+    "analyzer_sha256": "6d9fb129868865c95f766cfd3964a936d053b83c9bdb09276645084932570825",
+    "reference_eval_sha256": "e2376fe36d61e915f566d974f17a14ebfff540a03f7ded233b369075a273a3ef",
+    "reference_scene_sha256": "6d7bbd8d7243051f221c7ba8dd7607f78a16da6de40eaf5290a3b533c7c69819",
+    "generation": "greedy_batch_one_state_reset_per_row",
+    "execution": "four_gpu_audited_row_shards",
+    "success_rule": "normal_gte_base_on_all_three_tasks_and_normal_gt_base_on_at_least_two_tasks"
+  },
+  "protected_evaluation": {
+    "test_forbidden": true,
+    "hard32_forbidden": true,
+    "test_opened": false,
+    "hard32_opened": false
+  }
+}
