@@ -1,0 +1,1624 @@
+{
+  "activation_selection_audit": {
+    "candidate_corpus": {
+      "conditions": [
+        "correct_state",
+        "donor_state",
+        "value_swap",
+        "target_slot_rewrite",
+        "shuffled_slots"
+      ],
+      "row_id_set_sha256": "16ccc012fbf2fa138884f703feaa52f61dbaa6af42be779c3a0b69128d6e80ff",
+      "rows": 1920
+    },
+    "dimensions": [
+      "write_0",
+      "write_1",
+      "write_2",
+      "write_3",
+      "read"
+    ],
+    "method": "exact five-dimension set-partition maximization with deterministic marginal-workload fill, total/read/write-length secondary ordering, and row-id final tie breaks",
+    "schema": "rwkv_ms_natural_memory_gate_padded_selection.v2",
+    "selected": {
+      "maximum_read_token_length": 1379,
+      "maximum_write_token_lengths": [
+        1377,
+        658,
+        658,
+        1377
+      ],
+      "padded_read_token_positions": 5516,
+      "padded_write_token_positions": 16280,
+      "total_padded_token_positions": 21796
+    },
+    "selected_batch_is_exact_constrained_optimum": true,
+    "unconstrained_per_dimension_upper_bound": {
+      "maximum_read_token_length": 1379,
+      "maximum_write_token_lengths": [
+        1377,
+        658,
+        658,
+        1377
+      ],
+      "padded_read_token_positions": 5516,
+      "padded_write_token_positions": 16280,
+      "total_padded_token_positions": 21796
+    },
+    "upper_bound_coverage_fraction": 1.0
+  },
+  "activation_stress_examples": [
+    {
+      "answer_predictor_end_exclusive": 1378,
+      "answer_predictor_positions": 13,
+      "answer_predictor_start": 1365,
+      "condition": "shuffled_slots",
+      "episode_id": "train:attribution:attribution:76594abad4ca26c9277d:e000024",
+      "maximum_sequence_token_length": 1379,
+      "read_token_length": 1379,
+      "row_id": "train:attribution:attribution:76594abad4ca26c9277d:e000024:q3::training-condition=shuffled_slots",
+      "task": "attribution",
+      "total_unpadded_token_positions": 3587,
+      "write_token_lengths": [
+        1377,
+        332,
+        297,
+        202
+      ]
+    },
+    {
+      "answer_predictor_end_exclusive": 1378,
+      "answer_predictor_positions": 13,
+      "answer_predictor_start": 1365,
+      "condition": "correct_state",
+      "episode_id": "train:attribution:attribution:76594abad4ca26c9277d:e000024",
+      "maximum_sequence_token_length": 1379,
+      "read_token_length": 1379,
+      "row_id": "train:attribution:attribution:76594abad4ca26c9277d:e000024:q3::training-condition=correct_state",
+      "task": "attribution",
+      "total_unpadded_token_positions": 3587,
+      "write_token_lengths": [
+        332,
+        202,
+        297,
+        1377
+      ]
+    },
+    {
+      "answer_predictor_end_exclusive": 659,
+      "answer_predictor_positions": 13,
+      "answer_predictor_start": 646,
+      "condition": "correct_state",
+      "episode_id": "train:attribution:attribution:e65888463d0cec2e1d88:e000004",
+      "maximum_sequence_token_length": 660,
+      "read_token_length": 660,
+      "row_id": "train:attribution:attribution:e65888463d0cec2e1d88:e000004:q1::training-condition=correct_state",
+      "task": "attribution",
+      "total_unpadded_token_positions": 1964,
+      "write_token_lengths": [
+        283,
+        658,
+        174,
+        189
+      ]
+    },
+    {
+      "answer_predictor_end_exclusive": 659,
+      "answer_predictor_positions": 13,
+      "answer_predictor_start": 646,
+      "condition": "shuffled_slots",
+      "episode_id": "train:attribution:attribution:e65888463d0cec2e1d88:e000004",
+      "maximum_sequence_token_length": 660,
+      "read_token_length": 660,
+      "row_id": "train:attribution:attribution:e65888463d0cec2e1d88:e000004:q1::training-condition=shuffled_slots",
+      "task": "attribution",
+      "total_unpadded_token_positions": 1964,
+      "write_token_lengths": [
+        174,
+        189,
+        658,
+        283
+      ]
+    }
+  ],
+  "activation_stress_examples_sha256": "7ca39a616ad3bffaedbd09304db3043b0651bef773e5af38d26ad5f78d7876e4",
+  "adapter_changed": true,
+  "adapter_state_sha256_after": "62ea71d547cfc85c4355741bb1f8fde65a5e61b3ada7a138204466c40987659f",
+  "adapter_state_sha256_before": "55375f36f6424bd2f40d737903cb169e3270babdb59a26e3a0bd0df31a72fc72",
+  "answer_logit_selection_audit": {
+    "candidate_corpus": {
+      "conditions": [
+        "correct_state",
+        "donor_state",
+        "value_swap",
+        "target_slot_rewrite",
+        "shuffled_slots"
+      ],
+      "row_id_set_sha256": "16ccc012fbf2fa138884f703feaa52f61dbaa6af42be779c3a0b69128d6e80ff",
+      "rows": 1920
+    },
+    "compact_logit_batch_position_factor": 272,
+    "method": "exact cardinality-bounded interval-union dynamic programming with deterministic activation-workload fill and row-id final tie breaks",
+    "schema": "rwkv_ms_natural_memory_gate_answer_logit_selection.v2",
+    "selected_answer_predictor_union_indices": [
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149,
+      150,
+      151,
+      152,
+      153,
+      154,
+      155,
+      156,
+      157,
+      158,
+      159,
+      167,
+      168,
+      169,
+      170,
+      171,
+      172,
+      173,
+      174,
+      175,
+      176,
+      177,
+      178,
+      179,
+      180,
+      181,
+      182,
+      183,
+      195,
+      196,
+      197,
+      198,
+      199,
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209,
+      210,
+      211,
+      281,
+      282,
+      283,
+      284,
+      285,
+      286,
+      287,
+      288,
+      289,
+      290,
+      291,
+      292,
+      293,
+      294,
+      295,
+      296,
+      297
+    ],
+    "selected_answer_predictor_union_positions": 68,
+    "selected_batch_is_exact_constrained_optimum": true,
+    "selected_padded_workload": {
+      "maximum_read_token_length": 299,
+      "maximum_write_token_lengths": [
+        297,
+        159,
+        183,
+        211
+      ],
+      "padded_read_token_positions": 1196,
+      "padded_write_token_positions": 3400,
+      "total_padded_token_positions": 4596
+    },
+    "sum_of_top_individual_widths_upper_bound": 68,
+    "upper_bound_coverage_fraction": 1.0
+  },
+  "answer_logit_stress_examples": [
+    {
+      "answer_predictor_end_exclusive": 298,
+      "answer_predictor_positions": 17,
+      "answer_predictor_start": 281,
+      "condition": "value_swap",
+      "episode_id": "train:narrative:narrative:0a31ab1581b313795be0:u16:e000027",
+      "maximum_sequence_token_length": 299,
+      "read_token_length": 299,
+      "row_id": "train:narrative:narrative:0a31ab1581b313795be0:u16:e000027:q0::training-condition=value_swap",
+      "task": "narrative",
+      "total_unpadded_token_positions": 1146,
+      "write_token_lengths": [
+        297,
+        157,
+        182,
+        211
+      ]
+    },
+    {
+      "answer_predictor_end_exclusive": 212,
+      "answer_predictor_positions": 17,
+      "answer_predictor_start": 195,
+      "condition": "value_swap",
+      "episode_id": "train:narrative:narrative:0a31ab1581b313795be0:u16:e000027",
+      "maximum_sequence_token_length": 297,
+      "read_token_length": 213,
+      "row_id": "train:narrative:narrative:0a31ab1581b313795be0:u16:e000027:q3::training-condition=value_swap",
+      "task": "narrative",
+      "total_unpadded_token_positions": 1060,
+      "write_token_lengths": [
+        297,
+        157,
+        182,
+        211
+      ]
+    },
+    {
+      "answer_predictor_end_exclusive": 184,
+      "answer_predictor_positions": 17,
+      "answer_predictor_start": 167,
+      "condition": "correct_state",
+      "episode_id": "train:narrative:narrative:0a31ab1581b313795be0:u16:e000027",
+      "maximum_sequence_token_length": 296,
+      "read_token_length": 185,
+      "row_id": "train:narrative:narrative:0a31ab1581b313795be0:u16:e000027:q2::training-condition=correct_state",
+      "task": "narrative",
+      "total_unpadded_token_positions": 1032,
+      "write_token_lengths": [
+        296,
+        159,
+        183,
+        209
+      ]
+    },
+    {
+      "answer_predictor_end_exclusive": 160,
+      "answer_predictor_positions": 17,
+      "answer_predictor_start": 143,
+      "condition": "correct_state",
+      "episode_id": "train:narrative:narrative:0a31ab1581b313795be0:u16:e000027",
+      "maximum_sequence_token_length": 296,
+      "read_token_length": 161,
+      "row_id": "train:narrative:narrative:0a31ab1581b313795be0:u16:e000027:q1::training-condition=correct_state",
+      "task": "narrative",
+      "total_unpadded_token_positions": 1008,
+      "write_token_lengths": [
+        296,
+        159,
+        183,
+        209
+      ]
+    }
+  ],
+  "answer_logit_stress_examples_sha256": "0c8457a7755320c6e831c9f045b7cdab517a7b3d08d6a316a10317db1b18997d",
+  "checkpointed_frozen_mlps": [
+    "model.language_model.layers.0.mlp",
+    "model.language_model.layers.1.mlp",
+    "model.language_model.layers.2.mlp",
+    "model.language_model.layers.3.mlp",
+    "model.language_model.layers.4.mlp",
+    "model.language_model.layers.5.mlp",
+    "model.language_model.layers.6.mlp",
+    "model.language_model.layers.7.mlp",
+    "model.language_model.layers.8.mlp",
+    "model.language_model.layers.9.mlp",
+    "model.language_model.layers.10.mlp",
+    "model.language_model.layers.11.mlp",
+    "model.language_model.layers.12.mlp",
+    "model.language_model.layers.13.mlp",
+    "model.language_model.layers.14.mlp",
+    "model.language_model.layers.15.mlp",
+    "model.language_model.layers.16.mlp",
+    "model.language_model.layers.17.mlp",
+    "model.language_model.layers.18.mlp",
+    "model.language_model.layers.19.mlp",
+    "model.language_model.layers.20.mlp",
+    "model.language_model.layers.21.mlp",
+    "model.language_model.layers.22.mlp",
+    "model.language_model.layers.23.mlp",
+    "model.language_model.layers.24.mlp",
+    "model.language_model.layers.25.mlp",
+    "model.language_model.layers.26.mlp",
+    "model.language_model.layers.27.mlp",
+    "model.language_model.layers.28.mlp",
+    "model.language_model.layers.29.mlp",
+    "model.language_model.layers.30.mlp",
+    "model.language_model.layers.31.mlp",
+    "model.language_model.layers.32.mlp",
+    "model.language_model.layers.33.mlp",
+    "model.language_model.layers.34.mlp",
+    "model.language_model.layers.35.mlp",
+    "model.language_model.layers.36.mlp",
+    "model.language_model.layers.37.mlp",
+    "model.language_model.layers.38.mlp",
+    "model.language_model.layers.39.mlp",
+    "model.language_model.layers.40.mlp",
+    "model.language_model.layers.41.mlp"
+  ],
+  "configuration": {
+    "answer_weight": 1.0,
+    "attn_implementation": "sdpa",
+    "delta_mem_config": {
+      "alpha": 64,
+      "base_slice_ref_width": 8,
+      "beta_bias_init": 0.0,
+      "couple_lambda": true,
+      "delta_heads": [
+        "q",
+        "o"
+      ],
+      "delta_o_rmsnorm": false,
+      "delta_o_rmsnorm_eps": 1e-06,
+      "delta_scale_granularity": "head",
+      "delta_scale_init": 0.1,
+      "delta_scale_max": 0.5,
+      "delta_scale_parameterization": "alpha_over_rank",
+      "global_memory_gate_bias_init": -2.0,
+      "global_memory_merge_mode": "gated_residual",
+      "global_memory_mode": "shared_rw",
+      "global_memory_read_logit_bias": 0.0,
+      "global_memory_read_top_k": 0,
+      "latent_gate_init": 0.01,
+      "latent_memory_hidden_size": 1024,
+      "latent_memory_init_std": 0.002,
+      "latent_memory_layers": [],
+      "latent_memory_residual_scale": 0.1,
+      "latent_memory_slots": 4,
+      "memory_backend": "rwkv_ms",
+      "memory_fusion_gate_init": 0.1,
+      "memory_fusion_mode": "add",
+      "memory_fusion_placement": "attention_output",
+      "memory_fusion_residual_scale": 1.0,
+      "memory_fusion_residual_scale_max": 1.0,
+      "memory_partition_basis": "shared",
+      "memory_partition_read_mode": "softmax",
+      "memory_partition_routing": "soft",
+      "memory_partition_sigmoid_gate_bias_init": -2.0,
+      "memory_reader_hidden_size": 1024,
+      "memory_reader_layers": [],
+      "memory_reader_read_only": true,
+      "memory_reader_residual_scale": 0.1,
+      "memory_readout_mode": "projected_kv_slots",
+      "memory_write_granularity": "token",
+      "memory_write_proposals_per_message": 2,
+      "memory_write_source": "learned_hidden",
+      "normalize_qk": true,
+      "num_global_memory_partitions": 0,
+      "num_memory_partitions": 1,
+      "num_state_heads": 1,
+      "online_gain": 0.2,
+      "output_init": "base_slice_fixed",
+      "projected_kv_key_dim": 64,
+      "projected_kv_temperature": 16.0,
+      "projected_kv_update_cosine_threshold": 1.0,
+      "rank": 32,
+      "rankwise_gates": true,
+      "rwkv_ms_boundary_mode": "fixed_chunk",
+      "rwkv_ms_chunk_size": 128,
+      "rwkv_ms_erase_gate": 1.0,
+      "rwkv_ms_mask_empty_slots": false,
+      "rwkv_ms_num_states": 4,
+      "rwkv_ms_output_init_scale": 0.02,
+      "rwkv_ms_read_top_k": 0,
+      "rwkv_ms_semantics_version": 2,
+      "rwkv_ms_write_mode": "recurrent",
+      "slot_read_top_k": 0,
+      "state_update_mode": "standard",
+      "synthetic_memory_slots": 1,
+      "target_layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "target_modules": [
+        "self_attn"
+      ],
+      "tie_memory_partition_read_write": false,
+      "trainable_delta_scale": true
+    },
+    "distributed_training_target": {
+      "answer_loss_normalization": "local answer-token sum divided by the all-reduced global answer-token count before gradient summation",
+      "complete_epoch_schedule": true,
+      "complete_epochs": 8,
+      "global_batch_size": 16,
+      "gradient_synchronization": "sum trainable gradients across ranks before global clipping and identical AdamW steps",
+      "local_batch_size": 4,
+      "online_memory_state": "rank-local and never reduced",
+      "optimizer_updates": 960,
+      "replication": "one raw full-model replica per rank",
+      "route_loss_normalization": "local route-loss sum divided by the all-reduced global row count before gradient summation",
+      "unique_training_rows": 1920,
+      "world_size": 4
+    },
+    "dtype": "bfloat16",
+    "hard_negative_margin": 0.0,
+    "hard_negative_weight": 0.0,
+    "key_dim": 64,
+    "learning_rate": 0.0002,
+    "max_grad_norm": 1.0,
+    "optimizer": "torch.optim.AdamW",
+    "optimizer_fused": true,
+    "profile": "development",
+    "profile_batch_role": "required",
+    "profile_optimizer_steps": 3,
+    "profile_stress_sequence": [
+      {
+        "current_batch": "activation_max",
+        "phase": "cold_activation_stress_optimizer_step",
+        "router_gradient_audit": true
+      },
+      {
+        "current_batch": "answer_logit_max",
+        "phase": "activation_to_answer_logit_rollover_optimizer_step",
+        "router_gradient_audit": true
+      },
+      {
+        "current_batch": "activation_max",
+        "phase": "answer_logit_to_activation_rollover_optimizer_step",
+        "router_gradient_audit": false
+      }
+    ],
+    "profiled_local_batch_size": 4,
+    "rank": 32,
+    "route_weight": 1.0,
+    "target_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41
+    ],
+    "temperature": 16.0,
+    "training_conditions": [
+      "correct_state",
+      "donor_state",
+      "value_swap",
+      "target_slot_rewrite",
+      "shuffled_slots"
+    ],
+    "training_dataset_contract": {
+      "complete_epochs": 8,
+      "global_batch_size": 16,
+      "optimizer_updates": 960,
+      "row_id_policy": "source query ID plus an explicit positive-condition suffix; evaluation IDs remain source query IDs for cross-condition causal pairing",
+      "rows_per_condition_task": {
+        "correct_state": {
+          "attribution": 128,
+          "narrative": 128,
+          "scene": 128
+        },
+        "donor_state": {
+          "attribution": 128,
+          "narrative": 128,
+          "scene": 128
+        },
+        "shuffled_slots": {
+          "attribution": 128,
+          "narrative": 128,
+          "scene": 128
+        },
+        "target_slot_rewrite": {
+          "attribution": 128,
+          "narrative": 128,
+          "scene": 128
+        },
+        "value_swap": {
+          "attribution": 128,
+          "narrative": 128,
+          "scene": 128
+        }
+      },
+      "sampling_policy": "exactly balanced condition-task strata, shuffled over complete epochs; every source query is supervised once under every selected positive condition per epoch",
+      "schema": "rwkv_ms_natural_memory_training_dataset_audit.v1",
+      "source_query_condition_families": 384,
+      "tasks": [
+        "attribution",
+        "narrative",
+        "scene"
+      ],
+      "training_conditions": [
+        "correct_state",
+        "donor_state",
+        "value_swap",
+        "target_slot_rewrite",
+        "shuffled_slots"
+      ],
+      "unique_training_rows": 1920
+    },
+    "weight_decay": 0.0
+  },
+  "delta_api_file_sha256": "c2046cac168c4887a6e9dad6d867e343b513b093dd7aa29c3fd652faac36e326",
+  "delta_impl_file_sha256": "707490b5522d64aa7bb6e1646b66eb0b189c5887f7b69c34111e42f3d9a4a583",
+  "device": {
+    "capability": [
+      8,
+      0
+    ],
+    "index": 0,
+    "name": "NVIDIA A100-PCIE-40GB",
+    "reported_total_memory_bytes": 42406903808,
+    "requested": "cuda:0",
+    "torch_cuda_version": "12.8",
+    "torch_version": "2.6.0+cu128"
+  },
+  "execution_gate": {
+    "completed_optimizer_steps": 3,
+    "error": null,
+    "passed": true,
+    "phase_completion": {
+      "activation_to_answer_logit_rollover_optimizer_step": true,
+      "answer_logit_to_activation_rollover_optimizer_step": true,
+      "cold_activation_stress_optimizer_step": true
+    },
+    "required_optimizer_steps": 3
+  },
+  "gate_passed": false,
+  "hf_endpoint": "https://hf-mirror.com",
+  "memory_gate": {
+    "device_free_before_load_bytes": 41963356160,
+    "device_total_bytes": 42406903808,
+    "environment_adjusted_reserved_headroom_bytes": 110493696,
+    "headroom_definition": "minimum of total-minus-process-peak-reserved, initial-free-minus-incremental-process-peak-reserved, and observed post-phase free",
+    "headroom_passed": false,
+    "initial_process_reserved_bytes": 0,
+    "isolated_reserved_headroom_bytes": 554041344,
+    "minimum_observed_free_after_phase_bytes": 513146880,
+    "minimum_required_headroom_bytes": 5368709120,
+    "peak_allocated_bytes": 40628089856,
+    "peak_reserved_bytes": 41852862464,
+    "post_peak_reserved_memory_headroom_bytes": 110493696
+  },
+  "model_binding_sha256": "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66",
+  "model_files_after": {
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/chat_template.jinja": {
+      "bytes": 17336,
+      "sha256": "2f1b4d75d067bae3fe44e676721c7f077d243bc007156cb9c2f8b5836613d082"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/config.json": {
+      "bytes": 5145,
+      "sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/generation_config.json": {
+      "bytes": 208,
+      "sha256": "d4226bbe3117d2d253ba4609720ba82c6c4ce4627a9a6ae05387c78983ac03de"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/model.safetensors": {
+      "bytes": 15992595884,
+      "sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/tokenizer.json": {
+      "bytes": 32169626,
+      "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/tokenizer_config.json": {
+      "bytes": 2095,
+      "sha256": "90c3a3ba5bf53818383a58e1a776cbcacd2a038d4812eaa373e1522f2d06f3df"
+    }
+  },
+  "model_files_before": {
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/chat_template.jinja": {
+      "bytes": 17336,
+      "sha256": "2f1b4d75d067bae3fe44e676721c7f077d243bc007156cb9c2f8b5836613d082"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/config.json": {
+      "bytes": 5145,
+      "sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/generation_config.json": {
+      "bytes": 208,
+      "sha256": "d4226bbe3117d2d253ba4609720ba82c6c4ce4627a9a6ae05387c78983ac03de"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/model.safetensors": {
+      "bytes": 15992595884,
+      "sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/tokenizer.json": {
+      "bytes": 32169626,
+      "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+    },
+    "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58/tokenizer_config.json": {
+      "bytes": 2095,
+      "sha256": "90c3a3ba5bf53818383a58e1a776cbcacd2a038d4812eaa373e1522f2d06f3df"
+    }
+  },
+  "model_path": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "natural_runner_file_sha256": "bbf19c235b84f75a88fb8b7c7efc9c64535a4d950c826201d8e02d24c79d937b",
+  "phases": {
+    "activation_to_answer_logit_rollover_optimizer_step": {
+      "after": {
+        "allocated_bytes": 16364377088,
+        "free_bytes": 18900975616,
+        "reserved_bytes": 22953328640,
+        "total_bytes": 42406903808
+      },
+      "before": {
+        "allocated_bytes": 16276196352,
+        "free_bytes": 25255346176,
+        "reserved_bytes": 16598958080,
+        "total_bytes": 42406903808
+      },
+      "elapsed_seconds": 3.3346876449650154,
+      "includes_first_step_router_gradient_audit": true,
+      "peak_allocated_bytes": 22397728256,
+      "peak_reserved_bytes": 22953328640,
+      "status": "passed",
+      "step": {
+        "answer_logit_dtype": "torch.bfloat16",
+        "answer_logit_shape": [
+          4,
+          68,
+          262144
+        ],
+        "answer_loss": 3.9016849994659424,
+        "answer_predictor_positions": 68,
+        "forced_write_route_match_count": 672,
+        "forced_write_route_total": 672,
+        "full_occupancy_count": 168,
+        "full_occupancy_total": 168,
+        "gradient_norm": 2.5323381423950195,
+        "route_correct": 166,
+        "route_loss": 0.7045006155967712,
+        "route_total": 168,
+        "router_gradient_audit": {
+          "all_modules_finite_nonzero": true,
+          "finite_nonzero_modules": 42,
+          "modules": 42,
+          "records": [
+            {
+              "finite_nonzero": true,
+              "layer": 0,
+              "module": "model.language_model.layers.0.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3729894161224365
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 1,
+              "module": "model.language_model.layers.1.self_attn",
+              "projected_kv_key_route_grad_norm": 0.09148630499839783
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 2,
+              "module": "model.language_model.layers.2.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3823690414428711
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 3,
+              "module": "model.language_model.layers.3.self_attn",
+              "projected_kv_key_route_grad_norm": 0.4243340492248535
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 4,
+              "module": "model.language_model.layers.4.self_attn",
+              "projected_kv_key_route_grad_norm": 0.27136945724487305
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 5,
+              "module": "model.language_model.layers.5.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3642524182796478
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 6,
+              "module": "model.language_model.layers.6.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3492506742477417
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 7,
+              "module": "model.language_model.layers.7.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3246752917766571
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 8,
+              "module": "model.language_model.layers.8.self_attn",
+              "projected_kv_key_route_grad_norm": 0.30968743562698364
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 9,
+              "module": "model.language_model.layers.9.self_attn",
+              "projected_kv_key_route_grad_norm": 0.23726409673690796
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 10,
+              "module": "model.language_model.layers.10.self_attn",
+              "projected_kv_key_route_grad_norm": 0.20730774104595184
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 11,
+              "module": "model.language_model.layers.11.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3235523998737335
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 12,
+              "module": "model.language_model.layers.12.self_attn",
+              "projected_kv_key_route_grad_norm": 0.38498514890670776
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 13,
+              "module": "model.language_model.layers.13.self_attn",
+              "projected_kv_key_route_grad_norm": 0.27257201075553894
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 14,
+              "module": "model.language_model.layers.14.self_attn",
+              "projected_kv_key_route_grad_norm": 0.0701179951429367
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 15,
+              "module": "model.language_model.layers.15.self_attn",
+              "projected_kv_key_route_grad_norm": 0.1708032786846161
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 16,
+              "module": "model.language_model.layers.16.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3240131735801697
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 17,
+              "module": "model.language_model.layers.17.self_attn",
+              "projected_kv_key_route_grad_norm": 0.31698715686798096
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 18,
+              "module": "model.language_model.layers.18.self_attn",
+              "projected_kv_key_route_grad_norm": 0.28291720151901245
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 19,
+              "module": "model.language_model.layers.19.self_attn",
+              "projected_kv_key_route_grad_norm": 0.26284554600715637
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 20,
+              "module": "model.language_model.layers.20.self_attn",
+              "projected_kv_key_route_grad_norm": 0.17995159327983856
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 21,
+              "module": "model.language_model.layers.21.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3297370374202728
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 22,
+              "module": "model.language_model.layers.22.self_attn",
+              "projected_kv_key_route_grad_norm": 0.31437811255455017
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 23,
+              "module": "model.language_model.layers.23.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2469928115606308
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 24,
+              "module": "model.language_model.layers.24.self_attn",
+              "projected_kv_key_route_grad_norm": 0.41533780097961426
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 25,
+              "module": "model.language_model.layers.25.self_attn",
+              "projected_kv_key_route_grad_norm": 0.37547633051872253
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 26,
+              "module": "model.language_model.layers.26.self_attn",
+              "projected_kv_key_route_grad_norm": 0.24210701882839203
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 27,
+              "module": "model.language_model.layers.27.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3240808844566345
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 28,
+              "module": "model.language_model.layers.28.self_attn",
+              "projected_kv_key_route_grad_norm": 0.27536362409591675
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 29,
+              "module": "model.language_model.layers.29.self_attn",
+              "projected_kv_key_route_grad_norm": 0.44355878233909607
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 30,
+              "module": "model.language_model.layers.30.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2641678750514984
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 31,
+              "module": "model.language_model.layers.31.self_attn",
+              "projected_kv_key_route_grad_norm": 0.32419735193252563
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 32,
+              "module": "model.language_model.layers.32.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3227829933166504
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 33,
+              "module": "model.language_model.layers.33.self_attn",
+              "projected_kv_key_route_grad_norm": 0.4175887405872345
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 34,
+              "module": "model.language_model.layers.34.self_attn",
+              "projected_kv_key_route_grad_norm": 0.25545018911361694
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 35,
+              "module": "model.language_model.layers.35.self_attn",
+              "projected_kv_key_route_grad_norm": 0.17591890692710876
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 36,
+              "module": "model.language_model.layers.36.self_attn",
+              "projected_kv_key_route_grad_norm": 0.33524513244628906
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 37,
+              "module": "model.language_model.layers.37.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3448740541934967
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 38,
+              "module": "model.language_model.layers.38.self_attn",
+              "projected_kv_key_route_grad_norm": 0.1843072772026062
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 39,
+              "module": "model.language_model.layers.39.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2407686710357666
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 40,
+              "module": "model.language_model.layers.40.self_attn",
+              "projected_kv_key_route_grad_norm": 0.03399146348237991
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 41,
+              "module": "model.language_model.layers.41.self_attn",
+              "projected_kv_key_route_grad_norm": 0.014056687243282795
+            }
+          ]
+        },
+        "rows": 4,
+        "total_loss": 4.606185436248779
+      }
+    },
+    "answer_logit_to_activation_rollover_optimizer_step": {
+      "after": {
+        "allocated_bytes": 16276296704,
+        "free_bytes": 513146880,
+        "reserved_bytes": 41341157376,
+        "total_bytes": 42406903808
+      },
+      "before": {
+        "allocated_bytes": 16363930624,
+        "free_bytes": 18900975616,
+        "reserved_bytes": 22953328640,
+        "total_bytes": 42406903808
+      },
+      "elapsed_seconds": 4.289143093978055,
+      "includes_first_step_router_gradient_audit": false,
+      "peak_allocated_bytes": 40388715008,
+      "peak_reserved_bytes": 41850765312,
+      "status": "passed",
+      "step": {
+        "answer_logit_dtype": "torch.bfloat16",
+        "answer_logit_shape": [
+          4,
+          26,
+          262144
+        ],
+        "answer_loss": 3.774052858352661,
+        "answer_predictor_positions": 26,
+        "forced_write_route_match_count": 672,
+        "forced_write_route_total": 672,
+        "full_occupancy_count": 168,
+        "full_occupancy_total": 168,
+        "gradient_norm": 3.2320127487182617,
+        "route_correct": 168,
+        "route_loss": 0.1674724966287613,
+        "route_total": 168,
+        "router_gradient_audit": null,
+        "rows": 4,
+        "total_loss": 3.941525459289551
+      }
+    },
+    "cold_activation_stress_optimizer_step": {
+      "after": {
+        "allocated_bytes": 16276196352,
+        "free_bytes": 25255346176,
+        "reserved_bytes": 16598958080,
+        "total_bytes": 42406903808
+      },
+      "before": {
+        "allocated_bytes": 15998977536,
+        "free_bytes": 25865617408,
+        "reserved_bytes": 16018046976,
+        "total_bytes": 42406903808
+      },
+      "elapsed_seconds": 6.09242853091564,
+      "includes_first_step_router_gradient_audit": true,
+      "peak_allocated_bytes": 40628089856,
+      "peak_reserved_bytes": 41852862464,
+      "status": "passed",
+      "step": {
+        "answer_logit_dtype": "torch.bfloat16",
+        "answer_logit_shape": [
+          4,
+          26,
+          262144
+        ],
+        "answer_loss": 4.399601936340332,
+        "answer_predictor_positions": 26,
+        "forced_write_route_match_count": 672,
+        "forced_write_route_total": 672,
+        "full_occupancy_count": 168,
+        "full_occupancy_total": 168,
+        "gradient_norm": 3.746737480163574,
+        "route_correct": 168,
+        "route_loss": 0.6775680184364319,
+        "route_total": 168,
+        "router_gradient_audit": {
+          "all_modules_finite_nonzero": true,
+          "finite_nonzero_modules": 42,
+          "modules": 42,
+          "records": [
+            {
+              "finite_nonzero": true,
+              "layer": 0,
+              "module": "model.language_model.layers.0.self_attn",
+              "projected_kv_key_route_grad_norm": 0.1552373170852661
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 1,
+              "module": "model.language_model.layers.1.self_attn",
+              "projected_kv_key_route_grad_norm": 0.0834566056728363
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 2,
+              "module": "model.language_model.layers.2.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2662281095981598
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 3,
+              "module": "model.language_model.layers.3.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3041289746761322
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 4,
+              "module": "model.language_model.layers.4.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2703021764755249
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 5,
+              "module": "model.language_model.layers.5.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3206001818180084
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 6,
+              "module": "model.language_model.layers.6.self_attn",
+              "projected_kv_key_route_grad_norm": 0.22094932198524475
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 7,
+              "module": "model.language_model.layers.7.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2683696448802948
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 8,
+              "module": "model.language_model.layers.8.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3025742769241333
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 9,
+              "module": "model.language_model.layers.9.self_attn",
+              "projected_kv_key_route_grad_norm": 0.29334956407546997
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 10,
+              "module": "model.language_model.layers.10.self_attn",
+              "projected_kv_key_route_grad_norm": 0.22059133648872375
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 11,
+              "module": "model.language_model.layers.11.self_attn",
+              "projected_kv_key_route_grad_norm": 0.27884966135025024
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 12,
+              "module": "model.language_model.layers.12.self_attn",
+              "projected_kv_key_route_grad_norm": 0.274168998003006
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 13,
+              "module": "model.language_model.layers.13.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2440529763698578
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 14,
+              "module": "model.language_model.layers.14.self_attn",
+              "projected_kv_key_route_grad_norm": 0.16223514080047607
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 15,
+              "module": "model.language_model.layers.15.self_attn",
+              "projected_kv_key_route_grad_norm": 0.1257273405790329
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 16,
+              "module": "model.language_model.layers.16.self_attn",
+              "projected_kv_key_route_grad_norm": 0.30307286977767944
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 17,
+              "module": "model.language_model.layers.17.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3086180090904236
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 18,
+              "module": "model.language_model.layers.18.self_attn",
+              "projected_kv_key_route_grad_norm": 0.25637438893318176
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 19,
+              "module": "model.language_model.layers.19.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2432383894920349
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 20,
+              "module": "model.language_model.layers.20.self_attn",
+              "projected_kv_key_route_grad_norm": 0.1937975436449051
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 21,
+              "module": "model.language_model.layers.21.self_attn",
+              "projected_kv_key_route_grad_norm": 0.28168267011642456
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 22,
+              "module": "model.language_model.layers.22.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2606927156448364
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 23,
+              "module": "model.language_model.layers.23.self_attn",
+              "projected_kv_key_route_grad_norm": 0.26418885588645935
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 24,
+              "module": "model.language_model.layers.24.self_attn",
+              "projected_kv_key_route_grad_norm": 0.33192044496536255
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 25,
+              "module": "model.language_model.layers.25.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3089873194694519
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 26,
+              "module": "model.language_model.layers.26.self_attn",
+              "projected_kv_key_route_grad_norm": 0.26580339670181274
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 27,
+              "module": "model.language_model.layers.27.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3378450572490692
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 28,
+              "module": "model.language_model.layers.28.self_attn",
+              "projected_kv_key_route_grad_norm": 0.27479949593544006
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 29,
+              "module": "model.language_model.layers.29.self_attn",
+              "projected_kv_key_route_grad_norm": 0.346445232629776
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 30,
+              "module": "model.language_model.layers.30.self_attn",
+              "projected_kv_key_route_grad_norm": 0.23746290802955627
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 31,
+              "module": "model.language_model.layers.31.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2877962291240692
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 32,
+              "module": "model.language_model.layers.32.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3064129650592804
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 33,
+              "module": "model.language_model.layers.33.self_attn",
+              "projected_kv_key_route_grad_norm": 0.3276951313018799
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 34,
+              "module": "model.language_model.layers.34.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2171451598405838
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 35,
+              "module": "model.language_model.layers.35.self_attn",
+              "projected_kv_key_route_grad_norm": 0.1941308081150055
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 36,
+              "module": "model.language_model.layers.36.self_attn",
+              "projected_kv_key_route_grad_norm": 0.29170873761177063
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 37,
+              "module": "model.language_model.layers.37.self_attn",
+              "projected_kv_key_route_grad_norm": 0.27854448556900024
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 38,
+              "module": "model.language_model.layers.38.self_attn",
+              "projected_kv_key_route_grad_norm": 0.2041134089231491
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 39,
+              "module": "model.language_model.layers.39.self_attn",
+              "projected_kv_key_route_grad_norm": 0.25122737884521484
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 40,
+              "module": "model.language_model.layers.40.self_attn",
+              "projected_kv_key_route_grad_norm": 0.056217219680547714
+            },
+            {
+              "finite_nonzero": true,
+              "layer": 41,
+              "module": "model.language_model.layers.41.self_attn",
+              "projected_kv_key_route_grad_norm": 0.025980979204177856
+            }
+          ]
+        },
+        "rows": 4,
+        "total_loss": 5.077169895172119
+      }
+    },
+    "fresh_model_load": {
+      "after": {
+        "allocated_bytes": 15998977536,
+        "free_bytes": 25865617408,
+        "reserved_bytes": 16018046976,
+        "total_bytes": 42406903808
+      },
+      "before": {
+        "allocated_bytes": 0,
+        "free_bytes": 41963356160,
+        "reserved_bytes": 0,
+        "total_bytes": 42406903808
+      },
+      "elapsed_seconds": 8.988159463042393,
+      "peak_allocated_bytes": 15999120896,
+      "peak_reserved_bytes": 16018046976,
+      "status": "passed"
+    }
+  },
+  "pid": 1420996,
+  "profiler_file_sha256": "caef5035b55d1e9207b84f3c2112818f8ec1f08d23bc69c48a1f554f216d2489",
+  "replaced_layers": [
+    "model.language_model.layers.0.self_attn",
+    "model.language_model.layers.1.self_attn",
+    "model.language_model.layers.2.self_attn",
+    "model.language_model.layers.3.self_attn",
+    "model.language_model.layers.4.self_attn",
+    "model.language_model.layers.5.self_attn",
+    "model.language_model.layers.6.self_attn",
+    "model.language_model.layers.7.self_attn",
+    "model.language_model.layers.8.self_attn",
+    "model.language_model.layers.9.self_attn",
+    "model.language_model.layers.10.self_attn",
+    "model.language_model.layers.11.self_attn",
+    "model.language_model.layers.12.self_attn",
+    "model.language_model.layers.13.self_attn",
+    "model.language_model.layers.14.self_attn",
+    "model.language_model.layers.15.self_attn",
+    "model.language_model.layers.16.self_attn",
+    "model.language_model.layers.17.self_attn",
+    "model.language_model.layers.18.self_attn",
+    "model.language_model.layers.19.self_attn",
+    "model.language_model.layers.20.self_attn",
+    "model.language_model.layers.21.self_attn",
+    "model.language_model.layers.22.self_attn",
+    "model.language_model.layers.23.self_attn",
+    "model.language_model.layers.24.self_attn",
+    "model.language_model.layers.25.self_attn",
+    "model.language_model.layers.26.self_attn",
+    "model.language_model.layers.27.self_attn",
+    "model.language_model.layers.28.self_attn",
+    "model.language_model.layers.29.self_attn",
+    "model.language_model.layers.30.self_attn",
+    "model.language_model.layers.31.self_attn",
+    "model.language_model.layers.32.self_attn",
+    "model.language_model.layers.33.self_attn",
+    "model.language_model.layers.34.self_attn",
+    "model.language_model.layers.35.self_attn",
+    "model.language_model.layers.36.self_attn",
+    "model.language_model.layers.37.self_attn",
+    "model.language_model.layers.38.self_attn",
+    "model.language_model.layers.39.self_attn",
+    "model.language_model.layers.40.self_attn",
+    "model.language_model.layers.41.self_attn"
+  ],
+  "schema": "rwkv_ms_natural_memory_gate_cuda_profile_worker.v3",
+  "selection_policy": {
+    "activation_stress": "exactly maximize total batch-padded token positions across the four write invocations and one read invocation",
+    "answer_logit_stress": "exactly maximize the union of supervised causal answer-predictor positions projected through the vocabulary head"
+  },
+  "shared_runtime_file_sha256": "d848b9bc8ae9e85b694b4b2f59faa78886d8fe5ccebf12214f4114d591ca1aa6",
+  "source_files_after": {
+    "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r8_development_split20260817_seed49/development.jsonl": {
+      "bytes": 6809215,
+      "sha256": "13a0bc9a791e6f3a3248f68c0289d5ab0778ebe6f7daaa68cadf1f68bd916df3"
+    },
+    "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r8_development_split20260817_seed49/manifest.json": {
+      "bytes": 53688,
+      "sha256": "5c67c007d96a9bd8782f2f99b8a2f6995cc27b62c8aa0190b351897f8dac3d0a"
+    },
+    "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r8_development_split20260817_seed49/train.jsonl": {
+      "bytes": 6646959,
+      "sha256": "9e797e4341fd45a3af205349140d8555c3a4e8b8a0f7e572f1b121ddb6ef3720"
+    }
+  },
+  "source_files_before": {
+    "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r8_development_split20260817_seed49/development.jsonl": {
+      "bytes": 6809215,
+      "sha256": "13a0bc9a791e6f3a3248f68c0289d5ab0778ebe6f7daaa68cadf1f68bd916df3"
+    },
+    "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r8_development_split20260817_seed49/manifest.json": {
+      "bytes": 53688,
+      "sha256": "5c67c007d96a9bd8782f2f99b8a2f6995cc27b62c8aa0190b351897f8dac3d0a"
+    },
+    "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r8_development_split20260817_seed49/train.jsonl": {
+      "bytes": 6646959,
+      "sha256": "9e797e4341fd45a3af205349140d8555c3a4e8b8a0f7e572f1b121ddb6ef3720"
+    }
+  },
+  "source_manifest_file_sha256": "5c67c007d96a9bd8782f2f99b8a2f6995cc27b62c8aa0190b351897f8dac3d0a",
+  "source_manifest_path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r8_development_split20260817_seed49/manifest.json",
+  "source_manifest_payload_sha256": "79e053c59443f89f29e6c91d4c737ee41f074e410d54d4d04d84033f6528c369",
+  "status": "failed",
+  "trainable_audit": {
+    "actual_trainable_names_sha256": "42adfc8b7949d66882e37636d79c05e4fadd7e860c0f01289be0266084e83297",
+    "actual_trainable_parameter_tensors": 1176,
+    "allowed_trainable_names_sha256": "42adfc8b7949d66882e37636d79c05e4fadd7e860c0f01289be0266084e83297",
+    "allowed_trainable_parameter_tensors": 1176,
+    "expected_trainable_names_sha256": "42adfc8b7949d66882e37636d79c05e4fadd7e860c0f01289be0266084e83297",
+    "expected_trainable_parameter_tensors": 1176,
+    "nonempty_trainable_set": true,
+    "only_delta_mem_parameters_trainable": true,
+    "passed": true,
+    "trainable_name_binding_passed": true
+  },
+  "training_dataset_audit": {
+    "answer_tokens_per_condition_task": {
+      "correct_state": {
+        "attribution": 1598,
+        "narrative": 1980,
+        "scene": 576
+      },
+      "donor_state": {
+        "attribution": 1606,
+        "narrative": 1992,
+        "scene": 576
+      },
+      "shuffled_slots": {
+        "attribution": 1598,
+        "narrative": 1980,
+        "scene": 576
+      },
+      "target_slot_rewrite": {
+        "attribution": 1602,
+        "narrative": 2011,
+        "scene": 576
+      },
+      "value_swap": {
+        "attribution": 1602,
+        "narrative": 1980,
+        "scene": 576
+      }
+    },
+    "complete_source_query_condition_families": 384,
+    "condition_set_exact": true,
+    "condition_task_strata_balanced": true,
+    "condition_task_strata_exact": true,
+    "family_invariant_failure_count": 0,
+    "family_invariant_policy": "condition variants of one source query retain source split, episode, task, semantic target, mapping offset, and encoded query prefix",
+    "family_invariants_passed": true,
+    "ordered_training_examples_sha256": "60240c3bfa9a57d762004c1f8249128fbdda1dbe24faa895478450b076d7361f",
+    "paired_condition_coverage": true,
+    "passed": true,
+    "payload_digest_policy": "canonical SHA-256 over every ordered encoded training-example field used by the write, read, routing, and answer objectives",
+    "production_contract_checks": {
+      "dataset": true,
+      "schedule": true
+    },
+    "production_contract_passed": true,
+    "production_dataset_contract_checks": {
+      "audit.answer_token_counts_valid": true,
+      "audit.condition_set_exact": true,
+      "audit.condition_task_strata_balanced": true,
+      "audit.condition_task_strata_exact": true,
+      "audit.conditions_valid": true,
+      "audit.family_invariant_policy": true,
+      "audit.family_invariants_passed": true,
+      "audit.ordered_training_examples_sha256": true,
+      "audit.paired_condition_coverage": true,
+      "audit.passed": true,
+      "audit.payload_digest_policy": true,
+      "audit.row_id_policy": true,
+      "audit.row_id_policy_passed": true,
+      "audit.rows_by_condition_consistent": true,
+      "audit.rows_by_task_consistent": true,
+      "audit.rows_total_consistent": true,
+      "audit.rows_valid": true,
+      "audit.sampling_policy": true,
+      "audit.schema": true,
+      "audit.tasks_valid": true,
+      "audit.training_row_id_set_sha256": true,
+      "audit.unique_row_ids": true,
+      "audit_passed": true,
+      "complete_source_query_families_exact": true,
+      "conditions_exact": true,
+      "rows_exact": true,
+      "rows_per_condition_task_exact": true,
+      "source_query_families_exact": true,
+      "tasks_exact": true
+    },
+    "production_dataset_contract_passed": true,
+    "row_id_policy": "source query ID plus an explicit positive-condition suffix; evaluation IDs remain source query IDs for cross-condition causal pairing",
+    "row_id_policy_passed": true,
+    "rows": 1920,
+    "rows_by_condition": {
+      "correct_state": 384,
+      "donor_state": 384,
+      "shuffled_slots": 384,
+      "target_slot_rewrite": 384,
+      "value_swap": 384
+    },
+    "rows_by_task": {
+      "attribution": 640,
+      "narrative": 640,
+      "scene": 640
+    },
+    "rows_per_condition_task": {
+      "correct_state": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "donor_state": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "shuffled_slots": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "target_slot_rewrite": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "value_swap": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      }
+    },
+    "sampling_policy": "exactly balanced condition-task strata, shuffled over complete epochs; every source query is supervised once under every selected positive condition per epoch",
+    "schedule_contract": {
+      "complete_epoch_schedule_requested": true,
+      "complete_epoch_updates": 960,
+      "epochs": 8,
+      "global_batch_size": 16,
+      "requested_max_steps": 960,
+      "rows_divide_global_batch": true
+    },
+    "schedule_contract_checks": {
+      "complete_epoch_schedule_requested": true,
+      "complete_epoch_updates_exact": true,
+      "epochs_exact": true,
+      "global_batch_exact": true,
+      "requested_max_steps_exact": true,
+      "rows_divide_global_batch": true,
+      "schedule_mode": true
+    },
+    "schedule_contract_passed": true,
+    "schedule_mode": "complete",
+    "schema": "rwkv_ms_natural_memory_training_dataset_audit.v1",
+    "source_query_condition_families": 384,
+    "tasks": [
+      "attribution",
+      "narrative",
+      "scene"
+    ],
+    "training_conditions": [
+      "correct_state",
+      "donor_state",
+      "value_swap",
+      "target_slot_rewrite",
+      "shuffled_slots"
+    ],
+    "training_row_id_set_sha256": "16ccc012fbf2fa138884f703feaa52f61dbaa6af42be779c3a0b69128d6e80ff",
+    "unique_row_ids": true
+  },
+  "training_dataset_audit_sha256": "d47b03be4543622e9403ad5ba3c65ceeb2ef975e5daf65af04ebfe69db541276",
+  "training_examples_considered": 1920,
+  "training_row_id_set_sha256": "16ccc012fbf2fa138884f703feaa52f61dbaa6af42be779c3a0b69128d6e80ff",
+  "worker_receipt_sha256": "1ed51f304ca15f06643aef898e754203c639448e2cf75b46f5fb7bf1ff25058c"
+}
