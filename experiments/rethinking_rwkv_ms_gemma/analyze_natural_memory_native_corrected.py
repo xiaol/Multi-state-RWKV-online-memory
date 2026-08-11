@@ -6,7 +6,15 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 from typing import Any, Mapping, Sequence
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+for import_root in (SCRIPT_DIR, PROJECT_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 from experiments.rethinking_rwkv_ms_gemma import analyze_novel_agent_eval as recovery
 from experiments.rethinking_rwkv_ms_gemma import run_novel_agent_eval as evaluator
@@ -98,10 +106,13 @@ def analyze_evaluation_root(eval_root: Path) -> Mapping[str, Any]:
     total_rows = 0
     for task_name, task_kind in TASK_KINDS.items():
         task_dir = resolved_root / task_name
-        if not task_dir.is_dir():
-            continue
+        consolidated = not task_dir.is_dir()
+        if consolidated:
+            task_dir = resolved_root
         manifest_path = task_dir / "manifest.json"
         summary_path = task_dir / "summary.json"
+        if not manifest_path.is_file() or not summary_path.is_file():
+            continue
         manifest = _read_json(manifest_path)
         strict_summary = _read_json(summary_path)
         payload = manifest.get("fingerprint_payload")
@@ -110,7 +121,10 @@ def analyze_evaluation_root(eval_root: Path) -> Mapping[str, Any]:
         if payload.get("online_memory_protocol") != "write_then_read":
             raise ValueError(f"Task did not use write_then_read: {task_name}")
         datasets = payload.get("datasets")
-        if not isinstance(datasets, Mapping) or set(datasets) != {task_name}:
+        if not isinstance(datasets, Mapping) or (
+            task_name not in datasets
+            or (not consolidated and set(datasets) != {task_name})
+        ):
             raise ValueError(f"Task manifest dataset selection differs: {task_name}")
         dataset = datasets[task_name]
         if not isinstance(dataset, Mapping):
@@ -132,6 +146,8 @@ def analyze_evaluation_root(eval_root: Path) -> Mapping[str, Any]:
         recovered_predictions: dict[str, list[Any]] = {}
         for condition in ("base", "normal"):
             rows = _read_records(task_dir / f"{condition}.jsonl")
+            if consolidated:
+                rows = [row for row in rows if row.get("task") == task_name]
             rows_by_index = {int(row["line_index"]): row for row in rows}
             if set(rows_by_index) != set(range(row_count)):
                 raise ValueError(f"Incomplete {condition} rows for {task_name}")

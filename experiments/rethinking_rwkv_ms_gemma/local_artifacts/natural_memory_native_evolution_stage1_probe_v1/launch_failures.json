@@ -1,0 +1,30 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_probe_launch_failures.v1",
+  "created_at": "2026-08-12T07:47:42+08:00",
+  "source_commit": "a2f0790cb59b39a68a2906ff64d2ee2eb514e524",
+  "failures": [
+    {
+      "attempt": 1,
+      "phase": "dataset_resolution_before_model_load",
+      "exception_type": "FileNotFoundError",
+      "exception_message": "The implicit all-task selection required the unavailable legacy v3.2 scene development file.",
+      "resolution": "Select attribution-v3.2,narrative-v3.2,scene-v4-current explicitly.",
+      "generations_completed": 0
+    },
+    {
+      "attempt": 2,
+      "phase": "reference_resolution_before_model_load",
+      "exception_type": "FileNotFoundError",
+      "exception_message": "The reference path pointed at the parent of eval_compare_results.json.",
+      "resolution": "Use native_validation_reference_results/results.",
+      "generations_completed": 0
+    }
+  ],
+  "successful_attempt": 3,
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_launch_failures_without_receipt",
+    "payload_sha256": "1c3ab5dd3b6d26434afb90710128268ddc10bee24929847896c9646d74e35283"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_evolution_stage1_decision.v1",
+  "created_at": "2026-08-12T07:47:42+08:00",
+  "candidate": "natural_memory_native_evolution_stage1_v4",
+  "candidate_adapter_sha256": "da71d097c4e9edc7c84a0201672267774b273a6b2e1ac2521f97a1cd14634e57",
+  "training_result": {
+    "path": "../natural_memory_native_evolution_stage1_v4/result.json",
+    "receipt_payload_sha256": "1da5986b21b9e46b391e847adba4b0cabb0ed095836dd85644d3d0f22ccafc40"
+  },
+  "probe_result": {
+    "path": "result.json",
+    "file_sha256": "ae7ceb246b7ee3f4a3b9018077c57ca5ec2f802eae4faa48418d420af8ae7032",
+    "receipt_payload_sha256": "32685f4c7562fadf07cbdcd62efd47a511d8e406318bbe771923496c89dca37d"
+  },
+  "selection_scope": "publisher-TRAIN-derived development first four rows per task",
+  "rows": 12,
+  "metrics": {
+    "attribution-v3.2": {
+      "base": 0.5,
+      "memory": 0.5,
+      "memory_minus_base": 0.0,
+      "coverage": 1.0,
+      "raw_generation_disagreements": 4
+    },
+    "narrative-v3.2": {
+      "base": 0.6739130434782609,
+      "memory": 0.5942028985507246,
+      "memory_minus_base": -0.07971014492753625,
+      "coverage": 1.0,
+      "raw_generation_disagreements": 4
+    },
+    "scene-v4-current": {
+      "base": 0.5,
+      "memory": 0.15384615384615385,
+      "memory_minus_base": -0.34615384615384615,
+      "coverage": 1.0,
+      "raw_generation_disagreements": 4
+    }
+  },
+  "gates": {
+    "coverage_at_least_0.95_all_tasks": true,
+    "raw_generation_disagreement_at_least_one_each_task": true,
+    "no_regression_all_tasks": false,
+    "strict_improvement_at_least_two_tasks": false,
+    "strictly_improved_tasks": 0
+  },
+  "outcome": "stop_stage1_native_semantic_regression",
+  "full_572_row_development_evaluation_authorized": false,
+  "stage2_960_updates_authorized": false,
+  "interpretation": "Full-row CE solved strict native serialization but overrode useful base semantics on narrative and scene.",
+  "next_direction": {
+    "name": "base_preserving_residual_hybrid_fusion",
+    "warm_start": "exact_r12_adapter_weights_not_the_failed_stage1_adapter",
+    "memory_fusion_placement": "post_attention_residual_hybrid",
+    "memory_fusion_residual_gain_init": 0.01,
+    "memory_fusion_residual_gain_max": 0.02,
+    "purpose": "Bound direct memory influence while allowing normalized residual corrections to learn native formatting and semantics without replacing the base prediction wholesale."
+  },
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_decision_without_receipt",
+    "payload_sha256": "0feac65da8694e4c0b132332b8f8d5e0012096e468d85e6664a10362bb7dc238"
+  }
+}
