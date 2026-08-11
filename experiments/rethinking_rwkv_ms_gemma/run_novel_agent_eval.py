@@ -961,10 +961,33 @@ def generate_one(
         started_at = time.perf_counter()
         with torch.inference_mode():
             if online_memory_protocol == "write_then_read":
+                write_rendered = apply_chat_template(
+                    tokenizer,
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=False,
+                )
+                write_encoded = tokenizer(
+                    write_rendered,
+                    return_tensors="pt",
+                    add_special_tokens=False,
+                )
+                write_input_ids = write_encoded.input_ids.to(device)
+                write_attention_mask = write_encoded.attention_mask.to(device)
+                if (
+                    write_input_ids.size(1) > input_ids.size(1)
+                    or not torch.equal(
+                        write_input_ids,
+                        input_ids[:, : write_input_ids.size(1)],
+                    )
+                ):
+                    raise ValueError(
+                        "System/user write prompt is not a stable generation prefix"
+                    )
                 set_delta_write_enabled(model, True)
                 model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
+                    input_ids=write_input_ids,
+                    attention_mask=write_attention_mask,
                     use_cache=False,
                     return_dict=True,
                     logits_to_keep=1,

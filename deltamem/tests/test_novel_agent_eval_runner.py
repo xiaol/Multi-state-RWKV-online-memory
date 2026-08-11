@@ -849,14 +849,16 @@ def test_write_then_read_primes_prompt_before_read_only_generation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     events: list[tuple[str, object]] = []
+    template_calls: list[bool] = []
 
     class FakeTokenizer:
         pad_token_id = 0
 
-        def __call__(self, *_args, **_kwargs):
+        def __call__(self, rendered, **_kwargs):
+            token_ids = [3] if rendered == "write-prompt" else [3, 4]
             return SimpleNamespace(
-                input_ids=torch.tensor([[3, 4]], dtype=torch.long),
-                attention_mask=torch.tensor([[1, 1]], dtype=torch.long),
+                input_ids=torch.tensor([token_ids], dtype=torch.long),
+                attention_mask=torch.ones((1, len(token_ids)), dtype=torch.long),
             )
 
         def decode(self, token_ids, **_kwargs):
@@ -874,7 +876,12 @@ def test_write_then_read_primes_prompt_before_read_only_generation(
             events.append(("generate", kwargs))
             return torch.tensor([[3, 4, 9]], dtype=torch.long)
 
-    monkeypatch.setattr(evaluator, "apply_chat_template", lambda *_args, **_kwargs: "prompt")
+    def fake_apply_chat_template(*_args, **kwargs):
+        add_generation_prompt = kwargs["add_generation_prompt"]
+        template_calls.append(add_generation_prompt)
+        return "read-prompt" if add_generation_prompt else "write-prompt"
+
+    monkeypatch.setattr(evaluator, "apply_chat_template", fake_apply_chat_template)
     monkeypatch.setattr(
         evaluator,
         "reset_delta_state",
@@ -899,6 +906,7 @@ def test_write_then_read_primes_prompt_before_read_only_generation(
 
     assert result["raw_generation"] == "{}"
     assert result["online_memory_protocol"] == "write_then_read"
+    assert template_calls == [True, False]
     assert [event[0] for event in events] == [
         "reset",
         "write_enabled",
@@ -909,6 +917,7 @@ def test_write_then_read_primes_prompt_before_read_only_generation(
         "write_enabled",
     ]
     forward = events[2][1]
+    assert forward["input_ids"].tolist() == [[3]]
     assert forward["use_cache"] is False
     assert forward["logits_to_keep"] == 1
     assert events[3] == ("write_enabled", False)
