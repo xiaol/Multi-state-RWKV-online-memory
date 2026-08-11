@@ -1,0 +1,225 @@
+{
+  "answer_weight": 1.0,
+  "batch_size": 16,
+  "batch_size_semantics": "global_training_rows_per_optimizer_update",
+  "device": "cuda",
+  "dtype": "bfloat16",
+  "epochs": 8,
+  "eval_batch_size": 8,
+  "eval_limit": null,
+  "greedy_answer_evaluation": true,
+  "hard_negative_margin": 0.0,
+  "hard_negative_weight": 0.0,
+  "learning_rate": 0.0002,
+  "max_grad_norm": 1.0,
+  "max_steps": 960,
+  "profile": "development",
+  "replication_authorization": {
+    "amendment_file": "natural_memory_replication_protocol_v6_amendment_runner_authorization.json",
+    "amendment_file_sha256": "e11629fab5e164021595ccb4c0854de5324e98972b383a6374285239ea393efd",
+    "amendment_payload_sha256": "663344bc13c4bd8fd5f5bd1dcb7bf8ad79fe9b9dd5904d1c307e25514dfd78e5",
+    "protocol_file": "natural_memory_replication_protocol_v6.json",
+    "protocol_file_sha256": "a7244817adf1cdf439dfefea37610d1abdd0b4ecc3f118d4be349f5e018078b7",
+    "protocol_git_commit": "1bcc3e8a005418a645487b42d1045624fd2e3b0d",
+    "protocol_payload_sha256": "eb721bb583d7e601ffdffec61a8445d8e918cd85317133e95ded0c306554bae1",
+    "replication_id": "r13",
+    "runner_authorized_sha256": "af04d510de46a9580302080fcb52f93e95fbb16696ff7a14cf60545b6fedad26",
+    "runner_original_sha256": "5de6b363a6621c9ad960e491ae9575192bddb2165892b1705340e226b8d73fbf",
+    "schema": "rwkv_ms_natural_memory_replication_authorization.v1",
+    "scope": {
+      "classification": "infrastructure_only",
+      "data_changed": false,
+      "gate_changed": false,
+      "hyperparameters_changed": false,
+      "training_math_changed": false
+    },
+    "split_seed": 20260826,
+    "training_seed": 54
+  },
+  "route_weight": 1.0,
+  "schema": "rwkv_ms_natural_memory_gate_training_configuration.v3",
+  "seed": 54,
+  "thresholds": {
+    "answer_exact_min": 0.8,
+    "rewrite_output_change_min": 0.8,
+    "route_accuracy_min": 0.95
+  },
+  "train_limit": null,
+  "training_conditions": [
+    "correct_state",
+    "donor_state",
+    "value_swap",
+    "target_slot_rewrite",
+    "shuffled_slots"
+  ],
+  "training_dataset_audit": {
+    "answer_tokens_per_condition_task": {
+      "correct_state": {
+        "attribution": 1609,
+        "narrative": 1969,
+        "scene": 576
+      },
+      "donor_state": {
+        "attribution": 1600,
+        "narrative": 1994,
+        "scene": 576
+      },
+      "shuffled_slots": {
+        "attribution": 1609,
+        "narrative": 1969,
+        "scene": 576
+      },
+      "target_slot_rewrite": {
+        "attribution": 1607,
+        "narrative": 2018,
+        "scene": 576
+      },
+      "value_swap": {
+        "attribution": 1595,
+        "narrative": 1969,
+        "scene": 576
+      }
+    },
+    "complete_source_query_condition_families": 384,
+    "condition_set_exact": true,
+    "condition_task_strata_balanced": true,
+    "condition_task_strata_exact": true,
+    "family_invariant_failure_count": 0,
+    "family_invariant_policy": "condition variants of one source query retain source split, episode, task, semantic target, mapping offset, and encoded query prefix",
+    "family_invariants_passed": true,
+    "ordered_training_examples_sha256": "e1e18a689f9bd63457bf9ae1f70f43ddbaabb9579c20320f4fc54f51ed1f64cc",
+    "paired_condition_coverage": true,
+    "passed": true,
+    "payload_digest_policy": "canonical SHA-256 over every ordered encoded training-example field used by the write, read, routing, and answer objectives",
+    "production_contract_checks": {
+      "dataset": true,
+      "schedule": true
+    },
+    "production_contract_passed": true,
+    "production_dataset_contract_checks": {
+      "audit.answer_token_counts_valid": true,
+      "audit.condition_set_exact": true,
+      "audit.condition_task_strata_balanced": true,
+      "audit.condition_task_strata_exact": true,
+      "audit.conditions_valid": true,
+      "audit.family_invariant_policy": true,
+      "audit.family_invariants_passed": true,
+      "audit.ordered_training_examples_sha256": true,
+      "audit.paired_condition_coverage": true,
+      "audit.passed": true,
+      "audit.payload_digest_policy": true,
+      "audit.row_id_policy": true,
+      "audit.row_id_policy_passed": true,
+      "audit.rows_by_condition_consistent": true,
+      "audit.rows_by_task_consistent": true,
+      "audit.rows_total_consistent": true,
+      "audit.rows_valid": true,
+      "audit.sampling_policy": true,
+      "audit.schema": true,
+      "audit.tasks_valid": true,
+      "audit.training_row_id_set_sha256": true,
+      "audit.unique_row_ids": true,
+      "audit_passed": true,
+      "complete_source_query_families_exact": true,
+      "conditions_exact": true,
+      "rows_exact": true,
+      "rows_per_condition_task_exact": true,
+      "source_query_families_exact": true,
+      "tasks_exact": true
+    },
+    "production_dataset_contract_passed": true,
+    "row_id_policy": "source query ID plus an explicit positive-condition suffix; evaluation IDs remain source query IDs for cross-condition causal pairing",
+    "row_id_policy_passed": true,
+    "rows": 1920,
+    "rows_by_condition": {
+      "correct_state": 384,
+      "donor_state": 384,
+      "shuffled_slots": 384,
+      "target_slot_rewrite": 384,
+      "value_swap": 384
+    },
+    "rows_by_task": {
+      "attribution": 640,
+      "narrative": 640,
+      "scene": 640
+    },
+    "rows_per_condition_task": {
+      "correct_state": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "donor_state": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "shuffled_slots": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "target_slot_rewrite": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      },
+      "value_swap": {
+        "attribution": 128,
+        "narrative": 128,
+        "scene": 128
+      }
+    },
+    "sampling_policy": "exactly balanced condition-task strata over complete epochs; shuffle complete condition-episode four-query families, assigning one ordered q0-q3 family per rank so every optimizer update contains exactly four rows per semantic query slot; every source query is supervised once under every selected positive condition per epoch",
+    "schedule_contract": {
+      "complete_epoch_schedule_requested": true,
+      "complete_epoch_updates": 960,
+      "epochs": 8,
+      "global_batch_size": 16,
+      "requested_max_steps": 960,
+      "rows_divide_global_batch": true
+    },
+    "schedule_contract_checks": {
+      "complete_epoch_schedule_requested": true,
+      "complete_epoch_updates_exact": true,
+      "epochs_exact": true,
+      "global_batch_exact": true,
+      "requested_max_steps_exact": true,
+      "rows_divide_global_batch": true,
+      "schedule_mode": true
+    },
+    "schedule_contract_passed": true,
+    "schedule_mode": "complete",
+    "schema": "rwkv_ms_natural_memory_training_dataset_audit.v1",
+    "source_query_condition_families": 384,
+    "tasks": [
+      "attribution",
+      "narrative",
+      "scene"
+    ],
+    "training_conditions": [
+      "correct_state",
+      "donor_state",
+      "value_swap",
+      "target_slot_rewrite",
+      "shuffled_slots"
+    ],
+    "training_row_id_set_sha256": "5af54745e3a9d0f16e574c71392620d555ec7524b90affe8708d890d93c5d839",
+    "unique_row_ids": true
+  },
+  "training_topology": {
+    "answer_loss_normalization": "global_supervised_answer_token_count",
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "global_batch_size": 16,
+    "gradient_accumulation_steps": 2,
+    "gradient_clip_order": "after_sum_before_adamw",
+    "gradient_synchronization": "sum",
+    "local_batch_size": 4,
+    "local_microbatch_size": 2,
+    "mode": "raw_model_replicas_explicit_gradient_sum",
+    "online_memory_state": "rank_local_reset_after_each_microbatch_never_reduced",
+    "route_loss_normalization": "global_row_count_after_layer_mean",
+    "world_size": 4
+  }
+}
