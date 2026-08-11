@@ -1,0 +1,106 @@
+{
+  "base_model": {
+    "binding_sha256": "117360453402c24eafd53f309af5494713a18c9e24fd1da6bda7d885aa62cb66",
+    "config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "local_model_path": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "model_id": "google/gemma-4-E4B-it",
+    "model_safetensors_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f"
+  },
+  "candidate": {
+    "adapter_file_sha256": "26581867dc1220644332d6ff31e71276576b28134ab68c18abac97e2094450ae",
+    "adapter_files_aggregate_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63",
+    "adapter_path": "local_artifacts/natural_memory_gate_replication_r12_development_run_split20260825_seed53/adapter",
+    "config_sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4",
+    "id": "r12",
+    "selection_rule": "preselected_by_v6_before_r12_materialization_and_independent_of_development_or_sealed_metrics"
+  },
+  "code_bindings": {
+    "analyzer_sha256": "6d9fb129868865c95f766cfd3964a936d053b83c9bdb09276645084932570825",
+    "runner_sha256": "bb5f234b9c4c3163f1e617b712e99d5ce71f998862ccb79c06e37ad7992d5ffd",
+    "sharder_sha256": "8ef66c4dbfc74647b30cf1ef3accbdfb4ccb0b8fb2dbbb38ff99f6391064c73b"
+  },
+  "created_at": "2026-08-12T03:16:01+08:00",
+  "evaluation": {
+    "attn_implementation": "sdpa",
+    "conditions": [
+      "base",
+      "normal"
+    ],
+    "dtype": "bfloat16",
+    "execution": "four_gpu_audited_task_and_row_shards",
+    "generation": "greedy_batch_one_state_reset_per_row",
+    "hf_endpoint": "https://hf-mirror.com",
+    "normal_fusion_profile": "native",
+    "publisher_split_alias": "val",
+    "split": "validation",
+    "tasks": {
+      "attribution-v3.2": {
+        "dataset_path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-attribution-best-candidate/val.jsonl",
+        "dataset_sha256": "01373fa09c89568a47927f19088f78bbf62cd4b7eb66803100c06e8a3f2152a4",
+        "metric": "format_recovered_accuracy",
+        "rows": 30
+      },
+      "narrative-v3.2": {
+        "dataset_path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-narrative-type-classification/val.jsonl",
+        "dataset_sha256": "4a1d27c543e715a069e6b3c8253021b0f86fe1690aac116da09eba43896e1b6a",
+        "metric": "format_recovered_unit_accuracy",
+        "rows": 39
+      },
+      "scene-v4-current": {
+        "dataset_path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v4-scene-boundary-detection/val.jsonl",
+        "dataset_sha256": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513",
+        "metric": "format_recovered_micro_f1",
+        "rows": 170
+      }
+    }
+  },
+  "protocol": {
+    "file": "natural_memory_replication_protocol_v6.json",
+    "file_sha256": "a7244817adf1cdf439dfefea37610d1abdd0b4ecc3f118d4be349f5e018078b7",
+    "git_commit": "1bcc3e8a005418a645487b42d1045624fd2e3b0d",
+    "payload_sha256": "eb721bb583d7e601ffdffec61a8445d8e918cd85317133e95ded0c306554bae1"
+  },
+  "protected_evaluation": {
+    "hard32_forbidden": true,
+    "hard32_opened": false,
+    "test_forbidden": true,
+    "test_opened": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_authorization_without_receipt",
+    "payload_sha256": "5136b3036c62ff3bc1d9667530b1a893500ff62894968e62babdf9ac05415c56"
+  },
+  "replication_unlock": {
+    "r12": {
+      "development_checks_passed": 54,
+      "development_run_receipt_file_sha256": "9a687d713ee3db2166190a8dae87a25f9abf1b115879849e9776c6e97ce32f29",
+      "development_run_receipt_sha256": "4ccbf37482c4b74b61b2dae59bc400b256d58f8e45645a406a434f8918a74905",
+      "sealed_attempts": 1,
+      "sealed_checks_passed": 52,
+      "sealed_run_receipt_file_sha256": "e96d178f94b3d83d4dbff3622ac90a5dbb441f8cc076a86d7c816f1a0df73376",
+      "sealed_run_receipt_sha256": "fdd6b109aa9e27d74f92001c97e2763d843636d2200549251c0613c7b4d1a62c"
+    },
+    "r13": {
+      "development_checks_passed": 54,
+      "development_run_receipt_file_sha256": "776603a1966fb55ade4ed88d811bb0e26ffc9052a7706e15279fd0ee9a3978df",
+      "development_run_receipt_sha256": "71fb1291fca9a17fce67df13eb9588b27741c44eaea6a517b9177038ff568b6b",
+      "sealed_attempts": 1,
+      "sealed_checks_passed": 52,
+      "sealed_run_receipt_file_sha256": "72f7f9582249f803d041ad653455d88d319b9df56304fa1bcce3fdf6240e5838",
+      "sealed_run_receipt_sha256": "f06c9d2703bd57c2e55925bf64d943232d03490764b57b987f891637b862b3e5"
+    },
+    "unlock_rule": "both_preregistered_replications_pass_development_and_exactly_one_52_check_sealed_attempt"
+  },
+  "schema": "rwkv_ms_natural_memory_native_validation_authorization.v1",
+  "success_rule": {
+    "definition": "normal_gte_base_on_all_three_tasks_and_normal_gt_base_on_at_least_two_tasks",
+    "minimum_strictly_better_tasks": 2,
+    "no_regression_required_tasks": [
+      "attribution-v3.2",
+      "narrative-v3.2",
+      "scene-v4-current"
+    ]
+  }
+}
