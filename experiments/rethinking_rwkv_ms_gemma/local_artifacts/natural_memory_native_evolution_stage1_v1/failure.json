@@ -1,0 +1,31 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_evolution_failure.v1",
+  "created_at": "2026-08-12T06:20:16+08:00",
+  "stage": "stage1",
+  "status": "failed_before_checkpoint",
+  "updates_requested": 192,
+  "updates_completed": 1,
+  "failed_update": 2,
+  "failed_update_kind": "native",
+  "failed_native_task": "narrative",
+  "source_commit": "be9417274c3b6df0aa8fe71ae9115883f198e7fe",
+  "exception_type": "torch.OutOfMemoryError",
+  "exception_message": "CUDA out of memory during native full-row read backward graph construction.",
+  "observed_rank_0_first_microbatch": {
+    "write_tokens": [1312, 1176],
+    "read_tokens": [2056, 1701],
+    "padded_write_tokens": 1312,
+    "padded_read_tokens": 2056
+  },
+  "dataset_max_read_tokens": 2617,
+  "root_cause": "Exact full-row native write-then-read training retains both long write and read autograd graphs; the attribution-only preflight did not cover narrative-length rows.",
+  "resolution": "Offload native write/read saved tensors to pinned CPU memory while preserving world4, local batch4, microbatch2, accumulation2, global batch16, and exact full rows.",
+  "restart_policy": "Discard the partial optimizer state and retry from the exact R12 warm start.",
+  "adapter_saved": false,
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "10229b5888bd5ffe71958c2b6ed0b2aa4bed6091451dec928322eba08f60727a"
+  }
+}

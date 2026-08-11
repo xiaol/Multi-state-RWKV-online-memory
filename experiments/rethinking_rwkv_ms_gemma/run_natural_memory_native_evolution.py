@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 import gc
 import json
@@ -87,6 +88,7 @@ GRADIENT_ACCUMULATION_STEPS = 2
 LEARNING_RATE = 2e-4
 MAX_GRAD_NORM = 1.0
 MAX_SEQUENCE_LENGTH = 32768
+NATIVE_SAVED_TENSOR_OFFLOAD = True
 
 
 @dataclass(frozen=True)
@@ -529,14 +531,15 @@ def _native_write(
     set_delta_mem_projected_kv_read_query_mask(model, None)
     set_delta_mem_projected_kv_write_spans(model, None, None, None)
     set_delta_mem_write_enabled(model, True)
-    with runtime._autocast_context(batch.write_input_ids.device, dtype):
-        model(
-            input_ids=batch.write_input_ids,
-            attention_mask=batch.write_attention_mask,
-            use_cache=False,
-            return_dict=True,
-            logits_to_keep=1,
-        )
+    with native_saved_tensor_context(batch.write_input_ids.device):
+        with runtime._autocast_context(batch.write_input_ids.device, dtype):
+            model(
+                input_ids=batch.write_input_ids,
+                attention_mask=batch.write_attention_mask,
+                use_cache=False,
+                return_dict=True,
+                logits_to_keep=1,
+            )
     occupied_rows = 0
     occupied_total = 0
     for _, module in iter_delta_mem_modules(model):
@@ -561,15 +564,24 @@ def _native_read(
     set_delta_mem_write_enabled(model, False)
     set_delta_mem_projected_kv_read_query_mask(model, None)
     predictor_indices = runtime._answer_predictor_indices(batch.labels)
-    with runtime._autocast_context(batch.read_input_ids.device, dtype):
-        outputs = model(
-            input_ids=batch.read_input_ids,
-            attention_mask=batch.read_attention_mask,
-            use_cache=False,
-            return_dict=True,
-            logits_to_keep=predictor_indices,
-        )
+    with native_saved_tensor_context(batch.read_input_ids.device):
+        with runtime._autocast_context(batch.read_input_ids.device, dtype):
+            outputs = model(
+                input_ids=batch.read_input_ids,
+                attention_mask=batch.read_attention_mask,
+                use_cache=False,
+                return_dict=True,
+                logits_to_keep=predictor_indices,
+            )
     return outputs.logits
+
+
+def native_saved_tensor_context(
+    device: torch.device,
+) -> AbstractContextManager[Any]:
+    if not NATIVE_SAVED_TENSOR_OFFLOAD or device.type != "cuda":
+        return nullcontext()
+    return torch.autograd.graph.save_on_cpu(pin_memory=True, device_type="cuda")
 
 
 def _append_jsonl(path: Path, value: Mapping[str, Any]) -> None:
@@ -817,6 +829,10 @@ def train_mixed_distributed(
             "memory_occupancy_fraction": metrics[6] / metrics[7],
             "gradient_norm_before_clip": float(grad_norm.detach().float().item()),
             "gradient_reduction": "sum_before_global_clip",
+            "native_saved_tensor_offload": (
+                mixed_step.update_kind == "native"
+                and NATIVE_SAVED_TENSOR_OFFLOAD
+            ),
             "global_row_ids": list(mixed_step.global_row_ids),
             "schedule_step_sha256": mixed_step.step_sha256,
             "gradient_collective_sha256": canonical_sha256(collective),
@@ -870,6 +886,7 @@ def train_mixed_distributed(
             "local_microbatch_size": LOCAL_MICROBATCH_SIZE,
             "gradient_accumulation_steps": GRADIENT_ACCUMULATION_STEPS,
             "gradient_reduction": "explicit_sum",
+            "native_saved_tensor_offload": NATIVE_SAVED_TENSOR_OFFLOAD,
             "rank_devices": list(context.rank_devices),
         },
     }
@@ -998,6 +1015,12 @@ def run_evolution(
         "native_max_assistant_target_tokens": max(
             example.assistant_target_tokens for example in native_examples
         ),
+        "native_saved_tensor_offload": {
+            "enabled": NATIVE_SAVED_TENSOR_OFFLOAD,
+            "mechanism": "torch.autograd.graph.save_on_cpu",
+            "pin_memory": True,
+            "scope": "native_write_and_read_only",
+        },
         "schedule": dict(schedule_audit),
         "protocol_payload_sha256": EVOLUTION_PROTOCOL_PAYLOAD_SHA256,
         "hf_endpoint": os.environ.get("HF_ENDPOINT"),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import torch
@@ -190,6 +191,28 @@ def test_native_update_has_zero_route_denominator() -> None:
 
     assert answer_tokens == 5
     assert route_rows == 0
+
+
+def test_native_cuda_saved_tensors_are_offloaded(
+    monkeypatch,
+) -> None:
+    calls: list[tuple[bool, str]] = []
+
+    @contextmanager
+    def fake_save_on_cpu(*, pin_memory: bool, device_type: str):
+        calls.append((pin_memory, device_type))
+        yield
+
+    monkeypatch.setattr(
+        evolution.torch.autograd.graph,
+        "save_on_cpu",
+        fake_save_on_cpu,
+    )
+
+    with evolution.native_saved_tensor_context(torch.device("cuda", 0)):
+        pass
+
+    assert calls == [(True, "cuda")]
 
 
 def test_r12_warm_start_adapter_aggregate_hash_is_bound() -> None:
