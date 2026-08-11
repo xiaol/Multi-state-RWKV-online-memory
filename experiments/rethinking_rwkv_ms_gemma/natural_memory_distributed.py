@@ -359,6 +359,125 @@ def build_global_training_schedule(
     return tuple(steps), canonical_sha256(schedule_payload)
 
 
+def build_family_balanced_training_schedule(
+    row_ids: Sequence[str],
+    family_ids: Sequence[str],
+    family_member_orders: Sequence[int],
+    *,
+    seed: int,
+    epochs: int,
+    max_steps: int | None,
+    world_size: int,
+    local_batch_size: int,
+) -> tuple[tuple[GlobalTrainingStep, ...], str]:
+    if (
+        not row_ids
+        or len(row_ids) != len(family_ids)
+        or len(row_ids) != len(family_member_orders)
+        or len(set(row_ids)) != len(row_ids)
+    ):
+        raise ValueError(
+            "Family-balanced row, family, and member-order inputs must align"
+        )
+    if epochs <= 0 or world_size <= 1 or local_batch_size <= 0:
+        raise ValueError("Distributed schedule dimensions must be positive")
+    if max_steps is not None and max_steps <= 0:
+        raise ValueError("max_steps must be positive when supplied")
+
+    members_by_family: dict[str, dict[int, int]] = {}
+    family_order: list[str] = []
+    for index, (family_id, member_order) in enumerate(
+        zip(family_ids, family_member_orders, strict=True)
+    ):
+        if not family_id:
+            raise ValueError("Training family IDs must be nonempty")
+        if family_id not in members_by_family:
+            members_by_family[family_id] = {}
+            family_order.append(family_id)
+        members = members_by_family[family_id]
+        if member_order in members:
+            raise ValueError(
+                f"Training family {family_id!r} repeats member order {member_order}"
+            )
+        members[member_order] = index
+
+    required_orders = set(range(local_batch_size))
+    malformed = [
+        family_id
+        for family_id, members in members_by_family.items()
+        if set(members) != required_orders
+    ]
+    if malformed:
+        raise ValueError(
+            "Every training family must contain exactly one member order in "
+            f"0..{local_batch_size - 1}: {malformed[:4]!r}"
+        )
+    if len(family_order) % world_size:
+        raise ValueError(
+            "Every epoch must divide into complete distributed family batches"
+        )
+
+    rng = random.Random(seed)
+    steps: list[GlobalTrainingStep] = []
+    stop = False
+    for epoch in range(epochs):
+        shuffled_families = list(family_order)
+        rng.shuffle(shuffled_families)
+        for start in range(0, len(shuffled_families), world_size):
+            selected_families = tuple(
+                shuffled_families[start : start + world_size]
+            )
+            if len(selected_families) != world_size:
+                raise RuntimeError(
+                    "Family-balanced schedule emitted a partial global batch"
+                )
+            selected = tuple(
+                members_by_family[family_id][member_order]
+                for family_id in selected_families
+                for member_order in range(local_batch_size)
+            )
+            selected_rows = tuple(row_ids[index] for index in selected)
+            step = len(steps) + 1
+            payload = {
+                "step": step,
+                "epoch": epoch,
+                "global_indices": list(selected),
+                "global_row_ids": list(selected_rows),
+                "global_family_ids": list(selected_families),
+                "family_member_orders_per_rank": list(range(local_batch_size)),
+                "schedule_policy": "one_complete_ordered_family_per_rank",
+            }
+            steps.append(
+                GlobalTrainingStep(
+                    step=step,
+                    epoch=epoch,
+                    global_indices=selected,
+                    global_row_ids=selected_rows,
+                    step_sha256=canonical_sha256(payload),
+                )
+            )
+            if max_steps is not None and len(steps) >= max_steps:
+                stop = True
+                break
+        if stop:
+            break
+    if max_steps is not None and len(steps) != max_steps:
+        raise ValueError(
+            f"Requested {max_steps} updates but epochs provide only {len(steps)}"
+        )
+    schedule_payload = [
+        {
+            "step": step.step,
+            "epoch": step.epoch,
+            "global_indices": list(step.global_indices),
+            "global_row_ids": list(step.global_row_ids),
+            "step_sha256": step.step_sha256,
+        }
+        for step in steps
+    ]
+    return tuple(steps), canonical_sha256(schedule_payload)
+
+
 def local_step_indices(
     step: GlobalTrainingStep,
     *,

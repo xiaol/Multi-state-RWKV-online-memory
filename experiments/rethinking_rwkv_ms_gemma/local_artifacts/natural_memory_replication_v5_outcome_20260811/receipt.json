@@ -1,0 +1,103 @@
+{
+  "created_at": "2026-08-11T12:40:14+08:00",
+  "native_validation": {
+    "authorized": false,
+    "performed": false,
+    "reason": "Protocol V5 requires both preregistered replications to pass development and exactly one sealed 52-check gate before publisher-native validation. R10 failed one development check, making the two-replication unlock impossible; R11 was therefore not materialized or run."
+  },
+  "outcome": {
+    "complete_replications_passing_sealed_gate": 0,
+    "goal_satisfied": false,
+    "replications_preregistered": 2,
+    "status": "terminal_protocol_failure"
+  },
+  "outcome_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_outcome_without_receipt",
+    "payload_sha256": "0ec819e65fae0604f3d97694411573d06a5e01e5b56356315e231b259e3d290b"
+  },
+  "protected_evaluation": {
+    "hard32_opened": false,
+    "sealed_r10_opened": false,
+    "sealed_r11_opened": false,
+    "test_opened": false
+  },
+  "protocol": {
+    "file": "natural_memory_replication_protocol_v5.json",
+    "file_sha256": "c411f84b7a333c9685b4ebf9b3d9fd9dd381c4cc1caa4da830c4767b673eb7d8",
+    "git_commit": "6180bb47d6d1822e7cb9403b874496c00bbb12e7",
+    "payload_sha256": "9a5556998e6baf526703b1df73052823db5fdca01c0796febe3797ad3902b83a"
+  },
+  "replications": {
+    "r10": {
+      "cuda_profile": {
+        "environment_adjusted_reserved_headroom_bytes": 19240714240,
+        "git_commit": "5c8981dadfde91a0870b336aca56914228ffceee",
+        "minimum_observed_free_after_phase_bytes": 19131662336,
+        "peak_allocated_bytes": 22069827072,
+        "peak_reserved_bytes": 22722641920,
+        "profile_receipt_file_sha256": "cea2b7489e2873385482a1f20d43ce3756ed1db02331c62cc988409d90909e61",
+        "profile_receipt_payload_sha256": "ec8c1a1c1ebca82910a885510b06380f56ad2159afd584fd0a7a445b9aba049f",
+        "required_headroom_bytes": 5368709120,
+        "required_local_microbatch_size": 2,
+        "status": "passed"
+      },
+      "development_materialization": {
+        "binding_receipt_file_sha256": "eb5a062620c3849882a0dfafc4aee37a8f4fb6d4c8f4a653f210cc12a872555f",
+        "binding_receipt_sha256": "364d32e8ac05120a34761f7038f5549aab5958bc77bce44c9364c8ea71806929",
+        "git_commit": "b5b56ed3c4b50081a1f07b25dbe1f47e78d6a412",
+        "manifest_payload_sha256": "1fb9f10e6d898feb021b6798a051531aaed27a4fd31ef8d33cacedd9e93854b3",
+        "status": "passed"
+      },
+      "development_run": {
+        "adapter_files_sha256": "f1a92709312b836a87dc1c07cb4e0e008b225b6866e0db0bf0ecbb3bcb3b9eab",
+        "correct_state_family_layer_all_four_correct": 4031,
+        "correct_state_family_layer_total": 4032,
+        "correct_state_greedy_structured_json_exact": 384,
+        "correct_state_routes_correct": 16127,
+        "correct_state_routes_total": 16128,
+        "evaluation_file_sha256": "117057eef1afdeb4552d368acc8bc3270ccff3ff159eabfca8311746563fc0ff",
+        "evaluation_payload_sha256": "d6f685f9dead6e2ba4f28b737ad9a7ca425fd047f0d29341b77f0bf72fed556a",
+        "failed_checks": [
+          "correct_state.all_four_routes"
+        ],
+        "git_commit": "6ee5ce428752252cb2ba427567827f92f9637c10",
+        "run_receipt_file_sha256": "e16c6a01f59af285ceb185f7003fb9d3ab28de9493fa89890133a42060e9b8d5",
+        "run_receipt_payload_sha256": "d0e8aba37c02f48cf34853ae136d445d53b7eec55a543284cf3ffced842915ab",
+        "status": "failed"
+      },
+      "distributed_preflight": {
+        "failed_checks": [],
+        "git_commit": "d2c196dc1f34b3697ae48e20f7df6b35662a26ec",
+        "minimum_conservative_rank_headroom_bytes": 20631126016,
+        "preflight_receipt_file_sha256": "5981ad9f732db1882e5fbb363f6c07310bbe069f7d5bbbca3347b8b26ebe15a1",
+        "preflight_receipt_payload_sha256": "b24612acb73efca6ee3a9d788546c083c083377f6f2e6b795bc8b8e5f829e964",
+        "status": "passed"
+      },
+      "sealed_attempts": 0,
+      "sealed_package_materialized": false,
+      "split_seed": 20260822,
+      "status": "development_gate_failed",
+      "training_seed": 51
+    },
+    "r11": {
+      "development_materialization": {
+        "reason": "R10 made the two-replication V5 unlock impossible before R11 materialization",
+        "status": "not_started"
+      },
+      "sealed_attempts": 0,
+      "sealed_package_materialized": false,
+      "split_seed": 20260823,
+      "status": "not_started_after_terminal_predecessor_failure",
+      "training_started": false,
+      "training_seed": 52
+    }
+  },
+  "runner_authorization": {
+    "file": "natural_memory_replication_protocol_v5_amendment_runner_authorization.json",
+    "file_sha256": "1d4a50cca4410c54aa32c9c0424bd6d874480b460b705e98ecd93c456e4071d3",
+    "git_commit": "77ccb183fc9921c5826f16359cb3f0cf15ce98d2",
+    "payload_sha256": "32b835d78f70db8901a80f47ee334dabff04d6246eac9f26ac048473cedade9a"
+  },
+  "schema": "rwkv_ms_natural_memory_replication_outcome.v1"
+}

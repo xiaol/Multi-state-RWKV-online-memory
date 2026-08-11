@@ -1,0 +1,101 @@
+{
+  "created_at": "2026-08-11T13:12:56+08:00",
+  "decision_rule": {
+    "failure": "Archive, commit, and push the one-shot R10 development ablation; do not materialize sealed data and do not preregister replications from this candidate.",
+    "pass": "Require every named development gate check to pass, then freeze a new replication protocol on two untouched feasible split seeds and optimizer seeds before either split is materialized.",
+    "runs": 1
+  },
+  "development_evidence": {
+    "failed_check": "correct_state.all_four_routes",
+    "failed_family_layer": {
+      "expected_slot": 3,
+      "layer": "model.language_model.layers.30.self_attn",
+      "predicted_slot": 1,
+      "row_id": "development:scene:scene:29e86953da2fe6a65766:b13:e000024:q3"
+    },
+    "final_global_batch_semantic_query_slot_counts": [
+      1,
+      2,
+      2,
+      11
+    ],
+    "last_12_updates_mean_route_loss": 0.0013117039927503054,
+    "preceding_100_updates_mean_route_loss": 0.00001277888980609987,
+    "r10_evaluation_payload_sha256": "d6f685f9dead6e2ba4f28b737ad9a7ca425fd047f0d29341b77f0bf72fed556a",
+    "r10_run_receipt_sha256": "d0e8aba37c02f48cf34853ae136d445d53b7eec55a543284cf3ffced842915ab"
+  },
+  "execution": {
+    "development_package": "local_artifacts/natural_memory_gate_replication_r10_development_split20260822_seed51",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer_seed": 51,
+    "output_directory": "local_artifacts/natural_memory_gate_family_balanced_development_ablation_r10_split20260822_seed51_v1",
+    "profile": "development",
+    "protected_splits_forbidden": [
+      "sealed_validation",
+      "test",
+      "Hard32"
+    ],
+    "split_seed": 20260822
+  },
+  "hypothesis": "Complete-family scheduling removes late semantic-slot imbalance while retaining the same CE gradients over every row in each epoch, preventing the final optimizer updates from drifting one query slot away from exact all-layer routing.",
+  "invariants": {
+    "adapter_rank": 32,
+    "answer_weight": 1.0,
+    "attn_implementation": "sdpa",
+    "dtype": "bfloat16",
+    "epochs": 8,
+    "global_batch_size": 16,
+    "gradient_accumulation_steps": 2,
+    "hard_negative_margin": 0.0,
+    "hard_negative_weight": 0.0,
+    "key_dim": 64,
+    "learning_rate": 0.0002,
+    "local_batch_size": 4,
+    "local_microbatch_size": 2,
+    "max_grad_norm": 1.0,
+    "optimizer_updates": 960,
+    "route_weight": 1.0,
+    "temperature": 16.0,
+    "training_conditions": [
+      "correct_state",
+      "donor_state",
+      "value_swap",
+      "target_slot_rewrite",
+      "shuffled_slots"
+    ],
+    "training_objective": "answer token-mean cross-entropy plus layer-mean semantic-route cross-entropy"
+  },
+  "intervention": {
+    "global_batch_family_count": 4,
+    "global_semantic_query_slot_counts_per_update": [
+      4,
+      4,
+      4,
+      4
+    ],
+    "local_family_count_per_rank": 1,
+    "local_semantic_query_slots_per_update": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "scope": "training schedule only"
+  },
+  "plan_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_plan_without_receipt",
+    "payload_sha256": "fca2cdf23b8883fd6b474803b1efae5134832cc645d0b721b19359791c372b24"
+  },
+  "predecessor": {
+    "outcome_file": "local_artifacts/natural_memory_replication_v5_outcome_20260811/receipt.json",
+    "protocol_file": "natural_memory_replication_protocol_v5.json",
+    "protocol_payload_sha256": "9a5556998e6baf526703b1df73052823db5fdca01c0796febe3797ad3902b83a",
+    "status": "terminal_protocol_failure"
+  },
+  "schema": "rwkv_ms_natural_memory_development_ablation.v1",
+  "source_code_sha256": {
+    "distributed": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d",
+    "runner": "cf55dec96a39b035d7a35417c07b2f152edee5e93ae3c104703c60e3966cf5ff"
+  }
+}

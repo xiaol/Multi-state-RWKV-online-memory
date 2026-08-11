@@ -106,6 +106,79 @@ def test_global_schedule_rejects_partial_or_underfilled_runs() -> None:
         )
 
 
+def test_family_balanced_schedule_assigns_one_complete_family_per_rank() -> None:
+    row_ids = []
+    family_ids = []
+    member_orders = []
+    for family_index in range(12):
+        for member_order in range(4):
+            row_ids.append(f"family-{family_index:02d}:q{member_order}")
+            family_ids.append(f"family-{family_index:02d}")
+            member_orders.append(member_order)
+
+    schedule, schedule_hash = distributed.build_family_balanced_training_schedule(
+        row_ids,
+        family_ids,
+        member_orders,
+        seed=51,
+        epochs=2,
+        max_steps=6,
+        world_size=4,
+        local_batch_size=4,
+    )
+    repeated, repeated_hash = (
+        distributed.build_family_balanced_training_schedule(
+            row_ids,
+            family_ids,
+            member_orders,
+            seed=51,
+            epochs=2,
+            max_steps=6,
+            world_size=4,
+            local_batch_size=4,
+        )
+    )
+
+    assert schedule == repeated
+    assert schedule_hash == repeated_hash
+    assert len(schedule) == 6
+    for step in schedule:
+        assert sorted(
+            int(row_id.rsplit("q", 1)[1]) for row_id in step.global_row_ids
+        ) == [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
+        for rank in range(4):
+            local_indices = distributed.local_step_indices(
+                step,
+                process_rank=rank,
+                world_size=4,
+                local_batch_size=4,
+            )
+            assert [member_orders[index] for index in local_indices] == [0, 1, 2, 3]
+            assert len({family_ids[index] for index in local_indices}) == 1
+    for epoch in range(2):
+        epoch_indices = [
+            index
+            for step in schedule
+            if step.epoch == epoch
+            for index in step.global_indices
+        ]
+        assert sorted(epoch_indices) == list(range(48))
+
+
+def test_family_balanced_schedule_rejects_incomplete_families() -> None:
+    with pytest.raises(ValueError, match="exactly one member order"):
+        distributed.build_family_balanced_training_schedule(
+            ["a0", "a1", "a2", "b0", "b1", "b2", "b3", "b4"],
+            ["a"] * 3 + ["b"] * 5,
+            [0, 1, 2, 0, 1, 2, 3, 4],
+            seed=1,
+            epochs=1,
+            max_steps=None,
+            world_size=2,
+            local_batch_size=4,
+        )
+
+
 def _objective_inputs() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     generator = torch.Generator().manual_seed(17)
     answer_logits = torch.randn(4, 8, 11, generator=generator)

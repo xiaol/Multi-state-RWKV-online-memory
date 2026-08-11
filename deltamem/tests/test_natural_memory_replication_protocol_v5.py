@@ -141,7 +141,7 @@ def test_v5_source_hashes_bind_the_pre_authorization_runner() -> None:
     }
 
 
-def test_v5_amendment_authorizes_only_the_current_runner() -> None:
+def test_v5_amendment_records_the_historical_authorized_runner() -> None:
     protocol = read_json(
         EXPERIMENTS / "natural_memory_replication_protocol_v5.json"
     )
@@ -155,9 +155,10 @@ def test_v5_amendment_authorizes_only_the_current_runner() -> None:
         "payload_scope": "canonical_amendment_without_receipt",
         "payload_sha256": canonical_sha256(amendment),
     }
-    runner_path = EXPERIMENTS / "run_natural_memory_gate.py"
     assert amendment["runner_change"] == {
-        "new_sha256": hashlib.sha256(runner_path.read_bytes()).hexdigest(),
+        "new_sha256": (
+            "e6149731fa74011d6b339016c40a0070285c37200c9a11bfcec85ad6f18f6371"
+        ),
         "old_sha256": protocol["source_code_sha256"]["runner"],
     }
     assert amendment["authorized_replication_ids"] == [
@@ -169,4 +170,39 @@ def test_v5_amendment_authorizes_only_the_current_runner() -> None:
         "gate_changed": False,
         "hyperparameters_changed": False,
         "training_math_changed": False,
+    }
+
+
+def test_v5_terminal_outcome_archives_r10_without_opening_protected_data() -> None:
+    outcome_path = (
+        EXPERIMENTS
+        / "local_artifacts"
+        / "natural_memory_replication_v5_outcome_20260811"
+        / "receipt.json"
+    )
+    outcome = read_json(outcome_path)
+    receipt = outcome.pop("outcome_receipt")
+    assert receipt == {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_outcome_without_receipt",
+        "payload_sha256": canonical_sha256(outcome),
+    }
+    assert outcome["outcome"] == {
+        "complete_replications_passing_sealed_gate": 0,
+        "goal_satisfied": False,
+        "replications_preregistered": 2,
+        "status": "terminal_protocol_failure",
+    }
+    assert outcome["replications"]["r10"]["development_run"]["failed_checks"] == [
+        "correct_state.all_four_routes"
+    ]
+    assert outcome["replications"]["r10"]["sealed_attempts"] == 0
+    assert outcome["replications"]["r11"]["status"] == (
+        "not_started_after_terminal_predecessor_failure"
+    )
+    assert outcome["protected_evaluation"] == {
+        "hard32_opened": False,
+        "sealed_r10_opened": False,
+        "sealed_r11_opened": False,
+        "test_opened": False,
     }

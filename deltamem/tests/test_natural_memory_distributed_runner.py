@@ -46,7 +46,16 @@ def _context(process_rank: int = 0) -> distributed.DistributedTrainingContext:
 
 
 def _examples() -> list[SimpleNamespace]:
-    return [SimpleNamespace(row_id=f"row-{index}") for index in range(16)]
+    return [
+        SimpleNamespace(
+            row_id=f"family-{family_index}:q{member_order}",
+            condition="correct_state",
+            episode_id=f"family-{family_index}",
+            semantic_target_slot=member_order,
+        )
+        for family_index in range(4)
+        for member_order in range(4)
+    ]
 
 
 def _batch(batch_size: int = 1) -> SimpleNamespace:

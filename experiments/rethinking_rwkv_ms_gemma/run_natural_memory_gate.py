@@ -180,8 +180,11 @@ TRAINING_ROW_ID_POLICY = (
     "source query IDs for cross-condition causal pairing"
 )
 TRAINING_SAMPLING_POLICY = (
-    "exactly balanced condition-task strata, shuffled over complete epochs; every "
-    "source query is supervised once under every selected positive condition per epoch"
+    "exactly balanced condition-task strata over complete epochs; shuffle complete "
+    "condition-episode four-query families, assigning one ordered q0-q3 family per "
+    "rank so every optimizer update contains exactly four rows per semantic query "
+    "slot; every source query is supervised once under every selected positive "
+    "condition per epoch"
 )
 TRAINING_PAYLOAD_DIGEST_POLICY = (
     "canonical SHA-256 over every ordered encoded training-example field used by the "
@@ -442,20 +445,38 @@ def train_model_distributed(
     gradient_accumulation_steps = local_batch_size // local_microbatch_size
 
     def prepare_schedule() -> tuple[
-        list[str], tuple[distributed.GlobalTrainingStep, ...], str
+        list[str],
+        list[str],
+        tuple[distributed.GlobalTrainingStep, ...],
+        str,
     ]:
         prepared_row_ids = [str(example.row_id) for example in examples]
-        prepared_schedule, prepared_hash = distributed.build_global_training_schedule(
-            prepared_row_ids,
-            seed=seed,
-            epochs=epochs,
-            max_steps=max_steps,
-            world_size=context.world_size,
-            local_batch_size=local_batch_size,
+        prepared_family_ids = [
+            f"{example.condition}:{example.episode_id}" for example in examples
+        ]
+        prepared_member_orders = [
+            int(example.semantic_target_slot) for example in examples
+        ]
+        prepared_schedule, prepared_hash = (
+            distributed.build_family_balanced_training_schedule(
+                prepared_row_ids,
+                prepared_family_ids,
+                prepared_member_orders,
+                seed=seed,
+                epochs=epochs,
+                max_steps=max_steps,
+                world_size=context.world_size,
+                local_batch_size=local_batch_size,
+            )
         )
-        return prepared_row_ids, prepared_schedule, prepared_hash
+        return (
+            prepared_row_ids,
+            prepared_family_ids,
+            prepared_schedule,
+            prepared_hash,
+        )
 
-    row_ids, schedule, schedule_sha256 = _run_consensused_local_phase(
+    row_ids, family_ids, schedule, schedule_sha256 = _run_consensused_local_phase(
         context,
         phase="training-schedule-preparation",
         operation=prepare_schedule,
@@ -470,6 +491,8 @@ def train_model_distributed(
             "local_batch_size": local_batch_size,
             "local_microbatch_size": local_microbatch_size,
             "gradient_accumulation_steps": gradient_accumulation_steps,
+            "schedule_policy": TRAINING_SAMPLING_POLICY,
+            "family_ids_sha256": distributed.canonical_sha256(family_ids),
         },
         description="training schedule",
     )
@@ -950,6 +973,11 @@ def train_model_distributed(
                 "full_occupancy_fraction": metrics[4] / metrics[5],
                 "forced_write_route_accuracy": metrics[6] / metrics[7],
                 "global_row_ids": list(schedule_step.global_row_ids),
+                "global_family_ids": [
+                    family_ids[index]
+                    for index in schedule_step.global_indices[::local_batch_size]
+                ],
+                "semantic_query_slots_per_rank": list(range(local_batch_size)),
                 "schedule_step_sha256": schedule_step.step_sha256,
                 "training_conditions": list(selected_training_conditions),
             }
@@ -966,6 +994,11 @@ def train_model_distributed(
                 return {
                     "rank": context.process_rank,
                     "local_row_ids": [row_ids[index] for index in local_indices],
+                    "local_family_id": family_ids[local_indices[0]],
+                    "local_semantic_query_slots": [
+                        int(examples[index].semantic_target_slot)
+                        for index in local_indices
+                    ],
                     "local_microbatch_row_ids": [
                         [
                             row_ids[index]
@@ -1227,6 +1260,10 @@ def train_model_distributed(
                 ),
                 "schedule_sha256": schedule_sha256,
                 "ordered_row_ids_sha256": distributed.canonical_sha256(row_ids),
+                "schedule_policy": TRAINING_SAMPLING_POLICY,
+                "family_ids_sha256": distributed.canonical_sha256(family_ids),
+                "family_count": len(set(family_ids)),
+                "family_size": local_batch_size,
                 "trainable_metadata": list(trainable_metadata),
                 "trainable_metadata_sha256": trainable_metadata_sha256,
                 "trainable_names_sha256": trainable_names_sha256,
