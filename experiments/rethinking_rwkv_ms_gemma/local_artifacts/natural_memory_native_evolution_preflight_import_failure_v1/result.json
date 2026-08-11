@@ -1,0 +1,23 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_evolution_launch_failure.v1",
+  "created_at": "2026-08-12T06:05:09+08:00",
+  "stage": "preflight",
+  "status": "failed_before_training",
+  "updates_requested": 2,
+  "updates_completed": 0,
+  "command": "HF_ENDPOINT=https://hf-mirror.com torchrun --standalone --nproc-per-node=4 experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_evolution.py --updates 2 --output-dir experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_evolution_preflight_v1",
+  "hf_endpoint": "https://hf-mirror.com",
+  "world_size": 4,
+  "source_commit": "3734cb0c43a76c71d80f853c21e512f9c698bdb9",
+  "failure_phase": "python_import_before_distributed_initialization",
+  "exception_type": "ModuleNotFoundError",
+  "exception_message": "No module named 'deltamem'",
+  "root_cause": "The direct torchrun entrypoint did not add the repository root to sys.path.",
+  "resolution": "Add the script directory and repository root before project imports, then retry the unchanged two-update protocol.",
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "d88e250afcd4caeeddceab000ed32321bc412447858149560cfcd3f60b184e8f"
+  }
+}

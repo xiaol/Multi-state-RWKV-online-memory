@@ -11,12 +11,20 @@ import json
 import os
 from pathlib import Path
 import random
+import sys
 import time
 from typing import Any, Mapping, Sequence
 
 import torch
 import torch.distributed as torch_dist
 from torch.distributed.elastic.multiprocessing.errors import record
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+for import_root in (SCRIPT_DIR, PROJECT_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 from deltamem.chat_templates import apply_chat_template
 from deltamem.core.delta import (
