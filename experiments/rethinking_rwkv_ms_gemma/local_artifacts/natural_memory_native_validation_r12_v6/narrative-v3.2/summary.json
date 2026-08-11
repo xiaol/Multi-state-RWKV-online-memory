@@ -1,0 +1,120 @@
+{
+  "complete": true,
+  "completed_at": "2026-08-11T20:11:10.018987+00:00",
+  "conditions": {
+    "base": {
+      "narrative-v3.2": {
+        "correct_units": 0,
+        "elapsed_seconds": 1735.6632264911896,
+        "gold_units": 1449,
+        "hit_max_new_tokens": 0,
+        "input_tokens": 47408,
+        "json_extracted": 39,
+        "json_extracted_rate": 1.0,
+        "official_json_ok": 39,
+        "official_json_rate": 1.0,
+        "official_parsed_only_accuracy": 0.0,
+        "output_tokens": 14121,
+        "primary_metric": 0.0,
+        "primary_metric_name": "strict_accuracy",
+        "reference": {
+          "artifact_metric": 0.6946264744429882,
+          "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+          "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+          "metric_name": "accuracy",
+          "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+        },
+        "samples": 39,
+        "schema_valid": 0,
+        "schema_valid_rate": 0.0,
+        "strict_accuracy": 0.0
+      }
+    },
+    "normal": {
+      "narrative-v3.2": {
+        "correct_units": 0,
+        "elapsed_seconds": 5585.79337455146,
+        "gold_units": 1449,
+        "hit_max_new_tokens": 0,
+        "input_tokens": 47408,
+        "json_extracted": 39,
+        "json_extracted_rate": 1.0,
+        "official_json_ok": 39,
+        "official_json_rate": 1.0,
+        "official_parsed_only_accuracy": 0.0,
+        "output_tokens": 14121,
+        "primary_metric": 0.0,
+        "primary_metric_name": "strict_accuracy",
+        "reference": {
+          "artifact_metric": 0.6946264744429882,
+          "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+          "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+          "metric_name": "accuracy",
+          "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+        },
+        "samples": 39,
+        "schema_valid": 0,
+        "schema_valid_rate": 0.0,
+        "strict_accuracy": 0.0
+      }
+    }
+  },
+  "evaluation_contract": {
+    "name": "generic",
+    "phase": "generic"
+  },
+  "fingerprint": "e79a03cd6b775680546f92943e8273016b3de2252d1dbc975411588ab294ffe1",
+  "normal_fusion_profile": "native",
+  "normal_fusion_runtime": null,
+  "normal_vs_base": {
+    "narrative-v3.2": {
+      "base": 0.0,
+      "metric_name": "strict_accuracy",
+      "normal": 0.0,
+      "normal_minus_base": 0.0
+    }
+  },
+  "references": {
+    "attribution-v3.2": {
+      "artifact_metric": 0.8666666666666667,
+      "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "best_accuracy",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "narrative-v3.2": {
+      "artifact_metric": 0.6946264744429882,
+      "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "accuracy",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "scene-v3.2": {
+      "artifact_metric": 0.2,
+      "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "f1",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "scene-v4-current": {
+      "artifact_counts": {
+        "fn": 89,
+        "fp": 261,
+        "samples": 149,
+        "tp": 66
+      },
+      "artifact_metric": 0.27385892116182575,
+      "artifact_source": "native_validation_reference_results/results/scene_boundary_final.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "micro_f1",
+      "published_historical_metric": 0.305,
+      "published_historical_note": "The reported 30.5% used a historical 49-row v4 test. The downloaded current v4 test and raw result artifact contain 149 rows, so 30.5% is context only.",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "source_hashes": {
+      "eval_compare_results.json": "e2376fe36d61e915f566d974f17a14ebfff540a03f7ded233b369075a273a3ef",
+      "scene_boundary_final.json": "6d7bbd8d7243051f221c7ba8dd7607f78a16da6de40eaf5290a3b533c7c69819"
+    }
+  },
+  "split": "val"
+}

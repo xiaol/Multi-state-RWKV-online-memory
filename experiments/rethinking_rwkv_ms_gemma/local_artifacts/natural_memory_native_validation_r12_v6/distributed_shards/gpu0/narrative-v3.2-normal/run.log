@@ -1,0 +1,36 @@
+EVAL_CONDITION_COMPLETE condition=base resumed=true
+EVAL_LOAD condition=normal pending=9
+
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]
+Loading weights:  15%|█▌        | 318/2076 [00:00<00:00, 3172.43it/s]
+Loading weights:  31%|███       | 636/2076 [00:00<00:00, 2848.62it/s]
+Loading weights:  45%|████▍     | 924/2076 [00:01<00:03, 359.72it/s]
+Loading weights:  52%|█████▏    | 1088/2076 [00:02<00:02, 372.90it/s]
+Loading weights:  58%|█████▊    | 1204/2076 [00:02<00:02, 381.63it/s]
+Loading weights:  62%|██████▏   | 1293/2076 [00:02<00:02, 372.51it/s]
+Loading weights:  66%|██████▌   | 1364/2076 [00:03<00:01, 370.84it/s]
+Loading weights:  69%|██████▊   | 1424/2076 [00:03<00:01, 379.77it/s]
+Loading weights:  84%|████████▍ | 1748/2076 [00:03<00:00, 768.79it/s]
+Loading weights: 100%|█████████▉| 2075/2076 [00:03<00:00, 1168.32it/s]
+Loading weights: 100%|██████████| 2076/2076 [00:03<00:00, 608.03it/s]
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+EVAL_PROGRESS condition=normal task=narrative-v3.2 sample=1/39 schema_valid=False input_tokens=1294 output_tokens=541 seconds=231.00 completed=70/78
+EVAL_PROGRESS condition=normal task=narrative-v3.2 sample=5/39 schema_valid=False input_tokens=1162 output_tokens=263 seconds=108.57 completed=71/78
+EVAL_PROGRESS condition=normal task=narrative-v3.2 sample=15/39 schema_valid=False input_tokens=1150 output_tokens=301 seconds=122.05 completed=72/78
+EVAL_PROGRESS condition=normal task=narrative-v3.2 sample=16/39 schema_valid=False input_tokens=1211 output_tokens=332 seconds=136.60 completed=73/78
+EVAL_PROGRESS condition=normal task=narrative-v3.2 sample=17/39 schema_valid=False input_tokens=1316 output_tokens=373 seconds=152.98 completed=74/78
+EVAL_PROGRESS condition=normal task=narrative-v3.2 sample=23/39 schema_valid=False input_tokens=1291 output_tokens=338 seconds=137.90 completed=75/78
+EVAL_PROGRESS condition=normal task=narrative-v3.2 sample=25/39 schema_valid=False input_tokens=1213 output_tokens=432 seconds=175.60 completed=76/78
+EVAL_PROGRESS condition=normal task=narrative-v3.2 sample=27/39 schema_valid=False input_tokens=1224 output_tokens=411 seconds=167.67 completed=77/78
+EVAL_PROGRESS condition=normal task=narrative-v3.2 sample=29/39 schema_valid=False input_tokens=1235 output_tokens=392 seconds=160.70 completed=78/78
+EVAL_CONDITION_COMPLETE condition=normal resumed=false
+Traceback (most recent call last):
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2229, in <module>
+    main()
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2150, in main
+    task_records = sorted(
+                   ^^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2151, in <genexpr>
+    (row for row in records if row["task"] == spec.name),
+                               ~~~^^^^^^^^
+KeyError: 'task'

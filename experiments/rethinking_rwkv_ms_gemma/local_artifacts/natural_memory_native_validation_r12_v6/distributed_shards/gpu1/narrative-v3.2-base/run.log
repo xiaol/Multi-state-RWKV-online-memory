@@ -1,0 +1,31 @@
+EVAL_LOAD condition=base pending=4
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]
+Loading weights:  16%|█▌        | 335/2076 [00:00<00:00, 3348.65it/s]
+Loading weights:  32%|███▏      | 670/2076 [00:00<00:00, 3082.03it/s]
+Loading weights:  47%|████▋     | 980/2076 [00:02<00:03, 295.67it/s]
+Loading weights:  56%|█████▌    | 1155/2076 [00:02<00:02, 308.44it/s]
+Loading weights:  61%|██████▏   | 1275/2076 [00:03<00:02, 311.62it/s]
+Loading weights:  66%|██████▌   | 1364/2076 [00:03<00:02, 303.58it/s]
+Loading weights:  69%|██████▉   | 1432/2076 [00:03<00:02, 317.71it/s]
+Loading weights:  84%|████████▎ | 1735/2076 [00:03<00:00, 582.40it/s]
+Loading weights:  98%|█████████▊| 2039/2076 [00:04<00:00, 883.02it/s]
+Loading weights: 100%|██████████| 2076/2076 [00:04<00:00, 511.59it/s]
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=23/39 schema_valid=False input_tokens=1291 output_tokens=338 seconds=44.45 completed=36/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=28/39 schema_valid=False input_tokens=1228 output_tokens=385 seconds=50.69 completed=37/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=31/39 schema_valid=False input_tokens=1226 output_tokens=398 seconds=53.08 completed=38/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=38/39 schema_valid=False input_tokens=1132 output_tokens=406 seconds=53.99 completed=39/78
+EVAL_CONDITION_COMPLETE condition=base resumed=false
+EVAL_CONDITION_COMPLETE condition=normal resumed=true
+Traceback (most recent call last):
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2229, in <module>
+    main()
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2150, in main
+    task_records = sorted(
+                   ^^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2151, in <genexpr>
+    (row for row in records if row["task"] == spec.name),
+                               ~~~^^^^^^^^
+KeyError: 'task'

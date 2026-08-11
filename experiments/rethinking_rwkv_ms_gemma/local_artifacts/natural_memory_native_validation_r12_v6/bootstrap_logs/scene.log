@@ -1,0 +1,116 @@
+EVAL_LOAD condition=base pending=170
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]
+Loading weights:  15%|█▍        | 304/2076 [00:00<00:00, 3036.68it/s]
+Loading weights:  29%|██▉       | 608/2076 [00:00<00:00, 2592.71it/s]
+Loading weights:  42%|████▏     | 872/2076 [00:02<00:04, 248.35it/s]
+Loading weights:  49%|████▉     | 1021/2076 [00:03<00:04, 247.68it/s]
+Loading weights:  54%|█████▍    | 1121/2076 [00:03<00:03, 247.38it/s]
+Loading weights:  58%|█████▊    | 1194/2076 [00:03<00:03, 246.98it/s]
+Loading weights:  60%|██████    | 1251/2076 [00:04<00:03, 240.70it/s]
+Loading weights:  62%|██████▏   | 1296/2076 [00:04<00:03, 244.89it/s]
+Loading weights:  64%|██████▍   | 1336/2076 [00:04<00:03, 241.94it/s]
+Loading weights:  66%|██████▌   | 1371/2076 [00:04<00:02, 248.76it/s]
+Loading weights:  68%|██████▊   | 1404/2076 [00:04<00:02, 246.27it/s]
+Loading weights:  74%|███████▎  | 1526/2076 [00:04<00:01, 406.32it/s]
+Loading weights:  88%|████████▊ | 1818/2076 [00:04<00:00, 884.51it/s]
+Loading weights: 100%|██████████| 2076/2076 [00:05<00:00, 407.74it/s]
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+EVAL_PROGRESS condition=base task=scene-v4-current sample=1/170 schema_valid=False input_tokens=476 output_tokens=127 seconds=16.44 completed=1/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=2/170 schema_valid=False input_tokens=304 output_tokens=35 seconds=4.29 completed=2/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=3/170 schema_valid=False input_tokens=501 output_tokens=90 seconds=11.43 completed=3/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=4/170 schema_valid=False input_tokens=365 output_tokens=22 seconds=2.71 completed=4/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=5/170 schema_valid=False input_tokens=429 output_tokens=22 seconds=2.71 completed=5/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=6/170 schema_valid=False input_tokens=458 output_tokens=19 seconds=2.35 completed=6/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=7/170 schema_valid=False input_tokens=604 output_tokens=22 seconds=2.82 completed=7/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=8/170 schema_valid=False input_tokens=410 output_tokens=113 seconds=13.81 completed=8/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=9/170 schema_valid=False input_tokens=598 output_tokens=22 seconds=2.82 completed=9/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=10/170 schema_valid=False input_tokens=751 output_tokens=128 seconds=16.29 completed=10/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=11/170 schema_valid=False input_tokens=422 output_tokens=22 seconds=2.68 completed=11/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=12/170 schema_valid=False input_tokens=644 output_tokens=100 seconds=12.70 completed=12/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=13/170 schema_valid=False input_tokens=351 output_tokens=113 seconds=13.19 completed=13/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=14/170 schema_valid=False input_tokens=337 output_tokens=20 seconds=2.32 completed=14/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=15/170 schema_valid=False input_tokens=595 output_tokens=46 seconds=6.34 completed=15/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=16/170 schema_valid=False input_tokens=638 output_tokens=18 seconds=2.21 completed=16/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=17/170 schema_valid=True input_tokens=723 output_tokens=40 seconds=4.86 completed=17/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=18/170 schema_valid=True input_tokens=589 output_tokens=128 seconds=14.80 completed=18/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=19/170 schema_valid=False input_tokens=410 output_tokens=19 seconds=2.11 completed=19/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=20/170 schema_valid=False input_tokens=398 output_tokens=22 seconds=2.44 completed=20/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=21/170 schema_valid=True input_tokens=324 output_tokens=128 seconds=14.19 completed=21/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=22/170 schema_valid=False input_tokens=483 output_tokens=22 seconds=2.44 completed=22/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=23/170 schema_valid=False input_tokens=399 output_tokens=20 seconds=2.23 completed=23/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=24/170 schema_valid=False input_tokens=346 output_tokens=55 seconds=6.10 completed=24/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=25/170 schema_valid=False input_tokens=553 output_tokens=90 seconds=10.41 completed=25/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=26/170 schema_valid=False input_tokens=463 output_tokens=19 seconds=2.12 completed=26/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=27/170 schema_valid=False input_tokens=471 output_tokens=22 seconds=2.45 completed=27/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=28/170 schema_valid=False input_tokens=347 output_tokens=16 seconds=1.80 completed=28/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=29/170 schema_valid=True input_tokens=735 output_tokens=35 seconds=4.08 completed=29/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=30/170 schema_valid=False input_tokens=579 output_tokens=50 seconds=5.80 completed=30/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=31/170 schema_valid=False input_tokens=268 output_tokens=18 seconds=2.01 completed=31/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=32/170 schema_valid=True input_tokens=542 output_tokens=128 seconds=14.90 completed=32/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=33/170 schema_valid=False input_tokens=423 output_tokens=22 seconds=2.47 completed=33/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=34/170 schema_valid=False input_tokens=574 output_tokens=20 seconds=2.34 completed=34/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=35/170 schema_valid=False input_tokens=337 output_tokens=65 seconds=7.22 completed=35/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=36/170 schema_valid=False input_tokens=361 output_tokens=22 seconds=2.47 completed=36/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=37/170 schema_valid=False input_tokens=415 output_tokens=19 seconds=2.11 completed=37/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=38/170 schema_valid=False input_tokens=782 output_tokens=22 seconds=2.56 completed=38/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=39/170 schema_valid=True input_tokens=507 output_tokens=128 seconds=14.96 completed=39/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=40/170 schema_valid=False input_tokens=539 output_tokens=22 seconds=2.61 completed=40/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=41/170 schema_valid=False input_tokens=585 output_tokens=22 seconds=2.60 completed=41/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=42/170 schema_valid=False input_tokens=291 output_tokens=50 seconds=5.65 completed=42/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=43/170 schema_valid=False input_tokens=492 output_tokens=24 seconds=2.75 completed=43/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=44/170 schema_valid=False input_tokens=660 output_tokens=41 seconds=4.83 completed=44/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=45/170 schema_valid=False input_tokens=377 output_tokens=16 seconds=1.82 completed=45/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=46/170 schema_valid=False input_tokens=519 output_tokens=22 seconds=2.62 completed=46/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=47/170 schema_valid=False input_tokens=634 output_tokens=45 seconds=5.32 completed=47/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=48/170 schema_valid=False input_tokens=568 output_tokens=90 seconds=10.59 completed=48/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=49/170 schema_valid=False input_tokens=544 output_tokens=127 seconds=14.95 completed=49/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=50/170 schema_valid=False input_tokens=417 output_tokens=22 seconds=2.50 completed=50/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=51/170 schema_valid=False input_tokens=583 output_tokens=22 seconds=2.63 completed=51/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=52/170 schema_valid=False input_tokens=632 output_tokens=24 seconds=2.86 completed=52/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=53/170 schema_valid=False input_tokens=302 output_tokens=22 seconds=2.53 completed=53/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=54/170 schema_valid=False input_tokens=387 output_tokens=24 seconds=2.77 completed=54/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=55/170 schema_valid=False input_tokens=477 output_tokens=75 seconds=8.73 completed=55/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=56/170 schema_valid=False input_tokens=424 output_tokens=22 seconds=2.50 completed=56/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=57/170 schema_valid=True input_tokens=602 output_tokens=62 seconds=7.34 completed=57/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=58/170 schema_valid=True input_tokens=591 output_tokens=24 seconds=2.85 completed=58/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=59/170 schema_valid=False input_tokens=497 output_tokens=22 seconds=2.55 completed=59/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=60/170 schema_valid=False input_tokens=549 output_tokens=22 seconds=2.61 completed=60/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=61/170 schema_valid=False input_tokens=294 output_tokens=22 seconds=2.50 completed=61/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=62/170 schema_valid=False input_tokens=699 output_tokens=20 seconds=2.36 completed=62/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=63/170 schema_valid=False input_tokens=354 output_tokens=85 seconds=9.61 completed=63/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=64/170 schema_valid=True input_tokens=382 output_tokens=128 seconds=14.33 completed=64/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=65/170 schema_valid=True input_tokens=779 output_tokens=128 seconds=15.28 completed=65/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=66/170 schema_valid=False input_tokens=458 output_tokens=22 seconds=2.54 completed=66/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=67/170 schema_valid=False input_tokens=350 output_tokens=17 seconds=1.97 completed=67/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=68/170 schema_valid=False input_tokens=389 output_tokens=22 seconds=2.54 completed=68/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=69/170 schema_valid=False input_tokens=361 output_tokens=22 seconds=2.54 completed=69/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=70/170 schema_valid=False input_tokens=687 output_tokens=20 seconds=2.41 completed=70/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=71/170 schema_valid=False input_tokens=532 output_tokens=20 seconds=2.41 completed=71/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=72/170 schema_valid=False input_tokens=808 output_tokens=78 seconds=9.33 completed=72/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=73/170 schema_valid=False input_tokens=590 output_tokens=22 seconds=2.65 completed=73/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=74/170 schema_valid=False input_tokens=664 output_tokens=75 seconds=8.97 completed=74/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=75/170 schema_valid=False input_tokens=347 output_tokens=70 seconds=8.02 completed=75/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=76/170 schema_valid=False input_tokens=422 output_tokens=22 seconds=2.53 completed=76/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=77/170 schema_valid=False input_tokens=409 output_tokens=22 seconds=2.53 completed=77/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=78/170 schema_valid=False input_tokens=705 output_tokens=65 seconds=7.76 completed=78/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=79/170 schema_valid=True input_tokens=395 output_tokens=128 seconds=14.65 completed=79/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=80/170 schema_valid=False input_tokens=401 output_tokens=22 seconds=2.53 completed=80/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=81/170 schema_valid=True input_tokens=1069 output_tokens=35 seconds=4.26 completed=81/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=82/170 schema_valid=False input_tokens=761 output_tokens=22 seconds=2.65 completed=82/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=83/170 schema_valid=True input_tokens=638 output_tokens=128 seconds=15.27 completed=83/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=84/170 schema_valid=False input_tokens=325 output_tokens=75 seconds=8.59 completed=84/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=85/170 schema_valid=False input_tokens=512 output_tokens=22 seconds=2.64 completed=85/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=86/170 schema_valid=True input_tokens=529 output_tokens=128 seconds=15.26 completed=86/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=87/170 schema_valid=False input_tokens=283 output_tokens=16 seconds=1.86 completed=87/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=88/170 schema_valid=False input_tokens=295 output_tokens=113 seconds=12.96 completed=88/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=89/170 schema_valid=True input_tokens=506 output_tokens=15 seconds=1.79 completed=89/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=90/170 schema_valid=True input_tokens=564 output_tokens=128 seconds=15.30 completed=90/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=91/170 schema_valid=True input_tokens=479 output_tokens=128 seconds=15.10 completed=91/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=92/170 schema_valid=False input_tokens=538 output_tokens=80 seconds=9.57 completed=92/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=93/170 schema_valid=False input_tokens=376 output_tokens=16 seconds=1.85 completed=93/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=94/170 schema_valid=False input_tokens=473 output_tokens=24 seconds=2.77 completed=94/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=95/170 schema_valid=False input_tokens=330 output_tokens=50 seconds=5.73 completed=95/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=96/170 schema_valid=False input_tokens=479 output_tokens=22 seconds=2.54 completed=96/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=97/170 schema_valid=False input_tokens=452 output_tokens=22 seconds=2.53 completed=97/340

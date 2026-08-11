@@ -1,0 +1,668 @@
+{
+  "code": {
+    "novel_agent_repo": {
+      "commit": "3dbab521d5c465818e9e94081e5699e5d6fef085",
+      "dirty": true
+    },
+    "rwkv_repo": {
+      "commit": "3dbab521d5c465818e9e94081e5699e5d6fef085",
+      "dirty": true
+    }
+  },
+  "created_at": "2026-08-11T19:27:15.245167+00:00",
+  "evaluation_contract": {
+    "name": "generic",
+    "phase": "generic"
+  },
+  "evaluation_kind": "structured-task transfer evaluation",
+  "fingerprint": "dbb58cf2fc1a0fc888403a84aabe3de47018b900d469a647e17aa852229ecdb8",
+  "fingerprint_payload": {
+    "attn_implementation": "sdpa",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "candidate_lineage": null,
+    "conditions": [
+      "base",
+      "normal"
+    ],
+    "datasets": {
+      "scene-v4-current": {
+        "max_new_tokens": 128,
+        "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v4-scene-boundary-detection/val.jsonl",
+        "selected_rows": 170,
+        "sha256": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513"
+      }
+    },
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "evaluation_contract": {
+      "name": "generic",
+      "phase": "generic"
+    },
+    "evaluator_sha256": "bb5f234b9c4c3163f1e617b712e99d5ce71f998862ccb79c06e37ad7992d5ffd",
+    "expected_memory_layer_count": 42,
+    "hard32_receipt_authorization": null,
+    "memory_adapter_sha256": "26581867dc1220644332d6ff31e71276576b28134ab68c18abac97e2094450ae",
+    "memory_config_sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4",
+    "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_run_split20260825_seed53/adapter",
+    "normal_fusion_profile": "native",
+    "normal_fusion_profile_definition": {
+      "description": "Checkpoint-native placement, content gate, and learned gains.",
+      "name": "native"
+    },
+    "profile_definition_sha256": "2c19aef8760614401a44c6b65dc1586e60e14705f06a8253401dd3c92c65bb93",
+    "references": {
+      "attribution-v3.2": {
+        "artifact_metric": 0.8666666666666667,
+        "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "metric_name": "best_accuracy",
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      },
+      "narrative-v3.2": {
+        "artifact_metric": 0.6946264744429882,
+        "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "metric_name": "accuracy",
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      },
+      "scene-v3.2": {
+        "artifact_metric": 0.2,
+        "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "metric_name": "f1",
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      },
+      "scene-v4-current": {
+        "artifact_counts": {
+          "fn": 89,
+          "fp": 261,
+          "samples": 149,
+          "tp": 66
+        },
+        "artifact_metric": 0.27385892116182575,
+        "artifact_source": "native_validation_reference_results/results/scene_boundary_final.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "metric_name": "micro_f1",
+        "published_historical_metric": 0.305,
+        "published_historical_note": "The reported 30.5% used a historical 49-row v4 test. The downloaded current v4 test and raw result artifact contain 149 rows, so 30.5% is context only.",
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      },
+      "source_hashes": {
+        "eval_compare_results.json": "e2376fe36d61e915f566d974f17a14ebfff540a03f7ded233b369075a273a3ef",
+        "scene_boundary_final.json": "6d7bbd8d7243051f221c7ba8dd7607f78a16da6de40eaf5290a3b533c7c69819"
+      }
+    },
+    "split": "val"
+  },
+  "generation_protocol": "Greedy decoding with author-compatible per-task token caps, Gemma chat template, batch size 1, RWKV state reset before every example, split=val, normal_fusion_profile=native.",
+  "memory_training": {
+    "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_run_split20260825_seed53/adapter",
+    "training_protocol": null
+  },
+  "normal_fusion_runtime": {
+    "definition": {
+      "description": "Checkpoint-native placement, content gate, and learned gains.",
+      "name": "native"
+    },
+    "effective_settings": [
+      {
+        "layer_index": 0,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.0.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 1,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.1.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 2,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.2.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 3,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.3.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 4,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.4.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 5,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.5.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 6,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.6.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 7,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.7.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 8,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.8.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 9,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.9.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 10,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.10.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 11,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.11.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 12,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.12.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 13,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.13.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 14,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.14.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 15,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.15.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 16,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.16.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 17,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.17.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 18,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.18.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 19,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.19.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 20,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.20.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 21,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.21.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 22,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.22.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 23,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.23.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 24,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.24.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 25,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.25.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 26,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.26.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 27,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.27.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 28,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.28.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 29,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.29.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 30,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.30.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 31,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.31.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 32,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.32.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 33,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.33.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 34,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.34.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 35,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.35.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 36,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.36.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 37,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.37.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 38,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.38.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 39,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.39.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 40,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.40.self_attn",
+        "post_attention_norm_hook_bound": false
+      },
+      {
+        "layer_index": 41,
+        "memory_fusion_mode": "add",
+        "memory_fusion_placement": "attention_output",
+        "memory_fusion_residual_gain_effective": null,
+        "memory_fusion_residual_gain_raw": null,
+        "memory_fusion_residual_scale": 1.0,
+        "memory_fusion_residual_scale_max": 1.0,
+        "module_name": "model.language_model.layers.41.self_attn",
+        "post_attention_norm_hook_bound": false
+      }
+    ],
+    "effective_settings_sha256": "72b83472a0bce3fdf4daa9a11012cce3280ca44bb3a001fdbcbf672a4e78bfd1",
+    "layer_count": 42,
+    "layer_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41
+    ],
+    "profile": "native"
+  },
+  "overlap_audit": {
+    "interpretation": "Do not infer passage-level independence from the task split alone.",
+    "status": "not_performed_for_this_checkpoint"
+  },
+  "references": {
+    "attribution-v3.2": {
+      "artifact_metric": 0.8666666666666667,
+      "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "best_accuracy",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "narrative-v3.2": {
+      "artifact_metric": 0.6946264744429882,
+      "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "accuracy",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "scene-v3.2": {
+      "artifact_metric": 0.2,
+      "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "f1",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "scene-v4-current": {
+      "artifact_counts": {
+        "fn": 89,
+        "fp": 261,
+        "samples": 149,
+        "tp": 66
+      },
+      "artifact_metric": 0.27385892116182575,
+      "artifact_source": "native_validation_reference_results/results/scene_boundary_final.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "micro_f1",
+      "published_historical_metric": 0.305,
+      "published_historical_note": "The reported 30.5% used a historical 49-row v4 test. The downloaded current v4 test and raw result artifact contain 149 rows, so 30.5% is context only.",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "source_hashes": {
+      "eval_compare_results.json": "e2376fe36d61e915f566d974f17a14ebfff540a03f7ded233b369075a273a3ef",
+      "scene_boundary_final.json": "6d7bbd8d7243051f221c7ba8dd7607f78a16da6de40eaf5290a3b533c7c69819"
+    }
+  },
+  "split": "val",
+  "training_scope": "Checkpoint-specific training provenance is recorded in memory_training."
+}

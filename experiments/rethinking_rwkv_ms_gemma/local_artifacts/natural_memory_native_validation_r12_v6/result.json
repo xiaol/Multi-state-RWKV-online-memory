@@ -1,0 +1,137 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_validation_result.v1",
+  "created_at": "2026-08-12T04:29:33+08:00",
+  "result_role": "publisher_native_validation",
+  "authorization": {
+    "file": "authorization.json",
+    "file_sha256": "69045121488bd4979a8b2b9a3dc2c8f912e8119b97ccd57d6d8e1d8a8871b5cf",
+    "git_commit": "3dbab521d5c465818e9e94081e5699e5d6fef085"
+  },
+  "candidate": {
+    "id": "r12",
+    "adapter": "../natural_memory_gate_replication_r12_development_run_split20260825_seed53/adapter",
+    "adapter_file_sha256": "26581867dc1220644332d6ff31e71276576b28134ab68c18abac97e2094450ae",
+    "adapter_config_sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4",
+    "adapter_files_aggregate_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63",
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f"
+  },
+  "evaluation": {
+    "split": "val",
+    "publisher_split": "validation",
+    "conditions": [
+      "base",
+      "normal"
+    ],
+    "normal_fusion_profile": "native",
+    "generation": "greedy_batch_one_state_reset_per_row",
+    "hf_endpoint": "https://hf-mirror.com",
+    "rows_per_condition": 239,
+    "physical_gpus": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "test_opened": false,
+    "hard32_opened": false
+  },
+  "success_rule": {
+    "definition": "normal_gte_base_on_all_three_tasks_and_normal_gt_base_on_at_least_two_tasks",
+    "normal_at_least_base_on_all_three_tasks": true,
+    "normal_strictly_better_task_count": 0,
+    "required_strictly_better_task_count": 2,
+    "passed": false
+  },
+  "format_recovered_metrics": {
+    "attribution-v3.2": {
+      "metric": "accuracy",
+      "base": 0.8333333333333334,
+      "normal": 0.8333333333333334,
+      "normal_minus_base": 0.0,
+      "base_correct": 25,
+      "normal_correct": 25,
+      "recovered_prediction_disagreements": 0,
+      "raw_generation_disagreements": 0,
+      "rows": 30
+    },
+    "narrative-v3.2": {
+      "metric": "unit_accuracy",
+      "base": 0.6432022084195997,
+      "normal": 0.6432022084195997,
+      "normal_minus_base": 0.0,
+      "base_correct_units": 932,
+      "normal_correct_units": 932,
+      "gold_units": 1449,
+      "recovered_prediction_disagreements": 0,
+      "raw_generation_disagreements": 0,
+      "normal_better_rows": 0,
+      "normal_worse_rows": 0,
+      "tied_rows": 39,
+      "rows": 39
+    },
+    "scene-v4-current": {
+      "metric": "micro_f1",
+      "base": 0.18200836820083682,
+      "normal": 0.18200836820083682,
+      "normal_minus_base": 0.0,
+      "base_tp": 87,
+      "normal_tp": 87,
+      "base_fp": 698,
+      "normal_fp": 698,
+      "base_fn": 84,
+      "normal_fn": 84,
+      "recovered_prediction_disagreements": 0,
+      "raw_generation_disagreements": 0,
+      "normal_better_rows": 0,
+      "normal_worse_rows": 0,
+      "tied_rows": 170,
+      "rows": 170
+    }
+  },
+  "strict_metrics": {
+    "attribution-v3.2": {
+      "metric": "strict_accuracy",
+      "base": 0.0,
+      "normal": 0.0
+    },
+    "narrative-v3.2": {
+      "metric": "strict_accuracy",
+      "base": 0.0,
+      "normal": 0.0
+    },
+    "scene-v4-current": {
+      "metric": "strict_f1",
+      "base": 0.03690036900369004,
+      "normal": 0.03690036900369004
+    }
+  },
+  "interpretation": {
+    "outcome": "native_transfer_failure_exact_tie",
+    "candidate_improved": false,
+    "candidate_regressed": false,
+    "all_239_paired_raw_generations_identical": true,
+    "all_239_paired_recovered_predictions_identical": true,
+    "v6_status": "terminal_native_validation_failure",
+    "v6_goal_satisfied": false,
+    "result_must_not_be_counted_as_v6_success": true,
+    "conclusion": "The frozen R12 outer-memory adapter passes both preregistered sealed memory gates but does not alter or improve any publisher native validation prediction relative to the identical frozen Gemma base."
+  },
+  "distributed_execution": {
+    "task_sharded": true,
+    "row_sharded_tasks": [
+      "narrative-v3.2",
+      "scene-v4-current"
+    ],
+    "narrative_base_merge_audit": "narrative-v3.2/distributed_shard_merge_base.json",
+    "narrative_normal_merge_audit": "narrative-v3.2/distributed_shard_merge_normal.json",
+    "scene_base_merge_audit": "scene-v4-current/distributed_shard_merge_base.json",
+    "scene_normal_merge_audit": "scene-v4-current/distributed_shard_merge_normal.json",
+    "independent_example_invariant": "Each example resets online state, so disjoint row shards preserve batch-one generation semantics.",
+    "shard_local_summary_note": "Shard-local runners generated every owned row, then exited nonzero during placeholder summary construction; audited merges validate the authoritative generated rows."
+  },
+  "verification": {
+    "evaluator_analyzer_sharder_authorization_tests": "53_passed",
+    "bootstrap_replicates_per_task": 10000
+  }
+}

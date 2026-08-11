@@ -1,0 +1,77 @@
+EVAL_CONDITION_COMPLETE condition=base resumed=true
+EVAL_LOAD condition=normal pending=45
+
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]
+Loading weights:  14%|█▍        | 290/2076 [00:00<00:00, 2897.25it/s]
+Loading weights:  28%|██▊       | 580/2076 [00:00<00:00, 2512.72it/s]
+Loading weights:  40%|████      | 835/2076 [00:02<00:05, 239.31it/s]
+Loading weights:  47%|████▋     | 979/2076 [00:03<00:04, 249.14it/s]
+Loading weights:  52%|█████▏    | 1077/2076 [00:03<00:03, 257.71it/s]
+Loading weights:  55%|█████▌    | 1151/2076 [00:03<00:03, 257.41it/s]
+Loading weights:  58%|█████▊    | 1209/2076 [00:03<00:03, 258.74it/s]
+Loading weights:  61%|██████    | 1257/2076 [00:04<00:03, 263.53it/s]
+Loading weights:  63%|██████▎   | 1299/2076 [00:04<00:02, 268.41it/s]
+Loading weights:  64%|██████▍   | 1337/2076 [00:04<00:02, 259.41it/s]
+Loading weights:  66%|██████▌   | 1370/2076 [00:04<00:02, 266.01it/s]
+Loading weights:  68%|██████▊   | 1403/2076 [00:04<00:02, 264.78it/s]
+Loading weights:  71%|███████   | 1476/2076 [00:04<00:01, 353.85it/s]
+Loading weights:  86%|████████▌ | 1790/2076 [00:04<00:00, 952.22it/s]
+Loading weights: 100%|█████████▉| 2074/2076 [00:04<00:00, 1390.82it/s]
+Loading weights: 100%|██████████| 2076/2076 [00:04<00:00, 418.97it/s]
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=1/170 schema_valid=False input_tokens=476 output_tokens=127 seconds=46.55 completed=296/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=5/170 schema_valid=False input_tokens=429 output_tokens=22 seconds=6.62 completed=297/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=11/170 schema_valid=False input_tokens=422 output_tokens=22 seconds=6.70 completed=298/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=13/170 schema_valid=False input_tokens=351 output_tokens=113 seconds=33.46 completed=299/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=20/170 schema_valid=False input_tokens=398 output_tokens=22 seconds=6.54 completed=300/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=24/170 schema_valid=False input_tokens=346 output_tokens=55 seconds=16.64 completed=301/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=26/170 schema_valid=False input_tokens=463 output_tokens=19 seconds=5.66 completed=302/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=27/170 schema_valid=False input_tokens=471 output_tokens=22 seconds=6.52 completed=303/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=29/170 schema_valid=True input_tokens=735 output_tokens=35 seconds=13.40 completed=304/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=30/170 schema_valid=False input_tokens=579 output_tokens=50 seconds=19.11 completed=305/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=38/170 schema_valid=False input_tokens=782 output_tokens=22 seconds=8.34 completed=306/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=44/170 schema_valid=False input_tokens=660 output_tokens=41 seconds=15.59 completed=307/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=45/170 schema_valid=False input_tokens=377 output_tokens=16 seconds=4.72 completed=308/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=46/170 schema_valid=False input_tokens=519 output_tokens=22 seconds=8.41 completed=309/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=49/170 schema_valid=False input_tokens=544 output_tokens=127 seconds=48.33 completed=310/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=50/170 schema_valid=False input_tokens=417 output_tokens=22 seconds=6.48 completed=311/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=57/170 schema_valid=True input_tokens=602 output_tokens=62 seconds=23.59 completed=312/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=58/170 schema_valid=True input_tokens=591 output_tokens=24 seconds=9.20 completed=313/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=60/170 schema_valid=False input_tokens=549 output_tokens=22 seconds=8.64 completed=314/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=63/170 schema_valid=False input_tokens=354 output_tokens=85 seconds=25.24 completed=315/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=64/170 schema_valid=True input_tokens=382 output_tokens=128 seconds=37.64 completed=316/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=74/170 schema_valid=False input_tokens=664 output_tokens=75 seconds=28.66 completed=317/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=75/170 schema_valid=False input_tokens=347 output_tokens=70 seconds=20.57 completed=318/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=82/170 schema_valid=False input_tokens=761 output_tokens=22 seconds=8.41 completed=319/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=83/170 schema_valid=True input_tokens=638 output_tokens=128 seconds=49.46 completed=320/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=86/170 schema_valid=True input_tokens=529 output_tokens=128 seconds=49.66 completed=321/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=92/170 schema_valid=False input_tokens=538 output_tokens=80 seconds=31.09 completed=322/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=94/170 schema_valid=False input_tokens=473 output_tokens=24 seconds=7.19 completed=323/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=97/170 schema_valid=False input_tokens=452 output_tokens=22 seconds=6.60 completed=324/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=101/170 schema_valid=False input_tokens=311 output_tokens=22 seconds=6.59 completed=325/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=102/170 schema_valid=False input_tokens=361 output_tokens=22 seconds=6.59 completed=326/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=111/170 schema_valid=False input_tokens=747 output_tokens=46 seconds=17.88 completed=327/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=115/170 schema_valid=False input_tokens=729 output_tokens=32 seconds=12.43 completed=328/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=119/170 schema_valid=False input_tokens=410 output_tokens=22 seconds=6.60 completed=329/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=121/170 schema_valid=True input_tokens=615 output_tokens=128 seconds=49.71 completed=330/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=125/170 schema_valid=False input_tokens=691 output_tokens=95 seconds=36.90 completed=331/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=136/170 schema_valid=False input_tokens=390 output_tokens=22 seconds=6.59 completed=332/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=151/170 schema_valid=False input_tokens=1221 output_tokens=120 seconds=46.49 completed=333/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=154/170 schema_valid=False input_tokens=578 output_tokens=95 seconds=36.92 completed=334/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=156/170 schema_valid=False input_tokens=356 output_tokens=100 seconds=29.26 completed=335/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=162/170 schema_valid=True input_tokens=589 output_tokens=28 seconds=10.45 completed=336/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=166/170 schema_valid=False input_tokens=340 output_tokens=18 seconds=5.23 completed=337/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=167/170 schema_valid=False input_tokens=306 output_tokens=22 seconds=6.39 completed=338/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=168/170 schema_valid=True input_tokens=521 output_tokens=128 seconds=48.59 completed=339/340
+EVAL_PROGRESS condition=normal task=scene-v4-current sample=169/170 schema_valid=False input_tokens=1132 output_tokens=58 seconds=22.27 completed=340/340
+EVAL_CONDITION_COMPLETE condition=normal resumed=false
+Traceback (most recent call last):
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2229, in <module>
+    main()
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2150, in main
+    task_records = sorted(
+                   ^^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2151, in <genexpr>
+    (row for row in records if row["task"] == spec.name),
+                               ~~~^^^^^^^^
+KeyError: 'task'

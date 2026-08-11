@@ -1,0 +1,27 @@
+EVAL_LOAD condition=base pending=39
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]
+Loading weights:  15%|█▌        | 320/2076 [00:00<00:00, 3198.36it/s]
+Loading weights:  31%|███       | 640/2076 [00:00<00:00, 2810.83it/s]
+Loading weights:  45%|████▍     | 925/2076 [00:01<00:03, 363.34it/s]
+Loading weights:  52%|█████▏    | 1088/2076 [00:02<00:02, 381.45it/s]
+Loading weights:  58%|█████▊    | 1204/2076 [00:02<00:02, 393.21it/s]
+Loading weights:  62%|██████▏   | 1294/2076 [00:02<00:02, 389.83it/s]
+Loading weights:  66%|██████▌   | 1367/2076 [00:02<00:01, 390.71it/s]
+Loading weights:  69%|██████▉   | 1429/2076 [00:03<00:01, 404.40it/s]
+Loading weights:  85%|████████▍ | 1760/2076 [00:03<00:00, 817.81it/s]
+Loading weights: 100%|██████████| 2076/2076 [00:03<00:00, 629.67it/s]
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=1/39 schema_valid=False input_tokens=1294 output_tokens=541 seconds=70.94 completed=1/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=2/39 schema_valid=False input_tokens=1299 output_tokens=325 seconds=42.25 completed=2/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=3/39 schema_valid=False input_tokens=1230 output_tokens=379 seconds=48.93 completed=3/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=4/39 schema_valid=False input_tokens=1092 output_tokens=455 seconds=58.89 completed=4/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=5/39 schema_valid=False input_tokens=1162 output_tokens=263 seconds=34.11 completed=5/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=6/39 schema_valid=False input_tokens=1277 output_tokens=459 seconds=59.70 completed=6/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=7/39 schema_valid=False input_tokens=1330 output_tokens=446 seconds=58.26 completed=7/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=8/39 schema_valid=False input_tokens=1250 output_tokens=401 seconds=51.73 completed=8/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=9/39 schema_valid=False input_tokens=1141 output_tokens=160 seconds=20.56 completed=9/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=10/39 schema_valid=False input_tokens=1141 output_tokens=232 seconds=29.81 completed=10/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=11/39 schema_valid=False input_tokens=1193 output_tokens=284 seconds=36.85 completed=11/78
+EVAL_PROGRESS condition=base task=narrative-v3.2 sample=12/39 schema_valid=False input_tokens=1193 output_tokens=424 seconds=54.71 completed=12/78

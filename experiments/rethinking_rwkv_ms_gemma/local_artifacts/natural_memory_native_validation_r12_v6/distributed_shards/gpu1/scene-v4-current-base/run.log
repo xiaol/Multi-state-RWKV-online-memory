@@ -1,0 +1,47 @@
+EVAL_LOAD condition=base pending=20
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]
+Loading weights:  16%|█▋        | 339/2076 [00:00<00:00, 3388.99it/s]
+Loading weights:  33%|███▎      | 678/2076 [00:00<00:00, 3045.86it/s]
+Loading weights:  47%|████▋     | 985/2076 [00:02<00:03, 278.06it/s]
+Loading weights:  56%|█████▌    | 1158/2076 [00:03<00:02, 309.07it/s]
+Loading weights:  62%|██████▏   | 1281/2076 [00:03<00:02, 316.42it/s]
+Loading weights:  66%|██████▌   | 1372/2076 [00:03<00:02, 323.75it/s]
+Loading weights:  70%|██████▉   | 1445/2076 [00:03<00:01, 341.38it/s]
+Loading weights:  83%|████████▎ | 1724/2076 [00:03<00:00, 591.90it/s]
+Loading weights:  97%|█████████▋| 2017/2076 [00:03<00:00, 890.16it/s]
+Loading weights: 100%|██████████| 2076/2076 [00:04<00:00, 517.78it/s]
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+EVAL_PROGRESS condition=base task=scene-v4-current sample=101/170 schema_valid=False input_tokens=311 output_tokens=22 seconds=3.34 completed=151/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=103/170 schema_valid=False input_tokens=303 output_tokens=113 seconds=14.68 completed=152/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=105/170 schema_valid=False input_tokens=599 output_tokens=22 seconds=2.87 completed=153/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=106/170 schema_valid=False input_tokens=319 output_tokens=100 seconds=12.84 completed=154/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=112/170 schema_valid=True input_tokens=537 output_tokens=128 seconds=17.33 completed=155/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=116/170 schema_valid=False input_tokens=351 output_tokens=55 seconds=7.06 completed=156/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=120/170 schema_valid=False input_tokens=755 output_tokens=72 seconds=9.68 completed=157/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=121/170 schema_valid=True input_tokens=615 output_tokens=128 seconds=17.08 completed=158/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=133/170 schema_valid=False input_tokens=398 output_tokens=62 seconds=7.92 completed=159/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=136/170 schema_valid=False input_tokens=390 output_tokens=22 seconds=2.84 completed=160/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=140/170 schema_valid=False input_tokens=509 output_tokens=16 seconds=2.14 completed=161/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=143/170 schema_valid=True input_tokens=539 output_tokens=128 seconds=17.07 completed=162/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=146/170 schema_valid=False input_tokens=350 output_tokens=22 seconds=2.83 completed=163/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=147/170 schema_valid=False input_tokens=550 output_tokens=80 seconds=10.66 completed=164/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=151/170 schema_valid=False input_tokens=1221 output_tokens=120 seconds=16.14 completed=165/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=152/170 schema_valid=False input_tokens=393 output_tokens=127 seconds=16.23 completed=166/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=157/170 schema_valid=False input_tokens=354 output_tokens=22 seconds=2.82 completed=167/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=159/170 schema_valid=False input_tokens=416 output_tokens=18 seconds=2.31 completed=168/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=163/170 schema_valid=True input_tokens=616 output_tokens=128 seconds=16.54 completed=169/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=167/170 schema_valid=False input_tokens=306 output_tokens=22 seconds=2.72 completed=170/340
+EVAL_CONDITION_COMPLETE condition=base resumed=false
+EVAL_CONDITION_COMPLETE condition=normal resumed=true
+Traceback (most recent call last):
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2229, in <module>
+    main()
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2150, in main
+    task_records = sorted(
+                   ^^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2151, in <genexpr>
+    (row for row in records if row["task"] == spec.name),
+                               ~~~^^^^^^^^
+KeyError: 'task'

@@ -1,0 +1,45 @@
+EVAL_LOAD condition=base pending=18
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]
+Loading weights:  16%|█▌        | 325/2076 [00:00<00:00, 3225.86it/s]
+Loading weights:  31%|███       | 648/2076 [00:00<00:00, 3033.45it/s]
+Loading weights:  46%|████▌     | 953/2076 [00:02<00:03, 330.60it/s]
+Loading weights:  54%|█████▍    | 1126/2076 [00:02<00:02, 353.65it/s]
+Loading weights:  60%|██████    | 1248/2076 [00:02<00:02, 365.62it/s]
+Loading weights:  65%|██████▍   | 1341/2076 [00:03<00:01, 368.68it/s]
+Loading weights:  68%|██████▊   | 1416/2076 [00:03<00:01, 375.70it/s]
+Loading weights:  82%|████████▏ | 1700/2076 [00:03<00:00, 651.97it/s]
+Loading weights:  97%|█████████▋| 2018/2076 [00:03<00:00, 1000.87it/s]
+Loading weights: 100%|██████████| 2076/2076 [00:03<00:00, 592.24it/s]
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+EVAL_PROGRESS condition=base task=scene-v4-current sample=99/170 schema_valid=False input_tokens=928 output_tokens=48 seconds=6.29 completed=153/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=102/170 schema_valid=False input_tokens=361 output_tokens=22 seconds=2.54 completed=154/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=107/170 schema_valid=False input_tokens=332 output_tokens=22 seconds=2.48 completed=155/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=108/170 schema_valid=False input_tokens=516 output_tokens=19 seconds=2.23 completed=156/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=110/170 schema_valid=True input_tokens=638 output_tokens=128 seconds=15.24 completed=157/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=122/170 schema_valid=False input_tokens=381 output_tokens=22 seconds=2.50 completed=158/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=123/170 schema_valid=True input_tokens=504 output_tokens=59 seconds=6.98 completed=159/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=124/170 schema_valid=False input_tokens=617 output_tokens=75 seconds=8.78 completed=160/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=128/170 schema_valid=True input_tokens=663 output_tokens=128 seconds=15.23 completed=161/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=132/170 schema_valid=True input_tokens=363 output_tokens=128 seconds=14.87 completed=162/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=134/170 schema_valid=False input_tokens=266 output_tokens=22 seconds=2.59 completed=163/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=145/170 schema_valid=True input_tokens=447 output_tokens=128 seconds=15.27 completed=164/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=148/170 schema_valid=True input_tokens=440 output_tokens=128 seconds=15.22 completed=165/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=156/170 schema_valid=False input_tokens=356 output_tokens=100 seconds=11.66 completed=166/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=160/170 schema_valid=False input_tokens=428 output_tokens=80 seconds=9.33 completed=167/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=162/170 schema_valid=True input_tokens=589 output_tokens=28 seconds=3.42 completed=168/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=166/170 schema_valid=False input_tokens=340 output_tokens=18 seconds=2.12 completed=169/340
+EVAL_PROGRESS condition=base task=scene-v4-current sample=168/170 schema_valid=True input_tokens=521 output_tokens=128 seconds=15.61 completed=170/340
+EVAL_CONDITION_COMPLETE condition=base resumed=false
+EVAL_CONDITION_COMPLETE condition=normal resumed=true
+Traceback (most recent call last):
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2229, in <module>
+    main()
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2150, in main
+    task_records = sorted(
+                   ^^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2151, in <genexpr>
+    (row for row in records if row["task"] == spec.name),
+                               ~~~^^^^^^^^
+KeyError: 'task'

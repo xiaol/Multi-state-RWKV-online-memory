@@ -1,0 +1,75 @@
+{
+  "complete": true,
+  "condition": "base",
+  "fingerprint": "e79a03cd6b775680546f92943e8273016b3de2252d1dbc975411588ab294ffe1",
+  "output_path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r12_v6/narrative-v3.2/base.jsonl",
+  "output_sha256": "8c12ae8934c4d6dcf36b9e862a7829596e0570e518c578a177d78ba69a8deddc",
+  "rows": 39,
+  "schema": "novel_agent_eval_distributed_merge.v1",
+  "shards": [
+    {
+      "generated_rows": 7,
+      "owned_indices": [
+        17,
+        18,
+        20,
+        21,
+        24,
+        26,
+        28
+      ],
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r12_v6/distributed_shards/gpu0/narrative-v3.2-base",
+      "physical_gpu": 0,
+      "plan_sha256": "9ba1b6a19ad9ff6caaa6f80e6242af4f01c9adbed1533af85ff9b496d86e6426",
+      "records_sha256": "031d5024509507815f2da789e76647736476d99fbfcb568b19ceef6e535916fc"
+    },
+    {
+      "generated_rows": 4,
+      "owned_indices": [
+        22,
+        27,
+        30,
+        37
+      ],
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r12_v6/distributed_shards/gpu1/narrative-v3.2-base",
+      "physical_gpu": 1,
+      "plan_sha256": "2e10066e57f7eecd14f8e1754e809abf9fadeeded9b6443b3cc833def15a38b5",
+      "records_sha256": "23ecaba62aad0a66208dee18536ac624901220f80f5fb20815e44c0dc6da6e66"
+    },
+    {
+      "generated_rows": 7,
+      "owned_indices": [
+        16,
+        25,
+        31,
+        33,
+        34,
+        35,
+        38
+      ],
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r12_v6/distributed_shards/gpu2/narrative-v3.2-base",
+      "physical_gpu": 2,
+      "plan_sha256": "66c76620f98a3245e048d0101232475bf927428792c749257d30cf09f92295c6",
+      "records_sha256": "e85a11bef8d90221f9512668b0b3457b60905653e9985cb529f4a689167f993d"
+    },
+    {
+      "generated_rows": 9,
+      "owned_indices": [
+        12,
+        13,
+        14,
+        15,
+        19,
+        23,
+        29,
+        32,
+        36
+      ],
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_validation_r12_v6/distributed_shards/gpu3/narrative-v3.2-base",
+      "physical_gpu": 3,
+      "plan_sha256": "46ba93cb93ed70b9db06f3c3ec2d684fb35a66675971b880bd3dd24737af1faa",
+      "records_sha256": "160dbecc45daeab74fb49c47317cc0690fae5efaec1c182825c04984b0b32cfc"
+    }
+  ],
+  "task": "narrative-v3.2"
+}
