@@ -1,0 +1,171 @@
+{
+  "adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 100897004,
+      "sha256": "da71d097c4e9edc7c84a0201672267774b273a6b2e1ac2521f97a1cd14634e57"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2632,
+      "sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4"
+    }
+  },
+  "code_bindings": {
+    "distributed_sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d",
+    "natural_gate_sha256": "af04d510de46a9580302080fcb52f93e95fbb16696ff7a14cf60545b6fedad26",
+    "runner_sha256": "bca63e155efa9e28a961e5888905b0e760ee6289dfbd300c848edebe735c5709",
+    "synthetic_runtime_sha256": "d848b9bc8ae9e85b694b4b2f59faa78886d8fe5ccebf12214f4114d591ca1aa6"
+  },
+  "input_binding": {
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "base_model_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "hf_endpoint": "https://hf-mirror.com",
+    "native_dataset_manifest_sha256": "451f2099a7afb45950f75b69280e8db21e3f948433ed0640065e4dc2c6212587",
+    "native_dataset_receipt_sha256": "7f1056c33009a30d63179b49e9f95fe1c9fb4438b434d2ad3a22cd22039704e4",
+    "native_dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+    "native_examples": 2274,
+    "native_examples_sha256": "cea33a24d991dd8fab6348e0d1168f54054b4aaf0363706e24e7b6da5d79f61f",
+    "native_execution_memory_policy": {
+      "backward_calls_per_rank": 4,
+      "checkpointed_float32_ce_chunk_tokens": 64,
+      "execution_subbatch_size": 1,
+      "gradient_equivalence": "sum_each_row_answer_ce_over_the_same_global_token_denominator_before_one_global_gradient_sum_and_optimizer_step",
+      "local_rows_per_update": 4,
+      "logical_local_microbatch_size": 2,
+      "saved_tensor_cpu_offload": false
+    },
+    "native_max_assistant_target_tokens": 1253,
+    "native_max_read_tokens": 2617,
+    "native_max_write_tokens": 2390,
+    "native_task_rows": {
+      "attribution": 372,
+      "narrative": 459,
+      "scene": 1443
+    },
+    "protocol_payload_sha256": "219ea71766d3859569f1f49cc428eab5411e4ce8fa2bcae0a333ddfe78bbc749",
+    "schedule": {
+      "alternation": "odd_synthetic_even_native",
+      "mixed_schedule_sha256": "1fb81c99e44d83111a745b9d8e6c50e599743cd56b580eb6651be0ae1ab90467",
+      "native_schedule_sha256": "4665af16817180d8ada177537f8164925ba8ead53c095f712de7b311e17c08d8",
+      "native_task_updates": {
+        "attribution": 32,
+        "narrative": 32,
+        "scene": 32
+      },
+      "native_updates": 96,
+      "schema": "rwkv_ms_natural_memory_native_mixed_schedule.v1",
+      "synthetic_schedule_sha256": "dfcc45b5cc029eff2da22a50d083571bc4f3b5ba861148cb34786f43fca93b15",
+      "synthetic_updates": 96,
+      "total_updates": 192
+    },
+    "stage": "stage1",
+    "synthetic_examples": 1920,
+    "synthetic_examples_sha256": "589198131fd23ebb88fc49d78dde286b3e3c4752242f4fd524e623c8511f0ffe",
+    "synthetic_source_manifest": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_split20260825_seed53/manifest.json",
+    "synthetic_source_manifest_sha256": "9ae32092fc2fadc132051b3d0ca83bc7ce862166a871f73feb3694d2cebef906",
+    "updates": 192,
+    "warm_start_adapter": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_run_split20260825_seed53/adapter",
+    "warm_start_adapter_files": {
+      "delta_mem_adapter.pt": {
+        "bytes": 100897004,
+        "sha256": "26581867dc1220644332d6ff31e71276576b28134ab68c18abac97e2094450ae"
+      },
+      "delta_mem_config.json": {
+        "bytes": 2632,
+        "sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4"
+      }
+    },
+    "warm_start_adapter_files_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63",
+    "warm_start_adapter_state_sha256": "0424874beb28c3c2c5a74848f0f5f2c9570b155545b72f97370c9184a3e352ba"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "1da5986b21b9e46b391e847adba4b0cabb0ed095836dd85644d3d0f22ccafc40"
+  },
+  "schema": "rwkv_ms_natural_memory_native_evolution_run.v1",
+  "stage": "stage1",
+  "status": "training_complete_evaluation_pending",
+  "training": {
+    "distributed": {
+      "global_batch_size": 16,
+      "gradient_accumulation_steps": 2,
+      "gradient_reduction": "explicit_sum",
+      "local_batch_size": 4,
+      "local_microbatch_size": 2,
+      "native_ce_chunk_tokens": 64,
+      "native_execution_subbatch_size": 1,
+      "rank_devices": [
+        {
+          "device_index": 0,
+          "device_name": "NVIDIA A100-PCIE-40GB",
+          "device_total_memory_bytes": 42406903808,
+          "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+          "hostname": "ubuntu-arm-gpu",
+          "local_rank": 0,
+          "pid": 1540694,
+          "process_rank": 0
+        },
+        {
+          "device_index": 1,
+          "device_name": "NVIDIA A100-PCIE-40GB",
+          "device_total_memory_bytes": 42406903808,
+          "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+          "hostname": "ubuntu-arm-gpu",
+          "local_rank": 1,
+          "pid": 1540695,
+          "process_rank": 1
+        },
+        {
+          "device_index": 2,
+          "device_name": "NVIDIA A100-PCIE-40GB",
+          "device_total_memory_bytes": 42406903808,
+          "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+          "hostname": "ubuntu-arm-gpu",
+          "local_rank": 2,
+          "pid": 1540696,
+          "process_rank": 2
+        },
+        {
+          "device_index": 3,
+          "device_name": "NVIDIA A100-PCIE-40GB",
+          "device_total_memory_bytes": 42406903808,
+          "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+          "hostname": "ubuntu-arm-gpu",
+          "local_rank": 3,
+          "pid": 1540697,
+          "process_rank": 3
+        }
+      ],
+      "world_size": 4
+    },
+    "elapsed_seconds": 1260.0707161426544,
+    "final_adapter_state_sha256": "f80b2e42b509661406e22b72dcd33e77eb179bec0424ebdf8dad48da8ae6d91f",
+    "mean_losses": {
+      "native": {
+        "answer": 0.2135848531817671,
+        "route": 0.0
+      },
+      "synthetic": {
+        "answer": 0.007456358272467034,
+        "route": 0.0007543941361162579
+      }
+    },
+    "progress_sha256": "562c0713f49bba3430412269c9a08ef705ff8c086d80c39a85bf68c6a5740cce",
+    "schedule": {
+      "alternation": "odd_synthetic_even_native",
+      "mixed_schedule_sha256": "1fb81c99e44d83111a745b9d8e6c50e599743cd56b580eb6651be0ae1ab90467",
+      "native_schedule_sha256": "4665af16817180d8ada177537f8164925ba8ead53c095f712de7b311e17c08d8",
+      "native_task_updates": {
+        "attribution": 32,
+        "narrative": 32,
+        "scene": 32
+      },
+      "native_updates": 96,
+      "schema": "rwkv_ms_natural_memory_native_mixed_schedule.v1",
+      "synthetic_schedule_sha256": "dfcc45b5cc029eff2da22a50d083571bc4f3b5ba861148cb34786f43fca93b15",
+      "synthetic_updates": 96,
+      "total_updates": 192
+    },
+    "updates": 192
+  }
+}

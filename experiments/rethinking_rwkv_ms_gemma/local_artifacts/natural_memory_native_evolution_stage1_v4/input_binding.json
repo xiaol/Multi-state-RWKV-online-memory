@@ -1,0 +1,62 @@
+{
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "base_model_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+  "hf_endpoint": "https://hf-mirror.com",
+  "native_dataset_manifest_sha256": "451f2099a7afb45950f75b69280e8db21e3f948433ed0640065e4dc2c6212587",
+  "native_dataset_receipt_sha256": "7f1056c33009a30d63179b49e9f95fe1c9fb4438b434d2ad3a22cd22039704e4",
+  "native_dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "native_examples": 2274,
+  "native_examples_sha256": "cea33a24d991dd8fab6348e0d1168f54054b4aaf0363706e24e7b6da5d79f61f",
+  "native_execution_memory_policy": {
+    "backward_calls_per_rank": 4,
+    "checkpointed_float32_ce_chunk_tokens": 64,
+    "execution_subbatch_size": 1,
+    "gradient_equivalence": "sum_each_row_answer_ce_over_the_same_global_token_denominator_before_one_global_gradient_sum_and_optimizer_step",
+    "local_rows_per_update": 4,
+    "logical_local_microbatch_size": 2,
+    "saved_tensor_cpu_offload": false
+  },
+  "native_max_assistant_target_tokens": 1253,
+  "native_max_read_tokens": 2617,
+  "native_max_write_tokens": 2390,
+  "native_task_rows": {
+    "attribution": 372,
+    "narrative": 459,
+    "scene": 1443
+  },
+  "protocol_payload_sha256": "219ea71766d3859569f1f49cc428eab5411e4ce8fa2bcae0a333ddfe78bbc749",
+  "schedule": {
+    "alternation": "odd_synthetic_even_native",
+    "mixed_schedule_sha256": "1fb81c99e44d83111a745b9d8e6c50e599743cd56b580eb6651be0ae1ab90467",
+    "native_schedule_sha256": "4665af16817180d8ada177537f8164925ba8ead53c095f712de7b311e17c08d8",
+    "native_task_updates": {
+      "attribution": 32,
+      "narrative": 32,
+      "scene": 32
+    },
+    "native_updates": 96,
+    "schema": "rwkv_ms_natural_memory_native_mixed_schedule.v1",
+    "synthetic_schedule_sha256": "dfcc45b5cc029eff2da22a50d083571bc4f3b5ba861148cb34786f43fca93b15",
+    "synthetic_updates": 96,
+    "total_updates": 192
+  },
+  "stage": "stage1",
+  "synthetic_examples": 1920,
+  "synthetic_examples_sha256": "589198131fd23ebb88fc49d78dde286b3e3c4752242f4fd524e623c8511f0ffe",
+  "synthetic_source_manifest": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_split20260825_seed53/manifest.json",
+  "synthetic_source_manifest_sha256": "9ae32092fc2fadc132051b3d0ca83bc7ce862166a871f73feb3694d2cebef906",
+  "updates": 192,
+  "warm_start_adapter": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_run_split20260825_seed53/adapter",
+  "warm_start_adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 100897004,
+      "sha256": "26581867dc1220644332d6ff31e71276576b28134ab68c18abac97e2094450ae"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2632,
+      "sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4"
+    }
+  },
+  "warm_start_adapter_files_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63",
+  "warm_start_adapter_state_sha256": "0424874beb28c3c2c5a74848f0f5f2c9570b155545b72f97370c9184a3e352ba"
+}
