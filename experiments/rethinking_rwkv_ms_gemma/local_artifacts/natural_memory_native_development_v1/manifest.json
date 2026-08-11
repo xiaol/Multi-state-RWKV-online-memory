@@ -1,0 +1,131 @@
+{
+  "component_count": 1143,
+  "component_counts": {
+    "development": 224,
+    "fit": 919
+  },
+  "component_ids_sha256": {
+    "development": "672e2abf3fc59340d7770ab0d59e715e5a9eb302ec4358a01473ff979b6cc13f",
+    "fit": "22269aa271a2123c2a412c5ac1044a10edf5febf3c77f6f6ada148ffa883b520"
+  },
+  "evolution_protocol": {
+    "file_sha256": "a19d76b2dfec81facee0cf18956f825fa24b9107b8e4c57ef0608acf4f3a35eb",
+    "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/natural_memory_native_evolution_protocol_v1.json",
+    "payload_sha256": "219ea71766d3859569f1f49cc428eab5411e4ce8fa2bcae0a333ddfe78bbc749"
+  },
+  "fractions": {
+    "development": 0.2,
+    "fit": 0.8
+  },
+  "hf_endpoint": "https://hf-mirror.com",
+  "leakage_audit": {
+    "component_ids_crossing_splits": 0,
+    "cross_component_signature_overlap_count": 0,
+    "cross_split_normalized_32_character_shingle_overlap": 0,
+    "normalization": "NFKC, whitespace removed, casefolded",
+    "protected_splits_opened": [],
+    "shingle_width": 32,
+    "signature_components_atomic": true,
+    "unique_signatures": 1207034,
+    "unique_signatures_by_kind": {
+      "exact": 26107,
+      "shingle": 309697,
+      "whole": 2512,
+      "whole_shingle": 868718
+    }
+  },
+  "ordered_row_ids_sha256": {
+    "development": {
+      "attribution": "40e422c0a092615ead98e5e158533d899baad97b058c66b2fa4c21e70d8737d8",
+      "narrative": "78bfa4127a70689079251309466a52ae974105f52d3bafa47debd9929627c7fa",
+      "scene": "14922db834a7ec8026a6d7631b4fe62579ee917144af6143aac01517ed6e8622"
+    },
+    "fit": {
+      "attribution": "279e7ca0f4ed06f9ff9cec16a575d8e35156f72624d8bf0bfc6bbe7beb0ced59",
+      "narrative": "0f16c407e3418cbe0a59d9d1c2fcb50cbb7c1d5e1f4d48cc7c302e75e260d41b",
+      "scene": "86f93cd34bc4896ceff002ad4d408f4a21856374543966b7035342e6f7168197"
+    }
+  },
+  "outputs": {
+    "attribution:development": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v3.2-attribution-best-candidate/train_derived_development.jsonl",
+      "rows": 93,
+      "sha256": "c8c8203bc460e294bf5756b6600e569c1f5be5b72111d1b969f89d649689a1d3"
+    },
+    "attribution:fit": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v3.2-attribution-best-candidate/train_derived_fit.jsonl",
+      "rows": 372,
+      "sha256": "3410fad37529b533383fed51b12ab20742fef17511282c48c4a0c57805e1fe58"
+    },
+    "narrative:development": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v3.2-narrative-type-classification/train_derived_development.jsonl",
+      "rows": 118,
+      "sha256": "f6b84bdbea009caba590a2eb8ab1e94e395ede13ba868199a2d6f9c36a1b2974"
+    },
+    "narrative:fit": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v3.2-narrative-type-classification/train_derived_fit.jsonl",
+      "rows": 459,
+      "sha256": "133aba7801ddb31aaf4ecb6b7d20b32435366434647a5535265053855f69da06"
+    },
+    "scene:development": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_development.jsonl",
+      "rows": 361,
+      "sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68"
+    },
+    "scene:fit": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+      "rows": 1443,
+      "sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57"
+    }
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_manifest_without_receipt",
+    "payload_sha256": "7f1056c33009a30d63179b49e9f95fe1c9fb4438b434d2ad3a22cd22039704e4"
+  },
+  "row_counts": {
+    "development": {
+      "attribution": 93,
+      "narrative": 118,
+      "scene": 361
+    },
+    "fit": {
+      "attribution": 372,
+      "narrative": 459,
+      "scene": 1443
+    }
+  },
+  "schema": "rwkv_ms_natural_memory_native_development.v1",
+  "source_semantic_rows": 2846,
+  "sources": [
+    {
+      "expected_sha256": "8c87ca259c2b0c19cc545bee4b32f342448d43826b2936817fd9792ea258216a",
+      "nonblank_rows": 465,
+      "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-attribution-best-candidate/train.jsonl",
+      "physical_lines": 600,
+      "pinned": true,
+      "sha256": "8c87ca259c2b0c19cc545bee4b32f342448d43826b2936817fd9792ea258216a",
+      "task": "attribution"
+    },
+    {
+      "expected_sha256": "3f7b2ffd2c5a48921a0e114be361f0127ca6e2713b1a94b53b406c5c2f084c0e",
+      "nonblank_rows": 577,
+      "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-narrative-type-classification/train.jsonl",
+      "physical_lines": 577,
+      "pinned": true,
+      "sha256": "3f7b2ffd2c5a48921a0e114be361f0127ca6e2713b1a94b53b406c5c2f084c0e",
+      "task": "narrative"
+    },
+    {
+      "expected_sha256": "785fe54c0a4e5c64e33f64f9bc88d64719576407c21eb0d520f9dec5a59b8e22",
+      "nonblank_rows": 1804,
+      "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v4-scene-boundary-detection/train.jsonl",
+      "physical_lines": 1804,
+      "pinned": true,
+      "sha256": "785fe54c0a4e5c64e33f64f9bc88d64719576407c21eb0d520f9dec5a59b8e22",
+      "task": "scene"
+    }
+  ],
+  "split_seed": 20260812,
+  "split_unit": "connected_passage_component"
+}

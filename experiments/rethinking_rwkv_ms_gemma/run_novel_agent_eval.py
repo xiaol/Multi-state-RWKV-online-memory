@@ -36,6 +36,7 @@ from common import (  # noqa: E402
     load_model_and_tokenizer,
     memory_condition,
     reset_delta_state,
+    set_delta_write_enabled,
 )
 from deltamem.chat_templates import apply_chat_template  # noqa: E402
 from deltamem.scene_boundary import (  # noqa: E402
@@ -64,6 +65,11 @@ EVALUATION_CONTRACTS = (
     "scene_v6_validation",
     "scene_v6_final_test",
 )
+ONLINE_MEMORY_PROTOCOLS = (
+    "legacy_write_only",
+    "write_then_read",
+)
+DATASET_SPLITS = ("val", "test", "train_derived_development")
 SCENE_V6_CONTRACT_ROWS = {
     "scene_v6_validation": ("val", 170),
     "scene_v6_final_test": ("test", 149),
@@ -197,8 +203,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--reference-results-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--split", default="val", choices=("val", "test"))
+    parser.add_argument("--split", default="val", choices=DATASET_SPLITS)
     parser.add_argument("--conditions", default="base,normal")
+    parser.add_argument(
+        "--online-memory-protocol",
+        choices=ONLINE_MEMORY_PROTOCOLS,
+        default="legacy_write_only",
+        help=(
+            "Projected-KV runtime protocol for the normal condition. "
+            "write_then_read primes state from the prompt, disables writes, then "
+            "decodes from a read-only replay of the same prompt."
+        ),
+    )
     parser.add_argument(
         "--normal-fusion-profile",
         default="native",
@@ -825,7 +841,12 @@ def reference_metrics(reference_dir: Path, evaluation_split: str) -> dict[str, d
     split_caveat = (
         " The artifact reports the test split while this run evaluates validation."
         if evaluation_split == "val"
-        else ""
+        else (
+            " The artifact reports the test split while this run evaluates a "
+            "publisher-TRAIN-derived development partition."
+            if evaluation_split == "train_derived_development"
+            else ""
+        )
     )
     common = {
         "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA",
@@ -912,9 +933,14 @@ def generate_one(
     messages: list[dict[str, str]],
     max_new_tokens: int,
     device: str,
+    online_memory_protocol: str = "legacy_write_only",
 ) -> dict[str, Any]:
     import torch
 
+    if online_memory_protocol not in ONLINE_MEMORY_PROTOCOLS:
+        raise ValueError(
+            f"Unknown online memory protocol: {online_memory_protocol!r}"
+        )
     reset_delta_state(model)
     try:
         rendered = apply_chat_template(
@@ -934,6 +960,16 @@ def generate_one(
             torch.cuda.reset_peak_memory_stats(device)
         started_at = time.perf_counter()
         with torch.inference_mode():
+            if online_memory_protocol == "write_then_read":
+                set_delta_write_enabled(model, True)
+                model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    use_cache=False,
+                    return_dict=True,
+                    logits_to_keep=1,
+                )
+                set_delta_write_enabled(model, False)
             output_ids = model.generate(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -955,9 +991,11 @@ def generate_one(
             "elapsed_seconds": elapsed,
             "peak_cuda_memory_bytes": peak_memory,
             "memory_trace": collect_rwkv_trace(model),
+            "online_memory_protocol": online_memory_protocol,
         }
     finally:
         reset_delta_state(model)
+        set_delta_write_enabled(model, True)
 
 
 def read_records(path: Path) -> list[dict[str, Any]]:
@@ -1782,6 +1820,7 @@ def generate_for_condition(
     messages: list[dict[str, str]],
     max_new_tokens: int,
     device: str,
+    online_memory_protocol: str = "legacy_write_only",
 ) -> dict[str, Any]:
     if condition == "no_write":
         with memory_condition(model, "no_write"):
@@ -1791,6 +1830,7 @@ def generate_for_condition(
                 messages=messages,
                 max_new_tokens=max_new_tokens,
                 device=device,
+                online_memory_protocol="legacy_write_only",
             )
     return generate_one(
         model=model,
@@ -1798,6 +1838,11 @@ def generate_for_condition(
         messages=messages,
         max_new_tokens=max_new_tokens,
         device=device,
+        online_memory_protocol=(
+            online_memory_protocol
+            if condition == "normal"
+            else "legacy_write_only"
+        ),
     )
 
 
@@ -1950,6 +1995,7 @@ def main() -> None:
         "device": args.device,
         "dtype": args.dtype,
         "attn_implementation": args.attn_implementation,
+        "online_memory_protocol": args.online_memory_protocol,
         **fusion_fingerprint_fields,
         **protected_identity,
     }
@@ -1996,6 +2042,7 @@ def main() -> None:
                 "generation_protocol": (
                     "Greedy decoding with author-compatible per-task token caps, Gemma chat template, "
                     "batch size 1, RWKV state reset before every example, "
+                    f"online_memory_protocol={args.online_memory_protocol}, "
                     f"split={args.split}, normal_fusion_profile="
                     f"{args.normal_fusion_profile}."
                 ),
@@ -2092,6 +2139,7 @@ def main() -> None:
                 messages=sample["messages"],
                 max_new_tokens=spec.max_new_tokens,
                 device=args.device,
+                online_memory_protocol=args.online_memory_protocol,
             )
             score = score_prediction(spec.kind, result["parsed_json"], sample["gold"])
             key = record_key(spec.name, int(sample["line_index"]))

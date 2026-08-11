@@ -845,6 +845,76 @@ def test_no_write_condition_freezes_writes_around_generation(
     ]
 
 
+def test_write_then_read_primes_prompt_before_read_only_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[tuple[str, object]] = []
+
+    class FakeTokenizer:
+        pad_token_id = 0
+
+        def __call__(self, *_args, **_kwargs):
+            return SimpleNamespace(
+                input_ids=torch.tensor([[3, 4]], dtype=torch.long),
+                attention_mask=torch.tensor([[1, 1]], dtype=torch.long),
+            )
+
+        def decode(self, token_ids, **_kwargs):
+            assert token_ids.tolist() == [9]
+            return "{}"
+
+    class FakeModel:
+        generation_config = SimpleNamespace()
+
+        def __call__(self, **kwargs):
+            events.append(("forward", kwargs))
+            return SimpleNamespace()
+
+        def generate(self, **kwargs):
+            events.append(("generate", kwargs))
+            return torch.tensor([[3, 4, 9]], dtype=torch.long)
+
+    monkeypatch.setattr(evaluator, "apply_chat_template", lambda *_args, **_kwargs: "prompt")
+    monkeypatch.setattr(
+        evaluator,
+        "reset_delta_state",
+        lambda model: events.append(("reset", model)),
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "set_delta_write_enabled",
+        lambda model, enabled: events.append(("write_enabled", enabled)),
+    )
+    monkeypatch.setattr(evaluator, "collect_rwkv_trace", lambda _model: {})
+
+    model = FakeModel()
+    result = evaluator.generate_one(
+        model=model,
+        tokenizer=FakeTokenizer(),
+        messages=[{"role": "user", "content": "prompt"}],
+        max_new_tokens=8,
+        device="cpu",
+        online_memory_protocol="write_then_read",
+    )
+
+    assert result["raw_generation"] == "{}"
+    assert result["online_memory_protocol"] == "write_then_read"
+    assert [event[0] for event in events] == [
+        "reset",
+        "write_enabled",
+        "forward",
+        "write_enabled",
+        "generate",
+        "reset",
+        "write_enabled",
+    ]
+    forward = events[2][1]
+    assert forward["use_cache"] is False
+    assert forward["logits_to_keep"] == 1
+    assert events[3] == ("write_enabled", False)
+    assert events[-1] == ("write_enabled", True)
+
+
 def test_scene_v6_evaluation_contracts_require_full_official_splits(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
