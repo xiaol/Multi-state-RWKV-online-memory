@@ -1,0 +1,31 @@
+{
+  "amendment_receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_amendment_without_receipt",
+    "payload_sha256": "663344bc13c4bd8fd5f5bd1dcb7bf8ad79fe9b9dd5904d1c307e25514dfd78e5"
+  },
+  "authorized_replication_ids": [
+    "r12",
+    "r13"
+  ],
+  "created_at": "2026-08-11T18:03:53+08:00",
+  "discovered_before_training_output": true,
+  "original_protocol": {
+    "file_sha256": "a7244817adf1cdf439dfefea37610d1abdd0b4ecc3f118d4be349f5e018078b7",
+    "git_commit": "1bcc3e8a005418a645487b42d1045624fd2e3b0d",
+    "payload_sha256": "eb721bb583d7e601ffdffec61a8445d8e918cd85317133e95ded0c306554bae1"
+  },
+  "rationale": "Protocol V6 was frozen and pushed before materialization after the opened-development family-balanced ablation passed every named check. This amendment changes only the runner preregistration constants from terminal V5 to the exact V6 bindings and authorizes its frozen R12 and R13 optimizer seeds.",
+  "runner_change": {
+    "new_sha256": "af04d510de46a9580302080fcb52f93e95fbb16696ff7a14cf60545b6fedad26",
+    "old_sha256": "5de6b363a6621c9ad960e491ae9575192bddb2165892b1705340e226b8d73fbf"
+  },
+  "schema": "rwkv_ms_natural_memory_replication_protocol_amendment.v1",
+  "scope": {
+    "classification": "infrastructure_only",
+    "data_changed": false,
+    "gate_changed": false,
+    "hyperparameters_changed": false,
+    "training_math_changed": false
+  }
+}

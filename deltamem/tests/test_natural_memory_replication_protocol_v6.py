@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from experiments.rethinking_rwkv_ms_gemma import run_natural_memory_gate as runner
+
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPERIMENTS = ROOT / "experiments" / "rethinking_rwkv_ms_gemma"
@@ -188,4 +190,41 @@ def test_v6_predecessor_is_terminal_v5_without_sealed_access() -> None:
         "sealed_r10_opened": False,
         "sealed_r11_opened": False,
         "test_opened": False,
+    }
+
+
+def test_v6_amendment_authorizes_only_current_runner_and_replications() -> None:
+    protocol = read_json(
+        EXPERIMENTS / "natural_memory_replication_protocol_v6.json"
+    )
+    amendment = read_json(
+        EXPERIMENTS
+        / "natural_memory_replication_protocol_v6_amendment_runner_authorization.json"
+    )
+    receipt = amendment.pop("amendment_receipt")
+    assert receipt == {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_amendment_without_receipt",
+        "payload_sha256": canonical_sha256(amendment),
+    }
+    assert amendment["original_protocol"] == {
+        "file_sha256": hashlib.sha256(
+            (EXPERIMENTS / "natural_memory_replication_protocol_v6.json").read_bytes()
+        ).hexdigest(),
+        "git_commit": "1bcc3e8a005418a645487b42d1045624fd2e3b0d",
+        "payload_sha256": protocol["protocol_receipt"]["payload_sha256"],
+    }
+    assert amendment["runner_change"] == {
+        "new_sha256": hashlib.sha256(Path(runner.__file__).read_bytes()).hexdigest(),
+        "old_sha256": protocol["source_code_sha256"]["runner"],
+    }
+    assert amendment["authorized_replication_ids"] == [
+        replication["id"] for replication in protocol["replications"]
+    ]
+    assert amendment["scope"] == {
+        "classification": "infrastructure_only",
+        "data_changed": False,
+        "gate_changed": False,
+        "hyperparameters_changed": False,
+        "training_math_changed": False,
     }
