@@ -4,6 +4,10 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
+from experiments.rethinking_rwkv_ms_gemma import run_natural_memory_gate as runner
+
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPERIMENTS = ROOT / "experiments" / "rethinking_rwkv_ms_gemma"
@@ -206,3 +210,45 @@ def test_v5_terminal_outcome_archives_r10_without_opening_protected_data() -> No
         "sealed_r11_opened": False,
         "test_opened": False,
     }
+
+
+def test_family_balanced_ablation_authorizes_only_opened_r10_development() -> None:
+    plan_path = (
+        EXPERIMENTS / "natural_memory_family_balanced_development_ablation_v1.json"
+    )
+    plan = read_json(plan_path)
+    receipt = plan.pop("plan_receipt")
+    assert receipt == {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_plan_without_receipt",
+        "payload_sha256": canonical_sha256(plan),
+    }
+    assert plan["source_code_sha256"] == {
+        "distributed": hashlib.sha256(
+            (EXPERIMENTS / "natural_memory_distributed.py").read_bytes()
+        ).hexdigest(),
+        "runner": hashlib.sha256(
+            (EXPERIMENTS / "run_natural_memory_gate.py").read_bytes()
+        ).hexdigest(),
+    }
+    manifest = (
+        EXPERIMENTS
+        / "local_artifacts"
+        / "natural_memory_gate_replication_r10_development_split20260822_seed51"
+        / "manifest.json"
+    )
+    authorization = runner.validate_development_ablation_authorization(
+        source_manifest=manifest,
+        profile="development",
+        seed=51,
+        development_ablation_plan=plan_path,
+    )
+    assert authorization["classification"] == "opened_development_only"
+    assert authorization["sealed_authorized"] is False
+    with pytest.raises(ValueError, match="cannot open sealed data"):
+        runner.validate_development_ablation_authorization(
+            source_manifest=manifest,
+            profile="sealed_validation",
+            seed=51,
+            development_ablation_plan=plan_path,
+        )

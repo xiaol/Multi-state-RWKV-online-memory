@@ -55,6 +55,10 @@ REPLICATION_AMENDMENT_SCHEMA = (
 REPLICATION_AUTHORIZATION_SCHEMA = (
     "rwkv_ms_natural_memory_replication_authorization.v1"
 )
+DEVELOPMENT_ABLATION_SCHEMA = "rwkv_ms_natural_memory_development_ablation.v1"
+DEVELOPMENT_ABLATION_AUTHORIZATION_SCHEMA = (
+    "rwkv_ms_natural_memory_development_ablation_authorization.v1"
+)
 ACCEPTANCE_SCHEMA = "rwkv_ms_natural_memory_gate_acceptance.v1"
 TRAINING_DATASET_AUDIT_SCHEMA = "rwkv_ms_natural_memory_training_dataset_audit.v1"
 HF_MIRROR_ENDPOINT = "https://hf-mirror.com"
@@ -3344,6 +3348,69 @@ def validate_replication_authorization(
     }
 
 
+def validate_development_ablation_authorization(
+    *,
+    source_manifest: Path,
+    profile: str,
+    seed: int,
+    development_ablation_plan: Path,
+) -> Mapping[str, Any]:
+    if profile != "development":
+        raise ValueError("Development ablation authorization cannot open sealed data")
+    plan_path = development_ablation_plan.expanduser().resolve(strict=True)
+    plan = _read_json_file(plan_path, "development ablation plan")
+    plan_payload_sha256 = _verify_replication_receipt(
+        plan,
+        receipt_field="plan_receipt",
+        payload_scope="canonical_plan_without_receipt",
+        description="Development ablation plan",
+    )
+    execution = _require_mapping(
+        plan.get("execution"), "development ablation execution"
+    )
+    source_bindings = _require_mapping(
+        plan.get("source_code_sha256"), "development ablation source bindings"
+    )
+    current_runner_sha256 = source.sha256_file(Path(__file__).resolve())
+    current_distributed_sha256 = source.sha256_file(
+        Path(distributed.__file__).resolve()
+    )
+    manifest_path = source_manifest.expanduser().resolve(strict=True)
+    manifest = _read_json_file(manifest_path, "development ablation manifest")
+    benchmark_split_seed = _require_mapping(
+        manifest.get("benchmark_contract"), "development ablation benchmark contract"
+    ).get("split_seed")
+    if (
+        plan.get("schema") != DEVELOPMENT_ABLATION_SCHEMA
+        or execution.get("profile") != "development"
+        or execution.get("optimizer_seed") != seed
+        or execution.get("split_seed") != benchmark_split_seed
+        or execution.get("development_package")
+        != f"local_artifacts/{manifest_path.parent.name}"
+        or source_bindings.get("runner") != current_runner_sha256
+        or source_bindings.get("distributed") != current_distributed_sha256
+        or execution.get("protected_splits_forbidden")
+        != ["sealed_validation", "test", "Hard32"]
+        or _require_mapping(plan.get("decision_rule"), "ablation decision rule").get(
+            "runs"
+        )
+        != 1
+    ):
+        raise ValueError("Development ablation plan does not authorize this run")
+    return {
+        "schema": DEVELOPMENT_ABLATION_AUTHORIZATION_SCHEMA,
+        "classification": "opened_development_only",
+        "plan_file": plan_path.name,
+        "plan_file_sha256": source.sha256_file(plan_path),
+        "plan_payload_sha256": plan_payload_sha256,
+        "split_seed": benchmark_split_seed,
+        "training_seed": seed,
+        "runner_authorized_sha256": current_runner_sha256,
+        "distributed_authorized_sha256": current_distributed_sha256,
+        "sealed_authorized": False,
+    }
+
+
 def snapshot_files(paths: Iterable[Path]) -> dict[str, dict[str, Any]]:
     snapshot: dict[str, dict[str, Any]] = {}
     for raw_path in paths:
@@ -5049,6 +5116,7 @@ def run_experiment(
     replication_protocol: Path | None = None,
     replication_amendment: Path | None = None,
     replication_id: str | None = None,
+    development_ablation_plan: Path | None = None,
     seed: int = PRODUCTION_SEED,
     train_limit: int | None = None,
     eval_limit: int | None = None,
@@ -5081,14 +5149,33 @@ def run_experiment(
     """Run a train/development screen or a sealed, optimizer-free evaluation."""
 
     configure_hf_mirror()
-    replication_authorization = validate_replication_authorization(
-        source_manifest=source_manifest,
-        profile=profile,
-        seed=seed,
-        replication_protocol=replication_protocol,
-        replication_amendment=replication_amendment,
-        replication_id=replication_id,
-    )
+    if development_ablation_plan is not None:
+        if any(
+            value is not None
+            for value in (
+                replication_protocol,
+                replication_amendment,
+                replication_id,
+            )
+        ):
+            raise ValueError(
+                "Development ablation and replication authorization are exclusive"
+            )
+        replication_authorization = validate_development_ablation_authorization(
+            source_manifest=source_manifest,
+            profile=profile,
+            seed=seed,
+            development_ablation_plan=development_ablation_plan,
+        )
+    else:
+        replication_authorization = validate_replication_authorization(
+            source_manifest=source_manifest,
+            profile=profile,
+            seed=seed,
+            replication_protocol=replication_protocol,
+            replication_amendment=replication_amendment,
+            replication_id=replication_id,
+        )
     if profile == "sealed_validation" and adapter_path is None:
         raise ValueError("Sealed validation requires a frozen development adapter")
     if profile != "sealed_validation" and adapter_path is not None:
@@ -6297,6 +6384,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--replication-protocol", type=Path)
     parser.add_argument("--replication-amendment", type=Path)
     parser.add_argument("--replication-id")
+    parser.add_argument("--development-ablation-plan", type=Path)
     parser.add_argument("--seed", type=int, default=PRODUCTION_SEED)
     parser.add_argument("--train-limit", type=int)
     parser.add_argument("--eval-limit", type=int)
@@ -6380,6 +6468,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             replication_protocol=args.replication_protocol,
             replication_amendment=args.replication_amendment,
             replication_id=args.replication_id,
+            development_ablation_plan=args.development_ablation_plan,
             seed=args.seed,
             train_limit=args.train_limit,
             eval_limit=args.eval_limit,
