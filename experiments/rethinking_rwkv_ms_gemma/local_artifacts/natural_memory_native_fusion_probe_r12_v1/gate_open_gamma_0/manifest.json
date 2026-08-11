@@ -1,0 +1,155 @@
+{
+  "code": {
+    "novel_agent_repo": {
+      "commit": "f02d14b6db539df5ae960de5b48263426909d77e",
+      "dirty": true
+    },
+    "rwkv_repo": {
+      "commit": "f02d14b6db539df5ae960de5b48263426909d77e",
+      "dirty": true
+    }
+  },
+  "created_at": "2026-08-11T20:36:05.161246+00:00",
+  "evaluation_contract": {
+    "name": "generic",
+    "phase": "generic"
+  },
+  "evaluation_kind": "structured-task transfer evaluation",
+  "fingerprint": "797c054c0018c64920025d419dbb9d71fc15b77387fd7eca999b1bbe3cdb62db",
+  "fingerprint_payload": {
+    "attn_implementation": "sdpa",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "candidate_lineage": null,
+    "conditions": [
+      "base",
+      "normal"
+    ],
+    "datasets": {
+      "attribution-v3.2": {
+        "max_new_tokens": 1024,
+        "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-attribution-best-candidate/val.jsonl",
+        "selected_rows": 1,
+        "sha256": "01373fa09c89568a47927f19088f78bbf62cd4b7eb66803100c06e8a3f2152a4"
+      }
+    },
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "evaluation_contract": {
+      "name": "generic",
+      "phase": "generic"
+    },
+    "evaluator_sha256": "bb5f234b9c4c3163f1e617b712e99d5ce71f998862ccb79c06e37ad7992d5ffd",
+    "expected_memory_layer_count": 42,
+    "hard32_receipt_authorization": null,
+    "memory_adapter_sha256": "26581867dc1220644332d6ff31e71276576b28134ab68c18abac97e2094450ae",
+    "memory_config_sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4",
+    "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_run_split20260825_seed53/adapter",
+    "normal_fusion_profile": "gate_open_gamma_0",
+    "normal_fusion_profile_definition": {
+      "description": "Gate open; hybrid direct residual gain fixed to zero.",
+      "memory_fusion_mode": "add",
+      "memory_fusion_placement": "post_attention_residual_hybrid",
+      "memory_fusion_residual_gain": 0.0,
+      "memory_fusion_residual_scale": 0.0,
+      "name": "gate_open_gamma_0"
+    },
+    "profile_definition_sha256": "674e63d25d08d322df66022e0b2255b251895fd8060eb05ac61ec255df6a41b5",
+    "references": {
+      "attribution-v3.2": {
+        "artifact_metric": 0.8666666666666667,
+        "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "metric_name": "best_accuracy",
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      },
+      "narrative-v3.2": {
+        "artifact_metric": 0.6946264744429882,
+        "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "metric_name": "accuracy",
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      },
+      "scene-v3.2": {
+        "artifact_metric": 0.2,
+        "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "metric_name": "f1",
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      },
+      "scene-v4-current": {
+        "artifact_counts": {
+          "fn": 89,
+          "fp": 261,
+          "samples": 149,
+          "tp": 66
+        },
+        "artifact_metric": 0.27385892116182575,
+        "artifact_source": "native_validation_reference_results/results/scene_boundary_final.json",
+        "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+        "metric_name": "micro_f1",
+        "published_historical_metric": 0.305,
+        "published_historical_note": "The reported 30.5% used a historical 49-row v4 test. The downloaded current v4 test and raw result artifact contain 149 rows, so 30.5% is context only.",
+        "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+      },
+      "source_hashes": {
+        "eval_compare_results.json": "e2376fe36d61e915f566d974f17a14ebfff540a03f7ded233b369075a273a3ef",
+        "scene_boundary_final.json": "6d7bbd8d7243051f221c7ba8dd7607f78a16da6de40eaf5290a3b533c7c69819"
+      }
+    },
+    "split": "val"
+  },
+  "generation_protocol": "Greedy decoding with author-compatible per-task token caps, Gemma chat template, batch size 1, RWKV state reset before every example, split=val, normal_fusion_profile=gate_open_gamma_0.",
+  "memory_training": {
+    "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_run_split20260825_seed53/adapter",
+    "training_protocol": null
+  },
+  "overlap_audit": {
+    "interpretation": "Do not infer passage-level independence from the task split alone.",
+    "status": "not_performed_for_this_checkpoint"
+  },
+  "references": {
+    "attribution-v3.2": {
+      "artifact_metric": 0.8666666666666667,
+      "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "best_accuracy",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "narrative-v3.2": {
+      "artifact_metric": 0.6946264744429882,
+      "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "accuracy",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "scene-v3.2": {
+      "artifact_metric": 0.2,
+      "artifact_source": "native_validation_reference_results/results/eval_compare_results.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "f1",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "scene-v4-current": {
+      "artifact_counts": {
+        "fn": 89,
+        "fp": 261,
+        "samples": 149,
+        "tp": 66
+      },
+      "artifact_metric": 0.27385892116182575,
+      "artifact_source": "native_validation_reference_results/results/scene_boundary_final.json",
+      "comparison_caveat": "Different base model and task-specific training; not an apples-to-apples model delta. The artifact reports the test split while this run evaluates validation.",
+      "metric_name": "micro_f1",
+      "published_historical_metric": 0.305,
+      "published_historical_note": "The reported 30.5% used a historical 49-row v4 test. The downloaded current v4 test and raw result artifact contain 149 rows, so 30.5% is context only.",
+      "reference_model": "Qwen3-8B Novel Base SFT plus task-specific LoRA"
+    },
+    "source_hashes": {
+      "eval_compare_results.json": "e2376fe36d61e915f566d974f17a14ebfff540a03f7ded233b369075a273a3ef",
+      "scene_boundary_final.json": "6d7bbd8d7243051f221c7ba8dd7607f78a16da6de40eaf5290a3b533c7c69819"
+    }
+  },
+  "split": "val",
+  "training_scope": "Checkpoint-specific training provenance is recorded in memory_training."
+}

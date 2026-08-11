@@ -1,0 +1,26 @@
+{
+  "schema": "rwkv_ms_native_fusion_probe_receipt.v1",
+  "created_at": "2026-08-12T04:41:51+08:00",
+  "result": {
+    "file": "result.json",
+    "file_sha256": "ce085319df18c4a6693abe361cbcd87b08dec4d4869c03cbc917728e3e1015f6",
+    "status": "all_stronger_profiles_inapplicable"
+  },
+  "candidate_binding": {
+    "id": "r12",
+    "adapter_files_aggregate_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63"
+  },
+  "decision_binding": {
+    "inference_only_strength_rescue_available": false,
+    "all_profiles_failed_before_normal_generation": true
+  },
+  "protected_evaluation": {
+    "test_opened": false,
+    "hard32_opened": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_receipt_without_receipt",
+    "payload_sha256": "51394bc31ab638a2fca5a083f606fb7a28f1b36d2e92eb8bdc42a451efa0b601"
+  }
+}

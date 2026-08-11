@@ -1,0 +1,77 @@
+{
+  "schema": "rwkv_ms_native_fusion_probe_result.v1",
+  "created_at": "2026-08-12T04:41:51+08:00",
+  "candidate": {
+    "id": "r12",
+    "adapter_files_aggregate_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63"
+  },
+  "scope": {
+    "task": "attribution-v3.2",
+    "split": "val",
+    "row_limit": 1,
+    "diagnostic_only": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "test_opened": false,
+    "hard32_opened": false
+  },
+  "attempts": {
+    "native_gate_open": {
+      "physical_gpu": 0,
+      "base_rows_completed": 1,
+      "normal_rows_completed": 0,
+      "failure_phase": "normal_model_runtime_profile_application",
+      "failure_type": "ValueError",
+      "failure_message_prefix": "Non-native fusion profile requires existing Gemma post-attention norm hooks",
+      "manifest_sha256": "a3607c632a992bc7f2772314801e97963da664d2bb9eff161c2fa32244cd25f8",
+      "base_sha256": "dfe4c60ca5864956804d7a5c596f3958b796e66abc2a6fffe1afce52fbec186c",
+      "progress_sha256": "30d4aaf98b45a249430052ec449e1b7206b7721511c432ad891987c79dd3b62e",
+      "log_sha256": "128e28c177f372e340b84f877275fd84da318c7dbe356d3a713f3bddc9ea7098"
+    },
+    "gate_open_gamma_0": {
+      "physical_gpu": 1,
+      "base_rows_completed": 1,
+      "normal_rows_completed": 0,
+      "failure_phase": "normal_model_runtime_profile_application",
+      "failure_type": "ValueError",
+      "failure_message_prefix": "Non-native fusion profile requires existing Gemma post-attention norm hooks",
+      "manifest_sha256": "e7979acec179e7948d0314cdfeaeb227c2f28702d8983046dcea568e1d8615fe",
+      "base_sha256": "e9d9b58c67c3632eeb7ca404a3cc00524927df1da8ec98f8f3e28913b1815038",
+      "progress_sha256": "ebb268c99e9df79b7e32d9f9a5e0b77cf0e5488dc92b93321808e00e9610341e",
+      "log_sha256": "d8511a6e548936287a663e5ccebcc40fcc0845ba8b9d05e0c0c24bc7dae99b38"
+    },
+    "gate_open_gamma_0p01": {
+      "physical_gpu": 2,
+      "base_rows_completed": 1,
+      "normal_rows_completed": 0,
+      "failure_phase": "normal_model_runtime_profile_application",
+      "failure_type": "ValueError",
+      "failure_message_prefix": "Non-native fusion profile requires existing Gemma post-attention norm hooks",
+      "manifest_sha256": "06f123362e1eaaeb9d34045626c8340d9171d8ef5354eab2c7cd54011b2bf232",
+      "base_sha256": "71cd644ed8a43bfda381dde3c46a297f03999171e4deadf7b1e2273104506888",
+      "progress_sha256": "ee582bd5b2c699810fee7e839e82effbf1ebaef167646a0ee3c616469ff03137",
+      "log_sha256": "24bb008513ddee23d500ae80fd1f4f759d5d0684badedfc6c5340d6366d256cd"
+    },
+    "post_attention_norm_gate_open_0p01": {
+      "physical_gpu": 3,
+      "base_rows_completed": 1,
+      "normal_rows_completed": 0,
+      "failure_phase": "normal_model_runtime_profile_application",
+      "failure_type": "ValueError",
+      "failure_message_prefix": "Non-native fusion profile requires existing Gemma post-attention norm hooks",
+      "manifest_sha256": "4906229d69acc354b5dbad09a61b304f92e94b74348b6251d653e72e62312aac",
+      "base_sha256": "c2795d6042750f3e7fbbba8854a0b2a2f132c0ae496a2a0456176d8510cfc9b9",
+      "progress_sha256": "ea46682dca11800f7173fb091f5a56dd6e088adada013a0fe465dc7f94d9b0e4",
+      "log_sha256": "fd0f38c419fa1cef410931f09d47b7b12c9863cbdc89ddcc75031995fa2c181e"
+    }
+  },
+  "outcome": {
+    "status": "all_stronger_profiles_inapplicable",
+    "native_checkpoint_placement": "attention_output",
+    "post_attention_norm_hooks_bound": false,
+    "inference_only_strength_rescue_available": false,
+    "interpretation": "R12 cannot legally use the stronger runtime fusion profiles because its checkpoint topology has no post-attention-norm hooks; the next candidate must change training or attachment topology."
+  },
+  "code_binding": {
+    "runner_sha256": "bb5f234b9c4c3163f1e617b712e99d5ce71f998862ccb79c06e37ad7992d5ffd"
+  }
+}

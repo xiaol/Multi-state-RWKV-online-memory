@@ -1,0 +1,65 @@
+EVAL_LOAD condition=base pending=1
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]
+Loading weights:  13%|█▎        | 267/2076 [00:00<00:00, 2622.29it/s]
+Loading weights:  26%|██▌       | 530/2076 [00:00<00:00, 2366.50it/s]
+Loading weights:  37%|███▋      | 769/2076 [00:02<00:05, 242.13it/s]
+Loading weights:  44%|████▎     | 904/2076 [00:02<00:04, 239.40it/s]
+Loading weights:  48%|████▊     | 995/2076 [00:03<00:04, 247.27it/s]
+Loading weights:  51%|█████▏    | 1064/2076 [00:03<00:04, 248.52it/s]
+Loading weights:  54%|█████▍    | 1118/2076 [00:03<00:03, 254.19it/s]
+Loading weights:  56%|█████▌    | 1164/2076 [00:03<00:03, 269.88it/s]
+Loading weights:  58%|█████▊    | 1208/2076 [00:03<00:03, 277.70it/s]
+Loading weights:  60%|██████    | 1248/2076 [00:04<00:02, 277.81it/s]
+Loading weights:  62%|██████▏   | 1285/2076 [00:04<00:02, 269.03it/s]
+Loading weights:  63%|██████▎   | 1318/2076 [00:04<00:02, 279.54it/s]
+Loading weights:  65%|██████▌   | 1351/2076 [00:04<00:02, 264.26it/s]
+Loading weights:  67%|██████▋   | 1381/2076 [00:04<00:02, 267.70it/s]
+Loading weights:  68%|██████▊   | 1410/2076 [00:04<00:02, 271.52it/s]
+Loading weights:  78%|███████▊  | 1629/2076 [00:04<00:00, 737.18it/s]
+Loading weights:  91%|█████████ | 1893/2076 [00:04<00:00, 1227.18it/s]
+Loading weights: 100%|██████████| 2076/2076 [00:05<00:00, 412.86it/s]
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+EVAL_PROGRESS condition=base task=attribution-v3.2 sample=1/1 schema_valid=False input_tokens=156 output_tokens=25 seconds=3.48 completed=1/2
+EVAL_CONDITION_COMPLETE condition=base resumed=false
+EVAL_LOAD condition=normal pending=1
+
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]
+Loading weights:  13%|█▎        | 270/2076 [00:00<00:00, 2696.67it/s]
+Loading weights:  26%|██▌       | 540/2076 [00:00<00:00, 2365.47it/s]
+Loading weights:  38%|███▊      | 780/2076 [00:02<00:04, 280.58it/s]
+Loading weights:  44%|████▍     | 916/2076 [00:02<00:05, 230.42it/s]
+Loading weights:  48%|████▊     | 1005/2076 [00:03<00:05, 210.44it/s]
+Loading weights:  51%|█████▏    | 1067/2076 [00:04<00:05, 191.42it/s]
+Loading weights:  54%|█████▎    | 1113/2076 [00:04<00:04, 194.79it/s]
+Loading weights:  55%|█████▌    | 1151/2076 [00:04<00:04, 196.20it/s]
+Loading weights:  57%|█████▋    | 1184/2076 [00:04<00:05, 178.11it/s]
+Loading weights:  58%|█████▊    | 1210/2076 [00:04<00:05, 168.07it/s]
+Loading weights:  59%|█████▉    | 1232/2076 [00:05<00:05, 166.24it/s]
+Loading weights:  60%|██████    | 1252/2076 [00:05<00:06, 133.00it/s]
+Loading weights:  61%|██████▏   | 1275/2076 [00:05<00:05, 139.62it/s]
+Loading weights:  62%|██████▏   | 1293/2076 [00:05<00:05, 137.15it/s]
+Loading weights:  63%|██████▎   | 1309/2076 [00:05<00:05, 131.22it/s]
+Loading weights:  64%|██████▎   | 1323/2076 [00:05<00:05, 128.85it/s]
+Loading weights:  64%|██████▍   | 1337/2076 [00:06<00:05, 125.98it/s]
+Loading weights:  65%|██████▌   | 1350/2076 [00:06<00:06, 118.39it/s]
+Loading weights:  66%|██████▌   | 1362/2076 [00:06<00:06, 115.12it/s]
+Loading weights:  66%|██████▋   | 1378/2076 [00:06<00:06, 114.72it/s]
+Loading weights:  68%|██████▊   | 1404/2076 [00:06<00:04, 146.90it/s]
+Loading weights:  72%|███████▏  | 1491/2076 [00:06<00:01, 327.72it/s]
+Loading weights:  84%|████████▍ | 1739/2076 [00:06<00:00, 893.88it/s]
+Loading weights:  97%|█████████▋| 2021/2076 [00:06<00:00, 1418.95it/s]
+Loading weights: 100%|██████████| 2076/2076 [00:06<00:00, 303.57it/s]
+Traceback (most recent call last):
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2229, in <module>
+    main()
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 2073, in main
+    model, tokenizer, normal_fusion_runtime = load_normal_model(args)
+                                              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 1112, in load_normal_model
+    runtime_profile = apply_normal_fusion_profile(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 503, in apply_normal_fusion_profile
+    raise ValueError(
+ValueError: Non-native fusion profile requires existing Gemma post-attention norm hooks: {'model.language_model.layers.0.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.1.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.2.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.3.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.4.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.5.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.6.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.7.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.8.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.9.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.10.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.11.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.12.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.13.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.14.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.15.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.16.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.17.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.18.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.19.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.20.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.21.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.22.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.23.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.24.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.25.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.26.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.27.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.28.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.29.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.30.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.31.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.32.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.33.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.34.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.35.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.36.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.37.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.38.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.39.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.40.self_attn': {'placement': 'attention_output', 'hook_bound': False}, 'model.language_model.layers.41.self_attn': {'placement': 'attention_output', 'hook_bound': False}}

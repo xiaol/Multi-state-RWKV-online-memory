@@ -1,0 +1,186 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_evolution_protocol.v1",
+  "created_at": "2026-08-12T04:44:03+08:00",
+  "objective": "Produce a frozen outer-memory candidate that changes and improves publisher-native full-row validation predictions while preserving the causal five-state memory gate.",
+  "diagnosis": {
+    "native_validation": {
+      "candidate": "r12",
+      "commit": "f02d14b6db539df5ae960de5b48263426909d77e",
+      "result_file": "local_artifacts/natural_memory_native_validation_r12_v6/result.json",
+      "result_file_sha256": "b1d095c74d60f6959bd9f899d2e853fde9fa8d253841539932601558bac8aba2",
+      "receipt_file": "local_artifacts/natural_memory_native_validation_r12_v6/receipt.json",
+      "receipt_file_sha256": "ff52379a3843c73079e2d45b505bd768c8be7d16ade15cd9ac0ad096cf5fe0dd",
+      "paired_rows": 239,
+      "raw_generation_disagreements": 0,
+      "recovered_prediction_disagreements": 0,
+      "strictly_improved_tasks": 0,
+      "outcome": "native_transfer_failure_exact_tie"
+    },
+    "causal_memory_gate": {
+      "correct_state_greedy_exact_accuracy": 0.9661458333333334,
+      "correct_state_greedy_exact_count": 371,
+      "rows": 384,
+      "frozen_base_greedy_exact_accuracy": 0.0,
+      "no_state_greedy_exact_accuracy": 0.0,
+      "rewrite_greedy_output_change_fraction": 0.9947916666666666,
+      "rewrite_greedy_joint_exact_flip_fraction": 0.9192708333333334,
+      "interpretation": "The adapter has strong causal state-conditioned retrieval, so the native failure is not evidence that the memory architecture is globally inactive."
+    },
+    "fusion_probe": {
+      "result_file": "local_artifacts/natural_memory_native_fusion_probe_r12_v1/result.json",
+      "result_file_sha256": "ce085319df18c4a6693abe361cbcd87b08dec4d4869c03cbc917728e3e1015f6",
+      "receipt_file": "local_artifacts/natural_memory_native_fusion_probe_r12_v1/receipt.json",
+      "receipt_file_sha256": "324072d0a8a6ec6b026cdc9e9d2a7ab5277d9a68d3e614bcdc115185e3d515cd",
+      "outcome": "all_stronger_profiles_inapplicable",
+      "reason": "R12 uses attention_output fusion and has no post-attention-norm hooks required by the bounded stronger profiles.",
+      "inference_only_rescue_available": false
+    },
+    "framing_mismatch": {
+      "source_builder": "prepare_natural_memory_gate.py",
+      "source_builder_sha256": "a737e9f5db35777c84227bfec30e73f24ae001b4a1c6173e020682b65b8892a9",
+      "current_training_unit": "one passage component mapped to one compact label inside an explicitly written four-record state",
+      "native_evaluation_unit": "one original publisher row requiring full structured aggregation over all units or boundaries",
+      "root_cause_hypothesis": "The current curriculum teaches state binding and counterfactual retrieval but not original full-row prompt framing, aggregation, and output serialization."
+    }
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_frozen": true,
+    "warm_start_candidate": "r12",
+    "warm_start_adapter_files_aggregate_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63",
+    "memory_backend": "rwkv_ms",
+    "rank": 32,
+    "projected_kv_key_dim": 64,
+    "positive_state_conditions": [
+      "correct_state",
+      "donor_state",
+      "value_swap",
+      "target_slot_rewrite",
+      "shuffled_slots"
+    ],
+    "loss_family": "cross_entropy_only",
+    "target_layers": "all_42_language_layers",
+    "delta_heads": [
+      "q",
+      "o"
+    ],
+    "hf_endpoint": "https://hf-mirror.com",
+    "test_forbidden": true,
+    "hard32_forbidden": true
+  },
+  "publisher_train_sources": {
+    "attribution-v3.2": {
+      "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-attribution-best-candidate/train.jsonl",
+      "sha256": "8c87ca259c2b0c19cc545bee4b32f342448d43826b2936817fd9792ea258216a",
+      "rows": 600
+    },
+    "narrative-v3.2": {
+      "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-narrative-type-classification/train.jsonl",
+      "sha256": "3f7b2ffd2c5a48921a0e114be361f0127ca6e2713b1a94b53b406c5c2f084c0e",
+      "rows": 577
+    },
+    "scene-v4-current": {
+      "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v4-scene-boundary-detection/train.jsonl",
+      "sha256": "785fe54c0a4e5c64e33f64f9bc88d64719576407c21eb0d520f9dec5a59b8e22",
+      "rows": 1804
+    }
+  },
+  "native_data_contract": {
+    "preserve_original_three_message_rows": true,
+    "preserve_full_assistant_json": true,
+    "component_label_reduction_forbidden": true,
+    "split_source": "publisher_train_only",
+    "split_seed": 20260812,
+    "fit_fraction": 0.8,
+    "development_fraction": 0.2,
+    "split_unit": "connected_passage_component",
+    "cross_split_normalized_32_character_shingle_overlap": 0,
+    "selection_may_not_open": [
+      "val",
+      "validation",
+      "test",
+      "Hard32"
+    ],
+    "online_state_protocol": "reset_per_row_write_during_system_and_user_prefill_read_during_full_assistant_target",
+    "assistant_loss": "final_assistant_full_target_token_mean_cross_entropy"
+  },
+  "stage_1_data_alignment_smoke": {
+    "purpose": "Test the data-framing hypothesis before changing fusion topology or spending a full run.",
+    "memory_fusion_placement": "attention_output",
+    "memory_fusion_mode": "checkpoint_native",
+    "updates": 192,
+    "global_batch_size": 16,
+    "world_size": 4,
+    "local_batch_size": 4,
+    "local_microbatch_size": 2,
+    "gradient_accumulation_steps": 2,
+    "learning_rate": 0.0002,
+    "schedule": "alternate_one_existing_five-state_family-balanced_update_with_one_full-row-native-update",
+    "existing_memory_updates": 96,
+    "full_row_native_updates": 96,
+    "native_task_sampling": "equal_task_probability_with_deterministic_epoch_permutations",
+    "stopping_rule": "Stop and archive if the 192-update checkpoint fails any required gate; do not launch 960 updates.",
+    "required_gates": {
+      "native_development_no_regression_all_three_tasks": true,
+      "native_development_strict_improvement_minimum_tasks": 2,
+      "native_development_raw_generation_disagreements_minimum_each_task": 1,
+      "native_development_format_recovery_coverage_floor": 0.95,
+      "correct_state_greedy_exact_accuracy_floor": 0.8,
+      "rewrite_greedy_output_change_fraction_floor": 0.8,
+      "semantic_route_accuracy_floor": 0.95,
+      "frozen_base_and_no_state_equivalence_required": true
+    }
+  },
+  "stage_2_full_candidate": {
+    "authorized_only_if_stage_1_passes": true,
+    "epochs": 8,
+    "updates": 960,
+    "global_batch_size": 16,
+    "world_size": 4,
+    "local_batch_size": 4,
+    "local_microbatch_size": 2,
+    "gradient_accumulation_steps": 2,
+    "candidate_selection": "one frozen checkpoint selected only from publisher-train-derived development and the synthetic development gate",
+    "native_validation_attempts": 1,
+    "native_validation_success_rule": "memory_metric_gte_base_metric_on_all_three_tasks_and_memory_metric_gt_base_metric_on_at_least_two_tasks",
+    "claim_scope": "publisher validation improvement only because validation has already been observed; no protected test claim is authorized"
+  },
+  "ordered_fallbacks": [
+    {
+      "priority": 1,
+      "direction": "full_row_data_alignment",
+      "trigger": "always_first",
+      "change": "Add original full-row online-state CE while preserving alternating five-state updates."
+    },
+    {
+      "priority": 2,
+      "direction": "fusion_topology",
+      "trigger": "stage_1_has_better_teacher_forced_ce_but_no_greedy_disagreements",
+      "change": "Train a fresh post_attention_norm or post_attention_residual_hybrid attachment with bounded learned gain, then repeat Stage 1."
+    },
+    {
+      "priority": 3,
+      "direction": "component_to_full_row_curriculum",
+      "trigger": "full_row_training_regresses_the_synthetic_gate",
+      "change": "Use component retrieval targets first and full-row aggregation targets second within each update cycle."
+    },
+    {
+      "priority": 4,
+      "direction": "task_specific_memory_then_multitask_distillation",
+      "trigger": "one_native_task_repeatedly_dominates_or_regresses",
+      "change": "Prove each task with separate rank32 adapters before distilling into one shared multitask adapter."
+    },
+    {
+      "priority": 5,
+      "direction": "capacity_or_batch_change",
+      "trigger": "only_after_data_and_topology_gates_pass_but_capacity_saturates",
+      "change": "Consider rank or state-count changes; do not increase global batch merely for speed."
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "219ea71766d3859569f1f49cc428eab5411e4ce8fa2bcae0a333ddfe78bbc749"
+  }
+}
