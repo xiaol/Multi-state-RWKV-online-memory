@@ -17,7 +17,9 @@ from typing import Any, Mapping, Sequence
 
 import torch
 import torch.distributed as torch_dist
+import torch.nn.functional as F
 from torch.distributed.elastic.multiprocessing.errors import record
+from torch.utils.checkpoint import checkpoint
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -88,6 +90,7 @@ LEARNING_RATE = 2e-4
 MAX_GRAD_NORM = 1.0
 MAX_SEQUENCE_LENGTH = 32768
 NATIVE_EXECUTION_SUBBATCH_SIZE = 1
+NATIVE_CE_CHUNK_TOKENS = 64
 
 
 @dataclass(frozen=True)
@@ -611,6 +614,56 @@ def local_objective_denominators(
     return local_answer_tokens, local_route_rows
 
 
+def _float32_cross_entropy_sum(
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+) -> torch.Tensor:
+    return F.cross_entropy(
+        logits.contiguous().float().view(-1, logits.size(-1)),
+        labels.contiguous().view(-1),
+        ignore_index=-100,
+        reduction="sum",
+    )
+
+
+def checkpointed_native_answer_loss_sum_and_count(
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+    *,
+    chunk_tokens: int = NATIVE_CE_CHUNK_TOKENS,
+) -> tuple[torch.Tensor, int, int]:
+    if chunk_tokens <= 0:
+        raise ValueError("Native CE chunk size must be positive")
+    if logits.ndim != 3 or labels.ndim != 2 or logits.size(0) != labels.size(0):
+        raise ValueError("Native answer logits and labels are misaligned")
+    if labels.size(1) < 2:
+        raise ValueError("Native answer labels have no causal sequence axis")
+    supervised = labels[:, 1:].ne(-100)
+    if not bool(supervised.any().item()):
+        raise ValueError("Native answer labels contain no supervised targets")
+    predictor_indices = supervised.any(dim=0).nonzero(as_tuple=False).flatten()
+    if logits.size(1) == labels.size(1):
+        selected_logits = logits.index_select(1, predictor_indices)
+    elif logits.size(1) == predictor_indices.numel():
+        selected_logits = logits
+    else:
+        raise ValueError("Native answer logits do not cover supervised predictors")
+    selected_labels = labels.index_select(1, predictor_indices + 1)
+    count = int(selected_labels.ne(-100).sum().item())
+    losses = [
+        checkpoint(
+            _float32_cross_entropy_sum,
+            selected_logits[:, start : start + chunk_tokens],
+            selected_labels[:, start : start + chunk_tokens],
+            use_reentrant=False,
+        )
+        for start in range(0, selected_logits.size(1), chunk_tokens)
+    ]
+    if not losses:
+        raise RuntimeError("Native checkpointed CE emitted no chunks")
+    return torch.stack(losses).sum(), count, len(losses)
+
+
 def train_mixed_distributed(
     model: torch.nn.Module,
     synthetic_examples: Sequence[Any],
@@ -709,6 +762,7 @@ def train_mixed_distributed(
         local_route_total = 0.0
         local_occupied_rows = 0.0
         local_occupied_total = 0.0
+        local_native_ce_chunks = 0
         for batch in batches:
             if mixed_step.update_kind == "synthetic":
                 write_audit = gate._write_episode_batch(model, batch, dtype=dtype)
@@ -742,10 +796,21 @@ def train_mixed_distributed(
                 route_rows = 0
                 local_occupied_rows += float(write_audit["occupied_rows"])
                 local_occupied_total += float(write_audit["occupied_total"])
-            answer_sum, answer_tokens = distributed.answer_loss_sum_and_count(
-                logits,
-                batch.labels,
-            )
+            if mixed_step.update_kind == "native":
+                answer_sum, answer_tokens, ce_chunks = (
+                    checkpointed_native_answer_loss_sum_and_count(
+                        logits,
+                        batch.labels,
+                    )
+                )
+                local_native_ce_chunks += ce_chunks
+            else:
+                answer_sum, answer_tokens = (
+                    distributed.answer_loss_sum_and_count(
+                        logits,
+                        batch.labels,
+                    )
+                )
             total_loss = answer_sum / global_answer_tokens
             if global_route_rows:
                 total_loss = total_loss + route_sum / global_route_rows
@@ -817,6 +882,11 @@ def train_mixed_distributed(
             "local_microbatch_size": LOCAL_MICROBATCH_SIZE,
             "execution_subbatch_size": execution_size,
             "backward_calls_per_rank": len(batches),
+            "native_checkpointed_ce_chunks_per_rank": (
+                local_native_ce_chunks
+                if mixed_step.update_kind == "native"
+                else None
+            ),
             "gradient_accumulation_steps": GRADIENT_ACCUMULATION_STEPS,
             "global_answer_tokens": global_answer_tokens,
             "global_route_rows": global_route_rows,
@@ -882,6 +952,7 @@ def train_mixed_distributed(
             "local_batch_size": LOCAL_BATCH_SIZE,
             "local_microbatch_size": LOCAL_MICROBATCH_SIZE,
             "native_execution_subbatch_size": NATIVE_EXECUTION_SUBBATCH_SIZE,
+            "native_ce_chunk_tokens": NATIVE_CE_CHUNK_TOKENS,
             "gradient_accumulation_steps": GRADIENT_ACCUMULATION_STEPS,
             "gradient_reduction": "explicit_sum",
             "rank_devices": list(context.rank_devices),
@@ -1024,6 +1095,7 @@ def run_evolution(
                 "before_one_global_gradient_sum_and_optimizer_step"
             ),
             "saved_tensor_cpu_offload": False,
+            "checkpointed_float32_ce_chunk_tokens": NATIVE_CE_CHUNK_TOKENS,
         },
         "schedule": dict(schedule_audit),
         "protocol_payload_sha256": EVOLUTION_PROTOCOL_PAYLOAD_SHA256,

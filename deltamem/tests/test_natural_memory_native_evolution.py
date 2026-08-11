@@ -203,6 +203,34 @@ def test_native_execution_serializes_each_logical_microbatch() -> None:
     )
 
 
+def test_checkpointed_native_ce_matches_full_ce_and_gradient() -> None:
+    labels = torch.tensor(
+        [[-100, 2, 3, 4, -100, 6, 7]],
+        dtype=torch.long,
+    )
+    full_logits = torch.randn(1, 5, 17, dtype=torch.float32, requires_grad=True)
+    chunked_logits = full_logits.detach().clone().requires_grad_(True)
+
+    full_loss, full_count = evolution.distributed.answer_loss_sum_and_count(
+        full_logits,
+        labels,
+    )
+    chunked_loss, chunked_count, chunks = (
+        evolution.checkpointed_native_answer_loss_sum_and_count(
+            chunked_logits,
+            labels,
+            chunk_tokens=2,
+        )
+    )
+    full_loss.backward()
+    chunked_loss.backward()
+
+    assert chunks == 3
+    assert chunked_count == full_count == 5
+    torch.testing.assert_close(chunked_loss, full_loss, rtol=1e-6, atol=1e-6)
+    assert torch.equal(chunked_logits.grad, full_logits.grad)
+
+
 def test_r12_warm_start_adapter_aggregate_hash_is_bound() -> None:
     adapter_files = gate.snapshot_directory_files(evolution.R12_ADAPTER)
 

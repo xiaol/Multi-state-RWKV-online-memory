@@ -1,0 +1,30 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_evolution_failure.v1",
+  "created_at": "2026-08-12T06:41:31+08:00",
+  "stage": "stage1",
+  "status": "failed_before_checkpoint",
+  "updates_requested": 192,
+  "updates_completed": 25,
+  "failed_update": 26,
+  "failed_update_kind": "native",
+  "failed_native_task": "narrative",
+  "source_commit": "3e5eba3108229dc867bdfe5952253187462d8e3f",
+  "exception_type": "torch.OutOfMemoryError",
+  "exception_message": "CUDA out of memory allocating a 1.22 GiB float32 cross-entropy workspace after the full-row forward succeeded.",
+  "memory_evidence": {
+    "rank": 2,
+    "gpu_free_mib": 601.38,
+    "pytorch_allocated_gib": 35.37,
+    "pytorch_reserved_unallocated_gib": 2.88
+  },
+  "root_cause": "Serial row execution made the exact native write/read graph fit, but full-vocabulary float32 CE over a long assistant target still materialized a target-length workspace at once.",
+  "resolution": "Compute the identical summed float32 CE in activation-checkpointed 64-token chunks so only one bounded vocabulary workspace is live while autograd still produces the same global token-normalized gradient.",
+  "restart_policy": "Discard the partial optimizer state and retry from the exact R12 warm start.",
+  "adapter_saved": false,
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "a74345d3bda28ad55e1590244808074208726307f9fa46d87bcd247a08c1b21e"
+  }
+}
