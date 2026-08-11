@@ -1,0 +1,51 @@
+{
+  "correction": {
+    "changed_field": "device_argument",
+    "from": "cuda",
+    "scientific_configuration_changed": false,
+    "to": "cuda:0"
+  },
+  "created_at": "2026-08-11T22:31:43+08:00",
+  "error": {
+    "exception": "ValueError",
+    "message": "Expected a torch.device with a specified index or an integer, but got:cuda",
+    "source_line": "run_natural_memory_gate.py:5348"
+  },
+  "event_classification": "pre_model_infrastructure_invocation_failure",
+  "execution_boundary": {
+    "adapter_loaded": false,
+    "forward_passes": 0,
+    "metrics_computed": 0,
+    "model_loaded": false,
+    "output_directory_created": false,
+    "sealed_manifest_validated": true,
+    "sealed_rows_parsed": true,
+    "training_or_evaluation_output_created": false
+  },
+  "git_commit_at_event": "62f6615ace6af86994fe599e5d30556ae7326db5",
+  "policy_accounting": {
+    "sealed_model_attempts_consumed": 0,
+    "sealed_model_attempt_definition": "an invocation that loads the frozen model and executes at least one forward pass over sealed rows",
+    "sealed_output_or_metric_influenced_configuration": false,
+    "sole_allowed_sealed_model_attempt_remains": true
+  },
+  "protected_evaluation": {
+    "hard32_opened": false,
+    "publisher_native_validation_opened": false,
+    "test_opened": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_diagnostic_without_receipt",
+    "payload_sha256": "f1b655847a2733bfb6e41c7beefe0e0779226834d02a0910e4a026caa5487ad1"
+  },
+  "replication_id": "r12",
+  "runner_sha256": "af04d510de46a9580302080fcb52f93e95fbb16696ff7a14cf60545b6fedad26",
+  "schema": "rwkv_ms_natural_memory_sealed_invocation_diagnostic.v1",
+  "sealed_package": {
+    "manifest_file_sha256": "3f347685ad0ec15812eb718aaf59b7e390efcf6ff9cd9051b03e431eda8837d5",
+    "sealed_validation_sha256": "b3d224172ef76e74681523b152e84b736a538a3539f64542434799d29015397e",
+    "split_seed": 20260825
+  },
+  "training_seed": 53
+}
