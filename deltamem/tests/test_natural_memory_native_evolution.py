@@ -235,3 +235,22 @@ def test_r12_warm_start_adapter_aggregate_hash_is_bound() -> None:
     adapter_files = gate.snapshot_directory_files(evolution.R12_ADAPTER)
 
     assert gate._sha256_json(adapter_files) == evolution.R12_ADAPTER_FILES_SHA256
+
+
+def test_residual_hybrid_topology_is_bounded_and_signed() -> None:
+    source_config = evolution.build_evolution_delta_config("attention_output")
+    hybrid_config = evolution.build_evolution_delta_config(
+        "post_attention_residual_hybrid"
+    )
+    protocol = evolution.load_evolution_protocol(
+        "post_attention_residual_hybrid"
+    )
+
+    assert source_config.memory_fusion_placement == "attention_output"
+    assert hybrid_config.memory_fusion_placement == (
+        "post_attention_residual_hybrid"
+    )
+    assert hybrid_config.memory_fusion_residual_scale == 0.01
+    assert hybrid_config.memory_fusion_residual_scale_max == 0.02
+    assert protocol["topology_change"]["new_parameter_initial_value"] == 0.01
+    assert protocol["topology_change"]["new_parameter_hard_max"] == 0.02

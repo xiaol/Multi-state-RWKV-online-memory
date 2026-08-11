@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import gc
 import json
 import os
@@ -74,6 +74,16 @@ EVOLUTION_PROTOCOL = Path(__file__).with_name(
 EVOLUTION_PROTOCOL_PAYLOAD_SHA256 = (
     "219ea71766d3859569f1f49cc428eab5411e4ce8fa2bcae0a333ddfe78bbc749"
 )
+RESIDUAL_HYBRID_PROTOCOL = Path(__file__).with_name(
+    "natural_memory_native_residual_hybrid_protocol_v1.json"
+)
+RESIDUAL_HYBRID_PROTOCOL_PAYLOAD_SHA256 = (
+    "acea98b9d7b12a21208e3333370453ba81b15e478666a1496c358e7401597050"
+)
+FUSION_TOPOLOGIES = (
+    "attention_output",
+    "post_attention_residual_hybrid",
+)
 TASK_FILES = {
     "attribution": "v3.2-attribution-best-candidate/train_derived_fit.jsonl",
     "narrative": "v3.2-narrative-type-classification/train_derived_fit.jsonl",
@@ -140,7 +150,21 @@ def _read_json(path: Path, description: str) -> Mapping[str, Any]:
     return value
 
 
-def load_evolution_protocol(path: Path = EVOLUTION_PROTOCOL) -> Mapping[str, Any]:
+def load_evolution_protocol(
+    fusion_topology: str = "attention_output",
+    path: Path | None = None,
+) -> Mapping[str, Any]:
+    if fusion_topology not in FUSION_TOPOLOGIES:
+        raise ValueError(f"Unknown evolution fusion topology: {fusion_topology!r}")
+    expected_path, expected_payload_sha256 = (
+        (EVOLUTION_PROTOCOL, EVOLUTION_PROTOCOL_PAYLOAD_SHA256)
+        if fusion_topology == "attention_output"
+        else (
+            RESIDUAL_HYBRID_PROTOCOL,
+            RESIDUAL_HYBRID_PROTOCOL_PAYLOAD_SHA256,
+        )
+    )
+    path = expected_path if path is None else path
     protocol = _read_json(path.resolve(strict=True), "evolution protocol")
     receipt = protocol.get("receipt")
     if not isinstance(receipt, Mapping):
@@ -150,10 +174,29 @@ def load_evolution_protocol(path: Path = EVOLUTION_PROTOCOL) -> Mapping[str, Any
     payload_sha256 = source.sha256_text(source.canonical_json(unsigned))
     if (
         receipt.get("payload_sha256") != payload_sha256
-        or payload_sha256 != EVOLUTION_PROTOCOL_PAYLOAD_SHA256
+        or payload_sha256 != expected_payload_sha256
     ):
         raise ValueError("Evolution protocol payload hash differs")
     return protocol
+
+
+def build_evolution_delta_config(fusion_topology: str) -> Any:
+    if fusion_topology not in FUSION_TOPOLOGIES:
+        raise ValueError(f"Unknown evolution fusion topology: {fusion_topology!r}")
+    config = gate.build_delta_config(
+        target_layers=gate.DEFAULT_TARGET_LAYERS,
+        rank=gate.PRODUCTION_ADAPTER_RANK,
+        key_dim=gate.PRODUCTION_KEY_DIM,
+        temperature=gate.PRODUCTION_TEMPERATURE,
+    )
+    if fusion_topology == "attention_output":
+        return config
+    return replace(
+        config,
+        memory_fusion_placement="post_attention_residual_hybrid",
+        memory_fusion_residual_scale=0.01,
+        memory_fusion_residual_scale_max=0.02,
+    )
 
 
 def validate_native_dataset_root(root: Path) -> Mapping[str, Any]:
@@ -976,14 +1019,23 @@ def run_evolution(
     adapter_path: Path = R12_ADAPTER,
     source_manifest: Path = R12_SOURCE_MANIFEST,
     native_dataset_root: Path = NATIVE_DATASET_ROOT,
+    fusion_topology: str = "attention_output",
 ) -> Mapping[str, Any]:
     gate.configure_hf_mirror()
-    protocol = load_evolution_protocol()
+    protocol = load_evolution_protocol(fusion_topology)
     native_manifest = validate_native_dataset_root(native_dataset_root)
     if updates == STAGE1_UPDATES:
-        stage = "stage1"
+        stage = (
+            "stage1"
+            if fusion_topology == "attention_output"
+            else "residual_hybrid_stage1"
+        )
     elif updates == PREFLIGHT_UPDATES:
-        stage = "preflight"
+        stage = (
+            "preflight"
+            if fusion_topology == "attention_output"
+            else "residual_hybrid_preflight"
+        )
     else:
         raise ValueError("Evolution run must request 2 or 192 updates")
     requested_output = output_dir.expanduser()
@@ -1002,12 +1054,8 @@ def run_evolution(
     bundle = gate.load_profile_bundle(source_manifest, profile="development")
     if Path(bundle.model_binding["local_model_path"]).resolve() != base_model:
         raise ValueError("R12 source manifest base model differs")
-    delta_config = gate.build_delta_config(
-        target_layers=gate.DEFAULT_TARGET_LAYERS,
-        rank=gate.PRODUCTION_ADAPTER_RANK,
-        key_dim=gate.PRODUCTION_KEY_DIM,
-        temperature=gate.PRODUCTION_TEMPERATURE,
-    )
+    source_delta_config = build_evolution_delta_config("attention_output")
+    delta_config = build_evolution_delta_config(fusion_topology)
     runtime.set_seed(SEED)
     model, tokenizer, _, trainable_names, _ = gate._load_model_and_tokenizer(
         {"model": {"path": str(base_model)}},
@@ -1016,8 +1064,14 @@ def run_evolution(
         attn_implementation="sdpa",
         delta_config=delta_config,
     )
-    loaded_config = load_delta_mem_adapter(model, adapter_path)
-    if loaded_config.to_dict() != delta_config.to_dict():
+    loaded_config = load_delta_mem_adapter(
+        model,
+        adapter_path,
+        initialize_missing_residual_hybrid_gain=(
+            fusion_topology == "post_attention_residual_hybrid"
+        ),
+    )
+    if loaded_config.to_dict() != source_delta_config.to_dict():
         raise ValueError("Warm-start R12 adapter configuration differs")
     trainable_audit = gate.audit_trainable_parameters(
         model,
@@ -1047,6 +1101,7 @@ def run_evolution(
     )
     input_binding = {
         "stage": stage,
+        "fusion_topology": fusion_topology,
         "updates": updates,
         "base_model": str(base_model),
         "base_model_config_sha256": source.sha256_file(base_model / "config.json"),
@@ -1054,6 +1109,8 @@ def run_evolution(
         "warm_start_adapter_files": adapter_files,
         "warm_start_adapter_files_sha256": R12_ADAPTER_FILES_SHA256,
         "warm_start_adapter_state_sha256": initial_adapter_hash,
+        "warm_start_source_delta_config": source_delta_config.to_dict(),
+        "target_delta_config": delta_config.to_dict(),
         "synthetic_source_manifest": str(source_manifest),
         "synthetic_source_manifest_sha256": source.sha256_file(source_manifest),
         "native_dataset_root": str(native_dataset_root),
@@ -1098,7 +1155,11 @@ def run_evolution(
             "checkpointed_float32_ce_chunk_tokens": NATIVE_CE_CHUNK_TOKENS,
         },
         "schedule": dict(schedule_audit),
-        "protocol_payload_sha256": EVOLUTION_PROTOCOL_PAYLOAD_SHA256,
+        "protocol_payload_sha256": (
+            EVOLUTION_PROTOCOL_PAYLOAD_SHA256
+            if fusion_topology == "attention_output"
+            else RESIDUAL_HYBRID_PROTOCOL_PAYLOAD_SHA256
+        ),
         "hf_endpoint": os.environ.get("HF_ENDPOINT"),
     }
     distributed.require_consensus(
@@ -1191,6 +1252,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--adapter-path", type=Path, default=R12_ADAPTER)
     parser.add_argument("--source-manifest", type=Path, default=R12_SOURCE_MANIFEST)
     parser.add_argument("--native-dataset-root", type=Path, default=NATIVE_DATASET_ROOT)
+    parser.add_argument(
+        "--fusion-topology",
+        choices=FUSION_TOPOLOGIES,
+        default="attention_output",
+    )
     parser.add_argument("--device", default="cuda")
     return parser.parse_args(argv)
 
@@ -1210,6 +1276,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             adapter_path=args.adapter_path,
             source_manifest=args.source_manifest,
             native_dataset_root=args.native_dataset_root,
+            fusion_topology=args.fusion_topology,
         )
     finally:
         distributed.destroy_distributed_training(context)
