@@ -1,0 +1,51 @@
+{
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "base_model_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+  "hf_endpoint": "https://hf-mirror.com",
+  "native_dataset_manifest_sha256": "451f2099a7afb45950f75b69280e8db21e3f948433ed0640065e4dc2c6212587",
+  "native_dataset_receipt_sha256": "7f1056c33009a30d63179b49e9f95fe1c9fb4438b434d2ad3a22cd22039704e4",
+  "native_dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "native_examples": 2274,
+  "native_examples_sha256": "cea33a24d991dd8fab6348e0d1168f54054b4aaf0363706e24e7b6da5d79f61f",
+  "native_max_assistant_target_tokens": 1253,
+  "native_max_read_tokens": 2617,
+  "native_max_write_tokens": 2390,
+  "native_task_rows": {
+    "attribution": 372,
+    "narrative": 459,
+    "scene": 1443
+  },
+  "protocol_payload_sha256": "219ea71766d3859569f1f49cc428eab5411e4ce8fa2bcae0a333ddfe78bbc749",
+  "schedule": {
+    "alternation": "odd_synthetic_even_native",
+    "mixed_schedule_sha256": "cd2c174682095f8639b5dab954d6fbccaffc1c73d7bd90e655a7190e485f9e54",
+    "native_schedule_sha256": "4758f244f6f8a45e0e08fa2717541850122c93eedbf4e44270f362de2b91a4cf",
+    "native_task_updates": {
+      "attribution": 1
+    },
+    "native_updates": 1,
+    "schema": "rwkv_ms_natural_memory_native_mixed_schedule.v1",
+    "synthetic_schedule_sha256": "e010cf3b3641f2982564b20e1b7389eb7611b7e05e0310066493b1813af5bf66",
+    "synthetic_updates": 1,
+    "total_updates": 2
+  },
+  "stage": "preflight",
+  "synthetic_examples": 1920,
+  "synthetic_examples_sha256": "589198131fd23ebb88fc49d78dde286b3e3c4752242f4fd524e623c8511f0ffe",
+  "synthetic_source_manifest": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_split20260825_seed53/manifest.json",
+  "synthetic_source_manifest_sha256": "9ae32092fc2fadc132051b3d0ca83bc7ce862166a871f73feb3694d2cebef906",
+  "updates": 2,
+  "warm_start_adapter": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_development_run_split20260825_seed53/adapter",
+  "warm_start_adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 100897004,
+      "sha256": "26581867dc1220644332d6ff31e71276576b28134ab68c18abac97e2094450ae"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2632,
+      "sha256": "e29d00fcb1d5ab67f5a5bdf2bc32ee6ecf96e3e3be7fe0c58b83507d7d6a2bb4"
+    }
+  },
+  "warm_start_adapter_files_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63",
+  "warm_start_adapter_state_sha256": "0424874beb28c3c2c5a74848f0f5f2c9570b155545b72f97370c9184a3e352ba"
+}
