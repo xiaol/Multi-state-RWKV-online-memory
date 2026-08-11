@@ -1,0 +1,31 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_evolution_failure.v1",
+  "created_at": "2026-08-12T06:29:37+08:00",
+  "stage": "stage1",
+  "status": "failed_before_checkpoint",
+  "updates_requested": 192,
+  "updates_completed": 1,
+  "failed_update": 2,
+  "failed_update_kind": "native",
+  "failed_native_task": "narrative",
+  "source_commit": "a1c5e0bf4d18ebd06e4c4e34d4cfc847b3c36bd7",
+  "exception_type": "SIGKILL",
+  "exception_message": "Rank 3 was killed by the Linux OOM killer during saved-tensor CPU offload.",
+  "kernel_evidence": {
+    "event": "global_oom",
+    "killed_pid": 1536911,
+    "killed_process": "python3.12",
+    "shmem_rss_kib": 43425792
+  },
+  "root_cause": "Offloading every tensor saved by four simultaneous long native write/read graphs moved excessive activation storage into shared host memory.",
+  "rejected_resolution": "Full torch.autograd.graph.save_on_cpu offload for native write and read.",
+  "next_resolution": "Serialize the two rows inside each logical native microbatch while retaining the same four local rows, global batch of 16, global token denominator, gradient sum, and optimizer update.",
+  "restart_policy": "Discard the partial optimizer state and retry from the exact R12 warm start.",
+  "adapter_saved": false,
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "c22cb3476e88aee0bea5ea5de2ce3c41255998fe7c8cdbfa3e0cbf416cc495fa"
+  }
+}
