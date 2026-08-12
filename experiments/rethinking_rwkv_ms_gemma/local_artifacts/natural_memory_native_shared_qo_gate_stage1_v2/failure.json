@@ -1,0 +1,41 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_stage1_failure.v2",
+  "created_at": "2026-08-12T17:08:48+08:00",
+  "stage": "shared_qo_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "eff3cef47e514e607bf7eb9db713314f4b693908d9e4175d7d1adab3e9b807ad",
+  "progress": {
+    "optimizer_steps_completed": 91,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "input_binding_sha256": "e2237a61c42775b73ad8657c519ca7723c654432b51d5e2a64330e95924954e7",
+    "training_progress_sha256": "9d34b0979a64621e8a7c5fce30ec71eef6a8d87699440b3a6f6fabd4a299028f"
+  },
+  "failure": {
+    "phase": "native_row_backward_before_step_92_optimizer_update",
+    "process_rank": 2,
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 24.0,
+    "gpu_capacity_gib": 39.49,
+    "gpu_free_mib": 25.38,
+    "pytorch_allocated_gib": 38.45,
+    "pytorch_reserved_unallocated_mib": 368.72,
+    "cause": "Explicit cache release moved the peak-length row past forward but did not reduce the true full-answer backward graph peak.",
+    "protected_splits_opened": []
+  },
+  "rejected_resolutions": [
+    "Full native saved-tensor CPU offload previously triggered the Linux host OOM killer.",
+    "Allocator cache release alone does not reduce the live backward graph."
+  ],
+  "code_bindings": {
+    "runner_sha256": "5e7a9577756348f6e1d72105660d532a850e283b8ffd65d57260a792d5e7e625",
+    "delta_impl_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada"
+  },
+  "decision": "This is an execution failure, not a benchmark or model-quality result. Stream native supervised predictor positions through bounded forward/backward chunks with the same summed cross-entropy and global-token denominator, validate gradient equivalence, stress-test the exact rank-2 update-92 row, and restart Stage 1 from exact R12.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "88644ee7aa328c7c6677733587c3daaef19d6c031bc3f1964b9d0cf337ff03d0"
+  }
+}
