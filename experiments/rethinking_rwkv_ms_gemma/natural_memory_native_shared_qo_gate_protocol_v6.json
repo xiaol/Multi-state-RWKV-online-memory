@@ -1,0 +1,132 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_protocol.v6",
+  "created_at": "2026-08-12T23:47:00+08:00",
+  "objective": "Preserve frozen-Gemma attention routing and output unless publisher-native content supports outer-memory corrections.",
+  "source_diagnosis": {
+    "predecessor_protocol_payload_sha256": "a9cb313efb3290578aa1b7c24edc2dbb75cada692c33a2d332eb4686fb4b27d7",
+    "predecessor_preflight_result_receipt_sha256": "f6640bda30a66799131384d3889dfd976969848db9652389fc501a7f919b8f4f",
+    "predecessor_stage1_failure_receipt_sha256": "87a02b2c071252d9422e18bad346dca17e76a509311a8811119731e78ab785cc",
+    "predecessor_stage1_outcome": "execution_failed_no_model_decision_after_1_update",
+    "failure_cause": "The 16 MiB threshold cleared rank 2, but rank 3 still lacked a contiguous 374 MiB backward workspace after selective offload.",
+    "exact_rank3_stress": {
+      "row_id": "native:narrative:1:fe47c59e6160d3a6a12d",
+      "write_tokens": 1319,
+      "read_tokens": 2055,
+      "supervised_answer_tokens": 736,
+      "selective_threshold_mib": 8,
+      "offloaded_tensors": 1984,
+      "offloaded_gib": 26.573,
+      "forward_and_backward_passed": true,
+      "host_available_after_test_gib": 193.9
+    },
+    "worst_row_profile": {
+      "row_id": "native:scene:1262:287639295f2437b85bb9",
+      "logical_saved_tensor_gib": 55.559,
+      "estimated_offload_gib_per_rank_at_8_mib": 43.166,
+      "estimated_four_rank_offload_gib": 172.664,
+      "host_memory_gib": 251,
+      "full_offload_rejected": "Full native save_on_cpu previously triggered the Linux host OOM killer."
+    },
+    "diagnosis": "Use the profiled 8 MiB saved-activation bucket. It clears the exact rank-3 row and leaves about 78 GiB below physical host capacity under a deliberately conservative four-rank worst-case estimate."
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_frozen": true,
+    "warm_start_candidate": "r12",
+    "warm_start_adapter_files_aggregate_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63",
+    "partial_stage1_warm_start_forbidden": true,
+    "memory_backend": "rwkv_ms",
+    "rank": 32,
+    "projected_kv_key_dim": 64,
+    "delta_heads": ["q", "o"],
+    "loss_family": "cross_entropy_only",
+    "target_layers": "all_42_language_layers",
+    "hf_endpoint": "https://hf-mirror.com",
+    "test_forbidden": true,
+    "hard32_forbidden": true
+  },
+  "topology_change": {
+    "memory_fusion_placement": "attention_output",
+    "source_memory_fusion_mode": "add",
+    "target_memory_fusion_mode": "content_gated_qo_add",
+    "gate_inputs": ["rms_normalized_base_hidden", "rms_normalized_memory_read"],
+    "gate_output": "one_per_token_sigmoid_shared_by_delta_q_and_delta_o",
+    "gate_initial_value": 0.1,
+    "new_parameter_initialization": "zero_weights_and_logit_0.1_bias",
+    "r12_parameter_warm_start": "all_matching_adapter_tensors_exact",
+    "q_correction": "multiply_by_shared_content_gate_before_attention",
+    "o_correction": "multiply_by_same_shared_content_gate_after_attention",
+    "gate_computed_once_per_layer_forward": true,
+    "q_head_preserved": true,
+    "o_head_preserved": true
+  },
+  "execution_change": {
+    "content_gate_activation_checkpointing": "torch_non_reentrant_recompute_during_backward",
+    "serialized_row_graph_release": "clear_graph_references_immediately_after_backward_and_metrics",
+    "allocator_cache_release": "gc_collect_and_cuda_empty_cache_before_native_write_and_read",
+    "selective_saved_tensor_cpu_offload": true,
+    "selective_offload_min_bytes": 8388608,
+    "selective_offload_eligibility": "cuda_and_nonleaf_and_grad_fn_and_nbytes_at_least_threshold",
+    "selective_offload_scope": "native_write_and_read_forward_only",
+    "selective_offload_pin_memory": false,
+    "full_saved_tensor_cpu_offload": false,
+    "native_float32_ce_chunk_tokens": 64,
+    "cuda_allocator": "expandable_segments:True",
+    "forward_function_equivalence_required": true,
+    "gradient_equivalence_required": true,
+    "data_order_change": false,
+    "batch_change": false,
+    "objective_change": false,
+    "optimizer_change": false,
+    "restart_source": "exact_r12_adapter"
+  },
+  "execution_contract": {
+    "world_size": 4,
+    "global_batch_size": 16,
+    "logical_local_microbatch_size": 2,
+    "native_execution_subbatch_size": 1,
+    "host_memory_gib": 251,
+    "profiled_worst_case_offload_gib_per_rank": 43.166,
+    "profiled_four_rank_offload_gib": 172.664
+  },
+  "data_contract": {
+    "synthetic_source": "exact_r12_publisher_train_derived_five_state_training_split",
+    "native_source": "natural_memory_native_development_v1 fit partition only",
+    "native_rows_preserved_exactly": true,
+    "native_assistant_target_preserved_exactly": true,
+    "online_state_protocol": "reset_per_row_write_system_and_user_read_full_row_with_writes_disabled",
+    "protected_splits_opened": []
+  },
+  "preflight": {
+    "updates": 2,
+    "required": "finite_nonzero_gradients_full_memory_occupancy_finite_nonzero_shared_gate_gradients_adapter_change_selective_offload_audit"
+  },
+  "stage1": {
+    "updates": 192,
+    "learning_rate": 0.0002,
+    "schedule": "odd synthetic five-state update, even native full-row update",
+    "synthetic_updates": 96,
+    "native_updates": 96,
+    "native_task_updates": {"attribution": 32, "narrative": 32, "scene": 32},
+    "selection_probe": "same fixed first four publisher-TRAIN-derived development rows per task",
+    "full_development_authorized_only_if_probe_promising": true
+  },
+  "required_probe_gates": {
+    "native_no_regression_all_three_tasks": true,
+    "native_strict_improvement_minimum_tasks": 2,
+    "raw_generation_disagreements_minimum_each_task": 1,
+    "format_recovery_coverage_floor": 0.95,
+    "synthetic_correct_state_greedy_exact_accuracy_floor": 0.8,
+    "synthetic_rewrite_output_change_fraction_floor": 0.8,
+    "synthetic_semantic_route_accuracy_floor": 0.95,
+    "frozen_base_and_no_state_equivalence_required": true
+  },
+  "stopping_rule": "Archive and stop if the fixed probe regresses any task or improves fewer than two; do not launch 960 updates or full native development.",
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "04508f55a07e5f02ea2b9f70672009e46cb55b8cfa8fd256566702619fd23aad"
+  }
+}

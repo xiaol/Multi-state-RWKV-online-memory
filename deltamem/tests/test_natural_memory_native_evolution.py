@@ -324,9 +324,9 @@ def test_shared_qo_gate_topology_is_initialized_and_signed() -> None:
     assert protocol["execution_change"]["gradient_equivalence_required"] is True
     assert protocol["execution_change"]["batch_change"] is False
     assert protocol["execution_change"]["selective_offload_min_bytes"] == (
-        16 * 1024 * 1024
+        8 * 1024 * 1024
     )
-    assert evolution.NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES == 16 * 1024 * 1024
+    assert evolution.NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES == 8 * 1024 * 1024
 
 
 def test_native_selective_offload_excludes_cpu_leaf_and_small_tensors() -> None:
