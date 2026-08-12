@@ -323,6 +323,8 @@ def test_shared_qo_gate_topology_is_initialized_and_signed() -> None:
     )
     assert protocol["execution_change"]["gradient_equivalence_required"] is True
     assert protocol["execution_change"]["batch_change"] is False
+    assert protocol["execution_change"]["native_float32_ce_chunk_tokens"] == 1
+    assert evolution.NATIVE_CE_CHUNK_TOKENS == 1
 
 
 def test_native_row_allocator_cache_release_is_cuda_only(monkeypatch) -> None:
