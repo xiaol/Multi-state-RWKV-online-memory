@@ -1213,8 +1213,9 @@ def train_mixed_distributed(
             "local_microbatch_size": LOCAL_MICROBATCH_SIZE,
             "native_execution_subbatch_size": NATIVE_EXECUTION_SUBBATCH_SIZE,
             "native_ce_chunk_tokens": NATIVE_CE_CHUNK_TOKENS,
-            "native_selective_offload_min_bytes": (
-                NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES
+            "native_saved_tensor_cpu_offload": False,
+            "native_episode_checkpointing": (
+                "torch_non_reentrant_write_read_recompute"
             ),
             "gradient_accumulation_steps": GRADIENT_ACCUMULATION_STEPS,
             "gradient_reduction": "explicit_sum",

@@ -1,0 +1,35 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_preflight_failure.v8",
+  "created_at": "2026-08-13T02:54:04+08:00",
+  "stage": "shared_qo_gate_preflight",
+  "status": "reporting_failed_after_training_no_model_decision",
+  "protocol_payload_sha256": "46e108d6475d9f5223010a19c44ddcfa0d7055eecc188eae04099b9452c4233d",
+  "progress": {
+    "optimizer_steps_completed": 2,
+    "updates_requested": 2,
+    "last_completed_update_kind": "native",
+    "adapter_written": false,
+    "input_binding_sha256": "87c5781bfcc8f9e1578b886cbfb63d6f95e9d02178104f62339ca234deb24013",
+    "training_progress_sha256": "df5760a29584a16c17f90eebedf2b8b318162fbf7c97a5fd35b5f86093260e7e",
+    "all_content_gate_gradient_audits_passed": true,
+    "all_memory_occupancy_fractions": 1.0
+  },
+  "failure": {
+    "phase": "final_training_summary_after_second_optimizer_update",
+    "process_ranks": [0, 1, 2, 3],
+    "exception_type": "NameError",
+    "exception_symbol": "NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES",
+    "cause": "The v8 execution path removed saved-tensor CPU offload, but the final distributed summary still referenced the deleted v7 threshold constant.",
+    "protected_splits_opened": []
+  },
+  "code_bindings": {
+    "runner_sha256": "f4062b068d242b32bc57d48f67268ccc27abaf97c00182681293de48b8defcd2",
+    "delta_impl_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada"
+  },
+  "decision": "This is a reporting failure after successful execution of both optimizer steps, not a benchmark or model-quality result. Remove the obsolete v7 summary field, retain the unchanged v8 execution and objective, and rerun the two-step preflight from the exact R12 adapter in a fresh directory.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "9c3137b9a9e7d0ec13d367ac3bd5e11cc673b5b7f45545d45cb2c0b9ebc174e1"
+  }
+}
