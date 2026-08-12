@@ -318,3 +318,24 @@ def test_shared_qo_gate_topology_is_initialized_and_signed() -> None:
     assert protocol["topology_change"]["o_correction"] == (
         "multiply_by_same_shared_content_gate_after_attention"
     )
+    assert protocol["execution_change"]["allocator_cache_release"] == (
+        "gc_collect_and_cuda_empty_cache_before_native_write_and_read"
+    )
+    assert protocol["execution_change"]["gradient_equivalence_required"] is True
+    assert protocol["execution_change"]["batch_change"] is False
+
+
+def test_native_row_allocator_cache_release_is_cuda_only(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(evolution.gc, "collect", lambda: calls.append("gc"))
+    monkeypatch.setattr(
+        evolution.torch.cuda,
+        "empty_cache",
+        lambda: calls.append("cuda"),
+    )
+
+    evolution.release_native_row_allocator_cache(torch.device("cpu"))
+    assert calls == ["gc"]
+
+    evolution.release_native_row_allocator_cache(torch.device("cuda", 0))
+    assert calls == ["gc", "gc", "cuda"]

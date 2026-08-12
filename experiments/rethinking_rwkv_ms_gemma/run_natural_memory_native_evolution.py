@@ -88,10 +88,10 @@ CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256 = (
     "ee9cea48667657e4b4db9808a97a7e3a7fdd3b9e44ed8b83fff34352c31ee68c"
 )
 SHARED_QO_GATE_PROTOCOL = Path(__file__).with_name(
-    "natural_memory_native_shared_qo_gate_protocol_v1.json"
+    "natural_memory_native_shared_qo_gate_protocol_v2.json"
 )
 SHARED_QO_GATE_PROTOCOL_PAYLOAD_SHA256 = (
-    "43811b75dfd17a3df0db782e27c4b7ba50038ffa67f976fda82f7cc4c451ef85"
+    "eff3cef47e514e607bf7eb9db713314f4b693908d9e4175d7d1adab3e9b807ad"
 )
 FUSION_TOPOLOGIES = (
     "attention_output",
@@ -663,6 +663,12 @@ def _native_read(
     return outputs.logits
 
 
+def release_native_row_allocator_cache(device: torch.device) -> None:
+    gc.collect()
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+
+
 def execution_subbatch_size(update_kind: str) -> int:
     if update_kind == "synthetic":
         return LOCAL_MICROBATCH_SIZE
@@ -948,7 +954,9 @@ def train_mixed_distributed(
                     len(route_predictions) * batch.target_slots.numel()
                 )
             else:
+                release_native_row_allocator_cache(context.device)
                 write_audit = _native_write(model, batch, dtype=dtype)
+                release_native_row_allocator_cache(context.device)
                 logits = _native_read(model, batch, dtype=dtype)
                 route_sum = logits.sum() * 0.0
                 route_rows = 0
@@ -1336,6 +1344,9 @@ def run_evolution(
                 else None
             ),
             "serialized_row_graph_release": True,
+            "native_row_allocator_cache_release": (
+                "gc_collect_and_cuda_empty_cache_before_native_write_and_read"
+            ),
             "cuda_allocator_configuration": os.environ.get(
                 "PYTORCH_CUDA_ALLOC_CONF"
             ),
