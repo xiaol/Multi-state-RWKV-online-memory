@@ -1,0 +1,37 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_stage1_failure.v5",
+  "created_at": "2026-08-12T23:29:00+08:00",
+  "stage": "shared_qo_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "a9cb313efb3290578aa1b7c24edc2dbb75cada692c33a2d332eb4686fb4b27d7",
+  "progress": {
+    "optimizer_steps_completed": 1,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "input_binding_sha256": "c05f67b23e4e116ea52465116412d3177584df8316fd287494b47355fbce062f",
+    "training_progress_sha256": "60a023a3a0dca94c919fdb75d3d2db5ff069e4b0e6ea3a16c76ec714b6b3b6d7"
+  },
+  "failure": {
+    "phase": "native_row_backward_before_step_2_optimizer_update",
+    "process_rank": 3,
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 374.0,
+    "gpu_capacity_gib": 39.49,
+    "gpu_free_mib": 255.38,
+    "pytorch_allocated_gib": 37.38,
+    "pytorch_reserved_unallocated_gib": 1.20,
+    "cause": "The 16 MiB threshold engaged and cleared rank 2, but rank 3 still retained insufficient contiguous workspace for a 374 MiB backward allocation.",
+    "protected_splits_opened": []
+  },
+  "code_bindings": {
+    "runner_sha256": "02bb1d2cc218bf12d109cd5ee048720bdf6f3b805df72a7c6757bc413db73658",
+    "delta_impl_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada"
+  },
+  "decision": "This is an execution failure, not a benchmark or model-quality result. Lower the signed selective threshold to the profiled 8 MiB bucket, which offloads an additional 16.695 GiB of bfloat16 non-leaf activations on the worst row while keeping the four-rank host upper bound below physical memory; stress-test the exact rank-3 row, preflight, and restart from R12.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "87a02b2c071252d9422e18bad346dca17e76a509311a8811119731e78ab785cc"
+  }
+}
