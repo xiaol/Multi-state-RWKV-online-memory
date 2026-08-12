@@ -1,0 +1,37 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_content_gate_stage1_failure.v2",
+  "created_at": "2026-08-12T09:25:24+08:00",
+  "stage": "content_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "adbd9ff2421ad26ee7a3a6c2711e82d2a0ad8ca00ac7a642e4f90217db02a0df",
+  "progress": {
+    "optimizer_steps_completed": 25,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "input_binding_sha256": "13c0294b66f16fd88dae25ef5e027325c653a9d421a3a199db258de910a73ae0",
+    "training_progress_sha256": "7499a8e8ed7f76a9fad128952347004ff4c6b07ca1d493c8ab414d099b2d9457"
+  },
+  "failure": {
+    "phase": "native_row_backward_before_step_26_optimizer_update",
+    "process_rank": 2,
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 628.0,
+    "gpu_capacity_gib": 39.49,
+    "gpu_free_mib": 623.38,
+    "pytorch_allocated_gib": 36.12,
+    "pytorch_reserved_unallocated_gib": 2.11,
+    "cause": "Content-gate checkpointing cleared the prior step-10 failure, but a longer native row encountered CUDA allocator fragmentation and retained Python references between serialized row backward calls.",
+    "protected_splits_opened": []
+  },
+  "code_bindings": {
+    "runner_sha256": "5992f6741da311e63f06ea6aed7bec03cfe918842cb79f3b131fbfa00bbc68ab",
+    "delta_impl_sha256": "63c29c175a3bb4bbd269c14f1d400b0a5488fd7e68b39b7e2e48127f0035251a"
+  },
+  "decision": "This remains an execution failure, not a benchmark or model-quality result. Explicitly release each serialized row graph before the next row, configure expandable CUDA segments before torch initialization, rerun the signed preflight, and restart Stage 1 from R12.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "4acdef3d71ad8d15b36674026efa7088e576febf2c1b5880ab2a26705ad40401"
+  }
+}

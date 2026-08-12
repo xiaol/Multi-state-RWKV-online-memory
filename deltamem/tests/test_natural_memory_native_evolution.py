@@ -274,6 +274,12 @@ def test_content_gate_topology_is_initialized_and_signed() -> None:
         "content_gate_activation_checkpointing"
     ] == "torch_non_reentrant_recompute_during_backward"
     assert protocol["execution_change"]["objective_change"] is False
+    assert protocol["execution_change"]["serialized_row_graph_release"] == (
+        "clear_graph_references_immediately_after_backward_and_metrics"
+    )
+    assert protocol["execution_change"]["cuda_allocator"] == (
+        "expandable_segments:True"
+    )
 
 
 def test_content_gate_gradient_audit_requires_every_family() -> None:

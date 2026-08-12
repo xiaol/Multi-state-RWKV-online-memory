@@ -82,10 +82,10 @@ RESIDUAL_HYBRID_PROTOCOL_PAYLOAD_SHA256 = (
     "acea98b9d7b12a21208e3333370453ba81b15e478666a1496c358e7401597050"
 )
 CONTENT_GATE_PROTOCOL = Path(__file__).with_name(
-    "natural_memory_native_content_gate_protocol_v2.json"
+    "natural_memory_native_content_gate_protocol_v3.json"
 )
 CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256 = (
-    "adbd9ff2421ad26ee7a3a6c2711e82d2a0ad8ca00ac7a642e4f90217db02a0df"
+    "ee9cea48667657e4b4db9808a97a7e3a7fdd3b9e44ed8b83fff34352c31ee68c"
 )
 FUSION_TOPOLOGIES = (
     "attention_output",
@@ -903,7 +903,7 @@ def train_mixed_distributed(
         local_occupied_rows = 0.0
         local_occupied_total = 0.0
         local_native_ce_chunks = 0
-        for batch in batches:
+        for batch_index, batch in enumerate(batches):
             if mixed_step.update_kind == "synthetic":
                 write_audit = gate._write_episode_batch(model, batch, dtype=dtype)
                 logits, route_logits = gate._read_episode_batch(
@@ -986,6 +986,17 @@ def train_mixed_distributed(
             ):
                 raise RuntimeError("Mixed microbatch objective counts differ")
             reset_delta_mem_states(model)
+            batches[batch_index] = None
+            answer_sum = None
+            batch = None
+            logits = None
+            predicted_rows = None
+            expected_rows = None
+            route_logits = None
+            route_predictions = None
+            route_sum = None
+            total_loss = None
+            write_audit = None
         gradient_validation = distributed.validate_local_gradients(named_trainable)
         if gradient_validation["passed"] is not True:
             raise RuntimeError("Mixed evolution produced invalid local gradients")
@@ -1292,6 +1303,10 @@ def run_evolution(
                 "torch_non_reentrant"
                 if fusion_topology == "content_gated_attention_output"
                 else None
+            ),
+            "serialized_row_graph_release": True,
+            "cuda_allocator_configuration": os.environ.get(
+                "PYTORCH_CUDA_ALLOC_CONF"
             ),
         },
         "schedule": dict(schedule_audit),
