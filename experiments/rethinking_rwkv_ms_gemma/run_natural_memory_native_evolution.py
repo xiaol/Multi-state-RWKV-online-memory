@@ -88,10 +88,10 @@ CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256 = (
     "ee9cea48667657e4b4db9808a97a7e3a7fdd3b9e44ed8b83fff34352c31ee68c"
 )
 SHARED_QO_GATE_PROTOCOL = Path(__file__).with_name(
-    "natural_memory_native_shared_qo_gate_protocol_v7.json"
+    "natural_memory_native_shared_qo_gate_protocol_v8.json"
 )
 SHARED_QO_GATE_PROTOCOL_PAYLOAD_SHA256 = (
-    "622db4f8dad33addf6f33073e3babe3d8a170c7c26365e5d77834424a430c20e"
+    "46e108d6475d9f5223010a19c44ddcfa0d7055eecc188eae04099b9452c4233d"
 )
 FUSION_TOPOLOGIES = (
     "attention_output",
@@ -116,7 +116,6 @@ MAX_GRAD_NORM = 1.0
 MAX_SEQUENCE_LENGTH = 32768
 NATIVE_EXECUTION_SUBBATCH_SIZE = 1
 NATIVE_CE_CHUNK_TOKENS = 64
-NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES = 4 * 1024 * 1024
 CONTENT_GATE_PARAMETER_FAMILIES = (
     "memory_fusion_hidden_weight",
     "memory_fusion_read_weight",
@@ -146,18 +145,6 @@ class NativeFullRowBatch:
     read_input_ids: torch.Tensor
     read_attention_mask: torch.Tensor
     labels: torch.Tensor
-
-
-@dataclass(frozen=True)
-class OffloadedNativeActivation:
-    device: torch.device
-    tensor: torch.Tensor
-
-
-@dataclass
-class NativeSelectiveOffloadStats:
-    tensors: int = 0
-    bytes: int = 0
 
 
 @dataclass(frozen=True)
@@ -682,62 +669,49 @@ def release_native_row_allocator_cache(device: torch.device) -> None:
         torch.cuda.empty_cache()
 
 
-def should_selectively_offload_native_activation(
-    tensor: torch.Tensor,
-    *,
-    min_bytes: int = NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES,
-) -> bool:
-    if min_bytes <= 0:
-        raise ValueError("Native selective offload threshold must be positive")
-    return bool(
-        tensor.device.type == "cuda"
-        and not tensor.is_leaf
-        and tensor.grad_fn is not None
-        and tensor.numel() * tensor.element_size() >= min_bytes
-    )
-
-
-def native_selective_offload_hooks(
-    stats: NativeSelectiveOffloadStats,
-    *,
-    min_bytes: int = NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES,
-) -> tuple[Any, Any]:
-    def pack(tensor: torch.Tensor) -> torch.Tensor | OffloadedNativeActivation:
-        if not should_selectively_offload_native_activation(
-            tensor,
-            min_bytes=min_bytes,
-        ):
-            return tensor
-        stats.tensors += 1
-        stats.bytes += tensor.numel() * tensor.element_size()
-        return OffloadedNativeActivation(
-            device=tensor.device,
-            tensor=tensor.detach().to("cpu"),
-        )
-
-    def unpack(
-        packed: torch.Tensor | OffloadedNativeActivation,
-    ) -> torch.Tensor:
-        if isinstance(packed, OffloadedNativeActivation):
-            return packed.tensor.to(packed.device)
-        return packed
-
-    return pack, unpack
-
-
-def _native_write_read_selectively_offloaded(
+def checkpointed_native_write_read(
     model: torch.nn.Module,
     batch: NativeFullRowBatch,
     *,
     dtype: torch.dtype,
-) -> tuple[Mapping[str, Any], torch.Tensor, NativeSelectiveOffloadStats]:
-    stats = NativeSelectiveOffloadStats()
-    pack, unpack = native_selective_offload_hooks(stats)
-    with torch.autograd.graph.saved_tensors_hooks(pack, unpack):
-        write_audit = _native_write(model, batch, dtype=dtype)
-        release_native_row_allocator_cache(batch.read_input_ids.device)
-        logits = _native_read(model, batch, dtype=dtype)
-    return write_audit, logits, stats
+) -> tuple[Mapping[str, Any], torch.Tensor]:
+    def write_read(
+        write_input_ids: torch.Tensor,
+        write_attention_mask: torch.Tensor,
+        read_input_ids: torch.Tensor,
+        read_attention_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        recompute_batch = NativeFullRowBatch(
+            examples=batch.examples,
+            write_input_ids=write_input_ids,
+            write_attention_mask=write_attention_mask,
+            read_input_ids=read_input_ids,
+            read_attention_mask=read_attention_mask,
+            labels=batch.labels,
+        )
+        _native_write(model, recompute_batch, dtype=dtype)
+        return _native_read(model, recompute_batch, dtype=dtype)
+
+    logits = checkpoint(
+        write_read,
+        batch.write_input_ids,
+        batch.write_attention_mask,
+        batch.read_input_ids,
+        batch.read_attention_mask,
+        use_reentrant=False,
+    )
+    occupied_rows = 0
+    occupied_total = 0
+    for _, module in iter_delta_mem_modules(model):
+        occupied = module.projected_kv_occupied
+        if occupied is None or occupied.ndim != 2:
+            raise RuntimeError("Native checkpoint did not preserve projected-KV occupancy")
+        occupied_rows += int(occupied.any(dim=-1).sum().item())
+        occupied_total += int(occupied.size(0))
+    return {
+        "occupied_rows": occupied_rows,
+        "occupied_total": occupied_total,
+    }, logits
 
 
 def execution_subbatch_size(update_kind: str) -> int:
@@ -998,8 +972,6 @@ def train_mixed_distributed(
         local_occupied_rows = 0.0
         local_occupied_total = 0.0
         local_native_ce_chunks = 0
-        local_native_offloaded_tensors = 0
-        local_native_offloaded_bytes = 0
         for batch_index, batch in enumerate(batches):
             if mixed_step.update_kind == "synthetic":
                 write_audit = gate._write_episode_batch(model, batch, dtype=dtype)
@@ -1028,8 +1000,8 @@ def train_mixed_distributed(
                 )
             else:
                 release_native_row_allocator_cache(context.device)
-                write_audit, logits, offload_stats = (
-                    _native_write_read_selectively_offloaded(
+                write_audit, logits = (
+                    checkpointed_native_write_read(
                         model,
                         batch,
                         dtype=dtype,
@@ -1039,8 +1011,6 @@ def train_mixed_distributed(
                 route_rows = 0
                 local_occupied_rows += float(write_audit["occupied_rows"])
                 local_occupied_total += float(write_audit["occupied_total"])
-                local_native_offloaded_tensors += offload_stats.tensors
-                local_native_offloaded_bytes += offload_stats.bytes
             if mixed_step.update_kind == "native":
                 answer_sum, answer_tokens, ce_chunks = (
                     checkpointed_native_answer_loss_sum_and_count(
@@ -1102,7 +1072,6 @@ def train_mixed_distributed(
             route_sum = None
             total_loss = None
             write_audit = None
-            offload_stats = None
         gradient_validation = distributed.validate_local_gradients(named_trainable)
         if gradient_validation["passed"] is not True:
             raise RuntimeError("Mixed evolution produced invalid local gradients")
@@ -1159,13 +1128,8 @@ def train_mixed_distributed(
                 if mixed_step.update_kind == "native"
                 else None
             ),
-            "native_selective_offloaded_tensors_per_rank": (
-                local_native_offloaded_tensors
-                if mixed_step.update_kind == "native"
-                else None
-            ),
-            "native_selective_offloaded_bytes_per_rank": (
-                local_native_offloaded_bytes
+            "native_episode_checkpointing": (
+                "torch_non_reentrant_write_read_recompute"
                 if mixed_step.update_kind == "native"
                 else None
             ),
@@ -1422,12 +1386,11 @@ def run_evolution(
             ),
             "saved_tensor_cpu_offload": False,
             "selective_saved_tensor_cpu_offload": {
-                "enabled": True,
-                "min_bytes": NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES,
-                "eligibility": "cuda_nonleaf_with_grad_fn_only",
-                "scope": "native_write_and_read_forward_only",
-                "pin_memory": False,
+                "enabled": False,
             },
+            "native_episode_activation_checkpointing": (
+                "torch_non_reentrant_write_then_read_recompute_during_backward"
+            ),
             "checkpointed_float32_ce_chunk_tokens": NATIVE_CE_CHUNK_TOKENS,
             "content_gate_activation_checkpointing": (
                 fusion_topology in {

@@ -323,27 +323,60 @@ def test_shared_qo_gate_topology_is_initialized_and_signed() -> None:
     )
     assert protocol["execution_change"]["gradient_equivalence_required"] is True
     assert protocol["execution_change"]["batch_change"] is False
-    assert protocol["execution_change"]["selective_offload_min_bytes"] == (
-        4 * 1024 * 1024
+    assert protocol["execution_change"]["selective_saved_tensor_cpu_offload"] is (
+        False
     )
-    assert evolution.NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES == 4 * 1024 * 1024
+    assert protocol["execution_change"]["native_episode_activation_checkpointing"] == (
+        "torch_non_reentrant_write_then_read_recompute_during_backward"
+    )
 
 
-def test_native_selective_offload_excludes_cpu_leaf_and_small_tensors() -> None:
-    large_cpu = torch.ones(6 * 1024 * 1024, dtype=torch.float32).sin()
-    small_cpu = torch.ones(2, dtype=torch.float32).sin()
-    leaf_cpu = torch.ones(6 * 1024 * 1024, dtype=torch.float32)
+def test_checkpointed_native_episode_recomputes_with_exact_gradient(
+    monkeypatch,
+) -> None:
+    parameter = torch.nn.Parameter(torch.tensor(2.0))
+    model = torch.nn.Module()
+    model.register_parameter("scale", parameter)
+    occupancy = torch.ones(1, 4, dtype=torch.bool)
+    module = SimpleNamespace(projected_kv_occupied=occupancy)
+    calls = []
 
-    assert large_cpu.is_leaf is True
-    assert evolution.should_selectively_offload_native_activation(
-        large_cpu,
-    ) is False
-    assert evolution.should_selectively_offload_native_activation(
-        small_cpu,
-    ) is False
-    assert evolution.should_selectively_offload_native_activation(
-        leaf_cpu,
-    ) is False
+    def fake_write(_model, _batch, *, dtype):
+        calls.append(("write", dtype))
+        return {"occupied_rows": 1, "occupied_total": 1}
+
+    def fake_read(_model, batch, *, dtype):
+        calls.append(("read", dtype))
+        return model.scale * batch.read_input_ids.float().unsqueeze(-1)
+
+    monkeypatch.setattr(evolution, "_native_write", fake_write)
+    monkeypatch.setattr(evolution, "_native_read", fake_read)
+    monkeypatch.setattr(
+        evolution,
+        "iter_delta_mem_modules",
+        lambda _model: (("layer", module),),
+    )
+    batch = evolution.NativeFullRowBatch(
+        examples=[],
+        write_input_ids=torch.tensor([[1]], dtype=torch.long),
+        write_attention_mask=torch.tensor([[1]], dtype=torch.long),
+        read_input_ids=torch.tensor([[3, 4]], dtype=torch.long),
+        read_attention_mask=torch.tensor([[1, 1]], dtype=torch.long),
+        labels=torch.tensor([[-100, 3]], dtype=torch.long),
+    )
+
+    audit, logits = evolution.checkpointed_native_write_read(
+        model,
+        batch,
+        dtype=torch.float32,
+    )
+    logits.sum().backward()
+
+    assert audit == {"occupied_rows": 1, "occupied_total": 1}
+    assert calls.count(("write", torch.float32)) == 2
+    assert calls.count(("read", torch.float32)) == 2
+    assert parameter.grad is not None
+    torch.testing.assert_close(parameter.grad, torch.tensor(7.0))
 
 
 def test_native_row_allocator_cache_release_is_cuda_only(monkeypatch) -> None:
