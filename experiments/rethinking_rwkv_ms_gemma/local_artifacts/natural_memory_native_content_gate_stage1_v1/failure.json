@@ -1,0 +1,37 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_content_gate_stage1_failure.v1",
+  "created_at": "2026-08-12T08:47:22+08:00",
+  "stage": "content_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "cc938362645f471f2d28593ed10aa2cd367ce868b821dfd082ad3306dd4e7c45",
+  "progress": {
+    "optimizer_steps_completed": 9,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "input_binding_sha256": "7e89f516275382bddc8af3b147c2be94ed5988f45a879d3a1a962098dc6e5de7",
+    "training_progress_sha256": "38e8f201fc8a160aae0dcdae61f0df7b0cd2544400de78bd5c481707c35bf076"
+  },
+  "failure": {
+    "phase": "native_row_backward_before_step_10_optimizer_update",
+    "process_rank": 1,
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 520.0,
+    "gpu_capacity_gib": 39.49,
+    "gpu_free_mib": 193.38,
+    "pytorch_allocated_gib": 36.95,
+    "pytorch_reserved_unallocated_gib": 1.70,
+    "cause": "Content-gate RMS normalization retained full float32 hidden and memory-read activations across all 42 layers on a long publisher-native row.",
+    "protected_splits_opened": []
+  },
+  "code_bindings": {
+    "runner_sha256": "b44bbd6d1972c607e88581ff05decfbc870f5dd7ff138f714ee208b042de5562",
+    "delta_impl_sha256": "d6156b9de22a114b34b29152778f699f825093e52a1aecea98df42280abebfda"
+  },
+  "decision": "This is an execution failure, not a benchmark or model-quality result. Add non-reentrant activation checkpointing around the content gate, rerun the two-update preflight under a new signed protocol, then restart Stage 1 from R12.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "ce1c203a443e7e129cd7cb838026f625c2da4d5246779c15e3a112357fcaa952"
+  }
+}

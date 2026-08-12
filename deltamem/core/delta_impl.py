@@ -10,6 +10,7 @@ from typing import Callable, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 from transformers.models.qwen3.modeling_qwen3 import (
     ALL_ATTENTION_FUNCTIONS,
     Qwen3Attention,
@@ -1797,13 +1798,11 @@ class DeltaMemAttention(nn.Module):
             return cosine.new_zeros(())
         return cosine.masked_select(token_mask).mean()
 
-    def _memory_fusion_gate(
+    def _content_memory_fusion_gate(
         self,
         hidden_states: torch.Tensor,
         reads: torch.Tensor,
     ) -> torch.Tensor:
-        if self.memory_fusion_mode == "add":
-            return reads.new_ones(*reads.shape[:-1], 1)
         normalized_hidden = F.rms_norm(
             hidden_states.float(),
             (hidden_states.shape[-1],),
@@ -1818,6 +1817,22 @@ class DeltaMemAttention(nn.Module):
         logits = logits + F.linear(normalized_reads, self.memory_fusion_read_weight.float())
         logits = logits + self.memory_fusion_bias.float()
         return torch.sigmoid(logits)
+
+    def _memory_fusion_gate(
+        self,
+        hidden_states: torch.Tensor,
+        reads: torch.Tensor,
+    ) -> torch.Tensor:
+        if self.memory_fusion_mode == "add":
+            return reads.new_ones(*reads.shape[:-1], 1)
+        if self.training and torch.is_grad_enabled():
+            return checkpoint(
+                self._content_memory_fusion_gate,
+                hidden_states,
+                reads,
+                use_reentrant=False,
+            )
+        return self._content_memory_fusion_gate(hidden_states, reads)
 
     def set_memory_fusion_residual_gain(self, gain: float) -> None:
         if self.memory_fusion_placement != "post_attention_residual_hybrid":

@@ -270,6 +270,10 @@ def test_content_gate_topology_is_initialized_and_signed() -> None:
     assert protocol["topology_change"]["gate_initial_value"] == 0.1
     assert protocol["topology_change"]["q_head_preserved"] is True
     assert protocol["topology_change"]["o_head_preserved"] is True
+    assert protocol["execution_change"][
+        "content_gate_activation_checkpointing"
+    ] == "torch_non_reentrant_recompute_during_backward"
+    assert protocol["execution_change"]["objective_change"] is False
 
 
 def test_content_gate_gradient_audit_requires_every_family() -> None:

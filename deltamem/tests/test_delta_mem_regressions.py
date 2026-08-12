@@ -4149,6 +4149,50 @@ def test_content_gated_delta_o_first_step_gradients_reach_memory_and_gate() -> N
     )
 
 
+def test_content_gate_checkpoint_matches_direct_forward_and_gradients() -> None:
+    module = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        delta_heads=("o",),
+        memory_fusion_mode="content_gated_add",
+        memory_fusion_gate_init=0.1,
+    ).train()
+    direct_hidden = torch.randn(2, 5, module.hidden_size, requires_grad=True)
+    direct_reads = torch.randn(2, 5, module.state_read_dim, requires_grad=True)
+    checkpointed_hidden = direct_hidden.detach().clone().requires_grad_(True)
+    checkpointed_reads = direct_reads.detach().clone().requires_grad_(True)
+    gradient_targets = (
+        module.memory_fusion_hidden_weight,
+        module.memory_fusion_read_weight,
+        module.memory_fusion_bias,
+    )
+
+    direct_gate = module._content_memory_fusion_gate(
+        direct_hidden,
+        direct_reads,
+    )
+    direct_gradients = torch.autograd.grad(
+        direct_gate.sum(),
+        (direct_hidden, direct_reads, *gradient_targets),
+    )
+    checkpointed_gate = module._memory_fusion_gate(
+        checkpointed_hidden,
+        checkpointed_reads,
+    )
+    checkpointed_gradients = torch.autograd.grad(
+        checkpointed_gate.sum(),
+        (checkpointed_hidden, checkpointed_reads, *gradient_targets),
+    )
+
+    torch.testing.assert_close(checkpointed_gate, direct_gate)
+    for checkpointed_gradient, direct_gradient in zip(
+        checkpointed_gradients,
+        direct_gradients,
+        strict=True,
+    ):
+        torch.testing.assert_close(checkpointed_gradient, direct_gradient)
+
+
 def test_rwkv_ms_zero_state_readout_ignores_stored_group_norm_bias() -> None:
     module = make_delta_module(
         rank=2,

@@ -82,10 +82,10 @@ RESIDUAL_HYBRID_PROTOCOL_PAYLOAD_SHA256 = (
     "acea98b9d7b12a21208e3333370453ba81b15e478666a1496c358e7401597050"
 )
 CONTENT_GATE_PROTOCOL = Path(__file__).with_name(
-    "natural_memory_native_content_gate_protocol_v1.json"
+    "natural_memory_native_content_gate_protocol_v2.json"
 )
 CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256 = (
-    "cc938362645f471f2d28593ed10aa2cd367ce868b821dfd082ad3306dd4e7c45"
+    "adbd9ff2421ad26ee7a3a6c2711e82d2a0ad8ca00ac7a642e4f90217db02a0df"
 )
 FUSION_TOPOLOGIES = (
     "attention_output",
@@ -1285,6 +1285,14 @@ def run_evolution(
             ),
             "saved_tensor_cpu_offload": False,
             "checkpointed_float32_ce_chunk_tokens": NATIVE_CE_CHUNK_TOKENS,
+            "content_gate_activation_checkpointing": (
+                fusion_topology == "content_gated_attention_output"
+            ),
+            "content_gate_checkpoint_implementation": (
+                "torch_non_reentrant"
+                if fusion_topology == "content_gated_attention_output"
+                else None
+            ),
         },
         "schedule": dict(schedule_audit),
         "protocol_payload_sha256": {
