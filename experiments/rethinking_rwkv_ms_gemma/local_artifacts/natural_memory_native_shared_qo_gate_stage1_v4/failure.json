@@ -1,0 +1,38 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_stage1_failure.v4",
+  "created_at": "2026-08-12T21:52:46+08:00",
+  "stage": "shared_qo_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "b6680ad52477058fd2c20eb6ca13e492907e9a0b19806b451bff0ffa99a258a5",
+  "progress": {
+    "optimizer_steps_completed": 1,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "input_binding_sha256": "e9a3e38b53239b08e787fd45fafbfbc4fb4bb1a3808f9528b00177968667f280",
+    "training_progress_sha256": "f02bdbe3dc0736e04d9a59574375b2e7affec8f3c8b09dad659bb0f1bec6cd74"
+  },
+  "failure": {
+    "phase": "native_row_read_forward_before_step_2_optimizer_update",
+    "process_rank": 2,
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 20.0,
+    "gpu_capacity_gib": 39.49,
+    "gpu_free_mib": 15.38,
+    "pytorch_allocated_gib": 37.54,
+    "pytorch_reserved_unallocated_gib": 1.28,
+    "selective_offloaded_tensors_before_failure": 0,
+    "cause": "The Stage 1 step-2 rank-2 sequence produced large saved activations below the signed 20 MiB threshold, so selective offload did not engage before a 20 MiB content-gate float cast.",
+    "protected_splits_opened": []
+  },
+  "code_bindings": {
+    "runner_sha256": "eb2a0cfd12f9cbfaea857d3b682ed8a863e6a6515c0be3ecfd59005008dcf28a",
+    "delta_impl_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada"
+  },
+  "decision": "This is an execution failure, not a benchmark or model-quality result. Lower the selective non-leaf activation threshold to the next profiled bucket, 16 MiB, verify that it engages on the exact failing row and preserves bounded host usage, rerun the four-GPU preflight, and restart Stage 1 from exact R12.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "4337b551ca716ce2a3efb9ad73eeec03a918f99d8829306ad2d519959aaa7541"
+  }
+}
