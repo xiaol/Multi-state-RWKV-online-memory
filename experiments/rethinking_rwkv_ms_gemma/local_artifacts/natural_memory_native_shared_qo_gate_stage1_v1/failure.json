@@ -1,0 +1,38 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_stage1_failure.v1",
+  "created_at": "2026-08-12T14:29:16+08:00",
+  "stage": "shared_qo_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "43811b75dfd17a3df0db782e27c4b7ba50038ffa67f976fda82f7cc4c451ef85",
+  "progress": {
+    "optimizer_steps_completed": 91,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "input_binding_sha256": "8d81c5b7562335631d157daaf5038d91ec229a4a7b70feef626aab5020d79357",
+    "training_progress_sha256": "688c59dc7c3564572eab5e410f72ca5fdd370e799a654d3d93bb88bc92340206"
+  },
+  "failure": {
+    "phase": "native_row_forward_before_step_92_optimizer_update",
+    "process_rank": 2,
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 48.0,
+    "gpu_capacity_gib": 39.49,
+    "gpu_free_mib": 25.38,
+    "pytorch_allocated_gib": 38.49,
+    "pytorch_reserved_unallocated_mib": 322.47,
+    "cause": "A peak-length native row reached the allocator boundary after 91 successful serialized updates; expandable segments retained enough fragmented unallocated cache that a 48 MiB frozen-MLP activation could not be placed.",
+    "protected_splits_opened": []
+  },
+  "rejected_resolution": "Full native saved-tensor CPU offload was previously shown to trigger the Linux host OOM killer and remains forbidden.",
+  "code_bindings": {
+    "runner_sha256": "c71204ff68c1997fc91eda18801dcfc36e3ca4b33c159320819ff488f668e043",
+    "delta_impl_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada"
+  },
+  "decision": "This is an execution failure, not a benchmark or model-quality result. Explicitly release the CUDA allocator cache between serialized native row graphs, rerun the signed four-GPU preflight, and restart Stage 1 from exact R12 with the identical data, objective, batch, and optimizer schedule.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "6a0fbba67b269f19f40b8c454c6a7b0424e75a145ac605691b7b28efb4d8d7d6"
+  }
+}
