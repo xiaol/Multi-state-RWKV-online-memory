@@ -1,0 +1,42 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_stage1_failure.v3",
+  "created_at": "2026-08-12T19:38:39+08:00",
+  "stage": "shared_qo_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "923e2b16821a338b776692ca3c4d108e2b62c3b7b68e638be72f855c6df8476d",
+  "progress": {
+    "optimizer_steps_completed": 91,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "input_binding_sha256": "062fd5148905ffc00c2094c6319c2eb6117b4e3632075970764df347c7769bac",
+    "training_progress_sha256": "3da5a5c04bb62f69b36fb1efd0b38fbce085abf31f82dcd6ce5e1569edefdbed"
+  },
+  "failure": {
+    "phase": "native_row_backward_before_step_92_optimizer_update",
+    "process_rank": 2,
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 24.0,
+    "gpu_capacity_gib": 39.49,
+    "gpu_free_mib": 25.38,
+    "pytorch_allocated_gib": 38.45,
+    "pytorch_reserved_unallocated_mib": 368.72,
+    "cause": "Reducing checkpointed float32 cross-entropy from 64 predictors to one produced the identical allocation failure, falsifying the CE-workspace diagnosis. The peak is in the live long-sequence activation graph.",
+    "protected_splits_opened": []
+  },
+  "rejected_resolutions": [
+    "Full native saved-tensor CPU offload previously triggered the Linux host OOM killer.",
+    "Allocator cache release alone does not reduce the live backward graph.",
+    "Single-predictor checkpointed float32 CE does not change the failed allocation."
+  ],
+  "code_bindings": {
+    "runner_sha256": "1dbb29e854a12ead0e4413d74613a800d7017ffb8fc6b748ea71054b84a7401d",
+    "delta_impl_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada"
+  },
+  "decision": "This is an execution failure, not a benchmark or model-quality result. Selectively offload only large non-leaf saved CUDA activations above a signed byte threshold, keep parameters and small tensors on GPU, validate exact gradients, stress-test the failed row, and restart Stage 1 from exact R12.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "05ad42c440892b2a68e083ea05a9feed93207e515d1cdc4d19294ef53c50e9d5"
+  }
+}
