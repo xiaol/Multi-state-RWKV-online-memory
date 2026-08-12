@@ -1,0 +1,130 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_protocol.v4",
+  "created_at": "2026-08-12T20:05:00+08:00",
+  "objective": "Preserve frozen-Gemma attention routing and output unless publisher-native content supports outer-memory corrections.",
+  "source_diagnosis": {
+    "predecessor_protocol_payload_sha256": "923e2b16821a338b776692ca3c4d108e2b62c3b7b68e638be72f855c6df8476d",
+    "predecessor_preflight_result_receipt_sha256": "46a48770a2949cbbb015466a8bd6cfbd818e33cf159358846d0a9c218993b3d2",
+    "predecessor_stage1_failure_receipt_sha256": "05ad42c440892b2a68e083ea05a9feed93207e515d1cdc4d19294ef53c50e9d5",
+    "predecessor_stage1_outcome": "execution_failed_no_model_decision_after_91_updates",
+    "failed_row": {
+      "row_id": "native:scene:1262:287639295f2437b85bb9",
+      "process_rank": 2,
+      "write_tokens": 2390,
+      "read_tokens": 2400,
+      "supervised_answer_tokens": 10,
+      "backward_allocation_failure_mib": 24.0
+    },
+    "falsified_diagnosis": "Changing checkpointed float32 cross-entropy from 64 predictors to one produced the identical 24 MiB backward failure, so CE workspace is not the peak.",
+    "saved_tensor_profile": {
+      "logical_saved_tensor_gib": 55.559,
+      "full_offload_rejected": "Previously killed by Linux host OOM when every native saved tensor was offloaded on four ranks.",
+      "selective_threshold_mib": 20,
+      "worst_row_offloaded_tensors": 950,
+      "worst_row_offloaded_gib": 22.086,
+      "worst_row_cuda_allocated_after_forward_gib": 19.029,
+      "worst_row_end_to_end_backward_passed": true
+    },
+    "diagnosis": "The peak is the live long-sequence activation graph. Offload only CUDA non-leaf tensors with grad_fn at or above 20 MiB; never offload parameters, leaf tensors, or small activations."
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_frozen": true,
+    "warm_start_candidate": "r12",
+    "warm_start_adapter_files_aggregate_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63",
+    "partial_stage1_warm_start_forbidden": true,
+    "memory_backend": "rwkv_ms",
+    "rank": 32,
+    "projected_kv_key_dim": 64,
+    "delta_heads": ["q", "o"],
+    "loss_family": "cross_entropy_only",
+    "target_layers": "all_42_language_layers",
+    "hf_endpoint": "https://hf-mirror.com",
+    "test_forbidden": true,
+    "hard32_forbidden": true
+  },
+  "topology_change": {
+    "memory_fusion_placement": "attention_output",
+    "source_memory_fusion_mode": "add",
+    "target_memory_fusion_mode": "content_gated_qo_add",
+    "gate_inputs": ["rms_normalized_base_hidden", "rms_normalized_memory_read"],
+    "gate_output": "one_per_token_sigmoid_shared_by_delta_q_and_delta_o",
+    "gate_initial_value": 0.1,
+    "new_parameter_initialization": "zero_weights_and_logit_0.1_bias",
+    "r12_parameter_warm_start": "all_matching_adapter_tensors_exact",
+    "q_correction": "multiply_by_shared_content_gate_before_attention",
+    "o_correction": "multiply_by_same_shared_content_gate_after_attention",
+    "gate_computed_once_per_layer_forward": true,
+    "q_head_preserved": true,
+    "o_head_preserved": true
+  },
+  "execution_change": {
+    "content_gate_activation_checkpointing": "torch_non_reentrant_recompute_during_backward",
+    "serialized_row_graph_release": "clear_graph_references_immediately_after_backward_and_metrics",
+    "allocator_cache_release": "gc_collect_and_cuda_empty_cache_before_native_write_and_read",
+    "selective_saved_tensor_cpu_offload": true,
+    "selective_offload_min_bytes": 20971520,
+    "selective_offload_eligibility": "cuda_and_nonleaf_and_grad_fn_and_nbytes_at_least_threshold",
+    "selective_offload_scope": "native_write_and_read_forward_only",
+    "selective_offload_pin_memory": false,
+    "full_saved_tensor_cpu_offload": false,
+    "native_float32_ce_chunk_tokens": 64,
+    "cuda_allocator": "expandable_segments:True",
+    "forward_function_equivalence_required": true,
+    "gradient_equivalence_required": true,
+    "data_order_change": false,
+    "batch_change": false,
+    "objective_change": false,
+    "optimizer_change": false,
+    "restart_source": "exact_r12_adapter"
+  },
+  "execution_contract": {
+    "world_size": 4,
+    "global_batch_size": 16,
+    "logical_local_microbatch_size": 2,
+    "native_execution_subbatch_size": 1,
+    "host_memory_gib": 251,
+    "profiled_worst_case_offload_gib_per_rank": 22.086,
+    "profiled_four_rank_offload_gib": 88.344
+  },
+  "data_contract": {
+    "synthetic_source": "exact_r12_publisher_train_derived_five_state_training_split",
+    "native_source": "natural_memory_native_development_v1 fit partition only",
+    "native_rows_preserved_exactly": true,
+    "native_assistant_target_preserved_exactly": true,
+    "online_state_protocol": "reset_per_row_write_system_and_user_read_full_row_with_writes_disabled",
+    "protected_splits_opened": []
+  },
+  "preflight": {
+    "updates": 2,
+    "required": "finite_nonzero_gradients_full_memory_occupancy_finite_nonzero_shared_gate_gradients_adapter_change_selective_offload_audit"
+  },
+  "stage1": {
+    "updates": 192,
+    "learning_rate": 0.0002,
+    "schedule": "odd synthetic five-state update, even native full-row update",
+    "synthetic_updates": 96,
+    "native_updates": 96,
+    "native_task_updates": {"attribution": 32, "narrative": 32, "scene": 32},
+    "selection_probe": "same fixed first four publisher-TRAIN-derived development rows per task",
+    "full_development_authorized_only_if_probe_promising": true
+  },
+  "required_probe_gates": {
+    "native_no_regression_all_three_tasks": true,
+    "native_strict_improvement_minimum_tasks": 2,
+    "raw_generation_disagreements_minimum_each_task": 1,
+    "format_recovery_coverage_floor": 0.95,
+    "synthetic_correct_state_greedy_exact_accuracy_floor": 0.8,
+    "synthetic_rewrite_output_change_fraction_floor": 0.8,
+    "synthetic_semantic_route_accuracy_floor": 0.95,
+    "frozen_base_and_no_state_equivalence_required": true
+  },
+  "stopping_rule": "Archive and stop if the fixed probe regresses any task or improves fewer than two; do not launch 960 updates or full native development.",
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "b6680ad52477058fd2c20eb6ca13e492907e9a0b19806b451bff0ffa99a258a5"
+  }
+}

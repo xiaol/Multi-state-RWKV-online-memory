@@ -323,8 +323,27 @@ def test_shared_qo_gate_topology_is_initialized_and_signed() -> None:
     )
     assert protocol["execution_change"]["gradient_equivalence_required"] is True
     assert protocol["execution_change"]["batch_change"] is False
-    assert protocol["execution_change"]["native_float32_ce_chunk_tokens"] == 1
-    assert evolution.NATIVE_CE_CHUNK_TOKENS == 1
+    assert protocol["execution_change"]["selective_offload_min_bytes"] == (
+        20 * 1024 * 1024
+    )
+    assert evolution.NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES == 20 * 1024 * 1024
+
+
+def test_native_selective_offload_excludes_cpu_leaf_and_small_tensors() -> None:
+    large_cpu = torch.ones(6 * 1024 * 1024, dtype=torch.float32).sin()
+    small_cpu = torch.ones(2, dtype=torch.float32).sin()
+    leaf_cpu = torch.ones(6 * 1024 * 1024, dtype=torch.float32)
+
+    assert large_cpu.is_leaf is True
+    assert evolution.should_selectively_offload_native_activation(
+        large_cpu,
+    ) is False
+    assert evolution.should_selectively_offload_native_activation(
+        small_cpu,
+    ) is False
+    assert evolution.should_selectively_offload_native_activation(
+        leaf_cpu,
+    ) is False
 
 
 def test_native_row_allocator_cache_release_is_cuda_only(monkeypatch) -> None:
