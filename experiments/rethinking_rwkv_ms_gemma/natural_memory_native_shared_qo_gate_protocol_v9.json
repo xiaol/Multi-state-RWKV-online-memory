@@ -1,0 +1,137 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_protocol.v9",
+  "created_at": "2026-08-13T03:29:00+08:00",
+  "objective": "Preserve frozen-Gemma attention routing and output unless publisher-native content supports outer-memory corrections.",
+  "source_diagnosis": {
+    "predecessor_protocol_payload_sha256": "46e108d6475d9f5223010a19c44ddcfa0d7055eecc188eae04099b9452c4233d",
+    "predecessor_stress_result_receipt_sha256": "d49b64b6c8ae026751a6d1b859a78b9c76774418657c98111b9047e21f070977",
+    "predecessor_preflight_result_receipt_sha256": "3a032237d174a379cb616cdd5b349cdcfebf2495b909e83d3073f3942c774e64",
+    "predecessor_stage1_failure_receipt_sha256": "4a7ec05016875a5e854327efa1bd2568b3fb53f4c5af3680c02a447478692bfa",
+    "predecessor_stage1_outcome": "execution_failed_no_model_decision_after_91_updates",
+    "failure_cause": "Whole-episode recomputation eliminated host OOM, but the standalone stress omitted lazily initialized fused-Adam moments. At step 92 those persistent GPU tensors left only 5.38 MiB free and the worst scene-row backward needed another 48 MiB.",
+    "diagnosis": "Retain exact whole-episode recomputation and move only initialized optimizer-state tensors to bounded CPU memory during native forward and backward. Restore every tensor to its parameter's owning GPU before the fused AdamW step and require identical tensor and byte audits in both directions.",
+    "rejected_actions": [
+      "saved_activation_cpu_offload",
+      "lower_selective_offload_threshold",
+      "optimizer_change",
+      "smaller_native_training_rows",
+      "protected_split_inspection"
+    ]
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_frozen": true,
+    "warm_start_candidate": "r12",
+    "warm_start_adapter_files_aggregate_sha256": "cf745e0d795ff1aae28521f2207d2282fe3d0ec2c88e744e27f82463186a8a63",
+    "partial_stage1_warm_start_forbidden": true,
+    "memory_backend": "rwkv_ms",
+    "rank": 32,
+    "projected_kv_key_dim": 64,
+    "delta_heads": ["q", "o"],
+    "loss_family": "cross_entropy_only",
+    "optimizer": "fused_adamw",
+    "target_layers": "all_42_language_layers",
+    "hf_endpoint": "https://hf-mirror.com",
+    "test_forbidden": true,
+    "hard32_forbidden": true
+  },
+  "topology_change": {
+    "memory_fusion_placement": "attention_output",
+    "source_memory_fusion_mode": "add",
+    "target_memory_fusion_mode": "content_gated_qo_add",
+    "gate_inputs": ["rms_normalized_base_hidden", "rms_normalized_memory_read"],
+    "gate_output": "one_per_token_sigmoid_shared_by_delta_q_and_delta_o",
+    "gate_initial_value": 0.1,
+    "new_parameter_initialization": "zero_weights_and_logit_0.1_bias",
+    "r12_parameter_warm_start": "all_matching_adapter_tensors_exact",
+    "q_correction": "multiply_by_shared_content_gate_before_attention",
+    "o_correction": "multiply_by_same_shared_content_gate_after_attention",
+    "gate_computed_once_per_layer_forward": true,
+    "q_head_preserved": true,
+    "o_head_preserved": true
+  },
+  "execution_change": {
+    "native_episode_activation_checkpointing": "torch_non_reentrant_write_then_read_recompute_during_backward",
+    "checkpoint_recomputation_state_boundary": "reset_memory_then_exact_write_then_exact_read",
+    "content_gate_activation_checkpointing": "torch_non_reentrant_recompute_during_backward",
+    "serialized_row_graph_release": "clear_graph_references_immediately_after_backward_and_metrics",
+    "allocator_cache_release": "gc_collect_and_cuda_empty_cache_before_native_write_and_read",
+    "selective_saved_tensor_cpu_offload": false,
+    "full_saved_tensor_cpu_offload": false,
+    "optimizer_state_cpu_offload": "initialized_state_only_during_native_forward_and_backward",
+    "optimizer_state_restore": "each_tensor_to_parameter_owning_cuda_device_before_fused_adamw_step",
+    "optimizer_state_transfer_audit": "identical_tensor_count_and_byte_count_offload_and_restore",
+    "optimizer_state_pin_memory": false,
+    "native_float32_ce_chunk_tokens": 64,
+    "cuda_allocator": "expandable_segments:True",
+    "forward_function_equivalence_required": true,
+    "gradient_equivalence_required": true,
+    "optimizer_value_equivalence_required": true,
+    "data_order_change": false,
+    "batch_change": false,
+    "objective_change": false,
+    "optimizer_change": false,
+    "restart_source": "exact_r12_adapter"
+  },
+  "execution_contract": {
+    "world_size": 4,
+    "global_batch_size": 16,
+    "logical_local_microbatch_size": 2,
+    "native_execution_subbatch_size": 1,
+    "host_memory_gib": 251,
+    "saved_activation_host_offload_budget_bytes": 0,
+    "optimizer_state_host_offload": "bounded_by_exact_initialized_optimizer_state_size_per_rank"
+  },
+  "stress_gate": {
+    "required_before_preflight_or_stage1": true,
+    "rows": [
+      "native:narrative:1:fe47c59e6160d3a6a12d",
+      "native:narrative:165:430a5cb02fe68e302358",
+      "native:scene:1262:287639295f2437b85bb9"
+    ],
+    "optimizer_state_condition": "initialize_real_fused_adamw_state_before_every_exact_row_stress",
+    "execution": "offload_initialized_optimizer_state_then_each_row_forward_and_backward_independently_on_all_four_ranks_then_restore_state",
+    "required": "finite_nonzero_all_trainable_gradients_finite_nonzero_shared_gate_gradients_full_memory_occupancy_no_cuda_oom_no_host_oom_exact_optimizer_transfer_audit",
+    "authorization": "all_three_rows_pass_on_all_four_ranks"
+  },
+  "data_contract": {
+    "synthetic_source": "exact_r12_publisher_train_derived_five_state_training_split",
+    "native_source": "natural_memory_native_development_v1 fit partition only",
+    "native_rows_preserved_exactly": true,
+    "native_assistant_target_preserved_exactly": true,
+    "online_state_protocol": "reset_per_row_write_system_and_user_read_full_row_with_writes_disabled",
+    "protected_splits_opened": []
+  },
+  "preflight": {
+    "updates": 2,
+    "required": "finite_nonzero_gradients_full_memory_occupancy_finite_nonzero_shared_gate_gradients_adapter_change_exact_optimizer_transfer_audit"
+  },
+  "stage1": {
+    "updates": 192,
+    "learning_rate": 0.0002,
+    "schedule": "odd synthetic five-state update, even native full-row update",
+    "synthetic_updates": 96,
+    "native_updates": 96,
+    "native_task_updates": {"attribution": 32, "narrative": 32, "scene": 32},
+    "selection_probe": "same fixed first four publisher-TRAIN-derived development rows per task",
+    "full_development_authorized_only_if_probe_promising": true
+  },
+  "required_probe_gates": {
+    "native_no_regression_all_three_tasks": true,
+    "native_strict_improvement_minimum_tasks": 2,
+    "raw_generation_disagreements_minimum_each_task": 1,
+    "format_recovery_coverage_floor": 0.95,
+    "synthetic_correct_state_greedy_exact_accuracy_floor": 0.8,
+    "synthetic_rewrite_output_change_fraction_floor": 0.8,
+    "synthetic_semantic_route_accuracy_floor": 0.95,
+    "frozen_base_and_no_state_equivalence_required": true
+  },
+  "stopping_rule": "Archive and stop if stress, preflight, or the fixed probe fails; do not launch 960 updates or full native development.",
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "1e005e37f18bd8b116cc1e5718facc18a25ceb7512136f4ea9de298cc2d553ac"
+  }
+}

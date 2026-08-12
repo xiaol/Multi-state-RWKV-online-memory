@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+import pytest
 import torch
 
 from experiments.rethinking_rwkv_ms_gemma import (
@@ -393,3 +394,43 @@ def test_native_row_allocator_cache_release_is_cuda_only(monkeypatch) -> None:
 
     evolution.release_native_row_allocator_cache(torch.device("cuda", 0))
     assert calls == ["gc", "gc", "cuda"]
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA transfer required")
+def test_optimizer_state_transfer_is_exact_and_audited() -> None:
+    parameter = torch.nn.Parameter(
+        torch.ones(3, dtype=torch.float32, device="cuda")
+    )
+    optimizer = torch.optim.AdamW([parameter], lr=1e-3, fused=True)
+    parameter.grad = torch.ones_like(parameter)
+    optimizer.step()
+    original = {
+        name: value.detach().cpu().clone()
+        for name, value in optimizer.state[parameter].items()
+        if isinstance(value, torch.Tensor)
+    }
+
+    offload = evolution.move_optimizer_state(
+        optimizer,
+        device=torch.device("cpu"),
+    )
+    assert offload.tensors == len(original)
+    assert offload.bytes == sum(
+        value.numel() * value.element_size() for value in original.values()
+    )
+    assert all(
+        value.device.type == "cpu"
+        for value in optimizer.state[parameter].values()
+        if isinstance(value, torch.Tensor)
+    )
+
+    restore = evolution.move_optimizer_state(
+        optimizer,
+        device=torch.device("cuda"),
+    )
+
+    assert restore == offload
+    for name, expected in original.items():
+        actual = optimizer.state[parameter][name]
+        assert actual.device.type == "cuda"
+        assert torch.equal(actual.cpu(), expected)

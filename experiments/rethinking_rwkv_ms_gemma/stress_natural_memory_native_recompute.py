@@ -158,14 +158,45 @@ def run_stress(
         missing = [row_id for row_id in STRESS_ROW_IDS if row_id not in by_id]
         raise ValueError(f"Stress rows are missing: {missing}")
     named_trainable = gate._named_trainable_parameters(model)
+    trainable = [parameter for _, parameter in named_trainable]
+    optimizer = torch.optim.AdamW(
+        trainable,
+        lr=evolution.LEARNING_RATE,
+        weight_decay=0.0,
+        fused=True,
+    )
+    for parameter in trainable:
+        parameter.grad = torch.zeros_like(parameter)
+    optimizer.step()
+    optimizer.zero_grad(set_to_none=True)
+    initialized_optimizer_state = evolution.move_optimizer_state(
+        optimizer,
+        device=torch.device("cpu"),
+    )
+    restored_optimizer_state = evolution.move_optimizer_state(
+        optimizer,
+        device=context.device,
+    )
+    if (
+        initialized_optimizer_state.tensors <= 0
+        or restored_optimizer_state != initialized_optimizer_state
+    ):
+        raise RuntimeError("Stress could not initialize and restore fused-Adam state")
     model.train()
     local_results = []
     for row_id in STRESS_ROW_IDS:
-        model.zero_grad(set_to_none=True)
+        optimizer.zero_grad(set_to_none=True)
         reset_delta_mem_states(model)
         gc.collect()
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats(context.device)
+        optimizer_offload = evolution.move_optimizer_state(
+            optimizer,
+            device=torch.device("cpu"),
+        )
+        if optimizer_offload != initialized_optimizer_state:
+            raise RuntimeError("Stress optimizer offload audit differs")
+        evolution.release_native_row_allocator_cache(context.device)
         batch = evolution.collate_native_examples(
             [by_id[row_id]],
             pad_token_id=int(tokenizer.pad_token_id),
@@ -188,6 +219,13 @@ def run_stress(
         if gradients["passed"] is not True or gate_gradients["passed"] is not True:
             raise RuntimeError(f"Stress row produced invalid gradients: {row_id}")
         torch.cuda.synchronize(context.device)
+        cuda_memory = dict(distributed.cuda_memory_snapshot(context))
+        optimizer_restore = evolution.move_optimizer_state(
+            optimizer,
+            device=context.device,
+        )
+        if optimizer_restore != optimizer_offload:
+            raise RuntimeError("Stress optimizer restore audit differs")
         local_results.append(
             {
                 "process_rank": context.process_rank,
@@ -200,7 +238,11 @@ def run_stress(
                 "write_audit": dict(write_audit),
                 "gradient_audit": dict(gradients),
                 "content_gate_gradient_audit": dict(gate_gradients),
-                "cuda_memory": dict(distributed.cuda_memory_snapshot(context)),
+                "cuda_memory": cuda_memory,
+                "optimizer_state_cpu_offload": {
+                    "tensors": optimizer_offload.tensors,
+                    "bytes": optimizer_offload.bytes,
+                },
                 "process_peak_rss_bytes": _process_peak_rss_bytes(),
                 "passed": True,
             }

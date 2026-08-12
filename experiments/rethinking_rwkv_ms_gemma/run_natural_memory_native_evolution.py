@@ -88,10 +88,10 @@ CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256 = (
     "ee9cea48667657e4b4db9808a97a7e3a7fdd3b9e44ed8b83fff34352c31ee68c"
 )
 SHARED_QO_GATE_PROTOCOL = Path(__file__).with_name(
-    "natural_memory_native_shared_qo_gate_protocol_v8.json"
+    "natural_memory_native_shared_qo_gate_protocol_v9.json"
 )
 SHARED_QO_GATE_PROTOCOL_PAYLOAD_SHA256 = (
-    "46e108d6475d9f5223010a19c44ddcfa0d7055eecc188eae04099b9452c4233d"
+    "1e005e37f18bd8b116cc1e5718facc18a25ceb7512136f4ea9de298cc2d553ac"
 )
 FUSION_TOPOLOGIES = (
     "attention_output",
@@ -145,6 +145,12 @@ class NativeFullRowBatch:
     read_input_ids: torch.Tensor
     read_attention_mask: torch.Tensor
     labels: torch.Tensor
+
+
+@dataclass(frozen=True)
+class NativeOptimizerStateTransferAudit:
+    tensors: int
+    bytes: int
 
 
 @dataclass(frozen=True)
@@ -669,6 +675,31 @@ def release_native_row_allocator_cache(device: torch.device) -> None:
         torch.cuda.empty_cache()
 
 
+def move_optimizer_state(
+    optimizer: torch.optim.Optimizer,
+    *,
+    device: torch.device,
+) -> NativeOptimizerStateTransferAudit:
+    tensors = 0
+    transferred_bytes = 0
+    for parameter, state in optimizer.state.items():
+        target = parameter.device if device.type == "cuda" else device
+        for name, value in state.items():
+            if not isinstance(value, torch.Tensor) or value.device == target:
+                continue
+            if device.type == "cpu" and value.device.type != "cuda":
+                raise RuntimeError("Optimizer state offload found a non-CUDA tensor")
+            if device.type == "cuda" and value.device.type != "cpu":
+                raise RuntimeError("Optimizer state restore found a non-CPU tensor")
+            tensors += 1
+            transferred_bytes += value.numel() * value.element_size()
+            state[name] = value.to(target)
+    return NativeOptimizerStateTransferAudit(
+        tensors=tensors,
+        bytes=transferred_bytes,
+    )
+
+
 def checkpointed_native_write_read(
     model: torch.nn.Module,
     batch: NativeFullRowBatch,
@@ -972,6 +1003,16 @@ def train_mixed_distributed(
         local_occupied_rows = 0.0
         local_occupied_total = 0.0
         local_native_ce_chunks = 0
+        native_optimizer_offload = NativeOptimizerStateTransferAudit(0, 0)
+        native_optimizer_restore = NativeOptimizerStateTransferAudit(0, 0)
+        if mixed_step.update_kind == "native":
+            native_optimizer_offload = move_optimizer_state(
+                optimizer,
+                device=torch.device("cpu"),
+            )
+            if native_optimizer_offload.tensors <= 0:
+                raise RuntimeError("Native update found no initialized optimizer state")
+            release_native_row_allocator_cache(context.device)
         for batch_index, batch in enumerate(batches):
             if mixed_step.update_kind == "synthetic":
                 write_audit = gate._write_episode_batch(model, batch, dtype=dtype)
@@ -1094,6 +1135,14 @@ def train_mixed_distributed(
         grad_norm = torch.nn.utils.clip_grad_norm_(trainable, MAX_GRAD_NORM)
         if not bool(torch.isfinite(grad_norm).item()):
             raise RuntimeError("Mixed evolution gradient norm is non-finite")
+        if mixed_step.update_kind == "native":
+            release_native_row_allocator_cache(context.device)
+            native_optimizer_restore = move_optimizer_state(
+                optimizer,
+                device=context.device,
+            )
+            if native_optimizer_restore != native_optimizer_offload:
+                raise RuntimeError("Native optimizer state restore audit differs")
         optimizer.step()
         metric_tensor = gate._prepare_distributed_scalar_sums(
             context,
@@ -1130,6 +1179,16 @@ def train_mixed_distributed(
             ),
             "native_episode_checkpointing": (
                 "torch_non_reentrant_write_read_recompute"
+                if mixed_step.update_kind == "native"
+                else None
+            ),
+            "native_optimizer_state_cpu_offload_tensors_per_rank": (
+                native_optimizer_offload.tensors
+                if mixed_step.update_kind == "native"
+                else None
+            ),
+            "native_optimizer_state_cpu_offload_bytes_per_rank": (
+                native_optimizer_offload.bytes
                 if mixed_step.update_kind == "native"
                 else None
             ),
@@ -1216,6 +1275,9 @@ def train_mixed_distributed(
             "native_saved_tensor_cpu_offload": False,
             "native_episode_checkpointing": (
                 "torch_non_reentrant_write_read_recompute"
+            ),
+            "native_optimizer_state_cpu_offload": (
+                "initialized_state_only_during_native_forward_and_backward"
             ),
             "gradient_accumulation_steps": GRADIENT_ACCUMULATION_STEPS,
             "gradient_reduction": "explicit_sum",
@@ -1388,6 +1450,12 @@ def run_evolution(
             "saved_tensor_cpu_offload": False,
             "selective_saved_tensor_cpu_offload": {
                 "enabled": False,
+            },
+            "native_optimizer_state_cpu_offload": {
+                "enabled": True,
+                "scope": "native_forward_and_backward_only",
+                "restore": "owning_cuda_device_before_optimizer_step",
+                "pin_memory": False,
             },
             "native_episode_activation_checkpointing": (
                 "torch_non_reentrant_write_then_read_recompute_during_backward"
