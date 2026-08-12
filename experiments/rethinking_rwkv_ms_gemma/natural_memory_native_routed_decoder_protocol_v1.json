@@ -1,0 +1,97 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_routed_decoder_protocol.v1",
+  "created_at": "2026-08-13T06:05:00+08:00",
+  "objective": "Recover publisher-native utility from the rejected v9 adapter by routing only task-level evidence that improves the fixed selection probe and falling back exactly to frozen Gemma elsewhere.",
+  "source_candidate": {
+    "adapter": "local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "training_result_receipt_sha256": "6b53092a7020a10d995495b4496a88509d015c9ea01321f6216b28bdc90b4e31",
+    "rejection_decision_receipt_sha256": "4f7b051bb651f100562d53f3e05c750792cbdcc1b1351e8c98e47465f3f5cc89"
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_frozen": true,
+    "memory_adapter_frozen": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "greedy_generation": true,
+    "batch_size": 1,
+    "state_reset_every_example": true,
+    "online_memory_protocol": "write_then_read",
+    "test_forbidden": true,
+    "hard32_forbidden": true
+  },
+  "selection_scope": {
+    "split": "publisher-TRAIN-derived development",
+    "rows": "first four rows per task already opened by v9",
+    "total_rows": 12,
+    "further_tuning_after_lock": false
+  },
+  "router": {
+    "attribution": {
+      "base": "minimum mean continuation NLL over publisher candidates under frozen Gemma",
+      "memory": "minimum mean continuation NLL over the same candidates after exact online write under v9",
+      "candidate_template": "{\"best_candidate\":\"<candidate>\"}"
+    },
+    "narrative": {
+      "base": "format-recovered frozen-Gemma greedy unit labels",
+      "memory": "format-recovered v9 write-then-read greedy unit labels",
+      "fusion": "use memory only when base=narration and memory=scene_description; otherwise use base"
+    },
+    "scene": {
+      "fusion": "exact frozen-Gemma output fallback",
+      "memory_execution": false
+    }
+  },
+  "selection_metrics": {
+    "attribution-v3.2": {
+      "base": 0.5,
+      "routed": 1.0,
+      "routed_minus_base": 0.5
+    },
+    "narrative-v3.2": {
+      "base": 0.6739130434782609,
+      "routed": 0.6811594202898551,
+      "routed_minus_base": 0.007246376811594235
+    },
+    "scene-v4-current": {
+      "base": 0.5,
+      "routed": 0.5,
+      "routed_minus_base": 0.0
+    }
+  },
+  "selection_gate": {
+    "no_regression_all_three_tasks": true,
+    "strict_improvement_minimum_tasks": 2,
+    "strictly_improved_tasks": 2,
+    "exact_base_fallback_allowed": true,
+    "passed": true
+  },
+  "benchmark_scope": {
+    "split": "publisher-TRAIN-derived development untouched remainder",
+    "excluded_selection_rows_per_task": 4,
+    "rows": {
+      "attribution": 89,
+      "narrative": 114,
+      "scene": 357,
+      "total": 560
+    },
+    "sharding": "source_index modulo four",
+    "world_size": 4,
+    "selection_rows_excluded_from_reported_benchmark": true
+  },
+  "benchmark_gate": {
+    "coverage_floor_each_task": 0.95,
+    "no_regression_all_three_tasks": true,
+    "strict_improvement_minimum_tasks": 2,
+    "paired_source_rows_required": true,
+    "authorize_protected_splits_on_pass": false
+  },
+  "stopping_rule": "Report and archive the untouched-remainder result whether pass or fail; do not open publisher test or Hard32.",
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "d55d7e785315a6dedc7b4710ef452eb0dffd05ce6a4decec941feec290e50b3a"
+  }
+}

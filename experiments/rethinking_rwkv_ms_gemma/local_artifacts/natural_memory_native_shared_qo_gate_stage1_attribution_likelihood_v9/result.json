@@ -1,0 +1,210 @@
+{
+  "conditions": {
+    "base": {
+      "accuracy": 0.5,
+      "correct": 2,
+      "rows": [
+        {
+          "candidates": [
+            {
+              "candidate": "夏油杰",
+              "continuation_tokens": 4,
+              "nll_mean": 4.1133809089660645,
+              "nll_sum": 16.453523635864258
+            },
+            {
+              "candidate": "五条悟",
+              "continuation_tokens": 4,
+              "nll_mean": 4.723104476928711,
+              "nll_sum": 18.892417907714844
+            }
+          ],
+          "correct": true,
+          "gold": "夏油杰",
+          "line_index": 0,
+          "row_sha256": "a02d480df5f78d91e277e2c8e5ed30dc23bc306bb6bdaf961cd527a3f8583c45",
+          "selected": "夏油杰"
+        },
+        {
+          "candidates": [
+            {
+              "candidate": "夏油杰",
+              "continuation_tokens": 4,
+              "nll_mean": 4.1133809089660645,
+              "nll_sum": 16.453523635864258
+            },
+            {
+              "candidate": "五条悟",
+              "continuation_tokens": 4,
+              "nll_mean": 4.723104476928711,
+              "nll_sum": 18.892417907714844
+            }
+          ],
+          "correct": true,
+          "gold": "夏油杰",
+          "line_index": 1,
+          "row_sha256": "a02d480df5f78d91e277e2c8e5ed30dc23bc306bb6bdaf961cd527a3f8583c45",
+          "selected": "夏油杰"
+        },
+        {
+          "candidates": [
+            {
+              "candidate": "卢韵宜",
+              "continuation_tokens": 4,
+              "nll_mean": 5.706439018249512,
+              "nll_sum": 22.825756072998047
+            },
+            {
+              "candidate": "卢母",
+              "continuation_tokens": 3,
+              "nll_mean": 4.6480560302734375,
+              "nll_sum": 13.944168090820312
+            }
+          ],
+          "correct": false,
+          "gold": "卢韵宜",
+          "line_index": 2,
+          "row_sha256": "1e079367fdf444340741c02857462929d5d17e0be3348982b3138d60b4ecc711",
+          "selected": "卢母"
+        },
+        {
+          "candidates": [
+            {
+              "candidate": "卢母",
+              "continuation_tokens": 3,
+              "nll_mean": 4.752466678619385,
+              "nll_sum": 14.257399559020996
+            },
+            {
+              "candidate": "卢韵宜",
+              "continuation_tokens": 4,
+              "nll_mean": 5.459873199462891,
+              "nll_sum": 21.839492797851562
+            }
+          ],
+          "correct": false,
+          "gold": "卢韵宜",
+          "line_index": 3,
+          "row_sha256": "e5515963a21c0a98f3f47adea5ec0d4ef99334002ebf7ecece1ccb542f328113",
+          "selected": "卢母"
+        }
+      ],
+      "total": 4
+    },
+    "memory": {
+      "accuracy": 1.0,
+      "correct": 4,
+      "rows": [
+        {
+          "candidates": [
+            {
+              "candidate": "夏油杰",
+              "continuation_tokens": 4,
+              "nll_mean": 4.789453029632568,
+              "nll_sum": 19.157812118530273
+            },
+            {
+              "candidate": "五条悟",
+              "continuation_tokens": 4,
+              "nll_mean": 5.0725626945495605,
+              "nll_sum": 20.290250778198242
+            }
+          ],
+          "correct": true,
+          "gold": "夏油杰",
+          "line_index": 0,
+          "row_sha256": "a02d480df5f78d91e277e2c8e5ed30dc23bc306bb6bdaf961cd527a3f8583c45",
+          "selected": "夏油杰"
+        },
+        {
+          "candidates": [
+            {
+              "candidate": "夏油杰",
+              "continuation_tokens": 4,
+              "nll_mean": 4.789453029632568,
+              "nll_sum": 19.157812118530273
+            },
+            {
+              "candidate": "五条悟",
+              "continuation_tokens": 4,
+              "nll_mean": 5.0725626945495605,
+              "nll_sum": 20.290250778198242
+            }
+          ],
+          "correct": true,
+          "gold": "夏油杰",
+          "line_index": 1,
+          "row_sha256": "a02d480df5f78d91e277e2c8e5ed30dc23bc306bb6bdaf961cd527a3f8583c45",
+          "selected": "夏油杰"
+        },
+        {
+          "candidates": [
+            {
+              "candidate": "卢韵宜",
+              "continuation_tokens": 4,
+              "nll_mean": 4.756156921386719,
+              "nll_sum": 19.024627685546875
+            },
+            {
+              "candidate": "卢母",
+              "continuation_tokens": 3,
+              "nll_mean": 5.547116756439209,
+              "nll_sum": 16.64134979248047
+            }
+          ],
+          "correct": true,
+          "gold": "卢韵宜",
+          "line_index": 2,
+          "row_sha256": "1e079367fdf444340741c02857462929d5d17e0be3348982b3138d60b4ecc711",
+          "selected": "卢韵宜"
+        },
+        {
+          "candidates": [
+            {
+              "candidate": "卢母",
+              "continuation_tokens": 3,
+              "nll_mean": 5.868565559387207,
+              "nll_sum": 17.605695724487305
+            },
+            {
+              "candidate": "卢韵宜",
+              "continuation_tokens": 4,
+              "nll_mean": 4.4023518562316895,
+              "nll_sum": 17.609407424926758
+            }
+          ],
+          "correct": true,
+          "gold": "卢韵宜",
+          "line_index": 3,
+          "row_sha256": "e5515963a21c0a98f3f47adea5ec0d4ef99334002ebf7ecece1ccb542f328113",
+          "selected": "卢韵宜"
+        }
+      ],
+      "total": 4
+    }
+  },
+  "model": {
+    "base": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "0709d4a883fb9be617a80d8bb3011114e235680e9bc8c3105b72bf3678b36333"
+  },
+  "schema": "rwkv_ms_native_attribution_candidate_likelihood.v1",
+  "scope": {
+    "dataset": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v3.2-attribution-best-candidate/train_derived_development.jsonl",
+    "dataset_sha256": "c8c8203bc460e294bf5756b6600e569c1f5be5b72111d1b969f89d649689a1d3",
+    "hard32_opened": false,
+    "protected_test_opened": false,
+    "rows": 4,
+    "selection": "first_rows_already_opened_by_v9_probe"
+  },
+  "scoring": {
+    "candidate_template": "{\"best_candidate\":\"<candidate>\"}",
+    "online_memory_protocol": "write_then_read",
+    "selection": "minimum_mean_continuation_nll"
+  }
+}

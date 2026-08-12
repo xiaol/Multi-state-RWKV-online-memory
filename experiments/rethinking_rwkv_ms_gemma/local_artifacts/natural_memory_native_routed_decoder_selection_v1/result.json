@@ -1,0 +1,61 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_routed_decoder_selection.v1",
+  "created_at": "2026-08-13T06:05:00+08:00",
+  "protocol_payload_sha256": "d55d7e785315a6dedc7b4710ef452eb0dffd05ce6a4decec941feec290e50b3a",
+  "selection_scope": "publisher-TRAIN-derived development first four rows per task",
+  "rows": 12,
+  "source_artifacts": {
+    "v9_generation_probe": {
+      "path": "../natural_memory_native_shared_qo_gate_stage1_probe_v9/result.json",
+      "file_sha256": "0adfe13b4adbf3cc7dc2af8079fed4a42a89bf489d72652060ceb20a12aa6082",
+      "receipt_payload_sha256": "fe1da257a1a5631e79d0c591673b05d59e717a6c42d4f01f60910e1daba1d0ba"
+    },
+    "attribution_likelihood": {
+      "path": "../natural_memory_native_shared_qo_gate_stage1_attribution_likelihood_v9/result.json",
+      "file_sha256": "e4671643d6b419926bb10643d34bdaad47868ddf5631dbd77028045b00277b7a",
+      "receipt_payload_sha256": "0709d4a883fb9be617a80d8bb3011114e235680e9bc8c3105b72bf3678b36333"
+    }
+  },
+  "metrics": {
+    "attribution-v3.2": {
+      "base": 0.5,
+      "routed": 1.0,
+      "routed_minus_base": 0.5,
+      "routing": "v9 candidate likelihood"
+    },
+    "narrative-v3.2": {
+      "base": 0.6739130434782609,
+      "routed": 0.6811594202898551,
+      "routed_minus_base": 0.007246376811594235,
+      "correct_units_base": 93,
+      "correct_units_routed": 94,
+      "gold_units": 138,
+      "routing": "memory only for base=narration,memory=scene_description"
+    },
+    "scene-v4-current": {
+      "base": 0.5,
+      "routed": 0.5,
+      "routed_minus_base": 0.0,
+      "routing": "exact frozen-base fallback"
+    }
+  },
+  "gates": {
+    "no_regression_all_tasks": true,
+    "strict_improvement_at_least_two_tasks": true,
+    "strictly_improved_tasks": 2,
+    "passed": true
+  },
+  "benchmark_authorization": {
+    "publisher_train_derived_development_untouched_remainder": true,
+    "selection_rows_excluded_per_task": 4,
+    "authorized_rows": 560,
+    "publisher_test": false,
+    "hard32": false
+  },
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_selection_without_receipt",
+    "payload_sha256": "d3944ec13407066f26dadbed34b560ff4920eff9e1ce1f9c15b3fb8adc49c892"
+  }
+}
