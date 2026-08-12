@@ -1,0 +1,36 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_stage1_failure.v6",
+  "created_at": "2026-08-13T00:38:28+08:00",
+  "stage": "shared_qo_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "04508f55a07e5f02ea2b9f70672009e46cb55b8cfa8fd256566702619fd23aad",
+  "progress": {
+    "optimizer_steps_completed": 9,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "input_binding_sha256": "bd3dae348c072b1ddbfeca7b849f95f7ccfd00de299cd3a61dc43db77cb39ed0",
+    "training_progress_sha256": "7741c0cca2db0b55def9b29f6bb081b31c1deea132470588509a6fe551395537"
+  },
+  "failure": {
+    "phase": "native_row_read_logits_before_step_10_optimizer_update",
+    "process_ranks": [2, 3],
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocations_mib": [344.0, 248.0],
+    "rank3_gpu_free_mib": 27.38,
+    "rank3_pytorch_allocated_gib": 36.78,
+    "rank3_reserved_unallocated_gib": 2.03,
+    "cause": "The 8 MiB threshold cleared earlier native rows, but the step-10 long-answer vocabulary logits still lacked 248-344 MiB of transient workspace after the saved-activation offload.",
+    "protected_splits_opened": []
+  },
+  "code_bindings": {
+    "runner_sha256": "64a62c73089cac8e13f8bf0b8ce8759fa2b9580a1c837f1204591448cb7da279",
+    "delta_impl_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada"
+  },
+  "decision": "This is an execution failure, not a benchmark or model-quality result. Lower the selective threshold to the next profiled 4 MiB bucket; on the worst row that adds only about 0.78 GiB of saved non-leaf activation offload beyond the 8 MiB threshold while creating enough GPU workspace for long-answer logits. Stress-test the exact step-10 rank-3 row, preflight, and restart from R12.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "b0b154ad06d458e7abcaa94369f46b8359cb37762d0e2e33ec97b49e92c66bd1"
+  }
+}
