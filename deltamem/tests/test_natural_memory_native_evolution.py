@@ -254,3 +254,37 @@ def test_residual_hybrid_topology_is_bounded_and_signed() -> None:
     assert hybrid_config.memory_fusion_residual_scale_max == 0.02
     assert protocol["topology_change"]["new_parameter_initial_value"] == 0.01
     assert protocol["topology_change"]["new_parameter_hard_max"] == 0.02
+
+
+def test_content_gate_topology_is_initialized_and_signed() -> None:
+    config = evolution.build_evolution_delta_config(
+        "content_gated_attention_output"
+    )
+    protocol = evolution.load_evolution_protocol(
+        "content_gated_attention_output"
+    )
+
+    assert config.memory_fusion_placement == "attention_output"
+    assert config.memory_fusion_mode == "content_gated_add"
+    assert config.memory_fusion_gate_init == 0.1
+    assert protocol["topology_change"]["gate_initial_value"] == 0.1
+    assert protocol["topology_change"]["q_head_preserved"] is True
+    assert protocol["topology_change"]["o_head_preserved"] is True
+
+
+def test_content_gate_gradient_audit_requires_every_family() -> None:
+    named_trainable = []
+    for family in evolution.CONTENT_GATE_PARAMETER_FAMILIES:
+        parameter = torch.nn.Parameter(torch.ones(2, dtype=torch.float32))
+        parameter.grad = torch.full_like(parameter, 0.25)
+        named_trainable.append((f"layer.0.{family}", parameter))
+
+    passing = evolution.audit_content_gate_gradients(named_trainable)
+    assert passing["passed"] is True
+    assert passing["parameter_tensors"] == 3
+    assert passing["minimum_family_l2_norm"] > 0.0
+
+    named_trainable[-1][1].grad.zero_()
+    failing = evolution.audit_content_gate_gradients(named_trainable)
+    assert failing["passed"] is False
+    assert failing["families"]["memory_fusion_bias"]["passed"] is False

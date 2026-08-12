@@ -1,0 +1,40 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_residual_hybrid_preflight_failure.v1",
+  "created_at": "2026-08-12T08:29:45+08:00",
+  "stage": "residual_hybrid_preflight",
+  "status": "topology_rejected_before_training",
+  "protocol_payload_sha256": "acea98b9d7b12a21208e3333370453ba81b15e478666a1496c358e7401597050",
+  "requested_topology": {
+    "memory_fusion_placement": "post_attention_residual_hybrid",
+    "delta_heads": [
+      "q",
+      "o"
+    ],
+    "world_size": 4,
+    "global_batch_size": 16,
+    "updates_requested": 2
+  },
+  "failure": {
+    "phase": "attach_delta_mem_topology_validation",
+    "exception_type": "ValueError",
+    "message": "post_attention_residual_hybrid fusion currently requires O-only Delta-Mem heads",
+    "cause": "The frozen experiment contract requires Q+O, while every non-attention-output Gemma fusion placement currently accepts only O-only Delta-Mem heads.",
+    "optimizer_steps_completed": 0,
+    "adapter_written": false,
+    "protected_splits_opened": []
+  },
+  "reproduction": {
+    "evidence_kind": "deterministic_targeted_regression",
+    "command": "PYTHONPATH=$PWD pytest -q deltamem/tests/test_delta_mem_regressions.py::test_post_attention_norm_rejects_non_gemma_and_non_o_targets_atomically[post_attention_residual_hybrid]",
+    "outcome": "1 passed",
+    "delta_impl_sha256": "d6156b9de22a114b34b29152778f699f825093e52a1aecea98df42280abebfda",
+    "runner_sha256": "b44bbd6d1972c607e88581ff05decfbc870f5dd7ff138f714ee208b042de5562",
+    "protocol_file_sha256": "d7231eb985475acde119aedaf877cbcd65921a09f107f67e6908246a2334d84d"
+  },
+  "decision": "Reject residual-hybrid without weakening the Q+O contract; advance the signed content-gated attention-output fallback.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "c5b3f718ab570abff8e4c4d458fb3347e471e36faeb2cef28c8062dddd628d2e"
+  }
+}

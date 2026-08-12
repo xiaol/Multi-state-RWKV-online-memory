@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, replace
 import gc
 import json
+import math
 import os
 from pathlib import Path
 import random
@@ -80,9 +81,16 @@ RESIDUAL_HYBRID_PROTOCOL = Path(__file__).with_name(
 RESIDUAL_HYBRID_PROTOCOL_PAYLOAD_SHA256 = (
     "acea98b9d7b12a21208e3333370453ba81b15e478666a1496c358e7401597050"
 )
+CONTENT_GATE_PROTOCOL = Path(__file__).with_name(
+    "natural_memory_native_content_gate_protocol_v1.json"
+)
+CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256 = (
+    "cc938362645f471f2d28593ed10aa2cd367ce868b821dfd082ad3306dd4e7c45"
+)
 FUSION_TOPOLOGIES = (
     "attention_output",
     "post_attention_residual_hybrid",
+    "content_gated_attention_output",
 )
 TASK_FILES = {
     "attribution": "v3.2-attribution-best-candidate/train_derived_fit.jsonl",
@@ -101,6 +109,11 @@ MAX_GRAD_NORM = 1.0
 MAX_SEQUENCE_LENGTH = 32768
 NATIVE_EXECUTION_SUBBATCH_SIZE = 1
 NATIVE_CE_CHUNK_TOKENS = 64
+CONTENT_GATE_PARAMETER_FAMILIES = (
+    "memory_fusion_hidden_weight",
+    "memory_fusion_read_weight",
+    "memory_fusion_bias",
+)
 
 
 @dataclass(frozen=True)
@@ -156,14 +169,21 @@ def load_evolution_protocol(
 ) -> Mapping[str, Any]:
     if fusion_topology not in FUSION_TOPOLOGIES:
         raise ValueError(f"Unknown evolution fusion topology: {fusion_topology!r}")
-    expected_path, expected_payload_sha256 = (
-        (EVOLUTION_PROTOCOL, EVOLUTION_PROTOCOL_PAYLOAD_SHA256)
-        if fusion_topology == "attention_output"
-        else (
+    protocol_bindings = {
+        "attention_output": (
+            EVOLUTION_PROTOCOL,
+            EVOLUTION_PROTOCOL_PAYLOAD_SHA256,
+        ),
+        "post_attention_residual_hybrid": (
             RESIDUAL_HYBRID_PROTOCOL,
             RESIDUAL_HYBRID_PROTOCOL_PAYLOAD_SHA256,
-        )
-    )
+        ),
+        "content_gated_attention_output": (
+            CONTENT_GATE_PROTOCOL,
+            CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256,
+        ),
+    }
+    expected_path, expected_payload_sha256 = protocol_bindings[fusion_topology]
     path = expected_path if path is None else path
     protocol = _read_json(path.resolve(strict=True), "evolution protocol")
     receipt = protocol.get("receipt")
@@ -191,6 +211,12 @@ def build_evolution_delta_config(fusion_topology: str) -> Any:
     )
     if fusion_topology == "attention_output":
         return config
+    if fusion_topology == "content_gated_attention_output":
+        return replace(
+            config,
+            memory_fusion_mode="content_gated_add",
+            memory_fusion_gate_init=0.1,
+        )
     return replace(
         config,
         memory_fusion_placement="post_attention_residual_hybrid",
@@ -707,6 +733,74 @@ def checkpointed_native_answer_loss_sum_and_count(
     return torch.stack(losses).sum(), count, len(losses)
 
 
+def audit_content_gate_gradients(
+    named_trainable: Sequence[tuple[str, torch.nn.Parameter]],
+) -> Mapping[str, Any]:
+    family_audits: dict[str, dict[str, Any]] = {}
+    for family in CONTENT_GATE_PARAMETER_FAMILIES:
+        selected = [
+            (name, parameter)
+            for name, parameter in named_trainable
+            if name.endswith(f".{family}")
+        ]
+        active = [
+            (name, parameter)
+            for name, parameter in selected
+            if parameter.grad is not None
+        ]
+        missing = [name for name, parameter in selected if parameter.grad is None]
+        nonfinite = [
+            name
+            for name, parameter in active
+            if not bool(torch.isfinite(parameter.grad).all().item())
+        ]
+        finite_gradients = [
+            parameter.grad.detach().float()
+            for name, parameter in active
+            if name not in nonfinite
+        ]
+        squared_norm = sum(
+            float(gradient.square().sum().item())
+            for gradient in finite_gradients
+        )
+        nonzero_elements = sum(
+            int(torch.count_nonzero(gradient).item())
+            for gradient in finite_gradients
+        )
+        family_audits[family] = {
+            "parameter_tensors": len(selected),
+            "parameter_names_sha256": canonical_sha256(
+                [name for name, _ in selected]
+            ),
+            "active_gradient_tensors": len(active),
+            "missing_gradient_tensors": len(missing),
+            "missing_preview": missing[:8],
+            "nonfinite_gradient_tensors": len(nonfinite),
+            "nonfinite_preview": nonfinite[:8],
+            "nonzero_gradient_elements": nonzero_elements,
+            "l2_norm": math.sqrt(squared_norm),
+            "passed": (
+                bool(selected)
+                and not missing
+                and not nonfinite
+                and nonzero_elements > 0
+            ),
+        }
+    return {
+        "families": family_audits,
+        "parameter_tensors": sum(
+            audit["parameter_tensors"] for audit in family_audits.values()
+        ),
+        "all_families_finite_nonzero": all(
+            audit["passed"] for audit in family_audits.values()
+        ),
+        "minimum_family_l2_norm": min(
+            audit["l2_norm"] for audit in family_audits.values()
+        ),
+        "passed": all(audit["passed"] for audit in family_audits.values()),
+    }
+
+
 def train_mixed_distributed(
     model: torch.nn.Module,
     synthetic_examples: Sequence[Any],
@@ -718,6 +812,7 @@ def train_mixed_distributed(
     pad_token_id: int,
     dtype: torch.dtype,
     progress_path: Path,
+    require_content_gate_gradients: bool = False,
 ) -> Mapping[str, Any]:
     if (
         context.world_size != 4
@@ -738,6 +833,8 @@ def train_mixed_distributed(
     )
     model.train()
     totals: defaultdict[str, float] = defaultdict(float)
+    content_gate_gradient_steps = 0
+    minimum_content_gate_gradient_norm = math.inf
     started = time.time()
     for mixed_step in schedule:
         examples = (
@@ -893,6 +990,21 @@ def train_mixed_distributed(
         if gradient_validation["passed"] is not True:
             raise RuntimeError("Mixed evolution produced invalid local gradients")
         collective = distributed.sum_gradients(context, named_trainable)
+        content_gate_gradient_audit = None
+        if require_content_gate_gradients:
+            content_gate_gradient_audit = audit_content_gate_gradients(
+                named_trainable
+            )
+            if content_gate_gradient_audit["passed"] is not True:
+                raise RuntimeError(
+                    "Content-gated evolution produced invalid gate gradients: "
+                    f"{content_gate_gradient_audit!r}"
+                )
+            content_gate_gradient_steps += 1
+            minimum_content_gate_gradient_norm = min(
+                minimum_content_gate_gradient_norm,
+                float(content_gate_gradient_audit["minimum_family_l2_norm"]),
+            )
         grad_norm = torch.nn.utils.clip_grad_norm_(trainable, MAX_GRAD_NORM)
         if not bool(torch.isfinite(grad_norm).item()):
             raise RuntimeError("Mixed evolution gradient norm is non-finite")
@@ -946,6 +1058,7 @@ def train_mixed_distributed(
             "global_row_ids": list(mixed_step.global_row_ids),
             "schedule_step_sha256": mixed_step.step_sha256,
             "gradient_collective_sha256": canonical_sha256(collective),
+            "content_gate_gradient_audit": content_gate_gradient_audit,
         }
         if context.is_primary:
             _append_jsonl(progress_path, record_value)
@@ -989,6 +1102,19 @@ def train_mixed_distributed(
         "progress_sha256": (
             source.sha256_file(progress_path) if context.is_primary else None
         ),
+        "content_gate_gradient_audit": {
+            "required": require_content_gate_gradients,
+            "steps_audited": content_gate_gradient_steps,
+            "all_steps_passed": (
+                not require_content_gate_gradients
+                or content_gate_gradient_steps == len(schedule)
+            ),
+            "minimum_family_l2_norm": (
+                minimum_content_gate_gradient_norm
+                if require_content_gate_gradients
+                else None
+            ),
+        },
         "distributed": {
             "world_size": context.world_size,
             "global_batch_size": GLOBAL_BATCH_SIZE,
@@ -1024,18 +1150,21 @@ def run_evolution(
     gate.configure_hf_mirror()
     protocol = load_evolution_protocol(fusion_topology)
     native_manifest = validate_native_dataset_root(native_dataset_root)
+    stage_names = {
+        "attention_output": ("preflight", "stage1"),
+        "post_attention_residual_hybrid": (
+            "residual_hybrid_preflight",
+            "residual_hybrid_stage1",
+        ),
+        "content_gated_attention_output": (
+            "content_gate_preflight",
+            "content_gate_stage1",
+        ),
+    }
     if updates == STAGE1_UPDATES:
-        stage = (
-            "stage1"
-            if fusion_topology == "attention_output"
-            else "residual_hybrid_stage1"
-        )
+        stage = stage_names[fusion_topology][1]
     elif updates == PREFLIGHT_UPDATES:
-        stage = (
-            "preflight"
-            if fusion_topology == "attention_output"
-            else "residual_hybrid_preflight"
-        )
+        stage = stage_names[fusion_topology][0]
     else:
         raise ValueError("Evolution run must request 2 or 192 updates")
     requested_output = output_dir.expanduser()
@@ -1069,6 +1198,9 @@ def run_evolution(
         adapter_path,
         initialize_missing_residual_hybrid_gain=(
             fusion_topology == "post_attention_residual_hybrid"
+        ),
+        initialize_missing_content_gate=(
+            fusion_topology == "content_gated_attention_output"
         ),
     )
     if loaded_config.to_dict() != source_delta_config.to_dict():
@@ -1155,11 +1287,15 @@ def run_evolution(
             "checkpointed_float32_ce_chunk_tokens": NATIVE_CE_CHUNK_TOKENS,
         },
         "schedule": dict(schedule_audit),
-        "protocol_payload_sha256": (
-            EVOLUTION_PROTOCOL_PAYLOAD_SHA256
-            if fusion_topology == "attention_output"
-            else RESIDUAL_HYBRID_PROTOCOL_PAYLOAD_SHA256
-        ),
+        "protocol_payload_sha256": {
+            "attention_output": EVOLUTION_PROTOCOL_PAYLOAD_SHA256,
+            "post_attention_residual_hybrid": (
+                RESIDUAL_HYBRID_PROTOCOL_PAYLOAD_SHA256
+            ),
+            "content_gated_attention_output": (
+                CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256
+            ),
+        }[fusion_topology],
         "hf_endpoint": os.environ.get("HF_ENDPOINT"),
     }
     distributed.require_consensus(
@@ -1189,6 +1325,9 @@ def run_evolution(
         pad_token_id=int(tokenizer.pad_token_id),
         dtype=torch.bfloat16,
         progress_path=resolved_output / "training_progress.jsonl",
+        require_content_gate_gradients=(
+            fusion_topology == "content_gated_attention_output"
+        ),
     )
     final_adapter_hash = runtime._state_dict_sha256(
         snapshot_delta_mem_weights(model)

@@ -2742,6 +2742,84 @@ def test_post_attention_residual_hybrid_adapter_warm_start_is_explicit_and_stric
         )
 
 
+def test_content_gate_adapter_warm_start_is_explicit_and_strict(
+    tmp_path: Path,
+) -> None:
+    if Gemma4TextConfig is None or Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(23)
+    base_config = make_gemma4_shared_kv_config()
+    source = Gemma4TextModel(base_config)
+    target = copy.deepcopy(source)
+    source_config = HFDeltaMemConfig(
+        rank=2,
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=2,
+        rwkv_ms_chunk_size=2,
+        delta_heads=("q", "o"),
+        memory_fusion_mode="add",
+        memory_fusion_placement="attention_output",
+        target_layers=(0, 1, 2, 3),
+        target_modules=("self_attn",),
+    )
+    target_payload = source_config.to_dict()
+    target_payload["memory_fusion_mode"] = "content_gated_add"
+    target_payload["memory_fusion_gate_init"] = 0.1
+    target_config = HFDeltaMemConfig.from_dict(target_payload)
+    attach_delta_mem(source, source_config)
+    attach_delta_mem(target, target_config)
+    save_delta_mem_adapter(source, tmp_path, source_config)
+    initial_gate_parameters = {
+        f"{name}.{parameter_name}": parameter.detach().clone()
+        for name, module in target.named_modules()
+        if isinstance(module, DeltaMemAttention)
+        for parameter_name, parameter in module.named_parameters()
+        if parameter_name.startswith("memory_fusion_")
+    }
+
+    with pytest.raises(ValueError, match="memory_fusion_mode"):
+        load_delta_mem_adapter(target, tmp_path)
+    with pytest.raises(
+        ValueError,
+        match="initialize_missing_content_gate=True",
+    ):
+        load_delta_mem_adapter(
+            target,
+            tmp_path,
+            allowed_config_mismatches=("memory_fusion_mode",),
+        )
+
+    loaded_config = load_delta_mem_adapter(
+        target,
+        tmp_path,
+        initialize_missing_content_gate=True,
+    )
+
+    assert loaded_config.memory_fusion_mode == "add"
+    source_modules = dict(source.named_modules())
+    for name, target_module in target.named_modules():
+        if not isinstance(target_module, DeltaMemAttention):
+            continue
+        source_module = source_modules[name]
+        assert isinstance(source_module, DeltaMemAttention)
+        source_parameters = dict(source_module.named_parameters())
+        for parameter_name, target_parameter in target_module.named_parameters():
+            if parameter_name.startswith("base."):
+                continue
+            full_name = f"{name}.{parameter_name}"
+            if parameter_name.startswith("memory_fusion_"):
+                torch.testing.assert_close(
+                    target_parameter,
+                    initial_gate_parameters[full_name],
+                )
+            else:
+                torch.testing.assert_close(
+                    target_parameter,
+                    source_parameters[parameter_name],
+                )
+
+
 @pytest.mark.parametrize(
     "memory_fusion_placement",
     [

@@ -5176,6 +5176,7 @@ def load_delta_mem_state_dict(
     state_dict: dict[str, torch.Tensor],
     *,
     initialize_missing_residual_hybrid_gain: bool = False,
+    initialize_missing_content_gate: bool = False,
 ) -> None:
     expected_state = get_delta_mem_state_dict(model)
     expected_keys = list(expected_state)
@@ -5184,6 +5185,7 @@ def load_delta_mem_state_dict(
     extra = [key for key in actual_keys if key not in expected_state]
     module_map = dict(model.named_modules())
     residual_hybrid_gain_missing = []
+    content_gate_missing = []
     for key in missing:
         module_name, param_name = key.rsplit(".", 1)
         module = module_map.get(module_name)
@@ -5193,11 +5195,22 @@ def load_delta_mem_state_dict(
             and module.memory_fusion_placement == "post_attention_residual_hybrid"
         ):
             residual_hybrid_gain_missing.append(key)
-    allowed_missing = (
-        set(residual_hybrid_gain_missing)
-        if initialize_missing_residual_hybrid_gain
-        else set()
-    )
+        if (
+            param_name
+            in {
+                "memory_fusion_hidden_weight",
+                "memory_fusion_read_weight",
+                "memory_fusion_bias",
+            }
+            and isinstance(module, DeltaMemAttention)
+            and module.memory_fusion_mode == "content_gated_add"
+        ):
+            content_gate_missing.append(key)
+    allowed_missing: set[str] = set()
+    if initialize_missing_residual_hybrid_gain:
+        allowed_missing.update(residual_hybrid_gain_missing)
+    if initialize_missing_content_gate:
+        allowed_missing.update(content_gate_missing)
     disallowed_missing = [key for key in missing if key not in allowed_missing]
     if disallowed_missing or extra:
         warm_start_hint = ""
@@ -5210,6 +5223,16 @@ def load_delta_mem_state_dict(
             warm_start_hint = (
                 " To warm-start these weights into post_attention_residual_hybrid, "
                 "pass initialize_missing_residual_hybrid_gain=True."
+            )
+        elif (
+            not initialize_missing_content_gate
+            and missing
+            and len(content_gate_missing) == len(missing)
+            and not extra
+        ):
+            warm_start_hint = (
+                " To warm-start these weights into content_gated_add, "
+                "pass initialize_missing_content_gate=True."
             )
         raise ValueError(
             "Delta-Mem adapter parameter topology does not match the attached model; "
@@ -5283,6 +5306,7 @@ def load_delta_mem_adapter(
     *,
     allowed_config_mismatches: tuple[str, ...] = (),
     initialize_missing_residual_hybrid_gain: bool = False,
+    initialize_missing_content_gate: bool = False,
 ) -> HFDeltaMemConfig:
     input_path = Path(input_dir)
     config = HFDeltaMemConfig.from_pretrained(input_path)
@@ -5309,6 +5333,28 @@ def load_delta_mem_adapter(
                 )
             )
         )
+    if initialize_missing_content_gate:
+        modules = list(iter_delta_mem_modules(model))
+        non_gated = [
+            name
+            for name, module in modules
+            if module.memory_fusion_mode != "content_gated_add"
+        ]
+        if non_gated:
+            raise ValueError(
+                "initialize_missing_content_gate=True requires every attached "
+                "Delta-Mem module to use content_gated_add; "
+                f"non_gated={non_gated[:8]}"
+            )
+        allowed_config_mismatches = tuple(
+            dict.fromkeys(
+                (
+                    *allowed_config_mismatches,
+                    "memory_fusion_mode",
+                    "memory_fusion_gate_init",
+                )
+            )
+        )
     validate_attached_delta_config(
         model,
         config,
@@ -5325,5 +5371,6 @@ def load_delta_mem_adapter(
         initialize_missing_residual_hybrid_gain=(
             initialize_missing_residual_hybrid_gain
         ),
+        initialize_missing_content_gate=initialize_missing_content_gate,
     )
     return config
