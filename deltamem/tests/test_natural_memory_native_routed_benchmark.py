@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from experiments.rethinking_rwkv_ms_gemma import (
     analyze_natural_memory_native_routed_benchmark as analysis,
 )
@@ -83,3 +81,24 @@ def test_scene_routed_result_is_exact_base_fallback() -> None:
     assert metrics["fp"] == 1
     assert metrics["fn"] == 1
     assert metrics["primary_metric"] == 0.5
+
+
+def test_attribution_singleton_candidate_is_deterministic(monkeypatch) -> None:
+    monkeypatch.setattr(runner.recovery, "parse_candidates", lambda _content: ("A",))
+
+    record = runner.attribution_record(
+        object(),
+        object(),
+        {
+            "line_index": 4,
+            "row_sha256": "row",
+            "messages": [{"role": "user", "content": "singleton"}],
+        },
+        condition="base",
+        device="cpu",
+        shard_index=0,
+    )
+
+    assert record["selected"] == "A"
+    assert record["candidate_scores"] == []
+    assert record["deterministic_singleton_candidate"] is True

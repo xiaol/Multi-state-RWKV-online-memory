@@ -251,8 +251,21 @@ def attribution_record(
 ) -> Mapping[str, Any]:
     messages = list(row["messages"])
     candidates = recovery.parse_candidates(str(messages[-1].get("content", "")))
-    if len(candidates) < 2:
-        raise ValueError("Attribution row has fewer than two candidates")
+    if not candidates:
+        raise ValueError("Attribution row has no candidates")
+    if len(candidates) == 1:
+        return {
+            "schema": SCHEMA,
+            "protocol_payload_sha256": PROTOCOL_PAYLOAD_SHA256,
+            "task": "attribution",
+            "condition": condition,
+            "shard_index": shard_index,
+            "line_index": row["line_index"],
+            "row_sha256": row["row_sha256"],
+            "selected": candidates[0],
+            "candidate_scores": [],
+            "deterministic_singleton_candidate": True,
+        }
     scores = [
         likelihood.continuation_nll(
             model,

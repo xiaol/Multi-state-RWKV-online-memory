@@ -1,0 +1,32 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_routed_benchmark_failure.v1",
+  "created_at": "2026-08-13T06:20:00+08:00",
+  "protocol_payload_sha256": "d55d7e785315a6dedc7b4710ef452eb0dffd05ce6a4decec941feec290e50b3a",
+  "phase": "base_attribution_candidate_likelihood",
+  "outcome": "execution_failed_no_benchmark_decision",
+  "cause": "The initial runner incorrectly required at least two parsed publisher candidates. Three valid attribution development rows have exactly one listed candidate, which is a deterministic choice rather than a scoring ambiguity.",
+  "affected_source_indices": [4, 7, 62],
+  "completed_records_before_stop": {
+    "shard_0": 0,
+    "shard_1": 12,
+    "shard_2": 10,
+    "shard_3": 0
+  },
+  "model_updates": 0,
+  "router_change": false,
+  "row_selection_change": false,
+  "fix": "Emit the sole candidate without model scoring when candidate count is exactly one; continue to reject zero candidates.",
+  "restart": "fresh_output_root_natural_memory_native_routed_benchmark_v1_r2",
+  "protected_splits_opened": [],
+  "logs": {
+    "shard_0_sha256": "910581fd66cd10d929c7f3cc2a27291743773386d9a3cfb9a844614771201153",
+    "shard_1_sha256": "bf57f6a42ac6be1dc1d0a9f984fd768f282e99afabfca518f2a4bf4637ef34bf",
+    "shard_2_sha256": "5bf423184c06f7fb09e239e3cbf93c4147ddbb28cbf9da681fe92632eac9b050",
+    "shard_3_sha256": "eff97a97afeff8e04bc31f18ec89aedbacc4afe4fb21c9fb17f8f6da94821529"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "2238af00720ab9aac27440e334f938268a83b2349e4a9dc29c9ff7151a19156a"
+  }
+}
