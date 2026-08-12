@@ -88,10 +88,10 @@ CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256 = (
     "ee9cea48667657e4b4db9808a97a7e3a7fdd3b9e44ed8b83fff34352c31ee68c"
 )
 SHARED_QO_GATE_PROTOCOL = Path(__file__).with_name(
-    "natural_memory_native_shared_qo_gate_protocol_v6.json"
+    "natural_memory_native_shared_qo_gate_protocol_v7.json"
 )
 SHARED_QO_GATE_PROTOCOL_PAYLOAD_SHA256 = (
-    "04508f55a07e5f02ea2b9f70672009e46cb55b8cfa8fd256566702619fd23aad"
+    "622db4f8dad33addf6f33073e3babe3d8a170c7c26365e5d77834424a430c20e"
 )
 FUSION_TOPOLOGIES = (
     "attention_output",
@@ -116,7 +116,7 @@ MAX_GRAD_NORM = 1.0
 MAX_SEQUENCE_LENGTH = 32768
 NATIVE_EXECUTION_SUBBATCH_SIZE = 1
 NATIVE_CE_CHUNK_TOKENS = 64
-NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES = 8 * 1024 * 1024
+NATIVE_SELECTIVE_OFFLOAD_MIN_BYTES = 4 * 1024 * 1024
 CONTENT_GATE_PARAMETER_FAMILIES = (
     "memory_fusion_hidden_weight",
     "memory_fusion_read_weight",
