@@ -298,3 +298,23 @@ def test_content_gate_gradient_audit_requires_every_family() -> None:
     failing = evolution.audit_content_gate_gradients(named_trainable)
     assert failing["passed"] is False
     assert failing["families"]["memory_fusion_bias"]["passed"] is False
+
+
+def test_shared_qo_gate_topology_is_initialized_and_signed() -> None:
+    config = evolution.build_evolution_delta_config(
+        "shared_qo_content_gated_attention_output"
+    )
+    protocol = evolution.load_evolution_protocol(
+        "shared_qo_content_gated_attention_output"
+    )
+
+    assert config.memory_fusion_placement == "attention_output"
+    assert config.memory_fusion_mode == "content_gated_qo_add"
+    assert config.memory_fusion_gate_init == 0.1
+    assert protocol["topology_change"]["gate_initial_value"] == 0.1
+    assert protocol["topology_change"]["q_correction"] == (
+        "multiply_by_shared_content_gate_before_attention"
+    )
+    assert protocol["topology_change"]["o_correction"] == (
+        "multiply_by_same_shared_content_gate_after_attention"
+    )

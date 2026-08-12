@@ -4193,6 +4193,48 @@ def test_content_gate_checkpoint_matches_direct_forward_and_gradients() -> None:
         torch.testing.assert_close(checkpointed_gradient, direct_gradient)
 
 
+def test_shared_content_gate_scales_q_and_o_corrections() -> None:
+    module = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        delta_heads=("q", "o"),
+        memory_fusion_mode="content_gated_qo_add",
+        memory_fusion_gate_init=0.1,
+    ).eval()
+    hidden_states = torch.randn(2, 5, module.hidden_size)
+    reads = torch.randn(2, 5, module.state_read_dim)
+    gate = module._memory_fusion_gate(hidden_states, reads)
+    raw_q, _, _ = module._compute_delta_qkv_from_reads(reads)
+    raw_o = module._project_delta_head(reads, module.delta_o_proj, "o")
+    assert raw_q is not None
+    assert raw_o is not None
+
+    query_states, _, _, _ = module._apply_delta_qkv(
+        hidden_states,
+        raw_q * gate.to(dtype=raw_q.dtype),
+        None,
+        None,
+    )
+    expected_query = module.base.q_proj(hidden_states) + (
+        raw_q * gate.to(dtype=raw_q.dtype)
+    ).to(dtype=hidden_states.dtype)
+    torch.testing.assert_close(query_states, expected_query)
+
+    base_o = torch.randn(2, 5, module.base.o_proj.out_features)
+    fused_o = module._fuse_delta_o_output(
+        base_o,
+        raw_o,
+        hidden_states,
+        reads,
+        None,
+        gate,
+    )
+    expected_o = base_o + (
+        raw_o.to(dtype=hidden_states.dtype) * gate.to(dtype=hidden_states.dtype)
+    ).to(dtype=base_o.dtype)
+    torch.testing.assert_close(fused_o, expected_o)
+
+
 def test_rwkv_ms_zero_state_readout_ignores_stored_group_norm_bias() -> None:
     module = make_delta_module(
         rank=2,

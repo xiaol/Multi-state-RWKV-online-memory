@@ -87,10 +87,17 @@ CONTENT_GATE_PROTOCOL = Path(__file__).with_name(
 CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256 = (
     "ee9cea48667657e4b4db9808a97a7e3a7fdd3b9e44ed8b83fff34352c31ee68c"
 )
+SHARED_QO_GATE_PROTOCOL = Path(__file__).with_name(
+    "natural_memory_native_shared_qo_gate_protocol_v1.json"
+)
+SHARED_QO_GATE_PROTOCOL_PAYLOAD_SHA256 = (
+    "43811b75dfd17a3df0db782e27c4b7ba50038ffa67f976fda82f7cc4c451ef85"
+)
 FUSION_TOPOLOGIES = (
     "attention_output",
     "post_attention_residual_hybrid",
     "content_gated_attention_output",
+    "shared_qo_content_gated_attention_output",
 )
 TASK_FILES = {
     "attribution": "v3.2-attribution-best-candidate/train_derived_fit.jsonl",
@@ -182,6 +189,10 @@ def load_evolution_protocol(
             CONTENT_GATE_PROTOCOL,
             CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256,
         ),
+        "shared_qo_content_gated_attention_output": (
+            SHARED_QO_GATE_PROTOCOL,
+            SHARED_QO_GATE_PROTOCOL_PAYLOAD_SHA256,
+        ),
     }
     expected_path, expected_payload_sha256 = protocol_bindings[fusion_topology]
     path = expected_path if path is None else path
@@ -211,10 +222,17 @@ def build_evolution_delta_config(fusion_topology: str) -> Any:
     )
     if fusion_topology == "attention_output":
         return config
-    if fusion_topology == "content_gated_attention_output":
+    if fusion_topology in {
+        "content_gated_attention_output",
+        "shared_qo_content_gated_attention_output",
+    }:
         return replace(
             config,
-            memory_fusion_mode="content_gated_add",
+            memory_fusion_mode=(
+                "content_gated_qo_add"
+                if fusion_topology == "shared_qo_content_gated_attention_output"
+                else "content_gated_add"
+            ),
             memory_fusion_gate_init=0.1,
         )
     return replace(
@@ -1171,6 +1189,10 @@ def run_evolution(
             "content_gate_preflight",
             "content_gate_stage1",
         ),
+        "shared_qo_content_gated_attention_output": (
+            "shared_qo_gate_preflight",
+            "shared_qo_gate_stage1",
+        ),
     }
     if updates == STAGE1_UPDATES:
         stage = stage_names[fusion_topology][1]
@@ -1211,7 +1233,10 @@ def run_evolution(
             fusion_topology == "post_attention_residual_hybrid"
         ),
         initialize_missing_content_gate=(
-            fusion_topology == "content_gated_attention_output"
+            fusion_topology in {
+                "content_gated_attention_output",
+                "shared_qo_content_gated_attention_output",
+            }
         ),
     )
     if loaded_config.to_dict() != source_delta_config.to_dict():
@@ -1297,11 +1322,17 @@ def run_evolution(
             "saved_tensor_cpu_offload": False,
             "checkpointed_float32_ce_chunk_tokens": NATIVE_CE_CHUNK_TOKENS,
             "content_gate_activation_checkpointing": (
-                fusion_topology == "content_gated_attention_output"
+                fusion_topology in {
+                    "content_gated_attention_output",
+                    "shared_qo_content_gated_attention_output",
+                }
             ),
             "content_gate_checkpoint_implementation": (
                 "torch_non_reentrant"
-                if fusion_topology == "content_gated_attention_output"
+                if fusion_topology in {
+                    "content_gated_attention_output",
+                    "shared_qo_content_gated_attention_output",
+                }
                 else None
             ),
             "serialized_row_graph_release": True,
@@ -1317,6 +1348,9 @@ def run_evolution(
             ),
             "content_gated_attention_output": (
                 CONTENT_GATE_PROTOCOL_PAYLOAD_SHA256
+            ),
+            "shared_qo_content_gated_attention_output": (
+                SHARED_QO_GATE_PROTOCOL_PAYLOAD_SHA256
             ),
         }[fusion_topology],
         "hf_endpoint": os.environ.get("HF_ENDPOINT"),
@@ -1349,7 +1383,10 @@ def run_evolution(
         dtype=torch.bfloat16,
         progress_path=resolved_output / "training_progress.jsonl",
         require_content_gate_gradients=(
-            fusion_topology == "content_gated_attention_output"
+            fusion_topology in {
+                "content_gated_attention_output",
+                "shared_qo_content_gated_attention_output",
+            }
         ),
     )
     final_adapter_hash = runtime._state_dict_sha256(

@@ -66,7 +66,14 @@ VALID_MEMORY_WRITE_GRANULARITIES = (
 VALID_MEMORY_PARTITION_READ_MODES = ("softmax",)
 VALID_GLOBAL_MEMORY_MODES = ("shared_rw",)
 VALID_GLOBAL_MEMORY_MERGE_MODES = ("gated_residual",)
-VALID_MEMORY_FUSION_MODES = ("add", "content_gated_add")
+VALID_MEMORY_FUSION_MODES = (
+    "add",
+    "content_gated_add",
+    "content_gated_qo_add",
+)
+CONTENT_GATED_MEMORY_FUSION_MODES = frozenset(
+    {"content_gated_add", "content_gated_qo_add"}
+)
 VALID_MEMORY_FUSION_PLACEMENTS = (
     "attention_output",
     "post_attention_norm",
@@ -910,7 +917,7 @@ class DeltaMemAttention(nn.Module):
         self.delta_o_proj = nn.Parameter(torch.empty(base.o_proj.out_features, self.state_read_dim))
         if self.delta_o_rmsnorm:
             self.delta_o_rmsnorm_weight = nn.Parameter(torch.ones(base.o_proj.out_features))
-        if self.memory_fusion_mode == "content_gated_add":
+        if self.memory_fusion_mode in CONTENT_GATED_MEMORY_FUSION_MODES:
             self.memory_fusion_hidden_weight = nn.Parameter(torch.empty(1, hidden_size))
             self.memory_fusion_read_weight = nn.Parameter(torch.empty(1, self.state_read_dim))
             self.memory_fusion_bias = nn.Parameter(torch.empty(1))
@@ -1075,7 +1082,7 @@ class DeltaMemAttention(nn.Module):
                 nn.init.zeros_(param)
         if self.delta_o_rmsnorm:
             nn.init.ones_(self.delta_o_rmsnorm_weight)
-        if self.memory_fusion_mode == "content_gated_add":
+        if self.memory_fusion_mode in CONTENT_GATED_MEMORY_FUSION_MODES:
             nn.init.zeros_(self.memory_fusion_hidden_weight)
             nn.init.zeros_(self.memory_fusion_read_weight)
             gate_logit = math.log(
@@ -1205,7 +1212,10 @@ class DeltaMemAttention(nn.Module):
                 and "o" in self.active_delta_heads
             )
         if sub_name.startswith("memory_fusion_"):
-            return self.memory_fusion_mode == "content_gated_add" and "o" in self.active_delta_heads
+            return (
+                self.memory_fusion_mode in CONTENT_GATED_MEMORY_FUSION_MODES
+                and "o" in self.active_delta_heads
+            )
         if sub_name == "delta_scale_raw":
             return self.trainable_delta_scale
         return True
@@ -1459,6 +1469,7 @@ class DeltaMemAttention(nn.Module):
         delta_o: torch.Tensor | None,
         reads: torch.Tensor,
         read_mask: torch.Tensor | None,
+        fusion_gate: torch.Tensor | None = None,
         **kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         if shared_kv_states is None or self.layer_type not in shared_kv_states:
@@ -1527,6 +1538,7 @@ class DeltaMemAttention(nn.Module):
                 hidden_states,
                 reads,
                 read_mask,
+                fusion_gate,
             ),
             attn_weights,
         )
@@ -3651,6 +3663,7 @@ class DeltaMemAttention(nn.Module):
         hidden_states: torch.Tensor,
         reads: torch.Tensor,
         token_mask: torch.Tensor | None,
+        fusion_gate: torch.Tensor | None = None,
     ) -> torch.Tensor:
         self.last_base_o_norm = None
         self.last_delta_o_norm = None
@@ -3673,7 +3686,11 @@ class DeltaMemAttention(nn.Module):
         fused_delta_o = None
         if delta_o is not None:
             delta_o_typed = self._apply_delta_o_rmsnorm(delta_o.to(hidden_states.dtype))
-            fusion_gate = self._memory_fusion_gate(hidden_states, reads)
+            fusion_gate = (
+                self._memory_fusion_gate(hidden_states, reads)
+                if fusion_gate is None
+                else fusion_gate
+            )
             self.last_delta_o_gate_mean = self._masked_token_mean(fusion_gate, token_mask)
             self.last_delta_o_gate_min, self.last_delta_o_gate_max = (
                 self._masked_token_min_max(fusion_gate, token_mask)
@@ -4182,6 +4199,11 @@ class DeltaMemAttention(nn.Module):
         self.last_lambda_mean = self._masked_gate_mean(stats_lambda, stats_mask)
         delta_q, delta_k, delta_v = self._compute_delta_qkv_from_reads(reads)
         delta_o = self._project_delta_head(reads, self.delta_o_proj, "o")
+        shared_qo_fusion_gate = None
+        if self.memory_fusion_mode == "content_gated_qo_add":
+            shared_qo_fusion_gate = self._memory_fusion_gate(hidden_states, reads)
+            if delta_q is not None:
+                delta_q = delta_q * shared_qo_fusion_gate.to(dtype=delta_q.dtype)
 
         if self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS:
             base_kwargs = dict(kwargs)
@@ -4202,6 +4224,7 @@ class DeltaMemAttention(nn.Module):
                     hidden_states,
                     reads,
                     read_mask,
+                    shared_qo_fusion_gate,
                 ),
                 attn_weights,
             )
@@ -4216,6 +4239,7 @@ class DeltaMemAttention(nn.Module):
                 delta_o,
                 reads,
                 read_mask,
+                fusion_gate=shared_qo_fusion_gate,
                 **kwargs,
             )
 
@@ -4302,6 +4326,7 @@ class DeltaMemAttention(nn.Module):
                 hidden_states,
                 reads,
                 read_mask,
+                shared_qo_fusion_gate,
             ),
             attn_weights,
         )
@@ -4618,7 +4643,7 @@ def collect_delta_mem_weight_stats(model: nn.Module) -> dict[str, float]:
         stats["delta_k_proj_norm_sum"] += module.delta_k_proj.float().norm().item()
         stats["delta_v_proj_norm_sum"] += module.delta_v_proj.float().norm().item()
         stats["delta_o_proj_norm_sum"] += module.delta_o_proj.float().norm().item()
-        if module.memory_fusion_mode == "content_gated_add":
+        if module.memory_fusion_mode in CONTENT_GATED_MEMORY_FUSION_MODES:
             stats["content_gated_fusion_modules"] += 1
             stats["memory_fusion_weight_norm_sum"] += (
                 module.memory_fusion_hidden_weight.float().norm().item()
@@ -4735,7 +4760,7 @@ def collect_delta_mem_output_ratio_stats(model: nn.Module) -> dict[str, float]:
     max_memory_residual_gain = -math.inf
     for _, module in iter_delta_mem_modules(model):
         num_modules += 1
-        if module.memory_fusion_mode == "content_gated_add":
+        if module.memory_fusion_mode in CONTENT_GATED_MEMORY_FUSION_MODES:
             content_gated_modules += 1
         if module.memory_fusion_placement == "attention_output":
             attention_output_fusion_modules += 1
@@ -5218,7 +5243,7 @@ def load_delta_mem_state_dict(
                 "memory_fusion_bias",
             }
             and isinstance(module, DeltaMemAttention)
-            and module.memory_fusion_mode == "content_gated_add"
+            and module.memory_fusion_mode in CONTENT_GATED_MEMORY_FUSION_MODES
         ):
             content_gate_missing.append(key)
     allowed_missing: set[str] = set()
@@ -5246,7 +5271,7 @@ def load_delta_mem_state_dict(
             and not extra
         ):
             warm_start_hint = (
-                " To warm-start these weights into content_gated_add, "
+                " To warm-start these weights into a content-gated fusion mode, "
                 "pass initialize_missing_content_gate=True."
             )
         raise ValueError(
@@ -5353,12 +5378,12 @@ def load_delta_mem_adapter(
         non_gated = [
             name
             for name, module in modules
-            if module.memory_fusion_mode != "content_gated_add"
+            if module.memory_fusion_mode not in CONTENT_GATED_MEMORY_FUSION_MODES
         ]
         if non_gated:
             raise ValueError(
                 "initialize_missing_content_gate=True requires every attached "
-                "Delta-Mem module to use content_gated_add; "
+                "Delta-Mem module to use a content-gated fusion mode; "
                 f"non_gated={non_gated[:8]}"
             )
         allowed_config_mismatches = tuple(
