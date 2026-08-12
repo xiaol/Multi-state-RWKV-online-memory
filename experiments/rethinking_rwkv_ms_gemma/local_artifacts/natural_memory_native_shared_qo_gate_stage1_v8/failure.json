@@ -1,0 +1,37 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_stage1_failure.v8",
+  "created_at": "2026-08-13T03:21:45+08:00",
+  "stage": "shared_qo_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "46e108d6475d9f5223010a19c44ddcfa0d7055eecc188eae04099b9452c4233d",
+  "progress": {
+    "optimizer_steps_completed": 91,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "input_binding_sha256": "5384044d5186df44e875ac380bb973286fe5295f7a05786b66075ed6f8748425",
+    "training_progress_sha256": "b53fb0e258d9a4181c7faaa738b5380f2b9d87a3a3765b253b994430c2a8359c"
+  },
+  "failure": {
+    "phase": "native_row_backward_before_step_92_optimizer_update",
+    "process_rank": 2,
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 48.0,
+    "gpu_free_mib": 5.38,
+    "pytorch_allocated_gib": 38.46,
+    "pytorch_reserved_unallocated_mib": 379.32,
+    "row_id": "native:scene:1262:287639295f2437b85bb9",
+    "cause": "Whole-episode recomputation eliminated activation host offload and passed the exact row from R12, but the standalone stress omitted fused-Adam moment tensors that are initialized after the first optimizer step. Those persistent GPU tensors consumed the final workspace needed by the step-92 worst scene row.",
+    "protected_splits_opened": []
+  },
+  "code_bindings": {
+    "runner_sha256": "ceca4cd4c2881595d342e7ea118146cf349d7f1664d810be148e492f5733adf9",
+    "delta_impl_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada"
+  },
+  "decision": "This is an execution failure, not a benchmark or model-quality result. Retain whole-episode recomputation and zero saved-activation host offload. During native forward and backward only, move the already-initialized fused-Adam state tensors to bounded CPU memory, return them byte-exactly to the owning GPU after the native graph is released, and stress the exact failure rows with initialized optimizer state before restarting from exact R12.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "4a7ec05016875a5e854327efa1bd2568b3fb53f4c5af3680c02a447478692bfa"
+  }
+}
