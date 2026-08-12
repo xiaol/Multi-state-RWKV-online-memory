@@ -1,0 +1,143 @@
+{
+  "evaluation_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_content_gate_stage1_probe_v1",
+  "online_memory_protocol": "write_then_read",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_analysis_without_receipt",
+    "payload_sha256": "373d8bc981964a0f2d84d625c8ab3d6f307eb813fdc9cfd9143404bf016aba6d"
+  },
+  "schema": "rwkv_ms_natural_memory_native_corrected_analysis.v1",
+  "tasks": {
+    "attribution-v3.2": {
+      "artifacts": {
+        "base_records_sha256": "50e18a8a048c59f75a1e67f8e0448be2191b046a2caeebc45780070436916a4d",
+        "manifest_sha256": "885a76febf006c2c38f57dde7fe458f341712a1f284028e69b0b3a1cbbf713ca",
+        "normal_records_sha256": "c8b35df2b3b4a86ac811eca8a48c0aa5245c43ea992de8ce82f4c194880e44db",
+        "strict_summary_sha256": "d157c3b3d33d9a83790d3ac91a6f1c9978c26c7b9ff57012ed52098de369d546"
+      },
+      "base": {
+        "accuracy": 0.5,
+        "correct": 2,
+        "coverage": 1.0,
+        "covered_only_accuracy": 0.5,
+        "primary_metric": 0.5,
+        "primary_metric_name": "format_recovered_accuracy",
+        "recovered_rows": 4,
+        "samples": 4,
+        "unrecovered_rows": 0
+      },
+      "kind": "attribution",
+      "normal": {
+        "accuracy": 0.5,
+        "correct": 2,
+        "coverage": 1.0,
+        "covered_only_accuracy": 0.5,
+        "primary_metric": 0.5,
+        "primary_metric_name": "format_recovered_accuracy",
+        "recovered_rows": 4,
+        "samples": 4,
+        "unrecovered_rows": 0
+      },
+      "normal_minus_base": 0.0,
+      "normal_to_base_elapsed_ratio": 1.490519631725815,
+      "raw_generation_disagreements": 4,
+      "recovered_prediction_disagreements": 0,
+      "rows": 4
+    },
+    "narrative-v3.2": {
+      "artifacts": {
+        "base_records_sha256": "7d682d095a762c5c4d92b236127ff017f6f99ce6cdc2c3154e07079e0bececb6",
+        "manifest_sha256": "7f8e7866be9a4fe21371288da5c0af2af221570acd505e7d1e7e2d7058672411",
+        "normal_records_sha256": "b9a6eb0eaa6914782dc8db506571bd5d274d7bd43839be2a0ad3847432e16f5b",
+        "strict_summary_sha256": "0171707e40ec68a500f5c011b5df51fd24624775816a4d66883e34c1b58375bb"
+      },
+      "base": {
+        "accuracy": 0.6739130434782609,
+        "correct_units": 93,
+        "coverage": 1.0,
+        "extra_unit_ids": 0,
+        "gold_units": 138,
+        "mean_sample_accuracy": 0.6788194444444444,
+        "missing_gold_unit_ids": 0,
+        "primary_metric": 0.6739130434782609,
+        "primary_metric_name": "format_recovered_unit_accuracy",
+        "recovered_rows": 4,
+        "samples": 4,
+        "unrecovered_rows": 0
+      },
+      "kind": "narrative",
+      "normal": {
+        "accuracy": 0.6956521739130435,
+        "correct_units": 96,
+        "coverage": 1.0,
+        "extra_unit_ids": 0,
+        "gold_units": 138,
+        "mean_sample_accuracy": 0.6986825980392157,
+        "missing_gold_unit_ids": 0,
+        "primary_metric": 0.6956521739130435,
+        "primary_metric_name": "format_recovered_unit_accuracy",
+        "recovered_rows": 4,
+        "samples": 4,
+        "unrecovered_rows": 0
+      },
+      "normal_minus_base": 0.021739130434782594,
+      "normal_to_base_elapsed_ratio": 4.883529279926392,
+      "raw_generation_disagreements": 4,
+      "recovered_prediction_disagreements": 4,
+      "rows": 4
+    },
+    "scene-v4-current": {
+      "artifacts": {
+        "base_records_sha256": "3cf22a4f3e0623a5862dcf14f4ccade92595396a279dcc1348bc568743e83734",
+        "manifest_sha256": "b58d32e6e2e495f0f90de47d12595a2ca37f1a8b4447b19c6066a7d4cec22eaa",
+        "normal_records_sha256": "e46a6e75058e35af17ee2003d7aec0f43a023577332ffe9a330dc8aa43609810",
+        "strict_summary_sha256": "8a57151c4f2c197a0cf1843488148e1c6c99d39b4ffa78f8aadb192b4fefd4ad"
+      },
+      "base": {
+        "coverage": 1.0,
+        "fn": 3,
+        "fp": 9,
+        "invalid_indices_counted_as_fp": 1,
+        "macro_sample_f1": 0.3333333333333333,
+        "micro_f1": 0.5,
+        "precision": 0.4,
+        "predicted_unique_indices": 15,
+        "primary_metric": 0.5,
+        "primary_metric_name": "format_recovered_micro_f1",
+        "recall": 0.6666666666666666,
+        "recovered_rows": 4,
+        "samples": 4,
+        "tp": 6,
+        "unrecovered_rows": 0
+      },
+      "kind": "scene",
+      "normal": {
+        "coverage": 1.0,
+        "fn": 8,
+        "fp": 3,
+        "invalid_indices_counted_as_fp": 0,
+        "macro_sample_f1": 0.25,
+        "micro_f1": 0.15384615384615385,
+        "precision": 0.25,
+        "predicted_unique_indices": 4,
+        "primary_metric": 0.15384615384615385,
+        "primary_metric_name": "format_recovered_micro_f1",
+        "recall": 0.1111111111111111,
+        "recovered_rows": 4,
+        "samples": 4,
+        "tp": 1,
+        "unrecovered_rows": 0
+      },
+      "normal_minus_base": -0.34615384615384615,
+      "normal_to_base_elapsed_ratio": 0.5091930217332978,
+      "raw_generation_disagreements": 4,
+      "recovered_prediction_disagreements": 3,
+      "rows": 4
+    }
+  },
+  "totals": {
+    "raw_generation_disagreement_fraction": 1.0,
+    "raw_generation_disagreements": 12,
+    "rows": 12
+  }
+}

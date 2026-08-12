@@ -1,0 +1,67 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_content_gate_stage1_decision.v1",
+  "created_at": "2026-08-12T11:05:00+08:00",
+  "candidate": "natural_memory_native_content_gate_stage1_v3",
+  "candidate_adapter_sha256": "83aed17ac01f9168eadd77fc7a92e1d31b7bd3d5150601ec2bfa5831eca7e7e8",
+  "training_result": {
+    "path": "../natural_memory_native_content_gate_stage1_v3/result.json",
+    "file_sha256": "3b60257b14b1e1d062191e0a526f61676829dfb8075f9bf2419b751133317499",
+    "receipt_payload_sha256": "e1b8c208a7291662d2ff1fad7f425ee94abbc62b50fa15a7f4c9bdbd43c00185"
+  },
+  "probe_result": {
+    "path": "result.json",
+    "file_sha256": "b03cc2618a34dd2c476b13fff35326e8ec570886394f4044f9eccabf110a6901",
+    "receipt_payload_sha256": "373d8bc981964a0f2d84d625c8ab3d6f307eb813fdc9cfd9143404bf016aba6d"
+  },
+  "selection_scope": "publisher-TRAIN-derived development first four rows per task",
+  "rows": 12,
+  "metrics": {
+    "attribution-v3.2": {
+      "base": 0.5,
+      "memory": 0.5,
+      "memory_minus_base": 0.0,
+      "coverage": 1.0,
+      "raw_generation_disagreements": 4
+    },
+    "narrative-v3.2": {
+      "base": 0.6739130434782609,
+      "memory": 0.6956521739130435,
+      "memory_minus_base": 0.021739130434782594,
+      "coverage": 1.0,
+      "raw_generation_disagreements": 4
+    },
+    "scene-v4-current": {
+      "base": 0.5,
+      "memory": 0.15384615384615385,
+      "memory_minus_base": -0.34615384615384615,
+      "coverage": 1.0,
+      "raw_generation_disagreements": 4
+    }
+  },
+  "gates": {
+    "coverage_at_least_0.95_all_tasks": true,
+    "raw_generation_disagreement_at_least_one_each_task": true,
+    "no_regression_all_tasks": false,
+    "strict_improvement_at_least_two_tasks": false,
+    "strictly_improved_tasks": 1
+  },
+  "outcome": "stop_content_gate_scene_semantic_regression",
+  "full_572_row_development_evaluation_authorized": false,
+  "stage2_960_updates_authorized": false,
+  "interpretation": "Gating only the direct O correction produced the first publisher-native semantic gain on narrative while preserving attribution, but the ungated Q correction left scene at the same regressed 0.154 score as the prior unbounded attention-output model.",
+  "next_direction": {
+    "name": "shared_q_o_content_gate",
+    "warm_start": "exact_r12_adapter_weights_not_any_native_stage1_adapter",
+    "memory_fusion_placement": "attention_output",
+    "memory_fusion_mode": "content_gated_qo_add",
+    "gate_initial_value": 0.1,
+    "gate_application": "multiply both delta_q and delta_o by the same per-token content gate",
+    "purpose": "Preserve base attention routing as well as base attention output on scene while retaining the narrative gain mechanism."
+  },
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_decision_without_receipt",
+    "payload_sha256": "354f09b0aeabb33a8bc6eae52d04b7841630a648c246744e27fd3347cb165ea4"
+  }
+}
