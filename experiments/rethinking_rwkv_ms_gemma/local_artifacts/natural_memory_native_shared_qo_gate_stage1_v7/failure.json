@@ -1,0 +1,39 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_shared_qo_gate_stage1_failure.v7",
+  "created_at": "2026-08-13T02:10:04+08:00",
+  "stage": "shared_qo_gate_stage1",
+  "status": "execution_failed_no_model_decision",
+  "protocol_payload_sha256": "622db4f8dad33addf6f33073e3babe3d8a170c7c26365e5d77834424a430c20e",
+  "progress": {
+    "optimizer_steps_completed": 5,
+    "updates_requested": 192,
+    "last_completed_update_kind": "synthetic",
+    "adapter_written": false,
+    "step2_rank0_cumulative_offloaded_tensors": 11084,
+    "step2_rank0_cumulative_offloaded_bytes": 124201763840,
+    "input_binding_sha256": "3ceec3e0c053e1df31701b9f06742d78517d3ff3426c31cbfbc54d3a89927ba9",
+    "training_progress_sha256": "a17ca2beaab60b7484e61c009f3b852d659b15520c6a3001cf05fdcb6af074ca"
+  },
+  "failure": {
+    "phase": "native_row_processing_before_step_6_optimizer_update",
+    "process_rank_killed": 3,
+    "exception_type": "linux_global_oom_kill",
+    "kernel_event_at": "2026-08-13T02:10:04+08:00",
+    "killed_pid": 1602271,
+    "killed_process": "python3.12",
+    "killed_rank_anon_rss_kib": 68315176,
+    "rank_rss_pages": [14502791, 16180116, 15259257, 17081027],
+    "cause": "The 4 MiB saved-activation threshold cleared GPU pressure, but CPU copies retained or cached across serialized native rows raised every rank to roughly 57-67 GiB RSS and exhausted the 251 GiB host before step 6 completed.",
+    "protected_splits_opened": []
+  },
+  "code_bindings": {
+    "runner_sha256": "7efd0503e80a92879b1fb51c4023fc4812c38225e9164cf6d88282f57e4bd1ed",
+    "delta_impl_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada"
+  },
+  "decision": "This is an execution failure, not a benchmark or model-quality result. Do not lower the offload threshold or retry broad host offload. Replace saved-tensor CPU offload with exact targeted recomputation or another execution path with bounded GPU and host peaks, stress-test the exact step-2, step-10, and step-92 rows on four ranks, then restart from the exact R12 adapter.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "ef9475da8d5aec727fa7aab3473b2bba8598389ecff09f0a70c9255e71037760"
+  }
+}
