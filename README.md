@@ -67,23 +67,34 @@ micro-F1 from 0.2844 to 0.3190 and held-out development micro-F1 from 0.3093 to
 0.3103. That held-out gain is real but only +0.0011, so this router is a future
 replication candidate and does not replace the accepted validation decoder.
 
+A subsequent preregistered label-free state-retrieval study also failed its
+materiality gate. Four rules selected external states from a 1,443-row
+TRAIN-derived bank. Deterministic hash-random state won the 289-row fit screen,
+improving 0.2795 to 0.3093 micro-F1, but improved the exactly-once 68-row
+intervention holdout only from 0.3333 to 0.3352 (+0.0019, below the required
++0.005). Semantic character-TF-IDF and token-length retrieval did not win. This
+points to weak generic state-induced regularization, not reliable semantic
+state retrieval.
+
 Evidence:
 
 - [Locked causal/router protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_causal_router_protocol_v1.json)
 - [Signed causal/router decision](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/decision.json)
 - [Signed result and raw-artifact hashes](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/result.json)
+- [Signed state-retrieval failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_state_retrieval_v1/decision.json)
+- [State-retrieval fit and holdout receipts](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_state_retrieval_v1/holdout_result.json)
 
 ### Recommended Next Boundary
 
-The donor result points beyond static boundary fusion toward deployable state
-selection. On publisher-TRAIN-derived data only, preregister a state-retrieval
-study comparing row-correct, random-donor, write-length-matched donor, and
-read-embedding-nearest donor states. Any selector must operate without gold
-labels at inference and pass once on a fresh held-out TRAIN-derived partition.
-In parallel, replicate `memory_plus_small_base_2` unchanged and add
-negative-state contrast plus state dropout during a fresh training run. Keep the
-accepted validation decoder immutable; do not open publisher test or Hard32
-until a materially stronger candidate independently replicates.
+The next boundary is memory-strength calibration. Screen fixed correct-state
+fusion strengths between the base-like zero correction and the current
+full-strength memory correction, select on a hash-defined TRAIN-derived fit
+partition, and evaluate the selected strength exactly once on an intervention
+holdout. If that fails, move upstream: add negative-state contrast plus state
+dropout during a fresh training run so the adapter must distinguish row-correct
+memory from generic state regularization. Keep the accepted validation decoder
+immutable; do not open publisher test or Hard32 until a materially stronger
+candidate independently replicates.
 
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism

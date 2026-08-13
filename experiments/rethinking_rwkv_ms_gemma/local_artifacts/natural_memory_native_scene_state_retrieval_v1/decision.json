@@ -1,0 +1,59 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_state_retrieval_decision.v1",
+  "created_at": "2026-08-14T02:20:00+08:00",
+  "protocol_payload_sha256": "efca688c361cfb28e8f9a0cc107bd2d1714032e61c2eec903348ad3d9b19f3cf",
+  "amendment_payload_sha256": "db2c4e32d9aaf7a0b6a66314f3071dbb63176716fc1c0e590beb2465fe6c28d1",
+  "mapping_payload_sha256": "cfcb94dffa30199ef334cdc8f6241aaa547f9d7d9287bacd7ffb45dfa75c9902",
+  "phase_one": {
+    "result_file_sha256": "82c94dfcd8206a29f8e5a486063d614e3c3a70a39aa9a3183fb899185ce43cb5",
+    "result_receipt_payload_sha256": "ae526c8908c1fa1ea72255005de63b7a2e419e6480a229e5882a451b1b5a5b82",
+    "selection_file_sha256": "5e41650a0de42aaff52128cd9cf75113106b33cf9cc805ba72f510fe6e33d3c2",
+    "selection_receipt_payload_sha256": "9bfcde7dbbc7502192fd91970057ba5774eddb9bfd631a653d16dbcb9f3fa6b8",
+    "selected_method": "hash_random",
+    "correct_state_micro_f1": 0.2794759825327511,
+    "selected_micro_f1": 0.30930930930930933,
+    "selected_minus_correct_state": 0.029833326776558255,
+    "passed": true
+  },
+  "holdout": {
+    "result_file_sha256": "b82b4df78da26dfbbd75b09ea73f517f128a534ce4c0af73284343ea83bd8eeb",
+    "result_receipt_payload_sha256": "0233cc936460f394435f86fd4b3bcf61c22387d17db2257890a181b636ef03e2",
+    "method": "hash_random",
+    "rows": 68,
+    "correct_state_micro_f1": 0.3333333333333333,
+    "selected_micro_f1": 0.33519553072625696,
+    "selected_minus_correct_state": 0.001862197392923648,
+    "required_minus_correct_state": 0.005,
+    "paired_output_change_fraction_vs_correct_state": 0.25,
+    "passed": false
+  },
+  "outcome": "reject_label_free_external_state_retrieval_materiality",
+  "interpretation": "External structured state can perturb the decoder beneficially, but the fit-selected deterministic random state improved held-out micro-F1 by only 0.00186 over row-correct memory, below the preregistered 0.005 materiality floor. Character TF-IDF and token-length retrieval did not win phase one. The evidence favors generic state-induced regularization or diversity over semantic state retrieval, but neither effect is strong enough to change the decoder.",
+  "execution": {
+    "hf_endpoint": "https://hf-mirror.com",
+    "gpus": 4,
+    "phase_one_generations": 1156,
+    "holdout_generations": 68,
+    "holdout_methods_generated": ["hash_random"],
+    "runtime_errors": 0
+  },
+  "claim_boundary": {
+    "accepted_publisher_validation_decoder_changed": false,
+    "accepted_publisher_validation_result_changed": false,
+    "new_native_benchmark_claim": false,
+    "publisher_validation_predictions_opened": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "protected_splits_opened": []
+  },
+  "next_direction": {
+    "immediate": "Preregister a fixed-strength correct-state memory screen between zero and full correction to test whether the scene precision-recall tradeoff is a calibration problem rather than a state-selection problem.",
+    "training_if_scale_fails": "Train with negative-state contrast and state dropout so the adapter learns to reward row-correct memory and suppress generic state regularization.",
+    "protected_split_rule": "Use publisher-TRAIN-derived development only; keep the accepted validation decoder immutable and keep publisher test and Hard32 unopened."
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_decision_without_receipt",
+    "payload_sha256": "70e027ad9e5d22f02d68a0bc765171b11cf1ee3b4a1b1072ff2a62bc18dfaeed"
+  }
+}
