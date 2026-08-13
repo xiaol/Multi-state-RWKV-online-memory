@@ -1,0 +1,264 @@
+{
+  "analyzer_sha256": "b0f21a3bf4bb457a8745bf774ec1e6897f4f0b0c851594dbd5815de9a44d50a3",
+  "endpoint_output_change_rows": 4,
+  "gates": {
+    "all_generations_format_recover": true,
+    "controller_attached_to_42_layers": true,
+    "controller_head_calls_include_q_and_o": true,
+    "passed": true,
+    "scale_0_output_differs_from_scale_1_on_at_least_one_row": true,
+    "scale_0p5_output_differs_from_at_least_one_endpoint_on_at_least_one_row": true
+  },
+  "midpoint_output_change_rows": 4,
+  "passed": true,
+  "phase": "preflight",
+  "predictions": {
+    "scale_0p0": {
+      "0": [
+        3
+      ],
+      "1": [
+        5,
+        6
+      ],
+      "2": [
+        7,
+        8
+      ],
+      "3": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    "scale_0p5": {
+      "0": [],
+      "1": [
+        5,
+        16
+      ],
+      "2": [
+        6,
+        7
+      ],
+      "3": []
+    },
+    "scale_1p0": {
+      "0": [],
+      "1": [
+        5,
+        16
+      ],
+      "2": [
+        7
+      ],
+      "3": []
+    }
+  },
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+  "provenance": {
+    "input_bindings": [
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-0/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dtype": "bfloat16",
+          "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "phase": "preflight",
+          "preflight_payload_sha256": null,
+          "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+          "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+          "runtime_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+          "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_input.v2",
+          "selection_payload_sha256": null,
+          "shard_index": 0,
+          "strengths": {
+            "scale_0p0": 0.0,
+            "scale_0p5": 0.5,
+            "scale_1p0": 1.0
+          },
+          "world_size": 4
+        },
+        "sha256": "71ab4132a5f3327f7fc50bbd8fdbddca088c581f891e464c6e5fbcb4a00194b1"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-1/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dtype": "bfloat16",
+          "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "phase": "preflight",
+          "preflight_payload_sha256": null,
+          "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+          "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+          "runtime_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+          "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_input.v2",
+          "selection_payload_sha256": null,
+          "shard_index": 1,
+          "strengths": {
+            "scale_0p0": 0.0,
+            "scale_0p5": 0.5,
+            "scale_1p0": 1.0
+          },
+          "world_size": 4
+        },
+        "sha256": "8603c17af5e30d15678c32100cf89724a5d9690b7a49f99adce5273ed2609616"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-2/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dtype": "bfloat16",
+          "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "phase": "preflight",
+          "preflight_payload_sha256": null,
+          "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+          "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+          "runtime_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+          "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_input.v2",
+          "selection_payload_sha256": null,
+          "shard_index": 2,
+          "strengths": {
+            "scale_0p0": 0.0,
+            "scale_0p5": 0.5,
+            "scale_1p0": 1.0
+          },
+          "world_size": 4
+        },
+        "sha256": "363a7edf3f42f869b8c777e830c9db253b735ba361a4038ebd2636d86ed6ead5"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-3/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dtype": "bfloat16",
+          "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "phase": "preflight",
+          "preflight_payload_sha256": null,
+          "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+          "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+          "runtime_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+          "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_input.v2",
+          "selection_payload_sha256": null,
+          "shard_index": 3,
+          "strengths": {
+            "scale_0p0": 0.0,
+            "scale_0p5": 0.5,
+            "scale_1p0": 1.0
+          },
+          "world_size": 4
+        },
+        "sha256": "ee4589a739ad6e62e2398ac69ce74971b878f30ef561a00588494f1dc229f23b"
+      }
+    ],
+    "outputs": {
+      "scale_0p0": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-0/scale_0p0.jsonl",
+          "rows": 1,
+          "sha256": "89d2922913343692543b39bbbaaaa4b9bcccc655e2ef05db720a3201a7c216ef"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-1/scale_0p0.jsonl",
+          "rows": 1,
+          "sha256": "32e9e592af64beed6d0b615bd768330f7bafeeb2f42b8e2fac2e17a1284d7f04"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-2/scale_0p0.jsonl",
+          "rows": 1,
+          "sha256": "1bb46135e5fb1e557ff6cc1137fc0bacd034c63c052654b871142ada4eef6b73"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-3/scale_0p0.jsonl",
+          "rows": 1,
+          "sha256": "87b32e747a8d696167808238f1f4812c41519ba256c3377deb1e556855bf2d36"
+        }
+      ],
+      "scale_0p5": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-0/scale_0p5.jsonl",
+          "rows": 1,
+          "sha256": "ac7a341f313f2aa1dc4cfe43511b6f3f18cf96ebf25682ce242d90ab5468692a"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-1/scale_0p5.jsonl",
+          "rows": 1,
+          "sha256": "47cc0226f90866c6e5388568aa6666ae2cc79f843cfd6a204e5d293b458fb5ce"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-2/scale_0p5.jsonl",
+          "rows": 1,
+          "sha256": "4886102be9964e5a72a63fa5f20bf816e1f391374e7c99f3ea17b86fa8bb1471"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-3/scale_0p5.jsonl",
+          "rows": 1,
+          "sha256": "2dcdc6c408cf5a325085136e89cb53d70cf024a90f8d7c694c804fade770475f"
+        }
+      ],
+      "scale_1p0": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-0/scale_1p0.jsonl",
+          "rows": 1,
+          "sha256": "07445a1c0b9f373be596b0f24bcf16c7aee98070e26da7f36b3efa7af1296141"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-1/scale_1p0.jsonl",
+          "rows": 1,
+          "sha256": "664707be2672c9310ac0e9738b060b9137a3ff76aedadbfd7c94c73cfc469161"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-2/scale_1p0.jsonl",
+          "rows": 1,
+          "sha256": "f66d7574b1465fd4311ffad25453ffed5f1c121c9e2e726b0d82c80a6be40feb"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/preflight/shard-3/scale_1p0.jsonl",
+          "rows": 1,
+          "sha256": "6d3000591d47234893d8ada3ff579fe0608df66b07c7d12a1dc83ab977e8f98f"
+        }
+      ]
+    }
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_strength_controller_preflight_without_receipt",
+    "payload_sha256": "e5d93a8068ce08f0b1e470731ec74ab3ca992ff315f2e7fe630ce212b43ee729"
+  },
+  "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+  "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_preflight.v2",
+  "source_indices": [
+    0,
+    1,
+    2,
+    3
+  ]
+}
