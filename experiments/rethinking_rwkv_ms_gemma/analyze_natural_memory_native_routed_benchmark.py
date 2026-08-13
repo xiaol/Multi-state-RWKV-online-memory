@@ -58,6 +58,48 @@ def read_records(path: Path) -> list[dict[str, Any]]:
     return records
 
 
+def validate_input_bindings(root: Path) -> list[dict[str, Any]]:
+    bindings: list[dict[str, Any]] = []
+    shared: dict[str, Any] | None = None
+    expected_runner_sha256 = sha256_file(
+        SCRIPT_DIR / "run_natural_memory_native_routed_benchmark.py"
+    )
+    expected_likelihood_sha256 = sha256_file(
+        SCRIPT_DIR / "diagnose_native_attribution_candidate_likelihood.py"
+    )
+    for shard_index in range(4):
+        path = root / f"shard-{shard_index}" / "input_binding.json"
+        binding = json.loads(path.read_text(encoding="utf-8"))
+        expected = {
+            "schema": "rwkv_ms_natural_memory_native_routed_input.v1",
+            "protocol_payload_sha256": runner.PROTOCOL_PAYLOAD_SHA256,
+            "memory_adapter_sha256": runner.MEMORY_ADAPTER_SHA256,
+            "dataset_receipt_payload_sha256": (
+                runner.NATIVE_DATASET_RECEIPT_SHA256
+            ),
+            "shard_index": shard_index,
+            "world_size": 4,
+            "runner_sha256": expected_runner_sha256,
+            "likelihood_runner_sha256": expected_likelihood_sha256,
+        }
+        if any(binding.get(key) != value for key, value in expected.items()):
+            raise ValueError(f"Routed input binding differs: {path}")
+        comparable = dict(binding)
+        comparable.pop("shard_index")
+        if shared is None:
+            shared = comparable
+        elif comparable != shared:
+            raise ValueError("Routed input bindings differ across shards")
+        bindings.append(
+            {
+                "path": str(path.resolve()),
+                "sha256": sha256_file(path),
+                "payload": binding,
+            }
+        )
+    return bindings
+
+
 def collect_condition(
     root: Path,
     *,
@@ -101,9 +143,13 @@ def collect_condition(
     return records, artifacts
 
 
-def load_gold(dataset_root: Path, task: str) -> dict[int, Mapping[str, Any]]:
+def load_gold(
+    dataset_root: Path,
+    task: str,
+) -> tuple[dict[int, Mapping[str, Any]], dict[int, str]]:
     path = dataset_root / str(runner.TASKS[task]["path"])
     gold: dict[int, Mapping[str, Any]] = {}
+    row_hashes: dict[int, str] = {}
     with path.open("r", encoding="utf-8") as handle:
         for index, raw_line in enumerate(line for line in handle if line.strip()):
             if index < runner.SELECTION_ROWS:
@@ -113,7 +159,24 @@ def load_gold(dataset_root: Path, task: str) -> dict[int, Mapping[str, Any]]:
             if not isinstance(parsed, Mapping):
                 raise ValueError(f"Invalid routed benchmark gold: {path}:{index}")
             gold[index] = parsed
-    return gold
+            row_hashes[index] = hashlib.sha256(
+                raw_line.rstrip("\n").encode("utf-8")
+            ).hexdigest()
+    return gold, row_hashes
+
+
+def validate_record_row_hashes(
+    records: Mapping[int, Mapping[str, Any]],
+    row_hashes: Mapping[int, str],
+    *,
+    task: str,
+    condition: str,
+) -> None:
+    if set(records) != set(row_hashes) or any(
+        records[index].get("row_sha256") != row_hashes[index]
+        for index in row_hashes
+    ):
+        raise ValueError(f"Routed source row hashes differ for {task}:{condition}")
 
 
 def attribution_metrics(
@@ -228,20 +291,39 @@ def main(argv: Sequence[str] | None = None) -> int:
     if output.exists():
         raise ValueError(f"Routed benchmark output must be fresh: {output}")
 
+    bindings = validate_input_bindings(root)
     metrics: dict[str, Any] = {}
-    provenance: dict[str, Any] = {}
+    provenance: dict[str, Any] = {"input_bindings": bindings}
     for task in runner.TASKS:
-        gold = load_gold(dataset_root, task)
+        gold, row_hashes = load_gold(dataset_root, task)
         base, base_artifacts = collect_condition(root, task=task, condition="base")
+        validate_record_row_hashes(
+            base,
+            row_hashes,
+            task=task,
+            condition="base",
+        )
         if task == "attribution":
             memory, memory_artifacts = collect_condition(
                 root, task=task, condition="memory"
+            )
+            validate_record_row_hashes(
+                memory,
+                row_hashes,
+                task=task,
+                condition="memory",
             )
             base_metrics = attribution_metrics(base, gold)
             routed_metrics = attribution_metrics(memory, gold)
         elif task == "narrative":
             memory, memory_artifacts = collect_condition(
                 root, task=task, condition="memory"
+            )
+            validate_record_row_hashes(
+                memory,
+                row_hashes,
+                task=task,
+                condition="memory",
             )
             base_metrics = narrative_metrics(base, gold)
             routed_metrics = narrative_metrics(

@@ -1,0 +1,57 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_routed_benchmark_decision.v1",
+  "created_at": "2026-08-13T08:18:54+08:00",
+  "protocol_payload_sha256": "d55d7e785315a6dedc7b4710ef452eb0dffd05ce6a4decec941feec290e50b3a",
+  "selection_result_receipt_sha256": "d3944ec13407066f26dadbed34b560ff4920eff9e1ce1f9c15b3fb8adc49c892",
+  "benchmark_result": {
+    "path": "result.json",
+    "file_sha256": "36549b036f104bc665d367b65668aef80ad94b98bdf5c63d441cb0d6ef9b422f",
+    "receipt_payload_sha256": "26a2248976ff009804744a19a738fd2124061cf6d909bdc74c9e7c040098c091"
+  },
+  "scope": {
+    "split": "publisher-TRAIN-derived development untouched remainder",
+    "rows": 560,
+    "selection_rows_excluded_per_task": 4,
+    "protected_splits_opened": []
+  },
+  "metrics": {
+    "attribution": {
+      "base": 0.8426966292134831,
+      "routed": 0.6966292134831461,
+      "routed_minus_base": -0.146067415730337
+    },
+    "narrative": {
+      "base": 0.5847364968292149,
+      "routed": 0.6006997594576864,
+      "routed_minus_base": 0.015963262628471475
+    },
+    "scene": {
+      "base": 0.19090499774876182,
+      "routed": 0.19090499774876182,
+      "routed_minus_base": 0.0
+    }
+  },
+  "gates": {
+    "coverage_at_least_0.95_all_tasks": true,
+    "no_regression_all_tasks": false,
+    "strict_improvement_at_least_two_tasks": false,
+    "strictly_improved_tasks": 1,
+    "passed": false
+  },
+  "outcome": "reject_routed_decoder_v1_attribution_selection_overfit",
+  "interpretation": "The selection probe's attribution likelihood gain did not generalize: memory lost 13 of 89 attribution rows relative to frozen Gemma. The preregistered narrative label-pair router did generalize, improving 73 of 4573 units net, while exact scene fallback preserved the base score. This is one valid task gain, not a benchmark success.",
+  "publisher_test_authorized": false,
+  "hard32_authorized": false,
+  "next_direction": {
+    "retain": "narrative pair router base=narration,memory=scene_description",
+    "revert": "attribution memory candidate likelihood; use exact frozen-base attribution unless an independently fit confidence router passes held-out development",
+    "develop": "scene candidate reranking or boundary-level fusion on the now-completed TRAIN-derived development outputs",
+    "next_native_goal": "lock a two-task routed decoder on TRAIN-derived development, then run the untouched publisher validation split once against frozen Gemma",
+    "protected_split_rule": "do not tune on publisher validation, test, or Hard32"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_decision_without_receipt",
+    "payload_sha256": "3805d9d2cee75d24588e24d6ab84c5901bb536405c0a18d1c4912f3dd2887742"
+  }
+}
