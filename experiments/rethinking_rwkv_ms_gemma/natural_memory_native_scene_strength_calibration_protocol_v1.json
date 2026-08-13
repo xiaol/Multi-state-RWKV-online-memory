@@ -1,0 +1,86 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_strength_calibration_protocol.v1",
+  "created_at": "2026-08-14T02:35:00+08:00",
+  "objective": "Determine whether fixed correct-state memory strength can recover scene recall while retaining the false-positive reduction of the full-strength accepted memory decoder.",
+  "status": "preregistered_before_intermediate-strength_generation_or_scoring",
+  "authorization": {
+    "state_retrieval_decision_receipt_sha256": "70e027ad9e5d22f02d68a0bc765171b11cf1ee3b4a1b1072ff2a62bc18dfaeed",
+    "development_only": true,
+    "publisher_validation_predictions_allowed_as_input": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false
+  },
+  "claim_boundary": "This post-validation TRAIN-derived development study may nominate one fixed strength for fresh replication. It cannot alter the accepted publisher-validation decoder or create a new native benchmark claim.",
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "memory_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+    "saved_memory_fusion_placement": "attention_output",
+    "saved_memory_fusion_residual_scale": 1.0,
+    "saved_memory_fusion_residual_scale_max": 1.0,
+    "base_model_frozen": true,
+    "memory_adapter_frozen": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "greedy_generation": true,
+    "max_new_tokens": 128,
+    "batch_size": 1,
+    "write_then_read_correct_state": true,
+    "state_reset_every_strength_row": true,
+    "read_phase_writes_disabled": true,
+    "world_size": 4
+  },
+  "intervention": {
+    "definition": "For every wrapped layer, set memory_fusion_residual_scale to the candidate value before write-then-read generation. For attention_output placement this multiplies the fused memory correction before adding it to the frozen attention output.",
+    "candidate_strengths": [0.125, 0.25, 0.5, 0.75],
+    "full_strength_baseline": 1.0,
+    "zero_strength_reference": 0.0,
+    "full_strength_generation": "Reuse signed correct-state memory outputs from natural_memory_native_routed_benchmark_v1_r2.",
+    "zero_strength_generation": "Reuse signed zero-state/base-like outputs from natural_memory_native_scene_causal_router_v1.",
+    "no_state_content_or_router_change": true
+  },
+  "data_scope": {
+    "target_file": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_development.jsonl",
+    "target_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "target_source_indices_excluded": [0, 1, 2, 3],
+    "reported_target_rows": 357,
+    "partition_rule": "Compute SHA-256('rwkv-ms-scale-v1:' + target row SHA-256); holdout iff the unsigned integer from the first eight hex characters modulo five equals zero, otherwise fit.",
+    "fit_rows": 284,
+    "fit_partition_payload_sha256": "902baf8f8af6552765514e17545b4234266eb89f31ca100dae3866eba30bcc99",
+    "holdout_rows": 73,
+    "holdout_partition_payload_sha256": "0c2a3a3ee8dfd6d1bb1077b2b690289e734241476410816fd09247f0a8d2a655",
+    "all_partition_payload_sha256": "ac9c20c2d0641e31bf98210a13d416cc8a64d65c47c96c7fb272889d14570eb1",
+    "generation_sharding": "target source index modulo four"
+  },
+  "two_phase_stopping_rule": {
+    "phase_one": "Generate all four intermediate strengths for fit targets only. Holdout targets are forbidden.",
+    "selection_candidates": "The four generated intermediate strengths plus the reused full-strength 1.0 baseline.",
+    "selection_ordering": "micro-F1 descending, precision descending, recall descending, strength ascending",
+    "phase_one_gate": {
+      "selected_is_intermediate_strength": true,
+      "coverage_floor": 0.95,
+      "selected_minus_full_strength_micro_f1_minimum": 0.005,
+      "selected_minus_zero_strength_micro_f1_minimum": 0.02,
+      "paired_output_change_fraction_vs_full_strength_minimum": 0.05
+    },
+    "phase_two_authorization": "Only if every phase-one gate passes, write a signed selection.json naming exactly one intermediate strength and implementation hashes before generating holdout targets.",
+    "phase_two": "Generate only the signed selected strength for the 73 holdout targets, exactly once.",
+    "phase_two_gate": {
+      "coverage_floor": 0.95,
+      "selected_minus_full_strength_micro_f1_minimum": 0.005,
+      "selected_minus_zero_strength_micro_f1_minimum": 0.02,
+      "paired_output_change_fraction_vs_full_strength_minimum": 0.05
+    },
+    "retuning_after_holdout": false
+  },
+  "stopping_rule": "Archive, commit, and push phase one and any authorized phase two whether pass or fail. Never read publisher-validation predictions, publisher test, or Hard32. Never generate holdout strengths before selection.json is signed and pushed.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "06ed3ac29ce73863b1b760b1c542d39b18cd9618f2b7ceb48bae858ff81b0989"
+  }
+}
