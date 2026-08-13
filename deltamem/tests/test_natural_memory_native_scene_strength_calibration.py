@@ -76,3 +76,15 @@ def test_strength_calibration_holdout_requires_signed_selection(tmp_path) -> Non
         assert "receipt is missing" in str(error)
     else:
         raise AssertionError("Unsigned strength holdout selection was accepted")
+
+
+def test_attention_output_scale_is_not_applied_by_runtime() -> None:
+    source = (
+        runner.PROJECT_ROOT / "deltamem/core/delta_impl.py"
+    ).read_text(encoding="utf-8")
+    function = source.split("    def _fuse_delta_o_output(", 1)[1].split(
+        "    def _add_delta_o_to_reference(", 1
+    )[0]
+
+    assert "return self._add_delta_o_to_reference(" in function
+    assert "memory_fusion_residual_scale" not in function

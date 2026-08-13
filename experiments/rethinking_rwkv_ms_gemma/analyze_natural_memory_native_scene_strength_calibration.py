@@ -396,7 +396,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.selection_output is None:
             raise ValueError("Passing strength calibration requires --selection-output")
         write_selection(args.selection_output.expanduser().resolve(), result_path=output, result=result)
-    elif args.selection_output is not None:
+    elif args.phase == "holdout" and args.selection_output is not None:
         raise ValueError("Strength-calibration selection output is unauthorized")
     print(
         json.dumps(

@@ -1,0 +1,65 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_strength_calibration_decision.v1",
+  "created_at": "2026-08-14T03:25:00+08:00",
+  "protocol_payload_sha256": "06ed3ac29ce73863b1b760b1c542d39b18cd9618f2b7ceb48bae858ff81b0989",
+  "result": {
+    "file_sha256": "c0597bca66628e34b5c20170130f2b052a1b36612863dc98119bda41f7496a5a",
+    "receipt_payload_sha256": "a53a841960fc13d7abec4f3c33109f25fd15c3c78b5d70b53dbdf37dc8aa9fc9",
+    "analyzer_exit_code": 2,
+    "selection_written": false,
+    "holdout_opened": false
+  },
+  "execution": {
+    "hf_endpoint": "https://hf-mirror.com",
+    "gpus": 4,
+    "fit_rows": 284,
+    "candidate_strengths": [0.125, 0.25, 0.5, 0.75],
+    "generations": 1136,
+    "runtime_errors": 0,
+    "uniform_settings_digests": {
+      "scale_0p125": "a76e93ec98369f8fc54abc4e827de35678d564f34086343d209a038a9879aee3",
+      "scale_0p25": "8ea450e14d3099a4bf505aba4beb7e9a057c91d3f355f70a7d43fa62ab4d02dc",
+      "scale_0p5": "a4124008f9940880363af885c7a13648987d50a77c449691a1f1e6060f90308b",
+      "scale_0p75": "9ea2d6dae35d0a9d3d0943fd3b067265cf8cf6002a13d0bd8ccd02dcba7c6301"
+    }
+  },
+  "metrics": {
+    "zero_strength_micro_f1": 0.19803126809496235,
+    "full_strength_micro_f1": 0.29148629148629146,
+    "scale_0p125_micro_f1": 0.29148629148629146,
+    "scale_0p25_micro_f1": 0.29148629148629146,
+    "scale_0p5_micro_f1": 0.29148629148629146,
+    "scale_0p75_micro_f1": 0.29148629148629146,
+    "paired_output_change_fraction_each_intermediate_vs_full": 0.0
+  },
+  "outcome": "reject_v1_intervention_field_not_applied_for_attention_output",
+  "root_cause": {
+    "saved_memory_fusion_placement": "attention_output",
+    "runtime_file_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+    "runtime_behavior": "_fuse_delta_o_output calls _add_delta_o_to_reference for attention_output placement; memory_fusion_residual_scale is used only by post-attention norm-hook placements.",
+    "interpretation": "All configured scales were present on all 42 modules but were behaviorally inert. This study does not test the scientific strength-calibration hypothesis and must not be interpreted as evidence that amplitude is irrelevant."
+  },
+  "analysis_incident": {
+    "initial_behavior": "The analyzer wrote the valid failing result, then raised because a declared selection-output path was present even though no selection file was written.",
+    "resolution": "Withhold selection silently on fit failure and return exit code 2; add regression coverage for the inert attention_output scale path.",
+    "metrics_changed": false,
+    "raw_generations_changed": false
+  },
+  "claim_boundary": {
+    "accepted_publisher_validation_decoder_changed": false,
+    "new_native_benchmark_claim": false,
+    "publisher_validation_predictions_opened": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "protected_splits_opened": []
+  },
+  "next_direction": {
+    "immediate": "Repeat strength calibration with the existing eval-only memory-delta controller, multiplying every Q/O raw memory delta before fusion. Bind the controller implementation and output-change smoke before the full run.",
+    "fallback": "If effective Q/O scaling fails held-out materiality, train with negative-state contrast and state dropout."
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_decision_without_receipt",
+    "payload_sha256": "32c9718407a50b0875450c60ff34d20ae9729f0d48783b0a5761a8322704ba9c"
+  }
+}
