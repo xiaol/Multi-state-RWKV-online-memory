@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import ast
+import json
 import math
 
 from experiments.rethinking_rwkv_ms_gemma import (
     prepare_natural_memory_native_scene_state_retrieval as retrieval,
+)
+from experiments.rethinking_rwkv_ms_gemma import (
+    analyze_natural_memory_native_scene_state_retrieval as analysis,
+)
+from experiments.rethinking_rwkv_ms_gemma import (
+    run_natural_memory_native_scene_state_retrieval as runner,
 )
 
 
@@ -24,6 +31,59 @@ def test_state_retrieval_mapper_has_no_json_literal_names() -> None:
     assert not {
         node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
     } & {"false", "true", "null"}
+
+
+def test_state_retrieval_executables_have_no_json_literal_names() -> None:
+    for module in (runner, analysis):
+        tree = ast.parse(module.Path(module.__file__).read_text(encoding="utf-8"))
+        assert not {
+            node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
+        } & {"false", "true", "null"}
+
+
+def test_state_retrieval_runner_hash_is_bound() -> None:
+    assert runner.sha256_file(runner.Path(runner.__file__)) == analysis.EXPECTED_RUNNER_SHA256
+
+
+def test_state_retrieval_holdout_requires_signed_selection(tmp_path) -> None:
+    selection = tmp_path / "selection.json"
+    selection.write_text("{}\n", encoding="utf-8")
+
+    try:
+        runner.validate_selection(selection, runner_sha256=analysis.EXPECTED_RUNNER_SHA256)
+    except ValueError as error:
+        assert "receipt is missing" in str(error)
+    else:
+        raise AssertionError("Unsigned holdout selection was accepted")
+
+
+def test_state_retrieval_selection_binds_single_method(tmp_path) -> None:
+    analyzer_sha256 = runner.sha256_file(
+        runner.SCRIPT_DIR / "analyze_natural_memory_native_scene_state_retrieval.py"
+    )
+    value = {
+        "schema": runner.SELECTION_SCHEMA,
+        "protocol_payload_sha256": retrieval.PROTOCOL_PAYLOAD_SHA256,
+        "amendment_payload_sha256": retrieval.AMENDMENT_PAYLOAD_SHA256,
+        "mapping_payload_sha256": runner.MAPPING_PAYLOAD_SHA256,
+        "runner_sha256": analysis.EXPECTED_RUNNER_SHA256,
+        "analyzer_sha256": analyzer_sha256,
+        "selected_method": "char_tfidf_nearest",
+        "phase_one_passed": True,
+        "holdout_authorized": True,
+    }
+    value["receipt"] = {
+        "payload_sha256": runner.canonical_sha256(value),
+    }
+    selection = tmp_path / "selection.json"
+    selection.write_text(json.dumps(value), encoding="utf-8")
+
+    loaded = runner.validate_selection(
+        selection,
+        runner_sha256=analysis.EXPECTED_RUNNER_SHA256,
+    )
+
+    assert loaded["selected_method"] == "char_tfidf_nearest"
 
 
 def test_state_retrieval_partition_hashes_are_bound() -> None:
