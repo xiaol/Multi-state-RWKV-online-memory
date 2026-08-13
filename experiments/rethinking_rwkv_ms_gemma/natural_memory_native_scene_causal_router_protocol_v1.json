@@ -1,0 +1,143 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_causal_router_protocol.v1",
+  "created_at": "2026-08-13T13:00:00+08:00",
+  "objective": "Determine whether the native scene gain depends on row-correct online state and screen conservative boundary routers that may recover recall without surrendering memory precision.",
+  "status": "preregistered_before_counterfactual_generation_or_new_router_scoring",
+  "authorization": {
+    "scene_router_decision_receipt_sha256": "de2d0a6dc2e5be94306e095217e69049695708d9096b3225cd7b99f9dd63e7e2",
+    "publisher_validation_decision_receipt_sha256": "945b99b2a152dbbd6ec19f2674879c8dd6924c7d4d6905e0fd235a85160c156e",
+    "development_only": true,
+    "publisher_validation_predictions_allowed_as_input": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false
+  },
+  "prior_exposure": {
+    "publisher_train_derived_development_base_and_memory_generations_exist": true,
+    "previous_even_odd_scene_router_metrics_opened": true,
+    "publisher_validation_aggregate_metrics_opened_for_the_preexisting_locked_decoder": true,
+    "new_counterfactual_generations_opened": false,
+    "new_router_candidate_scores_opened": false,
+    "claim_boundary": "This is post-validation mechanism development. It may explain the accepted decoder and nominate a future candidate, but it cannot alter the accepted decoder or create a new untouched-validation claim."
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "base_model_frozen": true,
+    "memory_adapter_frozen": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "greedy_generation": true,
+    "max_new_tokens": 128,
+    "batch_size": 1,
+    "state_reset_every_condition_row": true,
+    "read_phase_writes_disabled": true,
+    "world_size": 4
+  },
+  "data_scope": {
+    "split": "publisher-TRAIN-derived development",
+    "task": "scene-v4-current",
+    "file": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_development.jsonl",
+    "file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "source_rows": 361,
+    "selection_source_indices_excluded": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "reported_source_indices": "4 through 360 inclusive",
+    "reported_rows": 357,
+    "generation_sharding": "source index modulo four",
+    "router_fit_partition": "source index modulo 5 in {0,1,2,3}",
+    "router_holdout_partition": "source index modulo 5 equals 4",
+    "router_partition_locked_before_new_candidate_scoring": true
+  },
+  "existing_generation_inputs": {
+    "root": "local_artifacts/natural_memory_native_routed_benchmark_v1_r2",
+    "base_condition": "exact frozen Gemma generation",
+    "correct_state_condition": "exact v9 write-then-read memory generation",
+    "base_rows": 357,
+    "correct_state_rows": 357,
+    "scene_router_result_receipt_sha256": "4f4c484941d59cbc212404cf2406218b67b504295b1bdfc7f13194b1a5b5a844"
+  },
+  "causal_conditions": {
+    "zero_state": "Attach the frozen adapter, reset all online state, disable writes, and generate from the target read prompt.",
+    "donor_state": "Prime with a different TRAIN-derived development row, disable writes, and generate from the target read prompt.",
+    "layer_permuted_correct_state": "Prime the target row, export every online-state tensor, cyclically move each complete module-prefixed state bundle to the preceding wrapped layer, reload it, disable writes, and generate the target read prompt.",
+    "correct_state_reference": "Reuse the previously signed v9 target-row write-then-read generation; do not regenerate it."
+  },
+  "donor_mapping": {
+    "candidate_pool": "reported source indices only",
+    "target_excluded": true,
+    "different_gold_boundary_set_required": true,
+    "ordering": "minimum absolute write-prompt token-count difference, then lowest source index",
+    "tokenizer": "the frozen base-model tokenizer",
+    "mapping_rebuilt_and_hash-checked_on_every_shard": true
+  },
+  "layer_permutation": {
+    "wrapped_layers": 42,
+    "mapping": "target wrapped module at ordinal i receives the complete exported online-state bundle from ordinal (i+1) modulo 42",
+    "bundle": [
+      "delta_state",
+      "rwkv_ms_positions",
+      "rwkv_ms_previous_source",
+      "projected_kv_keys",
+      "projected_kv_values",
+      "projected_kv_occupied",
+      "projected_kv_surprise"
+    ],
+    "all_suffix_sets_shapes_and_dtypes_must_match_before_permutation": true,
+    "pre_and_post_state_digests_must_differ": true
+  },
+  "causal_gates": {
+    "metric": "format-recovered boundary micro-F1",
+    "coverage_floor_each_condition": 0.95,
+    "correct_minus_zero_state_minimum": 0.02,
+    "correct_minus_donor_state_minimum": 0.01,
+    "correct_minus_layer_permuted_state_minimum": 0.01,
+    "paired_output_change_fraction_minimum_each_counterfactual": 0.05,
+    "all_required_for_causal_pass": true
+  },
+  "router_candidates": {
+    "base": "base set",
+    "memory": "correct-state memory set",
+    "intersection": "base intersect memory",
+    "conditional_intersection": "base intersect memory when memory is nonempty, otherwise base",
+    "memory_else_base": "memory when memory is nonempty, otherwise base",
+    "memory_else_small_base_1": "memory when nonempty; otherwise base only when base cardinality is at most 1",
+    "memory_else_small_base_2": "memory when nonempty; otherwise base only when base cardinality is at most 2",
+    "memory_else_small_base_3": "memory when nonempty; otherwise base only when base cardinality is at most 3",
+    "memory_plus_small_base_1": "base union memory when base cardinality is at most 1, otherwise memory",
+    "memory_plus_small_base_2": "base union memory when base cardinality is at most 2, otherwise memory",
+    "memory_plus_small_base_3": "base union memory when base cardinality is at most 3, otherwise memory",
+    "memory_union_near_base_1": "memory union base boundaries within distance 1 of any memory boundary",
+    "memory_union_near_base_2": "memory union base boundaries within distance 2 of any memory boundary",
+    "snap_memory_to_base_1": "replace each memory boundary by the closest base boundary within distance 1, tie toward the lower boundary",
+    "snap_memory_to_base_2": "replace each memory boundary by the closest base boundary within distance 2, tie toward the lower boundary",
+    "intersection_else_memory": "use the intersection when nonempty, otherwise memory"
+  },
+  "router_selection": {
+    "select_on": "fit partition only",
+    "ordering": "micro-F1 descending, precision descending, recall descending, candidate name ascending",
+    "holdout_candidates_opened": [
+      "base",
+      "memory",
+      "selected"
+    ],
+    "selected_fit_minus_memory_minimum": 0.005,
+    "selected_holdout_minus_memory_minimum": 0.0,
+    "selected_holdout_minus_base_minimum": 0.005,
+    "selected_holdout_coverage_floor": 0.95,
+    "retuning_after_holdout": false
+  },
+  "stopping_rule": "Archive, commit, and push the causal and router outcomes whether pass or fail. Never read publisher-validation predictions, publisher test, or Hard32 for this study. A passing router is only a future replication candidate and does not replace the accepted decoder.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "2829666c8d8e8bb5eb951b00e9d38d8e4cbd6db62f78beea9d95f440e140a0e2"
+  }
+}
