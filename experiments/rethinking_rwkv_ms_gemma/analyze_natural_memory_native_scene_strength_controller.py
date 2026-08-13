@@ -32,7 +32,7 @@ from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
 
 
 SCHEMA = "rwkv_ms_natural_memory_native_scene_strength_controller_result.v2"
-EXPECTED_RUNNER_SHA256 = "e8d7f62aa15cde98e59224777e314bd6e6fc5552384a16a14b355f2fa0917f78"
+EXPECTED_RUNNER_SHA256 = "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380"
 FULL_NAME = "scale_1p0"
 ZERO_NAME = "scale_0p0"
 

@@ -97,3 +97,19 @@ def test_strength_controller_fit_requires_signed_preflight(tmp_path) -> None:
         assert "receipt missing" in str(error)
     else:
         raise AssertionError("Unsigned strength-controller preflight was accepted")
+
+
+def test_strength_controller_requires_attached_modules_in_eval(monkeypatch) -> None:
+    class Module:
+        training = True
+        _eval_memory_delta_controller = None
+
+    modules = [(f"layer.{index}", Module()) for index in range(42)]
+    monkeypatch.setattr(runner, "iter_delta_mem_modules", lambda model: iter(modules))
+
+    try:
+        runner.attach_controller(object(), 0.5)
+    except ValueError as error:
+        assert "requires eval mode" in str(error)
+    else:
+        raise AssertionError("Training-mode modules accepted an eval-only controller")

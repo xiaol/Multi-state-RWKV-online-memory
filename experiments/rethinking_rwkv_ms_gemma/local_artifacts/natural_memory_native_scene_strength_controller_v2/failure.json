@@ -1,0 +1,76 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_failure.v2",
+  "created_at": "2026-08-14T03:48:22+08:00",
+  "phase": "preflight_attempt_1",
+  "status": "execution_failed_before_candidate_generation",
+  "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+  "attempt": {
+    "world_size": 4,
+    "source_indices_requested": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "candidate_output_rows_written": 0,
+    "preflight_receipt_written": false,
+    "fit_opened": false,
+    "holdout_opened": false
+  },
+  "artifacts": {
+    "input_bindings": [
+      {
+        "path": "preflight/shard-0/input_binding.json",
+        "sha256": "fb6b7b4cc186a8e49e7778e150ff3b16e4a5163ea830fe2309e63f2f3d28755d"
+      },
+      {
+        "path": "preflight/shard-1/input_binding.json",
+        "sha256": "4e9b027aaa7e732a1eaa9bfe1876186e9fe301f89c13279db9a100d48edf657a"
+      },
+      {
+        "path": "preflight/shard-2/input_binding.json",
+        "sha256": "156303bbb221e3a82223173e7212526f20c21f87ea9a5aeba2c890adc993b9f6"
+      },
+      {
+        "path": "preflight/shard-3/input_binding.json",
+        "sha256": "e716b91f420605dae89872086cdfde25005ebe5b55ba17ed8bcd3e388ce44a0a"
+      }
+    ],
+    "logs": [
+      {
+        "path": "preflight_shard_0.log",
+        "sha256": "743dd2d363eac9b44b2ce6e2fa72c7733651981d69877127a5468208d4dfe0a8"
+      },
+      {
+        "path": "preflight_shard_1.log",
+        "sha256": "661fc1fdb80169c4588c16c0cba34225d70654effab9a54c76b4ca66ec864a3b"
+      },
+      {
+        "path": "preflight_shard_2.log",
+        "sha256": "54ea6a312b33abb9ce27edd23d9be394b58ae53d428acdc408e3b59187c59bde"
+      },
+      {
+        "path": "preflight_shard_3.log",
+        "sha256": "1f048a532acfcd53cf0eb611637f9b7a09558ebf6f33b2605433f38f878ba05b"
+      }
+    ]
+  },
+  "failure": {
+    "exception_type": "ValueError",
+    "message": "Strength controller requires eval mode",
+    "root_cause": "The base model entered eval mode before DeltaMem adapter attachment, so the newly attached wrapper modules retained training=True and the eval-only controller correctly rejected them.",
+    "protected_splits_opened": []
+  },
+  "resolution": {
+    "change": "Call model.eval() immediately after load_model_and_tokenizer returns the fully wrapped model.",
+    "fixed_runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+    "regression_test": "test_strength_controller_requires_attached_modules_in_eval",
+    "tests": "7 passed"
+  },
+  "decision": "Archive and push this execution failure, then rerun the excluded-row preflight in a fresh output root. This is not a model-quality result.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "76839897409d5029d40aed4e8f83bd5c6756bd52e289ea9d7076860b249a062b"
+  }
+}

@@ -1,0 +1,14 @@
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  16%|█▌        | 329/2076 [00:00<00:00, 3254.41it/s]Loading weights:  32%|███▏      | 655/2076 [00:00<00:00, 2830.22it/s]Loading weights:  45%|████▌     | 942/2076 [00:02<00:03, 322.94it/s] Loading weights:  53%|█████▎    | 1105/2076 [00:02<00:02, 344.65it/s]Loading weights:  59%|█████▉    | 1221/2076 [00:02<00:02, 358.83it/s]Loading weights:  63%|██████▎   | 1311/2076 [00:03<00:02, 354.47it/s]Loading weights:  67%|██████▋   | 1382/2076 [00:03<00:01, 358.00it/s]Loading weights:  69%|██████▉   | 1442/2076 [00:03<00:01, 379.11it/s]Loading weights:  84%|████████▍ | 1750/2076 [00:03<00:00, 742.83it/s]Loading weights:  99%|█████████▉| 2061/2076 [00:03<00:00, 1124.99it/s]Loading weights: 100%|██████████| 2076/2076 [00:03<00:00, 573.43it/s] 
+Traceback (most recent call last):
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_strength_controller.py", line 363, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_strength_controller.py", line 342, in main
+    record = generate_record(
+             ^^^^^^^^^^^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_strength_controller.py", line 206, in generate_record
+    calls, controller_sha256 = attach_controller(model, strength)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_strength_controller.py", line 140, in attach_controller
+    raise ValueError("Strength controller requires eval mode")
+ValueError: Strength controller requires eval mode

@@ -334,6 +334,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         dtype=args.dtype,
         attn_implementation=args.attn_implementation,
     )
+    model.eval()
     for ordinal, row in enumerate(shard_rows, start=1):
         source_index = int(row["source_index"])
         for strength_name, strength in strengths.items():
