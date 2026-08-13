@@ -1,0 +1,105 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_protocol.v2",
+  "created_at": "2026-08-14T03:35:00+08:00",
+  "objective": "Test effective correct-state memory amplitude by multiplying every eval-time Q/O raw memory delta before fusion, recovering scene recall without losing the full-strength memory precision advantage.",
+  "status": "preregistered_before_controller_smoke_candidate_generation_or_scoring",
+  "authorization": {
+    "inert_v1_decision_receipt_sha256": "32c9718407a50b0875450c60ff34d20ae9729f0d48783b0a5761a8322704ba9c",
+    "development_only": true,
+    "publisher_validation_predictions_allowed_as_input": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false
+  },
+  "prior_exposure": {
+    "hash_partition_labels_and_full_strength_metrics_opened": true,
+    "effective_controller_candidate_outputs_opened": false,
+    "strength_holdout_outputs_opened": false,
+    "publisher_validation_aggregate_metrics_opened_for_accepted_decoder": true,
+    "claim_boundary": "This is post-validation TRAIN-derived mechanism development. It may nominate one controller strength for fresh replication but cannot change the accepted validation decoder or create a new native benchmark claim."
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "memory_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+    "runtime_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+    "base_model_frozen": true,
+    "memory_adapter_frozen": true,
+    "runtime_frozen": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "greedy_generation": true,
+    "max_new_tokens": 128,
+    "batch_size": 1,
+    "write_then_read_correct_state": true,
+    "state_reset_every_strength_row": true,
+    "read_phase_writes_disabled": true,
+    "world_size": 4
+  },
+  "intervention": {
+    "runtime_hook": "DeltaMemModule._eval_memory_delta_controller",
+    "controller": "For head_name in {q,o}, return reference + raw_delta converted to reference dtype times the fixed strength. Reject every other head, training mode, shape, dtype, or device change.",
+    "scope": "All 42 wrapped layers, both Q and O raw memory deltas, during write and read forward passes.",
+    "candidate_strengths": [0.125, 0.25, 0.5, 0.75],
+    "full_strength_baseline": 1.0,
+    "zero_strength_reference": 0.0,
+    "full_strength_generation": "Reuse signed correct-state v9 outputs from natural_memory_native_routed_benchmark_v1_r2.",
+    "zero_strength_generation": "Reuse signed base-like zero-state outputs from natural_memory_native_scene_causal_router_v1.",
+    "no_state_content_router_or_weights_change": true
+  },
+  "preflight": {
+    "source_indices": [0, 1, 2, 3],
+    "reason": "Historically exposed selection rows excluded from every reported fit and holdout metric.",
+    "conditions": [0.0, 0.5, 1.0],
+    "required": {
+      "controller_attached_to_42_layers": true,
+      "controller_head_calls_include_q_and_o": true,
+      "scale_0_output_differs_from_scale_1_on_at_least_one_row": true,
+      "scale_0p5_output_differs_from_at_least_one_endpoint_on_at_least_one_row": true,
+      "all_generations_format_recover": true
+    },
+    "stopping_rule": "Do not generate fit candidates unless a signed preflight receipt passes every requirement."
+  },
+  "data_scope": {
+    "target_file": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_development.jsonl",
+    "target_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "reported_target_rows": 357,
+    "partition_rule": "Compute SHA-256('rwkv-ms-scale-v1:' + target row SHA-256); holdout iff the unsigned integer from the first eight hex characters modulo five equals zero, otherwise fit.",
+    "fit_rows": 284,
+    "fit_partition_payload_sha256": "902baf8f8af6552765514e17545b4234266eb89f31ca100dae3866eba30bcc99",
+    "holdout_rows": 73,
+    "holdout_partition_payload_sha256": "0c2a3a3ee8dfd6d1bb1077b2b690289e734241476410816fd09247f0a8d2a655",
+    "all_partition_payload_sha256": "ac9c20c2d0641e31bf98210a13d416cc8a64d65c47c96c7fb272889d14570eb1",
+    "generation_sharding": "target source index modulo four"
+  },
+  "two_phase_stopping_rule": {
+    "phase_one": "After passing preflight, generate all four effective strengths for fit targets only. Holdout targets are forbidden.",
+    "selection_candidates": "The four effective intermediate strengths plus reused full-strength 1.0.",
+    "selection_ordering": "micro-F1 descending, precision descending, recall descending, strength ascending",
+    "phase_one_gate": {
+      "selected_is_intermediate_strength": true,
+      "coverage_floor": 0.95,
+      "selected_minus_full_strength_micro_f1_minimum": 0.005,
+      "selected_minus_zero_strength_micro_f1_minimum": 0.02,
+      "paired_output_change_fraction_vs_full_strength_minimum": 0.05
+    },
+    "phase_two_authorization": "Only if every phase-one gate passes, sign and push selection.json naming one intermediate strength before generating holdout targets.",
+    "phase_two": "Generate only the signed selected strength for the 73 holdout targets exactly once.",
+    "phase_two_gate": {
+      "coverage_floor": 0.95,
+      "selected_minus_full_strength_micro_f1_minimum": 0.005,
+      "selected_minus_zero_strength_micro_f1_minimum": 0.02,
+      "paired_output_change_fraction_vs_full_strength_minimum": 0.05
+    },
+    "retuning_after_holdout": false
+  },
+  "stopping_rule": "Archive, commit, and push preflight, phase one, and any authorized phase two whether pass or fail. Never read publisher-validation predictions, publisher test, or Hard32.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9"
+  }
+}
