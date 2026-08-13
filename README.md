@@ -6,6 +6,70 @@ RWKV-style online memory under controlled state and boundary policies.
 HF checkpoint:
 [`xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1`](https://huggingface.co/xiaol/gemma-4-e4B-hybrid-rnn-mem-rwkv-fable5-gpt5.5-v1)
 
+## Latest Trained-Model Result
+
+The frozen Gemma4 + RWKV-MS outer-memory system now passes its preregistered
+native publisher-validation gate. The decoder and all task routing rules were
+locked on publisher-TRAIN-derived development data before the validation split
+was opened. Evaluation used the identical frozen
+`google/gemma-4-E4B-it` comparator, greedy decoding, write-then-read online
+memory, the HF mirror, and four A100 GPUs.
+
+| Native task | Frozen Gemma base | Locked outer-memory system | Delta |
+| --- | ---: | ---: | ---: |
+| Attribution candidate accuracy (29 rows) | 0.8966 | 0.8966 | +0.0000 |
+| Narrative unit accuracy (39 rows, 1,449 units) | 0.6432 | 0.6467 | +0.0035 |
+| Scene-boundary micro-F1 (170 rows) | 0.1820 | 0.2727 | **+0.0907** |
+
+All three tasks met the `>=0.95` coverage floor, no task regressed, and two
+tasks improved. The scene result is the main effect: memory reduced false
+positives from 698 to 171, while true positives changed from 87 to 54 and false
+negatives from 84 to 117. Narrative gained five correct units. Attribution is
+preserved exactly by using the frozen-base candidate-likelihood scorer.
+
+This is a system-level result for the locked decoder, not a claim that raw
+memory improves every task. Its fixed task policy is:
+
+- attribution: frozen-base candidate likelihood;
+- narrative: use memory only for the preregistered
+  `base=narration, memory=scene_description` label pair;
+- scene: use the RWKV-MS memory generation directly.
+
+The reported scope is 238 rows. Attribution source row 0 was excluded in the
+protocol before the final run because it had already been touched by historical
+runtime diagnostics. Publisher test and Hard32 remain unopened.
+
+Reproducibility evidence:
+
+- [Locked publisher-validation protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_publisher_validation_protocol_v1.json)
+- [Signed validation decision](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_publisher_validation_v1/decision.json)
+- [Signed metrics and artifact hashes](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_publisher_validation_v1/result.json)
+- [Validation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_publisher_validation.py)
+  and [hash-bound analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_publisher_validation.py)
+- Independent replication seeds R12 and R13 each passed all 52 sealed checks:
+  [R12](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_sealed_run_split20260825_seed53/evaluation.json)
+  and [R13](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r13_sealed_run_split20260826_seed54/evaluation.json)
+
+### Recommended Next Boundary
+
+The best next goal is to turn the one-shot validation success into a robust
+memory-causality result before opening publisher test:
+
+1. Quantify paired uncertainty on the already-frozen predictions, without
+   changing outputs or selecting a new router from validation.
+2. On TRAIN-derived development only, run correct-state, no-write, reset-state,
+   shuffled-state, and donor-state ablations. Require the scene gain to depend
+   on the correct online state rather than static adapter perturbation.
+3. Recover scene recall while preserving memory's large false-positive
+   reduction. The most promising intervention is a boundary-level confidence
+   verifier or conservative base-memory union trained only on TRAIN-derived
+   development rows.
+4. Repeat the complete train-to-locked-decoder pipeline with fresh
+   preregistered split and optimizer seeds. Keep the current validation decoder
+   immutable during replication.
+5. Only after the causal and replication gates pass, preregister one final
+   publisher-test run. Do not tune from publisher validation, test, or Hard32.
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:
@@ -40,7 +104,7 @@ EVAL.md
 .openresearch/artifacts/run_log.txt
 ```
 
-## Current Result
+## Mechanism-Level Result
 
 The main DLA reproduction still passes:
 
@@ -118,9 +182,11 @@ Full tables are in `EVAL.md`.
 
 ## Scope
 
-This is a training-free mechanism reproduction. It does not reproduce 50B-token
-pretraining, downstream language-model evaluations, or trained HRM-Text
-checkpoints.
+The top-level DLA comparison is a training-free mechanism reproduction. It does
+not reproduce 50B-token pretraining or trained HRM-Text checkpoints. The
+separate Gemma4 + RWKV-MS experiments documented above and under
+`experiments/rethinking_rwkv_ms_gemma/` do include trained adapters and native
+downstream evaluation.
 
 The HRM/RWKV baselines are self-contained ports of the memory recurrence ideas,
 not full imports of HRM-Text:
