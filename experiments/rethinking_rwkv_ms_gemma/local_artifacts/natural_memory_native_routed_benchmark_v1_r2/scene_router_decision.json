@@ -1,0 +1,48 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_router_decision.v1",
+  "created_at": "2026-08-13T08:45:00+08:00",
+  "protocol_payload_sha256": "f195f0bcb3cd33828fd4edb0c4b25059e0e335170010056057cc6ae23716cf21",
+  "result": {
+    "path": "scene_router_result.json",
+    "file_sha256": "5cb1d403b229b71a66765e0bbaff2cb184eaeea43e9436aaf34946bc17efe767",
+    "receipt_payload_sha256": "4f4c484941d59cbc212404cf2406218b67b504295b1bdfc7f13194b1a5b5a844"
+  },
+  "selected_router": "memory",
+  "fit": {
+    "rows": 179,
+    "base_micro_f1": 0.19647822057460612,
+    "selected_micro_f1": 0.2977667493796526,
+    "selected_minus_base": 0.10128852880504646
+  },
+  "holdout": {
+    "rows": 178,
+    "base_micro_f1": 0.18563922942206654,
+    "selected_micro_f1": 0.2831858407079646,
+    "selected_minus_base": 0.09754661128589806,
+    "base_counts": {"tp": 106, "fp": 855, "fn": 75},
+    "selected_counts": {"tp": 64, "fp": 207, "fn": 117}
+  },
+  "gates": {
+    "fit_gain_at_least_0.01": true,
+    "holdout_gain_at_least_0.005": true,
+    "holdout_no_regression": true,
+    "holdout_coverage_at_least_0.95": true,
+    "passed": true
+  },
+  "outcome": "accept_memory_scene_router_for_publisher_validation",
+  "interpretation": "The v9 memory scene output sacrifices recall but removes enough frozen-base false positives to improve micro-F1 by about ten absolute points on both preregistered even-index fit and untouched odd-index holdout partitions.",
+  "final_validation_decoder": {
+    "attribution": "frozen-base candidate likelihood",
+    "narrative": "locked v1 base=narration,memory=scene_description pair router",
+    "scene": "v9 memory generation"
+  },
+  "publisher_validation_authorized": true,
+  "publisher_test_authorized": false,
+  "hard32_authorized": false,
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_decision_without_receipt",
+    "payload_sha256": "de2d0a6dc2e5be94306e095217e69049695708d9096b3225cd7b99f9dd63e7e2"
+  }
+}

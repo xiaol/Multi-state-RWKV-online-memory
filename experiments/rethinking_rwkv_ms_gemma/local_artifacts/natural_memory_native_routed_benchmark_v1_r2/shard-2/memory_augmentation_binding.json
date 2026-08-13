@@ -1,0 +1,23 @@
+{
+  "attn_implementation": "sdpa",
+  "augmentation_protocol_payload_sha256": "f195f0bcb3cd33828fd4edb0c4b25059e0e335170010056057cc6ae23716cf21",
+  "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "dataset_manifest_sha256": "451f2099a7afb45950f75b69280e8db21e3f948433ed0640065e4dc2c6212587",
+  "dataset_receipt_payload_sha256": "7f1056c33009a30d63179b49e9f95fe1c9fb4438b434d2ad3a22cd22039704e4",
+  "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "dtype": "bfloat16",
+  "likelihood_runner_sha256": "d1eb64ab7b926b92ac4b84ba3140af215ddfe94e477157718062b336ec696b22",
+  "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+  "memory_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+  "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+  "memory_tasks": [
+    "scene"
+  ],
+  "phase": "memory_only_augmentation",
+  "protocol_payload_sha256": "d55d7e785315a6dedc7b4710ef452eb0dffd05ce6a4decec941feec290e50b3a",
+  "runner_sha256": "16e07b6af1291dc1975c359ab10765dff85c7b4214896529f58761367c685a69",
+  "schema": "rwkv_ms_natural_memory_native_routed_augmentation.v1",
+  "shard_index": 2,
+  "world_size": 4
+}

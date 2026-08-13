@@ -1,0 +1,150 @@
+{
+  "fit": {
+    "candidates": {
+      "base": {
+        "coverage": 1.0,
+        "fn": 74,
+        "fp": 793,
+        "micro_f1": 0.19647822057460612,
+        "precision": 0.11790878754171301,
+        "recall": 0.5888888888888889,
+        "rows": 179,
+        "tp": 106
+      },
+      "conditional_intersection": {
+        "coverage": 1.0,
+        "fn": 121,
+        "fp": 359,
+        "micro_f1": 0.19732441471571907,
+        "precision": 0.14114832535885166,
+        "recall": 0.3277777777777778,
+        "rows": 179,
+        "tp": 59
+      },
+      "intersection": {
+        "coverage": 1.0,
+        "fn": 133,
+        "fp": 105,
+        "micro_f1": 0.28313253012048195,
+        "precision": 0.3092105263157895,
+        "recall": 0.2611111111111111,
+        "rows": 179,
+        "tp": 47
+      },
+      "memory": {
+        "coverage": 1.0,
+        "fn": 120,
+        "fp": 163,
+        "micro_f1": 0.2977667493796526,
+        "precision": 0.26905829596412556,
+        "recall": 0.3333333333333333,
+        "rows": 179,
+        "tp": 60
+      },
+      "union": {
+        "coverage": 1.0,
+        "fn": 61,
+        "fp": 851,
+        "micro_f1": 0.20695652173913043,
+        "precision": 0.12268041237113401,
+        "recall": 0.6611111111111111,
+        "rows": 179,
+        "tp": 119
+      }
+    },
+    "selected": "memory",
+    "selected_minus_base": 0.10128852880504646
+  },
+  "gates": {
+    "fit_gain_at_least_0.01": true,
+    "holdout_coverage_at_least_0.95": true,
+    "holdout_gain_at_least_0.005": true,
+    "holdout_no_regression": true,
+    "passed": true
+  },
+  "holdout": {
+    "base": {
+      "coverage": 0.9943820224719101,
+      "fn": 75,
+      "fp": 855,
+      "micro_f1": 0.18563922942206654,
+      "precision": 0.11030176899063475,
+      "recall": 0.585635359116022,
+      "rows": 178,
+      "tp": 106
+    },
+    "selected": {
+      "coverage": 0.9943820224719101,
+      "fn": 117,
+      "fp": 207,
+      "micro_f1": 0.2831858407079646,
+      "precision": 0.23616236162361623,
+      "recall": 0.35359116022099446,
+      "rows": 178,
+      "tp": 64
+    },
+    "selected_minus_base": 0.09754661128589806
+  },
+  "protocol_payload_sha256": "f195f0bcb3cd33828fd4edb0c4b25059e0e335170010056057cc6ae23716cf21",
+  "provenance": {
+    "base": [
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+        "rows": 90,
+        "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+        "rows": 89,
+        "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+        "rows": 89,
+        "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+        "rows": 89,
+        "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91"
+      }
+    ],
+    "memory": [
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+        "rows": 90,
+        "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+        "rows": 89,
+        "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+        "rows": 89,
+        "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+        "rows": 89,
+        "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa"
+      }
+    ]
+  },
+  "publisher_validation_authorized": true,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_scene_router_without_receipt",
+    "payload_sha256": "4f4c484941d59cbc212404cf2406218b67b504295b1bdfc7f13194b1a5b5a844"
+  },
+  "schema": "rwkv_ms_natural_memory_native_scene_router.v1",
+  "scope": {
+    "fit_partition": "even source index",
+    "fit_rows": 179,
+    "holdout_partition": "odd source index",
+    "holdout_rows": 178,
+    "protected_splits_opened": [],
+    "rows": 357
+  }
+}
