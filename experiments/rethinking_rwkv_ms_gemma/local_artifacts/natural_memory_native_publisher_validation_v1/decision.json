@@ -1,0 +1,85 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_publisher_validation_decision.v1",
+  "created_at": "2026-08-13T12:02:26+08:00",
+  "protocol_payload_sha256": "58a7fd37973c1ab1fcc11fea5e6dc039b1c777e2eef12628b43d7be1eaa2c9c1",
+  "result": {
+    "path": "result.json",
+    "file_sha256": "968e37c20709b9776ec908f877d805c364b6b2c8ba734388eba8bb05e6249825",
+    "receipt_payload_sha256": "0eab8ed55f895d371412527035f41b16620cbd7418845248cb92131c1ad7841d"
+  },
+  "scope": {
+    "split": "publisher validation",
+    "reported_rows": 238,
+    "attribution_rows": 29,
+    "narrative_rows": 39,
+    "scene_rows": 170,
+    "attribution_excluded_source_indices": [
+      0
+    ],
+    "publisher_test_opened": false,
+    "hard32_opened": false
+  },
+  "decoder": {
+    "attribution": "frozen-base candidate likelihood",
+    "narrative": "base except base=narration,memory=scene_description",
+    "scene": "v9 memory generation"
+  },
+  "metrics": {
+    "attribution": {
+      "base": 0.896551724137931,
+      "routed": 0.896551724137931,
+      "routed_minus_base": 0.0,
+      "base_correct": 26,
+      "routed_correct": 26,
+      "rows": 29
+    },
+    "narrative": {
+      "base": 0.6432022084195997,
+      "routed": 0.6466528640441684,
+      "routed_minus_base": 0.0034506556245686992,
+      "base_correct_units": 932,
+      "routed_correct_units": 937,
+      "gold_units": 1449,
+      "rows": 39
+    },
+    "scene": {
+      "base": 0.18200836820083682,
+      "routed": 0.2727272727272727,
+      "routed_minus_base": 0.09071890452643588,
+      "base_counts": {
+        "tp": 87,
+        "fp": 698,
+        "fn": 84
+      },
+      "routed_counts": {
+        "tp": 54,
+        "fp": 171,
+        "fn": 117
+      },
+      "rows": 170
+    }
+  },
+  "gates": {
+    "coverage_at_least_0.95_all_tasks": true,
+    "no_regression_all_tasks": true,
+    "strict_improvement_at_least_two_tasks": true,
+    "strictly_improved_tasks": 2,
+    "passed": true
+  },
+  "outcome": "accept_locked_outer_memory_decoder_on_native_publisher_validation",
+  "interpretation": "The locked decoder passes the preregistered native publisher-validation gate. Attribution is exactly preserved by frozen-base fallback. Narrative gains five correct units out of 1,449, so that effect is positive but small. Scene is the substantive memory gain: micro-F1 rises by 0.09072 because memory removes 527 false positives while accepting 33 additional false negatives.",
+  "claim_boundary": "This establishes a positive one-shot publisher-validation result for the locked routed decoder, not a general claim that every task or every memory training run improves. Publisher test and Hard32 remain unopened.",
+  "next_direction": {
+    "retain": "the exact frozen attribution, selective narrative, and direct memory scene decoder",
+    "replicate": "repeat the full train-to-validation pipeline under a new preregistered training seed before making a broad robustness claim",
+    "quantify": "add paired uncertainty intervals without changing predictions or tuning from validation rows",
+    "protected_split_rule": "do not tune on publisher validation, publisher test, or Hard32"
+  },
+  "publisher_test_authorized": false,
+  "hard32_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_decision_without_receipt",
+    "payload_sha256": "945b99b2a152dbbd6ec19f2674879c8dd6924c7d4d6905e0fd235a85160c156e"
+  }
+}

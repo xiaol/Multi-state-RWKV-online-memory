@@ -1,0 +1,25 @@
+{
+  "attn_implementation": "sdpa",
+  "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+  "conditions": [
+    "base",
+    "memory"
+  ],
+  "dataset_file": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v4-scene-boundary-detection/val.jsonl",
+  "dataset_root": "/root/X/.cache/hf/novel-agent-sft-dataset/training",
+  "dataset_sha256": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513",
+  "dtype": "bfloat16",
+  "generation_runner_sha256": "69ebe18e2e4eaf5dd08217970bc85fc0ecdeab1ae7384382c644ce8641596ae8",
+  "likelihood_runner_sha256": "d1eb64ab7b926b92ac4b84ba3140af215ddfe94e477157718062b336ec696b22",
+  "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+  "memory_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+  "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+  "protocol_payload_sha256": "58a7fd37973c1ab1fcc11fea5e6dc039b1c777e2eef12628b43d7be1eaa2c9c1",
+  "runner_sha256": "dc044dc1b506ca9d548421c3066d56382961124140795026fdd744b6aec5405f",
+  "schema": "rwkv_ms_natural_memory_native_publisher_validation_input.v1",
+  "shard_count": 2,
+  "shard_index": 0,
+  "task": "scene"
+}
