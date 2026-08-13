@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+
 import torch
 
 from experiments.rethinking_rwkv_ms_gemma import (
@@ -24,6 +26,14 @@ def test_scene_causal_runner_code_hash_is_bound() -> None:
     assert runner.sha256_file(runner.Path(runner.__file__)) == (
         analysis.EXPECTED_RUNNER_SHA256
     )
+
+
+def test_scene_causal_analyzer_is_valid_python() -> None:
+    tree = ast.parse(analysis.Path(analysis.__file__).read_text(encoding="utf-8"))
+
+    assert not {
+        node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
+    } & {"false", "true", "null"}
 
 
 def test_donor_mapping_is_length_matched_gold_distinct_and_deterministic() -> None:

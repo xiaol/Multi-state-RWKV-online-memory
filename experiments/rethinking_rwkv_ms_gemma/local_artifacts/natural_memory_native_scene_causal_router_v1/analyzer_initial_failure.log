@@ -1,0 +1,10 @@
+COMMAND: PYTHONPATH=. python experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_causal_router.py --input-root experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1 --reference-root experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2 --dataset-root experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1 --output experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/result.json
+Traceback (most recent call last):
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_causal_router.py", line 503, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_causal_router.py", line 455, in main
+    "publisher_validation_predictions_opened": false,
+                                               ^^^^^
+NameError: name 'false' is not defined. Did you mean: 'False'?
+ANALYZER_EXIT=1

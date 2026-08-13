@@ -1,0 +1,105 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_causal_router_decision.v1",
+  "created_at": "2026-08-13T23:30:00+08:00",
+  "protocol_payload_sha256": "2829666c8d8e8bb5eb951b00e9d38d8e4cbd6db62f78beea9d95f440e140a0e2",
+  "result": {
+    "path": "result.json",
+    "file_sha256": "ac6735e0c9617dc1978934a8710833248a4d0edc7de98dc232081e303ceb9bdc",
+    "receipt_payload_sha256": "f181e3330333768457e3dd9fe434327a60eae16469fcc2e70b57c2d4fc7f971b",
+    "analyzer_exit_code": 2
+  },
+  "implementation": {
+    "runner_sha256": "37d6c88436caf5f097f284759e18488581f04de0c84405b9f14e276adf040fc0",
+    "analyzer_sha256": "f331d240a387e6a16ba9e82c81d3077670fb43084031efd7090d26c446ced373",
+    "test_sha256": "46289a350f61a9f67b37392864963b31b637a6de1782ce6e0dd59d8a3a7fd917",
+    "analysis_incident": {
+      "initial_failure": "The analyzer reached result construction and raised NameError because four JSON-style false literals were invalid Python.",
+      "resolution": "Replace the literals with False and add an AST regression test rejecting false, true, or null names.",
+      "counterfactual_rows_regenerated": false,
+      "metrics_or_gates_changed": false
+    }
+  },
+  "scope": {
+    "split": "publisher-TRAIN-derived development",
+    "rows": 357,
+    "router_fit_rows": 285,
+    "router_holdout_rows": 72,
+    "publisher_validation_predictions_opened": false,
+    "publisher_test_opened": false,
+    "hard32_opened": false,
+    "protected_splits_opened": []
+  },
+  "execution": {
+    "hf_endpoint": "https://hf-mirror.com",
+    "gpus": 4,
+    "gpu_model": "NVIDIA A100-PCIE-40GB",
+    "shard_rows": [90, 89, 89, 89],
+    "rows_per_counterfactual_condition": 357,
+    "counterfactual_generations": 1071,
+    "completed_shards": 4,
+    "runtime_errors": 0,
+    "logs": {
+      "analyzer.log": "8575dcc97a11c56cffca7aa3e280a09a3fb56aea2db471e958eface5b6105e6e",
+      "analyzer_initial_failure.log": "ea8c5870a319d2b0033395cf17480c5dd2c4049cc011016361650d72fd0ad6c6",
+      "shard_0.log": "b1143ea0763927d5edb27e9faa88966a9d9b2c48e85699fe5487a1dfb6e3a29d",
+      "shard_1.log": "e1ada180c4b80ded7a30fece6dabb101be5bc823145634a567fc95f2f9e2d246",
+      "shard_2.log": "d84efac956c3aec30e91740000c245a97c61c414b42392fa491254ae4cb2b749",
+      "shard_3.log": "29fa05546826a3bf69a091102d0b7a93ee5a38ff1011a832467eb937f89a4558"
+    }
+  },
+  "causal": {
+    "correct_state_micro_f1": 0.29005847953216374,
+    "zero_state_micro_f1": 0.19090499774876182,
+    "layer_permuted_correct_state_micro_f1": 0.19225512528473804,
+    "donor_state_micro_f1": 0.30011723329425555,
+    "correct_minus_zero_state": 0.09915348178340191,
+    "correct_minus_layer_permuted_correct_state": 0.0978033542474257,
+    "correct_minus_donor_state": -0.01005875376209181,
+    "paired_output_change_fraction": {
+      "zero_state": 0.9103641456582633,
+      "layer_permuted_correct_state": 0.9019607843137255,
+      "donor_state": 0.2689075630252101
+    },
+    "gates_passed": false,
+    "outcome": "reject_row_correct_state_specificity_claim",
+    "interpretation": "Structured state is important: correct state beats zero state and layer-permuted state by about 0.10 micro-F1. The preregistered stronger claim fails because a different-gold, write-length-matched donor state beats the row-correct state by 0.0101. This does not invalidate the accepted system-level validation gain, but it prevents attributing that gain specifically to row-correct episodic content."
+  },
+  "router": {
+    "selected": "memory_plus_small_base_2",
+    "definition": "Use the union of base and memory boundaries when the base predicts at most two boundaries; otherwise use memory.",
+    "fit": {
+      "memory_micro_f1": 0.2844175491679274,
+      "selected_micro_f1": 0.319047619047619,
+      "selected_minus_memory": 0.03463006987969164
+    },
+    "holdout": {
+      "base_micro_f1": 0.17573221757322174,
+      "memory_micro_f1": 0.30927835051546393,
+      "selected_micro_f1": 0.3103448275862069,
+      "selected_minus_base": 0.13461261001298516,
+      "selected_minus_memory": 0.0010664770707429772
+    },
+    "gates_passed": true,
+    "outcome": "nominate_memory_plus_small_base_2_for_fresh_replication_only",
+    "interpretation": "The router recovered six true positives on the 72-row holdout at the cost of 32 false positives, producing a small +0.0011 micro-F1 gain over memory. The gain is directionally useful but too small for a new benchmark claim without a fresh preregistered replication."
+  },
+  "overall": {
+    "outcome": "causal_fail_router_candidate_pass",
+    "accepted_publisher_validation_decoder_changed": false,
+    "accepted_publisher_validation_result_changed": false,
+    "new_native_benchmark_claim": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false
+  },
+  "next_direction": {
+    "primary": "On publisher-TRAIN-derived data only, preregister a deployable state-retrieval study comparing row-correct, random-donor, write-length-matched donor, and read-embedding-nearest donor states. Fit any selector without gold labels at inference and evaluate it once on a fresh held-out TRAIN-derived partition.",
+    "secondary": "Replicate memory_plus_small_base_2 unchanged on a fresh TRAIN-derived split; require a materially larger held-out margin, not merely non-regression.",
+    "training": "Add negative-state contrast and state dropout so the adapter must distinguish useful row-specific memory from generic state regularization, then rerun the complete sealed train-to-native pipeline with fresh split and optimizer seeds.",
+    "protected_split_rule": "Do not tune from publisher validation, publisher test, or Hard32. Keep the accepted validation decoder immutable until a fresh replication is locked."
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_decision_without_receipt",
+    "payload_sha256": "a67f5314ed29f7c1e880a22113e900a587ef7d21bb279768acd59d0024c2c8fb"
+  }
+}

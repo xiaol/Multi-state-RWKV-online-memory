@@ -452,9 +452,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "holdout_rows": len(holdout_indices),
             "fit_partition": protocol["data_scope"]["router_fit_partition"],
             "holdout_partition": protocol["data_scope"]["router_holdout_partition"],
-            "publisher_validation_predictions_opened": false,
-            "publisher_test_opened": false,
-            "hard32_opened": false,
+            "publisher_validation_predictions_opened": False,
+            "publisher_test_opened": False,
+            "hard32_opened": False,
         },
         "causal": {
             "metrics": causal_metrics,
@@ -471,7 +471,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "selected_holdout_minus_base": holdout_gain_over_base,
             "gates": router_gates,
             "future_replication_candidate": selected if router_gates["passed"] else None,
-            "accepted_validation_decoder_changed": false,
+            "accepted_validation_decoder_changed": False,
         },
         "overall": {
             "causal_passed": causal_gates["passed"],

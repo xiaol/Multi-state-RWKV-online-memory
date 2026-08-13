@@ -50,25 +50,40 @@ Reproducibility evidence:
   [R12](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_sealed_run_split20260825_seed53/evaluation.json)
   and [R13](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r13_sealed_run_split20260826_seed54/evaluation.json)
 
+### Post-Validation Mechanism Study
+
+A preregistered 357-row publisher-TRAIN-derived study has now tested three
+online-state counterfactuals and 16 conservative scene routers. Correct state
+scored 0.2901 scene micro-F1, versus 0.1909 with zero state and 0.1923 after
+cyclically moving complete state bundles across the 42 wrapped layers. This is
+strong evidence that structured online state matters. The stricter causal gate
+did not pass, however: a different-gold, write-length-matched donor state scored
+0.3001, beating the row-correct state by 0.0101. We therefore do not claim that
+row-specific episodic content uniquely causes the scene gain.
+
+The router screen selected `memory_plus_small_base_2`: union frozen-base and
+memory boundaries only when the base predicts at most two. It improved fit
+micro-F1 from 0.2844 to 0.3190 and held-out development micro-F1 from 0.3093 to
+0.3103. That held-out gain is real but only +0.0011, so this router is a future
+replication candidate and does not replace the accepted validation decoder.
+
+Evidence:
+
+- [Locked causal/router protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_causal_router_protocol_v1.json)
+- [Signed causal/router decision](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/decision.json)
+- [Signed result and raw-artifact hashes](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/result.json)
+
 ### Recommended Next Boundary
 
-The best next goal is to turn the one-shot validation success into a robust
-memory-causality result before opening publisher test:
-
-1. Quantify paired uncertainty on the already-frozen predictions, without
-   changing outputs or selecting a new router from validation.
-2. On TRAIN-derived development only, run correct-state, no-write, reset-state,
-   shuffled-state, and donor-state ablations. Require the scene gain to depend
-   on the correct online state rather than static adapter perturbation.
-3. Recover scene recall while preserving memory's large false-positive
-   reduction. The most promising intervention is a boundary-level confidence
-   verifier or conservative base-memory union trained only on TRAIN-derived
-   development rows.
-4. Repeat the complete train-to-locked-decoder pipeline with fresh
-   preregistered split and optimizer seeds. Keep the current validation decoder
-   immutable during replication.
-5. Only after the causal and replication gates pass, preregister one final
-   publisher-test run. Do not tune from publisher validation, test, or Hard32.
+The donor result points beyond static boundary fusion toward deployable state
+selection. On publisher-TRAIN-derived data only, preregister a state-retrieval
+study comparing row-correct, random-donor, write-length-matched donor, and
+read-embedding-nearest donor states. Any selector must operate without gold
+labels at inference and pass once on a fresh held-out TRAIN-derived partition.
+In parallel, replicate `memory_plus_small_base_2` unchanged and add
+negative-state contrast plus state dropout during a fresh training run. Keep the
+accepted validation decoder immutable; do not open publisher test or Hard32
+until a materially stronger candidate independently replicates.
 
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
