@@ -1,0 +1,49 @@
+{
+  "accepted_validation_decoder_changed": false,
+  "amendment_payload_sha256": "db2c4e32d9aaf7a0b6a66314f3071dbb63176716fc1c0e590beb2465fe6c28d1",
+  "analyzer_sha256": "3f4cc4664d2277eb4301c1574c40aeccc5f3cccd25072585edb4d454566703c0",
+  "created_at": "2026-08-14T02:15:23+08:00",
+  "hard32_authorized": false,
+  "holdout_authorized": true,
+  "mapping_payload_sha256": "cfcb94dffa30199ef334cdc8f6241aaa547f9d7d9287bacd7ffb45dfa75c9902",
+  "phase_one_passed": true,
+  "phase_one_result": {
+    "file_sha256": "82c94dfcd8206a29f8e5a486063d614e3c3a70a39aa9a3183fb899185ce43cb5",
+    "path": "fit_result.json",
+    "receipt_payload_sha256": "ae526c8908c1fa1ea72255005de63b7a2e419e6480a229e5882a451b1b5a5b82"
+  },
+  "protocol_payload_sha256": "efca688c361cfb28e8f9a0cc107bd2d1714032e61c2eec903348ad3d9b19f3cf",
+  "publisher_test_authorized": false,
+  "publisher_validation_predictions_opened": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_selection_without_receipt",
+    "payload_sha256": "9bfcde7dbbc7502192fd91970057ba5774eddb9bfd631a653d16dbcb9f3fa6b8"
+  },
+  "runner_sha256": "3dadaa229bfd1210a0c002d15e39b27e27d547a773cf630f67b5f083d98a9690",
+  "schema": "rwkv_ms_natural_memory_native_scene_state_retrieval_selection.v1",
+  "selected_method": "hash_random",
+  "selected_phase_one_metrics": {
+    "candidate_minus_correct_state_micro_f1": 0.029833326776558255,
+    "candidate_minus_zero_state_micro_f1": 0.12595841362964652,
+    "gates": {
+      "coverage_at_least_0.95": true,
+      "minus_correct_state_micro_f1_at_least_0.005": true,
+      "minus_zero_state_micro_f1_at_least_0.02": true,
+      "paired_output_change_fraction_vs_correct_state_at_least_0.05": true,
+      "passed": true
+    },
+    "metrics": {
+      "coverage": 1.0,
+      "fn": 188,
+      "fp": 272,
+      "micro_f1": 0.30930930930930933,
+      "precision": 0.27466666666666667,
+      "recall": 0.3539518900343643,
+      "rows": 289,
+      "tp": 103
+    },
+    "paired_output_change_fraction_vs_correct_state": 0.28027681660899656
+  },
+  "selection_ordering": "micro-F1 descending, precision descending, recall descending, candidate name ascending"
+}
