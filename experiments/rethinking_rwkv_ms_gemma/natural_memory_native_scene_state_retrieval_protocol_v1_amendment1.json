@@ -1,0 +1,26 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_state_retrieval_protocol_amendment.v1",
+  "created_at": "2026-08-14T01:10:00+08:00",
+  "base_protocol_payload_sha256": "efca688c361cfb28e8f9a0cc107bd2d1714032e61c2eec903348ad3d9b19f3cf",
+  "status": "locked_before_runner_implementation_candidate_generation_or_scoring",
+  "clarifications": {
+    "tfidf_fit_corpus": "The character n-gram document frequencies and vocabulary are computed from the 1443 state-bank user prompts only. Target prompts are transformed against that fixed state-bank vocabulary and never affect IDF.",
+    "tfidf_feature_identity": "A feature is the exact Unicode character n-gram string paired with its n in {2,3,4}; no hashing or vocabulary truncation is used.",
+    "empty_vector_behavior": "If a target has no state-bank vocabulary features, every cosine score is zero and the lowest state-bank source index wins the declared tie break.",
+    "write_token_count_scope": "Token count is computed from the complete system-plus-user write prompt after the frozen Gemma chat template with add_generation_prompt=false.",
+    "frozen_tokenizer_sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+    "selection_baseline_partition": "Correct-state, zero-state, and frozen-base baselines are scored on exactly the same hash-defined fit or holdout target indices as the retrieval output.",
+    "phase_one_execution": "A shard may compute the deterministic mapping for every target to bind it, but it may only generate and append retrieval outputs for fit targets.",
+    "phase_two_execution": "The holdout runner must validate a signed selection receipt and reject every method other than the selected method before model loading."
+  },
+  "authorization_changed": false,
+  "gates_changed": false,
+  "partitions_changed": false,
+  "candidate_methods_changed": false,
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_amendment_without_receipt",
+    "payload_sha256": "db2c4e32d9aaf7a0b6a66314f3071dbb63176716fc1c0e590beb2465fe6c28d1"
+  }
+}
