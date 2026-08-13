@@ -1,0 +1,95 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_state_retrieval_protocol.v1",
+  "created_at": "2026-08-14T01:00:00+08:00",
+  "objective": "Test whether a deployable label-free retrieval rule can select an external online state that improves native scene boundary detection over the row-correct state.",
+  "status": "preregistered_before_candidate_generation_or_scoring",
+  "authorization": {
+    "causal_router_decision_receipt_sha256": "a67f5314ed29f7c1e880a22113e900a587ef7d21bb279768acd59d0024c2c8fb",
+    "development_only": true,
+    "publisher_validation_predictions_allowed_as_input": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false
+  },
+  "claim_boundary": "This post-validation TRAIN-derived development study can nominate a state-retrieval method for fresh replication. It cannot change the accepted validation decoder or create a new untouched native benchmark claim.",
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "memory_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+    "base_model_frozen": true,
+    "memory_adapter_frozen": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "greedy_generation": true,
+    "max_new_tokens": 128,
+    "batch_size": 1,
+    "state_reset_every_row": true,
+    "read_phase_writes_disabled": true,
+    "world_size": 4
+  },
+  "data_scope": {
+    "target_file": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_development.jsonl",
+    "target_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "target_source_indices_excluded": [0, 1, 2, 3],
+    "reported_target_rows": 357,
+    "state_bank_file": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "state_bank_file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "state_bank_rows": 1443,
+    "adapter_was_trained_on_state_bank_rows": true,
+    "state_bank_role": "external state exemplars only; never target evaluation rows",
+    "partition_rule": "holdout iff unsigned integer from first eight hex characters of target row SHA-256 modulo five equals zero; otherwise fit",
+    "fit_rows": 289,
+    "fit_partition_payload_sha256": "81e0eae9807ebc82fe4b739820e6233d81e5f87c02afdb8a64bc9c99c93a6957",
+    "holdout_rows": 68,
+    "holdout_partition_payload_sha256": "0167fe4bc2b532db4c097de480e54e7acb424c844142c9a730e5576f4dd8935f",
+    "all_partition_payload_sha256": "ce6a4684e8858dd6e799229dd0d2ae3c9abf7e94f337e3237513bf17a4ce2e7d",
+    "generation_sharding": "target source index modulo four"
+  },
+  "label_free_features": {
+    "text_scope": "user message content only; system instruction and assistant gold excluded",
+    "normalization": "Unicode NFKC, casefold, collapse whitespace",
+    "token_count": "frozen base-model tokenizer over the write prompt",
+    "character_vectorizer": "TF-IDF of character n-grams with n in {2,3,4}, sublinear term frequency 1+ln(tf), inverse document frequency ln((1+N)/(1+df))+1, L2 normalization",
+    "candidate_pool": "all 1443 state-bank rows",
+    "tie_break": "lowest state-bank source index"
+  },
+  "candidate_methods": {
+    "length_nearest": "minimum absolute write-prompt token-count difference",
+    "char_tfidf_nearest": "maximum cosine similarity in the frozen character TF-IDF space",
+    "hybrid_char_length": "maximum char TF-IDF cosine minus 0.15 times absolute token-count difference divided by max(target tokens, donor tokens, 1)",
+    "hash_random": "state-bank index selected by unsigned integer from first sixteen hex characters of SHA-256('rwkv-ms-state-retrieval-v1:' + target row SHA-256) modulo 1443"
+  },
+  "two_phase_stopping_rule": {
+    "phase_one": "Generate all four candidate methods for fit targets only. Holdout targets are forbidden.",
+    "selection_ordering": "micro-F1 descending, precision descending, recall descending, candidate name ascending",
+    "phase_one_gate": {
+      "coverage_floor": 0.95,
+      "selected_minus_correct_state_micro_f1_minimum": 0.005,
+      "selected_minus_zero_state_micro_f1_minimum": 0.02,
+      "paired_output_change_fraction_vs_correct_state_minimum": 0.05
+    },
+    "phase_two_authorization": "Only if every phase-one gate passes, write a signed selection.json naming exactly one method and its implementation hashes before generating holdout targets.",
+    "phase_two": "Generate only the signed selected method for the 68 holdout targets, exactly once.",
+    "phase_two_gate": {
+      "coverage_floor": 0.95,
+      "selected_minus_correct_state_micro_f1_minimum": 0.005,
+      "selected_minus_zero_state_micro_f1_minimum": 0.02,
+      "paired_output_change_fraction_vs_correct_state_minimum": 0.05
+    },
+    "retuning_after_holdout": false
+  },
+  "baselines": {
+    "correct_state": "Reuse the signed v9 write-then-read memory generation from natural_memory_native_routed_benchmark_v1_r2.",
+    "zero_state": "Reuse the signed zero-state generation from natural_memory_native_scene_causal_router_v1.",
+    "base": "Reuse the signed frozen-base generation from natural_memory_native_routed_benchmark_v1_r2."
+  },
+  "stopping_rule": "Archive, commit, and push phase-one and any authorized phase-two outcome whether pass or fail. Never read publisher-validation predictions, publisher test, or Hard32. Never generate holdout candidates before selection.json is signed.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "efca688c361cfb28e8f9a0cc107bd2d1714032e61c2eec903348ad3d9b19f3cf"
+  }
+}
