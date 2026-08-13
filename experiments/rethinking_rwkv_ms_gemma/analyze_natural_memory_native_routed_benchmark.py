@@ -26,6 +26,12 @@ from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
 
 
 SCHEMA = "rwkv_ms_natural_memory_native_routed_benchmark.v1"
+BENCHMARK_RUNNER_SHA256 = (
+    "aad2faa11fe720398c23479d679f45d69de5c72fd963db7ead3ff2327ea31b5a"
+)
+LIKELIHOOD_RUNNER_SHA256 = (
+    "d1eb64ab7b926b92ac4b84ba3140af215ddfe94e477157718062b336ec696b22"
+)
 
 
 def canonical_sha256(value: Any) -> str:
@@ -61,12 +67,6 @@ def read_records(path: Path) -> list[dict[str, Any]]:
 def validate_input_bindings(root: Path) -> list[dict[str, Any]]:
     bindings: list[dict[str, Any]] = []
     shared: dict[str, Any] | None = None
-    expected_runner_sha256 = sha256_file(
-        SCRIPT_DIR / "run_natural_memory_native_routed_benchmark.py"
-    )
-    expected_likelihood_sha256 = sha256_file(
-        SCRIPT_DIR / "diagnose_native_attribution_candidate_likelihood.py"
-    )
     for shard_index in range(4):
         path = root / f"shard-{shard_index}" / "input_binding.json"
         binding = json.loads(path.read_text(encoding="utf-8"))
@@ -79,8 +79,8 @@ def validate_input_bindings(root: Path) -> list[dict[str, Any]]:
             ),
             "shard_index": shard_index,
             "world_size": 4,
-            "runner_sha256": expected_runner_sha256,
-            "likelihood_runner_sha256": expected_likelihood_sha256,
+            "runner_sha256": BENCHMARK_RUNNER_SHA256,
+            "likelihood_runner_sha256": LIKELIHOOD_RUNNER_SHA256,
         }
         if any(binding.get(key) != value for key, value in expected.items()):
             raise ValueError(f"Routed input binding differs: {path}")

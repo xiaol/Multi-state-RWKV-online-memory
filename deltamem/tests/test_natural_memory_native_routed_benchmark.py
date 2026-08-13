@@ -15,6 +15,20 @@ def test_routed_protocol_receipt_is_bound() -> None:
     assert protocol["benchmark_scope"]["rows"]["total"] == 560
 
 
+def test_scene_router_protocol_receipt_is_bound() -> None:
+    protocol_path = (
+        runner.SCRIPT_DIR / "natural_memory_native_scene_router_protocol_v1.json"
+    )
+    protocol = runner.json.loads(protocol_path.read_text(encoding="utf-8"))
+    receipt = protocol.pop("receipt")
+
+    assert (
+        runner.canonical_sha256(protocol)
+        == receipt["payload_sha256"]
+        == runner.SCENE_ROUTER_PROTOCOL_PAYLOAD_SHA256
+    )
+
+
 def test_benchmark_excludes_selection_rows_and_shards_by_source_index() -> None:
     rows = [{"line_index": index} for index in range(20)]
 

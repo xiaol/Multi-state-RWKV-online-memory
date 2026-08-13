@@ -42,6 +42,9 @@ MEMORY_ADAPTER_SHA256 = (
 NATIVE_DATASET_RECEIPT_SHA256 = (
     "7f1056c33009a30d63179b49e9f95fe1c9fb4438b434d2ad3a22cd22039704e4"
 )
+SCENE_ROUTER_PROTOCOL_PAYLOAD_SHA256 = (
+    "f195f0bcb3cd33828fd4edb0c4b25059e0e335170010056057cc6ae23716cf21"
+)
 TASKS = {
     "attribution": {
         "path": "v3.2-attribution-best-candidate/train_derived_development.jsonl",
@@ -406,6 +409,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--dtype", default="bfloat16")
     parser.add_argument("--attn-implementation", default="sdpa")
+    parser.add_argument("--memory-tasks", default="attribution,narrative")
+    parser.add_argument("--skip-base", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -420,6 +425,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_root = args.output_root.expanduser().resolve()
     output_dir = output_root / f"shard-{args.shard_index}"
     output_dir.mkdir(parents=True, exist_ok=True)
+    memory_tasks = tuple(
+        task.strip() for task in args.memory_tasks.split(",") if task.strip()
+    )
+    unknown_memory_tasks = sorted(set(memory_tasks) - set(TASKS))
+    if unknown_memory_tasks:
+        raise ValueError(f"Unknown memory tasks: {unknown_memory_tasks}")
+    if len(set(memory_tasks)) != len(memory_tasks):
+        raise ValueError("Memory tasks must not contain duplicates")
     binding = input_binding(
         base_model=base_model,
         memory_dir=memory_dir,
@@ -429,28 +442,46 @@ def main(argv: Sequence[str] | None = None) -> int:
         dtype=args.dtype,
         attn_implementation=args.attn_implementation,
     )
-    write_or_validate_binding(output_dir / "input_binding.json", binding)
+    if args.skip_base:
+        augmentation_binding = {
+            **binding,
+            "schema": "rwkv_ms_natural_memory_native_routed_augmentation.v1",
+            "phase": "memory_only_augmentation",
+            "memory_tasks": list(memory_tasks),
+            "augmentation_protocol_payload_sha256": (
+                SCENE_ROUTER_PROTOCOL_PAYLOAD_SHA256
+                if memory_tasks == ("scene",)
+                else None
+            ),
+        }
+        write_or_validate_binding(
+            output_dir / "memory_augmentation_binding.json",
+            augmentation_binding,
+        )
+    else:
+        write_or_validate_binding(output_dir / "input_binding.json", binding)
     rows_by_task = load_rows(dataset_root)
 
-    base_model_instance, tokenizer = load_model_and_tokenizer(
-        base_model=str(base_model),
-        device=args.device,
-        dtype=args.dtype,
-        attn_implementation=args.attn_implementation,
-    )
-    run_condition(
-        condition="base",
-        model=base_model_instance,
-        tokenizer=tokenizer,
-        rows_by_task=rows_by_task,
-        output_dir=output_dir,
-        shard_index=args.shard_index,
-        world_size=args.world_size,
-        device=args.device,
-    )
-    del base_model_instance, tokenizer
-    gc.collect()
-    torch.cuda.empty_cache()
+    if not args.skip_base:
+        base_model_instance, tokenizer = load_model_and_tokenizer(
+            base_model=str(base_model),
+            device=args.device,
+            dtype=args.dtype,
+            attn_implementation=args.attn_implementation,
+        )
+        run_condition(
+            condition="base",
+            model=base_model_instance,
+            tokenizer=tokenizer,
+            rows_by_task=rows_by_task,
+            output_dir=output_dir,
+            shard_index=args.shard_index,
+            world_size=args.world_size,
+            device=args.device,
+        )
+        del base_model_instance, tokenizer
+        gc.collect()
+        torch.cuda.empty_cache()
 
     memory_model, tokenizer = load_model_and_tokenizer(
         base_model=str(base_model),
@@ -459,16 +490,50 @@ def main(argv: Sequence[str] | None = None) -> int:
         dtype=args.dtype,
         attn_implementation=args.attn_implementation,
     )
-    run_condition(
-        condition="memory",
-        model=memory_model,
-        tokenizer=tokenizer,
-        rows_by_task=rows_by_task,
-        output_dir=output_dir,
-        shard_index=args.shard_index,
-        world_size=args.world_size,
-        device=args.device,
-    )
+    for task in memory_tasks:
+        task_rows = selected_rows(
+            rows_by_task[task],
+            shard_index=args.shard_index,
+            world_size=args.world_size,
+        )
+        path = output_dir / f"{task}.memory.jsonl"
+        existing = read_completed(path)
+        validate_resume(
+            existing,
+            task_rows,
+            task=task,
+            condition="memory",
+            shard_index=args.shard_index,
+        )
+        for ordinal, row in enumerate(task_rows, start=1):
+            index = int(row["line_index"])
+            if index in existing:
+                continue
+            if task == "attribution":
+                record = attribution_record(
+                    memory_model,
+                    tokenizer,
+                    row,
+                    condition="memory",
+                    device=args.device,
+                    shard_index=args.shard_index,
+                )
+            else:
+                record = generation_record(
+                    memory_model,
+                    tokenizer,
+                    row,
+                    task=task,
+                    condition="memory",
+                    device=args.device,
+                    shard_index=args.shard_index,
+                )
+            append_record(path, record)
+            print(
+                f"ROUTED_PROGRESS shard={args.shard_index} condition=memory "
+                f"task={task} row={index} ordinal={ordinal}/{len(task_rows)}",
+                flush=True,
+            )
     print(f"ROUTED_SHARD_COMPLETE shard={args.shard_index}", flush=True)
     return 0
 

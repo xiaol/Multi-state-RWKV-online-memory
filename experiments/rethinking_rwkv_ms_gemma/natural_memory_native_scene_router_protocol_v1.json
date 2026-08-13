@@ -1,0 +1,74 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_router_protocol.v1",
+  "created_at": "2026-08-13T08:30:00+08:00",
+  "objective": "Use the v9 scene output as a conservative boundary filter for frozen Gemma without allowing memory-only additions.",
+  "source_evidence": {
+    "routed_benchmark_decision_receipt_sha256": "3805d9d2cee75d24588e24d6ab84c5901bb536405c0a18d1c4912f3dd2887742",
+    "base_scene_counts": {
+      "rows": 357,
+      "tp": 212,
+      "fp": 1648,
+      "fn": 149,
+      "micro_f1": 0.19090499774876182
+    },
+    "diagnosis": "Frozen Gemma has high scene recall but very low precision; the fixed v9 probe showed that memory emits a much smaller candidate set. Memory may therefore be useful as a veto even though memory-only scene generation failed."
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "base_model_frozen": true,
+    "memory_adapter_frozen": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "greedy_generation": true,
+    "batch_size": 1,
+    "online_memory_protocol": "write_then_read",
+    "test_forbidden": true,
+    "hard32_forbidden": true
+  },
+  "data_scope": {
+    "split": "publisher-TRAIN-derived development",
+    "task": "scene-v4-current",
+    "selection_rows_0_through_3_excluded": true,
+    "source_indices": "4 through 360 inclusive",
+    "rows": 357,
+    "generation_sharding": "source_index modulo four",
+    "fit_partition": "even source_index",
+    "holdout_partition": "odd source_index",
+    "partition_locked_before_memory_generation": true
+  },
+  "candidate_routers": {
+    "base": "exact frozen-Gemma recovered boundary set",
+    "memory": "exact v9 recovered boundary set",
+    "intersection": "base intersect memory",
+    "union": "base union memory",
+    "conditional_intersection": "if memory emits at least one valid boundary, use base intersect memory; otherwise use exact base"
+  },
+  "selection": {
+    "metric": "micro_f1",
+    "choose_on": "fit partition only",
+    "ordering": "micro_f1 descending, precision descending, recall descending, candidate name ascending",
+    "minimum_fit_gain_over_base": 0.01,
+    "minimum_holdout_gain_over_base": 0.005,
+    "holdout_no_regression_required": true,
+    "coverage_floor": 0.95,
+    "one_candidate_selected_once": true,
+    "retuning_after_holdout": false
+  },
+  "authorization": {
+    "publisher_validation_allowed_only_if_scene_holdout_passes": true,
+    "final_decoder": {
+      "attribution": "exact frozen-base likelihood",
+      "narrative": "locked v1 pair router",
+      "scene": "selected scene router"
+    },
+    "publisher_test": false,
+    "hard32": false
+  },
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "f195f0bcb3cd33828fd4edb0c4b25059e0e335170010056057cc6ae23716cf21"
+  }
+}
