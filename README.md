@@ -441,6 +441,48 @@ Evidence:
   [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_dualpath_repair_eval.py),
   and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_dualpath_repair.py)
 
+### Adaptive Convex Repair-Bridge Failure
+
+The next TRAIN-only study tested whether the recall and continuation behavior
+could be separated in weight space without another training run. It
+materialized exact convex gate-only bridges between the frozen on-policy and
+dual-path endpoints at 25%, 50%, and 75% on-policy weight. All three recipes,
+source artifacts, 126 tensors, and 108,906 values were hash-bound before four
+A100s generated any outputs. A fresh five-fold cross-fit selected among the
+three bridges and unchanged checkpoint 16 using only the other four folds.
+
+| Adaptive TRAIN-derived scene candidate | TP | FP | FN | Micro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| 25% on-policy / 75% dual-path | 78 | 183 | 162 | 0.3114 |
+| 50% on-policy / 50% dual-path | 79 | 198 | 161 | 0.3056 |
+| 75% on-policy / 25% dual-path | 81 | 196 | 159 | 0.3133 |
+| Checkpoint 16 | 79 | 182 | 161 | 0.3154 |
+| Frozen V9 | 80 | 231 | 160 | 0.2904 |
+| Five-fold out-of-fold selection | 79 | 196 | 161 | 0.3068 |
+
+The interpolation exposed a discrete generation threshold rather than a
+smooth precision/recall frontier. Source row 187 stayed at `[1]` with 25%
+on-policy weight, but both 50% and 75% abruptly regenerated every boundary
+`[1, ..., 16]`. The 75% bridge recovered two of the on-policy endpoint's three
+true positives, yet its 14 extra false positives left it `0.00202` micro-F1
+below checkpoint 16. Cross-fit selected a learned bridge in only one of five
+folds and trailed checkpoint 16 by `0.00857`; the signed study therefore
+failed. The result rules out global linear interpolation as the next step and
+motivates conditional inference on the small set of rows where the endpoints
+disagree. Its receipt is
+`98eb982c239dd7e845e597d7294aef5aeeab3e18c906505205d0373521f44717`.
+No protected split was opened or authorized.
+
+Evidence:
+
+- [Locked bridge protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_repair_bridge_protocol_v1.json)
+- [Signed materialization](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_repair_bridge_materialization_v1/result.json)
+- [Four-GPU raw generations](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_repair_bridge_eval_v1)
+- [Signed adaptive TRAIN-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_repair_bridge_v1/result.json)
+- [Materializer](experiments/rethinking_rwkv_ms_gemma/materialize_natural_memory_native_scene_repair_bridges.py),
+  [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_repair_bridge.py),
+  and [cross-fit analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_repair_bridge.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:
