@@ -1,0 +1,117 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_dualpath_repair_protocol.v1",
+  "created_at": "2026-08-15T13:20:00+08:00",
+  "objective": "Adaptively test whether first-divergence correction plus checkpoint-continuation distillation on the original wrong-token branch preserves recall gains without inducing repeated-boundary cascades.",
+  "study_scope": {
+    "classification": "publisher-TRAIN-derived adaptive development",
+    "prior_results_used_for_method_design": "On-policy repair gained three true positives but added 18 false positives, including a 15-boundary cascade on source row 187. Gold-suffix repair still produced that cascade because it only constrained the corrected branch.",
+    "independent_evidence": false,
+    "protected_split_authorization_from_this_study": false
+  },
+  "frozen_constraints": {
+    "starting_checkpoint": "natural_memory_native_scene_contrast_dropout_train_v1/checkpoint-16",
+    "starting_step": 16,
+    "starting_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "starting_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "adapter": "local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "base_model_frozen": true,
+    "non_gate_adapter_parameters_frozen": true,
+    "trainable_parameter_families": [
+      "memory_fusion_hidden_weight",
+      "memory_fusion_read_weight",
+      "memory_fusion_bias"
+    ],
+    "trainable_parameter_tensors": 126,
+    "trainable_parameter_elements": 108906,
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "world_size": 4
+  },
+  "training_data": {
+    "source": "publisher-TRAIN-derived scene fit only",
+    "path": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "rows": 1443,
+    "reuse_disclosure": "Reuse the same 96 rows selected by the locked on-policy and gold-suffix repair schedules; these rows and their preceding benchmark outcomes are no longer untouched.",
+    "selection_rule": "Identical to on-policy repair seed 149.",
+    "selected_rows": 96,
+    "selected_rows_payload_sha256": "4bdb444aace7e1684b00f2a10b1b17812d01aa3b7ebeaab7eb7d330f0fdfc332",
+    "schedule_payload_sha256": "3b81436961d24252d3222ff63dffd185e7e8a8d71d3822d2f94e6cd9fe649eaa",
+    "seed": 149,
+    "conditions": {
+      "correct_state": 96,
+      "no_state": 0,
+      "wrong_state": 0
+    }
+  },
+  "greedy_mining": {
+    "timing": "Generate all 96 selected rows from frozen checkpoint 16 before the first optimizer update.",
+    "generation": "greedy, max_new_tokens=64, correct online state",
+    "actionable_row": "The recovered prediction must contain at least one boundary absent from gold, have a concrete first token divergence from gold, and have at least one checkpoint-generated token following the wrong token.",
+    "corrective_prefix": "The exact checkpoint-16 generated token prefix before the first divergence.",
+    "fallback_prefix": "The exact checkpoint-16 generated token prefix through and including the wrong token at the first divergence.",
+    "fallback_targets": "Up to the next three checkpoint-16 generated tokens after the wrong token, including an EOS token when present.",
+    "invalid_or_non_false_positive_outputs": "Audit and skip without a gradient.",
+    "mining_updates_model": false,
+    "mining_uses_protected_split": false
+  },
+  "intervention": {
+    "loss": "Pairwise softplus(wrong_logit - correct_logit + 0.5) at the first divergence, plus a separate 0.25-weight teacher-forced CE pass over up to three checkpoint continuation tokens conditioned on the original wrong-token prefix.",
+    "corrective_path_supervised_tokens": 1,
+    "fallback_continuation_tokens_maximum": 3,
+    "fallback_continuation_ce_weight": 0.25,
+    "full_sequence_gold_ce_weight": 0.0,
+    "synthetic_negative_unlikelihood_weight": 0.0,
+    "pairwise_margin": 0.5,
+    "optimizer": "fused AdamW",
+    "learning_rate": 5e-06,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "post_step_proximal_rule": "After each AdamW step, replace theta by checkpoint16 + 0.99 * (theta - checkpoint16).",
+    "post_step_delta_retention": 0.99,
+    "global_batch_size": 16,
+    "local_rows_per_rank": 4,
+    "execution_subbatch_size": 1,
+    "forward_backward_paths_per_actionable_row": 2,
+    "updates": 6,
+    "candidate_runs": 1,
+    "endpoint_ensemble": false,
+    "total_selected_row_exposures": 96
+  },
+  "materialization": {
+    "candidate_id": "dualpath_repair_endpoint",
+    "rule": "Use the single locked update-6 endpoint unchanged.",
+    "candidate_fixed_before_generation": true,
+    "fallback_or_candidate_selection_after_evaluation": false
+  },
+  "evaluation": {
+    "source": "The same 220 open publisher-TRAIN-derived scene development rows used to diagnose the preceding failures.",
+    "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "rows": 220,
+    "condition": "correct_state",
+    "candidate_count": 1,
+    "baselines": [
+      "frozen_v9",
+      "contrast_checkpoint_16",
+      "onpolicy_repair_endpoint",
+      "suffix_repair_endpoint"
+    ],
+    "development_gates": {
+      "coverage_minimum": 0.95,
+      "candidate_minus_checkpoint_16_micro_f1_minimum": 0.005,
+      "candidate_minus_v9_micro_f1_minimum": 0.005,
+      "output_change_fraction_vs_checkpoint_16_minimum": 0.02
+    }
+  },
+  "stopping_rule": "Archive, commit, and push all outcomes. This adaptive study cannot authorize publisher validation, publisher test, Hard32, or the unused 73-row strength holdout.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "74373a496b63e0b4a6c4ca134ae40b25118a4b311aa9734d4001eecc210781b7"
+  }
+}
