@@ -483,6 +483,48 @@ Evidence:
   [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_repair_bridge.py),
   and [cross-fit analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_repair_bridge.py)
 
+### Adaptive Consistency-Router Success
+
+The first method to clear the locked `+0.005` improvement threshold on the
+native TRAIN-derived scene benchmark is a conservative dual-pass consistency
+router rather than another globally trained endpoint. It compares checkpoint
+16 with the recall-heavier 75% on-policy bridge and accepts the proposal only
+when it is a strict subset of the checkpoint prediction, or when checkpoint
+abstains and the proposal is a single boundary. The rule never sees gold at
+inference. It was designed after inspecting the bridge failure, so it is
+explicitly post-hoc adaptive evidence, not an independent benchmark claim.
+
+| Adaptive TRAIN-derived scene policy | TP | FP | FN | Micro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| Checkpoint 16 | 79 | 182 | 161 | 0.3154 |
+| Strict-subset routing only | 79 | 178 | 161 | 0.3179 |
+| Abstention-singleton routing only | 81 | 182 | 159 | 0.3221 |
+| Combined consistency router | **81** | **178** | **159** | **0.3246** |
+| Frozen V9 | 80 | 231 | 160 | 0.2904 |
+
+A fresh five-fold cross-fit selected the combined rule on all five fit
+partitions, so its out-of-fold result equals the aggregate result. The router
+changed six of 220 outputs: two singleton proposals repaired missed true
+boundaries on rows 89 and 178, while four strict-subset proposals removed one
+false boundary each on rows 190, 305, 321, and 354. This gives `+2` TP, `-4`
+FP, and `+0.00928` micro-F1 over checkpoint 16. It also avoids the row-187
+cascade because the 16-boundary proposal is neither a strict subset nor a
+singleton after abstention.
+
+This is a real success on the open publisher-TRAIN-derived native development
+benchmark, but it does not yet establish generalization: the rule family was
+created after observing those rows, requires two generation passes, and has
+not been tested on any protected split. The next boundary is a pre-registered
+replication on genuinely new data, followed by distilling the decision into a
+single-pass confidence head only if replication succeeds. The signed receipt
+is `c7f2d6af754c843cea5abbc8cf96415182d4ae97838586fdbea8d46a15ba049a`.
+
+Evidence:
+
+- [Locked adaptive router protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_consistency_router_protocol_v1.json)
+- [Signed TRAIN-only success](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_consistency_router_v1/result.json)
+- [Router and cross-fit analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_consistency_router.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:
