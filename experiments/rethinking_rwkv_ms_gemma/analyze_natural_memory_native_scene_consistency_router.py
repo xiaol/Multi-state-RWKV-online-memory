@@ -430,6 +430,8 @@ def analyze(
         "schema": SCHEMA,
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "protocol_payload_sha256": PROTOCOL_PAYLOAD_SHA256,
+        "protocol_file_sha256": sha256_file(PROTOCOL),
+        "analyzer_sha256": sha256_file(Path(__file__)),
         "rows": len(indices),
         "source_indices": list(indices),
         "checkpoint_candidate_id": CHECKPOINT_ID,
