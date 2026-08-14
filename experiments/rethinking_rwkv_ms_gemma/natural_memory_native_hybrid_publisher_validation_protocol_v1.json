@@ -1,0 +1,101 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_hybrid_publisher_validation_protocol.v1",
+  "created_at": "2026-08-14T20:10:00+08:00",
+  "objective": "Replicate the fixed task-wise hybrid once on fresh publisher-validation generations and test whether checkpoint 16 improves scene behavior beyond both frozen base and frozen V9.",
+  "authorization": {
+    "hybrid_protocol_payload_sha256": "d0ce1f32df3bee78145d7a6555b071441e853cbe089444d010d26684ac45cca8",
+    "hybrid_protocol_file_sha256": "f9949661cd8ebd4b9b999dd134055aa6b068855db51fe008b512bc30c7b3d18d",
+    "hybrid_result_receipt_sha256": "07809e382c2bfba7ed20e85261371ea7adfb2c346243b15d3873cd88eac8fc0f",
+    "hybrid_result_file_sha256": "6565eaff4621a4002017e6b3a31c692d42d946f57894928688461151544d3ecb",
+    "fresh_publisher_validation_replication_authorized": true,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "unused_strength_holdout_authorized": false
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "v9_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "v9_adapter_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "checkpoint_step": 16,
+    "checkpoint_manifest_sha256": "00c603cd02a5dcc3bd325ee6daadd47349f6700f257deee2185a3991f1644b7e",
+    "checkpoint_manifest_receipt_sha256": "9da055dc39cb74c54acc6201e32bef095d599273d1f65c2f200550cca97ef891",
+    "checkpoint_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "checkpoint_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+    "base_model_frozen": true,
+    "v9_adapter_frozen": true,
+    "checkpoint_patch_frozen": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "greedy_generation": true,
+    "batch_size_per_gpu": 1,
+    "state_reset_every_example": true,
+    "online_memory_protocol": "write_then_read",
+    "world_size": 4,
+    "sharding": "task source index modulo four"
+  },
+  "dataset": {
+    "root": "/root/X/.cache/hf/novel-agent-sft-dataset/training",
+    "split": "publisher validation",
+    "fresh_output_policy": "Generate every condition into a new root from raw rows; do not read, copy, compare, or resume from any prior publisher-validation artifact.",
+    "tasks": {
+      "attribution": {
+        "file": "v3.2-attribution-best-candidate/val.jsonl",
+        "sha256": "01373fa09c89568a47927f19088f78bbf62cd4b7eb66803100c06e8a3f2152a4",
+        "source_rows": 30,
+        "excluded_source_indices": [0],
+        "exclusion_reason": "Retain the accepted scope exclusion because row 0 was touched by historical runtime diagnostics.",
+        "reported_rows": 29,
+        "conditions": ["base"]
+      },
+      "narrative": {
+        "file": "v3.2-narrative-type-classification/val.jsonl",
+        "sha256": "4a1d27c543e715a069e6b3c8253021b0f86fe1690aac116da09eba43896e1b6a",
+        "source_rows": 39,
+        "excluded_source_indices": [],
+        "reported_rows": 39,
+        "conditions": ["base", "v9_memory"]
+      },
+      "scene": {
+        "file": "v4-scene-boundary-detection/val.jsonl",
+        "sha256": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513",
+        "source_rows": 170,
+        "excluded_source_indices": [],
+        "reported_rows": 170,
+        "conditions": ["base", "v9_memory", "checkpoint16_memory"]
+      }
+    },
+    "reported_rows_total": 238
+  },
+  "decoder": {
+    "attribution": "frozen-base minimum mean candidate continuation NLL",
+    "narrative": "use frozen V9 only for base=narration,v9=scene_description; otherwise use base",
+    "scene": "checkpoint-16 correct-state memory generation",
+    "base_comparator": "fresh frozen-base output under the identical task-specific scorer",
+    "scene_training_comparator": "fresh frozen-V9 correct-state memory generation"
+  },
+  "execution": {
+    "worker_contract": "Each of four independent GPU workers owns source indices congruent to its worker index modulo four for every task.",
+    "base_phase": "Load frozen base once per worker; generate attribution base, narrative base, and scene base.",
+    "memory_phase": "Load frozen V9 once per worker; generate narrative V9 and scene V9, then apply the bound checkpoint-16 gate patch and generate checkpoint-16 scene.",
+    "append_only_resumable_within_new_root": true,
+    "completed_source_indices_never_regenerated": true,
+    "prior_validation_artifact_roots_forbidden": true
+  },
+  "gates": {
+    "candidate_coverage_floor_each_task": 0.95,
+    "fresh_v9_scene_coverage_floor": 0.95,
+    "candidate_no_regression_vs_fresh_base_all_three_tasks": true,
+    "candidate_strict_improvement_minimum_tasks": 1,
+    "checkpoint16_scene_strict_improvement_vs_fresh_base": true,
+    "checkpoint16_scene_minus_fresh_v9_minimum_micro_f1": 0.005,
+    "paired_source_rows_required": true
+  },
+  "stopping_rule": "Analyze exactly once after all fresh shards complete; archive and push the outcome whether pass or fail. Never tune from this replication and do not open publisher test, Hard32, the unused strength holdout, or any prior publisher-validation predictions.",
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_hybrid_publisher_validation_protocol_without_receipt",
+    "payload_sha256": "1d8435431748b95ce3a36f8bc2217ce61b55bb2a594e517299d6f9d5e995ae0c"
+  }
+}
