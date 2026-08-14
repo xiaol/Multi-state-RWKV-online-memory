@@ -1,0 +1,30 @@
+{
+  "candidate_id": "onpolicy25_dualpath75",
+  "gate_state_sha256": "f55d8649dc9b4fd1d655b1ce59af323cae6b17107ab9521f10ad661b5d650cd7",
+  "parameter_elements": 108906,
+  "parameter_tensors": 126,
+  "patch_file": {
+    "bytes": 479356,
+    "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_repair_bridge_materialization_v1/onpolicy25_dualpath75/gate_patch.pt",
+    "sha256": "f8a78c22d5272e24c93042f61ad44d4e08398e10b6157aa387ad0878ebd0e726"
+  },
+  "protocol_payload_sha256": "44a97af8f0249f9c0cf129d6566bf0882f8ca1fc8f868c334cd2c7ae98fb0d7f",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_manifest_without_receipt",
+    "payload_sha256": "4a5efbe14ecf5222742f8a63a96eaa8879a7e600f821e5cc7926ed6f63188132"
+  },
+  "recipe": {
+    "candidate_id": "onpolicy25_dualpath75",
+    "denominator": 4,
+    "weights": {
+      "dualpath": 3,
+      "onpolicy": 1
+    }
+  },
+  "schema": "rwkv_ms_natural_memory_native_scene_repair_bridge_patch.v1",
+  "source_gate_state_sha256": {
+    "dualpath": "efc937ce2c623c04df1505cd37c529f60b645ac11d36c2e53a4b4b6a06a9d221",
+    "onpolicy": "1d48e85e7ab0332f93d2e88ff3344afd97c33bc604d3cf1a9729001907c977cb"
+  }
+}
