@@ -364,6 +364,43 @@ Evidence:
   [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_onpolicy_repair_eval.py),
   and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_onpolicy_repair.py)
 
+### Adaptive Gold-Suffix Repair Failure
+
+A follow-up development study reused the same 96 publisher-TRAIN rows after
+observing the on-policy result, so it is explicitly adaptive and cannot
+authorize external replication or protected evaluation. It retained the
+first-divergence pairwise objective and added weight-`0.25` teacher-forced CE
+on as many as four gold tokens beginning at the divergence. Six four-A100
+updates used learning rate `2.5e-6`, clipping at `0.025`, and `0.995`
+checkpoint-relative retention. The final content-gate move was only `0.00302`
+L2 from checkpoint 16 and was fixed before generation.
+
+| Adaptive TRAIN-derived scene candidate | TP | FP | FN | Micro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| Gold-suffix repair endpoint | 80 | 197 | 160 | 0.3095 |
+| Checkpoint 16 | 79 | 182 | 161 | 0.3154 |
+| Frozen V9 | 80 | 231 | 160 | 0.2904 |
+
+The endpoint changed 12 of 220 outputs, for a net gain of one true positive
+but 15 false positives. It trailed checkpoint 16 by `0.00589` micro-F1 while
+remaining `0.01910` above V9. Crucially, source row 187 still changed `[1]`
+into `[1, ..., 16]`: gold-suffix CE trained the corrected branch, but did not
+constrain the generated continuation after the model still selected the
+wrong `[1` branch. The signed result receipt is
+`75bff5880533653f8748bffb5dda8386335a7bee7df668fbfa2c853555caff02`.
+Publisher validation, publisher test, Hard32, and the unused 73-row holdout
+remain sealed.
+
+Evidence:
+
+- [Locked suffix-repair protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_suffix_repair_protocol_v1.json)
+- [Signed training endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_suffix_repair_train_v1/result.json)
+- [Signed materialization](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_suffix_repair_materialization_v1/result.json)
+- [Signed adaptive TRAIN-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_suffix_repair_v1/result.json)
+- [Four-GPU trainer](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_suffix_repair.py),
+  [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_suffix_repair_eval.py),
+  and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_suffix_repair.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:
