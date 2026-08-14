@@ -281,6 +281,48 @@ Evidence:
   [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_c16_residual_eval.py),
   and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_c16_residual.py)
 
+### Precision-Unlikelihood Training Failure
+
+The next publisher-TRAIN-only intervention started from checkpoint 16 and used
+256 previously untouched eligible rows. One four-A100 run made 16 global-batch-
+16 updates at learning rate `1.5e-5`, with a `0.995` post-step pull toward the
+starting checkpoint. Each row combined unit-weight gold teacher-forced CE with
+weight-`0.5` unlikelihood on only the decimal token or tokens of one inserted
+false boundary under the same correct online state. JSON syntax was never a
+negative target. Of the 256 negatives, 199 inserted boundary `1`; the loss
+penalized 270 false-boundary digit tokens in total. The run changed only the
+126 content-gate tensors, ended `0.0499` L2 from checkpoint 16, and was fixed
+and pushed before generation.
+
+| TRAIN-derived scene candidate | TP | FP | FN | Micro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| Precision-unlikelihood endpoint | 76 | 202 | 164 | 0.2934 |
+| Checkpoint 16 | 79 | 182 | 161 | 0.3154 |
+| Frozen V9 | 80 | 231 | 160 | 0.2904 |
+
+The candidate lost `0.0219` micro-F1 from checkpoint 16 and missed the locked
+gain over V9 by `0.0019`. It changed 23 of 220 outputs: nine additions, seven
+removals, and seven substitutions. Those changes added 30 false boundaries
+while removing only 10, lost four true boundaries while adding one, and
+included one unstable row that added all 15 boundaries from `2` through `16`.
+Boundary `1` itself was not calibrated: five false instances were removed but
+five new false instances appeared, while two true instances were lost and one
+was added. Teacher-forced digit-only unlikelihood therefore did not transfer
+to greedy-set precision; combined gold CE also failed to preserve the local
+checkpoint-16 decision surface. The endpoint is archived without external
+replication. Publisher validation, publisher test, Hard32, and the unused
+73-row strength holdout remain unopened.
+
+Evidence:
+
+- [Locked precision-unlikelihood protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_precision_unlikelihood_protocol_v1.json)
+- [Signed training endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_precision_unlikelihood_train_v1/result.json)
+- [Signed materialization](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_precision_unlikelihood_materialization_v1/result.json)
+- [Signed TRAIN-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_precision_unlikelihood_v1/result.json)
+- [Four-GPU trainer](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_precision_unlikelihood.py),
+  [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_precision_unlikelihood_eval.py),
+  and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_precision_unlikelihood.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:
