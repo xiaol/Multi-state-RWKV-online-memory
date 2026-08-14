@@ -1,0 +1,58 @@
+{
+  "candidate_fixed_before_generation": true,
+  "candidate_id": "precision_unlikelihood_endpoint",
+  "candidate_manifest": {
+    "candidate_id": "precision_unlikelihood_endpoint",
+    "denominator": 1,
+    "gate_state_sha256": "56ddd08859d314b665314fcc1cdf52432cabe763ab8eeb934d8f5891ec145fb5",
+    "parameter_elements": 108906,
+    "parameter_tensors": 126,
+    "patch_file": {
+      "bytes": 479292,
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_precision_unlikelihood_materialization_v1/gate_patch.pt",
+      "sha256": "22aaad57c405a596b1e615ea8280dd3e831ead027cd92bef18e241e0e028b04e"
+    },
+    "protocol_payload_sha256": "ad397d198a841b9734745ff1ff8faa6f559428a41e216fbcf540a36cf98da51e",
+    "receipt": {
+      "algorithm": "sha256",
+      "payload_scope": "canonical_manifest_without_receipt",
+      "payload_sha256": "193472a0a04e7c8c98050dc32681006786ea9f82cd8e777cc8999f53f51dcd40"
+    },
+    "schema": "rwkv_ms_natural_memory_native_scene_precision_unlikelihood_patch.v1",
+    "seed_weights": {
+      "131": 1
+    },
+    "source_gate_state_sha256": {
+      "131": "56ddd08859d314b665314fcc1cdf52432cabe763ab8eeb934d8f5891ec145fb5",
+      "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+    }
+  },
+  "created_at": "2026-08-15T04:19:06+08:00",
+  "hard32_authorized": false,
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "ad397d198a841b9734745ff1ff8faa6f559428a41e216fbcf540a36cf98da51e",
+  "publisher_test_authorized": false,
+  "publisher_validation_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_materialization_without_receipt",
+    "payload_sha256": "f86cc36be84118c48f437c2caf7764ab63a1a091708c838b9576dddedcf3b03b"
+  },
+  "schema": "rwkv_ms_natural_memory_native_scene_precision_unlikelihood_materialization.v1",
+  "source_gate_state_sha256": {
+    "131": "56ddd08859d314b665314fcc1cdf52432cabe763ab8eeb934d8f5891ec145fb5",
+    "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+  },
+  "source_training_artifacts": [
+    {
+      "gate_state_sha256": "56ddd08859d314b665314fcc1cdf52432cabe763ab8eeb934d8f5891ec145fb5",
+      "manifest_sha256": "fd7d3b280a615e1861822d8009968d9cec37cb3082e4f832ceb95f94e61291d2",
+      "patch_sha256": "bfcc141260934183bf62079b047d2598ec75920b1f55f5b42479e60a093f91be",
+      "seed": 131,
+      "training_result_receipt_sha256": "c52c8bcacdc64b73f113f4ebccde5828a65eb6349f99b060560e4d6d20aa50af",
+      "training_result_sha256": "525466b1df41bbf2c03942f5d539c8511302600f312b7d841679bcb2b5349829",
+      "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_precision_unlikelihood_train_v1"
+    }
+  ],
+  "unused_strength_holdout_authorized": false
+}
