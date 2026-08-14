@@ -1,0 +1,77 @@
+{
+  "decoder": {
+    "attribution": "frozen-base candidate likelihood",
+    "narrative": "exact V9 routed artifact reuse",
+    "scene": "checkpoint-16 correct-state progression"
+  },
+  "deltas": {
+    "narrative_vs_frozen_base": 0.015963262628471475,
+    "scene_checkpoint16_vs_frozen_v9": 0.028262924814648982
+  },
+  "fresh_publisher_validation_replication_contract_authorized": true,
+  "gates": {
+    "attribution_exact_frozen_base": true,
+    "narrative_exact_v9_routed_reuse": true,
+    "narrative_no_regression_vs_frozen_base": true,
+    "passed": true,
+    "protected_splits_closed": true,
+    "scene_progression_passed": true
+  },
+  "hard32_authorized": false,
+  "metrics": {
+    "attribution": {
+      "correct": 62,
+      "coverage": 1.0,
+      "primary_metric": 0.6966292134831461,
+      "primary_metric_name": "candidate_likelihood_accuracy",
+      "rows": 89
+    },
+    "narrative": {
+      "correct_units": 2747,
+      "coverage": 1.0,
+      "gold_units": 4573,
+      "primary_metric": 0.6006997594576864,
+      "primary_metric_name": "format_recovered_unit_accuracy",
+      "rows": 114
+    },
+    "scene": {
+      "coverage": 1.0,
+      "fn": 197,
+      "fp": 237,
+      "micro_f1": 0.31974921630094044,
+      "precision": 0.3008849557522124,
+      "recall": 0.3411371237458194,
+      "rows": 284,
+      "tp": 102
+    }
+  },
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "d0ce1f32df3bee78145d7a6555b071441e853cbe089444d010d26684ac45cca8",
+  "provenance": {
+    "analyzer_sha256": "f1714a138160a433ddb4aa1fa1b0057e9edc907ae0497bb5a781d71210ed35d0",
+    "failed_result": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_multitask_preservation_v1/result.json",
+      "receipt_payload_sha256": "e8938c33f8c8ede59118e210cde29a237ca8ce40495e04e56adb95cc3e018932",
+      "sha256": "f0be3388af3fb683559fd376194ad922483fa72d4aafeff713243489b440fff7"
+    },
+    "reference_result": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/result.json",
+      "receipt_payload_sha256": "26a2248976ff009804744a19a738fd2124061cf6d909bdc74c9e7c040098c091",
+      "sha256": "36549b036f104bc665d367b65668aef80ad94b98bdf5c63d441cb0d6ef9b422f"
+    },
+    "scene_progression_result": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/result.json",
+      "receipt_payload_sha256": "23bc133d82590890308ac5b0779e54427f51fbee615d941393a023538be80b2b",
+      "sha256": "af852ce316d83fb90b18bbd97fb302cdb1fe99b305c96736478759143d897cb2"
+    }
+  },
+  "publisher_test_authorized": false,
+  "publisher_validation_opened": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_multitask_hybrid_result_without_receipt",
+    "payload_sha256": "07809e382c2bfba7ed20e85261371ea7adfb2c346243b15d3873cd88eac8fc0f"
+  },
+  "schema": "rwkv_ms_natural_memory_native_multitask_hybrid_result.v1",
+  "unused_strength_holdout_authorized": false
+}

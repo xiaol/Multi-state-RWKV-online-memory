@@ -128,19 +128,30 @@ The subsequent multitask-preservation gate passed scene progression and exact
 attribution reuse, but failed its narrative comparator narrowly. Checkpoint 16
 reached `0.5987` routed narrative unit accuracy on the untouched 114-row
 remainder, above frozen base (`0.5847`) but below V9's routed comparator
-(`0.6007`) by `0.0020`. No publisher-validation replication is authorized from
-this candidate. The complete signed failure is archived in the
+(`0.6007`) by `0.0020`. The complete signed failure is archived in the
 [preservation result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_multitask_preservation_v1/result.json).
 
-### Recommended Next Boundary
+### Hybrid Boundary Candidate
 
-The next boundary is a new TRAIN-derived narrative-preservation intervention:
-retain V9's proven narrative pair behavior while adding checkpoint-16 memory
-only under an agreement or confidence guard, then validate that guard on a
-fresh TRAIN-derived narrative partition. The guard must beat frozen base and
-match V9 before any publisher-validation replication. The accepted validation
-decoder remains immutable; publisher test, Hard32, and the unused 73-row
-strength holdout remain sealed.
+The failure is isolated to 12 narrative unit-level disagreements, so replacing
+V9 narrative behavior with checkpoint-16 output is rejected. The signed hybrid
+candidate keeps the proven task-wise contracts: frozen-base candidate
+likelihood for attribution, exact V9 routed output for narrative, and
+checkpoint-16 correct-state generation for scene. On the combined open
+TRAIN-derived fit rows this gives attribution accuracy `0.6966`, V9 routed
+narrative accuracy `0.6007`, and checkpoint-16 scene micro-F1 `0.3197`.
+
+The hybrid gates pass without opening any protected split. This authorizes only
+one next step: a separately preregistered fresh publisher-validation replication
+that generates new outputs from raw validation data. It does not authorize
+publisher test, Hard32, the unused strength holdout, or reuse of any prior
+validation predictions.
+
+Evidence:
+
+- [Locked hybrid protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_multitask_hybrid_protocol_v1.json)
+- [Signed hybrid result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_multitask_hybrid_v1.json)
+- [Hash-bound hybrid analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_multitask_hybrid.py)
 
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism

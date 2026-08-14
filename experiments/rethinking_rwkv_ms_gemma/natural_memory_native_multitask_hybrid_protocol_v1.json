@@ -1,0 +1,54 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_multitask_hybrid_protocol.v1",
+  "created_at": "2026-08-14T18:55:00+08:00",
+  "objective": "Construct the safest task-wise candidate after checkpoint-16 narrative preservation failed narrowly: retain V9 narrative behavior and deploy checkpoint-16 only on scene.",
+  "source": {
+    "failed_preservation_result_receipt_sha256": "e8938c33f8c8ede59118e210cde29a237ca8ce40495e04e56adb95cc3e018932",
+    "failed_preservation_result_file_sha256": "f0be3388af3fb683559fd376194ad922483fa72d4aafeff713243489b440fff7",
+    "routed_reference_result_receipt_sha256": "26a2248976ff009804744a19a738fd2124061cf6d909bdc74c9e7c040098c091",
+    "scene_progression_result_receipt_sha256": "23bc133d82590890308ac5b0779e54427f51fbee615d941393a023538be80b2b",
+    "selected_checkpoint_step": 16,
+    "selected_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "selected_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a"
+  },
+  "data": {
+    "split": "publisher-TRAIN-derived development only",
+    "attribution": "Exact frozen-base candidate-likelihood artifact reuse.",
+    "narrative": "Exact V9 routed narrative artifact reuse; no checkpoint-16 narrative output is accepted.",
+    "scene": "Signed checkpoint-16 correct-state combined open-fit progression result.",
+    "protected_splits_opened": []
+  },
+  "decoder": {
+    "attribution": "frozen-base candidate likelihood",
+    "narrative": "base=narration,memory=scene_description pair router using the frozen V9 memory output",
+    "scene": "checkpoint-16 correct-state memory generation",
+    "task_selection": "fixed per task before any fresh publisher-validation replication"
+  },
+  "gates": {
+    "attribution_exact_frozen_base": true,
+    "narrative_exact_v9_routed_reuse": true,
+    "narrative_no_regression_vs_frozen_base": true,
+    "scene_progression_passed": true,
+    "protected_splits_closed": true,
+    "passed": true
+  },
+  "metrics": {
+    "attribution_train_derived_remainder": 0.8426966292134831,
+    "narrative_train_derived_frozen_base": 0.5847364968292149,
+    "narrative_train_derived_v9_routed": 0.6006997594576864,
+    "scene_train_derived_checkpoint16_combined_fit": 0.31974921630094044
+  },
+  "authorization": {
+    "fresh_publisher_validation_replication_contract": true,
+    "publisher_validation_opened": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "unused_strength_holdout_authorized": false
+  },
+  "stopping_rule": "This contract authorizes only a separate fresh publisher-validation replication contract. Do not inspect or reuse any prior validation predictions, and keep publisher test, Hard32, and the unused strength holdout closed.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_multitask_hybrid_without_receipt",
+    "payload_sha256": "d0ce1f32df3bee78145d7a6555b071441e853cbe089444d010d26684ac45cca8"
+  }
+}
