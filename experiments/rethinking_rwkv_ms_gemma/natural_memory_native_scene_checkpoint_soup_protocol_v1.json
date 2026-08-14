@@ -1,0 +1,117 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_protocol.v1",
+  "created_at": "2026-08-15T00:30:51+08:00",
+  "objective": "Test whether convex weight-space averaging around contrast-trained checkpoint 16 improves native scene-boundary generalization more robustly than either checkpoint 16 or frozen V9, without another prediction-set router.",
+  "authorization": {
+    "development_only": true,
+    "publisher_train_only": true,
+    "publisher_validation_predictions_allowed_as_input": false,
+    "publisher_validation_replication_authorized": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "unused_strength_holdout_authorized": false
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "v9_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "contrast_training_result_file_sha256": "471bfb011c0b62833814af506acfa22f1093d34637c74cdc1d21954d70d5f6cc",
+    "contrast_training_result_receipt_sha256": "ef72604d84a379413e8c518b4d41ce4a844eaa536df05d30163ac6bf51f5c9cc",
+    "checkpoint_patch_sha256": {
+      "8": "e67bbb443d1ad1daf0c9f4db4b05fa8db9befa697d8307816b8ffd4d86542853",
+      "16": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+      "32": "b87d95d226e43cf1f71f5516f0c36e88ea4508c49b240c5b87f4a9856b8ad9ca"
+    },
+    "checkpoint_16_progression_result_file_sha256": "af852ce316d83fb90b18bbd97fb302cdb1fe99b305c96736478759143d897cb2",
+    "checkpoint_16_progression_result_receipt_sha256": "23bc133d82590890308ac5b0779e54427f51fbee615d941393a023538be80b2b",
+    "memory_backend": "rwkv_ms",
+    "fusion_topology": "shared_qo_content_gated_attention_output",
+    "gate_parameter_tensors": 126,
+    "gate_parameter_elements": 108906,
+    "non_gate_adapter_parameters_changed": false,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "hf_endpoint": "https://hf-mirror.com",
+    "world_size": 4
+  },
+  "candidate_materialization": {
+    "rule": "For each named gate tensor, accumulate source.float64 * integer_weight / denominator in the listed source order v9, checkpoint_8, checkpoint_16, checkpoint_32, then cast once to the V9 tensor dtype.",
+    "convex_only": true,
+    "candidate_recipe_payload_sha256": "62f988374feec0ae51cbe53a967d102463c0a804e837cb3d0b1295316df000e0",
+    "candidates": [
+      {
+        "candidate_id": "s8_50_s16_50",
+        "denominator": 4,
+        "weights": {"checkpoint_8": 2, "checkpoint_16": 2, "checkpoint_32": 0, "v9": 0}
+      },
+      {
+        "candidate_id": "s8_25_s16_75",
+        "denominator": 4,
+        "weights": {"checkpoint_8": 1, "checkpoint_16": 3, "checkpoint_32": 0, "v9": 0}
+      },
+      {
+        "candidate_id": "s16_75_s32_25",
+        "denominator": 4,
+        "weights": {"checkpoint_8": 0, "checkpoint_16": 3, "checkpoint_32": 1, "v9": 0}
+      },
+      {
+        "candidate_id": "s16_50_s32_50",
+        "denominator": 4,
+        "weights": {"checkpoint_8": 0, "checkpoint_16": 2, "checkpoint_32": 2, "v9": 0}
+      },
+      {
+        "candidate_id": "trajectory_centered",
+        "denominator": 4,
+        "weights": {"checkpoint_8": 1, "checkpoint_16": 2, "checkpoint_32": 1, "v9": 0}
+      },
+      {
+        "candidate_id": "v9_12p5_s16_87p5",
+        "denominator": 8,
+        "weights": {"checkpoint_8": 0, "checkpoint_16": 7, "checkpoint_32": 0, "v9": 1}
+      },
+      {
+        "candidate_id": "v9_25_s16_75",
+        "denominator": 4,
+        "weights": {"checkpoint_8": 0, "checkpoint_16": 3, "checkpoint_32": 0, "v9": 1}
+      }
+    ]
+  },
+  "evaluation": {
+    "source": "The 220 publisher-TRAIN-derived effective-strength fit rows not used by the earlier 64-row checkpoint-selection probe.",
+    "rows": 220,
+    "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "condition": "correct_state",
+    "generation": "greedy with the accepted native scene decoder and max_new_tokens=128",
+    "fold_rule": "int(SHA256('rwkv-ms-native-scene-checkpoint-soup-v1:' + row_sha256), 16) modulo 5",
+    "fold_assignment_payload_sha256": "c14e085f7c7a814cccfa5eaa0afa323f097cef02ce62e8212bf3f447b287cd65",
+    "fold_counts": {"0": 41, "1": 45, "2": 54, "3": 39, "4": 41},
+    "selection_candidates": "The seven materialized soups plus unchanged checkpoint 16 as a fallback.",
+    "per_fold_selection": "On the other four folds, rank by scene micro-F1 descending, precision descending, recall descending, then candidate_id ascending; apply the winner only to the held-out fold.",
+    "gates": {
+      "coverage_floor": 0.95,
+      "oof_minus_checkpoint_16_micro_f1_minimum": 0.005,
+      "oof_minus_v9_micro_f1_minimum": 0.005,
+      "oof_output_change_fraction_vs_checkpoint_16_minimum": 0.02,
+      "learned_soup_selected_folds_minimum": 4,
+      "modal_learned_soup_selected_folds_minimum": 3,
+      "modal_soup_minus_checkpoint_16_micro_f1_minimum": 0.005
+    }
+  },
+  "progression": {
+    "outcome": "Archive and push the complete result whether pass or fail.",
+    "if_pass": "A stable modal soup may proceed only to a separately locked publisher-TRAIN multitask-preservation study; external replication remains unauthorized.",
+    "if_fail": "Stop weight and prediction soups and move to independent-seed, fold-separated robust training.",
+    "publisher_validation": "Forbidden in this study.",
+    "publisher_test": "Forbidden.",
+    "hard32": "Forbidden.",
+    "unused_strength_holdout": "Forbidden."
+  },
+  "stopping_rule": "Do not inspect publisher validation predictions, publisher test, Hard32, or the unused strength holdout. Commit and push protocol, code, materialized candidates, and signed outcome.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466"
+  }
+}
