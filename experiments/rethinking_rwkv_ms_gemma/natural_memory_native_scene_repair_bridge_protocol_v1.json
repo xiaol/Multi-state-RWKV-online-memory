@@ -1,0 +1,90 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_repair_bridge_protocol.v1",
+  "created_at": "2026-08-15T14:15:00+08:00",
+  "objective": "Adaptively locate whether a convex bridge between the recall-seeking on-policy endpoint and the continuation-stable dual-path endpoint recovers true-positive gains before crossing the repeated-boundary instability threshold.",
+  "study_scope": {
+    "classification": "publisher-TRAIN-derived adaptive development",
+    "prior_results_used_for_design": "On-policy repair scored 82 TP / 200 FP and produced a 15-boundary cascade on source row 187. Dual-path repair restored row 187 to checkpoint behavior but scored 79 TP / 186 FP. Their checkpoint-relative gate deltas have cosine 0.9657936975 and their endpoints are 0.0015398902 L2 apart.",
+    "independent_evidence": false,
+    "protected_split_authorization_from_this_study": false
+  },
+  "frozen_inputs": {
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "adapter": "local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "onpolicy_materialization": {
+      "candidate_id": "onpolicy_repair_endpoint",
+      "result_file_sha256": "c7e75a91fc9c5bcd87a87921560d6ca24b676c2c1861e541ab5419f9cdf05699",
+      "result_receipt_sha256": "d979b0fe4000f65a7863bd4c32521cf61e305a8d2c0d7e4c71c19333cabd7b7b",
+      "manifest_sha256": "c7e16d094893b19371c242d1b079d8a8ac3971a87321d2e9c7459641656169ce",
+      "patch_sha256": "ddd4acce2882658f10287cebd740d8b61e089d8097b6c7f55594a5d891292a58",
+      "gate_state_sha256": "1d48e85e7ab0332f93d2e88ff3344afd97c33bc604d3cf1a9729001907c977cb"
+    },
+    "dualpath_materialization": {
+      "candidate_id": "dualpath_repair_endpoint",
+      "result_file_sha256": "447d6675302eec1b54a8943b1f2ca3a950bf5ae3b803ce6a410f6f885617afbb",
+      "result_receipt_sha256": "74b5137cbda3ff397f44eeab4c6b2679fc2f073cff89306458f5a8e316811734",
+      "manifest_sha256": "26ba8feb4c2ff0bd359a8626cf55c3d2a1e1cc3c82db507860ba1fd2941aa53d",
+      "patch_sha256": "84048431d9c5900487411b6329feb1c1a4170788cba212008fae3b5a92104d5d",
+      "gate_state_sha256": "efc937ce2c623c04df1505cd37c529f60b645ac11d36c2e53a4b4b6a06a9d221"
+    },
+    "gate_parameter_tensors": 126,
+    "gate_parameter_elements": 108906,
+    "non_gate_parameters_changed": false,
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "world_size": 4
+  },
+  "candidate_materialization": {
+    "rule": "For each named gate tensor, accumulate source.float64 times the listed integer weight in source order onpolicy then dualpath, divide by four, and cast once to the source tensor dtype.",
+    "convex_only": true,
+    "candidate_recipe_payload_sha256": "1ed39e66f38bbeeae8957080b9cb877a08222682a61147eae6e873344ac802c1",
+    "candidates": [
+      {
+        "candidate_id": "onpolicy25_dualpath75",
+        "denominator": 4,
+        "weights": {"dualpath": 3, "onpolicy": 1}
+      },
+      {
+        "candidate_id": "onpolicy50_dualpath50",
+        "denominator": 4,
+        "weights": {"dualpath": 2, "onpolicy": 2}
+      },
+      {
+        "candidate_id": "onpolicy75_dualpath25",
+        "denominator": 4,
+        "weights": {"dualpath": 1, "onpolicy": 3}
+      }
+    ]
+  },
+  "evaluation": {
+    "source": "The same 220 open publisher-TRAIN-derived scene development rows used by the preceding adaptive studies.",
+    "rows": 220,
+    "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "condition": "correct_state",
+    "generation": "Greedy with the accepted native scene decoder and max_new_tokens=128.",
+    "fold_rule": "int(SHA256('rwkv-ms-native-scene-repair-bridge-v1:' + row_sha256), 16) modulo 5",
+    "fold_assignment_payload_sha256": "fc949e9492b9864d6f5bcac55aaa71751ba3beb492015ca10d81d846305828e4",
+    "fold_counts": {"0": 43, "1": 39, "2": 49, "3": 45, "4": 44},
+    "selection_candidates": "The three materialized bridges plus unchanged checkpoint 16 as fallback.",
+    "per_fold_selection": "On the other four folds, rank by scene micro-F1 descending, precision descending, recall descending, then candidate_id ascending; apply the winner only to the held-out fold.",
+    "development_gates": {
+      "coverage_minimum": 0.95,
+      "oof_minus_checkpoint_16_micro_f1_minimum": 0.005,
+      "oof_minus_v9_micro_f1_minimum": 0.005,
+      "oof_output_change_fraction_vs_checkpoint_16_minimum": 0.02,
+      "learned_bridge_selected_folds_minimum": 4,
+      "modal_learned_bridge_selected_folds_minimum": 3,
+      "modal_bridge_minus_checkpoint_16_micro_f1_minimum": 0.005
+    }
+  },
+  "stopping_rule": "Archive and push every candidate and signed outcome. This adaptive study cannot authorize publisher validation, publisher test, Hard32, the unused 73-row holdout, or external replication.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "44a97af8f0249f9c0cf129d6566bf0882f8ca1fc8f868c334cd2c7ae98fb0d7f"
+  }
+}
