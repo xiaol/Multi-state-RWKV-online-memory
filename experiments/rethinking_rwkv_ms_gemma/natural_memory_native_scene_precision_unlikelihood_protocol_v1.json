@@ -1,0 +1,111 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_precision_unlikelihood_protocol.v1",
+  "created_at": "2026-08-15T04:00:00+08:00",
+  "objective": "Test whether checkpoint-16-anchored semantic false-positive unlikelihood improves the open native scene benchmark without endpoint ensembling.",
+  "frozen_constraints": {
+    "starting_checkpoint": "natural_memory_native_scene_contrast_dropout_train_v1/checkpoint-16",
+    "starting_step": 16,
+    "starting_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "starting_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "adapter": "local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "fusion_topology": "shared_qo_content_gated_attention_output",
+    "target_layers": 42,
+    "base_model_frozen": true,
+    "non_gate_adapter_parameters_frozen": true,
+    "trainable_parameter_families": [
+      "memory_fusion_hidden_weight",
+      "memory_fusion_read_weight",
+      "memory_fusion_bias"
+    ],
+    "trainable_parameter_tensors": 126,
+    "trainable_parameter_elements": 108906,
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "world_size": 4
+  },
+  "training_data": {
+    "source": "publisher-TRAIN-derived scene fit only",
+    "path": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "rows": 1443,
+    "eligible_rows": 1435,
+    "exclusion_rule": "Exclude the union of the first 128 checkpoint-16 rows, all robust seed 17/29/43 rows, and all checkpoint-16 residual seed 71/89/107 rows.",
+    "excluded_unique_rows": 1076,
+    "remaining_untouched_rows": 359,
+    "selection_rule": "Hash-sort untouched eligible rows by SHA-256('rwkv-ms-native-scene-c16-precision-unlikelihood-v1:131:' + row SHA-256) and take the first 256.",
+    "selected_rows": 256,
+    "selected_rows_payload_sha256": "71adccf460b96458e8449ef273e98bec0a00d05633dd88d9a79a667984cfef5d",
+    "schedule_payload_sha256": "2a15bb468eeae808b7ca6d83806ad97b6e108e4398b3c1bd183c8df52e2cffc6",
+    "seed": 131,
+    "conditions": {
+      "correct_state": 256,
+      "no_state": 0,
+      "wrong_state": 0
+    }
+  },
+  "negative_construction": {
+    "rule": "Add boundary 1 when absent; otherwise choose a deterministic SHA-256-ranked absent boundary from 1 through paragraph_count-1, then keep the JSON boundary list sorted.",
+    "same_row": true,
+    "exact_write_prefix_required": true,
+    "exact_read_prompt_prefix_required": true,
+    "negative_payload_sha256": "9698c14ce5061b0ce39a90a55eb32941a9cb83bca06dbf97aed6b2d67c377e03",
+    "rows_with_empty_gold": 75,
+    "rows_whose_gold_contains_boundary_1": 57,
+    "rows_with_wrong_boundary_1": 199,
+    "wrong_boundary_digit_tokens": 270,
+    "maximum_wrong_tokens_per_row": 2,
+    "unlikelihood_scope": "Only tokenizer tokens overlapping the inserted boundary's decimal digits; JSON brackets, commas, spaces, and termination tokens are never negative targets."
+  },
+  "intervention": {
+    "loss": "Per-row gold teacher-forced mean CE plus 0.5 times mean token unlikelihood on the inserted boundary digit tokens under the same correct online state.",
+    "gold_ce_weight": 1.0,
+    "semantic_unlikelihood_weight": 0.5,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.000015,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "post_step_proximal_rule": "After each AdamW step, replace theta by checkpoint16 + 0.995 * (theta - checkpoint16).",
+    "post_step_delta_retention": 0.995,
+    "global_batch_size": 16,
+    "local_rows_per_rank": 4,
+    "execution_subbatch_size": 1,
+    "updates": 16,
+    "candidate_runs": 1,
+    "endpoint_ensemble": false,
+    "total_new_row_exposures": 256
+  },
+  "materialization": {
+    "candidate_id": "precision_unlikelihood_endpoint",
+    "rule": "Use the single locked update-16 endpoint unchanged.",
+    "candidate_fixed_before_generation": true,
+    "fallback_or_candidate_selection_after_evaluation": false
+  },
+  "evaluation": {
+    "source": "The 220 already-open publisher-TRAIN-derived scene fit rows left after the locked 64-row contrast probe.",
+    "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "rows": 220,
+    "condition": "correct_state",
+    "candidate_count": 1,
+    "baselines": [
+      "frozen_v9",
+      "contrast_checkpoint_16"
+    ],
+    "gates": {
+      "coverage_minimum": 0.95,
+      "candidate_minus_checkpoint_16_micro_f1_minimum": 0.005,
+      "candidate_minus_v9_micro_f1_minimum": 0.005,
+      "output_change_fraction_vs_checkpoint_16_minimum": 0.02
+    }
+  },
+  "stopping_rule": "Archive, commit, and push all outcomes. Never inspect publisher validation predictions, publisher test, Hard32, or the unused 73-row strength holdout.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "ad397d198a841b9734745ff1ff8faa6f559428a41e216fbcf540a36cf98da51e"
+  }
+}
