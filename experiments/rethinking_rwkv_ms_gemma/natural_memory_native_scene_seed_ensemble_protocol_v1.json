@@ -1,0 +1,156 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_seed_ensemble_protocol.v1",
+  "created_at": "2026-08-15T01:33:38+08:00",
+  "objective": "Reduce the native scene-boundary variance of contrast-trained V9 content gates by training three independently shuffled, lower-rate, proximally regularized runs and averaging their signed deltas before any candidate generation.",
+  "authorization": {
+    "development_only": true,
+    "publisher_train_derived_inputs_only": true,
+    "publisher_validation_predictions_allowed_as_input": false,
+    "publisher_validation_replication_authorized": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "unused_strength_holdout_authorized": false
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "warm_start_adapter": "local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "warm_start_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "warm_start_adapter_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "warm_start_adapter_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+    "memory_backend": "rwkv_ms",
+    "fusion_topology": "shared_qo_content_gated_attention_output",
+    "target_layers": 42,
+    "delta_heads": [
+      "q",
+      "o"
+    ],
+    "base_model_frozen": true,
+    "non_gate_adapter_parameters_frozen": true,
+    "trainable_parameter_families": [
+      "memory_fusion_hidden_weight",
+      "memory_fusion_read_weight",
+      "memory_fusion_bias"
+    ],
+    "trainable_parameter_tensors": 126,
+    "trainable_parameter_elements": 108906,
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "world_size": 4
+  },
+  "training_data": {
+    "source": "publisher-TRAIN-derived scene fit only",
+    "path": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "rows": 1443,
+    "donor_rule": "Reuse the locked contrast-v1 different-gold nearest-write-length donor mapping.",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "eligible_max_write_token_delta": 16,
+    "eligible_rows": 1435,
+    "rows_per_seed": 256,
+    "schedule_rule": "For each seed, sort eligible rows by SHA-256('rwkv-ms-native-scene-robust-seed-v1:' + seed + ':' + row SHA-256), take 256, and group consecutive sixteens into 16 updates.",
+    "dropout_rule": "Within each seed/update group, rank by SHA-256('rwkv-ms-native-scene-robust-drop-v1:' + seed + ':' + step + ':' + row SHA-256); the first four use no state and the remaining twelve use correct state.",
+    "seeds": [
+      {
+        "seed": 17,
+        "selected_rows_payload_sha256": "b366ea915f0b6a6649ee0d5c35026b882f5d36b30a8a08030127c24432914a86",
+        "schedule_payload_sha256": "a05ed538aa1f220f7ea6ae398738ce32b0197ed5d7e4435b5db3711ec87454ae",
+        "selected_exact_write_length_matches": 208,
+        "selected_max_write_token_delta": 10
+      },
+      {
+        "seed": 29,
+        "selected_rows_payload_sha256": "9c0e546a191c436183093731df47ee1bc95540b75db49a80b463f8d43414f2c1",
+        "schedule_payload_sha256": "d17a8dff6cda43c766913ee6f9cb7d58b35c487861806048cfbe021ceea1ca17",
+        "selected_exact_write_length_matches": 217,
+        "selected_max_write_token_delta": 6
+      },
+      {
+        "seed": 43,
+        "selected_rows_payload_sha256": "1fce8276918871453ee07550caaf348eab7eafac8ce88bc079f455aea17ad9a5",
+        "schedule_payload_sha256": "f5713a96c6b5a5dc816c1ce2271c0b8f04231c06c675087dc66d3fafaadca13f",
+        "selected_exact_write_length_matches": 211,
+        "selected_max_write_token_delta": 11
+      }
+    ],
+    "pairwise_selected_row_overlaps": {
+      "17-29": 51,
+      "17-43": 52,
+      "29-43": 58
+    }
+  },
+  "intervention": {
+    "loss": "The locked contrast-v1 positive CE plus active different-gold donor hinge, averaged over 16 global rows.",
+    "contrast_weight": 0.25,
+    "margin_nats_per_token": 0.05,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.00005,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "post_step_proximal_rule": "After each AdamW step, replace every trainable tensor theta by V9 + 0.995 * (theta - V9).",
+    "post_step_delta_retention": 0.995,
+    "global_batch_size": 16,
+    "local_rows_per_rank": 4,
+    "execution_subbatch_size": 1,
+    "updates_per_seed": 16,
+    "seed_runs": 3,
+    "total_train_row_exposures": 768
+  },
+  "preflight": {
+    "seed": 17,
+    "updates": 1,
+    "starts_from_v9_independently_of_full_training": true,
+    "required": {
+      "four_rank_consensus": true,
+      "twelve_correct_and_four_no_state_positive_rows": true,
+      "sixteen_different_gold_donors": true,
+      "all_trainable_gate_gradients_finite_nonzero": true,
+      "all_non_gate_parameters_unchanged": true,
+      "gate_patch_changes_from_v9": true,
+      "proximal_delta_retention_applied": true
+    }
+  },
+  "materialization": {
+    "candidate_id": "seed_delta_mean",
+    "rule": "For each of the 126 gate tensors, compute V9 plus the exact float64 arithmetic mean of the three final seed deltas, then cast to the V9 tensor dtype.",
+    "seed_weights": {
+      "17": 1,
+      "29": 1,
+      "43": 1
+    },
+    "denominator": 3,
+    "fallback_or_candidate_selection_after_evaluation": false
+  },
+  "evaluation": {
+    "source": "The 220 already-open publisher-TRAIN-derived scene fit rows left after the locked 64-row contrast probe.",
+    "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "rows": 220,
+    "condition": "correct_state",
+    "candidate_count": 1,
+    "baselines": [
+      "frozen_v9",
+      "contrast_checkpoint_16"
+    ],
+    "gates": {
+      "coverage_minimum": 0.95,
+      "candidate_minus_checkpoint_16_micro_f1_minimum": 0.005,
+      "candidate_minus_v9_micro_f1_minimum": 0.005,
+      "output_change_fraction_vs_checkpoint_16_minimum": 0.02
+    }
+  },
+  "progression": {
+    "publisher_validation": "Not authorized by this protocol even if TRAIN-only gates pass; a separate preregistration is required.",
+    "publisher_test": "Forbidden.",
+    "hard32": "Forbidden.",
+    "unused_strength_holdout": "Forbidden."
+  },
+  "stopping_rule": "Archive, commit, and push the preflight, all three seed runs, materialization, generation, and analysis whether pass or fail. Never inspect publisher validation predictions, publisher test, Hard32, or the unused strength holdout.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "3294adb35ec7438e9f8e9f69e3fd825701e7480a9fb7722975a9ef0d8029ebd9"
+  }
+}
