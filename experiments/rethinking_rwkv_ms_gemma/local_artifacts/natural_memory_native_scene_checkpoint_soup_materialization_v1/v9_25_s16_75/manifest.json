@@ -1,0 +1,34 @@
+{
+  "candidate_id": "v9_25_s16_75",
+  "gate_state_sha256": "411bc3a40882cdd59d4c65b751fb5c29e97b9438e5dc79d0cf6e9fffc74f7acf",
+  "parameter_elements": 108906,
+  "parameter_tensors": 126,
+  "patch_file": {
+    "bytes": 479612,
+    "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1/v9_25_s16_75/gate_patch.pt",
+    "sha256": "a48279a58d8f61979f82340b48f923d6283ca84d43598ce6d36407c407a8bc83"
+  },
+  "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_manifest_without_receipt",
+    "payload_sha256": "b3531c20fc8eb30e702ea0addcad5ac5ff89f69744211624e42eb637faf48bf6"
+  },
+  "recipe": {
+    "candidate_id": "v9_25_s16_75",
+    "denominator": 4,
+    "weights": {
+      "checkpoint_16": 3,
+      "checkpoint_32": 0,
+      "checkpoint_8": 0,
+      "v9": 1
+    }
+  },
+  "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_patch.v1",
+  "source_gate_state_sha256": {
+    "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "checkpoint_32": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+    "checkpoint_8": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+    "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+  }
+}

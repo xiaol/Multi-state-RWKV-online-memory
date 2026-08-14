@@ -1,0 +1,290 @@
+{
+  "all_convex": true,
+  "candidate_ids": [
+    "s8_50_s16_50",
+    "s8_25_s16_75",
+    "s16_75_s32_25",
+    "s16_50_s32_50",
+    "trajectory_centered",
+    "v9_12p5_s16_87p5",
+    "v9_25_s16_75"
+  ],
+  "candidates": [
+    {
+      "candidate_id": "s8_50_s16_50",
+      "gate_state_sha256": "ed14ab1f86896e8823d75847d641af9b2c6f0f85c13b11189ff2b8ab81aa3073",
+      "parameter_elements": 108906,
+      "parameter_tensors": 126,
+      "patch_file": {
+        "bytes": 479612,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1/s8_50_s16_50/gate_patch.pt",
+        "sha256": "93e0386369a997b47a1214b4a2b9e91ed93703506e2b48160a8709a9e41bb230"
+      },
+      "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+      "receipt": {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_manifest_without_receipt",
+        "payload_sha256": "16ec7863e83cdbf41c6eff8a998c13ea7fbe78da50659b9a1108e5c5b6331eed"
+      },
+      "recipe": {
+        "candidate_id": "s8_50_s16_50",
+        "denominator": 4,
+        "weights": {
+          "checkpoint_16": 2,
+          "checkpoint_32": 0,
+          "checkpoint_8": 2,
+          "v9": 0
+        }
+      },
+      "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_patch.v1",
+      "source_gate_state_sha256": {
+        "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+        "checkpoint_32": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+        "checkpoint_8": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+        "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+      }
+    },
+    {
+      "candidate_id": "s8_25_s16_75",
+      "gate_state_sha256": "231574ab85573faef4944273db71fcfe0694142f77cc1bd00c8c9b6e44a6e810",
+      "parameter_elements": 108906,
+      "parameter_tensors": 126,
+      "patch_file": {
+        "bytes": 479612,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1/s8_25_s16_75/gate_patch.pt",
+        "sha256": "4a40a09d6beaef3d82c27eaa96942162bd5fb57605826cabeae0efe119b0ed08"
+      },
+      "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+      "receipt": {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_manifest_without_receipt",
+        "payload_sha256": "54e864c7068b4ab5df37ffe4b6ae6724de013bc11013fc2baa5d3335100de206"
+      },
+      "recipe": {
+        "candidate_id": "s8_25_s16_75",
+        "denominator": 4,
+        "weights": {
+          "checkpoint_16": 3,
+          "checkpoint_32": 0,
+          "checkpoint_8": 1,
+          "v9": 0
+        }
+      },
+      "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_patch.v1",
+      "source_gate_state_sha256": {
+        "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+        "checkpoint_32": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+        "checkpoint_8": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+        "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+      }
+    },
+    {
+      "candidate_id": "s16_75_s32_25",
+      "gate_state_sha256": "442f97f9d18ce6c4b35c4c07db6debafab3e8428752603f19e9aa1e7662ae0ac",
+      "parameter_elements": 108906,
+      "parameter_tensors": 126,
+      "patch_file": {
+        "bytes": 479612,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1/s16_75_s32_25/gate_patch.pt",
+        "sha256": "f03b2ef5456a4838572e8d03b8896ab0e4f3400c9c5b0e61d8e327bc41b387f2"
+      },
+      "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+      "receipt": {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_manifest_without_receipt",
+        "payload_sha256": "a2386c352f9ea5eaae696e418d21a8c3a6971cbd897f980bf024be142e0a7c5e"
+      },
+      "recipe": {
+        "candidate_id": "s16_75_s32_25",
+        "denominator": 4,
+        "weights": {
+          "checkpoint_16": 3,
+          "checkpoint_32": 1,
+          "checkpoint_8": 0,
+          "v9": 0
+        }
+      },
+      "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_patch.v1",
+      "source_gate_state_sha256": {
+        "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+        "checkpoint_32": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+        "checkpoint_8": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+        "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+      }
+    },
+    {
+      "candidate_id": "s16_50_s32_50",
+      "gate_state_sha256": "6cd5b3beb38ce006949bc76d149faad6588fe731dc1d239aea2f9de98f0bdb63",
+      "parameter_elements": 108906,
+      "parameter_tensors": 126,
+      "patch_file": {
+        "bytes": 479612,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1/s16_50_s32_50/gate_patch.pt",
+        "sha256": "ef1ddc9e540a08881c1d6c0f21347a7f63f0a0483a529d251673d31a464d3412"
+      },
+      "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+      "receipt": {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_manifest_without_receipt",
+        "payload_sha256": "57a32a2e1410d39e840a36adbf046007f08b79888a632ceca075b42b4dc7726a"
+      },
+      "recipe": {
+        "candidate_id": "s16_50_s32_50",
+        "denominator": 4,
+        "weights": {
+          "checkpoint_16": 2,
+          "checkpoint_32": 2,
+          "checkpoint_8": 0,
+          "v9": 0
+        }
+      },
+      "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_patch.v1",
+      "source_gate_state_sha256": {
+        "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+        "checkpoint_32": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+        "checkpoint_8": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+        "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+      }
+    },
+    {
+      "candidate_id": "trajectory_centered",
+      "gate_state_sha256": "0e3fcc8ea73b2cffcea2db7d3686e542755c596fb6be9e5f44b854c723ec06ed",
+      "parameter_elements": 108906,
+      "parameter_tensors": 126,
+      "patch_file": {
+        "bytes": 479612,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1/trajectory_centered/gate_patch.pt",
+        "sha256": "3a5b2b1813ceff094b067de4a5094af968667c623dafaef879fa9d436f6cefb2"
+      },
+      "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+      "receipt": {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_manifest_without_receipt",
+        "payload_sha256": "2a7a8ea07dba03f7da66a07ae12dd441070c69a61dbc5e1a2881b286982b737e"
+      },
+      "recipe": {
+        "candidate_id": "trajectory_centered",
+        "denominator": 4,
+        "weights": {
+          "checkpoint_16": 2,
+          "checkpoint_32": 1,
+          "checkpoint_8": 1,
+          "v9": 0
+        }
+      },
+      "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_patch.v1",
+      "source_gate_state_sha256": {
+        "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+        "checkpoint_32": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+        "checkpoint_8": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+        "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+      }
+    },
+    {
+      "candidate_id": "v9_12p5_s16_87p5",
+      "gate_state_sha256": "46d49f74ca4007a44f8f5bd3cbef0495108aabf6729a8ad624d7e497fcef7ce1",
+      "parameter_elements": 108906,
+      "parameter_tensors": 126,
+      "patch_file": {
+        "bytes": 479612,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1/v9_12p5_s16_87p5/gate_patch.pt",
+        "sha256": "b1b81eda874b2d22a65b7191266f4d4cb0ed502c2b6b9c215376d906f693bddc"
+      },
+      "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+      "receipt": {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_manifest_without_receipt",
+        "payload_sha256": "7b2ce94856e352d9de2dcb8b9818897bcea083f5b17a7520810c617ae5d6939e"
+      },
+      "recipe": {
+        "candidate_id": "v9_12p5_s16_87p5",
+        "denominator": 8,
+        "weights": {
+          "checkpoint_16": 7,
+          "checkpoint_32": 0,
+          "checkpoint_8": 0,
+          "v9": 1
+        }
+      },
+      "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_patch.v1",
+      "source_gate_state_sha256": {
+        "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+        "checkpoint_32": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+        "checkpoint_8": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+        "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+      }
+    },
+    {
+      "candidate_id": "v9_25_s16_75",
+      "gate_state_sha256": "411bc3a40882cdd59d4c65b751fb5c29e97b9438e5dc79d0cf6e9fffc74f7acf",
+      "parameter_elements": 108906,
+      "parameter_tensors": 126,
+      "patch_file": {
+        "bytes": 479612,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1/v9_25_s16_75/gate_patch.pt",
+        "sha256": "a48279a58d8f61979f82340b48f923d6283ca84d43598ce6d36407c407a8bc83"
+      },
+      "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+      "receipt": {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_manifest_without_receipt",
+        "payload_sha256": "b3531c20fc8eb30e702ea0addcad5ac5ff89f69744211624e42eb637faf48bf6"
+      },
+      "recipe": {
+        "candidate_id": "v9_25_s16_75",
+        "denominator": 4,
+        "weights": {
+          "checkpoint_16": 3,
+          "checkpoint_32": 0,
+          "checkpoint_8": 0,
+          "v9": 1
+        }
+      },
+      "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_patch.v1",
+      "source_gate_state_sha256": {
+        "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+        "checkpoint_32": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+        "checkpoint_8": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+        "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+      }
+    }
+  ],
+  "created_at": "2026-08-15T00:47:36+08:00",
+  "hard32_authorized": false,
+  "non_gate_parameters_materialized": 0,
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+  "publisher_test_authorized": false,
+  "publisher_validation_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_materialization_without_receipt",
+    "payload_sha256": "d0e92ec4f27689558f0239a5d58a3e0b6ef2bb799073791205d181d3213c3233"
+  },
+  "recipe_payload_sha256": "62f988374feec0ae51cbe53a967d102463c0a804e837cb3d0b1295316df000e0",
+  "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_materialization.v1",
+  "source_checkpoint_manifests": [
+    {
+      "gate_state_sha256": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+      "patch_sha256": "e67bbb443d1ad1daf0c9f4db4b05fa8db9befa697d8307816b8ffd4d86542853",
+      "step": 8
+    },
+    {
+      "gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+      "patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+      "step": 16
+    },
+    {
+      "gate_state_sha256": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+      "patch_sha256": "b87d95d226e43cf1f71f5516f0c36e88ea4508c49b240c5b87f4a9856b8ad9ca",
+      "step": 32
+    }
+  ],
+  "source_gate_state_sha256": {
+    "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "checkpoint_32": "617c2e1f77f619df17f63fa91093a592381c7ae2b990b13119785cab56680143",
+    "checkpoint_8": "93e78508d563f35c6dedc2539bb829394de26772c315a1f5602d1f93d7ef6085",
+    "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+  },
+  "unused_strength_holdout_authorized": false
+}
