@@ -35,6 +35,16 @@ CONDITION = shared.CONDITION
 _SHARED_INPUT_BINDING = shared.input_binding
 
 
+class _TrainingBinding:
+    def __getattr__(self, name: str) -> Any:
+        if hasattr(training, name):
+            return getattr(training, name)
+        return getattr(training.shared, name)
+
+
+TRAINING_BINDING = _TrainingBinding()
+
+
 def canonical_sha256(value: Any) -> str:
     return training.canonical_sha256(value)
 
@@ -52,7 +62,7 @@ def _bound_input_binding(**kwargs: Any) -> Mapping[str, Any]:
 @contextmanager
 def _configured_engine() -> Iterator[None]:
     replacements = {
-        "training": training,
+        "training": TRAINING_BINDING,
         "materializer": materializer,
         "SCHEMA": SCHEMA,
         "INPUT_SCHEMA": INPUT_SCHEMA,

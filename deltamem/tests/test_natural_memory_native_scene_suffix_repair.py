@@ -97,6 +97,7 @@ def test_suffix_repair_endpoint_bindings(monkeypatch) -> None:
         runner.shared.STARTING_GATE_STATE_SHA256
     )
     assert evaluator.SCHEMA.endswith("suffix_repair_eval_shard.v1")
+    assert evaluator.TRAINING_BINDING.gate is runner.shared.gate
     assert evaluator.input_binding()["runner_sha256"] == evaluator.sha256_file(
         evaluator.Path(evaluator.__file__)
     )
