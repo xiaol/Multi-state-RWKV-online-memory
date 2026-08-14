@@ -1,0 +1,52 @@
+{
+  "adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 101376794,
+      "sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2649,
+      "sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4"
+    }
+  },
+  "adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+  "adapter_path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+  "attn_implementation": "sdpa",
+  "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "contrast_weight": 0.25,
+  "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+  "dtype": "bfloat16",
+  "eligible_rows": 1435,
+  "executed_schedule_payload_sha256": "d17a8dff6cda43c766913ee6f9cb7d58b35c487861806048cfbe021ceea1ca17",
+  "full_schedule_payload_sha256": "d17a8dff6cda43c766913ee6f9cb7d58b35c487861806048cfbe021ceea1ca17",
+  "global_batch_size": 16,
+  "hf_endpoint": "https://hf-mirror.com",
+  "learning_rate": 5e-05,
+  "local_rows": 4,
+  "margin": 0.05,
+  "max_grad_norm": 0.1,
+  "phase": "training",
+  "post_step_delta_retention": 0.995,
+  "protocol_payload_sha256": "3294adb35ec7438e9f8e9f69e3fd825701e7480a9fb7722975a9ef0d8029ebd9",
+  "runner_sha256": "5ccb30bacff23efbc3ec06a040f70849e3056b5120b0d3a5475aabaeb4e0d1be",
+  "scene_file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+  "scene_rows": 1443,
+  "schema": "rwkv_ms_natural_memory_native_scene_seed_training_result.v1",
+  "seed": 29,
+  "trainable_audit": {
+    "family_counts": {
+      "memory_fusion_bias": 42,
+      "memory_fusion_hidden_weight": 42,
+      "memory_fusion_read_weight": 42
+    },
+    "parameter_elements": 108906,
+    "parameter_names_sha256": "b36fe101cae5bcfc6893b51c5cc7ccc0af2df027ff3a2a0c933c99dd07876554",
+    "parameter_tensors": 126,
+    "passed": true,
+    "unexpected_trainable": []
+  },
+  "updates": 16,
+  "world_size": 4
+}
