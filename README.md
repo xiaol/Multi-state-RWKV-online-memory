@@ -323,6 +323,47 @@ Evidence:
   [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_precision_unlikelihood_eval.py),
   and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_precision_unlikelihood.py)
 
+### On-Policy First-Divergence Repair Failure
+
+A materially different publisher-TRAIN-only run mined 96 previously untouched
+eligible rows from frozen checkpoint 16 before optimization. It updated only
+the 126 content-gate tensors for six global-batch-16 steps on four A100 GPUs.
+Rows with a generated false-positive boundary contributed one pairwise loss at
+the first divergence from gold; there was no full-sequence gold CE and no
+synthetic-negative unlikelihood. Learning rate `5e-6`, gradient clipping at
+`0.05`, and a `0.99` checkpoint-relative retention kept the final move to only
+`0.00586` L2. The run found 53 actionable repairs representing 62 false
+boundaries, changed no non-gate state, and was fixed and pushed before
+generation.
+
+| TRAIN-derived scene candidate | TP | FP | FN | Micro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| On-policy repair endpoint | 82 | 200 | 158 | 0.3142 |
+| Checkpoint 16 | 79 | 182 | 161 | 0.3154 |
+| Frozen V9 | 80 | 231 | 160 | 0.2904 |
+
+The endpoint changed 14 of 220 outputs and improved recall, gaining three true
+boundaries without losing any. It nevertheless added 18 net false positives
+and missed checkpoint 16 by `0.00119` micro-F1. One row caused almost the whole
+failure: source row 187 changed `[1]` into every boundary `[1, ..., 16]`, adding
+15 false positives. Excluding that diagnostic row, the endpoint would score
+`0.3235`, but that is not the benchmark result and no row is excluded from the
+signed verdict. First-divergence repair found a useful local direction but did
+not constrain the rest of the generated trajectory. The next intervention
+must preserve checkpoint-16 continuation behavior while applying repairs,
+rather than adding stronger global precision pressure. No protected split is
+authorized or opened.
+
+Evidence:
+
+- [Locked on-policy repair protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_onpolicy_repair_protocol_v1.json)
+- [Signed training endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_onpolicy_repair_train_v1/result.json)
+- [Signed materialization](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_onpolicy_repair_materialization_v1/result.json)
+- [Signed TRAIN-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_onpolicy_repair_v1/result.json)
+- [Four-GPU trainer](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_onpolicy_repair.py),
+  [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_onpolicy_repair_eval.py),
+  and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_onpolicy_repair.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:
