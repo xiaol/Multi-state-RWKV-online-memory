@@ -169,6 +169,28 @@ Evidence:
 - [Fresh-validation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_hybrid_publisher_validation.py)
   and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_hybrid_publisher_validation.py)
 
+### Cross-Fitted Scene Router
+
+A subsequent TRAIN-only study tested a different method without reopening any
+protected split. Eight fixed V9/checkpoint-16 set-combination rules were
+selected independently inside five hash folds and scored only on each held-out
+fold. Four folds selected `v9_if_subset_else_checkpoint`; one selected raw
+checkpoint 16.
+
+The cross-fitted router reached `0.3191` scene micro-F1, above frozen V9
+(`0.2915`) but just below checkpoint 16 (`0.3197`) by `0.0006`. It removed four
+false positives but also lost one true positive. The preregistered gate required
+a `+0.005` gain over both inputs, so this method failed and no external
+replication is authorized. Simple set routing is therefore not the next
+boundary; further work must improve training robustness or expose calibrated
+token-level confidence while remaining publisher-TRAIN-derived.
+
+Evidence:
+
+- [Locked cross-fit protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_crossfit_router_protocol_v1.json)
+- [Signed cross-fit failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_crossfit_router_v1/result.json)
+- [Cross-fit analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_crossfit_router.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:

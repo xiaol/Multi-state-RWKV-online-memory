@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from experiments.rethinking_rwkv_ms_gemma import (
@@ -77,3 +80,19 @@ def test_crossfit_router_gate_requires_gain_over_both_inputs() -> None:
     assert failing["router_minus_frozen_v9_micro_f1_at_least_0.005"] is False
     assert failing["router_minus_checkpoint16_micro_f1_at_least_0.005"] is False
     assert failing["passed"] is False
+
+
+def test_archived_crossfit_router_failure_is_signed() -> None:
+    path = Path(
+        "experiments/rethinking_rwkv_ms_gemma/local_artifacts/"
+        "natural_memory_native_scene_crossfit_router_v1/result.json"
+    )
+    result = json.loads(path.read_text(encoding="utf-8"))
+    unsigned = dict(result)
+    receipt = unsigned.pop("receipt")
+
+    assert router.canonical_sha256(unsigned) == receipt["payload_sha256"]
+    assert result["passed"] is False
+    assert result["gates"]["router_minus_frozen_v9_micro_f1"] > 0.0
+    assert result["gates"]["router_minus_checkpoint16_micro_f1"] < 0.0
+    assert result["scope"]["publisher_validation_predictions_opened"] is False
