@@ -124,15 +124,21 @@ Evidence:
 - [Locked full-fit progression](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_contrast_progression_protocol_v1.json)
 - [Signed full-fit result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/result.json)
 
+The subsequent multitask-preservation gate passed scene progression and exact
+attribution reuse, but failed its narrative comparator narrowly. Checkpoint 16
+reached `0.5987` routed narrative unit accuracy on the untouched 114-row
+remainder, above frozen base (`0.5847`) but below V9's routed comparator
+(`0.6007`) by `0.0020`. No publisher-validation replication is authorized from
+this candidate. The complete signed failure is archived in the
+[preservation result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_multitask_preservation_v1/result.json).
+
 ### Recommended Next Boundary
 
-The immediate boundary is multitask preservation. Evaluate checkpoint 16 on
-the untouched 114-row publisher-TRAIN-derived narrative remainder with the
-already-locked pair router, while preserving attribution by exact frozen-base
-artifact reuse. Narrative must cover at least 95% of rows and must not regress
-against either frozen base (`0.5847`) or the previous V9 routed result
-(`0.6007`). Only a candidate passing this gate should receive a separately
-preregistered fresh publisher-validation replication. The accepted validation
+The next boundary is a new TRAIN-derived narrative-preservation intervention:
+retain V9's proven narrative pair behavior while adding checkpoint-16 memory
+only under an agreement or confidence guard, then validate that guard on a
+fresh TRAIN-derived narrative partition. The guard must beat frozen base and
+match V9 before any publisher-validation replication. The accepted validation
 decoder remains immutable; publisher test, Hard32, and the unused 73-row
 strength holdout remain sealed.
 
