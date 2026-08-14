@@ -1,0 +1,26 @@
+{
+  "candidate_id": "dualpath_repair_endpoint",
+  "denominator": 1,
+  "gate_state_sha256": "efc937ce2c623c04df1505cd37c529f60b645ac11d36c2e53a4b4b6a06a9d221",
+  "parameter_elements": 108906,
+  "parameter_tensors": 126,
+  "patch_file": {
+    "bytes": 479228,
+    "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_dualpath_repair_materialization_v1/gate_patch.pt",
+    "sha256": "84048431d9c5900487411b6329feb1c1a4170788cba212008fae3b5a92104d5d"
+  },
+  "protocol_payload_sha256": "74373a496b63e0b4a6c4ca134ae40b25118a4b311aa9734d4001eecc210781b7",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_manifest_without_receipt",
+    "payload_sha256": "b466e7edba6f86bc75c20e1cf79cc422d8e11029a6ba88ce2c201229a4766ca3"
+  },
+  "schema": "rwkv_ms_natural_memory_native_scene_dualpath_repair_patch.v1",
+  "seed_weights": {
+    "149": 1
+  },
+  "source_gate_state_sha256": {
+    "149": "efc937ce2c623c04df1505cd37c529f60b645ac11d36c2e53a4b4b6a06a9d221",
+    "checkpoint_16": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f"
+  }
+}
