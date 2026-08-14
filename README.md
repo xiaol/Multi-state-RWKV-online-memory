@@ -401,6 +401,46 @@ Evidence:
   [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_suffix_repair_eval.py),
   and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_suffix_repair.py)
 
+### Adaptive Dual-Path Continuation Repair Failure
+
+The next adaptive study kept the original first-divergence pairwise correction
+but added a second forward/backward path for each actionable row. That path
+conditioned on the checkpoint-16 prefix through the original wrong token and
+distilled as many as three subsequent checkpoint tokens with weight `0.25`.
+This directly constrained behavior after a wrong branch instead of training
+only the corrected branch. The same reused 96 TRAIN rows produced 53 repairs
+over six four-A100 updates at learning rate `5e-6`, clipping `0.05`, and
+retention `0.99`. The final content-gate move was `0.00591` L2.
+
+| Adaptive TRAIN-derived scene candidate | TP | FP | FN | Micro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+| Dual-path repair endpoint | 79 | 186 | 161 | 0.3129 |
+| Checkpoint 16 | 79 | 182 | 161 | 0.3154 |
+| Frozen V9 | 80 | 231 | 160 | 0.2904 |
+
+The intervention solved its targeted failure: source row 187 remained the
+checkpoint output `[1]` instead of expanding to `[1, ..., 16]`. It changed
+only seven of 220 outputs and removed false boundaries on two rows, including
+an exact correction from `[1, 10]` to `[10]` on source row 190. However, it
+added six false boundaries on five other rows, changed no true-positive
+count, and ended four false positives above checkpoint 16. Micro-F1 therefore
+remained `0.00250` below checkpoint 16, while exceeding V9 by `0.02249`.
+Wrong-branch continuation distillation is a useful stability constraint, but
+at this weight it suppressed the on-policy endpoint's three-TP recall gain.
+The signed result receipt is
+`08d8359f4aaeb7f9e5367c0999abd6ce2e74a4cb73dfd9ce9b7a32c3887e5f58`.
+No external replication or protected evaluation is authorized.
+
+Evidence:
+
+- [Locked dual-path protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_dualpath_repair_protocol_v1.json)
+- [Signed training endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_dualpath_repair_train_v1/result.json)
+- [Signed materialization](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_dualpath_repair_materialization_v1/result.json)
+- [Signed adaptive TRAIN-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_dualpath_repair_v1/result.json)
+- [Four-GPU trainer](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_dualpath_repair.py),
+  [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_dualpath_repair_eval.py),
+  and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_dualpath_repair.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:
