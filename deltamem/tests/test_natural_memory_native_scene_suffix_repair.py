@@ -93,6 +93,9 @@ def test_suffix_repair_endpoint_bindings(monkeypatch) -> None:
     )
 
     assert materializer.CANDIDATE_ID == "suffix_repair_endpoint"
+    assert materializer.TRAINING_BINDING.STARTING_GATE_STATE_SHA256 == (
+        runner.shared.STARTING_GATE_STATE_SHA256
+    )
     assert evaluator.SCHEMA.endswith("suffix_repair_eval_shard.v1")
     assert evaluator.input_binding()["runner_sha256"] == evaluator.sha256_file(
         evaluator.Path(evaluator.__file__)

@@ -30,10 +30,20 @@ PATCH_SCHEMA = "rwkv_ms_natural_memory_native_scene_suffix_repair_patch.v1"
 CANDIDATE_ID = "suffix_repair_endpoint"
 
 
+class _TrainingBinding:
+    STARTING_GATE_STATE_SHA256 = training.shared.STARTING_GATE_STATE_SHA256
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(training, name)
+
+
+TRAINING_BINDING = _TrainingBinding()
+
+
 @contextmanager
 def _configured_materializer() -> Iterator[None]:
     replacements = {
-        "training": training,
+        "training": TRAINING_BINDING,
         "SCHEMA": SCHEMA,
         "PATCH_SCHEMA": PATCH_SCHEMA,
         "CANDIDATE_ID": CANDIDATE_ID,
