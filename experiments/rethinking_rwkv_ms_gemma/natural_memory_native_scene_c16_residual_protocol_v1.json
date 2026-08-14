@@ -1,0 +1,124 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_c16_residual_protocol.v1",
+  "created_at": "2026-08-15T02:45:00+08:00",
+  "objective": "Preserve checkpoint 16's native scene precision while adding stable new evidence through three small disjoint-data residual updates anchored at checkpoint 16.",
+  "authorization": {
+    "development_only": true,
+    "publisher_train_derived_inputs_only": true,
+    "publisher_validation_predictions_allowed_as_input": false,
+    "publisher_validation_replication_authorized": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "unused_strength_holdout_authorized": false
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "v9_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "starting_checkpoint": "natural_memory_native_scene_contrast_dropout_train_v1/checkpoint-16",
+    "starting_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "starting_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+    "memory_backend": "rwkv_ms",
+    "fusion_topology": "shared_qo_content_gated_attention_output",
+    "target_layers": 42,
+    "base_model_frozen": true,
+    "non_gate_adapter_parameters_frozen": true,
+    "trainable_parameter_families": [
+      "memory_fusion_hidden_weight",
+      "memory_fusion_read_weight",
+      "memory_fusion_bias"
+    ],
+    "trainable_parameter_tensors": 126,
+    "trainable_parameter_elements": 108906,
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "world_size": 4
+  },
+  "training_data": {
+    "source": "publisher-TRAIN-derived scene fit only",
+    "path": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "rows": 1443,
+    "eligible_rows": 1435,
+    "exclusion_rule": "Exclude the first 128 rows used to create checkpoint 16 and the union of all rows used by robust seeds 17, 29, and 43.",
+    "excluded_unique_rows": 692,
+    "available_rows_before_selection": 743,
+    "schedule_rule": "In seed order 71, 89, 107, hash-sort the currently available rows by SHA-256('rwkv-ms-native-scene-c16-residual-v1:' + seed + ':' + row SHA-256), take 128, and remove them before the next seed.",
+    "rows_per_seed": 128,
+    "pairwise_overlap": 0,
+    "remaining_unseen_rows": 359,
+    "dropout_rule": "Within each update, hash-rank by the locked seed/update salt; four rows use no state and twelve use correct state.",
+    "seeds": [
+      {
+        "seed": 71,
+        "selected_rows_payload_sha256": "5db998f2a5313246ea82475320f6fb1c6597cd19115217fa6d13d153b2114a43",
+        "schedule_payload_sha256": "317e6ee0134ff517428e7f509d591b0598aa83939a5756bd932c7093354554f8",
+        "selected_exact_write_length_matches": 110,
+        "selected_max_write_token_delta": 3
+      },
+      {
+        "seed": 89,
+        "selected_rows_payload_sha256": "fba18a72f9849a7a8a97d9164664a004d50ebb584fe137eef9583ba1bc19646d",
+        "schedule_payload_sha256": "d5f38ccd1a49bd55526e269f80cb9338bdeace48a04a56bac0695a6b21459fd5",
+        "selected_exact_write_length_matches": 101,
+        "selected_max_write_token_delta": 4
+      },
+      {
+        "seed": 107,
+        "selected_rows_payload_sha256": "a721e9c3090a023dff664a11e64a7c316015257c369b8d1ac63b2f25d5b35a31",
+        "schedule_payload_sha256": "3dab9322b8eb2cd5add0b4958bb7ba108e4ad01d91dc3bb6e5173083b387d295",
+        "selected_exact_write_length_matches": 107,
+        "selected_max_write_token_delta": 8
+      }
+    ]
+  },
+  "intervention": {
+    "loss": "The locked contrast positive CE plus active different-gold donor hinge, averaged over 16 global rows.",
+    "contrast_weight": 0.25,
+    "margin_nats_per_token": 0.05,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.000025,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "post_step_proximal_rule": "After each AdamW step, replace theta by checkpoint16 + 0.995 * (theta - checkpoint16).",
+    "post_step_delta_retention": 0.995,
+    "global_batch_size": 16,
+    "local_rows_per_rank": 4,
+    "execution_subbatch_size": 1,
+    "updates_per_seed": 8,
+    "seed_runs": 3,
+    "total_new_row_exposures": 384
+  },
+  "materialization": {
+    "candidate_id": "c16_residual_mean",
+    "rule": "Checkpoint 16 plus the exact float64 arithmetic mean of the three final checkpoint-16-relative residuals, cast to the checkpoint tensor dtype.",
+    "denominator": 3,
+    "fallback_or_candidate_selection_after_evaluation": false
+  },
+  "evaluation": {
+    "source": "The 220 already-open publisher-TRAIN-derived scene fit rows left after the locked 64-row contrast probe.",
+    "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "rows": 220,
+    "condition": "correct_state",
+    "candidate_count": 1,
+    "baselines": [
+      "frozen_v9",
+      "contrast_checkpoint_16"
+    ],
+    "gates": {
+      "coverage_minimum": 0.95,
+      "candidate_minus_checkpoint_16_micro_f1_minimum": 0.005,
+      "candidate_minus_v9_micro_f1_minimum": 0.005,
+      "output_change_fraction_vs_checkpoint_16_minimum": 0.02
+    }
+  },
+  "stopping_rule": "Archive, commit, and push all outcomes. Never inspect publisher validation predictions, publisher test, Hard32, or the unused strength holdout.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "e0b797bda233266b8806e67202b4c30067d95d7a604f6a33607b6340383d55e3"
+  }
+}
