@@ -1,0 +1,77 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_contrast_progression_protocol.v1",
+  "created_at": "2026-08-14T16:23:40+08:00",
+  "objective": "Confirm that selected contrast-dropout checkpoint 16 generalizes from its locked 64-row probe to every remaining already-open effective-strength fit row before multitask preservation or fresh publisher validation.",
+  "authorization": {
+    "selection_receipt_payload_sha256": "64ad8298040e3935f1024a6fe2bb7cfaea96bdabd91237633be95f2d0a134c8c",
+    "selection_file_sha256": "02a55b13f77020cea3b21e66ba3600587560701bf467c151db9ac178c54d8d55",
+    "selection_result_receipt_payload_sha256": "c7883da73a72faa5d866617ecf98e0182dea7db88cf40f6a3d4172718c19d594",
+    "selected_checkpoint_step": 16,
+    "selected_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "selected_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+    "publisher_validation_authorized": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "unused_strength_holdout_authorized": false
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "warm_start_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "memory_backend": "rwkv_ms",
+    "fusion_topology": "shared_qo_content_gated_attention_output",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "world_size": 4,
+    "generation": "greedy with the accepted native scene decoder and max_new_tokens=128"
+  },
+  "scene_progression": {
+    "source": "publisher-TRAIN-derived scene development rows already opened by the effective-strength study",
+    "partition": "effective-strength fit only",
+    "fit_rows": 284,
+    "fit_payload_sha256": "5743ac67571f8359585402fb31579fef801f5804cc2f3b9874dccad795350c38",
+    "excluded_locked_probe_rows": 64,
+    "locked_probe_payload_sha256": "5c8a10f1e373ec6661481caf79bae340fdf5a92ab6afa9cf04e22f6bda254994",
+    "remaining_rows": 220,
+    "remaining_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "conditions": [
+      "correct_state",
+      "matched_donor_state",
+      "zero_state"
+    ],
+    "donor_rule": "Use the same deterministic different-gold prompt-length-matched donor mapping as the locked 64-row probe.",
+    "baselines": {
+      "frozen_v9_correct_state": "Previously generated hash-bound native routed benchmark artifact",
+      "locked_probe": "Previously generated signed 64-row checkpoint-16 result"
+    },
+    "gates_on_remaining_220": {
+      "coverage_floor": 0.95,
+      "correct_minus_frozen_v9_micro_f1_minimum": 0.005,
+      "correct_minus_matched_donor_micro_f1_minimum": 0.005,
+      "correct_minus_zero_micro_f1_minimum": 0.02,
+      "paired_output_change_fraction_vs_v9_minimum": 0.05
+    },
+    "gates_on_combined_fit_284": {
+      "coverage_floor": 0.95,
+      "correct_minus_frozen_v9_micro_f1_minimum": 0.005,
+      "correct_minus_matched_donor_micro_f1_minimum": 0.005,
+      "correct_minus_zero_micro_f1_minimum": 0.02,
+      "paired_output_change_fraction_vs_v9_minimum": 0.05
+    }
+  },
+  "progression": {
+    "multitask_preservation": "Only a candidate passing both remaining-220 and combined-fit-284 gates may be evaluated on publisher-TRAIN-derived attribution and narrative development probes.",
+    "publisher_validation": "Requires passing multitask preservation and a separate preregistered replication contract.",
+    "publisher_test": "Forbidden.",
+    "hard32": "Forbidden.",
+    "unused_strength_holdout": "Forbidden."
+  },
+  "stopping_rule": "Archive, commit, and push the complete remaining-fit outcome whether pass or fail. Do not inspect the sealed 73-row intervention holdout or any publisher validation/test/Hard32 predictions.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_progression_protocol_without_receipt",
+    "payload_sha256": "e9945957bf942d646152d79a471ae561eca0ea4bafc511d48ea84cffce62746e"
+  }
+}

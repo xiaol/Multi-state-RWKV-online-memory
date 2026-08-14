@@ -17,6 +17,9 @@ from experiments.rethinking_rwkv_ms_gemma import (
     run_natural_memory_native_scene_contrast_probe as runner,
 )
 from experiments.rethinking_rwkv_ms_gemma import (
+    run_natural_memory_native_scene_contrast_progression as progression,
+)
+from experiments.rethinking_rwkv_ms_gemma import (
     run_synthetic_compositional_associative_retrieval_v3 as runtime,
 )
 
@@ -161,3 +164,30 @@ def test_ranking_prefers_correct_f1_then_causal_margins_then_earlier_step() -> N
     ranked = sorted([lower_f1, base, later], key=analyzer.ranking_key)
 
     assert [candidate["checkpoint_step"] for candidate in ranked] == [16, 8, 32]
+
+
+def test_progression_is_authorized_by_signed_checkpoint_16_selection() -> None:
+    protocol = progression.validate_protocol()
+    selection = progression.validate_selection(
+        ARTIFACT_ROOT / "natural_memory_native_scene_contrast_probe_v1/selection.json"
+    )
+
+    assert protocol["authorization"]["selected_checkpoint_step"] == 16
+    assert selection["selected_checkpoint_step"] == 16
+    assert protocol["authorization"]["unused_strength_holdout_authorized"] is False
+
+
+def test_progression_uses_exactly_the_remaining_open_fit_rows() -> None:
+    rows = causal.load_rows(ARTIFACT_ROOT / "natural_memory_native_development_v1")
+
+    remaining = progression.progression_rows(rows)
+    payload = [
+        {
+            "source_index": int(row["source_index"]),
+            "row_sha256": str(row["row_sha256"]),
+        }
+        for row in remaining
+    ]
+
+    assert len(remaining) == 220
+    assert progression.canonical_sha256(payload) == progression.REMAINING_PAYLOAD_SHA256
