@@ -250,6 +250,37 @@ Evidence:
   [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_seed_ensemble_eval.py),
   and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_seed_ensemble.py)
 
+### Checkpoint-16 Residual Training Failure
+
+A follow-up publisher-TRAIN-only study preserved checkpoint 16 as the anchor
+instead of restarting from V9. Three four-GPU runs used disjoint sets of 128
+previously unused rows, eight global-batch-16 updates, learning rate `2.5e-5`,
+and a `0.995` post-step pull toward checkpoint 16. The runs were numerically
+clean, changed no frozen parameters, and ended only `0.0251`, `0.0269`, and
+`0.0258` from the anchor. Their residual directions were weakly aligned,
+however: pairwise cosines were `0.049`-`0.189`. The locked equal residual mean
+therefore had norm `0.0169` and was fixed and pushed before generation.
+
+The candidate reached `0.3129` scene micro-F1 on the same 220 open fit rows.
+It preserved checkpoint 16's 79 true positives and 161 false negatives, but
+added four false positives, reducing micro-F1 by `-0.0025` from checkpoint 16
+(`0.3154`). It still remained `+0.0225` above V9 (`0.2904`) and changed `6.36%`
+of checkpoint-16 outputs, but failed the preregistered `+0.005` improvement
+gate. It authorizes no external replication, and publisher validation, test,
+Hard32, and the unused 73-row holdout remain unopened. Repeated endpoint
+averaging is no longer the useful boundary: the next training intervention
+must directly suppress false-positive scene labels while preserving
+checkpoint 16's true positives.
+
+Evidence:
+
+- [Locked checkpoint-16 residual protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_c16_residual_protocol_v1.json)
+- [Signed residual materialization](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_c16_residual_materialization_v1/result.json)
+- [Signed TRAIN-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_c16_residual_v1/result.json)
+- [Four-GPU residual trainer](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_c16_residual.py),
+  [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_c16_residual_eval.py),
+  and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_c16_residual.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:
