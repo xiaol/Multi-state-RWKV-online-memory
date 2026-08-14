@@ -1,0 +1,82 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_multitask_preservation_protocol.v1",
+  "created_at": "2026-08-14T17:33:40+08:00",
+  "objective": "Test whether contrast-trained checkpoint 16 preserves the accepted attribution and narrative behavior before any fresh publisher-validation replication.",
+  "authorization": {
+    "scene_progression_receipt_payload_sha256": "23bc133d82590890308ac5b0779e54427f51fbee615d941393a023538be80b2b",
+    "scene_progression_file_sha256": "af852ce316d83fb90b18bbd97fb302cdb1fe99b305c96736478759143d897cb2",
+    "selected_checkpoint_step": 16,
+    "selected_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "selected_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+    "publisher_validation_authorized": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "unused_strength_holdout_authorized": false
+  },
+  "data": {
+    "split": "publisher-TRAIN-derived development",
+    "attribution": {
+      "rows": 89,
+      "execution": "Reuse the exact frozen-base artifacts from the routed benchmark; do not execute a memory model."
+    },
+    "narrative": {
+      "file": "v3.2-narrative-type-classification/train_derived_development.jsonl",
+      "source_rows": 118,
+      "excluded_selection_rows": [0, 1, 2, 3],
+      "evaluation_rows": 114,
+      "sharding": "source index modulo four"
+    },
+    "scene": {
+      "execution": "Reuse the signed 284-row open-fit progression result."
+    },
+    "protected_splits_opened": []
+  },
+  "reference": {
+    "routed_benchmark_receipt_payload_sha256": "26a2248976ff009804744a19a738fd2124061cf6d909bdc74c9e7c040098c091",
+    "routed_benchmark_file_sha256": "36549b036f104bc665d367b65668aef80ad94b98bdf5c63d441cb0d6ef9b422f",
+    "frozen_base_narrative_unit_accuracy": 0.5847364968292149,
+    "v9_routed_narrative_unit_accuracy": 0.6006997594576864,
+    "frozen_base_attribution_accuracy": 0.8426966292134831
+  },
+  "decoder": {
+    "attribution": "Exact frozen-base minimum-mean candidate continuation NLL; memory is never consulted.",
+    "narrative": "Start from frozen-base labels and replace only base=narration with memory=scene_description for the same unit.",
+    "scene": "Checkpoint-16 correct-state generation already measured by the signed open-fit progression."
+  },
+  "execution": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "source_adapter": "frozen V9 plus checkpoint-16 gate-only patch",
+    "base_model_frozen": true,
+    "non_gate_adapter_tensors_frozen": true,
+    "world_size": 4,
+    "batch_size_per_gpu": 1,
+    "dtype": "bfloat16",
+    "attention_implementation": "sdpa",
+    "greedy_generation": true,
+    "online_memory_protocol": "write_then_read",
+    "state_reset_every_example": true,
+    "hf_endpoint": "https://hf-mirror.com"
+  },
+  "gates": {
+    "attribution_exact_frozen_base_artifact_reuse": true,
+    "scene_progression_pass_required": true,
+    "narrative_memory_coverage_minimum": 0.95,
+    "narrative_routed_minus_frozen_base_minimum": 0.0,
+    "narrative_routed_minus_v9_routed_minimum": 0.0,
+    "paired_source_rows_required": true
+  },
+  "progression": {
+    "on_pass": "Authorize writing a separate preregistered fresh publisher-validation replication contract; do not open validation under this protocol.",
+    "on_failure": "Archive the result and develop another TRAIN-derived intervention.",
+    "publisher_test": "Forbidden.",
+    "hard32": "Forbidden.",
+    "unused_strength_holdout": "Forbidden."
+  },
+  "stopping_rule": "Archive, commit, and push the complete preservation result whether pass or fail. Never inspect publisher validation predictions, publisher test, Hard32, or the unused 73-row strength holdout under this study.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_multitask_preservation_protocol_without_receipt",
+    "payload_sha256": "5e97c578ee5e89e7f8de904e316513b03ab03cd6d5cae7fc25d64a03c374c920"
+  }
+}
