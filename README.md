@@ -96,18 +96,45 @@ Evidence:
 - [Signed effective-strength decision](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/decision.json)
 - [Effective-strength fit receipt](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit_result.json)
 
+### Contrast-Trained Scene Memory
+
+The recommended training intervention has now succeeded on publisher-TRAIN-
+derived scene data. Only the 126 shared Q/O content-gate tensors were updated;
+all other adapter tensors remained bit-identical. Training used correct/no-
+state positives and different-gold, write-length-matched donor negatives on
+four A100 GPUs. A locked 64-row checkpoint probe selected step 16; step 32 was
+rejected because it no longer beat the donor control.
+
+Checkpoint 16 then generalized to all 220 remaining open fit rows. On the
+combined 284-row fit partition it reached `0.3197` scene micro-F1, versus
+`0.2915` for frozen V9, `0.3058` for matched-donor state, and `0.1980` for zero
+state. The output changed on 25.7% of rows versus V9, and every preregistered
+coverage, native-gain, and causal-control gate passed. This is stronger than a
+generic state effect: the row-correct state now beats the matched donor.
+
+This result does not replace the accepted publisher-validation number. It is a
+TRAIN-derived candidate result, and no validation predictions were used for
+checkpoint selection or analysis.
+
+Evidence:
+
+- [Locked contrast-training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_contrast_dropout_protocol_v1.json)
+- [Signed training result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_dropout_train_v1/result.json)
+- [Signed checkpoint-16 selection](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_probe_v1/selection.json)
+- [Locked full-fit progression](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_contrast_progression_protocol_v1.json)
+- [Signed full-fit result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/result.json)
+
 ### Recommended Next Boundary
 
-The next boundary is training, not another inference-time router. Add
-matched-donor negative-state contrast plus explicit state dropout so the
-adapter must distinguish row-correct memory from generic state regularization.
-Select checkpoints on disjoint publisher-TRAIN-derived data using three gates:
-correct state must beat matched-donor and no-state controls, native scene F1
-must exceed the frozen V9 adapter, and attribution/narrative must be preserved.
-Only a candidate passing those gates should receive a fresh preregistered
-publisher-validation replication. Keep the accepted validation decoder
-immutable; publisher test, Hard32, and the unused strength holdout remain
-sealed.
+The immediate boundary is multitask preservation. Evaluate checkpoint 16 on
+the untouched 114-row publisher-TRAIN-derived narrative remainder with the
+already-locked pair router, while preserving attribution by exact frozen-base
+artifact reuse. Narrative must cover at least 95% of rows and must not regress
+against either frozen base (`0.5847`) or the previous V9 routed result
+(`0.6007`). Only a candidate passing this gate should receive a separately
+preregistered fresh publisher-validation replication. The accepted validation
+decoder remains immutable; publisher test, Hard32, and the unused 73-row
+strength holdout remain sealed.
 
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
