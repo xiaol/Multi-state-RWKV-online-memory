@@ -1,0 +1,82 @@
+{
+  "candidate_fixed_before_generation": true,
+  "candidate_id": "seed_delta_mean",
+  "candidate_manifest": {
+    "candidate_id": "seed_delta_mean",
+    "denominator": 3,
+    "gate_state_sha256": "5ff078bc15ffa9cf097a7dfdbc66d9215ff55f3b188e3124b6d8a9bbe8d7b3b3",
+    "parameter_elements": 108906,
+    "parameter_tensors": 126,
+    "patch_file": {
+      "bytes": 479484,
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_seed_ensemble_materialization_v1/gate_patch.pt",
+      "sha256": "4c2e4398299ca79223464de1eae41b957c497e4c7e21104901ff752c05a8398d"
+    },
+    "protocol_payload_sha256": "3294adb35ec7438e9f8e9f69e3fd825701e7480a9fb7722975a9ef0d8029ebd9",
+    "receipt": {
+      "algorithm": "sha256",
+      "payload_scope": "canonical_manifest_without_receipt",
+      "payload_sha256": "9279dab4eb0b1600b26b94abc6a814b7e95f2a6a4d873eea263f9436a93cbed9"
+    },
+    "schema": "rwkv_ms_natural_memory_native_scene_seed_ensemble_patch.v1",
+    "seed_weights": {
+      "17": 1,
+      "29": 1,
+      "43": 1
+    },
+    "source_gate_state_sha256": {
+      "17": "36b4d94ba2cd928225d71cdf069b05febe697088861dd95ec3b3566baffabeef",
+      "29": "6ff22134c2df0dbfea8d191771a4e67f33db070de120541cad2efd5d1ed74bdd",
+      "43": "88e3009e43c223216d834c32e80a2a469d884cb21d4360a92523bfd47ee38a60",
+      "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+    }
+  },
+  "created_at": "2026-08-15T02:32:57+08:00",
+  "hard32_authorized": false,
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "3294adb35ec7438e9f8e9f69e3fd825701e7480a9fb7722975a9ef0d8029ebd9",
+  "publisher_test_authorized": false,
+  "publisher_validation_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_materialization_without_receipt",
+    "payload_sha256": "cf31101e1a94b24a0fe5114e87262b20bcea78034ecb53a2a374fa6bf661ad16"
+  },
+  "schema": "rwkv_ms_natural_memory_native_scene_seed_ensemble_materialization.v1",
+  "source_gate_state_sha256": {
+    "17": "36b4d94ba2cd928225d71cdf069b05febe697088861dd95ec3b3566baffabeef",
+    "29": "6ff22134c2df0dbfea8d191771a4e67f33db070de120541cad2efd5d1ed74bdd",
+    "43": "88e3009e43c223216d834c32e80a2a469d884cb21d4360a92523bfd47ee38a60",
+    "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+  },
+  "source_training_artifacts": [
+    {
+      "gate_state_sha256": "36b4d94ba2cd928225d71cdf069b05febe697088861dd95ec3b3566baffabeef",
+      "manifest_sha256": "24c2772b6f3194b4fb25c82c02a032368a09286e5ace635bf9a2e2f304dc060e",
+      "patch_sha256": "ddea4e685bd1edf64b9c9456d7484bdeadf60d6c579174594601eae98c01a945",
+      "seed": 17,
+      "training_result_receipt_sha256": "6bf08fbe7f8b069fce9d2af88ff9e0d9fef63d1aef7b91ac473fa2f5a6484f39",
+      "training_result_sha256": "b964dd06547bd8650664f3601d62591e5574cf398f24b094cfa49e55bc5da640",
+      "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_seed_ensemble_seed17_v1"
+    },
+    {
+      "gate_state_sha256": "6ff22134c2df0dbfea8d191771a4e67f33db070de120541cad2efd5d1ed74bdd",
+      "manifest_sha256": "35a74589098e7e8c4284a4021460e0a21dfe1c230d77da95448ac22815807a6c",
+      "patch_sha256": "7639be6e616b1769935bd7f5cdc036a3d999f3e1636f7b83586b28e6f5595b4c",
+      "seed": 29,
+      "training_result_receipt_sha256": "94c730bbb73a7a891fbccb70e0820843d0a8d457369db95c394bbc773411b1dc",
+      "training_result_sha256": "74ecbbed80e3506bd76a80e2c945adbef4745384b5e17e35252ea92115dbe2f4",
+      "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_seed_ensemble_seed29_v1"
+    },
+    {
+      "gate_state_sha256": "88e3009e43c223216d834c32e80a2a469d884cb21d4360a92523bfd47ee38a60",
+      "manifest_sha256": "5638cf1638f29f3008c27aed240d99f3727ff8eb18d8d20da8f1b44402ca5ae6",
+      "patch_sha256": "f7bf9e21f019704daf275a84000abb636fc63ba87e8acda0d1e614110a3c0748",
+      "seed": 43,
+      "training_result_receipt_sha256": "7a1c11cb3899206ea5e36eb2b1607fed988c9d6f960c35c1660c0e37601b9785",
+      "training_result_sha256": "28d60a5779443e14127dc5cb42313598e71026bf84a06df78124664151a995bc",
+      "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_seed_ensemble_seed43_v1"
+    }
+  ],
+  "unused_strength_holdout_authorized": false
+}

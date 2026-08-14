@@ -1,0 +1,30 @@
+{
+  "candidate_id": "seed_delta_mean",
+  "denominator": 3,
+  "gate_state_sha256": "5ff078bc15ffa9cf097a7dfdbc66d9215ff55f3b188e3124b6d8a9bbe8d7b3b3",
+  "parameter_elements": 108906,
+  "parameter_tensors": 126,
+  "patch_file": {
+    "bytes": 479484,
+    "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_seed_ensemble_materialization_v1/gate_patch.pt",
+    "sha256": "4c2e4398299ca79223464de1eae41b957c497e4c7e21104901ff752c05a8398d"
+  },
+  "protocol_payload_sha256": "3294adb35ec7438e9f8e9f69e3fd825701e7480a9fb7722975a9ef0d8029ebd9",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_manifest_without_receipt",
+    "payload_sha256": "9279dab4eb0b1600b26b94abc6a814b7e95f2a6a4d873eea263f9436a93cbed9"
+  },
+  "schema": "rwkv_ms_natural_memory_native_scene_seed_ensemble_patch.v1",
+  "seed_weights": {
+    "17": 1,
+    "29": 1,
+    "43": 1
+  },
+  "source_gate_state_sha256": {
+    "17": "36b4d94ba2cd928225d71cdf069b05febe697088861dd95ec3b3566baffabeef",
+    "29": "6ff22134c2df0dbfea8d191771a4e67f33db070de120541cad2efd5d1ed74bdd",
+    "43": "88e3009e43c223216d834c32e80a2a469d884cb21d4360a92523bfd47ee38a60",
+    "v9": "1ed429e390ac0cc8652b0bcac3e01dee04b84dc83dd83869f75fb2f785e44e76"
+  }
+}
