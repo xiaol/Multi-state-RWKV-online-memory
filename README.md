@@ -191,6 +191,34 @@ Evidence:
 - [Signed cross-fit failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_crossfit_router_v1/result.json)
 - [Cross-fit analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_crossfit_router.py)
 
+### Checkpoint-Soup Failure
+
+A second publisher-TRAIN-only study tested weight-space averaging instead of
+another output router. Seven convex recipes mixed only the 126 learned content-
+gate tensors from frozen V9 and contrast checkpoints 8, 16, and 32. The recipe
+bytes were signed and pushed before any new generation. Five hash folds then
+selected among those recipes with unchanged checkpoint 16 available as a
+fallback, using only the other four folds for each held-out decision.
+
+The best single recipe, `trajectory_centered` (`25%` step 8, `50%` step 16,
+`25%` step 32), reached `0.3175` scene micro-F1 on the 220 post-probe fit rows.
+That is only `+0.0021` over checkpoint 16 (`0.3154`), below the locked `+0.005`
+requirement. Fold selection was also unstable: the five winners were
+`trajectory_centered`, `s16_75_s32_25`, checkpoint 16,
+`trajectory_centered`, and `v9_25_s16_75`. Their combined out-of-fold score was
+`0.3012`, or `-0.0142` versus checkpoint 16, despite remaining `+0.0108` above
+V9 (`0.2904`). The method therefore failed and authorizes no external
+replication. Neither prediction-set routing nor convex checkpoint averaging is
+the next boundary; the next study must change training robustness itself.
+
+Evidence:
+
+- [Locked checkpoint-soup protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_checkpoint_soup_protocol_v1.json)
+- [Signed candidate materialization](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1/result.json)
+- [Signed checkpoint-soup failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/result.json)
+- [Four-GPU runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_checkpoint_soup.py)
+  and [cross-fit analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_checkpoint_soup.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:

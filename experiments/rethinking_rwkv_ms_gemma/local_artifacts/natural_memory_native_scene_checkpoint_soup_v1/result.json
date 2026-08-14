@@ -1,0 +1,1834 @@
+{
+  "aggregate_metrics": {
+    "checkpoint_16": {
+      "coverage": 1.0,
+      "fn": 161,
+      "fp": 182,
+      "micro_f1": 0.3153692614770459,
+      "precision": 0.30268199233716475,
+      "recall": 0.32916666666666666,
+      "rows": 220,
+      "tp": 79
+    },
+    "s16_50_s32_50": {
+      "coverage": 1.0,
+      "fn": 163,
+      "fp": 174,
+      "micro_f1": 0.3136456211812627,
+      "precision": 0.30677290836653387,
+      "recall": 0.32083333333333336,
+      "rows": 220,
+      "tp": 77
+    },
+    "s16_75_s32_25": {
+      "coverage": 1.0,
+      "fn": 161,
+      "fp": 179,
+      "micro_f1": 0.3172690763052209,
+      "precision": 0.3062015503875969,
+      "recall": 0.32916666666666666,
+      "rows": 220,
+      "tp": 79
+    },
+    "s8_25_s16_75": {
+      "coverage": 1.0,
+      "fn": 157,
+      "fp": 205,
+      "micro_f1": 0.3143939393939394,
+      "precision": 0.2881944444444444,
+      "recall": 0.3458333333333333,
+      "rows": 220,
+      "tp": 83
+    },
+    "s8_50_s16_50": {
+      "coverage": 1.0,
+      "fn": 158,
+      "fp": 208,
+      "micro_f1": 0.30943396226415093,
+      "precision": 0.2827586206896552,
+      "recall": 0.3416666666666667,
+      "rows": 220,
+      "tp": 82
+    },
+    "trajectory_centered": {
+      "coverage": 1.0,
+      "fn": 160,
+      "fp": 184,
+      "micro_f1": 0.31746031746031744,
+      "precision": 0.30303030303030304,
+      "recall": 0.3333333333333333,
+      "rows": 220,
+      "tp": 80
+    },
+    "v9_12p5_s16_87p5": {
+      "coverage": 1.0,
+      "fn": 160,
+      "fp": 201,
+      "micro_f1": 0.30710172744721687,
+      "precision": 0.2846975088967972,
+      "recall": 0.3333333333333333,
+      "rows": 220,
+      "tp": 80
+    },
+    "v9_25_s16_75": {
+      "coverage": 1.0,
+      "fn": 157,
+      "fp": 204,
+      "micro_f1": 0.31499051233396586,
+      "precision": 0.289198606271777,
+      "recall": 0.3458333333333333,
+      "rows": 220,
+      "tp": 83
+    }
+  },
+  "analyzer_sha256": "af183243f3b7a6e47c9e5255b2999389209741ec29704f963d36726061eef0b8",
+  "candidate_ids": [
+    "s8_50_s16_50",
+    "s8_25_s16_75",
+    "s16_75_s32_25",
+    "s16_50_s32_50",
+    "trajectory_centered",
+    "v9_12p5_s16_87p5",
+    "v9_25_s16_75"
+  ],
+  "created_at": "2026-08-15T01:20:52+08:00",
+  "deltas": {
+    "modal_soup_minus_checkpoint_16_micro_f1": 0.002091055983271528,
+    "oof_minus_checkpoint_16_micro_f1": -0.014210960318744748,
+    "oof_minus_v9_micro_f1": 0.010777175931440897,
+    "oof_output_change_fraction_vs_checkpoint_16": 0.05454545454545454
+  },
+  "fold_assignment_payload_sha256": "c14e085f7c7a814cccfa5eaa0afa323f097cef02ce62e8212bf3f447b287cd65",
+  "fold_counts": {
+    "0": 41,
+    "1": 45,
+    "2": 54,
+    "3": 39,
+    "4": 41
+  },
+  "fold_results": [
+    {
+      "checkpoint_16_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 25,
+        "fp": 34,
+        "micro_f1": 0.37894736842105264,
+        "precision": 0.34615384615384615,
+        "recall": 0.4186046511627907,
+        "rows": 41,
+        "tp": 18
+      },
+      "fit_ranking": [
+        "trajectory_centered",
+        "s16_75_s32_25",
+        "checkpoint_16",
+        "s8_25_s16_75",
+        "v9_25_s16_75",
+        "s16_50_s32_50",
+        "v9_12p5_s16_87p5",
+        "s8_50_s16_50"
+      ],
+      "fit_rows": 179,
+      "fold": 0,
+      "heldout_rows": 41,
+      "selected_candidate_id": "trajectory_centered",
+      "selected_fit_metrics": {
+        "coverage": 1.0,
+        "fn": 135,
+        "fp": 149,
+        "micro_f1": 0.30392156862745096,
+        "precision": 0.2938388625592417,
+        "recall": 0.3147208121827411,
+        "rows": 179,
+        "tp": 62
+      },
+      "selected_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 25,
+        "fp": 35,
+        "micro_f1": 0.375,
+        "precision": 0.33962264150943394,
+        "recall": 0.4186046511627907,
+        "rows": 41,
+        "tp": 18
+      }
+    },
+    {
+      "checkpoint_16_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 35,
+        "fp": 42,
+        "micro_f1": 0.2803738317757009,
+        "precision": 0.2631578947368421,
+        "recall": 0.3,
+        "rows": 45,
+        "tp": 15
+      },
+      "fit_ranking": [
+        "s16_75_s32_25",
+        "trajectory_centered",
+        "s16_50_s32_50",
+        "checkpoint_16",
+        "s8_25_s16_75",
+        "v9_25_s16_75",
+        "v9_12p5_s16_87p5",
+        "s8_50_s16_50"
+      ],
+      "fit_rows": 175,
+      "fold": 1,
+      "heldout_rows": 45,
+      "selected_candidate_id": "s16_75_s32_25",
+      "selected_fit_metrics": {
+        "coverage": 1.0,
+        "fn": 125,
+        "fp": 138,
+        "micro_f1": 0.33078880407124683,
+        "precision": 0.32019704433497537,
+        "recall": 0.34210526315789475,
+        "rows": 175,
+        "tp": 65
+      },
+      "selected_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 36,
+        "fp": 41,
+        "micro_f1": 0.26666666666666666,
+        "precision": 0.2545454545454545,
+        "recall": 0.28,
+        "rows": 45,
+        "tp": 14
+      }
+    },
+    {
+      "checkpoint_16_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 38,
+        "fp": 45,
+        "micro_f1": 0.366412213740458,
+        "precision": 0.34782608695652173,
+        "recall": 0.3870967741935484,
+        "rows": 54,
+        "tp": 24
+      },
+      "fit_ranking": [
+        "checkpoint_16",
+        "trajectory_centered",
+        "v9_25_s16_75",
+        "s16_50_s32_50",
+        "s16_75_s32_25",
+        "s8_25_s16_75",
+        "s8_50_s16_50",
+        "v9_12p5_s16_87p5"
+      ],
+      "fit_rows": 166,
+      "fold": 2,
+      "heldout_rows": 54,
+      "selected_candidate_id": "checkpoint_16",
+      "selected_fit_metrics": {
+        "coverage": 1.0,
+        "fn": 123,
+        "fp": 137,
+        "micro_f1": 0.2972972972972973,
+        "precision": 0.2864583333333333,
+        "recall": 0.3089887640449438,
+        "rows": 166,
+        "tp": 55
+      },
+      "selected_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 38,
+        "fp": 45,
+        "micro_f1": 0.366412213740458,
+        "precision": 0.34782608695652173,
+        "recall": 0.3870967741935484,
+        "rows": 54,
+        "tp": 24
+      }
+    },
+    {
+      "checkpoint_16_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 36,
+        "fp": 27,
+        "micro_f1": 0.3076923076923077,
+        "precision": 0.34146341463414637,
+        "recall": 0.28,
+        "rows": 39,
+        "tp": 14
+      },
+      "fit_ranking": [
+        "trajectory_centered",
+        "s16_75_s32_25",
+        "checkpoint_16",
+        "s8_25_s16_75",
+        "v9_25_s16_75",
+        "s16_50_s32_50",
+        "s8_50_s16_50",
+        "v9_12p5_s16_87p5"
+      ],
+      "fit_rows": 181,
+      "fold": 3,
+      "heldout_rows": 39,
+      "selected_candidate_id": "trajectory_centered",
+      "selected_fit_metrics": {
+        "coverage": 1.0,
+        "fn": 124,
+        "fp": 157,
+        "micro_f1": 0.3196125907990315,
+        "precision": 0.29596412556053814,
+        "recall": 0.3473684210526316,
+        "rows": 181,
+        "tp": 66
+      },
+      "selected_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 36,
+        "fp": 27,
+        "micro_f1": 0.3076923076923077,
+        "precision": 0.34146341463414637,
+        "recall": 0.28,
+        "rows": 39,
+        "tp": 14
+      }
+    },
+    {
+      "checkpoint_16_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 27,
+        "fp": 34,
+        "micro_f1": 0.2077922077922078,
+        "precision": 0.19047619047619047,
+        "recall": 0.22857142857142856,
+        "rows": 41,
+        "tp": 8
+      },
+      "fit_ranking": [
+        "v9_25_s16_75",
+        "s8_25_s16_75",
+        "s8_50_s16_50",
+        "trajectory_centered",
+        "s16_75_s32_25",
+        "v9_12p5_s16_87p5",
+        "checkpoint_16",
+        "s16_50_s32_50"
+      ],
+      "fit_rows": 179,
+      "fold": 4,
+      "heldout_rows": 41,
+      "selected_candidate_id": "v9_25_s16_75",
+      "selected_fit_metrics": {
+        "coverage": 1.0,
+        "fn": 130,
+        "fp": 152,
+        "micro_f1": 0.3472222222222222,
+        "precision": 0.3303964757709251,
+        "recall": 0.36585365853658536,
+        "rows": 179,
+        "tp": 75
+      },
+      "selected_heldout_metrics": {
+        "coverage": 1.0,
+        "fn": 27,
+        "fp": 52,
+        "micro_f1": 0.16842105263157894,
+        "precision": 0.13333333333333333,
+        "recall": 0.22857142857142856,
+        "rows": 41,
+        "tp": 8
+      }
+    }
+  ],
+  "fold_selected_candidate_ids": [
+    "trajectory_centered",
+    "s16_75_s32_25",
+    "checkpoint_16",
+    "trajectory_centered",
+    "v9_25_s16_75"
+  ],
+  "gate_thresholds": {
+    "coverage": 0.95,
+    "learned_soup_selected_folds": 4,
+    "modal_learned_soup_selected_folds": 3,
+    "modal_soup_minus_checkpoint_16_micro_f1": 0.005,
+    "oof_minus_checkpoint_16_micro_f1": 0.005,
+    "oof_minus_v9_micro_f1": 0.005,
+    "oof_output_change_fraction_vs_checkpoint_16": 0.02
+  },
+  "gates": {
+    "coverage_at_least_0.95": true,
+    "learned_soup_selected_in_at_least_4_folds": true,
+    "modal_learned_soup_selected_in_at_least_3_folds": false,
+    "modal_soup_minus_checkpoint_16_micro_f1_at_least_0.005": false,
+    "oof_minus_checkpoint_16_micro_f1_at_least_0.005": false,
+    "oof_minus_v9_micro_f1_at_least_0.005": true,
+    "oof_output_change_fraction_vs_checkpoint_16_at_least_0.02": true,
+    "passed": false
+  },
+  "hard32_authorized": false,
+  "learned_soup_selected_folds": 4,
+  "learned_soup_selection_counts": {
+    "s16_75_s32_25": 1,
+    "trajectory_centered": 2,
+    "v9_25_s16_75": 1
+  },
+  "materialization_result_receipt_sha256": "d0e92ec4f27689558f0239a5d58a3e0b6ef2bb799073791205d181d3213c3233",
+  "modal_candidate_id": "trajectory_centered",
+  "modal_candidate_metrics": {
+    "coverage": 1.0,
+    "fn": 160,
+    "fp": 184,
+    "micro_f1": 0.31746031746031744,
+    "precision": 0.30303030303030304,
+    "recall": 0.3333333333333333,
+    "rows": 220,
+    "tp": 80
+  },
+  "multitask_preservation_authorized": false,
+  "oof_metrics": {
+    "coverage": 1.0,
+    "fn": 162,
+    "fp": 200,
+    "micro_f1": 0.30115830115830117,
+    "precision": 0.2805755395683453,
+    "recall": 0.325,
+    "rows": 220,
+    "tp": 78
+  },
+  "passed": false,
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+  "provenance": {
+    "candidate_outputs": [
+      {
+        "candidate_id": "s8_50_s16_50",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-0/s8_50_s16_50.correct_state.jsonl",
+        "rows": 54,
+        "sha256": "a234e8348114aeb149f6fd23410289a8f0652c7cee7448ca2b6d103ecce835b4",
+        "shard_index": 0
+      },
+      {
+        "candidate_id": "s8_25_s16_75",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-0/s8_25_s16_75.correct_state.jsonl",
+        "rows": 54,
+        "sha256": "a0cb8525be44bed56aa8365ed53b603585a45c0ca9dd6646b234afc5c3f58544",
+        "shard_index": 0
+      },
+      {
+        "candidate_id": "s16_75_s32_25",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-0/s16_75_s32_25.correct_state.jsonl",
+        "rows": 54,
+        "sha256": "ce21c94cb3cda223e0470f9725ad5394cf8d0b728ff7885d30302a9ba9d105e0",
+        "shard_index": 0
+      },
+      {
+        "candidate_id": "s16_50_s32_50",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-0/s16_50_s32_50.correct_state.jsonl",
+        "rows": 54,
+        "sha256": "95a82a116abbb8ad01109aa22c1845c46fb9c6cb86b1842ecb8ed29a6e9f4bb0",
+        "shard_index": 0
+      },
+      {
+        "candidate_id": "trajectory_centered",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-0/trajectory_centered.correct_state.jsonl",
+        "rows": 54,
+        "sha256": "6a2a54d4e13e287a98d471fa17e43d948f3d4de4272c6760101f14a63061b811",
+        "shard_index": 0
+      },
+      {
+        "candidate_id": "v9_12p5_s16_87p5",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-0/v9_12p5_s16_87p5.correct_state.jsonl",
+        "rows": 54,
+        "sha256": "adc1f529f555e67a5249a42e1413773766eec4fa1f06bd32940a4faf796a7739",
+        "shard_index": 0
+      },
+      {
+        "candidate_id": "v9_25_s16_75",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-0/v9_25_s16_75.correct_state.jsonl",
+        "rows": 54,
+        "sha256": "f6b232701bfe4a88fe36160b5686333ec82e838257b0ac838dec767be2b2b537",
+        "shard_index": 0
+      },
+      {
+        "candidate_id": "s8_50_s16_50",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-1/s8_50_s16_50.correct_state.jsonl",
+        "rows": 63,
+        "sha256": "bce2b49b4df0a8c772d9a5c79cdde2b308a810a4b626357b2852239bcc8c561a",
+        "shard_index": 1
+      },
+      {
+        "candidate_id": "s8_25_s16_75",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-1/s8_25_s16_75.correct_state.jsonl",
+        "rows": 63,
+        "sha256": "9a82768eb08b9cdb65124b58a37e38a1cb5aa5772eec26225371099bf6edb573",
+        "shard_index": 1
+      },
+      {
+        "candidate_id": "s16_75_s32_25",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-1/s16_75_s32_25.correct_state.jsonl",
+        "rows": 63,
+        "sha256": "a338a171a1febde8f230d1b1fe4ace4d15ae276b81f8b1c0711f21d42ef7a841",
+        "shard_index": 1
+      },
+      {
+        "candidate_id": "s16_50_s32_50",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-1/s16_50_s32_50.correct_state.jsonl",
+        "rows": 63,
+        "sha256": "e301d80f985f96b10242934176a0f8c427298f9ff0542993cae482af13db949b",
+        "shard_index": 1
+      },
+      {
+        "candidate_id": "trajectory_centered",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-1/trajectory_centered.correct_state.jsonl",
+        "rows": 63,
+        "sha256": "fcd1f932afe84f4ac6e149a356f1ce09023b0c5919fd3b511f489d34ed1a8cf0",
+        "shard_index": 1
+      },
+      {
+        "candidate_id": "v9_12p5_s16_87p5",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-1/v9_12p5_s16_87p5.correct_state.jsonl",
+        "rows": 63,
+        "sha256": "f4d7bb4282c50406e85a1d0f4f29560c7645702f93f6229707b5cada90590680",
+        "shard_index": 1
+      },
+      {
+        "candidate_id": "v9_25_s16_75",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-1/v9_25_s16_75.correct_state.jsonl",
+        "rows": 63,
+        "sha256": "234c56177526e10ef8105dad69a83d444b226ca8308e433534c0a1828c468174",
+        "shard_index": 1
+      },
+      {
+        "candidate_id": "s8_50_s16_50",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-2/s8_50_s16_50.correct_state.jsonl",
+        "rows": 48,
+        "sha256": "28e2611868be0ec058c3ffe54a28da9bac7a94a8084b2b8590d92c1a7856a93a",
+        "shard_index": 2
+      },
+      {
+        "candidate_id": "s8_25_s16_75",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-2/s8_25_s16_75.correct_state.jsonl",
+        "rows": 48,
+        "sha256": "ef7e791224d0478f7e99bb7e87bf773ad93f2478665ff502150786071fd968ea",
+        "shard_index": 2
+      },
+      {
+        "candidate_id": "s16_75_s32_25",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-2/s16_75_s32_25.correct_state.jsonl",
+        "rows": 48,
+        "sha256": "ef2e22723c20e95a0db48943e4a5f0a1c8385e63ee557f1ac28e1aa2f172e626",
+        "shard_index": 2
+      },
+      {
+        "candidate_id": "s16_50_s32_50",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-2/s16_50_s32_50.correct_state.jsonl",
+        "rows": 48,
+        "sha256": "2027ab83af7e69a75e88e3fc39e03aba306c19ed2906b95ee9604d3816ec1a16",
+        "shard_index": 2
+      },
+      {
+        "candidate_id": "trajectory_centered",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-2/trajectory_centered.correct_state.jsonl",
+        "rows": 48,
+        "sha256": "08426adaeeadedcc8cf4d440fb1b081c073cfdd457531b789a5676c49ab0dc2b",
+        "shard_index": 2
+      },
+      {
+        "candidate_id": "v9_12p5_s16_87p5",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-2/v9_12p5_s16_87p5.correct_state.jsonl",
+        "rows": 48,
+        "sha256": "2c4c9745cee333b5e0514d4216faaf66aeb44a30ba141f29632d54e5af8ffff3",
+        "shard_index": 2
+      },
+      {
+        "candidate_id": "v9_25_s16_75",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-2/v9_25_s16_75.correct_state.jsonl",
+        "rows": 48,
+        "sha256": "ad6b0beec55206483fcefaec5d930d066fc5ea395392c13921e2f514b86fb625",
+        "shard_index": 2
+      },
+      {
+        "candidate_id": "s8_50_s16_50",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-3/s8_50_s16_50.correct_state.jsonl",
+        "rows": 55,
+        "sha256": "e73c567cfc1a37f007195a339c4e32b405e88afca31ddfe6594fd9a53ad99dd5",
+        "shard_index": 3
+      },
+      {
+        "candidate_id": "s8_25_s16_75",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-3/s8_25_s16_75.correct_state.jsonl",
+        "rows": 55,
+        "sha256": "49606cbcebad2e4b8bc5a8603dfbaa528e35e2ae500aafb68e91bfa1a07c398c",
+        "shard_index": 3
+      },
+      {
+        "candidate_id": "s16_75_s32_25",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-3/s16_75_s32_25.correct_state.jsonl",
+        "rows": 55,
+        "sha256": "3c340079145d463c84693bca4ac68b31cf5e8aa44c0cc4a794f0228db61b5943",
+        "shard_index": 3
+      },
+      {
+        "candidate_id": "s16_50_s32_50",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-3/s16_50_s32_50.correct_state.jsonl",
+        "rows": 55,
+        "sha256": "ee31c9bab69c6fded9f795c392b9bd648c9755870dacfd538734959c706ca597",
+        "shard_index": 3
+      },
+      {
+        "candidate_id": "trajectory_centered",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-3/trajectory_centered.correct_state.jsonl",
+        "rows": 55,
+        "sha256": "8795a9ab9b74e35130e601e5bccc3761270f538f17fda6ea0698aeb283697187",
+        "shard_index": 3
+      },
+      {
+        "candidate_id": "v9_12p5_s16_87p5",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-3/v9_12p5_s16_87p5.correct_state.jsonl",
+        "rows": 55,
+        "sha256": "9d0c86982cfa4455e0ea4eddc3e9df7228901a05cddc06d1f0b678825cfb3eb4",
+        "shard_index": 3
+      },
+      {
+        "candidate_id": "v9_25_s16_75",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-3/v9_25_s16_75.correct_state.jsonl",
+        "rows": 55,
+        "sha256": "c60f825bacaebf750bcaec890d625ccb8537c91b339ba8cb42f977278e82028c",
+        "shard_index": 3
+      }
+    ],
+    "checkpoint_16_input_bindings": [
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-0/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "conditions": [
+            "correct_state",
+            "matched_donor_state",
+            "zero_state"
+          ],
+          "dataset_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "donor_mapping_payload_sha256": "ea507a69e987323bb9da582477588a7330a83d5b14fd3d43c3224ffdf56147b7",
+          "donor_mapping_rows": 357,
+          "dtype": "bfloat16",
+          "memory_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "probe_runner_sha256": "2fb6ba9b864da4e9b5aa79d3cecba7af12b70fb95df0b88773c15989b919e39f",
+          "protected_splits_opened": [],
+          "protocol_payload_sha256": "e9945957bf942d646152d79a471ae561eca0ea4bafc511d48ea84cffce62746e",
+          "reference_artifacts": [
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+              "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6",
+              "shard_index": 0
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+              "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010",
+              "shard_index": 1
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+              "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9",
+              "shard_index": 2
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+              "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91",
+              "shard_index": 3
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+              "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da",
+              "shard_index": 0
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+              "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd",
+              "shard_index": 1
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+              "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2",
+              "shard_index": 2
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+              "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa",
+              "shard_index": 3
+            }
+          ],
+          "reference_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2",
+          "remaining_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+          "remaining_rows": 220,
+          "runner_sha256": "3b13d0711b6eefd3210591c75da4ad399e1d3b1f898e46cdb3292a610aaf642d",
+          "schema": "rwkv_ms_natural_memory_native_scene_contrast_progression_input.v1",
+          "selected_checkpoint_step": 16,
+          "selected_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+          "selected_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+          "selection_file": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_probe_v1/selection.json",
+          "selection_file_sha256": "02a55b13f77020cea3b21e66ba3600587560701bf467c151db9ac178c54d8d55",
+          "selection_receipt_sha256": "64ad8298040e3935f1024a6fe2bb7cfaea96bdabd91237633be95f2d0a134c8c",
+          "shard_index": 0,
+          "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_dropout_train_v1",
+          "world_size": 4
+        },
+        "sha256": "34be8e992c22205fab00f6914ad8c2f84c172e7fac729378869e604b604b7f4c"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-1/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "conditions": [
+            "correct_state",
+            "matched_donor_state",
+            "zero_state"
+          ],
+          "dataset_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "donor_mapping_payload_sha256": "ea507a69e987323bb9da582477588a7330a83d5b14fd3d43c3224ffdf56147b7",
+          "donor_mapping_rows": 357,
+          "dtype": "bfloat16",
+          "memory_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "probe_runner_sha256": "2fb6ba9b864da4e9b5aa79d3cecba7af12b70fb95df0b88773c15989b919e39f",
+          "protected_splits_opened": [],
+          "protocol_payload_sha256": "e9945957bf942d646152d79a471ae561eca0ea4bafc511d48ea84cffce62746e",
+          "reference_artifacts": [
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+              "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6",
+              "shard_index": 0
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+              "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010",
+              "shard_index": 1
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+              "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9",
+              "shard_index": 2
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+              "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91",
+              "shard_index": 3
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+              "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da",
+              "shard_index": 0
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+              "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd",
+              "shard_index": 1
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+              "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2",
+              "shard_index": 2
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+              "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa",
+              "shard_index": 3
+            }
+          ],
+          "reference_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2",
+          "remaining_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+          "remaining_rows": 220,
+          "runner_sha256": "3b13d0711b6eefd3210591c75da4ad399e1d3b1f898e46cdb3292a610aaf642d",
+          "schema": "rwkv_ms_natural_memory_native_scene_contrast_progression_input.v1",
+          "selected_checkpoint_step": 16,
+          "selected_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+          "selected_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+          "selection_file": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_probe_v1/selection.json",
+          "selection_file_sha256": "02a55b13f77020cea3b21e66ba3600587560701bf467c151db9ac178c54d8d55",
+          "selection_receipt_sha256": "64ad8298040e3935f1024a6fe2bb7cfaea96bdabd91237633be95f2d0a134c8c",
+          "shard_index": 1,
+          "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_dropout_train_v1",
+          "world_size": 4
+        },
+        "sha256": "d2af3bb606549f8c7db9e405ae381dd890850b91ace9419c81f1af752c74c933"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-2/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "conditions": [
+            "correct_state",
+            "matched_donor_state",
+            "zero_state"
+          ],
+          "dataset_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "donor_mapping_payload_sha256": "ea507a69e987323bb9da582477588a7330a83d5b14fd3d43c3224ffdf56147b7",
+          "donor_mapping_rows": 357,
+          "dtype": "bfloat16",
+          "memory_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "probe_runner_sha256": "2fb6ba9b864da4e9b5aa79d3cecba7af12b70fb95df0b88773c15989b919e39f",
+          "protected_splits_opened": [],
+          "protocol_payload_sha256": "e9945957bf942d646152d79a471ae561eca0ea4bafc511d48ea84cffce62746e",
+          "reference_artifacts": [
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+              "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6",
+              "shard_index": 0
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+              "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010",
+              "shard_index": 1
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+              "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9",
+              "shard_index": 2
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+              "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91",
+              "shard_index": 3
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+              "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da",
+              "shard_index": 0
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+              "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd",
+              "shard_index": 1
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+              "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2",
+              "shard_index": 2
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+              "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa",
+              "shard_index": 3
+            }
+          ],
+          "reference_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2",
+          "remaining_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+          "remaining_rows": 220,
+          "runner_sha256": "3b13d0711b6eefd3210591c75da4ad399e1d3b1f898e46cdb3292a610aaf642d",
+          "schema": "rwkv_ms_natural_memory_native_scene_contrast_progression_input.v1",
+          "selected_checkpoint_step": 16,
+          "selected_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+          "selected_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+          "selection_file": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_probe_v1/selection.json",
+          "selection_file_sha256": "02a55b13f77020cea3b21e66ba3600587560701bf467c151db9ac178c54d8d55",
+          "selection_receipt_sha256": "64ad8298040e3935f1024a6fe2bb7cfaea96bdabd91237633be95f2d0a134c8c",
+          "shard_index": 2,
+          "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_dropout_train_v1",
+          "world_size": 4
+        },
+        "sha256": "0d657ae6f4099471bbd64162693b9979f3657dd9c2c32127a2ad9952f6abc43d"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-3/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "conditions": [
+            "correct_state",
+            "matched_donor_state",
+            "zero_state"
+          ],
+          "dataset_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "donor_mapping_payload_sha256": "ea507a69e987323bb9da582477588a7330a83d5b14fd3d43c3224ffdf56147b7",
+          "donor_mapping_rows": 357,
+          "dtype": "bfloat16",
+          "memory_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "probe_runner_sha256": "2fb6ba9b864da4e9b5aa79d3cecba7af12b70fb95df0b88773c15989b919e39f",
+          "protected_splits_opened": [],
+          "protocol_payload_sha256": "e9945957bf942d646152d79a471ae561eca0ea4bafc511d48ea84cffce62746e",
+          "reference_artifacts": [
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+              "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6",
+              "shard_index": 0
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+              "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010",
+              "shard_index": 1
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+              "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9",
+              "shard_index": 2
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+              "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91",
+              "shard_index": 3
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+              "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da",
+              "shard_index": 0
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+              "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd",
+              "shard_index": 1
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+              "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2",
+              "shard_index": 2
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+              "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa",
+              "shard_index": 3
+            }
+          ],
+          "reference_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2",
+          "remaining_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+          "remaining_rows": 220,
+          "runner_sha256": "3b13d0711b6eefd3210591c75da4ad399e1d3b1f898e46cdb3292a610aaf642d",
+          "schema": "rwkv_ms_natural_memory_native_scene_contrast_progression_input.v1",
+          "selected_checkpoint_step": 16,
+          "selected_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+          "selected_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+          "selection_file": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_probe_v1/selection.json",
+          "selection_file_sha256": "02a55b13f77020cea3b21e66ba3600587560701bf467c151db9ac178c54d8d55",
+          "selection_receipt_sha256": "64ad8298040e3935f1024a6fe2bb7cfaea96bdabd91237633be95f2d0a134c8c",
+          "shard_index": 3,
+          "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_dropout_train_v1",
+          "world_size": 4
+        },
+        "sha256": "d5cc7becb0f81f97f3c5ea777e15cda09f4eaeddfd3508d7df525d96cae07911"
+      }
+    ],
+    "checkpoint_16_outputs": [
+      {
+        "condition": "correct_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-0/correct_state.jsonl",
+        "rows": 54,
+        "sha256": "b01e1ebee0434e7353a1788055700360213b8ae9c0108a0d4aa7410d9f3e72c0",
+        "shard_index": 0
+      },
+      {
+        "condition": "matched_donor_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-0/matched_donor_state.jsonl",
+        "rows": 54,
+        "sha256": "7c8f778e2b579489594b99961014338b119faa845b13804eeaf5c481b77912c7",
+        "shard_index": 0
+      },
+      {
+        "condition": "zero_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-0/zero_state.jsonl",
+        "rows": 54,
+        "sha256": "ce1e67f464650a214a209ae62a7ad97f6130e05f6e3e989ce6b0229e5d6cfce6",
+        "shard_index": 0
+      },
+      {
+        "condition": "correct_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-1/correct_state.jsonl",
+        "rows": 63,
+        "sha256": "4414df33adb2fd9958d4dc36ed89be370277a77ffa7b98fb75b645a6e5583418",
+        "shard_index": 1
+      },
+      {
+        "condition": "matched_donor_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-1/matched_donor_state.jsonl",
+        "rows": 63,
+        "sha256": "9e9f96a78e8aa092e555d63f825b4e511a6b73ca0c335f09659b1d278bd5c139",
+        "shard_index": 1
+      },
+      {
+        "condition": "zero_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-1/zero_state.jsonl",
+        "rows": 63,
+        "sha256": "f0d722c385ac2932d0c5132a4a6dad08c1a9274f9f7d2fbeeab095416734211f",
+        "shard_index": 1
+      },
+      {
+        "condition": "correct_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-2/correct_state.jsonl",
+        "rows": 48,
+        "sha256": "26c80ed53c33d5dac16c3ad5474c4deaa8b4892c73f1eb2e8434fafea81c272e",
+        "shard_index": 2
+      },
+      {
+        "condition": "matched_donor_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-2/matched_donor_state.jsonl",
+        "rows": 48,
+        "sha256": "e95ec65bcae5d61aa665b7be179bfac773cf4fe3aeda7b678a59c610aa94d086",
+        "shard_index": 2
+      },
+      {
+        "condition": "zero_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-2/zero_state.jsonl",
+        "rows": 48,
+        "sha256": "17fb33978e46d6f611ff24b05d21fb28dc715f19c6b871ca195a3e155275a00e",
+        "shard_index": 2
+      },
+      {
+        "condition": "correct_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-3/correct_state.jsonl",
+        "rows": 55,
+        "sha256": "4e7636660ede3f793d2e5a0bc5365b9629cbf1e0d442da069fe12007cb4398de",
+        "shard_index": 3
+      },
+      {
+        "condition": "matched_donor_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-3/matched_donor_state.jsonl",
+        "rows": 55,
+        "sha256": "7d40d192f66b51452daa4223536cefd9e1de0f02df5866b14786a9106fe7cbef",
+        "shard_index": 3
+      },
+      {
+        "condition": "zero_state",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/shard-3/zero_state.jsonl",
+        "rows": 55,
+        "sha256": "18cb061d7987b724ba0f998acfde918e1c0408736b765ec7b874a96156cda8b9",
+        "shard_index": 3
+      }
+    ],
+    "checkpoint_16_result": {
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_progression_v1/result.json",
+      "receipt_payload_sha256": "23bc133d82590890308ac5b0779e54427f51fbee615d941393a023538be80b2b",
+      "sha256": "af852ce316d83fb90b18bbd97fb302cdb1fe99b305c96736478759143d897cb2"
+    },
+    "frozen_v9_outputs": [
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+        "rows": 90,
+        "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+        "rows": 89,
+        "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+        "rows": 89,
+        "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+        "rows": 89,
+        "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa"
+      }
+    ],
+    "input_bindings": [
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-0/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "candidate_artifacts": [
+            {
+              "candidate_id": "s8_50_s16_50",
+              "gate_state_sha256": "ed14ab1f86896e8823d75847d641af9b2c6f0f85c13b11189ff2b8ab81aa3073",
+              "manifest_sha256": "9383bf6d2a3b31590eea59139c477abc605de43a731535dd2352951b88127eee",
+              "patch_sha256": "93e0386369a997b47a1214b4a2b9e91ed93703506e2b48160a8709a9e41bb230"
+            },
+            {
+              "candidate_id": "s8_25_s16_75",
+              "gate_state_sha256": "231574ab85573faef4944273db71fcfe0694142f77cc1bd00c8c9b6e44a6e810",
+              "manifest_sha256": "02a68ce7402de461fdf621e443968be42dc147def394bc3aea124d0887ae99bd",
+              "patch_sha256": "4a40a09d6beaef3d82c27eaa96942162bd5fb57605826cabeae0efe119b0ed08"
+            },
+            {
+              "candidate_id": "s16_75_s32_25",
+              "gate_state_sha256": "442f97f9d18ce6c4b35c4c07db6debafab3e8428752603f19e9aa1e7662ae0ac",
+              "manifest_sha256": "073cd9118da90df8f544f8e34a5b6b812bbca6294e48bfa4a013b7bd578ff866",
+              "patch_sha256": "f03b2ef5456a4838572e8d03b8896ab0e4f3400c9c5b0e61d8e327bc41b387f2"
+            },
+            {
+              "candidate_id": "s16_50_s32_50",
+              "gate_state_sha256": "6cd5b3beb38ce006949bc76d149faad6588fe731dc1d239aea2f9de98f0bdb63",
+              "manifest_sha256": "89c4f94c6d72e7067f88de8b955ae5a737da6c75adbd65b902d3f264e35c7f4f",
+              "patch_sha256": "ef1ddc9e540a08881c1d6c0f21347a7f63f0a0483a529d251673d31a464d3412"
+            },
+            {
+              "candidate_id": "trajectory_centered",
+              "gate_state_sha256": "0e3fcc8ea73b2cffcea2db7d3686e542755c596fb6be9e5f44b854c723ec06ed",
+              "manifest_sha256": "fbff709c6631065f25c23caf2682ff2e2627d13a1c45f40da3f5bf0d116b95b4",
+              "patch_sha256": "3a5b2b1813ceff094b067de4a5094af968667c623dafaef879fa9d436f6cefb2"
+            },
+            {
+              "candidate_id": "v9_12p5_s16_87p5",
+              "gate_state_sha256": "46d49f74ca4007a44f8f5bd3cbef0495108aabf6729a8ad624d7e497fcef7ce1",
+              "manifest_sha256": "a639f7c5c01ccd136b239f71af3567ed5056a5df7c9f5492843b7d15c87fa5a8",
+              "patch_sha256": "b1b81eda874b2d22a65b7191266f4d4cb0ed502c2b6b9c215376d906f693bddc"
+            },
+            {
+              "candidate_id": "v9_25_s16_75",
+              "gate_state_sha256": "411bc3a40882cdd59d4c65b751fb5c29e97b9438e5dc79d0cf6e9fffc74f7acf",
+              "manifest_sha256": "568c9f293ce284ca4465230b9f11fa4682294365db4946a066d8803297a7162d",
+              "patch_sha256": "a48279a58d8f61979f82340b48f923d6283ca84d43598ce6d36407c407a8bc83"
+            }
+          ],
+          "condition": "correct_state",
+          "dataset_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dtype": "bfloat16",
+          "materialization_result_file_sha256": "caba0cb5acd9f18ea2798e08edb160047d343a916638389436fab7a8ca8bc1b9",
+          "materialization_result_receipt_sha256": "d0e92ec4f27689558f0239a5d58a3e0b6ef2bb799073791205d181d3213c3233",
+          "materialization_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1",
+          "memory_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "protected_splits_opened": [],
+          "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+          "reference_artifacts": [
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+              "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6",
+              "shard_index": 0
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+              "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010",
+              "shard_index": 1
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+              "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9",
+              "shard_index": 2
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+              "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91",
+              "shard_index": 3
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+              "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da",
+              "shard_index": 0
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+              "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd",
+              "shard_index": 1
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+              "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2",
+              "shard_index": 2
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+              "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa",
+              "shard_index": 3
+            }
+          ],
+          "reference_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2",
+          "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+          "rows": 220,
+          "runner_sha256": "02c73a953ebf79cc16197fbc5b32d43cc1248497c0c67e4c4bff558a92672c45",
+          "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_input.v1",
+          "shard_index": 0,
+          "world_size": 4
+        },
+        "sha256": "429b04a11e239f86ea9d3986d00a8d88e9a2d7f932e703b570d5c8aceec9b789"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-1/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "candidate_artifacts": [
+            {
+              "candidate_id": "s8_50_s16_50",
+              "gate_state_sha256": "ed14ab1f86896e8823d75847d641af9b2c6f0f85c13b11189ff2b8ab81aa3073",
+              "manifest_sha256": "9383bf6d2a3b31590eea59139c477abc605de43a731535dd2352951b88127eee",
+              "patch_sha256": "93e0386369a997b47a1214b4a2b9e91ed93703506e2b48160a8709a9e41bb230"
+            },
+            {
+              "candidate_id": "s8_25_s16_75",
+              "gate_state_sha256": "231574ab85573faef4944273db71fcfe0694142f77cc1bd00c8c9b6e44a6e810",
+              "manifest_sha256": "02a68ce7402de461fdf621e443968be42dc147def394bc3aea124d0887ae99bd",
+              "patch_sha256": "4a40a09d6beaef3d82c27eaa96942162bd5fb57605826cabeae0efe119b0ed08"
+            },
+            {
+              "candidate_id": "s16_75_s32_25",
+              "gate_state_sha256": "442f97f9d18ce6c4b35c4c07db6debafab3e8428752603f19e9aa1e7662ae0ac",
+              "manifest_sha256": "073cd9118da90df8f544f8e34a5b6b812bbca6294e48bfa4a013b7bd578ff866",
+              "patch_sha256": "f03b2ef5456a4838572e8d03b8896ab0e4f3400c9c5b0e61d8e327bc41b387f2"
+            },
+            {
+              "candidate_id": "s16_50_s32_50",
+              "gate_state_sha256": "6cd5b3beb38ce006949bc76d149faad6588fe731dc1d239aea2f9de98f0bdb63",
+              "manifest_sha256": "89c4f94c6d72e7067f88de8b955ae5a737da6c75adbd65b902d3f264e35c7f4f",
+              "patch_sha256": "ef1ddc9e540a08881c1d6c0f21347a7f63f0a0483a529d251673d31a464d3412"
+            },
+            {
+              "candidate_id": "trajectory_centered",
+              "gate_state_sha256": "0e3fcc8ea73b2cffcea2db7d3686e542755c596fb6be9e5f44b854c723ec06ed",
+              "manifest_sha256": "fbff709c6631065f25c23caf2682ff2e2627d13a1c45f40da3f5bf0d116b95b4",
+              "patch_sha256": "3a5b2b1813ceff094b067de4a5094af968667c623dafaef879fa9d436f6cefb2"
+            },
+            {
+              "candidate_id": "v9_12p5_s16_87p5",
+              "gate_state_sha256": "46d49f74ca4007a44f8f5bd3cbef0495108aabf6729a8ad624d7e497fcef7ce1",
+              "manifest_sha256": "a639f7c5c01ccd136b239f71af3567ed5056a5df7c9f5492843b7d15c87fa5a8",
+              "patch_sha256": "b1b81eda874b2d22a65b7191266f4d4cb0ed502c2b6b9c215376d906f693bddc"
+            },
+            {
+              "candidate_id": "v9_25_s16_75",
+              "gate_state_sha256": "411bc3a40882cdd59d4c65b751fb5c29e97b9438e5dc79d0cf6e9fffc74f7acf",
+              "manifest_sha256": "568c9f293ce284ca4465230b9f11fa4682294365db4946a066d8803297a7162d",
+              "patch_sha256": "a48279a58d8f61979f82340b48f923d6283ca84d43598ce6d36407c407a8bc83"
+            }
+          ],
+          "condition": "correct_state",
+          "dataset_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dtype": "bfloat16",
+          "materialization_result_file_sha256": "caba0cb5acd9f18ea2798e08edb160047d343a916638389436fab7a8ca8bc1b9",
+          "materialization_result_receipt_sha256": "d0e92ec4f27689558f0239a5d58a3e0b6ef2bb799073791205d181d3213c3233",
+          "materialization_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1",
+          "memory_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "protected_splits_opened": [],
+          "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+          "reference_artifacts": [
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+              "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6",
+              "shard_index": 0
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+              "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010",
+              "shard_index": 1
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+              "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9",
+              "shard_index": 2
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+              "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91",
+              "shard_index": 3
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+              "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da",
+              "shard_index": 0
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+              "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd",
+              "shard_index": 1
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+              "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2",
+              "shard_index": 2
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+              "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa",
+              "shard_index": 3
+            }
+          ],
+          "reference_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2",
+          "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+          "rows": 220,
+          "runner_sha256": "02c73a953ebf79cc16197fbc5b32d43cc1248497c0c67e4c4bff558a92672c45",
+          "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_input.v1",
+          "shard_index": 1,
+          "world_size": 4
+        },
+        "sha256": "7b1a32135276b7fd772ce1ae32703c5673481e5bf4b9c3cbd92776f7965af0df"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-2/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "candidate_artifacts": [
+            {
+              "candidate_id": "s8_50_s16_50",
+              "gate_state_sha256": "ed14ab1f86896e8823d75847d641af9b2c6f0f85c13b11189ff2b8ab81aa3073",
+              "manifest_sha256": "9383bf6d2a3b31590eea59139c477abc605de43a731535dd2352951b88127eee",
+              "patch_sha256": "93e0386369a997b47a1214b4a2b9e91ed93703506e2b48160a8709a9e41bb230"
+            },
+            {
+              "candidate_id": "s8_25_s16_75",
+              "gate_state_sha256": "231574ab85573faef4944273db71fcfe0694142f77cc1bd00c8c9b6e44a6e810",
+              "manifest_sha256": "02a68ce7402de461fdf621e443968be42dc147def394bc3aea124d0887ae99bd",
+              "patch_sha256": "4a40a09d6beaef3d82c27eaa96942162bd5fb57605826cabeae0efe119b0ed08"
+            },
+            {
+              "candidate_id": "s16_75_s32_25",
+              "gate_state_sha256": "442f97f9d18ce6c4b35c4c07db6debafab3e8428752603f19e9aa1e7662ae0ac",
+              "manifest_sha256": "073cd9118da90df8f544f8e34a5b6b812bbca6294e48bfa4a013b7bd578ff866",
+              "patch_sha256": "f03b2ef5456a4838572e8d03b8896ab0e4f3400c9c5b0e61d8e327bc41b387f2"
+            },
+            {
+              "candidate_id": "s16_50_s32_50",
+              "gate_state_sha256": "6cd5b3beb38ce006949bc76d149faad6588fe731dc1d239aea2f9de98f0bdb63",
+              "manifest_sha256": "89c4f94c6d72e7067f88de8b955ae5a737da6c75adbd65b902d3f264e35c7f4f",
+              "patch_sha256": "ef1ddc9e540a08881c1d6c0f21347a7f63f0a0483a529d251673d31a464d3412"
+            },
+            {
+              "candidate_id": "trajectory_centered",
+              "gate_state_sha256": "0e3fcc8ea73b2cffcea2db7d3686e542755c596fb6be9e5f44b854c723ec06ed",
+              "manifest_sha256": "fbff709c6631065f25c23caf2682ff2e2627d13a1c45f40da3f5bf0d116b95b4",
+              "patch_sha256": "3a5b2b1813ceff094b067de4a5094af968667c623dafaef879fa9d436f6cefb2"
+            },
+            {
+              "candidate_id": "v9_12p5_s16_87p5",
+              "gate_state_sha256": "46d49f74ca4007a44f8f5bd3cbef0495108aabf6729a8ad624d7e497fcef7ce1",
+              "manifest_sha256": "a639f7c5c01ccd136b239f71af3567ed5056a5df7c9f5492843b7d15c87fa5a8",
+              "patch_sha256": "b1b81eda874b2d22a65b7191266f4d4cb0ed502c2b6b9c215376d906f693bddc"
+            },
+            {
+              "candidate_id": "v9_25_s16_75",
+              "gate_state_sha256": "411bc3a40882cdd59d4c65b751fb5c29e97b9438e5dc79d0cf6e9fffc74f7acf",
+              "manifest_sha256": "568c9f293ce284ca4465230b9f11fa4682294365db4946a066d8803297a7162d",
+              "patch_sha256": "a48279a58d8f61979f82340b48f923d6283ca84d43598ce6d36407c407a8bc83"
+            }
+          ],
+          "condition": "correct_state",
+          "dataset_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dtype": "bfloat16",
+          "materialization_result_file_sha256": "caba0cb5acd9f18ea2798e08edb160047d343a916638389436fab7a8ca8bc1b9",
+          "materialization_result_receipt_sha256": "d0e92ec4f27689558f0239a5d58a3e0b6ef2bb799073791205d181d3213c3233",
+          "materialization_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1",
+          "memory_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "protected_splits_opened": [],
+          "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+          "reference_artifacts": [
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+              "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6",
+              "shard_index": 0
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+              "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010",
+              "shard_index": 1
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+              "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9",
+              "shard_index": 2
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+              "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91",
+              "shard_index": 3
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+              "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da",
+              "shard_index": 0
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+              "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd",
+              "shard_index": 1
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+              "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2",
+              "shard_index": 2
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+              "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa",
+              "shard_index": 3
+            }
+          ],
+          "reference_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2",
+          "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+          "rows": 220,
+          "runner_sha256": "02c73a953ebf79cc16197fbc5b32d43cc1248497c0c67e4c4bff558a92672c45",
+          "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_input.v1",
+          "shard_index": 2,
+          "world_size": 4
+        },
+        "sha256": "396b57dc9786c06d6a320a4d2e9151805aa815acf1ea81aaa777b97ba5731317"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_v1/shard-3/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "candidate_artifacts": [
+            {
+              "candidate_id": "s8_50_s16_50",
+              "gate_state_sha256": "ed14ab1f86896e8823d75847d641af9b2c6f0f85c13b11189ff2b8ab81aa3073",
+              "manifest_sha256": "9383bf6d2a3b31590eea59139c477abc605de43a731535dd2352951b88127eee",
+              "patch_sha256": "93e0386369a997b47a1214b4a2b9e91ed93703506e2b48160a8709a9e41bb230"
+            },
+            {
+              "candidate_id": "s8_25_s16_75",
+              "gate_state_sha256": "231574ab85573faef4944273db71fcfe0694142f77cc1bd00c8c9b6e44a6e810",
+              "manifest_sha256": "02a68ce7402de461fdf621e443968be42dc147def394bc3aea124d0887ae99bd",
+              "patch_sha256": "4a40a09d6beaef3d82c27eaa96942162bd5fb57605826cabeae0efe119b0ed08"
+            },
+            {
+              "candidate_id": "s16_75_s32_25",
+              "gate_state_sha256": "442f97f9d18ce6c4b35c4c07db6debafab3e8428752603f19e9aa1e7662ae0ac",
+              "manifest_sha256": "073cd9118da90df8f544f8e34a5b6b812bbca6294e48bfa4a013b7bd578ff866",
+              "patch_sha256": "f03b2ef5456a4838572e8d03b8896ab0e4f3400c9c5b0e61d8e327bc41b387f2"
+            },
+            {
+              "candidate_id": "s16_50_s32_50",
+              "gate_state_sha256": "6cd5b3beb38ce006949bc76d149faad6588fe731dc1d239aea2f9de98f0bdb63",
+              "manifest_sha256": "89c4f94c6d72e7067f88de8b955ae5a737da6c75adbd65b902d3f264e35c7f4f",
+              "patch_sha256": "ef1ddc9e540a08881c1d6c0f21347a7f63f0a0483a529d251673d31a464d3412"
+            },
+            {
+              "candidate_id": "trajectory_centered",
+              "gate_state_sha256": "0e3fcc8ea73b2cffcea2db7d3686e542755c596fb6be9e5f44b854c723ec06ed",
+              "manifest_sha256": "fbff709c6631065f25c23caf2682ff2e2627d13a1c45f40da3f5bf0d116b95b4",
+              "patch_sha256": "3a5b2b1813ceff094b067de4a5094af968667c623dafaef879fa9d436f6cefb2"
+            },
+            {
+              "candidate_id": "v9_12p5_s16_87p5",
+              "gate_state_sha256": "46d49f74ca4007a44f8f5bd3cbef0495108aabf6729a8ad624d7e497fcef7ce1",
+              "manifest_sha256": "a639f7c5c01ccd136b239f71af3567ed5056a5df7c9f5492843b7d15c87fa5a8",
+              "patch_sha256": "b1b81eda874b2d22a65b7191266f4d4cb0ed502c2b6b9c215376d906f693bddc"
+            },
+            {
+              "candidate_id": "v9_25_s16_75",
+              "gate_state_sha256": "411bc3a40882cdd59d4c65b751fb5c29e97b9438e5dc79d0cf6e9fffc74f7acf",
+              "manifest_sha256": "568c9f293ce284ca4465230b9f11fa4682294365db4946a066d8803297a7162d",
+              "patch_sha256": "a48279a58d8f61979f82340b48f923d6283ca84d43598ce6d36407c407a8bc83"
+            }
+          ],
+          "condition": "correct_state",
+          "dataset_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dtype": "bfloat16",
+          "materialization_result_file_sha256": "caba0cb5acd9f18ea2798e08edb160047d343a916638389436fab7a8ca8bc1b9",
+          "materialization_result_receipt_sha256": "d0e92ec4f27689558f0239a5d58a3e0b6ef2bb799073791205d181d3213c3233",
+          "materialization_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_checkpoint_soup_materialization_v1",
+          "memory_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "protected_splits_opened": [],
+          "protocol_payload_sha256": "775ee366ce65fd7530011c0ef16b6104c8fd50661a2f4c6cd1da685840d09466",
+          "reference_artifacts": [
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+              "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6",
+              "shard_index": 0
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+              "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010",
+              "shard_index": 1
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+              "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9",
+              "shard_index": 2
+            },
+            {
+              "condition": "base",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+              "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91",
+              "shard_index": 3
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+              "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da",
+              "shard_index": 0
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+              "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd",
+              "shard_index": 1
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+              "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2",
+              "shard_index": 2
+            },
+            {
+              "condition": "memory",
+              "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+              "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa",
+              "shard_index": 3
+            }
+          ],
+          "reference_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2",
+          "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+          "rows": 220,
+          "runner_sha256": "02c73a953ebf79cc16197fbc5b32d43cc1248497c0c67e4c4bff558a92672c45",
+          "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_input.v1",
+          "shard_index": 3,
+          "world_size": 4
+        },
+        "sha256": "26888458c9f881c9315eaa836ee84c062fee51bed8951079a3efc1f048bcb59a"
+      }
+    ],
+    "materialization_manifests": [
+      {
+        "candidate_id": "s8_50_s16_50",
+        "gate_state_sha256": "ed14ab1f86896e8823d75847d641af9b2c6f0f85c13b11189ff2b8ab81aa3073",
+        "patch_sha256": "93e0386369a997b47a1214b4a2b9e91ed93703506e2b48160a8709a9e41bb230"
+      },
+      {
+        "candidate_id": "s8_25_s16_75",
+        "gate_state_sha256": "231574ab85573faef4944273db71fcfe0694142f77cc1bd00c8c9b6e44a6e810",
+        "patch_sha256": "4a40a09d6beaef3d82c27eaa96942162bd5fb57605826cabeae0efe119b0ed08"
+      },
+      {
+        "candidate_id": "s16_75_s32_25",
+        "gate_state_sha256": "442f97f9d18ce6c4b35c4c07db6debafab3e8428752603f19e9aa1e7662ae0ac",
+        "patch_sha256": "f03b2ef5456a4838572e8d03b8896ab0e4f3400c9c5b0e61d8e327bc41b387f2"
+      },
+      {
+        "candidate_id": "s16_50_s32_50",
+        "gate_state_sha256": "6cd5b3beb38ce006949bc76d149faad6588fe731dc1d239aea2f9de98f0bdb63",
+        "patch_sha256": "ef1ddc9e540a08881c1d6c0f21347a7f63f0a0483a529d251673d31a464d3412"
+      },
+      {
+        "candidate_id": "trajectory_centered",
+        "gate_state_sha256": "0e3fcc8ea73b2cffcea2db7d3686e542755c596fb6be9e5f44b854c723ec06ed",
+        "patch_sha256": "3a5b2b1813ceff094b067de4a5094af968667c623dafaef879fa9d436f6cefb2"
+      },
+      {
+        "candidate_id": "v9_12p5_s16_87p5",
+        "gate_state_sha256": "46d49f74ca4007a44f8f5bd3cbef0495108aabf6729a8ad624d7e497fcef7ce1",
+        "patch_sha256": "b1b81eda874b2d22a65b7191266f4d4cb0ed502c2b6b9c215376d906f693bddc"
+      },
+      {
+        "candidate_id": "v9_25_s16_75",
+        "gate_state_sha256": "411bc3a40882cdd59d4c65b751fb5c29e97b9438e5dc79d0cf6e9fffc74f7acf",
+        "patch_sha256": "a48279a58d8f61979f82340b48f923d6283ca84d43598ce6d36407c407a8bc83"
+      }
+    ]
+  },
+  "publisher_test_authorized": false,
+  "publisher_validation_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_checkpoint_soup_result_without_receipt",
+    "payload_sha256": "53bd66d9324c0696ad3ff0d55532737f08f3d74ea12cafded5a6e833781695da"
+  },
+  "rows": 220,
+  "runner_sha256": "02c73a953ebf79cc16197fbc5b32d43cc1248497c0c67e4c4bff558a92672c45",
+  "schema": "rwkv_ms_natural_memory_native_scene_checkpoint_soup_result.v1",
+  "selected_candidate_id": null,
+  "source_indices": [
+    4,
+    5,
+    7,
+    12,
+    14,
+    16,
+    17,
+    19,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    33,
+    34,
+    37,
+    40,
+    41,
+    42,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    51,
+    52,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    65,
+    66,
+    69,
+    70,
+    71,
+    73,
+    74,
+    76,
+    79,
+    80,
+    81,
+    84,
+    85,
+    89,
+    90,
+    91,
+    92,
+    93,
+    95,
+    96,
+    97,
+    98,
+    100,
+    101,
+    102,
+    103,
+    105,
+    106,
+    107,
+    109,
+    111,
+    113,
+    115,
+    117,
+    119,
+    121,
+    122,
+    124,
+    125,
+    126,
+    128,
+    129,
+    130,
+    132,
+    133,
+    134,
+    135,
+    136,
+    138,
+    139,
+    140,
+    141,
+    144,
+    145,
+    150,
+    151,
+    152,
+    153,
+    154,
+    155,
+    157,
+    158,
+    160,
+    161,
+    163,
+    164,
+    165,
+    166,
+    171,
+    172,
+    173,
+    175,
+    177,
+    178,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    187,
+    188,
+    189,
+    190,
+    193,
+    195,
+    196,
+    197,
+    200,
+    201,
+    207,
+    209,
+    210,
+    211,
+    212,
+    213,
+    215,
+    216,
+    218,
+    219,
+    221,
+    223,
+    224,
+    225,
+    227,
+    230,
+    231,
+    233,
+    234,
+    235,
+    236,
+    238,
+    243,
+    244,
+    245,
+    247,
+    248,
+    250,
+    251,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    266,
+    270,
+    272,
+    273,
+    274,
+    276,
+    279,
+    280,
+    281,
+    282,
+    283,
+    285,
+    288,
+    290,
+    291,
+    292,
+    294,
+    296,
+    300,
+    301,
+    303,
+    304,
+    305,
+    308,
+    309,
+    311,
+    315,
+    320,
+    321,
+    322,
+    323,
+    327,
+    330,
+    331,
+    332,
+    333,
+    335,
+    338,
+    339,
+    341,
+    346,
+    347,
+    349,
+    351,
+    352,
+    353,
+    354,
+    355,
+    356,
+    357,
+    358,
+    359
+  ],
+  "unused_strength_holdout_authorized": false,
+  "v9_metrics": {
+    "coverage": 1.0,
+    "fn": 160,
+    "fp": 231,
+    "micro_f1": 0.29038112522686027,
+    "precision": 0.2572347266881029,
+    "recall": 0.3333333333333333,
+    "rows": 220,
+    "tp": 80
+  }
+}
