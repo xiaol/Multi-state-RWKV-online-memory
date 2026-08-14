@@ -1,0 +1,137 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_contrast_dropout_protocol.v1",
+  "created_at": "2026-08-14T13:27:07+08:00",
+  "objective": "Train the frozen V9 shared Q/O content gates to prefer row-correct or absent state over a different-gold length-matched donor state, breaking the generic-state shortcut while improving native scene-boundary F1.",
+  "authorization": {
+    "effective_strength_decision_receipt_sha256": "134fe3070526f4c91957c4e6a580881740c585897518a7fe6e491a8e36c07b06",
+    "development_only": true,
+    "publisher_validation_predictions_allowed_as_input": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "unused_strength_holdout_authorized": false
+  },
+  "frozen_constraints": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "warm_start_adapter": "local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "warm_start_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "warm_start_adapter_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "warm_start_adapter_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+    "memory_backend": "rwkv_ms",
+    "fusion_topology": "shared_qo_content_gated_attention_output",
+    "target_layers": 42,
+    "delta_heads": [
+      "q",
+      "o"
+    ],
+    "base_model_frozen": true,
+    "non_gate_adapter_parameters_frozen": true,
+    "trainable_parameter_families": [
+      "memory_fusion_hidden_weight",
+      "memory_fusion_read_weight",
+      "memory_fusion_bias"
+    ],
+    "hf_endpoint": "https://hf-mirror.com",
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "world_size": 4
+  },
+  "training_data": {
+    "source": "publisher-TRAIN-derived scene fit only",
+    "path": "local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "rows": 1443,
+    "donor_rule": "For each row, choose a different-assistant-gold row minimizing absolute system/user write-token difference, then donor row SHA-256, then source ordinal.",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "donor_mapping_rows": 1443,
+    "eligible_max_write_token_delta": 16,
+    "eligible_rows": 1435,
+    "schedule_rule": "Sort eligible rows by SHA-256('rwkv-ms-native-scene-contrast-train-v1:' + row SHA-256), take the first 256, and group consecutive eights into 32 updates.",
+    "selected_rows": 256,
+    "selected_rows_payload_sha256": "069bb99296b34980d357df0032383a654a13257f75cdf29c011d1b739ad1dcf2",
+    "selected_exact_write_length_matches": 198,
+    "selected_max_write_token_delta": 7,
+    "schedule_payload_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2"
+  },
+  "intervention": {
+    "positive_conditions": {
+      "correct_state": "Write the target system/user prefix, disable writes, then teacher-force the target full row.",
+      "no_state": "Reset state, keep writes disabled, then teacher-force the target full row."
+    },
+    "negative_condition": "Write the matched donor system/user prefix, disable writes, then teacher-force the target full row.",
+    "state_dropout_rule": "Within each update, rank its eight targets by SHA-256('rwkv-ms-native-scene-state-drop-v1:' + step + ':' + row SHA-256); the first two use no_state and the remaining six use correct_state.",
+    "state_dropout_rows_per_update": 2,
+    "correct_state_rows_per_update": 6,
+    "loss": "Mean positive target-token CE plus 0.25 times max(0, 0.05 + positive mean CE - donor mean CE), averaged equally over the eight global rows.",
+    "contrast_weight": 0.25,
+    "margin_nats_per_token": 0.05,
+    "hinge_activity_decision": "Compute detached positive and donor CE with sequential no-grad passes, then execute equivalent sequential signed backward coefficients without retaining two full-vocabulary graphs.",
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "global_batch_size": 8,
+    "local_rows_per_rank": 2,
+    "execution_subbatch_size": 1,
+    "updates": 32,
+    "checkpoint_updates": [
+      8,
+      16,
+      32
+    ]
+  },
+  "preflight": {
+    "updates": 1,
+    "starts_from_v9_independently_of_full_training": true,
+    "required": {
+      "four_rank_consensus": true,
+      "six_correct_and_two_no_state_positive_rows": true,
+      "eight_different_gold_donors": true,
+      "donor_write_delta_at_most_16": true,
+      "at_least_one_active_hinge": true,
+      "all_trainable_gate_gradients_finite_nonzero": true,
+      "all_non_gate_parameters_unchanged": true,
+      "gate_patch_changes_from_v9": true
+    },
+    "stopping_rule": "Commit and push a passing preflight before launching all 32 updates."
+  },
+  "selection_probe": {
+    "source": "The already-open effective-strength fit partition of publisher-TRAIN-derived scene development; do not use its sealed 73-row holdout.",
+    "rows": 64,
+    "selection_rule": "Among source indices >=4 assigned to the effective-strength fit partition, sort by SHA-256('rwkv-ms-contrast-probe-v1:' + row SHA-256) and take the first 64.",
+    "selection_payload_sha256": "5c8a10f1e373ec6661481caf79bae340fdf5a92ab6afa9cf04e22f6bda254994",
+    "candidate_checkpoints": [
+      8,
+      16,
+      32
+    ],
+    "conditions": [
+      "correct_state",
+      "matched_donor_state",
+      "zero_state"
+    ],
+    "ordering": "correct-state micro-F1 descending, correct-minus-donor micro-F1 descending, correct-minus-zero micro-F1 descending, earlier checkpoint",
+    "gates": {
+      "coverage_floor": 0.95,
+      "correct_minus_frozen_v9_micro_f1_minimum": 0.005,
+      "correct_minus_matched_donor_micro_f1_minimum": 0.005,
+      "correct_minus_zero_micro_f1_minimum": 0.02,
+      "paired_output_change_fraction_vs_v9_minimum": 0.05
+    }
+  },
+  "progression": {
+    "full_scene_development": "Only a passing 64-row checkpoint may be evaluated on the remaining already-open effective-strength fit rows.",
+    "multitask_preservation": "Before any fresh publisher-validation replication, the selected adapter must preserve attribution and narrative on publisher-TRAIN-derived development probes.",
+    "publisher_validation": "Requires a new preregistered replication protocol and cannot alter the accepted decoder retroactively.",
+    "publisher_test": "Forbidden.",
+    "hard32": "Forbidden."
+  },
+  "stopping_rule": "Archive, commit, and push preflight, training, and selection-probe outcomes whether pass or fail. Never inspect publisher validation predictions, publisher test, Hard32, or the unused strength holdout.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "040d31c266282554e82027b00aeac5299251cad322e11f651936fc2ced185347"
+  }
+}
