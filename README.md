@@ -219,6 +219,37 @@ Evidence:
 - [Four-GPU runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_checkpoint_soup.py)
   and [cross-fit analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_checkpoint_soup.py)
 
+### Independent-Seed Robust Training Failure
+
+The next publisher-TRAIN-only study changed training rather than selecting
+among outputs. Three independently hashed 256-row schedules trained the same
+126 content-gate tensors on four A100 GPUs with global batch 16, half the
+original learning rate, and an explicit `0.995` post-step pull toward V9. All
+three runs were numerically clean and tightly matched in endpoint delta norm
+(`0.1001`, `0.1039`, and `0.0973`). Their pairwise delta cosines were
+`0.611`-`0.659`. The only preregistered candidate was the equal mean of the
+three signed V9-relative deltas, fixed and pushed before generation.
+
+That candidate reached `0.3059` scene micro-F1 on the same 220 open fit rows.
+It remained above V9 (`0.2904`) by `+0.0155`, but fell below checkpoint 16
+(`0.3154`) by `-0.0094`. Relative to checkpoint 16 it gained one true positive
+but added 21 false positives, so the locked `+0.005` gate failed. The averaged
+delta was only `0.0873` from V9 versus `0.1847` for checkpoint 16 and had
+cosine `0.566` with checkpoint 16's delta. The lower-rate V9-centered ensemble
+therefore stabilized an underpowered direction rather than preserving the
+single checkpoint's precision. It authorizes no external replication. A next
+training study should anchor small independent residual updates at checkpoint
+16 instead of pulling every run back toward V9.
+
+Evidence:
+
+- [Locked seed-ensemble protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_seed_ensemble_protocol_v1.json)
+- [Signed seed-delta materialization](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_seed_ensemble_materialization_v1/result.json)
+- [Signed TRAIN-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_seed_ensemble_v1/result.json)
+- [Four-GPU trainer](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_seed_ensemble.py),
+  [evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_scene_seed_ensemble_eval.py),
+  and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_scene_seed_ensemble.py)
+
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
 from arXiv 2606.10650 and adds HRM-Text-inspired memory baselines:
