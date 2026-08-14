@@ -1,0 +1,85 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_consistency_router_protocol.v1",
+  "created_at": "2026-08-15T06:56:39+08:00",
+  "objective": "Test whether a conservative output-consistency router can retain checkpoint-16 precision while accepting only structurally bounded changes from the recall-heavier 75% on-policy repair bridge.",
+  "study_scope": {
+    "classification": "post-hoc publisher-TRAIN-derived adaptive development",
+    "design_disclosure": "The policy family was designed after inspecting the signed convex-bridge failure and its 21 changed rows. Fresh cross-fit measures fold consistency but is not independent evidence.",
+    "independent_evidence": false,
+    "protected_split_authorization_from_this_study": false
+  },
+  "frozen_inputs": {
+    "rows": 220,
+    "row_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "checkpoint_candidate_id": "checkpoint_16",
+    "checkpoint_result_file_sha256": "af852ce316d83fb90b18bbd97fb302cdb1fe99b305c96736478759143d897cb2",
+    "checkpoint_result_receipt_sha256": "23bc133d82590890308ac5b0779e54427f51fbee615d941393a023538be80b2b",
+    "proposal_candidate_id": "onpolicy75_dualpath25",
+    "proposal_gate_state_sha256": "59e2e49aaf6b03acdb353bca7df62dfa74d5493bab4e12b5f9fb66e8488d01bd",
+    "proposal_runtime_gate_state_sha256": "92f27785d99a637a48add02417444e500eedcf988a3d9ab4eb117a38147b28ea",
+    "proposal_manifest_sha256": "88c22cc325e088352ea2516ea1624ec7f78235eea73ee6d310c5850f430bd60f",
+    "proposal_patch_sha256": "c54fd20514cea7e2790d804a5db89ccdfd21c9e3cf21e2b5a593c5f8e3fbe42a",
+    "bridge_materialization_result_file_sha256": "50e9ca7e77351feb4c5bef67427cb5c074ef2881d9cee272164c4a4b32e455dd",
+    "bridge_materialization_result_receipt_sha256": "25a133167165774d45610e0ae3cbd01380521732601a3c239186b2209f934625",
+    "bridge_failure_result_file_sha256": "6af81c0b9525ef528fd4aaff89be4e485f2736d66917a61d3851587cbc159668",
+    "bridge_failure_result_receipt_sha256": "98eb982c239dd7e845e597d7294aef5aeeab3e18c906505205d0373521f44717",
+    "v9_reference": "The same hash-bound memory-condition outputs used by the checkpoint and bridge studies.",
+    "protected_splits_opened": []
+  },
+  "router": {
+    "inputs_available_at_inference": [
+      "checkpoint_16_prediction",
+      "onpolicy75_dualpath25_prediction"
+    ],
+    "gold_available_at_inference": false,
+    "invalid_proposal_behavior": "Use checkpoint 16.",
+    "policies": [
+      {
+        "policy_id": "checkpoint",
+        "rule": "Always use checkpoint 16."
+      },
+      {
+        "policy_id": "strict_subset",
+        "rule": "Use the proposal only when its boundary set is a strict subset of the checkpoint boundary set."
+      },
+      {
+        "policy_id": "abstention_singleton",
+        "rule": "Use the proposal only when checkpoint 16 predicts an empty set and the proposal predicts exactly one boundary."
+      },
+      {
+        "policy_id": "combined",
+        "rule": "Use the proposal when either the strict-subset rule or the abstention-singleton rule fires; otherwise use checkpoint 16."
+      }
+    ],
+    "candidate_order": [
+      "checkpoint",
+      "strict_subset",
+      "abstention_singleton",
+      "combined"
+    ]
+  },
+  "evaluation": {
+    "source": "The same 220 open publisher-TRAIN-derived scene development rows used by the preceding adaptive studies.",
+    "fold_rule": "int(SHA256('rwkv-ms-native-scene-consistency-router-v1:' + row_sha256), 16) modulo 5",
+    "fold_assignment_payload_sha256": "accfb48afb38fa2eff4504dff52845e059cd2c4e6538cf6993304757e7297999",
+    "fold_counts": {"0": 38, "1": 42, "2": 44, "3": 45, "4": 51},
+    "per_fold_selection": "On the other four folds, rank the four policies by scene micro-F1 descending, precision descending, recall descending, then locked candidate order; apply the winner only to the held-out fold.",
+    "development_gates": {
+      "coverage_minimum": 0.95,
+      "oof_minus_checkpoint_16_micro_f1_minimum": 0.005,
+      "oof_minus_v9_micro_f1_minimum": 0.005,
+      "oof_output_change_fraction_vs_checkpoint_16_minimum": 0.02,
+      "combined_selected_folds_minimum": 4,
+      "combined_tp_gain_minimum": 1,
+      "combined_fp_delta_maximum": 0
+    }
+  },
+  "deployment_tradeoff": "The router is dual-pass and optimizes benchmark quality, not latency. A later distillation study may train a single-pass router only after independent evidence exists.",
+  "stopping_rule": "Archive and push the protocol and signed TRAIN-only outcome. This post-hoc study cannot authorize publisher validation, publisher test, Hard32, the unused 73-row holdout, multitask preservation, or external replication.",
+  "protected_splits_opened_by_this_study": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "9601af58d9bcebf908fcbcae6bb79e65b207fec238f45ee553377f5f18a52056"
+  }
+}
