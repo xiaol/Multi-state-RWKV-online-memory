@@ -1,0 +1,112 @@
+{
+  "code_bindings": {
+    "contrast_helper_sha256": "2f8591a5eb8c308fc0c3d4f8304483d84e5c21dca491c18cbb24b206d1369733",
+    "distributed_sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d",
+    "robust_engine_sha256": "5ccb30bacff23efbc3ec06a040f70849e3056b5120b0d3a5475aabaeb4e0d1be",
+    "runner_sha256": "ee01396064d08721c7fb93a91cfdb85c3a182e0c725ea3d7146bb28fcb3867f4"
+  },
+  "input_binding": {
+    "adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+    "adapter_path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "attn_implementation": "sdpa",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+    "dtype": "bfloat16",
+    "global_batch_size": 16,
+    "hf_endpoint": "https://hf-mirror.com",
+    "learning_rate": 5e-06,
+    "local_rows": 4,
+    "post_step_delta_retention": 0.99,
+    "protocol_payload_sha256": "74373a496b63e0b4a6c4ca134ae40b25118a4b311aa9734d4001eecc210781b7",
+    "robust_engine_sha256": "5ccb30bacff23efbc3ec06a040f70849e3056b5120b0d3a5475aabaeb4e0d1be",
+    "runner_sha256": "ee01396064d08721c7fb93a91cfdb85c3a182e0c725ea3d7146bb28fcb3867f4",
+    "scene_file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "schedule_payload_sha256": "3b81436961d24252d3222ff63dffd185e7e8a8d71d3822d2f94e6cd9fe649eaa",
+    "schema": "rwkv_ms_natural_memory_native_scene_dualpath_repair_training_result.v1",
+    "seed": 149,
+    "starting_checkpoint": {
+      "gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+      "patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+      "runtime_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+      "step": 16
+    },
+    "trainable_audit": {
+      "family_counts": {
+        "memory_fusion_bias": 42,
+        "memory_fusion_hidden_weight": 42,
+        "memory_fusion_read_weight": 42
+      },
+      "parameter_elements": 108906,
+      "parameter_names_sha256": "b36fe101cae5bcfc6893b51c5cc7ccc0af2df027ff3a2a0c933c99dd07876554",
+      "parameter_tensors": 126,
+      "passed": true,
+      "unexpected_trainable": []
+    },
+    "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_dropout_train_v1",
+    "updates": 6,
+    "world_size": 4
+  },
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "b5e75c12ad3e58ac52454cb77a867b4e36b9716bbc99d6056d7b548d2f393d3a"
+  },
+  "schema": "rwkv_ms_natural_memory_native_scene_dualpath_repair_training_result.v1",
+  "status": "training_complete_evaluation_pending",
+  "training": {
+    "actionable_repairs": 53,
+    "checkpoint": {
+      "gate_state_sha256": "efc937ce2c623c04df1505cd37c529f60b645ac11d36c2e53a4b4b6a06a9d221",
+      "parameter_elements": 108906,
+      "parameter_names_sha256": "60029316e7a2193e798f59fb02bd111f5bfb2c8b480ca5740a984aea042e25e6",
+      "parameter_tensors": 126,
+      "patch_file": {
+        "bytes": 479100,
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_dualpath_repair_train_v1/checkpoint-6/gate_patch.pt",
+        "sha256": "3a76c6f49a502bfa8b267200b8b6dca60833ec6779f71cfd6e7b80e63c855315"
+      },
+      "protocol_payload_sha256": "74373a496b63e0b4a6c4ca134ae40b25118a4b311aa9734d4001eecc210781b7",
+      "receipt": {
+        "algorithm": "sha256",
+        "payload_scope": "canonical_manifest_without_receipt",
+        "payload_sha256": "7b45d427b0b5b17f9647118296ce286fb1dd89ce59c2c63631e090606ae8b43e"
+      },
+      "schema": "rwkv_ms_natural_memory_native_scene_dualpath_repair_training_patch.v1",
+      "seed": 149,
+      "source_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+      "step": 6
+    },
+    "elapsed_seconds": 238.73158168792725,
+    "fallback_continuation_ce_weight": 0.25,
+    "fallback_continuation_tokens": 3,
+    "fallback_prefix_includes_wrong_token": true,
+    "false_positive_boundaries": 62,
+    "final_gate_state_sha256": "efc937ce2c623c04df1505cd37c529f60b645ac11d36c2e53a4b4b6a06a9d221",
+    "final_non_gate_state_sha256": "11f358b2cc5d005f6e8df19c68de23d37c0a664809d8c853bb309748be9ab7c4",
+    "full_sequence_gold_ce_weight": 0.0,
+    "generated_rows": 96,
+    "initial_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "initial_non_gate_state_sha256": "11f358b2cc5d005f6e8df19c68de23d37c0a664809d8c853bb309748be9ab7c4",
+    "intervention_runner_sha256": "ed66a3f3b699bda31135c555c9f8b4c04e1cf87efaf3f4e4b1e047c076076b9c",
+    "invalid_predictions": 0,
+    "maximum_observed_l2_retention": 0.9900070547721467,
+    "mean_correct_minus_wrong_margin_before": -0.8372641509433962,
+    "mean_pairwise_loss": 1.606859544538102,
+    "minimum_gate_gradient_norm": 0.0245528655963829,
+    "minimum_observed_l2_retention": 0.9899987937985821,
+    "mining_elapsed_seconds": 79.01355457305908,
+    "non_gate_unchanged": true,
+    "pairwise_margin": 0.5,
+    "post_step_delta_retention": 0.99,
+    "progress_sha256": "79b92ae701546a8986cd52ffcf6470672b5c962e588b1cbb90e4870112063281",
+    "rows": 96,
+    "rows_hitting_max_new_tokens": 0,
+    "rows_without_actionable_divergence": 0,
+    "rows_without_false_positives": 43,
+    "seed": 149,
+    "synthetic_negative_unlikelihood_weight": 0.0,
+    "updates": 6
+  }
+}
