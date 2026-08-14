@@ -1,0 +1,60 @@
+{
+  "attn_implementation": "sdpa",
+  "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+  "checkpoint_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+  "checkpoint_manifest_receipt_sha256": "9da055dc39cb74c54acc6201e32bef095d599273d1f65c2f200550cca97ef891",
+  "checkpoint_manifest_sha256": "00c603cd02a5dcc3bd325ee6daadd47349f6700f257deee2185a3991f1644b7e",
+  "checkpoint_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a",
+  "checkpoint_step": 16,
+  "dataset_files": {
+    "attribution": {
+      "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-attribution-best-candidate/val.jsonl",
+      "sha256": "01373fa09c89568a47927f19088f78bbf62cd4b7eb66803100c06e8a3f2152a4"
+    },
+    "narrative": {
+      "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v3.2-narrative-type-classification/val.jsonl",
+      "sha256": "4a1d27c543e715a069e6b3c8253021b0f86fe1690aac116da09eba43896e1b6a"
+    },
+    "scene": {
+      "path": "/root/X/.cache/hf/novel-agent-sft-dataset/training/v4-scene-boundary-detection/val.jsonl",
+      "sha256": "61e94bcc536a124b07aef2c38ba285d7073d94a223866b58ddc7e5e1f509d513"
+    }
+  },
+  "dataset_root": "/root/X/.cache/hf/novel-agent-sft-dataset/training",
+  "dtype": "bfloat16",
+  "generation_runner_sha256": "69ebe18e2e4eaf5dd08217970bc85fc0ecdeab1ae7384382c644ce8641596ae8",
+  "hybrid_result": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_multitask_hybrid_v1.json",
+  "hybrid_result_receipt_sha256": "07809e382c2bfba7ed20e85261371ea7adfb2c346243b15d3873cd88eac8fc0f",
+  "hybrid_result_sha256": "6565eaff4621a4002017e6b3a31c692d42d946f57894928688461151544d3ecb",
+  "likelihood_runner_sha256": "d1eb64ab7b926b92ac4b84ba3140af215ddfe94e477157718062b336ec696b22",
+  "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+  "patch_loader_sha256": "2fb6ba9b864da4e9b5aa79d3cecba7af12b70fb95df0b88773c15989b919e39f",
+  "prior_validation_artifacts_read": false,
+  "protected_splits_opened": [
+    "publisher_validation_fresh_replication"
+  ],
+  "protocol_payload_sha256": "1d8435431748b95ce3a36f8bc2217ce61b55bb2a594e517299d6f9d5e995ae0c",
+  "runner_sha256": "8f196179c7a608b1855391773f3328440e90686e305d1714ce426974945124fb",
+  "schema": "rwkv_ms_natural_memory_native_hybrid_publisher_validation_input.v1",
+  "task_conditions": {
+    "attribution": [
+      "base"
+    ],
+    "narrative": [
+      "base",
+      "v9_memory"
+    ],
+    "scene": [
+      "base",
+      "v9_memory",
+      "checkpoint16_memory"
+    ]
+  },
+  "training_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_contrast_dropout_train_v1",
+  "v9_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+  "v9_adapter_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+  "worker_index": 3,
+  "world_size": 4
+}

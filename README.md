@@ -131,7 +131,7 @@ remainder, above frozen base (`0.5847`) but below V9's routed comparator
 (`0.6007`) by `0.0020`. The complete signed failure is archived in the
 [preservation result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_multitask_preservation_v1/result.json).
 
-### Hybrid Boundary Candidate
+### Hybrid Validation Replication
 
 The failure is isolated to 12 narrative unit-level disagreements, so replacing
 V9 narrative behavior with checkpoint-16 output is rejected. The signed hybrid
@@ -141,17 +141,33 @@ checkpoint-16 correct-state generation for scene. On the combined open
 TRAIN-derived fit rows this gives attribution accuracy `0.6966`, V9 routed
 narrative accuracy `0.6007`, and checkpoint-16 scene micro-F1 `0.3197`.
 
-The hybrid gates pass without opening any protected split. This authorizes only
-one next step: a separately preregistered fresh publisher-validation replication
-that generates new outputs from raw validation data. It does not authorize
-publisher test, Hard32, the unused strength holdout, or reuse of any prior
-validation predictions.
+The TRAIN-derived hybrid gates passed without opening any protected split and
+authorized one separately preregistered publisher-validation replication. That
+replication generated every condition again from raw validation rows on four
+A100 GPUs; it did not read or reuse prior validation predictions.
+
+| Native task | Fresh frozen base | Hybrid candidate | Delta |
+| --- | ---: | ---: | ---: |
+| Attribution candidate accuracy | 0.8966 | 0.8966 | +0.0000 |
+| Narrative unit accuracy | 0.6432 | 0.6467 | +0.0035 |
+| Scene-boundary micro-F1 | 0.1820 | 0.2711 | +0.0891 |
+
+The candidate improved two tasks over base, but the stricter training-gain gate
+failed: freshly regenerated V9 reached `0.2727` scene micro-F1, so checkpoint 16
+was lower by `0.0016` instead of exceeding V9 by the required `0.005`. The
+contrast-trained checkpoint therefore does not replace V9. The accepted V9
+publisher-validation result at the top of this README remains authoritative.
+No publisher test, Hard32, or unused strength holdout evaluation is authorized.
 
 Evidence:
 
 - [Locked hybrid protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_multitask_hybrid_protocol_v1.json)
 - [Signed hybrid result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_multitask_hybrid_v1.json)
 - [Hash-bound hybrid analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_multitask_hybrid.py)
+- [Locked fresh-validation protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_hybrid_publisher_validation_protocol_v1.json)
+- [Signed fresh-validation failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_hybrid_publisher_validation_v1/result.json)
+- [Fresh-validation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_hybrid_publisher_validation.py)
+  and [analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_hybrid_publisher_validation.py)
 
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism

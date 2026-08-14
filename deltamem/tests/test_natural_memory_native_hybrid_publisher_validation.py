@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from experiments.rethinking_rwkv_ms_gemma import (
@@ -118,3 +121,19 @@ def test_hybrid_validation_gate_requires_material_scene_gain_over_fresh_v9() -> 
     assert passing["passed"] is True
     assert failing["checkpoint16_scene_minus_fresh_v9_at_least_0.005"] is False
     assert failing["passed"] is False
+
+
+def test_archived_hybrid_validation_failure_is_signed() -> None:
+    path = Path(
+        "experiments/rethinking_rwkv_ms_gemma/local_artifacts/"
+        "natural_memory_native_hybrid_publisher_validation_v1/result.json"
+    )
+    result = json.loads(path.read_text(encoding="utf-8"))
+    unsigned = dict(result)
+    receipt = unsigned.pop("receipt")
+
+    assert runner.canonical_sha256(unsigned) == receipt["payload_sha256"]
+    assert result["passed"] is False
+    assert result["gates"]["checkpoint16_scene_minus_fresh_v9"] < 0.0
+    assert result["scope"]["prior_validation_artifacts_read"] is False
+    assert result["scope"]["publisher_test_opened"] is False
