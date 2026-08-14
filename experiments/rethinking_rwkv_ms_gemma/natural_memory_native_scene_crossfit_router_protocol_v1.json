@@ -1,0 +1,59 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_crossfit_router_protocol.v1",
+  "created_at": "2026-08-14T21:05:00+08:00",
+  "objective": "Test whether a simple cross-fitted set router can improve on both frozen V9 and checkpoint 16 without using publisher validation or fitting a rule on its own scored rows.",
+  "source": {
+    "split": "publisher-TRAIN-derived combined open scene fit only",
+    "rows": 284,
+    "progression_result_file_sha256": "af852ce316d83fb90b18bbd97fb302cdb1fe99b305c96736478759143d897cb2",
+    "progression_result_receipt_sha256": "23bc133d82590890308ac5b0779e54427f51fbee615d941393a023538be80b2b",
+    "probe_result_file_sha256": "e8854b74567d9217ee32c3d0f76623cd4703185e5121b4a11c67f8bdfc7e6f03",
+    "probe_result_receipt_sha256": "c7883da73a72faa5d866617ecf98e0182dea7db88cf40f6a3d4172718c19d594",
+    "selection_file_sha256": "02a55b13f77020cea3b21e66ba3600587560701bf467c151db9ac178c54d8d55",
+    "selection_receipt_sha256": "64ad8298040e3935f1024a6fe2bb7cfaea96bdabd91237633be95f2d0a134c8c",
+    "reference_result_file_sha256": "36549b036f104bc665d367b65668aef80ad94b98bdf5c63d441cb0d6ef9b422f",
+    "reference_result_receipt_sha256": "26a2248976ff009804744a19a738fd2124061cf6d909bdc74c9e7c040098c091",
+    "checkpoint_step": 16,
+    "checkpoint_gate_state_sha256": "5b0670683046e9701c24171a5c9d8cfc58e1078f25b72806662732260bab7d4f",
+    "checkpoint_patch_sha256": "c7bd4f6a396c06404cd884f3f6ff92ad5d891621fe295a3e91e9b33d73d4834a"
+  },
+  "crossfit": {
+    "folds": 5,
+    "salt": "rwkv-ms-native-scene-crossfit-router-v1:",
+    "assignment": "int(sha256(salt + row_sha256)[:8], 16) modulo 5",
+    "selection_metric": "training-fold aggregate scene micro-F1",
+    "selection_tie_break": "first rule in the locked candidate order",
+    "evaluation": "For each fold, select on the other four folds and apply only to the held-out fold; concatenate held-out predictions for aggregate scoring."
+  },
+  "candidate_rules_in_tie_break_order": [
+    "frozen_v9",
+    "checkpoint16",
+    "intersection",
+    "union",
+    "min_cardinality_v9_tie",
+    "max_cardinality_v9_tie",
+    "checkpoint_if_subset_else_v9",
+    "v9_if_subset_else_checkpoint"
+  ],
+  "missing_prediction_policy": "If exactly one input prediction is parseable, use it; if neither is parseable, emit missing.",
+  "gates": {
+    "crossfit_router_coverage_floor": 0.95,
+    "aggregate_router_minus_frozen_v9_micro_f1_minimum": 0.005,
+    "aggregate_router_minus_checkpoint16_micro_f1_minimum": 0.005,
+    "worst_fold_router_minus_better_baseline_micro_f1_minimum": -0.02
+  },
+  "authorization": {
+    "publisher_validation_authorized": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "unused_strength_holdout_authorized": false,
+    "new_external_replication_authorized_on_pass": true
+  },
+  "stopping_rule": "Archive the one-shot cross-fitted TRAIN-derived result whether pass or fail. Do not inspect or use any publisher-validation prediction, publisher test, Hard32, or unused strength-holdout artifact.",
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_scene_crossfit_router_protocol_without_receipt",
+    "payload_sha256": "6e7d5d155fcb2557b6ecb9a2b23423c47e24faff09b0fae4870cacad776a4a5c"
+  }
+}
