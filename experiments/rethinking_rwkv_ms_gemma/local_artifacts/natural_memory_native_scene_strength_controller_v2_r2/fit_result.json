@@ -1,0 +1,401 @@
+{
+  "accepted_validation_decoder_changed": false,
+  "analyzer_sha256": "b0f21a3bf4bb457a8745bf774ec1e6897f4f0b0c851594dbd5815de9a44d50a3",
+  "baselines": {
+    "base": {
+      "coverage": 0.9964788732394366,
+      "fn": 128,
+      "fp": 1257,
+      "micro_f1": 0.19803126809496235,
+      "precision": 0.11974789915966387,
+      "recall": 0.5719063545150501,
+      "rows": 284,
+      "tp": 171
+    },
+    "scale_0p0": {
+      "coverage": 0.9964788732394366,
+      "fn": 128,
+      "fp": 1257,
+      "micro_f1": 0.19803126809496235,
+      "precision": 0.11974789915966387,
+      "recall": 0.5719063545150501,
+      "rows": 284,
+      "tp": 171
+    },
+    "scale_1p0": {
+      "coverage": 1.0,
+      "fn": 198,
+      "fp": 293,
+      "micro_f1": 0.29148629148629146,
+      "precision": 0.2563451776649746,
+      "recall": 0.3377926421404682,
+      "rows": 284,
+      "tp": 101
+    }
+  },
+  "candidate_strengths": {
+    "scale_0p125": {
+      "coverage": 0.9049295774647887,
+      "fn": 159,
+      "fp": 887,
+      "micro_f1": 0.21116138763197587,
+      "precision": 0.13631937682570594,
+      "recall": 0.4682274247491639,
+      "rows": 284,
+      "tp": 140
+    },
+    "scale_0p25": {
+      "coverage": 0.9577464788732394,
+      "fn": 211,
+      "fp": 415,
+      "micro_f1": 0.2194513715710723,
+      "precision": 0.1749502982107356,
+      "recall": 0.29431438127090304,
+      "rows": 284,
+      "tp": 88
+    },
+    "scale_0p5": {
+      "coverage": 1.0,
+      "fn": 198,
+      "fp": 308,
+      "micro_f1": 0.2853107344632768,
+      "precision": 0.2469437652811736,
+      "recall": 0.3377926421404682,
+      "rows": 284,
+      "tp": 101
+    },
+    "scale_0p75": {
+      "coverage": 1.0,
+      "fn": 203,
+      "fp": 278,
+      "micro_f1": 0.2852897473997028,
+      "precision": 0.25668449197860965,
+      "recall": 0.3210702341137124,
+      "rows": 284,
+      "tp": 96
+    }
+  },
+  "holdout_authorized": false,
+  "passed": false,
+  "phase": "fit",
+  "preflight_receipt_payload_sha256": "e5d93a8068ce08f0b1e470731ec74ab3ca992ff315f2e7fe630ce212b43ee729",
+  "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+  "provenance": {
+    "baselines": {
+      "base": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.base.jsonl",
+          "rows": 90,
+          "sha256": "5e51f3d0e7d534a09c5c96a8f2a995c0c8383f07d5383e63151c235df7c0a4f6"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.base.jsonl",
+          "rows": 89,
+          "sha256": "5bcbebc859a3ae54d9137308b579930d1b1c8d3e5a587e7a4a03c07f2dbc7010"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.base.jsonl",
+          "rows": 89,
+          "sha256": "902a30495a40b07089bb4918d8c5d4aa66b64d36c958c452b0e4dbc1d94d52d9"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.base.jsonl",
+          "rows": 89,
+          "sha256": "4e2f0c0cb4fff1c1beb3fec7131c3a982b9da1be4a76cc43651f6f38d9a84d91"
+        }
+      ],
+      "scale_0p0": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/shard-0/zero_state.jsonl",
+          "rows": 90,
+          "sha256": "fc6cd8d3535a1d05d17b3f9a230b04c058312f377a60652233b8d34c4abbd373"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/shard-1/zero_state.jsonl",
+          "rows": 89,
+          "sha256": "4a8a2cea9d5095f401210f199c3dc600183f40be74cf5869f69fd0493c9b6eb8"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/shard-2/zero_state.jsonl",
+          "rows": 89,
+          "sha256": "3d6fed9994d0c9c68796d1866701408093420ba7cb15e87b068f4630f2141817"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/shard-3/zero_state.jsonl",
+          "rows": 89,
+          "sha256": "0572edc842c1014d3e6933642de114cf424b11309ddb29b96c907d1b0d510300"
+        }
+      ],
+      "scale_1p0": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-0/scene.memory.jsonl",
+          "rows": 90,
+          "sha256": "f80b5c1068636759786e80c40bd7ea37df0eb66cb73e3e0a5b09edabc86014da"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-1/scene.memory.jsonl",
+          "rows": 89,
+          "sha256": "9c18846305e40db7af4a046647693401ac1f569dc64f44e4c0f5434e726431cd"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-2/scene.memory.jsonl",
+          "rows": 89,
+          "sha256": "43d5f18e82f7fd60ad425ad285e3172a36e82b6c8a942f46762cf6baed2efac2"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_routed_benchmark_v1_r2/shard-3/scene.memory.jsonl",
+          "rows": 89,
+          "sha256": "4be071a9196ca7d78edf64dd5aac0ee8f1982acb7c644153e223bb3d9f417dfa"
+        }
+      ]
+    },
+    "controller_strengths": {
+      "scale_0p125": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-0/scale_0p125.jsonl",
+          "rows": 73,
+          "sha256": "6e3430fae4859231f92527e341374b3a2527cc6b1e2c80315c911b0026155560"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-1/scale_0p125.jsonl",
+          "rows": 70,
+          "sha256": "5d16051cd4cb09e8566bb68b941042d5b0cec0939245af030d4de95e97a1afb3"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-2/scale_0p125.jsonl",
+          "rows": 66,
+          "sha256": "49dff59ba613b129348f6ba84c08733dc73344b713ee1c077e41cb1f7d35e577"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-3/scale_0p125.jsonl",
+          "rows": 75,
+          "sha256": "98bcc1cba3c6821a380a60a0f95bdc4cc783861bfc10d662f72fed2e3b051e7c"
+        }
+      ],
+      "scale_0p25": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-0/scale_0p25.jsonl",
+          "rows": 73,
+          "sha256": "ebc6f5682da823f970937ccd4d74f5f15b8f08135f0f945ca53a1327e455c35d"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-1/scale_0p25.jsonl",
+          "rows": 70,
+          "sha256": "d55f8720bb75cb4ad335cf93c9bfc2ac2572fab987969e989077b9e960ee0e05"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-2/scale_0p25.jsonl",
+          "rows": 66,
+          "sha256": "0cd048ba7a95844e3a603ba323ef4c7f759044bcf99e547ae57354132733972c"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-3/scale_0p25.jsonl",
+          "rows": 75,
+          "sha256": "6090b738cef8e91701c60fcc6c1817ef8b41ad03fe66244341c5ab7708c4bdb2"
+        }
+      ],
+      "scale_0p5": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-0/scale_0p5.jsonl",
+          "rows": 73,
+          "sha256": "4edee322983781a7c6ed1e0988e81d04235dfdae46c24a17ffc3748267dec088"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-1/scale_0p5.jsonl",
+          "rows": 70,
+          "sha256": "77c2fc9480743968da5e602b7f5265704207203185a2b4ca1941924a9e999e98"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-2/scale_0p5.jsonl",
+          "rows": 66,
+          "sha256": "92de03074aee69d034f0a7c22b955485d5ccfc29b7b8c5d860e8e9d93c6e4444"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-3/scale_0p5.jsonl",
+          "rows": 75,
+          "sha256": "fce0ae40d66e83298246f798b4c256f1375c2394cdf13c1d5858e6676f0301ac"
+        }
+      ],
+      "scale_0p75": [
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-0/scale_0p75.jsonl",
+          "rows": 73,
+          "sha256": "7e2f98ff26a69ebbff4e885970d37eeec7a52513c9bf8ae003f90e3af1a9e8bf"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-1/scale_0p75.jsonl",
+          "rows": 70,
+          "sha256": "3e40d0ab2e632a206f58bff211b62a6ceabede9f56a5096b7ff36cb0aa3a864f"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-2/scale_0p75.jsonl",
+          "rows": 66,
+          "sha256": "2546ec32230f9e82ff14a830886454db3d0ed998a7420f48e8cfbdf2a531ed6a"
+        },
+        {
+          "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-3/scale_0p75.jsonl",
+          "rows": 75,
+          "sha256": "b24314c0b032c4456023b0fb707516e85af42e4b2e0e9abea6659460a581e18d"
+        }
+      ]
+    },
+    "input_bindings": [
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-0/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dtype": "bfloat16",
+          "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "phase": "fit",
+          "preflight_payload_sha256": "e5d93a8068ce08f0b1e470731ec74ab3ca992ff315f2e7fe630ce212b43ee729",
+          "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+          "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+          "runtime_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+          "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_input.v2",
+          "selection_payload_sha256": null,
+          "shard_index": 0,
+          "strengths": {
+            "scale_0p125": 0.125,
+            "scale_0p25": 0.25,
+            "scale_0p5": 0.5,
+            "scale_0p75": 0.75
+          },
+          "world_size": 4
+        },
+        "sha256": "a599cef7124a81f0ee823eabca6e0fbbe0d6df661bb7d90c4f278158acdd8565"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-1/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dtype": "bfloat16",
+          "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "phase": "fit",
+          "preflight_payload_sha256": "e5d93a8068ce08f0b1e470731ec74ab3ca992ff315f2e7fe630ce212b43ee729",
+          "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+          "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+          "runtime_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+          "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_input.v2",
+          "selection_payload_sha256": null,
+          "shard_index": 1,
+          "strengths": {
+            "scale_0p125": 0.125,
+            "scale_0p25": 0.25,
+            "scale_0p5": 0.5,
+            "scale_0p75": 0.75
+          },
+          "world_size": 4
+        },
+        "sha256": "18d86427a297ce042836152b6ac1e47b1424c81c33af10a9dd36404d65f9e1a8"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-2/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dtype": "bfloat16",
+          "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "phase": "fit",
+          "preflight_payload_sha256": "e5d93a8068ce08f0b1e470731ec74ab3ca992ff315f2e7fe630ce212b43ee729",
+          "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+          "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+          "runtime_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+          "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_input.v2",
+          "selection_payload_sha256": null,
+          "shard_index": 2,
+          "strengths": {
+            "scale_0p125": 0.125,
+            "scale_0p25": 0.25,
+            "scale_0p5": 0.5,
+            "scale_0p75": 0.75
+          },
+          "world_size": 4
+        },
+        "sha256": "b63e4538dc32f66f5f259728dd9694d861e88e0809816c57586986228cb8beef"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit/shard-3/input_binding.json",
+        "payload": {
+          "attn_implementation": "sdpa",
+          "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+          "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+          "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+          "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+          "dtype": "bfloat16",
+          "memory_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+          "memory_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+          "phase": "fit",
+          "preflight_payload_sha256": "e5d93a8068ce08f0b1e470731ec74ab3ca992ff315f2e7fe630ce212b43ee729",
+          "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+          "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+          "runtime_sha256": "2f7d97a7dbe014f635ca4f08bed5f527e0ea74144de9cf1a7b6fdf4c2b815ada",
+          "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_input.v2",
+          "selection_payload_sha256": null,
+          "shard_index": 3,
+          "strengths": {
+            "scale_0p125": 0.125,
+            "scale_0p25": 0.25,
+            "scale_0p5": 0.5,
+            "scale_0p75": 0.75
+          },
+          "world_size": 4
+        },
+        "sha256": "44b75a5230e76096356065bce59810651af3679cb32ce24a14e89da3c2952b37"
+      }
+    ]
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_strength_controller_fit_without_receipt",
+    "payload_sha256": "9ef29003e8962b6f53119730a3c43e6a100c9e62b1d4d7379a3143aa14ffe2cb"
+  },
+  "runner_sha256": "6db74e482f55eb24d9f7afca8ad0e7f0761a786b13894415645e9b6a3c366380",
+  "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_result.v2",
+  "scope": {
+    "hard32_opened": false,
+    "publisher_test_opened": false,
+    "publisher_validation_predictions_opened": false,
+    "rows": 284,
+    "split": "publisher-TRAIN-derived development"
+  },
+  "selected": {
+    "gates": {
+      "coverage_at_least_0.95": true,
+      "minus_full_strength_micro_f1_at_least_0.005": false,
+      "minus_zero_strength_micro_f1_at_least_0.02": true,
+      "paired_output_change_fraction_vs_full_strength_at_least_0.05": false,
+      "passed": false,
+      "selected_is_intermediate_strength": false
+    },
+    "metrics": {
+      "coverage": 1.0,
+      "fn": 198,
+      "fp": 293,
+      "micro_f1": 0.29148629148629146,
+      "precision": 0.2563451776649746,
+      "recall": 0.3377926421404682,
+      "rows": 284,
+      "tp": 101
+    },
+    "paired_output_change_fraction_vs_full_strength": 0.0,
+    "selected_minus_full_strength_micro_f1": 0.0,
+    "selected_minus_zero_strength_micro_f1": 0.0934550233913291
+  },
+  "selected_strength": 1.0,
+  "selected_strength_name": "scale_1p0",
+  "selection_receipt_payload_sha256": null
+}

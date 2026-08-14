@@ -1,0 +1,80 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_scene_strength_controller_decision.v2",
+  "created_at": "2026-08-14T12:48:07+08:00",
+  "protocol_payload_sha256": "2c15c7c56c769c91599a4b6590ec72ba0004cc358b8f3133d4c43733bfccede9",
+  "preflight": {
+    "passed": true,
+    "endpoint_output_change_rows": 4,
+    "midpoint_output_change_rows": 4,
+    "receipt_payload_sha256": "e5d93a8068ce08f0b1e470731ec74ab3ca992ff315f2e7fe630ce212b43ee729"
+  },
+  "fit": {
+    "file_sha256": "4af4970b8d72d043b2dcbe05397ea45932c53cec3923e4e55ec3b598f5772157",
+    "receipt_payload_sha256": "9ef29003e8962b6f53119730a3c43e6a100c9e62b1d4d7379a3143aa14ffe2cb",
+    "analyzer_exit_code": 2,
+    "rows": 284,
+    "generations": 1136,
+    "selection_written": false,
+    "holdout_opened": false
+  },
+  "metrics": {
+    "zero_strength_micro_f1": 0.19803126809496235,
+    "scale_0p125_micro_f1": 0.21116138763197587,
+    "scale_0p25_micro_f1": 0.2194513715710723,
+    "scale_0p5_micro_f1": 0.2853107344632768,
+    "scale_0p75_micro_f1": 0.2852897473997028,
+    "full_strength_micro_f1": 0.29148629148629146,
+    "selected_strength": 1.0,
+    "selected_minus_full_strength_micro_f1": 0.0
+  },
+  "error_profile": {
+    "scale_0p5": {
+      "tp": 101,
+      "fp": 308,
+      "fn": 198,
+      "comparison_to_full_strength": "Same true positives and false negatives as full strength, with 15 additional false positives."
+    },
+    "scale_0p75": {
+      "tp": 96,
+      "fp": 278,
+      "fn": 203,
+      "comparison_to_full_strength": "Fifteen fewer false positives than full strength, but five lost true positives and five additional false negatives."
+    },
+    "full_strength": {
+      "tp": 101,
+      "fp": 293,
+      "fn": 198
+    }
+  },
+  "outcome": "reject_global_effective_strength_calibration",
+  "interpretation": "The Q/O controller was behaviorally effective, but no fixed intermediate amplitude improved publisher-TRAIN-derived scene micro-F1 over full strength. The current error frontier cannot be crossed by globally shrinking the memory correction.",
+  "execution": {
+    "hf_endpoint": "https://hf-mirror.com",
+    "gpus": 4,
+    "runtime_errors": 0,
+    "log_sha256": {
+      "shard_0": "3ff965cea90147e57e11bfd18b0173831312c281d5a9b4fbd1cff1733688707a",
+      "shard_1": "6152423ebacd16a81d24c09f7cfa93b81d0bb8eee1b553a1f6690f2b0c5f5c91",
+      "shard_2": "a14ee19b82ad59133b6e841148a2cc56eef03aeaca2bcbcf4bad2fd8b839eb54",
+      "shard_3": "6a6dbbae6cdfcf6f019aa5239b07bda148c45d2cdea75af28af909f86ba5a1d7"
+    }
+  },
+  "claim_boundary": {
+    "accepted_publisher_validation_decoder_changed": false,
+    "new_native_benchmark_claim": false,
+    "publisher_validation_predictions_opened": false,
+    "publisher_test_authorized": false,
+    "hard32_authorized": false,
+    "protected_splits_opened": []
+  },
+  "next_direction": {
+    "immediate": "Move upstream to adapter training with matched-donor negative-state contrast and explicit correct-state dropout, selecting checkpoints on a disjoint publisher-TRAIN-derived fit partition.",
+    "required_gates": "A candidate must beat its no-state and matched-donor controls, improve native scene micro-F1 over the frozen v9 adapter, and preserve attribution and narrative before any fresh validation replication.",
+    "avoid": "Do not spend the next run on another global inference-time scalar or open the sealed 73-row strength holdout."
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_decision_without_receipt",
+    "payload_sha256": "134fe3070526f4c91957c4e6a580881740c585897518a7fe6e491a8e36c07b06"
+  }
+}

@@ -76,6 +76,15 @@ intervention holdout only from 0.3333 to 0.3352 (+0.0019, below the required
 points to weak generic state-induced regularization, not reliable semantic
 state retrieval.
 
+Effective Q/O memory-strength calibration has now also completed. A signed
+excluded-row preflight proved that `0x`, `0.5x`, and `1x` produce different
+outputs, then four A100s generated 1,136 candidates on the 284-row fit
+partition. Full strength remained best at 0.2915 micro-F1. The `0.5x` and
+`0.75x` candidates scored 0.2853; lower strengths scored 0.2195 and 0.2112.
+No intermediate strength passed the `+0.005` gate, so no selection was written
+and the 73-row intervention holdout remains unopened. This rules out a fixed
+global amplitude as the next boundary, not memory learning itself.
+
 Evidence:
 
 - [Locked causal/router protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_causal_router_protocol_v1.json)
@@ -83,18 +92,22 @@ Evidence:
 - [Signed result and raw-artifact hashes](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_causal_router_v1/result.json)
 - [Signed state-retrieval failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_state_retrieval_v1/decision.json)
 - [State-retrieval fit and holdout receipts](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_state_retrieval_v1/holdout_result.json)
+- [Effective-strength protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_scene_strength_controller_protocol_v2.json)
+- [Signed effective-strength decision](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/decision.json)
+- [Effective-strength fit receipt](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_scene_strength_controller_v2_r2/fit_result.json)
 
 ### Recommended Next Boundary
 
-The next boundary is memory-strength calibration. Screen fixed correct-state
-fusion strengths between the base-like zero correction and the current
-full-strength memory correction, select on a hash-defined TRAIN-derived fit
-partition, and evaluate the selected strength exactly once on an intervention
-holdout. If that fails, move upstream: add negative-state contrast plus state
-dropout during a fresh training run so the adapter must distinguish row-correct
-memory from generic state regularization. Keep the accepted validation decoder
-immutable; do not open publisher test or Hard32 until a materially stronger
-candidate independently replicates.
+The next boundary is training, not another inference-time router. Add
+matched-donor negative-state contrast plus explicit state dropout so the
+adapter must distinguish row-correct memory from generic state regularization.
+Select checkpoints on disjoint publisher-TRAIN-derived data using three gates:
+correct state must beat matched-donor and no-state controls, native scene F1
+must exceed the frozen V9 adapter, and attribution/narrative must be preserved.
+Only a candidate passing those gates should receive a fresh preregistered
+publisher-validation replication. Keep the accepted validation decoder
+immutable; publisher test, Hard32, and the unused strength holdout remain
+sealed.
 
 This repository starts from the Log-Linear Attention codebase and adds a
 CPU-only proof of concept in `dla_poc.py`. It reproduces the core DLA mechanism
