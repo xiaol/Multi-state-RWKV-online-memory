@@ -3020,24 +3020,54 @@ class DeltaMemAttention(nn.Module):
         )
         current_state = state.float()
         r_seq = self._rwkv_ms_project_heads(features.r).float()
-        read_steps: list[torch.Tensor] = []
-        read_routes: list[torch.Tensor] = []
-        for token_idx in range(seq_len):
-            r_t = r_seq[:, token_idx]
-            valid_t = None if token_mask is None else token_mask[:, token_idx]
-            slot_reads = torch.einsum("bhsij,bhj->bhsi", current_state, r_t)
-            occupied_slots = current_state.ne(0).any(dim=(-1, -2))
-            routes = self._rwkv_ms_read_routes(
-                slot_reads,
-                r_t,
-                valid_t,
-                occupied_slots=occupied_slots,
+        slot_reads = torch.einsum(
+            "bhsij,bthj->bthsi",
+            current_state,
+            r_seq,
+        )
+        if self.rwkv_ms_semantics_version >= 2:
+            scores = F.cosine_similarity(
+                slot_reads.float(),
+                r_seq.float().unsqueeze(3),
+                dim=-1,
+                eps=1e-6,
             )
-            read_t = torch.einsum("bhs,bhsi->bhi", routes, slot_reads)
-            read_steps.append(read_t.reshape(batch_size, self.state_read_dim))
-            read_routes.append(routes.mean(dim=1))
-        self.last_read_routes = torch.stack(read_routes, dim=1)
-        read_inputs = torch.stack(read_steps, dim=1).to(dtype=features.g.dtype)
+        else:
+            scores = (
+                slot_reads * r_seq.unsqueeze(3)
+            ).sum(dim=-1) / math.sqrt(float(self.rank))
+        if self.rwkv_ms_mask_empty_slots:
+            occupied_slots = current_state.ne(0).any(dim=(-1, -2))
+            all_slots_empty = ~occupied_slots.any(dim=-1, keepdim=True)
+            routable_slots = occupied_slots | all_slots_empty
+            scores = scores.masked_fill(
+                ~routable_slots.unsqueeze(1),
+                torch.finfo(scores.dtype).min,
+            )
+        if 0 < self.rwkv_ms_read_top_k < scores.size(-1):
+            top_scores, top_indices = torch.topk(
+                scores,
+                k=self.rwkv_ms_read_top_k,
+                dim=-1,
+            )
+            masked_scores = torch.full_like(
+                scores,
+                torch.finfo(scores.dtype).min,
+            )
+            scores = masked_scores.scatter_(-1, top_indices, top_scores)
+        routes = F.softmax(scores, dim=-1)
+        if token_mask is not None:
+            routes = routes * token_mask.to(
+                device=routes.device,
+                dtype=routes.dtype,
+            ).view(batch_size, seq_len, 1, 1)
+        read_inputs = torch.einsum(
+            "bths,bthsi->bthi",
+            routes,
+            slot_reads,
+        ).reshape(batch_size, seq_len, self.state_read_dim)
+        self.last_read_routes = routes.mean(dim=2)
+        read_inputs = read_inputs.to(dtype=features.g.dtype)
         return self.hrm_rwkv7_core.readout(read_inputs, features.g)
 
     def _memory_backend_scan(
