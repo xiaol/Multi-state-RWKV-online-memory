@@ -17,6 +17,7 @@ from deltamem.core.delta_impl import (
     VALID_MEMORY_FUSION_PLACEMENTS,
     VALID_MEMORY_PARTITION_BASIS,
     VALID_MEMORY_PARTITION_ROUTING,
+    VALID_RWKV_MS_HYBRID_MODES,
     VALID_RWKV_MS_WRITE_MODES,
     VALID_STATE_UPDATE_MODES,
     collect_delta_mem_gate_stats,
@@ -42,6 +43,7 @@ from deltamem.core.delta_impl import (
     normalize_memory_partition_basis,
     normalize_memory_partition_routing,
     normalize_rwkv_ms_write_mode,
+    normalize_rwkv_ms_hybrid_mode,
     normalize_state_update_mode,
     reset_delta_mem_states,
     save_delta_mem_adapter,
@@ -64,6 +66,7 @@ VALID_MEMORY_READOUT_MODES = (
     "direct_last_hidden",
     "projected_last_hidden",
     "projected_kv_slots",
+    "projected_kv_rwkv_hybrid",
 )
 
 
@@ -72,8 +75,8 @@ def normalize_memory_readout_mode(mode: str) -> str:
     if normalized not in VALID_MEMORY_READOUT_MODES:
         raise ValueError(
             "Mainline Delta-Mem only supports memory_readout_mode='delta', "
-            "'direct_last_hidden', 'projected_last_hidden', or "
-            "'projected_kv_slots'."
+            "'direct_last_hidden', 'projected_last_hidden', "
+            "'projected_kv_slots', or 'projected_kv_rwkv_hybrid'."
         )
     return normalized
 
@@ -85,8 +88,8 @@ class HFDeltaMemConfig(ExperimentalHFDeltaMemConfig):
         if self.memory_readout_mode not in VALID_MEMORY_READOUT_MODES:
             raise ValueError(
                 "Mainline HFDeltaMemConfig only supports memory_readout_mode='delta', "
-                "'direct_last_hidden', 'projected_last_hidden', or "
-                "'projected_kv_slots'. "
+                "'direct_last_hidden', 'projected_last_hidden', "
+                "'projected_kv_slots', or 'projected_kv_rwkv_hybrid'. "
                 "Archived synthetic_kv / latent_context / memory_branch readouts were removed."
             )
 
@@ -96,8 +99,8 @@ class DeltaMemAttention(ExperimentalDeltaMemAttention):
         if config.memory_readout_mode not in VALID_MEMORY_READOUT_MODES:
             raise ValueError(
                 "Mainline DeltaMemAttention only supports memory_readout_mode='delta', "
-                "'direct_last_hidden', 'projected_last_hidden', or "
-                "'projected_kv_slots'."
+                "'direct_last_hidden', 'projected_last_hidden', "
+                "'projected_kv_slots', or 'projected_kv_rwkv_hybrid'."
             )
         super().__init__(base, config)
 
@@ -114,8 +117,8 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
     if config.memory_readout_mode not in VALID_MEMORY_READOUT_MODES:
         raise ValueError(
             "attach_delta_mem in mainline only supports memory_readout_mode='delta', "
-            "'direct_last_hidden', 'projected_last_hidden', or "
-            "'projected_kv_slots'."
+            "'direct_last_hidden', 'projected_last_hidden', "
+            "'projected_kv_slots', or 'projected_kv_rwkv_hybrid'."
         )
     supported_types = (Qwen3Attention, SmolLM3Attention)
     if Qwen3_5Attention is not None:
@@ -179,6 +182,7 @@ __all__ = [
     "VALID_MEMORY_PARTITION_BASIS",
     "VALID_MEMORY_PARTITION_ROUTING",
     "VALID_MEMORY_READOUT_MODES",
+    "VALID_RWKV_MS_HYBRID_MODES",
     "VALID_RWKV_MS_WRITE_MODES",
     "VALID_STATE_UPDATE_MODES",
     "DeltaMemAttention",
@@ -207,6 +211,7 @@ __all__ = [
     "normalize_memory_partition_basis",
     "normalize_memory_partition_routing",
     "normalize_memory_readout_mode",
+    "normalize_rwkv_ms_hybrid_mode",
     "normalize_rwkv_ms_write_mode",
     "normalize_state_update_mode",
     "reset_delta_mem_states",

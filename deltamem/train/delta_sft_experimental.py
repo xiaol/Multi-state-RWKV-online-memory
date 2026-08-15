@@ -48,6 +48,7 @@ from deltamem.core.delta import (
     normalize_memory_backend,
     normalize_memory_fusion_placement,
     normalize_memory_readout_mode,
+    normalize_rwkv_ms_hybrid_mode,
     normalize_rwkv_ms_write_mode,
     normalize_state_update_mode,
     reset_delta_mem_states,
@@ -21173,6 +21174,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rwkv-ms-read-top-k", type=int, default=0)
     parser.add_argument("--rwkv-ms-output-init-scale", type=float, default=0.02)
     parser.add_argument("--rwkv-ms-semantics-version", type=int, choices=[1, 2], default=2)
+    parser.add_argument(
+        "--rwkv-ms-hybrid-mode",
+        choices=["residual", "vector_gate", "scalar_gate"],
+        default="residual",
+    )
+    parser.add_argument("--rwkv-ms-hybrid-gain", type=float, default=0.125)
     parser.add_argument("--num-state-heads", type=int, default=1)
     parser.add_argument("--beta-bias-init", type=float, default=-1.5)
     parser.add_argument(
@@ -21272,6 +21279,7 @@ def parse_args() -> argparse.Namespace:
             "direct_last_hidden",
             "projected_last_hidden",
             "projected_kv_slots",
+            "projected_kv_rwkv_hybrid",
         ],
     )
     parser.add_argument("--projected-kv-key-dim", type=int, default=32)
@@ -21883,6 +21891,8 @@ def parse_args() -> argparse.Namespace:
         )
     if args.rwkv_ms_output_init_scale < 0.0:
         raise ValueError("rwkv-ms-output-init-scale must be non-negative")
+    if not 0.0 <= args.rwkv_ms_hybrid_gain <= 1.0:
+        raise ValueError("rwkv-ms-hybrid-gain must satisfy 0 <= gain <= 1")
     if args.memory_base_kl_weight > 0.0 and args.memory_loss_mode != "context_dropout_ce":
         raise ValueError("memory-base-kl-weight requires memory-loss-mode=context_dropout_ce")
     if (
@@ -26036,6 +26046,8 @@ def build_training_protocol(
         "rwkv_ms_output_init_scale": getattr(args, "rwkv_ms_output_init_scale", 0.02),
         "rwkv_ms_write_mode": getattr(args, "rwkv_ms_write_mode", "recurrent"),
         "rwkv_ms_semantics_version": getattr(args, "rwkv_ms_semantics_version", 2),
+        "rwkv_ms_hybrid_mode": getattr(args, "rwkv_ms_hybrid_mode", "residual"),
+        "rwkv_ms_hybrid_gain": getattr(args, "rwkv_ms_hybrid_gain", 0.125),
         "memory_loss_mode": args.memory_loss_mode,
         "memory_dropout_no_memory_prob": args.memory_dropout_no_memory_prob,
         "memory_dropout_state_only_prob": args.memory_dropout_state_only_prob,
@@ -28275,6 +28287,10 @@ def main() -> None:
         rwkv_ms_read_top_k=args.rwkv_ms_read_top_k,
         rwkv_ms_output_init_scale=args.rwkv_ms_output_init_scale,
         rwkv_ms_semantics_version=args.rwkv_ms_semantics_version,
+        rwkv_ms_hybrid_mode=normalize_rwkv_ms_hybrid_mode(
+            args.rwkv_ms_hybrid_mode
+        ),
+        rwkv_ms_hybrid_gain=args.rwkv_ms_hybrid_gain,
         num_state_heads=args.num_state_heads,
         num_memory_partitions=args.num_memory_partitions,
         num_global_memory_partitions=args.num_global_memory_partitions,
@@ -28913,6 +28929,8 @@ def main() -> None:
             "rwkv_ms_output_init_scale": args.rwkv_ms_output_init_scale,
             "rwkv_ms_write_mode": args.rwkv_ms_write_mode,
             "rwkv_ms_semantics_version": args.rwkv_ms_semantics_version,
+            "rwkv_ms_hybrid_mode": args.rwkv_ms_hybrid_mode,
+            "rwkv_ms_hybrid_gain": args.rwkv_ms_hybrid_gain,
             "base_slice_ref_width": args.base_slice_ref_width,
             "memory_readout_mode": args.memory_readout_mode,
             "projected_kv_key_dim": args.projected_kv_key_dim,

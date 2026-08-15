@@ -34,10 +34,12 @@ def _validate_mainline_args(args) -> None:
         "direct_last_hidden",
         "projected_last_hidden",
         "projected_kv_slots",
+        "projected_kv_rwkv_hybrid",
     }:
         raise ValueError(
             "Mainline trainer only supports --memory-readout-mode delta, "
-            "direct_last_hidden, projected_last_hidden, or projected_kv_slots."
+            "direct_last_hidden, projected_last_hidden, projected_kv_slots, or "
+            "projected_kv_rwkv_hybrid."
         )
 
 

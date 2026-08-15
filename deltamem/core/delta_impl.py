@@ -56,7 +56,12 @@ VALID_MEMORY_READOUT_MODES = (
     "direct_last_hidden",
     "projected_last_hidden",
     "projected_kv_slots",
+    "projected_kv_rwkv_hybrid",
 )
+PROJECTED_KV_MEMORY_READOUT_MODES = frozenset(
+    {"projected_kv_slots", "projected_kv_rwkv_hybrid"}
+)
+VALID_RWKV_MS_HYBRID_MODES = ("residual", "vector_gate", "scalar_gate")
 VALID_MEMORY_WRITE_SOURCES = ("learned_hidden",)
 VALID_MEMORY_WRITE_GRANULARITIES = (
     "token",
@@ -178,8 +183,19 @@ def normalize_memory_readout_mode(mode: str) -> str:
     if normalized not in VALID_MEMORY_READOUT_MODES:
         raise ValueError(
             "Only memory_readout_mode='delta', 'direct_last_hidden', "
-            "'projected_last_hidden', or 'projected_kv_slots' is supported. "
+            "'projected_last_hidden', 'projected_kv_slots', or "
+            "'projected_kv_rwkv_hybrid' is supported. "
             f"Got {mode!r}."
+        )
+    return normalized
+
+
+def normalize_rwkv_ms_hybrid_mode(mode: str) -> str:
+    normalized = str(mode).strip().lower()
+    if normalized not in VALID_RWKV_MS_HYBRID_MODES:
+        raise ValueError(
+            "Unsupported RWKV-MS hybrid mode: "
+            f"{mode}; expected one of {VALID_RWKV_MS_HYBRID_MODES}"
         )
     return normalized
 
@@ -350,6 +366,8 @@ class HFDeltaMemConfig:
     rwkv_ms_mask_empty_slots: bool = False
     rwkv_ms_output_init_scale: float = 0.02
     rwkv_ms_semantics_version: int = 2
+    rwkv_ms_hybrid_mode: str = "residual"
+    rwkv_ms_hybrid_gain: float = 0.125
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "delta_heads", normalize_delta_heads(self.delta_heads))
@@ -371,6 +389,15 @@ class HFDeltaMemConfig:
             raise ValueError("rwkv_ms_output_init_scale must be >= 0")
         if int(self.rwkv_ms_semantics_version) not in {1, 2}:
             raise ValueError("rwkv_ms_semantics_version must be 1 or 2")
+        hybrid_gain = float(self.rwkv_ms_hybrid_gain)
+        if not math.isfinite(hybrid_gain) or not (0.0 <= hybrid_gain <= 1.0):
+            raise ValueError("rwkv_ms_hybrid_gain must be finite and satisfy 0 <= gain <= 1")
+        object.__setattr__(
+            self,
+            "rwkv_ms_hybrid_mode",
+            normalize_rwkv_ms_hybrid_mode(self.rwkv_ms_hybrid_mode),
+        )
+        object.__setattr__(self, "rwkv_ms_hybrid_gain", hybrid_gain)
         object.__setattr__(self, "rwkv_ms_num_states", int(self.rwkv_ms_num_states))
         object.__setattr__(self, "rwkv_ms_chunk_size", int(self.rwkv_ms_chunk_size))
         object.__setattr__(
@@ -618,10 +645,10 @@ class HFDeltaMemConfig:
             "projected_kv_update_cosine_threshold",
             projected_kv_update_cosine_threshold,
         )
-        if self.memory_readout_mode == "projected_kv_slots":
+        if self.memory_readout_mode in PROJECTED_KV_MEMORY_READOUT_MODES:
             if self.memory_backend != "rwkv_ms":
                 raise ValueError(
-                    "memory_readout_mode='projected_kv_slots' requires "
+                    "Projected-KV memory readout requires "
                     "memory_backend='rwkv_ms'"
                 )
         elif (
@@ -631,7 +658,7 @@ class HFDeltaMemConfig:
         ):
             raise ValueError(
                 "projected_kv_* options require "
-                "memory_readout_mode='projected_kv_slots'"
+                "a projected-KV memory readout mode"
             )
         object.__setattr__(
             self,
@@ -643,6 +670,13 @@ class HFDeltaMemConfig:
             "memory_write_granularity",
             normalize_memory_write_granularity(self.memory_write_granularity),
         )
+        if (
+            self.memory_readout_mode == "projected_kv_rwkv_hybrid"
+            and self.memory_write_granularity != "token"
+        ):
+            raise ValueError(
+                "projected_kv_rwkv_hybrid requires memory_write_granularity='token'"
+            )
         if self.memory_reader_layers:
             raise ValueError(
                 "memory_reader_layers is archived; active Delta-Mem only keeps TSW / MSW / SSW paths."
@@ -707,7 +741,8 @@ class HFDeltaMemConfig:
             raise ValueError(
                 "latent memory readouts are archived; active Delta-Mem only supports "
                 "memory_readout_mode='delta', 'direct_last_hidden', or "
-                "'projected_last_hidden', or 'projected_kv_slots'."
+                "'projected_last_hidden', 'projected_kv_slots', or "
+                "'projected_kv_rwkv_hybrid'."
             )
         if self.num_state_heads > 1 and self.num_memory_partitions > 1:
             raise ValueError(
@@ -810,6 +845,8 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_mask_empty_slots = config.rwkv_ms_mask_empty_slots
         self.rwkv_ms_output_init_scale = config.rwkv_ms_output_init_scale
         self.rwkv_ms_semantics_version = config.rwkv_ms_semantics_version
+        self.rwkv_ms_hybrid_mode = config.rwkv_ms_hybrid_mode
+        self.rwkv_ms_hybrid_gain = config.rwkv_ms_hybrid_gain
         self.delta_scaling = config.alpha / config.rank
         self.trainable_delta_scale = config.trainable_delta_scale
         self.delta_scale_max = config.delta_scale_max
@@ -906,7 +943,7 @@ class DeltaMemAttention(nn.Module):
             requires_grad=memory_qk_trainable,
         )
         self.memory_v_proj = nn.Parameter(torch.empty(self.state_read_dim, hidden_size))
-        if self.memory_readout_mode == "projected_kv_slots":
+        if self.memory_readout_mode in PROJECTED_KV_MEMORY_READOUT_MODES:
             self.projected_kv_key_proj = nn.Parameter(
                 torch.empty(self.projected_kv_key_dim, hidden_size)
             )
@@ -1059,7 +1096,7 @@ class DeltaMemAttention(nn.Module):
         nn.init.kaiming_uniform_(self.memory_q_proj, a=math.sqrt(5))
         nn.init.kaiming_uniform_(self.memory_k_proj, a=math.sqrt(5))
         nn.init.kaiming_uniform_(self.memory_v_proj, a=math.sqrt(5))
-        if self.memory_readout_mode == "projected_kv_slots":
+        if self.memory_readout_mode in PROJECTED_KV_MEMORY_READOUT_MODES:
             nn.init.kaiming_uniform_(self.projected_kv_key_proj, a=math.sqrt(5))
         self._init_delta_head(self.delta_q_proj, self._query_projection_weight())
         if self.is_gemma4_attention and self.is_kv_shared_layer:
@@ -1189,7 +1226,7 @@ class DeltaMemAttention(nn.Module):
 
     def is_trainable_parameter(self, sub_name: str) -> bool:
         if sub_name == "projected_kv_key_proj":
-            return self.memory_readout_mode == "projected_kv_slots"
+            return self.memory_readout_mode in PROJECTED_KV_MEMORY_READOUT_MODES
         if sub_name in {"memory_q_proj", "memory_k_proj"}:
             return self.memory_backend != "rwkv_ms"
         if sub_name == "memory_v_proj":
@@ -3656,6 +3693,91 @@ class DeltaMemAttention(nn.Module):
             values.float(),
         ).to(dtype=self.memory_v_proj.dtype)
 
+    def _fuse_projected_rwkv_reads(
+        self,
+        projected_reads: torch.Tensor,
+        recurrent_reads: torch.Tensor,
+    ) -> torch.Tensor:
+        if projected_reads.shape != recurrent_reads.shape:
+            raise ValueError(
+                "Projected and recurrent hybrid reads must have identical shapes: "
+                f"projected={tuple(projected_reads.shape)} "
+                f"recurrent={tuple(recurrent_reads.shape)}"
+            )
+        projected = projected_reads.float()
+        recurrent = recurrent_reads.float()
+        recurrent_rms = recurrent.square().mean(dim=-1, keepdim=True).sqrt()
+        recurrent_direction = torch.tanh(
+            recurrent / recurrent_rms.clamp_min(1e-6)
+        )
+        carrier_rms = projected.square().mean(dim=-1, keepdim=True).sqrt()
+        gain = float(self.rwkv_ms_hybrid_gain)
+        if self.rwkv_ms_hybrid_mode == "residual":
+            fused = projected + gain * carrier_rms * recurrent_direction
+        elif self.rwkv_ms_hybrid_mode == "vector_gate":
+            fused = projected * (1.0 + gain * recurrent_direction)
+        elif self.rwkv_ms_hybrid_mode == "scalar_gate":
+            alignment = (
+                F.normalize(projected, dim=-1, eps=1e-6)
+                * F.normalize(recurrent, dim=-1, eps=1e-6)
+            ).sum(dim=-1, keepdim=True)
+            fused = projected * (1.0 + gain * alignment.clamp(-1.0, 1.0))
+        else:  # pragma: no cover - configuration validation is authoritative
+            raise RuntimeError(
+                f"Unsupported RWKV-MS hybrid mode: {self.rwkv_ms_hybrid_mode}"
+            )
+        return fused.to(dtype=projected_reads.dtype)
+
+    def _projected_rwkv_hybrid_step(
+        self,
+        state: torch.Tensor,
+        hidden_states: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        (
+            token_memory_q_seq,
+            token_memory_k_seq,
+            token_memory_v_seq,
+            beta_seq,
+            lambda_seq,
+        ) = self._memory_sequence_projections(hidden_states)
+        if self.write_enabled:
+            self._write_projected_kv_slots(hidden_states, token_mask)
+            state, _ = self._memory_backend_scan(
+                state,
+                token_memory_q_seq,
+                token_memory_k_seq,
+                token_memory_v_seq,
+                beta_seq,
+                lambda_seq,
+                token_mask=token_mask,
+            )
+            reads = torch.zeros(
+                hidden_states.size(0),
+                hidden_states.size(1),
+                self.state_read_dim,
+                device=hidden_states.device,
+                dtype=self.memory_v_proj.dtype,
+            )
+            self.last_read_routes = None
+            self.last_read_route_logits = None
+        else:
+            projected_reads = self._projected_kv_slot_token_reads(hidden_states)
+            projected_routes = self.last_read_routes
+            recurrent_reads = self._memory_backend_token_reads(
+                state,
+                token_memory_v_seq,
+                None,
+                token_mask,
+            )
+            reads = self._fuse_projected_rwkv_reads(
+                projected_reads,
+                recurrent_reads,
+            )
+            self.last_read_routes = projected_routes
+            self.last_write_routes = None
+        return state, reads, beta_seq, lambda_seq
+
     def _fuse_delta_o_output(
         self,
         base_o_output: torch.Tensor,
@@ -4058,7 +4180,16 @@ class DeltaMemAttention(nn.Module):
             seq_len=seq_len,
             device=hidden_states.device,
         )
-        if self.memory_readout_mode in {
+        if self.memory_readout_mode == "projected_kv_rwkv_hybrid":
+            state, reads, stats_beta, stats_lambda = (
+                self._projected_rwkv_hybrid_step(
+                    state,
+                    hidden_states,
+                    token_mask,
+                )
+            )
+            stats_mask = token_mask
+        elif self.memory_readout_mode in {
             "direct_last_hidden",
             "projected_last_hidden",
             "projected_kv_slots",
@@ -4559,7 +4690,7 @@ def collect_delta_mem_projected_kv_read_logits(
 ) -> dict[str, torch.Tensor]:
     logits_by_module: dict[str, torch.Tensor] = {}
     for name, module in iter_delta_mem_modules(model):
-        if module.memory_readout_mode != "projected_kv_slots":
+        if module.memory_readout_mode not in PROJECTED_KV_MEMORY_READOUT_MODES:
             continue
         logits = module.last_read_route_logits
         if logits is None:
@@ -5108,9 +5239,9 @@ def load_delta_mem_online_state(model: nn.Module, state: dict[str, torch.Tensor]
             module = module_map[module_name]
             if not isinstance(module, DeltaMemAttention):
                 raise TypeError(f"{module_name} is not a DeltaMemAttention")
-            if module.memory_readout_mode != "projected_kv_slots":
+            if module.memory_readout_mode not in PROJECTED_KV_MEMORY_READOUT_MODES:
                 raise ValueError(
-                    f"{module_name} does not use projected_kv_slots readout"
+                    f"{module_name} does not use a projected-KV readout"
                 )
             attribute, fixed_dtype = projected_kv_suffixes[
                 matched_projected_kv_suffix
