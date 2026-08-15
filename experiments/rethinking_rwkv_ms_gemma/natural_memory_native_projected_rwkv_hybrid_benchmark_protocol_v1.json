@@ -1,0 +1,128 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_projected_rwkv_hybrid_benchmark_protocol.v1",
+  "created_at": "2026-08-15T15:20:00+08:00",
+  "objective": "Establish or reject a native scene benchmark gain attributable to recurrent RWKV state by comparing a fresh projected-KV control with the calibrated projected-KV plus RWKV hybrid under paired seeds, matched training, and recurrent-only causal interventions.",
+  "authorization_basis": {
+    "calibration_protocol_payload_sha256": "5039c320c96356495b2ebfbf0dacfc79299d60224b8b772883eecf300266b3da",
+    "calibration_result_file": "local_artifacts/natural_memory_native_projected_rwkv_hybrid_bf16_calibration_v1/result.json",
+    "calibration_result_file_sha256": "1d7808f4760a47c40923ee61668cf40b8033629e1399f8e5cee618cd1b6ee5a0",
+    "calibration_result_receipt": "5f48f8d67a2593a2e98d7a64a15b41c1979d627d3ddd7c60e0a4b6648053627d",
+    "calibration_status": "calibration_passed_native_benchmark_authorized",
+    "selected_candidate": {
+      "candidate_id": "scalar_gate_g003125",
+      "hybrid_mode": "scalar_gate",
+      "hybrid_gain": 0.03125
+    }
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "training_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "training_file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "training_selected_rows": 256,
+    "training_selected_rows_sha256": "069bb99296b34980d357df0032383a654a13257f75cdf29c011d1b739ad1dcf2",
+    "training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "evaluation_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "evaluation_file_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "evaluation_rows": 220,
+    "evaluation_rows_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "excluded_locked_probe_rows": 64,
+    "excluded_initial_target_rows": 4,
+    "unused_strength_holdout_rows": 73,
+    "protected_splits_opened": []
+  },
+  "paired_architectures": {
+    "shared": {
+      "base_weights": "frozen",
+      "target_modules": ["self_attn"],
+      "target_layers": "0..41",
+      "rank": 32,
+      "alpha": 64,
+      "num_state_heads": 1,
+      "delta_heads": ["q", "o"],
+      "memory_backend": "rwkv_ms",
+      "memory_fusion_mode": "content_gated_qo_add",
+      "memory_fusion_placement": "attention_output",
+      "projected_kv_key_dim": 64,
+      "projected_kv_temperature": 16.0,
+      "projected_slot_capacity": 4,
+      "backbone_dtype": "bfloat16",
+      "trainable_master_dtype": "float32"
+    },
+    "projected_control": {
+      "candidate_id": "fresh_projected_kv_slots",
+      "memory_readout_mode": "projected_kv_slots",
+      "unused_recurrent_core": "frozen and excluded from the optimizer"
+    },
+    "hybrid_candidate": {
+      "candidate_id": "fresh_projected_kv_rwkv_hybrid_scalar_gate_g003125",
+      "memory_readout_mode": "projected_kv_rwkv_hybrid",
+      "rwkv_ms_write_mode": "recurrent",
+      "rwkv_ms_semantics_version": 2,
+      "rwkv_ms_hybrid_mode": "scalar_gate",
+      "rwkv_ms_hybrid_gain": 0.03125,
+      "rwkv_state_dtype": "float32"
+    },
+    "pairing_rule": "For each seed, both arms begin from byte-identical shared adapter tensors and receive the same ordered rows, donor mapping, dropout pattern, objective, optimizer settings, and update count. Parameters used only by recurrent RWKV are frozen in the projected control and trainable in the hybrid."
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 40GB GPUs",
+    "distribution": "two rows per rank with summed gradients, producing one matched logical optimizer trajectory",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seeds": [57, 58, 59],
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "optimizer_updates": 32,
+    "positive_objective": "native scene answer cross-entropy",
+    "contrast_weight": 0.25,
+    "contrast_margin": 0.05,
+    "state_dropout_rows_per_update": 2,
+    "checkpoint_selection": "none; the fixed update-32 endpoint is evaluated for every arm and seed",
+    "preflight": "Run exactly one update for both arms at seed 57 before launching the six full jobs."
+  },
+  "evaluation": {
+    "source": "The already-open 220-row publisher-TRAIN-derived scene fit remainder only.",
+    "row_selection": "Use raw-line hashes to exclude the 4 initial targets, 64 locked probe rows, and 73 strength-holdout rows before parsing authorized row contents.",
+    "donor_rule": "Within the authorized 220 rows, choose a different-gold donor by minimum prompt-token distance, then row hash and source index.",
+    "generation": "greedy with the native scene prompt and JSON recovery, max_new_tokens=128",
+    "projected_control_conditions": ["correct_state"],
+    "hybrid_conditions": [
+      "correct_recurrent_state",
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "layer_permuted_recurrent_state",
+      "projected_only_bypass"
+    ],
+    "intervention_invariant": "For every hybrid condition, retain the correct-row projected keys, values, occupancy, and surprise byte-identically; alter or bypass only recurrent matrices, positions, and previous-source tensors.",
+    "primary_estimand": "Mean hybrid correct-recurrent-state micro-F1 minus mean fresh projected-control correct-state micro-F1 across seeds 57, 58, and 59.",
+    "required_gates": {
+      "coverage_minimum_every_primary_arm": 0.95,
+      "mean_hybrid_minus_projected_micro_f1_minimum": 0.005,
+      "hybrid_nonnegative_vs_projected_seed_count_minimum": 2,
+      "mean_hybrid_correct_minus_donor_micro_f1_minimum": 0.005,
+      "mean_hybrid_correct_minus_zero_micro_f1_minimum": 0.02,
+      "mean_hybrid_correct_minus_layer_permuted_micro_f1_minimum": 0.005,
+      "zero_recurrent_exactly_matches_projected_bypass_predictions": true,
+      "projected_carrier_hash_fixed_for_every_hybrid_intervention": true,
+      "paired_output_change_fraction_hybrid_vs_projected_minimum": 0.05
+    }
+  },
+  "claim_policy": {
+    "pass": "May claim publisher-TRAIN-derived native evidence that the calibrated recurrent RWKV hybrid improves on a matched projected-KV outer-memory control and that the gain passes the locked recurrent-state causal tests.",
+    "benchmark_gain_without_causal_pass": "May report a hybrid system gain, but may not attribute it to recurrent RWKV state.",
+    "failure": "Must report that this hybrid method did not establish a recurrent RWKV native-benchmark gain under the locked protocol.",
+    "protected_replication": "Requires a new preregistered protocol; this protocol authorizes no protected evaluation."
+  },
+  "stopping_rule": "Archive, commit, and push the paired outcome whether pass or fail. Do not inspect publisher validation, publisher test, Hard32, or the unused 73-row strength holdout.",
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "b782fdf56386402e0a6f1147b5a9e5e608e1d231c770e174499a63f8e81d3dfd"
+  }
+}
