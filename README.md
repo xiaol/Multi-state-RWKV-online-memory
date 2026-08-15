@@ -61,8 +61,9 @@ Accordingly, throughout the native-result sections:
 - “memory gain” means a gain from that projected-slot Q/O adapter and its fixed
   task policy;
 - “RWKV recurrence gain” is not claimed and requires a new matched experiment
-  with `memory_readout_mode=delta`, verified recurrent-state mutation, and
-  correct-state versus zero/donor-state controls.
+  in which recurrent state materially contributes to the readout, with verified
+  recurrent-state mutation and correct-state versus zero/donor/permuted-
+  recurrent controls that hold projected slots fixed.
 
 This correction changes the mechanism attribution, not the signed predictions,
 metrics, validation split discipline, or accepted system-level result. The
@@ -82,39 +83,45 @@ Reproducibility evidence:
 
 ### Next Recurrent Goal
 
-The next experiment is now locked in
-[the recurrent RWKV-MS protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json).
-Its fresh all-42-layer candidate passed the structural recurrent-state audit and
-the FP32 causal activation preflight: correct state changed final logits by
-`3.48e-5`, while a complete layer permutation changed them by `3.67e-5`.
-The same fresh initialization had no measurable BF16 final-logit change because
-its initial recurrent readout is below BF16 quantization. That is a materiality
-issue to solve, not evidence of a native recurrent benchmark gain.
+The recurrent-only candidate remains rejected: despite finite nonzero output
+gradients in all 42 layers, its one-update BF16 correct-versus-zero and correct-
+versus-donor final-logit deltas were exactly `0.0`. The replacement is now a
+carrier-controller hybrid. Projected KV slots remain the material retrieval
+carrier, while recurrent RWKV state modulates that carrier through a bounded
+readout that is exactly projected-only when recurrent state is zero.
 
-That one-step BF16 calibration has now completed on four A100s and failed its
-materiality gates. All 42 recurrent readout tensors had finite, nonzero
-gradients, the adapter weights changed, and the global gradient norm was
-`3.05e-6`. Nevertheless, after the update the correct-state versus zero-state
-and correct-state versus matched-donor maximum final-logit deltas were exactly
-`0.0` on all four ranks. The recurrent path is active and trainable, but its
-correction is still erased at the BF16 fusion boundary. The locked three-seed,
-220-row matched benchmark is therefore blocked; more recurrent-only training
-under this architecture is not authorized.
+A locked four-A100 screen tested residual, vector-gate, and scalar-gate
+equations at gains `0.03125`, `0.0625`, and `0.125`. All nine candidates passed
+the fixed-carrier BF16 causal gates. The preregistered rule selected
+`scalar_gate_g003125`: the lowest gain and, at that gain, the smallest worst-
+rank perturbation from projected-only (`1.3789` maximum absolute logit delta).
+Its minimum correct-versus-matched-donor recurrent delta was `1.3438`.
 
-The next mechanism candidate is a carrier-controller hybrid: projected KV
-slots provide the material retrieval carrier while recurrent RWKV state applies
-a bounded residual or gate to that read. Its causal screen must keep projected
-keys and values fixed while replacing only the recurrent matrix, position, and
-previous-source bundle with zero, matched-donor, or layer-permuted state. No
-native recurrent-gain claim is allowed until that incremental effect is BF16-
-visible and beats the projected-only control on the locked open data.
+The selected hybrid then passed a separately locked one-update BF16 calibration.
+All 42 recurrent output gradients were finite and nonzero, the global gradient
+norm was `0.2388`, and both the full adapter and recurrent output weights
+changed. After the update, correct-versus-zero recurrent deltas ranged from
+`1.2812` to `1.9375` and correct-versus-donor deltas from `1.2969` to `1.8750`
+across the four ranks. Zero recurrent state remained exactly equal to the
+projected-only readout, with projected state byte-identical across interventions.
 
-Evidence: [protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
-[activation preflight runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_rwkv_preflight.py),
-[signed activation result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_preflight_v2/result.json),
-[BF16 calibration runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_rwkv_bf16_calibration.py),
-[signed BF16 failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
-and [focused integrity tests](deltamem/tests/test_natural_memory_native_recurrent_rwkv_bf16_calibration.py).
+This establishes BF16-visible, trainable causal participation by RWKV state; it
+does **not** yet establish native benchmark improvement. The authorized next
+experiment is a three-seed matched open-data comparison between fresh projected-
+only and fresh selected-hybrid adapters, using identical training rows,
+optimizer updates, and generation settings on the locked 220-row native
+partition. No publisher validation, publisher test, Hard32, or unused strength
+holdout is authorized.
+
+Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
+[signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
+[hybrid screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_projected_rwkv_hybrid_screen_protocol_v1.json),
+[signed hybrid screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_projected_rwkv_hybrid_screen_v1/result.json),
+[hybrid calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_projected_rwkv_hybrid_bf16_calibration_protocol_v1.json),
+[signed hybrid calibration](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_projected_rwkv_hybrid_bf16_calibration_v1/result.json),
+[hybrid screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_projected_rwkv_hybrid_screen.py),
+[hybrid calibration runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_projected_rwkv_hybrid_bf16_calibration.py),
+and [focused integrity tests](deltamem/tests/test_natural_memory_native_projected_rwkv_hybrid_bf16_calibration.py).
 
 ### Post-Validation Mechanism Study
 
