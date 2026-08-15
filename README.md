@@ -8,10 +8,13 @@ HF checkpoint:
 
 ## Latest Trained-Model Result
 
-The frozen Gemma4 + RWKV-MS outer-memory system now passes its preregistered
-native publisher-validation gate. The decoder and all task routing rules were
-locked on publisher-TRAIN-derived development data before the validation split
-was opened. Evaluation used the identical frozen
+The frozen Gemma4 + projected-slot outer-memory system now passes its
+preregistered native publisher-validation gate. The adapter is implemented in
+the repository's RWKV-MS-capable Delta-Mem runtime, but its active
+`memory_readout_mode=projected_kv_slots` bypasses the recurrent RWKV matrix
+scan. The decoder and all task routing rules were locked on publisher-TRAIN-
+derived development data before the validation split was opened. Evaluation
+used the identical frozen
 `google/gemma-4-E4B-it` comparator, greedy decoding, write-then-read online
 memory, the HF mirror, and four A100 GPUs.
 
@@ -33,11 +36,38 @@ memory improves every task. Its fixed task policy is:
 - attribution: frozen-base candidate likelihood;
 - narrative: use memory only for the preregistered
   `base=narration, memory=scene_description` label pair;
-- scene: use the RWKV-MS memory generation directly.
+- scene: use the projected-slot memory generation directly.
 
 The reported scope is 238 rows. Attribution source row 0 was excluded in the
 protocol before the final run because it had already been touched by historical
 runtime diagnostics. Publisher test and Hard32 remain unopened.
+
+### Native Mechanism Accounting
+
+The native validation, checkpoint-16, repair, and consistency-router results
+above and below establish a system-level gain from learned online outer memory.
+They do **not** establish that RWKV recurrence caused that gain. The frozen V9
+adapter declares `memory_backend=rwkv_ms`, but its
+`memory_readout_mode=projected_kv_slots` forward branch writes and reads four
+content-addressed projected key/value slots per wrapped layer without invoking
+the recurrent `_rwkv_ms_scan` path. In the native one-shot benchmark, one
+last-valid-token proposal is written per layer; the four-slot capacity matters
+for sessions containing multiple write calls.
+
+Accordingly, throughout the native-result sections:
+
+- “online state” means the complete captured adapter state, whose active signal
+  is the projected-slot key/value, occupancy, and surprise bundle;
+- “memory gain” means a gain from that projected-slot Q/O adapter and its fixed
+  task policy;
+- “RWKV recurrence gain” is not claimed and requires a new matched experiment
+  with `memory_readout_mode=delta`, verified recurrent-state mutation, and
+  correct-state versus zero/donor-state controls.
+
+This correction changes the mechanism attribution, not the signed predictions,
+metrics, validation split discipline, or accepted system-level result. The
+CPU RWKV-7 studies, recurrent tau2 experiments, and recurrent GGUF runtime
+documented later are separate paths and are not reinterpreted by this note.
 
 Reproducibility evidence:
 
@@ -49,6 +79,27 @@ Reproducibility evidence:
 - Independent replication seeds R12 and R13 each passed all 52 sealed checks:
   [R12](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r12_sealed_run_split20260825_seed53/evaluation.json)
   and [R13](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_gate_replication_r13_sealed_run_split20260826_seed54/evaluation.json)
+
+### Next Recurrent Goal
+
+The next experiment is now locked in
+[the recurrent RWKV-MS protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json).
+Its fresh all-42-layer candidate passed the structural recurrent-state audit and
+the FP32 causal activation preflight: correct state changed final logits by
+`3.48e-5`, while a complete layer permutation changed them by `3.67e-5`.
+The same fresh initialization had no measurable BF16 final-logit change because
+its initial recurrent readout is below BF16 quantization. That is a materiality
+issue to solve, not evidence of a native recurrent benchmark gain.
+
+The immediate gate is therefore a one-step BF16 calibration/materiality test on
+four A100s: verify nonzero recurrent-readout gradients and a post-update
+correct-state versus zero/donor-state effect before spending the three-seed,
+220-row matched benchmark. No protected split is authorized by this protocol.
+
+Evidence: [protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
+[activation preflight runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_rwkv_preflight.py),
+[signed activation result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_preflight_v2/result.json),
+[focused integrity tests](deltamem/tests/test_natural_memory_native_recurrent_rwkv_preflight.py).
 
 ### Post-Validation Mechanism Study
 
@@ -639,9 +690,10 @@ Full tables are in `EVAL.md`.
 
 The top-level DLA comparison is a training-free mechanism reproduction. It does
 not reproduce 50B-token pretraining or trained HRM-Text checkpoints. The
-separate Gemma4 + RWKV-MS experiments documented above and under
-`experiments/rethinking_rwkv_ms_gemma/` do include trained adapters and native
-downstream evaluation.
+separate Gemma4 online-memory experiments documented above and under
+`experiments/rethinking_rwkv_ms_gemma/` include both projected-slot and
+recurrent RWKV-MS readouts; the native validated V9 line is the projected-slot
+variant described in “Native Mechanism Accounting.”
 
 The HRM/RWKV baselines are self-contained ports of the memory recurrence ideas,
 not full imports of HRM-Text:

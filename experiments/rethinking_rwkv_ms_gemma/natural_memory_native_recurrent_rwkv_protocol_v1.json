@@ -1,0 +1,127 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_protocol.v1",
+  "created_at": "2026-08-15T09:05:19+08:00",
+  "objective": "Establish or reject a native benchmark claim specifically attributable to active recurrent RWKV-MS state, using a paired projected-slot control and causal state interventions on publisher-TRAIN-derived open data.",
+  "claim_repair": {
+    "accepted_native_v9_mechanism": "projected_kv_slots",
+    "accepted_native_v9_claim_retained": "The signed system-level online-memory benchmark result remains valid.",
+    "claim_withdrawn": "The accepted native V9 result is not evidence that RWKV recurrence caused the gain.",
+    "new_claim_gate": "No recurrent RWKV native-gain claim is allowed unless every mechanism and matched-comparison gate in this protocol passes."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "native_dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "open_fit_rows": 284,
+    "open_fit_payload_sha256": "5743ac67571f8359585402fb31579fef801f5804cc2f3b9874dccad795350c38",
+    "locked_probe_rows": 64,
+    "locked_probe_payload_sha256": "5c8a10f1e373ec6661481caf79bae340fdf5a92ab6afa9cf04e22f6bda254994",
+    "remaining_open_rows": 220,
+    "remaining_open_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "accepted_v9_adapter_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+    "accepted_v9_adapter_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "accepted_v9_readout": "projected_kv_slots",
+    "protected_splits_opened": []
+  },
+  "paired_architectures": {
+    "shared": {
+      "base_weights": "frozen",
+      "target_modules": ["self_attn"],
+      "target_layers": "0..41",
+      "rank": 32,
+      "alpha": 64,
+      "num_state_heads": 1,
+      "delta_heads": ["q", "o"],
+      "memory_fusion_mode": "content_gated_qo_add",
+      "memory_fusion_placement": "attention_output",
+      "trainable_delta_scale": true,
+      "delta_scale_max": 0.5,
+      "dtype": "bfloat16",
+      "attn_implementation": "sdpa"
+    },
+    "projected_control": {
+      "candidate_id": "fresh_projected_kv_slots",
+      "memory_backend": "rwkv_ms",
+      "memory_readout_mode": "projected_kv_slots",
+      "projected_kv_key_dim": 64,
+      "projected_kv_temperature": 16.0,
+      "slot_capacity": 4
+    },
+    "recurrent_candidate": {
+      "candidate_id": "fresh_recurrent_rwkv_ms",
+      "memory_backend": "rwkv_ms",
+      "memory_readout_mode": "delta",
+      "rwkv_ms_num_states": 4,
+      "rwkv_ms_chunk_size": 128,
+      "rwkv_ms_boundary_mode": "fixed_chunk",
+      "rwkv_ms_write_mode": "recurrent",
+      "rwkv_ms_semantics_version": 2,
+      "state_dtype": "float32"
+    },
+    "fairness_rule": "Both candidates start from fresh adapter initializations under the same three seeds. They receive identical ordered rows, optimizer updates, objectives, checkpoint opportunities, generation settings, and cross-fit selection. The accepted V9 and checkpoint-16 artifacts are reported as external reference lines, not treated as matched controls."
+  },
+  "runtime_preflight": {
+    "scope": "One fresh all-42-layer recurrent candidate on the pinned local Gemma base before training.",
+    "preflight_dtype": "float32",
+    "preflight_dtype_reason": "The fresh recurrent readout is initialized at a very small scale. BF16 forward quantization erased its initial final-logit perturbation even though recurrent matrices mutated; FP32 is used only to prove the path is causally connected before training. The paired benchmark candidates remain bfloat16.",
+    "required_checks": {
+      "all_42_wrappers_use_delta_readout": true,
+      "projected_kv_sidecars_absent": true,
+      "all_layer_position_counters_advance": true,
+      "all_layer_recurrent_matrix_states_nonzero_after_write": true,
+      "all_layer_previous_sources_nonzero_after_write": true,
+      "correct_state_read_changes_logits_vs_zero_state": true,
+      "correct_state_read_changes_logits_vs_layer_permuted_state": true,
+      "write_phase_uses_no_kv_cache": true,
+      "read_phase_disables_memory_writes": true
+    },
+    "failure_rule": "Any failed runtime check blocks training and is archived as a mechanism failure."
+  },
+  "training": {
+    "hardware": "four A100 40GB GPUs",
+    "distribution": "four-rank distributed data parallel training; gradient synchronization preserves one logical optimizer trajectory",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seeds": [57, 58, 59],
+    "bf16_calibration_gate": {
+      "required_before_benchmark_training": true,
+      "hardware": "four A100 40GB GPUs",
+      "checks": ["nonzero recurrent-readout gradients under bfloat16", "post-update correct-state versus zero-state logit materiality", "post-update correct-state versus matched-donor-state logit materiality"],
+      "failure_rule": "Do not launch the three-seed native benchmark if any BF16 calibration check fails."
+    },
+    "data_scope": "publisher-TRAIN-derived rows only",
+    "objective": "Identical native scene generation plus correct-state, zero-state, and different-gold write-length-matched donor contrast for both architectures.",
+    "checkpoint_selection": "Select independently per architecture and seed using only the locked 64-row probe; apply the selected checkpoint once to the remaining 220 open rows.",
+    "no_batch_size_substitution": "Multi-GPU scaling may increase throughput, but logical batch size and optimizer-step count remain matched between architectures and seeds."
+  },
+  "evaluation": {
+    "primary_rows": 220,
+    "conditions": ["correct_state", "matched_donor_state", "zero_state", "layer_permuted_correct_state"],
+    "generation": "greedy, identical native scene prompt and JSON recovery, max_new_tokens=128",
+    "primary_estimand": "mean recurrent-candidate micro-F1 minus mean projected-control micro-F1 across the three paired seeds",
+    "secondary_references": ["accepted_v9", "checkpoint_16", "frozen_gemma_base"],
+    "required_gates": {
+      "coverage_minimum": 0.95,
+      "mean_recurrent_minus_projected_micro_f1_minimum": 0.005,
+      "recurrent_nonnegative_vs_projected_seed_count_minimum": 2,
+      "mean_recurrent_correct_minus_donor_micro_f1_minimum": 0.005,
+      "mean_recurrent_correct_minus_zero_micro_f1_minimum": 0.02,
+      "mean_recurrent_correct_minus_layer_permuted_micro_f1_minimum": 0.005,
+      "paired_output_change_fraction_recurrent_vs_projected_minimum": 0.05
+    }
+  },
+  "claim_policy": {
+    "preflight_only": "May claim only that the recurrent path is active and behaviorally connected to logits.",
+    "matched_open_data_pass": "May claim TRAIN-derived evidence that recurrent RWKV-MS improves over the matched projected-slot control.",
+    "matched_open_data_failure": "Must report that active RWKV recurrence did not improve the matched native benchmark under this protocol.",
+    "protected_replication": "Requires a new preregistered protocol after this study passes; this protocol authorizes no protected evaluation."
+  },
+  "stopping_rule": "Run the FP32 runtime activation preflight first, then the locked four-GPU BF16 calibration gate. Only if both pass may the matched three-seed benchmark run; archive, commit, and push the complete pass or failure without opening publisher validation, publisher test, Hard32, or the unused 73-row strength holdout.",
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "2bf65e14682b416b39ea7d21aa8d25e6d49000a870b4b70a4129aa13e7253f29"
+  }
+}
