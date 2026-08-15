@@ -91,15 +91,30 @@ The same fresh initialization had no measurable BF16 final-logit change because
 its initial recurrent readout is below BF16 quantization. That is a materiality
 issue to solve, not evidence of a native recurrent benchmark gain.
 
-The immediate gate is therefore a one-step BF16 calibration/materiality test on
-four A100s: verify nonzero recurrent-readout gradients and a post-update
-correct-state versus zero/donor-state effect before spending the three-seed,
-220-row matched benchmark. No protected split is authorized by this protocol.
+That one-step BF16 calibration has now completed on four A100s and failed its
+materiality gates. All 42 recurrent readout tensors had finite, nonzero
+gradients, the adapter weights changed, and the global gradient norm was
+`3.05e-6`. Nevertheless, after the update the correct-state versus zero-state
+and correct-state versus matched-donor maximum final-logit deltas were exactly
+`0.0` on all four ranks. The recurrent path is active and trainable, but its
+correction is still erased at the BF16 fusion boundary. The locked three-seed,
+220-row matched benchmark is therefore blocked; more recurrent-only training
+under this architecture is not authorized.
+
+The next mechanism candidate is a carrier-controller hybrid: projected KV
+slots provide the material retrieval carrier while recurrent RWKV state applies
+a bounded residual or gate to that read. Its causal screen must keep projected
+keys and values fixed while replacing only the recurrent matrix, position, and
+previous-source bundle with zero, matched-donor, or layer-permuted state. No
+native recurrent-gain claim is allowed until that incremental effect is BF16-
+visible and beats the projected-only control on the locked open data.
 
 Evidence: [protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [activation preflight runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_rwkv_preflight.py),
 [signed activation result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_preflight_v2/result.json),
-[focused integrity tests](deltamem/tests/test_natural_memory_native_recurrent_rwkv_preflight.py).
+[BF16 calibration runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_rwkv_bf16_calibration.py),
+[signed BF16 failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
+and [focused integrity tests](deltamem/tests/test_natural_memory_native_recurrent_rwkv_bf16_calibration.py).
 
 ### Post-Validation Mechanism Study
 
