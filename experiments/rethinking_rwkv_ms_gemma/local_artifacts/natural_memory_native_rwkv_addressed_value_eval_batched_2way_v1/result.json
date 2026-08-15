@@ -1,0 +1,430 @@
+{
+  "artifacts": [
+    {
+      "kind": "input_binding",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-0-of-2/input_binding.json",
+      "sha256": "09839dd55a26027e6e439d29d988984d77c9793e8ed24944befb982a2a24bf83"
+    },
+    {
+      "condition": "correct_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-0-of-2/correct_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "172d5a80e241cbaf0c65249dde6216010ddde578c873ec20b91a2eb15a59bc60"
+    },
+    {
+      "condition": "zero_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-0-of-2/zero_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "81274ec7a4937c92541608fb5c4c419e20875acba4304ba3ecf524389946b640"
+    },
+    {
+      "condition": "matched_donor_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-0-of-2/matched_donor_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "f3d69cf0b41eca23cac277b2afb5a6341b798fd86952977f360b253f26c57640"
+    },
+    {
+      "condition": "layer_permuted_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-0-of-2/layer_permuted_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "1d81cffa3a32141af0087b744ea8ccc70500d0a87f4a21cd7b447ddbcbc6a0b1"
+    },
+    {
+      "condition": "empty_memory",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-0-of-2/empty_memory.jsonl",
+      "rows": 27,
+      "sha256": "ed6e76d32c7364ef4c124799d9e8124f7c62ee50ae6834386d91557fc5f9722b"
+    },
+    {
+      "kind": "input_binding",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-1-of-2/input_binding.json",
+      "sha256": "59be05f7121bb79ed47e6aa8a2a378dc79eb2bf78f14b0253e1d75e2c37f6b95"
+    },
+    {
+      "condition": "correct_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-1-of-2/correct_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "faa15c57b2dbc44c4e72b68ce7ed719d3e724b5de50ace4bcc406d58d0355926"
+    },
+    {
+      "condition": "zero_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-1-of-2/zero_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "a8eadacc5ee17dc8c873ce84ac59c07d0da96aae019bb59e37add75a867f0e5c"
+    },
+    {
+      "condition": "matched_donor_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-1-of-2/matched_donor_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "975b54a1b13fbf1d1ee1590f2df9c8bc017c6593a1e81a514cd2e296aefd587b"
+    },
+    {
+      "condition": "layer_permuted_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-1-of-2/layer_permuted_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "1ef18fe36d031fb67d4dfa1bfd9f54f8ecd524baaf81f00fba5d5e2c066b356e"
+    },
+    {
+      "condition": "empty_memory",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-0/partition-1-of-2/empty_memory.jsonl",
+      "rows": 27,
+      "sha256": "b62bae97479ba006d4e1c8dbe3f1a86b59432127a9f57886657c5d384ff3cd90"
+    },
+    {
+      "kind": "input_binding",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-0-of-2/input_binding.json",
+      "sha256": "db5e663fbbe8a1db295ba03ec166390ffd8469dff65247048597c9eabfdd5e0f"
+    },
+    {
+      "condition": "correct_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-0-of-2/correct_recurrent_state.jsonl",
+      "rows": 32,
+      "sha256": "56fed276a41b703212eb56b1f9b7814de4548e1ac0b68e9c5d31effd049307c6"
+    },
+    {
+      "condition": "zero_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-0-of-2/zero_recurrent_state.jsonl",
+      "rows": 32,
+      "sha256": "24efdf2e529cf554aea083c9b8ab793643f9594b55ed1d37bc4c829e704e7ba5"
+    },
+    {
+      "condition": "matched_donor_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-0-of-2/matched_donor_recurrent_state.jsonl",
+      "rows": 32,
+      "sha256": "63d7a38344177ffd9336d3484b8e81b0b0ea769fbef99bb144d92781fd8640f9"
+    },
+    {
+      "condition": "layer_permuted_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-0-of-2/layer_permuted_recurrent_state.jsonl",
+      "rows": 32,
+      "sha256": "76c9d77e0ef0e75bd86ece233e0d5c89a1c0934c880de7183bce83dff3839d65"
+    },
+    {
+      "condition": "empty_memory",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-0-of-2/empty_memory.jsonl",
+      "rows": 32,
+      "sha256": "f7dd26e6980a85f6377e17d2085f4c5ab45defc69e5b024b49b6b5949e769c0d"
+    },
+    {
+      "kind": "input_binding",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-1-of-2/input_binding.json",
+      "sha256": "80ace7dfc8cc73e334af119e39f2d1d5af5f926243c7cfb19cf001526626b31a"
+    },
+    {
+      "condition": "correct_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-1-of-2/correct_recurrent_state.jsonl",
+      "rows": 31,
+      "sha256": "125ecaf05e01cf85b645355dfe335836728cedff944f8d0296c0d5818937c874"
+    },
+    {
+      "condition": "zero_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-1-of-2/zero_recurrent_state.jsonl",
+      "rows": 31,
+      "sha256": "15d7a028259113f69a5041da896b760b47b538b3039df2f26aba24599ceac267"
+    },
+    {
+      "condition": "matched_donor_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-1-of-2/matched_donor_recurrent_state.jsonl",
+      "rows": 31,
+      "sha256": "0b247107eff1864d38b1a3cf1ab2481ec3436d512b52833e14d2dcd15584b0fb"
+    },
+    {
+      "condition": "layer_permuted_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-1-of-2/layer_permuted_recurrent_state.jsonl",
+      "rows": 31,
+      "sha256": "e77c61b98ab0515fa2d1ac332219526ca02caa13677f2c61012d165d0ddc7238"
+    },
+    {
+      "condition": "empty_memory",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-1/partition-1-of-2/empty_memory.jsonl",
+      "rows": 31,
+      "sha256": "52e5ec71e9e6a59b243da0710fb699fa0da60bd26cbaade7e3b3f20c44664fb0"
+    },
+    {
+      "kind": "input_binding",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-0-of-2/input_binding.json",
+      "sha256": "e373bd7f4fff6b0df26605d4f592be56f08b057864da6a3a3eddc894ec9575d3"
+    },
+    {
+      "condition": "correct_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-0-of-2/correct_recurrent_state.jsonl",
+      "rows": 24,
+      "sha256": "df60dadd8adf255516251c3edab78a2816a355023c6de2a04fb4e6b4c2f0c8b7"
+    },
+    {
+      "condition": "zero_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-0-of-2/zero_recurrent_state.jsonl",
+      "rows": 24,
+      "sha256": "d401385b9c524654f1609c01863aac4430a05940d610b34c9af80926c4d20c12"
+    },
+    {
+      "condition": "matched_donor_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-0-of-2/matched_donor_recurrent_state.jsonl",
+      "rows": 24,
+      "sha256": "1a05868d72d5ad2a03188c36bbc70e0b798b8218f60e7083bfd5c1b2f8945648"
+    },
+    {
+      "condition": "layer_permuted_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-0-of-2/layer_permuted_recurrent_state.jsonl",
+      "rows": 24,
+      "sha256": "3a50c8cb2fb7235d124be091c7b9aeb72191847e17aaa1461c21de5900ea036a"
+    },
+    {
+      "condition": "empty_memory",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-0-of-2/empty_memory.jsonl",
+      "rows": 24,
+      "sha256": "c99b16f52cdbf454a8fd7134466fd9bb8214c43af61b160e852b88a8568bcd23"
+    },
+    {
+      "kind": "input_binding",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-1-of-2/input_binding.json",
+      "sha256": "43a011f96967c854bfb16fb901bf936c0d4f5ff14f78552d5eb80bcea8a6af75"
+    },
+    {
+      "condition": "correct_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-1-of-2/correct_recurrent_state.jsonl",
+      "rows": 24,
+      "sha256": "340128a607bcd96106fce58650bbacee6d139ed4b3633049e54dd5ebe17fc950"
+    },
+    {
+      "condition": "zero_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-1-of-2/zero_recurrent_state.jsonl",
+      "rows": 24,
+      "sha256": "2219f9cab044203a6c306fe1568d61097ecedc6feff731462b188aa2e6ff4dc0"
+    },
+    {
+      "condition": "matched_donor_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-1-of-2/matched_donor_recurrent_state.jsonl",
+      "rows": 24,
+      "sha256": "05ed5704f038d414b7277f4ee79ae3e15b292aba3cb07ed7eec8686788391c40"
+    },
+    {
+      "condition": "layer_permuted_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-1-of-2/layer_permuted_recurrent_state.jsonl",
+      "rows": 24,
+      "sha256": "0fb9d755945659db4ae3fc6547df69a686ee38ad9608f30e71775ccd6e6b5185"
+    },
+    {
+      "condition": "empty_memory",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-2/partition-1-of-2/empty_memory.jsonl",
+      "rows": 24,
+      "sha256": "8980378a5908f90e40c3f00fd2fbaf563e2e9316c734951ad7e196976c976b4f"
+    },
+    {
+      "kind": "input_binding",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-0-of-2/input_binding.json",
+      "sha256": "df79e1e325629f28e534243d4d49b3304d5e5f647893fa1ee036e0648c9004ff"
+    },
+    {
+      "condition": "correct_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-0-of-2/correct_recurrent_state.jsonl",
+      "rows": 28,
+      "sha256": "82e6d6ab79ff0bfdaeea7fcc79f7f517af7eaf5373ef71f7f57d39e3d223371c"
+    },
+    {
+      "condition": "zero_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-0-of-2/zero_recurrent_state.jsonl",
+      "rows": 28,
+      "sha256": "ee7aca46e05a206929fea47b04ac5f2735bd27e7d468db31040101ac1594a44f"
+    },
+    {
+      "condition": "matched_donor_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-0-of-2/matched_donor_recurrent_state.jsonl",
+      "rows": 28,
+      "sha256": "dac834d1e98e32a2c39340167d2dcc3e40662071fd6a6763002df6aee7765de4"
+    },
+    {
+      "condition": "layer_permuted_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-0-of-2/layer_permuted_recurrent_state.jsonl",
+      "rows": 28,
+      "sha256": "0b61fb47c2be8fd6cd703f63e90daaecb1335dc638b9d260dd04e6eb938ac210"
+    },
+    {
+      "condition": "empty_memory",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-0-of-2/empty_memory.jsonl",
+      "rows": 28,
+      "sha256": "356dbfa3db24e4b48ba61c865c5f21d5d964958d7469482e12a21ba4032532af"
+    },
+    {
+      "kind": "input_binding",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-1-of-2/input_binding.json",
+      "sha256": "b2d42425f24864b6def767dd1cd25f7c6ca3f763761f02994d4de94fdc6954f6"
+    },
+    {
+      "condition": "correct_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-1-of-2/correct_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "24265852416bbfdbdcef7defd359e03139383354240a18ffec3f37ebe16892b5"
+    },
+    {
+      "condition": "zero_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-1-of-2/zero_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "2c4aa447216ed1c0a6e0a217baf84793adb0544b8a44c537abccabc529596525"
+    },
+    {
+      "condition": "matched_donor_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-1-of-2/matched_donor_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "7c0667f17364bafd48a21c558792ca139b8f94678170a10e79fda95469597030"
+    },
+    {
+      "condition": "layer_permuted_recurrent_state",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-1-of-2/layer_permuted_recurrent_state.jsonl",
+      "rows": 27,
+      "sha256": "f4a84cfd60e17cb48fa9e29435fb20051326a3dc9601e103b75808b74fd34432"
+    },
+    {
+      "condition": "empty_memory",
+      "kind": "predictions",
+      "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/shard-3/partition-1-of-2/empty_memory.jsonl",
+      "rows": 27,
+      "sha256": "255e1f56a94ae07568cd3dc54fa27a41941de8a515c4a207cabfe88f17c61963"
+    }
+  ],
+  "causal_margins": {
+    "correct_minus_empty_micro_f1": 0.0015184675067268782,
+    "correct_minus_layer_permuted_micro_f1": 0.0007262548478246256,
+    "correct_minus_matched_donor_micro_f1": 0.004139723034222109,
+    "correct_minus_zero_micro_f1": 0.0015184675067268782
+  },
+  "code_bindings": {
+    "analyzer_sha256": "84bc0007ea239fbcc5d4421e5f91ab12ee9f3b11c1844b08ab4cee4b3dcd7a84",
+    "evaluation_runner_sha256": "92edd8aee01a87e8f1a924ae694f42ea1942026b44e99e54357e7c67bf3da873",
+    "training_runner_sha256": "1f730b383e9f4e2a8f53b665e0d56c582884e2dd2cfb3ab7c444089ab5a1fc5d"
+  },
+  "condition_metrics": {
+    "correct_recurrent_state": {
+      "coverage": 0.9954545454545455,
+      "covered_rows": 219,
+      "fn": 102,
+      "fp": 1053,
+      "micro_f1": 0.1928721174004193,
+      "precision": 0.11586901763224182,
+      "recall": 0.575,
+      "rows": 220,
+      "tp": 138
+    },
+    "empty_memory": {
+      "coverage": 0.990909090909091,
+      "covered_rows": 218,
+      "fn": 105,
+      "fp": 1036,
+      "micro_f1": 0.1913536498936924,
+      "precision": 0.11528608027327071,
+      "recall": 0.5625,
+      "rows": 220,
+      "tp": 135
+    },
+    "layer_permuted_recurrent_state": {
+      "coverage": 0.9954545454545455,
+      "covered_rows": 219,
+      "fn": 103,
+      "fp": 1049,
+      "micro_f1": 0.19214586255259467,
+      "precision": 0.11551433389544688,
+      "recall": 0.5708333333333333,
+      "rows": 220,
+      "tp": 137
+    },
+    "matched_donor_recurrent_state": {
+      "coverage": 0.9954545454545455,
+      "covered_rows": 219,
+      "fn": 106,
+      "fp": 1046,
+      "micro_f1": 0.18873239436619718,
+      "precision": 0.1135593220338983,
+      "recall": 0.5583333333333333,
+      "rows": 220,
+      "tp": 134
+    },
+    "zero_recurrent_state": {
+      "coverage": 0.990909090909091,
+      "covered_rows": 218,
+      "fn": 105,
+      "fp": 1036,
+      "micro_f1": 0.1913536498936924,
+      "precision": 0.11528608027327071,
+      "recall": 0.5625,
+      "rows": 220,
+      "tp": 135
+    }
+  },
+  "gates": {
+    "correct_minus_empty_micro_f1_minimum": false,
+    "correct_minus_layer_permuted_micro_f1_minimum": false,
+    "correct_minus_matched_donor_micro_f1_minimum": false,
+    "correct_minus_zero_micro_f1_minimum": false,
+    "coverage_minimum_every_condition": true,
+    "projected_carrier_fixed_across_recurrent_interventions": true,
+    "zero_recurrent_exactly_matches_empty_memory_predictions": true
+  },
+  "native_recurrent_causal_gain_established": false,
+  "paired_output_change_fraction_vs_correct": {
+    "empty_memory": 0.09090909090909091,
+    "layer_permuted_recurrent_state": 0.06818181818181818,
+    "matched_donor_recurrent_state": 0.11363636363636363,
+    "zero_recurrent_state": 0.09090909090909091
+  },
+  "passed": false,
+  "protocol_payload_sha256": "15f84baa45e3c5c1aa8c9d7e3c1a20a936824103684911a90b21966ff81be23a",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "0aedbca3e4e98ab3d4325e8b291324a247ee06e1624152f7c20fd29c03f21a2d"
+  },
+  "rows": 220,
+  "schema": "rwkv_ms_natural_memory_native_addressed_value_result.v1",
+  "scope": {
+    "hard32_opened": false,
+    "publisher_test_opened": false,
+    "publisher_validation_predictions_opened": false,
+    "split": "publisher-TRAIN-derived authorized development partition",
+    "strength_holdout_opened": false
+  },
+  "seed": 60,
+  "status": "addressed_value_native_gain_not_established",
+  "thresholds": {
+    "causal_micro_f1_margin_minimum": 0.005,
+    "coverage_minimum": 0.95
+  }
+}

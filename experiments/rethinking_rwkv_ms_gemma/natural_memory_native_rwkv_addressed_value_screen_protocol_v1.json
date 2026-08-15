@@ -1,0 +1,103 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_addressed_value_screen_protocol.v1",
+  "created_at": "2026-08-15T23:30:00+08:00",
+  "objective": "Select or reject a recurrent-information-bottleneck readout in which projected keys address RWKV matrices and projected values cannot carry the answer.",
+  "authorization_basis": {
+    "prior_benchmark_status": "native_benchmark_gain_without_recurrent_causal_pass",
+    "prior_benchmark_result_file": "local_artifacts/natural_memory_native_projected_rwkv_hybrid_benchmark_eval_fee6ae1/result.json",
+    "prior_benchmark_result_receipt": "7cd97cf939012c831bff96cdcc5fcfcf52ad3f626409d339814798cfa3c0d397",
+    "prior_outcome": "The scalar-gate hybrid improved mean scene micro-F1 by 0.0073008631 over fresh projected controls, but correct recurrent state lost to zero and matched-donor controls and missed the layer-permutation margin.",
+    "architectural_response": "Remove projected values from the directional content path. Projected keys select a recurrent slot; the selected RWKV matrix read supplies the complete bounded memory value."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "calibration_source_ordinals": [718, 1149, 918, 76],
+    "calibration_rows_payload_sha256": "b77caeb963647569648244a8927de9693347bb159de48f5a21d59738169cfe5a",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "base_weights": "frozen",
+    "target_modules": ["self_attn"],
+    "target_layers": "0..41",
+    "rank": 32,
+    "alpha": 64,
+    "num_state_heads": 1,
+    "delta_heads": ["q", "o"],
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "rwkv_ms_hybrid_mode": "addressed_value",
+    "memory_fusion_mode": "content_gated_qo_add",
+    "memory_fusion_placement": "attention_output",
+    "projected_kv_key_dim": 64,
+    "projected_kv_temperature": 16.0,
+    "projected_slot_capacity": 4,
+    "rwkv_ms_num_states": 4,
+    "rwkv_ms_chunk_size": 128,
+    "rwkv_ms_boundary_mode": "fixed_chunk",
+    "rwkv_ms_write_mode": "recurrent",
+    "rwkv_ms_semantics_version": 2,
+    "rwkv_state_dtype": "float32",
+    "backbone_dtype": "bfloat16",
+    "read_equation": "gain * tanh(addressed_rwkv_read / max(rms(addressed_rwkv_read), 1e-6))",
+    "bottleneck_invariants": {
+      "zero_recurrent_state_produces_zero_memory_read": true,
+      "projected_values_do_not_affect_memory_read": true,
+      "projected_routes_address_rwkv_state_slots": true
+    }
+  },
+  "candidate_grid": [
+    {"candidate_id": "addressed_value_g003125", "hybrid_mode": "addressed_value", "hybrid_gain": 0.03125},
+    {"candidate_id": "addressed_value_g00625", "hybrid_mode": "addressed_value", "hybrid_gain": 0.0625},
+    {"candidate_id": "addressed_value_g0125", "hybrid_mode": "addressed_value", "hybrid_gain": 0.125},
+    {"candidate_id": "addressed_value_g025", "hybrid_mode": "addressed_value", "hybrid_gain": 0.25}
+  ],
+  "causal_conditions": {
+    "correct": "Correct-row projected address bundle plus correct-row recurrent matrix, position, and previous-source bundle.",
+    "zero_recurrent": "Correct-row projected bundle held byte-identical while all recurrent tensors are zero.",
+    "matched_donor_recurrent": "Correct-row projected bundle held byte-identical while recurrent tensors come from the locked different-gold, write-length-matched donor.",
+    "layer_permuted_recurrent": "Correct-row projected bundle held byte-identical while complete recurrent bundles rotate by one wrapped layer.",
+    "zero_projected_values": "Correct recurrent and projected address tensors with every projected value tensor zeroed.",
+    "empty_memory": "All projected and recurrent online-state tensors zeroed."
+  },
+  "execution": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one already-open source/donor pair per rank; no optimizer update",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 57,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "evaluation": "teacher-forced answer logits on the native read sequence",
+    "fresh_initialization": true
+  },
+  "required_candidate_gates": {
+    "projected_carrier_hash_fixed_across_recurrent_interventions": true,
+    "zero_recurrent_exactly_equals_empty_memory": true,
+    "correct_exactly_equals_zero_projected_values": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_empty_max_abs_logit_delta_maximum_on_every_rank": 16.0,
+    "all_condition_logits_finite": true
+  },
+  "selection_rule": "Select the lowest gain passing every gate on every rank; break an exact tie by the smaller worst-rank correct-versus-empty maximum logit delta and then candidate_id.",
+  "stopping_rule": {
+    "pass": "A selected candidate authorizes only a separately locked one-update causal-gradient calibration on the same already-open rows.",
+    "failure": "Archive the failure and change the recurrent value equation or state addressing before any training.",
+    "always": "Archive, commit, and push the result."
+  },
+  "claim_policy": {
+    "screen_pass": "May claim only that the structural recurrent bottleneck is BF16-visible, bounded, and sensitive to row-correct and layer-correct RWKV state under fresh initialization.",
+    "native_gain": "Forbidden without later training and evaluation on an authorized open native development partition.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "14d07fa6a9513015f0b3c020f761ec66bd875463354aa1d7c5ba6b64a3ddfa13"
+  }
+}

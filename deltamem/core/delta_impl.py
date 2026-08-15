@@ -65,7 +65,12 @@ VALID_MEMORY_READOUT_MODES = (
 PROJECTED_KV_MEMORY_READOUT_MODES = frozenset(
     {"projected_kv_slots", "projected_kv_rwkv_hybrid"}
 )
-VALID_RWKV_MS_HYBRID_MODES = ("residual", "vector_gate", "scalar_gate")
+VALID_RWKV_MS_HYBRID_MODES = (
+    "residual",
+    "vector_gate",
+    "scalar_gate",
+    "addressed_value",
+)
 VALID_MEMORY_WRITE_SOURCES = ("learned_hidden",)
 VALID_MEMORY_WRITE_GRANULARITIES = (
     "token",
@@ -3120,6 +3125,65 @@ class DeltaMemAttention(nn.Module):
         read_inputs = read_inputs.to(dtype=features.g.dtype)
         return self.hrm_rwkv7_core.readout(read_inputs, features.g)
 
+    def _rwkv_ms_addressed_token_state_reads(
+        self,
+        state: torch.Tensor,
+        memory_source_seq: torch.Tensor,
+        projected_routes: torch.Tensor,
+        token_mask: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        batch_size, seq_len, _ = memory_source_seq.shape
+        expected_routes_shape = (batch_size, seq_len, self.rwkv_ms_num_states)
+        if tuple(projected_routes.shape) != expected_routes_shape:
+            raise ValueError(
+                "Projected routes must match RWKV-MS addressed read shape: "
+                f"expected={expected_routes_shape} "
+                f"actual={tuple(projected_routes.shape)}"
+            )
+        if self.hrm_rwkv7_core is None:  # pragma: no cover
+            raise RuntimeError("RWKV-MS backend requires HRM RWKV-7 core")
+        previous_source = self.rwkv_ms_previous_source
+        if previous_source is not None:
+            expected_previous_shape = (batch_size, self.state_read_dim)
+            if previous_source.shape != expected_previous_shape:
+                previous_source = None
+            else:
+                previous_source = previous_source.to(
+                    device=memory_source_seq.device,
+                    dtype=memory_source_seq.dtype,
+                )
+        features = self.hrm_rwkv7_core.project(
+            memory_source_seq,
+            previous_x=previous_source,
+            token_mask=token_mask,
+            advance_within_sequence=False,
+        )
+        r_seq = self._rwkv_ms_project_heads(features.r).float()
+        slot_reads = torch.einsum(
+            "bhsij,bthj->bthsi",
+            state.float(),
+            r_seq,
+        )
+        routes = projected_routes.to(
+            device=slot_reads.device,
+            dtype=slot_reads.dtype,
+        )
+        if token_mask is not None:
+            routes = routes * token_mask.to(
+                device=routes.device,
+                dtype=routes.dtype,
+            ).unsqueeze(-1)
+        read_inputs = torch.einsum(
+            "bts,bthsi->bthi",
+            routes,
+            slot_reads,
+        ).reshape(batch_size, seq_len, self.state_read_dim)
+        self.last_read_routes = routes
+        return self.hrm_rwkv7_core.readout(
+            read_inputs.to(dtype=features.g.dtype),
+            features.g,
+        )
+
     def _memory_backend_scan(
         self,
         state: torch.Tensor,
@@ -3806,6 +3870,8 @@ class DeltaMemAttention(nn.Module):
                 * F.normalize(recurrent, dim=-1, eps=1e-6)
             ).sum(dim=-1, keepdim=True)
             fused = projected * (1.0 + gain * alignment.clamp(-1.0, 1.0))
+        elif self.rwkv_ms_hybrid_mode == "addressed_value":
+            fused = gain * recurrent_direction
         else:  # pragma: no cover - configuration validation is authoritative
             raise RuntimeError(
                 f"Unsupported RWKV-MS hybrid mode: {self.rwkv_ms_hybrid_mode}"
@@ -3849,12 +3915,24 @@ class DeltaMemAttention(nn.Module):
         else:
             projected_reads = self._projected_kv_slot_token_reads(hidden_states)
             projected_routes = self.last_read_routes
-            recurrent_reads = self._memory_backend_token_reads(
-                state,
-                token_memory_v_seq,
-                None,
-                token_mask,
-            )
+            if self.rwkv_ms_hybrid_mode == "addressed_value":
+                recurrent_reads = (
+                    torch.zeros_like(projected_reads)
+                    if projected_routes is None
+                    else self._rwkv_ms_addressed_token_state_reads(
+                        state,
+                        token_memory_v_seq,
+                        projected_routes,
+                        token_mask,
+                    )
+                )
+            else:
+                recurrent_reads = self._memory_backend_token_reads(
+                    state,
+                    token_memory_v_seq,
+                    None,
+                    token_mask,
+                )
             reads = self._fuse_projected_rwkv_reads(
                 projected_reads,
                 recurrent_reads,

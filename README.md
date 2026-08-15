@@ -123,16 +123,39 @@ RWKV recurrent state did not cause the improvement.** The signed result status
 is `native_benchmark_gain_without_recurrent_causal_pass`; its canonical receipt
 is `7cd97cf939012c831bff96cdcc5fcfcf52ad3f626409d339814798cfa3c0d397`.
 
-The next experiment changes the information path instead of increasing the
-same scalar gate. Projected KV slots will provide address/location information
-only; a bounded RWKV-derived value residual will provide the retrieved content
-and will be exactly zero for zero recurrent state. The projected carrier will
-be frozen after addressing, and training will include explicit zero-state,
-matched-donor, and layer-permuted causal margins. Candidates must first pass
-all three causal margins on already-open publisher-TRAIN-derived development
-rows before any new three-seed benchmark is locked. Publisher validation,
-publisher test, Hard32, and the unused strength holdout remain unopened and
-unauthorized.
+The first information-bottleneck replacement, `addressed_value`, has now been
+tested. Projected keys supplied address/location information, projected values
+were excluded from the output path, and the complete bounded memory value came
+from the selected RWKV matrix. Zero recurrent state therefore produced exactly
+zero memory read, and zeroing every projected value was bit-exactly inert. The
+lowest-gain candidate (`0.03125`) passed the four-A100 structural screen: the
+minimum correct-versus-zero, donor, and layer-permuted maximum logit deltas were
+`1.375`, `1.28125`, and `1.3125`. Its separately locked one-update calibration
+also passed, with finite nonzero recurrent-readout gradients in all 42 layers
+and global gradient norm `0.008994`.
+
+Eight causal-contrast updates completed, but their mean training margins did
+not stabilize in the desired direction: zero-minus-correct CE was `-0.00467`,
+donor-minus-correct was `-0.00596`, and layer-permuted-minus-correct was
+`+0.00148`. On the authorized 220-row publisher-TRAIN-derived native
+development partition, correct recurrent state scored `0.19287` micro-F1,
+versus `0.19135` for zero/empty, `0.18873` for a matched donor, and `0.19215`
+for layer-permuted recurrence. Every comparison was directionally positive,
+but the margins (`+0.00152`, `+0.00414`, and `+0.00073`) all missed the locked
+`+0.005` threshold. The valid status is therefore
+`addressed_value_native_gain_not_established`, not recurrent native success.
+
+The likely limitation is address/write misalignment rather than insufficient
+readout magnitude. A native write normally creates one projected proposal in
+projected slot 0, while the recurrent scan writes successive 128-token chunks
+to RWKV slots 0 through 3. The current addressed read consequently tends to
+query RWKV slot 0 even when later chunks occupy other matrices. The next
+candidate is `chunk_addressed_value`: create one projected key per recurrent
+chunk and store it in the exact slot selected by the RWKV write scan, while
+keeping projected values unused. It must repeat the structural, one-update,
+causal-training, and native gates before any protected split is opened.
+Publisher validation, publisher test, Hard32, and the unused strength holdout
+remain unopened and unauthorized.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -147,7 +170,16 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [benchmark training runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_projected_rwkv_hybrid_benchmark_train.py),
 [benchmark evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_projected_rwkv_hybrid_benchmark_eval.py),
 [hash-bound benchmark analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_projected_rwkv_hybrid_benchmark.py),
-and [focused integrity tests](deltamem/tests/test_natural_memory_native_projected_rwkv_hybrid_bf16_calibration.py).
+[addressed-value screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_value_screen_protocol_v1.json),
+[signed addressed-value screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_screen_v1/result.json),
+[addressed-value calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_value_calibration_protocol_v1.json),
+[signed addressed-value calibration](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_calibration_v1/result.json),
+[causal-training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_value_causal_train_protocol_v1.json),
+[signed causal-training endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_causal_train_v1/result.json),
+[signed addressed-value native result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/result.json),
+[addressed-value runners](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_value_screen.py),
+[hash-bound addressed-value analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_addressed_value_eval.py),
+and [focused integrity tests](deltamem/tests/test_natural_memory_native_rwkv_addressed_value_screen.py).
 
 ### Post-Validation Mechanism Study
 

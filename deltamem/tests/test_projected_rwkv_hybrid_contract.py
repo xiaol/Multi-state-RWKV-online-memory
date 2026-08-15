@@ -56,7 +56,22 @@ def test_hybrid_modes_preserve_projected_carrier_for_zero_rwkv_state(
     assert torch.equal(fused, projected)
 
 
-@pytest.mark.parametrize("mode", ("residual", "vector_gate", "scalar_gate"))
+def test_addressed_value_requires_recurrent_state() -> None:
+    module = _module(hybrid_mode="addressed_value", hybrid_gain=0.25)
+    projected = torch.randn(2, 3, module.state_read_dim)
+
+    fused = module._fuse_projected_rwkv_reads(
+        projected,
+        torch.zeros_like(projected),
+    )
+
+    assert torch.equal(fused, torch.zeros_like(projected))
+
+
+@pytest.mark.parametrize(
+    "mode",
+    ("residual", "vector_gate", "scalar_gate", "addressed_value"),
+)
 def test_hybrid_modes_are_sensitive_to_nonzero_rwkv_read(mode: str) -> None:
     module = _module(hybrid_mode=mode, hybrid_gain=0.25)
     projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
@@ -66,6 +81,63 @@ def test_hybrid_modes_are_sensitive_to_nonzero_rwkv_read(mode: str) -> None:
 
     assert torch.isfinite(fused).all()
     assert not torch.equal(fused, projected)
+
+
+def test_addressed_value_is_bounded_and_ignores_projected_values() -> None:
+    module = _module(hybrid_mode="addressed_value", hybrid_gain=0.25)
+    projected = torch.randn(2, 3, module.state_read_dim) * 1000.0
+    recurrent = torch.randn_like(projected) * 1000.0
+
+    fused = module._fuse_projected_rwkv_reads(projected, recurrent)
+
+    assert float(fused.abs().max()) <= 0.25
+
+
+def test_addressed_value_step_uses_projected_routes_not_projected_values() -> None:
+    module = _module(hybrid_mode="addressed_value", hybrid_gain=0.5)
+    module.set_write_enabled(False)
+    hidden = torch.randn(1, 3, module.hidden_size)
+    token_mask = torch.ones(1, 3, dtype=torch.bool)
+    state = torch.randn(
+        1,
+        module.num_state_heads,
+        module.rwkv_ms_num_states,
+        module.rank,
+        module.rank,
+    )
+    module.projected_kv_keys = torch.randn(
+        1,
+        module.rwkv_ms_num_states,
+        module.projected_kv_key_dim,
+    )
+    module.projected_kv_occupied = torch.ones(
+        1,
+        module.rwkv_ms_num_states,
+        dtype=torch.bool,
+    )
+    module.projected_kv_surprise = torch.ones(1, module.rwkv_ms_num_states)
+    module.projected_kv_values = torch.randn(
+        1,
+        module.rwkv_ms_num_states,
+        module.state_read_dim,
+    )
+
+    _, first_reads, _, _ = module._projected_rwkv_hybrid_step(
+        state,
+        hidden,
+        token_mask,
+    )
+    first_routes = module.last_read_routes.detach().clone()
+    module.projected_kv_values = torch.randn_like(module.projected_kv_values) * 1000.0
+    _, second_reads, _, _ = module._projected_rwkv_hybrid_step(
+        state,
+        hidden,
+        token_mask,
+    )
+
+    assert torch.equal(module.last_read_routes, first_routes)
+    assert torch.equal(second_reads, first_reads)
+    assert torch.count_nonzero(first_reads).item() > 0
 
 
 def test_hybrid_write_populates_projected_and_recurrent_state() -> None:

@@ -1,0 +1,88 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_addressed_value_calibration_protocol.v1",
+  "created_at": "2026-08-16T03:35:00+08:00",
+  "objective": "Verify that one BF16 optimizer update trains every recurrent readout in the selected addressed-value bottleneck without breaking its structural causal invariants.",
+  "authorization_basis": {
+    "screen_protocol_payload_sha256": "14d07fa6a9513015f0b3c020f761ec66bd875463354aa1d7c5ba6b64a3ddfa13",
+    "screen_result_file": "local_artifacts/natural_memory_native_rwkv_addressed_value_screen_v1/result.json",
+    "screen_result_file_sha256": "d6206d155a8fc967fae83a6de17a9e513f8b416142694c9fdf1f49d8806a18e1",
+    "screen_result_receipt": "e985f1a507cd459e3266c79a7ceb2c62afe2e259f0ea0f64d732536955de1773",
+    "screen_status": "screen_passed_causal_calibration_authorized",
+    "selected_candidate": {
+      "candidate_id": "addressed_value_g003125",
+      "hybrid_mode": "addressed_value",
+      "hybrid_gain": 0.03125
+    }
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "calibration_source_ordinals": [718, 1149, 918, 76],
+    "calibration_rows_payload_sha256": "b77caeb963647569648244a8927de9693347bb159de48f5a21d59738169cfe5a",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "rwkv_ms_hybrid_mode": "addressed_value",
+    "rwkv_ms_hybrid_gain": 0.03125,
+    "projected_kv_key_dim": 64,
+    "rwkv_ms_write_mode": "recurrent",
+    "rwkv_ms_semantics_version": 2,
+    "backbone_dtype": "bfloat16",
+    "trainable_master_dtype": "float32"
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one locked already-open row per rank with summed gradients",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 57,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0002,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 1.0,
+    "optimizer_updates": 1,
+    "logical_global_batch_rows": 4,
+    "objective": "native teacher-forced answer cross-entropy with correct addressed RWKV state"
+  },
+  "post_update_conditions": [
+    "correct",
+    "zero_recurrent",
+    "matched_donor_recurrent",
+    "layer_permuted_recurrent",
+    "zero_projected_values",
+    "empty_memory"
+  ],
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_42_recurrent_output_gradients_finite_nonzero": true,
+    "optimizer_update_changed_adapter": true,
+    "optimizer_update_changed_recurrent_output_weights": true,
+    "projected_carrier_hash_fixed_across_recurrent_interventions": true,
+    "zero_recurrent_exactly_equals_empty_memory": true,
+    "correct_exactly_equals_zero_projected_values": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "all_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize only a separately locked causal-contrast training screen on already-open publisher-TRAIN-derived rows.",
+    "failure": "Block training and redesign the addressed recurrent value path.",
+    "always": "Archive, commit, and push the result."
+  },
+  "claim_policy": {
+    "calibration_pass": "May claim trainability and preserved structural causal sensitivity only.",
+    "native_gain": "Forbidden until an authorized open native development evaluation passes correct-versus-zero, donor, and layer-permuted margins.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "6e9951cb636cc645357acfa8cc550d3c34c07f5b3d9e17125da0c7ad1a1c54b4"
+  }
+}
