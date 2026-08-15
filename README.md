@@ -178,14 +178,39 @@ micro-F1, versus `0.19135` for zero/empty, `0.19350` for the matched donor, and
 `+0.00087`, `-0.00128`, and `-0.00092`, all below `+0.005`. The signed status is
 `chunk_addressed_value_native_gain_not_established`.
 
-Exact external chunk addressing is therefore not the way out. The next hybrid
-will keep the bounded recurrent-only value bottleneck but use RWKV's internal
-content router across all recurrent slots (`recurrent_value`) instead of using
-projected keys to select a matrix. The complete projected bundle must be
-causally inert, zero recurrent state must still produce exact zero readout, and
-the same structural and training gates apply before another native generation
-run. Publisher validation, publisher test, Hard32, and the unused strength
-holdout remain unopened and unauthorized.
+Exact external chunk addressing was therefore not the way out. The next hybrid,
+`recurrent_value`, removed projected addressing from the read path entirely.
+RWKV's own cosine router scored all nonempty recurrent slots, and the bounded
+read was `0.03125 * tanh(read / rms(read))`. Zeroing projected keys, values,
+occupancy, and surprise was bit-exactly inert, while zero, donor, and layer-
+permuted recurrent interventions were material on every A100 rank.
+
+The one-update calibration passed with finite nonzero recurrent-output
+gradients in all 42 layers and global gradient norm `0.009567`. The first
+causal-training preflight then correctly rejected 42 inactive
+`projected_kv_key_proj` tensors: they had remained in the optimizer even though
+the architecture could not read them. Protocol v2 froze exactly that read-inert
+family. Its fresh preflight had zero inactive trainables, and the fixed eight-
+update run completed with every recurrent gradient and carrier audit intact.
+The mean teacher-forced margins nevertheless remained negative:
+zero-minus-correct CE was `-0.00406`, donor-minus-correct was `-0.00549`, and
+layer-permuted-minus-correct was `-0.00243`.
+
+The authorized 220-row native generation result also failed. Correct recurrent
+state scored `0.18967` micro-F1, versus `0.19135` for zero/empty, `0.19195` for
+the matched donor, and `0.18936` for layer-permuted recurrence. The locked
+margins were `-0.00169`, `-0.00229`, and `+0.00031`, all below `+0.005`; the
+signed status is `recurrent_value_native_gain_not_established` with receipt
+`1eecbb4a345e4bee390025089082757f7981e7147965e655d7c382952cf078b7`.
+
+The next bounded method targets a concrete remaining defect rather than adding
+another external template. Internal RWKV routing currently applies softmax to
+raw cosine scores at temperature `1`, which can mix four slots nearly uniformly.
+The next screen will compare temperature-sharpened and top-k internal routing,
+while keeping the projected bundle read-inert and retaining the same zero,
+donor, layer-permuted, and protected-split gates. Publisher validation,
+publisher test, Hard32, and the unused strength holdout remain unopened and
+unauthorized.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -218,7 +243,17 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [signed chunk-addressed native result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_chunk_addressed_value_eval_v1/result.json),
 [chunk-addressed evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_chunk_addressed_value_eval.py),
 [hash-bound chunk-addressed analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_chunk_addressed_value_eval.py),
-and [focused chunk-addressed tests](deltamem/tests/test_natural_memory_native_rwkv_chunk_addressed_value_screen.py).
+[focused chunk-addressed tests](deltamem/tests/test_natural_memory_native_rwkv_chunk_addressed_value_screen.py),
+[recurrent-value screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_screen_protocol_v1.json),
+[signed recurrent-value screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_screen_v1/result.json),
+[recurrent-value calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_calibration_protocol_v1.json),
+[signed recurrent-value calibration](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_calibration_v1/result.json),
+[corrected causal-training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_causal_train_protocol_v2.json),
+[signed recurrent-value training endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_causal_train_v1/result.json),
+[signed recurrent-value native result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_eval_v1/result.json),
+[recurrent-value evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_recurrent_value_eval.py),
+[hash-bound recurrent-value analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_recurrent_value_eval.py),
+and [focused recurrent-value tests](deltamem/tests/test_natural_memory_native_rwkv_recurrent_value_eval.py).
 
 ### Post-Validation Mechanism Study
 

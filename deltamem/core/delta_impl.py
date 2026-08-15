@@ -71,9 +71,13 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "scalar_gate",
     "addressed_value",
     "chunk_addressed_value",
+    "recurrent_value",
 )
 RWKV_MS_ADDRESSED_VALUE_MODES = frozenset(
     {"addressed_value", "chunk_addressed_value"}
+)
+RWKV_MS_VALUE_BOTTLENECK_MODES = (
+    RWKV_MS_ADDRESSED_VALUE_MODES | {"recurrent_value"}
 )
 VALID_MEMORY_WRITE_SOURCES = ("learned_hidden",)
 VALID_MEMORY_WRITE_GRANULARITIES = (
@@ -3959,7 +3963,7 @@ class DeltaMemAttention(nn.Module):
                 * F.normalize(recurrent, dim=-1, eps=1e-6)
             ).sum(dim=-1, keepdim=True)
             fused = projected * (1.0 + gain * alignment.clamp(-1.0, 1.0))
-        elif self.rwkv_ms_hybrid_mode in RWKV_MS_ADDRESSED_VALUE_MODES:
+        elif self.rwkv_ms_hybrid_mode in RWKV_MS_VALUE_BOTTLENECK_MODES:
             fused = gain * recurrent_direction
         else:  # pragma: no cover - configuration validation is authoritative
             raise RuntimeError(
@@ -4005,8 +4009,18 @@ class DeltaMemAttention(nn.Module):
             self.last_read_routes = None
             self.last_read_route_logits = None
         else:
-            projected_reads = self._projected_kv_slot_token_reads(hidden_states)
-            projected_routes = self.last_read_routes
+            if self.rwkv_ms_hybrid_mode == "recurrent_value":
+                projected_reads = torch.zeros(
+                    hidden_states.size(0),
+                    hidden_states.size(1),
+                    self.state_read_dim,
+                    device=hidden_states.device,
+                    dtype=self.memory_v_proj.dtype,
+                )
+                projected_routes = None
+            else:
+                projected_reads = self._projected_kv_slot_token_reads(hidden_states)
+                projected_routes = self.last_read_routes
             if self.rwkv_ms_hybrid_mode in RWKV_MS_ADDRESSED_VALUE_MODES:
                 recurrent_reads = (
                     torch.zeros_like(projected_reads)
@@ -4025,11 +4039,16 @@ class DeltaMemAttention(nn.Module):
                     None,
                     token_mask,
                 )
+            recurrent_routes = self.last_read_routes
             reads = self._fuse_projected_rwkv_reads(
                 projected_reads,
                 recurrent_reads,
             )
-            self.last_read_routes = projected_routes
+            self.last_read_routes = (
+                recurrent_routes
+                if self.rwkv_ms_hybrid_mode == "recurrent_value"
+                else projected_routes
+            )
             self.last_write_routes = None
         return state, reads, beta_seq, lambda_seq
 

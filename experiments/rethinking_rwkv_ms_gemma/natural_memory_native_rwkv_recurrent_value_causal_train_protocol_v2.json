@@ -1,0 +1,123 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_value_causal_train_protocol.v2",
+  "created_at": "2026-08-16T07:10:00+08:00",
+  "objective": "Train the internally routed recurrent-value RWKV bottleneck on the same locked schedule as the addressed-value runs, excluding the provably read-inert projected router from optimization, before measuring native causal margins.",
+  "authorization_basis": {
+    "calibration_protocol_payload_sha256": "57d8ba4f2b1010afecc969d452cda706d29b24c73a6de9836f2e67df9b94f12a",
+    "calibration_result_file": "local_artifacts/natural_memory_native_rwkv_recurrent_value_calibration_v1/result.json",
+    "calibration_result_file_sha256": "9e04b66f80feb9a6fbbdf1bff0286aa062f9b23151f5f730f33ecc9559318c0d",
+    "calibration_result_receipt": "d3fcc0f91dcdc2ffeb7c2567f36e6b71318fe02648c0b236f4499ff2ee9dfc18",
+    "calibration_status": "calibration_passed_causal_training_authorized",
+    "selected_candidate": {
+      "candidate_id": "recurrent_value_g003125",
+      "hybrid_mode": "recurrent_value",
+      "hybrid_gain": 0.03125
+    },
+    "failed_preflight_v1": {
+      "protocol_payload_sha256": "a964200b1b5b9dd3ea8f9ab65f90be63279c9ff60fe0f4bb93a06fd0e4a5ebd8",
+      "input_binding_file": "local_artifacts/natural_memory_native_rwkv_recurrent_value_causal_preflight_v1/input_binding.json",
+      "input_binding_file_sha256": "c21331058ac8dee68799c5f520c07b627f0f0b43d4ca0a35a6d0fe9f96742e5c",
+      "runner_sha256": "78ba3eb626681c07de563117901f874b91397f546f10fb7011fb7a1ea47056d6",
+      "observed_exception": "RuntimeError: Addressed causal optimizer has inactive parameters",
+      "diagnosis": "The complete projected bundle is causally inert in recurrent_value mode, but v1 still included each layer's projected_kv_key_proj in the optimizer."
+    }
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "training_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "training_file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "training_schedule_prefix_updates": 8,
+    "training_rows": 64,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "base_weights": "frozen",
+    "target_modules": ["self_attn"],
+    "target_layers": "0..41",
+    "rank": 32,
+    "alpha": 64,
+    "num_state_heads": 1,
+    "delta_heads": ["q", "o"],
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "rwkv_ms_hybrid_mode": "recurrent_value",
+    "rwkv_ms_hybrid_gain": 0.03125,
+    "projected_slot_capacity": 4,
+    "rwkv_ms_num_states": 4,
+    "rwkv_ms_chunk_size": 128,
+    "rwkv_ms_internal_router": "cosine over recurrent slots",
+    "projected_bundle_role": "causally inert on read",
+    "rwkv_ms_write_mode": "recurrent",
+    "rwkv_ms_semantics_version": 2,
+    "backbone_dtype": "bfloat16",
+    "trainable_master_dtype": "float32",
+    "trainable_isolation": {
+      "frozen_parameter_suffix": ".projected_kv_key_proj",
+      "expected_frozen_tensors": 42,
+      "reason": "This parameter family only constructs a projected carrier that recurrent_value does not read."
+    }
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "two rows per rank with explicitly summed gradients",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 60,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "preflight_optimizer_updates": 1,
+    "screen_optimizer_updates": 8,
+    "positive_objective": "native scene answer cross-entropy with correct internally routed recurrent state",
+    "causal_controls": ["zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"],
+    "intervention_invariant": "The complete projected key, value, occupancy, and surprise bundle remains the correct-row tensors for donor and layer-permuted controls even though it is read-inert.",
+    "contrast_weight_per_active_control": 0.25,
+    "contrast_margin": 0.05,
+    "hinge": "max(0, margin + CE_correct - CE_control) for each causal control",
+    "checkpoint_selection": "none; evaluate only the fixed update-8 endpoint"
+  },
+  "required_training_gates": {
+    "four_distinct_a100_ranks": true,
+    "exactly_42_projected_router_tensors_frozen": true,
+    "all_trainable_gradients_finite": true,
+    "no_globally_inactive_trainable_parameters": true,
+    "all_42_recurrent_output_gradients_finite_nonzero_on_first_update": true,
+    "optimizer_changed_adapter": true,
+    "optimizer_changed_recurrent_subset": true,
+    "projected_carrier_fixed_for_donor_and_layer_permuted_controls": true
+  },
+  "next_evaluation_if_passed": {
+    "source": "The already-open 220-row publisher-TRAIN-derived development partition only.",
+    "conditions": ["correct", "zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent", "empty_memory"],
+    "required_native_margins": {
+      "correct_minus_empty_micro_f1_minimum": 0.005,
+      "correct_minus_zero_micro_f1_minimum": 0.005,
+      "correct_minus_matched_donor_micro_f1_minimum": 0.005,
+      "correct_minus_layer_permuted_micro_f1_minimum": 0.005
+    },
+    "protected_splits_opened": []
+  },
+  "stopping_rule": {
+    "preflight": "Run exactly one update first; launch update-8 training only if every preflight gate passes.",
+    "training_pass": "Authorize only the locked already-open 220-row native development evaluation.",
+    "training_failure": "Block evaluation and archive the failure.",
+    "always": "Archive, commit, and push the result."
+  },
+  "claim_policy": {
+    "training_pass": "May claim causal-contrast optimization completed and recurrent controls were structurally fixed during training.",
+    "native_gain": "Forbidden until the separately analyzed generation evaluation passes all four native micro-F1 margins.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "1c632f06bd77161a05b26212b0f64fc104bf8a5d2ec7d9dc3e4406cb86a4eb3c"
+  }
+}

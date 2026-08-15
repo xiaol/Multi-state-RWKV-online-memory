@@ -76,6 +76,7 @@ def test_addressed_value_requires_recurrent_state() -> None:
         "scalar_gate",
         "addressed_value",
         "chunk_addressed_value",
+        "recurrent_value",
     ),
 )
 def test_hybrid_modes_are_sensitive_to_nonzero_rwkv_read(mode: str) -> None:
@@ -143,6 +144,56 @@ def test_addressed_value_step_uses_projected_routes_not_projected_values() -> No
 
     assert torch.equal(module.last_read_routes, first_routes)
     assert torch.equal(second_reads, first_reads)
+    assert torch.count_nonzero(first_reads).item() > 0
+
+
+def test_recurrent_value_step_ignores_complete_projected_bundle() -> None:
+    module = _module(hybrid_mode="recurrent_value", hybrid_gain=0.5)
+    module.set_write_enabled(False)
+    hidden = torch.randn(1, 3, module.hidden_size)
+    token_mask = torch.ones(1, 3, dtype=torch.bool)
+    state = torch.randn(
+        1,
+        module.num_state_heads,
+        module.rwkv_ms_num_states,
+        module.rank,
+        module.rank,
+    )
+    module.projected_kv_keys = torch.randn(
+        1,
+        module.rwkv_ms_num_states,
+        module.projected_kv_key_dim,
+    )
+    module.projected_kv_values = torch.randn(
+        1,
+        module.rwkv_ms_num_states,
+        module.state_read_dim,
+    )
+    module.projected_kv_occupied = torch.ones(
+        1,
+        module.rwkv_ms_num_states,
+        dtype=torch.bool,
+    )
+    module.projected_kv_surprise = torch.ones(1, module.rwkv_ms_num_states)
+
+    _, first_reads, _, _ = module._projected_rwkv_hybrid_step(
+        state,
+        hidden,
+        token_mask,
+    )
+    first_routes = module.last_read_routes.detach().clone()
+    module.projected_kv_keys = torch.randn_like(module.projected_kv_keys) * 1000.0
+    module.projected_kv_values = torch.randn_like(module.projected_kv_values) * 1000.0
+    module.projected_kv_occupied.zero_()
+    module.projected_kv_surprise = torch.randn_like(module.projected_kv_surprise)
+    _, second_reads, _, _ = module._projected_rwkv_hybrid_step(
+        state,
+        hidden,
+        token_mask,
+    )
+
+    assert torch.equal(second_reads, first_reads)
+    assert torch.equal(module.last_read_routes, first_routes)
     assert torch.count_nonzero(first_reads).item() > 0
 
 
