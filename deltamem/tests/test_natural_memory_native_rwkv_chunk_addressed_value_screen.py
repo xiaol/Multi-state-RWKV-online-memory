@@ -3,7 +3,16 @@ from __future__ import annotations
 import torch
 
 from experiments.rethinking_rwkv_ms_gemma import (
+    analyze_natural_memory_native_rwkv_chunk_addressed_value_eval as analyzer,
+)
+from experiments.rethinking_rwkv_ms_gemma import (
     run_natural_memory_native_rwkv_chunk_addressed_value_calibration as calibration,
+)
+from experiments.rethinking_rwkv_ms_gemma import (
+    run_natural_memory_native_rwkv_chunk_addressed_value_causal_train as causal_train,
+)
+from experiments.rethinking_rwkv_ms_gemma import (
+    run_natural_memory_native_rwkv_chunk_addressed_value_eval as chunk_eval,
 )
 from experiments.rethinking_rwkv_ms_gemma import (
     run_natural_memory_native_rwkv_chunk_addressed_value_screen as screen,
@@ -33,6 +42,40 @@ def test_calibration_protocol_and_screen_binding_validate() -> None:
 
     assert protocol["receipt"]["payload_sha256"] == calibration.PROTOCOL_PAYLOAD_SHA256
     assert result["receipt"]["payload_sha256"] == calibration.SCREEN_RESULT_RECEIPT
+
+
+def test_causal_training_protocol_and_calibration_binding_validate() -> None:
+    protocol = causal_train.validate_protocol()
+    result = causal_train.validate_calibration_result()
+
+    assert protocol["receipt"]["payload_sha256"] == causal_train.PROTOCOL_PAYLOAD_SHA256
+    assert result["receipt"]["payload_sha256"] == causal_train.CALIBRATION_RESULT_RECEIPT
+
+
+def test_evaluation_training_binding_validates() -> None:
+    result_path = (
+        causal_train.SCRIPT_DIR
+        / "local_artifacts/"
+        "natural_memory_native_rwkv_chunk_addressed_value_causal_train_v1/"
+        "result.json"
+    )
+    result = chunk_eval.validate_train_result(
+        result_path,
+        adapter_dir=result_path.parent / "adapter",
+    )
+
+    assert result["open_native_evaluation_authorized"] is True
+
+
+def test_chunk_analyzer_aggregates_micro_f1() -> None:
+    records = {
+        1: {"score": {"tp": 2, "fp": 1, "fn": 0, "covered": True}},
+        2: {"score": {"tp": 0, "fp": 1, "fn": 2, "covered": False}},
+    }
+
+    metrics = analyzer.aggregate_condition(records)
+
+    assert metrics["micro_f1"] == 0.5
 
 
 def test_chunk_alignment_evidence_requires_matching_nonzero_slots() -> None:
