@@ -1,0 +1,4712 @@
+{
+  "attn_implementation": "sdpa",
+  "authorization_binding": {
+    "prior_result": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/result.json",
+    "prior_result_file_sha256": "67e54650ae6ed6dd26402b51c1a264d0f631f1f88d07c127c7a083579484fce1",
+    "prior_result_receipt": "0aedbca3e4e98ab3d4325e8b291324a247ee06e1624152f7c20fd29c03f21a2d",
+    "prior_result_status": "addressed_value_native_gain_not_established"
+  },
+  "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "calibration_rows_payload_sha256": "b77caeb963647569648244a8927de9693347bb159de48f5a21d59738169cfe5a",
+  "candidate_results": [
+    {
+      "candidate_id": "chunk_addressed_value_g003125",
+      "checks": {
+        "all_condition_logits_finite_on_all_ranks": true,
+        "at_least_two_aligned_slots_occupied_on_all_ranks": false,
+        "correct_exactly_equals_zero_projected_values_on_all_ranks": true,
+        "correct_vs_empty_bounded_on_all_ranks": true,
+        "correct_vs_layer_permuted_material_on_all_ranks": true,
+        "correct_vs_matched_donor_material_on_all_ranks": true,
+        "correct_vs_zero_material_on_all_ranks": true,
+        "projected_and_recurrent_occupied_slots_match_on_all_ranks": false,
+        "projected_carrier_fixed_on_all_ranks": true,
+        "projected_values_exactly_zero_on_all_ranks": false,
+        "zero_recurrent_exactly_equals_empty_memory_on_all_ranks": true
+      },
+      "hybrid_gain": 0.03125,
+      "hybrid_mode": "chunk_addressed_value",
+      "median_rank_correct_vs_empty_max_abs_logit_delta": 1.38330078125,
+      "minimum_rank_correct_vs_donor_max_abs_logit_delta": 1.236328125,
+      "minimum_rank_correct_vs_layer_permuted_max_abs_logit_delta": 1.3203125,
+      "minimum_rank_correct_vs_zero_max_abs_logit_delta": 1.25,
+      "passed": false,
+      "rank_results": [
+        {
+          "candidate_id": "chunk_addressed_value_g003125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8167106628417968,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4375,
+            "mean_abs_logit_delta": 0.15502893924713135,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7637214660644531,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.6875,
+            "mean_abs_logit_delta": 0.1357405036687851,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7754222869873046,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4130859375,
+            "mean_abs_logit_delta": 0.15234731137752533,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8167106628417968,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4375,
+            "mean_abs_logit_delta": 0.15502893924713135,
+            "passed": true
+          },
+          "hybrid_gain": 0.03125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g003125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8391955239432198,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.14813664555549622,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7919831957135882,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.37890625,
+            "mean_abs_logit_delta": 0.11659789085388184,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8413145882742745,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.13553869724273682,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8391955239432198,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.14813664555549622,
+            "passed": true
+          },
+          "hybrid_gain": 0.03125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g003125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8300258636474609,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.1647539883852005,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8009834289550781,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.40625,
+            "mean_abs_logit_delta": 0.14719557762145996,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8204254150390625,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.1569247543811798,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8300258636474609,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.1647539883852005,
+            "passed": true
+          },
+          "hybrid_gain": 0.03125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g003125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.744232871315696,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4228515625,
+            "mean_abs_logit_delta": 0.11191931366920471,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.771484375,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3203125,
+            "mean_abs_logit_delta": 0.11851010471582413,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7544763738458807,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.236328125,
+            "mean_abs_logit_delta": 0.10936138778924942,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.744232871315696,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4228515625,
+            "mean_abs_logit_delta": 0.11191931366920471,
+            "passed": true
+          },
+          "hybrid_gain": 0.03125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        }
+      ],
+      "worst_rank_correct_vs_empty_max_abs_logit_delta": 1.4375
+    },
+    {
+      "candidate_id": "chunk_addressed_value_g00625",
+      "checks": {
+        "all_condition_logits_finite_on_all_ranks": true,
+        "at_least_two_aligned_slots_occupied_on_all_ranks": false,
+        "correct_exactly_equals_zero_projected_values_on_all_ranks": true,
+        "correct_vs_empty_bounded_on_all_ranks": true,
+        "correct_vs_layer_permuted_material_on_all_ranks": true,
+        "correct_vs_matched_donor_material_on_all_ranks": true,
+        "correct_vs_zero_material_on_all_ranks": true,
+        "projected_and_recurrent_occupied_slots_match_on_all_ranks": false,
+        "projected_carrier_fixed_on_all_ranks": true,
+        "projected_values_exactly_zero_on_all_ranks": false,
+        "zero_recurrent_exactly_equals_empty_memory_on_all_ranks": true
+      },
+      "hybrid_gain": 0.0625,
+      "hybrid_mode": "chunk_addressed_value",
+      "median_rank_correct_vs_empty_max_abs_logit_delta": 1.4375,
+      "minimum_rank_correct_vs_donor_max_abs_logit_delta": 1.25,
+      "minimum_rank_correct_vs_layer_permuted_max_abs_logit_delta": 1.46875,
+      "minimum_rank_correct_vs_zero_max_abs_logit_delta": 1.34375,
+      "passed": false,
+      "rank_results": [
+        {
+          "candidate_id": "chunk_addressed_value_g00625",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7775730133056641,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5,
+            "mean_abs_logit_delta": 0.1326448917388916,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.782284927368164,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.46875,
+            "mean_abs_logit_delta": 0.1357232630252838,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8097476959228516,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3359375,
+            "mean_abs_logit_delta": 0.14313676953315735,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7775730133056641,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5,
+            "mean_abs_logit_delta": 0.1326448917388916,
+            "passed": true
+          },
+          "hybrid_gain": 0.0625,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g00625",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8360001700265067,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.375,
+            "mean_abs_logit_delta": 0.13329067826271057,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8620902470179966,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5,
+            "mean_abs_logit_delta": 0.1461101621389389,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8084310804094587,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.1161809042096138,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8360001700265067,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.375,
+            "mean_abs_logit_delta": 0.13329067826271057,
+            "passed": true
+          },
+          "hybrid_gain": 0.0625,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g00625",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8082496643066406,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5625,
+            "mean_abs_logit_delta": 0.16584184765815735,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8322235107421875,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.625,
+            "mean_abs_logit_delta": 0.17666642367839813,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8261322021484375,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.28125,
+            "mean_abs_logit_delta": 0.1489751785993576,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8082496643066406,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5625,
+            "mean_abs_logit_delta": 0.16584184765815735,
+            "passed": true
+          },
+          "hybrid_gain": 0.0625,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g00625",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7961626919833097,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.1340917944908142,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8096400174227628,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.53515625,
+            "mean_abs_logit_delta": 0.15242832899093628,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8151519081809304,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.14368119835853577,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7961626919833097,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.1340917944908142,
+            "passed": true
+          },
+          "hybrid_gain": 0.0625,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        }
+      ],
+      "worst_rank_correct_vs_empty_max_abs_logit_delta": 1.5625
+    },
+    {
+      "candidate_id": "chunk_addressed_value_g0125",
+      "checks": {
+        "all_condition_logits_finite_on_all_ranks": true,
+        "at_least_two_aligned_slots_occupied_on_all_ranks": false,
+        "correct_exactly_equals_zero_projected_values_on_all_ranks": true,
+        "correct_vs_empty_bounded_on_all_ranks": true,
+        "correct_vs_layer_permuted_material_on_all_ranks": true,
+        "correct_vs_matched_donor_material_on_all_ranks": true,
+        "correct_vs_zero_material_on_all_ranks": true,
+        "projected_and_recurrent_occupied_slots_match_on_all_ranks": false,
+        "projected_carrier_fixed_on_all_ranks": true,
+        "projected_values_exactly_zero_on_all_ranks": false,
+        "zero_recurrent_exactly_equals_empty_memory_on_all_ranks": true
+      },
+      "hybrid_gain": 0.125,
+      "hybrid_mode": "chunk_addressed_value",
+      "median_rank_correct_vs_empty_max_abs_logit_delta": 1.328125,
+      "minimum_rank_correct_vs_donor_max_abs_logit_delta": 1.3125,
+      "minimum_rank_correct_vs_layer_permuted_max_abs_logit_delta": 1.1875,
+      "minimum_rank_correct_vs_zero_max_abs_logit_delta": 1.21875,
+      "passed": false,
+      "rank_results": [
+        {
+          "candidate_id": "chunk_addressed_value_g0125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8348976135253906,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.40625,
+            "mean_abs_logit_delta": 0.16170091927051544,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8123699188232422,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.71875,
+            "mean_abs_logit_delta": 0.16836991906166077,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7696853637695312,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4375,
+            "mean_abs_logit_delta": 0.12984402477741241,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8348976135253906,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.40625,
+            "mean_abs_logit_delta": 0.16170091927051544,
+            "passed": true
+          },
+          "hybrid_gain": 0.125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g0125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8255062103271484,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.625,
+            "mean_abs_logit_delta": 0.12962280213832855,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7873388017926898,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.46875,
+            "mean_abs_logit_delta": 0.11063182353973389,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8352323259626117,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.13431178033351898,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8255062103271484,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.625,
+            "mean_abs_logit_delta": 0.12962280213832855,
+            "passed": true
+          },
+          "hybrid_gain": 0.125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g0125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7413089752197266,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.21875,
+            "mean_abs_logit_delta": 0.11418309062719345,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7800830841064453,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4375,
+            "mean_abs_logit_delta": 0.13028016686439514,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7871265411376953,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.13851578533649445,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7413089752197266,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.21875,
+            "mean_abs_logit_delta": 0.11418309062719345,
+            "passed": true
+          },
+          "hybrid_gain": 0.125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g0125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7863384593616832,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.14306755363941193,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8199899846857245,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.1875,
+            "mean_abs_logit_delta": 0.14643825590610504,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8268612948330966,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.13688288629055023,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7863384593616832,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.14306755363941193,
+            "passed": true
+          },
+          "hybrid_gain": 0.125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        }
+      ],
+      "worst_rank_correct_vs_empty_max_abs_logit_delta": 1.625
+    },
+    {
+      "candidate_id": "chunk_addressed_value_g025",
+      "checks": {
+        "all_condition_logits_finite_on_all_ranks": true,
+        "at_least_two_aligned_slots_occupied_on_all_ranks": false,
+        "correct_exactly_equals_zero_projected_values_on_all_ranks": true,
+        "correct_vs_empty_bounded_on_all_ranks": true,
+        "correct_vs_layer_permuted_material_on_all_ranks": true,
+        "correct_vs_matched_donor_material_on_all_ranks": true,
+        "correct_vs_zero_material_on_all_ranks": true,
+        "projected_and_recurrent_occupied_slots_match_on_all_ranks": false,
+        "projected_carrier_fixed_on_all_ranks": true,
+        "projected_values_exactly_zero_on_all_ranks": false,
+        "zero_recurrent_exactly_equals_empty_memory_on_all_ranks": true
+      },
+      "hybrid_gain": 0.25,
+      "hybrid_mode": "chunk_addressed_value",
+      "median_rank_correct_vs_empty_max_abs_logit_delta": 1.3671875,
+      "minimum_rank_correct_vs_donor_max_abs_logit_delta": 1.3125,
+      "minimum_rank_correct_vs_layer_permuted_max_abs_logit_delta": 1.1875,
+      "minimum_rank_correct_vs_zero_max_abs_logit_delta": 1.25390625,
+      "passed": false,
+      "rank_results": [
+        {
+          "candidate_id": "chunk_addressed_value_g025",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.734478759765625,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25390625,
+            "mean_abs_logit_delta": 0.1135685071349144,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8057094573974609,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5625,
+            "mean_abs_logit_delta": 0.14686313271522522,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7617931365966797,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.126871258020401,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.734478759765625,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25390625,
+            "mean_abs_logit_delta": 0.1135685071349144,
+            "passed": true
+          },
+          "hybrid_gain": 0.25,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g025",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8285342625209263,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5615234375,
+            "mean_abs_logit_delta": 0.1348114162683487,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.820378167288644,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.71875,
+            "mean_abs_logit_delta": 0.1468900889158249,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.802668707711356,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.46875,
+            "mean_abs_logit_delta": 0.11806188523769379,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8285342625209263,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5615234375,
+            "mean_abs_logit_delta": 0.1348114162683487,
+            "passed": true
+          },
+          "hybrid_gain": 0.25,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g025",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7811302185058594,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.375,
+            "mean_abs_logit_delta": 0.1430671364068985,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7815895080566406,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.28125,
+            "mean_abs_logit_delta": 0.1429213285446167,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8488552093505859,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.18090541660785675,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7811302185058594,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.375,
+            "mean_abs_logit_delta": 0.1430671364068985,
+            "passed": true
+          },
+          "hybrid_gain": 0.25,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g025",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7964730696244673,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.359375,
+            "mean_abs_logit_delta": 0.13344471156597137,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7848916487260298,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.1875,
+            "mean_abs_logit_delta": 0.1246744692325592,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7874305031516335,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.37890625,
+            "mean_abs_logit_delta": 0.14138095080852509,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7964730696244673,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.359375,
+            "mean_abs_logit_delta": 0.13344471156597137,
+            "passed": true
+          },
+          "hybrid_gain": 0.25,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        }
+      ],
+      "worst_rank_correct_vs_empty_max_abs_logit_delta": 1.5615234375
+    }
+  ],
+  "causal_gradient_calibration_authorized": false,
+  "checks": {
+    "candidate_selected": false,
+    "four_distinct_a100_ranks": true
+  },
+  "code_bindings": {
+    "addressed_screen_helper_sha256": "b42cb3455679b1799a72b262958df5fd5a85211bc5b37730c24c70309309d654",
+    "delta_impl_sha256": "8c8e24d4cd62134a757fdae4353a266a6fc1833a43fb22919274d4af67953005",
+    "distributed_sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d",
+    "prior_result_file_sha256": "67e54650ae6ed6dd26402b51c1a264d0f631f1f88d07c127c7a083579484fce1",
+    "protocol_file_sha256": "ffc526ef9df060a463403710efe04743249f3e9a40563af90272b289e0d018e4",
+    "runner_sha256": "5da5935da8ab37b504a2691022a72b7ab3aee6b9e58c314535f734c7fc6cc208",
+    "rwkv_core_sha256": "b7a07054c150af53f7293a3844e08e00d77d5451676c414e58e225045e4121a1"
+  },
+  "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "dtype": "bfloat16",
+  "hf_endpoint": "https://hf-mirror.com",
+  "initial_adapter_sha256": "1e905b0cd6a0393ab596bffe92b94ef423523c0dd6f72c2c37d41a47a21b211e",
+  "model_audit": {
+    "all_wrappers_chunk_addressed_value": true,
+    "all_wrappers_hybrid": true,
+    "replaced_layers": 42,
+    "trainable_parameter_names_sha256": "88bf815d6915d21bc4a93385da1c1eac6f803614981841a7e899f367ca458bf7",
+    "trainable_parameter_tensors": 1302,
+    "wrapped_layers": 42
+  },
+  "native_benchmark_authorized": false,
+  "passed": false,
+  "protected_splits_opened": [],
+  "protocol_objective": "Test whether exact projected-key/RWKV-chunk slot alignment preserves the addressed-value bottleneck while making every recurrent chunk content-addressable.",
+  "protocol_payload_sha256": "527f9512ab5cb7af4151d3b7f1c073a6744d1697527e8f4c62eb97a0be2f6b50",
+  "rank_devices": [
+    {
+      "device_index": 0,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 0,
+      "pid": 1921466,
+      "process_rank": 0
+    },
+    {
+      "device_index": 1,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 1,
+      "pid": 1921467,
+      "process_rank": 1
+    },
+    {
+      "device_index": 2,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 2,
+      "pid": 1921468,
+      "process_rank": 2
+    },
+    {
+      "device_index": 3,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 3,
+      "pid": 1921469,
+      "process_rank": 3
+    }
+  ],
+  "rank_evidence": [
+    {
+      "absolute_write_token_delta": 11,
+      "candidates": [
+        {
+          "candidate_id": "chunk_addressed_value_g003125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8167106628417968,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4375,
+            "mean_abs_logit_delta": 0.15502893924713135,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7637214660644531,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.6875,
+            "mean_abs_logit_delta": 0.1357405036687851,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7754222869873046,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4130859375,
+            "mean_abs_logit_delta": 0.15234731137752533,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8167106628417968,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4375,
+            "mean_abs_logit_delta": 0.15502893924713135,
+            "passed": true
+          },
+          "hybrid_gain": 0.03125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g00625",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7775730133056641,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5,
+            "mean_abs_logit_delta": 0.1326448917388916,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.782284927368164,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.46875,
+            "mean_abs_logit_delta": 0.1357232630252838,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8097476959228516,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3359375,
+            "mean_abs_logit_delta": 0.14313676953315735,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7775730133056641,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5,
+            "mean_abs_logit_delta": 0.1326448917388916,
+            "passed": true
+          },
+          "hybrid_gain": 0.0625,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g0125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8348976135253906,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.40625,
+            "mean_abs_logit_delta": 0.16170091927051544,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8123699188232422,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.71875,
+            "mean_abs_logit_delta": 0.16836991906166077,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7696853637695312,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4375,
+            "mean_abs_logit_delta": 0.12984402477741241,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8348976135253906,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.40625,
+            "mean_abs_logit_delta": 0.16170091927051544,
+            "passed": true
+          },
+          "hybrid_gain": 0.125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g025",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.734478759765625,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25390625,
+            "mean_abs_logit_delta": 0.1135685071349144,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8057094573974609,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5625,
+            "mean_abs_logit_delta": 0.14686313271522522,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7617931365966797,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.126871258020401,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.734478759765625,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25390625,
+            "mean_abs_logit_delta": 0.1135685071349144,
+            "passed": true
+          },
+          "hybrid_gain": 0.25,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        }
+      ],
+      "correct_chunk_alignment": {
+        "all_layer_occupied_slots_match": false,
+        "at_least_two_aligned_slots_on_every_layer": false,
+        "layers": [
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.0.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.1.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.2.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.3.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.4.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.5.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.6.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.7.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.8.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.9.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.10.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.11.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.12.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.13.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.14.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.15.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.16.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.17.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.18.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.19.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.20.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.21.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.22.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.23.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.24.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.25.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.26.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.27.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.28.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.29.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.30.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.31.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.32.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.33.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.34.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.35.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.36.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.37.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.38.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.39.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.40.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.41.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          }
+        ],
+        "projected_values_exactly_zero_on_every_layer": false
+      },
+      "donor_chunk_alignment": {
+        "all_layer_occupied_slots_match": false,
+        "at_least_two_aligned_slots_on_every_layer": false,
+        "layers": [
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.0.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.1.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.2.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.3.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.4.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.5.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.6.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.7.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.8.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.9.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.10.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.11.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.12.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.13.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.14.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.15.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.16.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.17.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.18.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.19.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.20.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.21.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.22.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.23.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.24.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.25.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.26.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.27.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.28.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.29.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.30.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.31.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.32.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.33.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.34.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.35.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.36.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.37.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.38.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.39.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.40.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.41.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          }
+        ],
+        "projected_values_exactly_zero_on_every_layer": false
+      },
+      "donor_ordinal": 1149,
+      "donor_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "donor_write_tokens": 210,
+      "peak_cuda_memory_bytes": 16075143680,
+      "projected_carrier_fixed_across_recurrent_interventions": true,
+      "projected_carrier_hashes": {
+        "correct": "5a7db83b137a2de6d083c5bbd19c37c21fdf2780b8aba6858010cd24b8b8f55d",
+        "layer_permuted_recurrent": "5a7db83b137a2de6d083c5bbd19c37c21fdf2780b8aba6858010cd24b8b8f55d",
+        "matched_donor_recurrent": "5a7db83b137a2de6d083c5bbd19c37c21fdf2780b8aba6858010cd24b8b8f55d",
+        "zero_recurrent": "5a7db83b137a2de6d083c5bbd19c37c21fdf2780b8aba6858010cd24b8b8f55d"
+      },
+      "rank": 0,
+      "source_ordinal": 718,
+      "source_read_tokens": 209,
+      "source_row_sha256": "d50047bdadf2068dfce0dd6dfd2eb0c2575cbb0ac4b417136da9e206fad9fad6",
+      "source_write_tokens": 199
+    },
+    {
+      "absolute_write_token_delta": 5,
+      "candidates": [
+        {
+          "candidate_id": "chunk_addressed_value_g003125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8391955239432198,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.14813664555549622,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7919831957135882,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.37890625,
+            "mean_abs_logit_delta": 0.11659789085388184,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8413145882742745,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.13553869724273682,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8391955239432198,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.14813664555549622,
+            "passed": true
+          },
+          "hybrid_gain": 0.03125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g00625",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8360001700265067,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.375,
+            "mean_abs_logit_delta": 0.13329067826271057,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8620902470179966,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5,
+            "mean_abs_logit_delta": 0.1461101621389389,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8084310804094587,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.1161809042096138,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8360001700265067,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.375,
+            "mean_abs_logit_delta": 0.13329067826271057,
+            "passed": true
+          },
+          "hybrid_gain": 0.0625,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g0125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8255062103271484,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.625,
+            "mean_abs_logit_delta": 0.12962280213832855,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7873388017926898,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.46875,
+            "mean_abs_logit_delta": 0.11063182353973389,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8352323259626117,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.13431178033351898,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8255062103271484,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.625,
+            "mean_abs_logit_delta": 0.12962280213832855,
+            "passed": true
+          },
+          "hybrid_gain": 0.125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g025",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8285342625209263,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5615234375,
+            "mean_abs_logit_delta": 0.1348114162683487,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.820378167288644,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.71875,
+            "mean_abs_logit_delta": 0.1468900889158249,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.802668707711356,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.46875,
+            "mean_abs_logit_delta": 0.11806188523769379,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8285342625209263,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5615234375,
+            "mean_abs_logit_delta": 0.1348114162683487,
+            "passed": true
+          },
+          "hybrid_gain": 0.25,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        }
+      ],
+      "correct_chunk_alignment": {
+        "all_layer_occupied_slots_match": false,
+        "at_least_two_aligned_slots_on_every_layer": false,
+        "layers": [
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.0.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.1.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.2.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.3.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.4.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.5.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.6.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.7.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.8.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.9.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.10.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.11.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.12.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.13.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.14.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.15.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.16.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.17.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.18.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.19.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.20.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.21.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.22.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.23.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.24.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.25.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.26.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.27.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.28.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.29.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.30.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.31.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.32.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.33.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.34.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.35.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.36.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.37.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.38.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.39.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.40.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.41.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          }
+        ],
+        "projected_values_exactly_zero_on_every_layer": false
+      },
+      "donor_chunk_alignment": {
+        "all_layer_occupied_slots_match": false,
+        "at_least_two_aligned_slots_on_every_layer": false,
+        "layers": [
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.0.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.1.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.2.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.3.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.4.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.5.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.6.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.7.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.8.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.9.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.10.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.11.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.12.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.13.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.14.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.15.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.16.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.17.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.18.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.19.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.20.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.21.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.22.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.23.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.24.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.25.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.26.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.27.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.28.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.29.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.30.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.31.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.32.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.33.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.34.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.35.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.36.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.37.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.38.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.39.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.40.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.41.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          }
+        ],
+        "projected_values_exactly_zero_on_every_layer": false
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "peak_cuda_memory_bytes": 16076317184,
+      "projected_carrier_fixed_across_recurrent_interventions": true,
+      "projected_carrier_hashes": {
+        "correct": "fc57489839c768299ee382ed769ce7cc75dab58b7966069cfe9b2d91f0b0d0da",
+        "layer_permuted_recurrent": "fc57489839c768299ee382ed769ce7cc75dab58b7966069cfe9b2d91f0b0d0da",
+        "matched_donor_recurrent": "fc57489839c768299ee382ed769ce7cc75dab58b7966069cfe9b2d91f0b0d0da",
+        "zero_recurrent": "fc57489839c768299ee382ed769ce7cc75dab58b7966069cfe9b2d91f0b0d0da"
+      },
+      "rank": 1,
+      "source_ordinal": 1149,
+      "source_read_tokens": 224,
+      "source_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "source_write_tokens": 210
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidates": [
+        {
+          "candidate_id": "chunk_addressed_value_g003125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8300258636474609,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.1647539883852005,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8009834289550781,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.40625,
+            "mean_abs_logit_delta": 0.14719557762145996,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8204254150390625,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.1569247543811798,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8300258636474609,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.1647539883852005,
+            "passed": true
+          },
+          "hybrid_gain": 0.03125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g00625",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8082496643066406,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5625,
+            "mean_abs_logit_delta": 0.16584184765815735,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8322235107421875,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.625,
+            "mean_abs_logit_delta": 0.17666642367839813,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8261322021484375,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.28125,
+            "mean_abs_logit_delta": 0.1489751785993576,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8082496643066406,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.5625,
+            "mean_abs_logit_delta": 0.16584184765815735,
+            "passed": true
+          },
+          "hybrid_gain": 0.0625,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g0125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7413089752197266,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.21875,
+            "mean_abs_logit_delta": 0.11418309062719345,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7800830841064453,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4375,
+            "mean_abs_logit_delta": 0.13028016686439514,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7871265411376953,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.13851578533649445,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7413089752197266,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.21875,
+            "mean_abs_logit_delta": 0.11418309062719345,
+            "passed": true
+          },
+          "hybrid_gain": 0.125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g025",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7811302185058594,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.375,
+            "mean_abs_logit_delta": 0.1430671364068985,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7815895080566406,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.28125,
+            "mean_abs_logit_delta": 0.1429213285446167,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8488552093505859,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.18090541660785675,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7811302185058594,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.375,
+            "mean_abs_logit_delta": 0.1430671364068985,
+            "passed": true
+          },
+          "hybrid_gain": 0.25,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        }
+      ],
+      "correct_chunk_alignment": {
+        "all_layer_occupied_slots_match": false,
+        "at_least_two_aligned_slots_on_every_layer": false,
+        "layers": [
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.0.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.1.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.2.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.3.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.4.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.5.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.6.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.7.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.8.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.9.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.10.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.11.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.12.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.13.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.14.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.15.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.16.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.17.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.18.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.19.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.20.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.21.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.22.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.23.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.24.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.25.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.26.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.27.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.28.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.29.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.30.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.31.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.32.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.33.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.34.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.35.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.36.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.37.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.38.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.39.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.40.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.41.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          }
+        ],
+        "projected_values_exactly_zero_on_every_layer": false
+      },
+      "donor_chunk_alignment": {
+        "all_layer_occupied_slots_match": false,
+        "at_least_two_aligned_slots_on_every_layer": false,
+        "layers": [
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.0.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.1.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.2.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.3.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.4.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.5.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.6.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.7.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.8.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.9.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.10.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.11.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.12.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.13.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.14.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.15.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.16.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.17.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.18.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.19.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.20.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.21.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.22.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.23.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.24.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.25.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.26.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.27.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.28.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.29.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.30.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.31.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.32.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.33.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.34.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.35.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.36.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.37.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.38.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.39.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.40.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.41.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          }
+        ],
+        "projected_values_exactly_zero_on_every_layer": false
+      },
+      "donor_ordinal": 76,
+      "donor_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "donor_write_tokens": 215,
+      "peak_cuda_memory_bytes": 16077505024,
+      "projected_carrier_fixed_across_recurrent_interventions": true,
+      "projected_carrier_hashes": {
+        "correct": "c92e0699d42faa640e092570efa257587fa194d3b34a4ab4d6e125886257e556",
+        "layer_permuted_recurrent": "c92e0699d42faa640e092570efa257587fa194d3b34a4ab4d6e125886257e556",
+        "matched_donor_recurrent": "c92e0699d42faa640e092570efa257587fa194d3b34a4ab4d6e125886257e556",
+        "zero_recurrent": "c92e0699d42faa640e092570efa257587fa194d3b34a4ab4d6e125886257e556"
+      },
+      "rank": 2,
+      "source_ordinal": 918,
+      "source_read_tokens": 225,
+      "source_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "source_write_tokens": 215
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidates": [
+        {
+          "candidate_id": "chunk_addressed_value_g003125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.744232871315696,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4228515625,
+            "mean_abs_logit_delta": 0.11191931366920471,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.771484375,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3203125,
+            "mean_abs_logit_delta": 0.11851010471582413,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7544763738458807,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.236328125,
+            "mean_abs_logit_delta": 0.10936138778924942,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.744232871315696,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.4228515625,
+            "mean_abs_logit_delta": 0.11191931366920471,
+            "passed": true
+          },
+          "hybrid_gain": 0.03125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g00625",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7961626919833097,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.1340917944908142,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8096400174227628,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.53515625,
+            "mean_abs_logit_delta": 0.15242832899093628,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8151519081809304,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.14368119835853577,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7961626919833097,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.34375,
+            "mean_abs_logit_delta": 0.1340917944908142,
+            "passed": true
+          },
+          "hybrid_gain": 0.0625,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g0125",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7863384593616832,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.14306755363941193,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8199899846857245,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.1875,
+            "mean_abs_logit_delta": 0.14643825590610504,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.8268612948330966,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.3125,
+            "mean_abs_logit_delta": 0.13688288629055023,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7863384593616832,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.25,
+            "mean_abs_logit_delta": 0.14306755363941193,
+            "passed": true
+          },
+          "hybrid_gain": 0.125,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        },
+        {
+          "candidate_id": "chunk_addressed_value_g025",
+          "checks": {
+            "all_condition_logits_finite": true,
+            "correct_exactly_equals_zero_projected_values": true,
+            "correct_vs_empty_bounded": true,
+            "correct_vs_layer_permuted_material": true,
+            "correct_vs_matched_donor_material": true,
+            "correct_vs_zero_material": true,
+            "zero_recurrent_exactly_equals_empty_memory": true
+          },
+          "correct_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7964730696244673,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.359375,
+            "mean_abs_logit_delta": 0.13344471156597137,
+            "passed": true
+          },
+          "correct_vs_layer_permuted_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7848916487260298,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.1875,
+            "mean_abs_logit_delta": 0.1246744692325592,
+            "passed": true
+          },
+          "correct_vs_matched_donor_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7874305031516335,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.37890625,
+            "mean_abs_logit_delta": 0.14138095080852509,
+            "passed": true
+          },
+          "correct_vs_zero_projected_values": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          },
+          "correct_vs_zero_recurrent": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.7964730696244673,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 1.359375,
+            "mean_abs_logit_delta": 0.13344471156597137,
+            "passed": true
+          },
+          "hybrid_gain": 0.25,
+          "hybrid_mode": "chunk_addressed_value",
+          "passed": true,
+          "zero_recurrent_vs_empty_memory": {
+            "all_finite": true,
+            "changed_logit_fraction": 0.0,
+            "materiality_minimum": 0.001,
+            "max_abs_logit_delta": 0.0,
+            "mean_abs_logit_delta": 0.0,
+            "passed": false
+          }
+        }
+      ],
+      "correct_chunk_alignment": {
+        "all_layer_occupied_slots_match": false,
+        "at_least_two_aligned_slots_on_every_layer": false,
+        "layers": [
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.0.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.1.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.2.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.3.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.4.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.5.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.6.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.7.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.8.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.9.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.10.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.11.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.12.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.13.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.14.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.15.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.16.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.17.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.18.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.19.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.20.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.21.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.22.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.23.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.24.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.25.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.26.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.27.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.28.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.29.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.30.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.31.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.32.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.33.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.34.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.35.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.36.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.37.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.38.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.39.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.40.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.41.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          }
+        ],
+        "projected_values_exactly_zero_on_every_layer": false
+      },
+      "donor_chunk_alignment": {
+        "all_layer_occupied_slots_match": false,
+        "at_least_two_aligned_slots_on_every_layer": false,
+        "layers": [
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.0.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.1.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.2.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.3.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.4.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.5.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.6.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.7.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.8.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.9.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.10.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.11.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.12.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.13.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.14.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.15.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.16.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.17.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.18.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.19.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.20.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.21.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.22.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.23.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.24.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.25.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.26.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.27.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.28.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.29.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.30.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.31.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.32.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.33.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.34.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.35.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.36.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.37.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.38.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.39.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.40.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          },
+          {
+            "minimum_projected_occupied_slots": 1,
+            "minimum_recurrent_occupied_slots": 2,
+            "name": "model.language_model.layers.41.self_attn",
+            "occupied_slots_match": false,
+            "projected_values_exactly_zero": false
+          }
+        ],
+        "projected_values_exactly_zero_on_every_layer": false
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "peak_cuda_memory_bytes": 16077505024,
+      "projected_carrier_fixed_across_recurrent_interventions": true,
+      "projected_carrier_hashes": {
+        "correct": "07de401e6ed5aa12da5114401afda2af9f09cdf1cfcfd4df2abaeb2434a23bbc",
+        "layer_permuted_recurrent": "07de401e6ed5aa12da5114401afda2af9f09cdf1cfcfd4df2abaeb2434a23bbc",
+        "matched_donor_recurrent": "07de401e6ed5aa12da5114401afda2af9f09cdf1cfcfd4df2abaeb2434a23bbc",
+        "zero_recurrent": "07de401e6ed5aa12da5114401afda2af9f09cdf1cfcfd4df2abaeb2434a23bbc"
+      },
+      "rank": 3,
+      "source_ordinal": 76,
+      "source_read_tokens": 226,
+      "source_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "source_write_tokens": 215
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "09e7c2716a14398748ec1ef33dff9eeb4d1a1428410553522f72a871d54232f4"
+  },
+  "scene_fit_file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+  "schema": "rwkv_ms_natural_memory_native_chunk_addressed_value_screen.v1",
+  "seed": 61,
+  "selected_candidate": null,
+  "status": "screen_failed_chunk_addressed_training_blocked",
+  "world_size": 4
+}

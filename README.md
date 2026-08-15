@@ -145,17 +145,30 @@ but the margins (`+0.00152`, `+0.00414`, and `+0.00073`) all missed the locked
 `+0.005` threshold. The valid status is therefore
 `addressed_value_native_gain_not_established`, not recurrent native success.
 
-The likely limitation is address/write misalignment rather than insufficient
-readout magnitude. A native write normally creates one projected proposal in
-projected slot 0, while the recurrent scan writes successive 128-token chunks
-to RWKV slots 0 through 3. The current addressed read consequently tends to
-query RWKV slot 0 even when later chunks occupy other matrices. The next
-candidate is `chunk_addressed_value`: create one projected key per recurrent
-chunk and store it in the exact slot selected by the RWKV write scan, while
-keeping projected values unused. It must repeat the structural, one-update,
-causal-training, and native gates before any protected split is opened.
-Publisher validation, publisher test, Hard32, and the unused strength holdout
-remain unopened and unauthorized.
+The likely limitation was address/write misalignment rather than insufficient
+readout magnitude. A native write normally created one projected proposal in
+projected slot 0, while the recurrent scan wrote successive 128-token chunks
+to RWKV slots 0 through 3. The addressed read consequently tended to query
+RWKV slot 0 even when later chunks occupied other matrices.
+
+The replacement `chunk_addressed_value` now creates one projected key for every
+RWKV slot touched by a write. Each key comes from the last contextual hidden
+state assigned to that exact recurrent slot; projected values are zero and
+remain excluded from the output path. An initial screen execution correctly
+failed its alignment audit because an inherited helper reset the write mode to
+the old residual hybrid. The corrected fresh execution placed two projected
+keys alongside the two nonempty recurrent chunks in every layer and rank. The
+lowest gain (`0.03125`) passed with minimum correct-versus-zero, donor, and
+layer-permuted maximum logit deltas of `1.28906`, `1.21875`, and `1.21875`.
+
+The separately locked one-update calibration also passed. All 42 recurrent
+readout gradients were finite and nonzero, the global gradient norm was
+`0.008295`, recurrent output weights changed, and exact slot alignment,
+zero projected values, zero-state equivalence, and projected-value independence
+all survived the update. This authorizes only the short causal-contrast
+training screen; native gain is still unestablished. Publisher validation,
+publisher test, Hard32, and the unused strength holdout remain unopened and
+unauthorized.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -179,7 +192,11 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [signed addressed-value native result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_value_eval_batched_2way_v1/result.json),
 [addressed-value runners](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_value_screen.py),
 [hash-bound addressed-value analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_addressed_value_eval.py),
-and [focused integrity tests](deltamem/tests/test_natural_memory_native_rwkv_addressed_value_screen.py).
+[chunk-addressed screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_chunk_addressed_value_screen_protocol_v1.json),
+[signed corrected chunk-addressed screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_chunk_addressed_value_screen_v2/result.json),
+[chunk-addressed calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_chunk_addressed_value_calibration_protocol_v1.json),
+[signed chunk-addressed calibration](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_chunk_addressed_value_calibration_v1/result.json),
+and [focused chunk-addressed tests](deltamem/tests/test_natural_memory_native_rwkv_chunk_addressed_value_screen.py).
 
 ### Post-Validation Mechanism Study
 

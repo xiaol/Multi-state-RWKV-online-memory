@@ -70,7 +70,13 @@ def test_addressed_value_requires_recurrent_state() -> None:
 
 @pytest.mark.parametrize(
     "mode",
-    ("residual", "vector_gate", "scalar_gate", "addressed_value"),
+    (
+        "residual",
+        "vector_gate",
+        "scalar_gate",
+        "addressed_value",
+        "chunk_addressed_value",
+    ),
 )
 def test_hybrid_modes_are_sensitive_to_nonzero_rwkv_read(mode: str) -> None:
     module = _module(hybrid_mode=mode, hybrid_gain=0.25)
@@ -159,6 +165,38 @@ def test_hybrid_write_populates_projected_and_recurrent_state() -> None:
     assert torch.count_nonzero(next_state).item() > 0
     assert module.rwkv_ms_positions is not None
     assert torch.equal(module.rwkv_ms_positions, torch.tensor([4]))
+    assert torch.count_nonzero(reads).item() == 0
+
+
+def test_chunk_addressed_write_aligns_keys_with_rwkv_slots() -> None:
+    module = _module(hybrid_mode="chunk_addressed_value")
+    hidden = torch.randn(1, 5, module.hidden_size)
+    token_mask = torch.ones(1, 5, dtype=torch.bool)
+    state = module._ensure_state(1, hidden.device, hidden.dtype)
+    module.rwkv_ms_positions = torch.tensor([1])
+    expected_hidden = hidden[:, [4, 2]]
+    expected_keys, _ = module._projected_kv_project_hidden(expected_hidden)
+
+    next_state, reads, _, _ = module._projected_rwkv_hybrid_step(
+        state,
+        hidden,
+        token_mask,
+    )
+
+    assert module.projected_kv_keys is not None
+    assert torch.equal(module.projected_kv_keys, expected_keys)
+    assert module.projected_kv_values is not None
+    assert torch.count_nonzero(module.projected_kv_values).item() == 0
+    assert module.projected_kv_occupied is not None
+    assert torch.equal(module.projected_kv_occupied, torch.ones(1, 2, dtype=torch.bool))
+    assert module.last_write_routes is not None
+    assert torch.equal(
+        module.last_write_routes.argmax(dim=-1),
+        torch.tensor([[0, 1, 1, 0, 0]]),
+    )
+    assert torch.count_nonzero(next_state).item() > 0
+    assert module.rwkv_ms_positions is not None
+    assert torch.equal(module.rwkv_ms_positions, torch.tensor([6]))
     assert torch.count_nonzero(reads).item() == 0
 
 

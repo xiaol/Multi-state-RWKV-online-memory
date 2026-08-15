@@ -70,6 +70,10 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "vector_gate",
     "scalar_gate",
     "addressed_value",
+    "chunk_addressed_value",
+)
+RWKV_MS_ADDRESSED_VALUE_MODES = frozenset(
+    {"addressed_value", "chunk_addressed_value"}
 )
 VALID_MEMORY_WRITE_SOURCES = ("learned_hidden",)
 VALID_MEMORY_WRITE_GRANULARITIES = (
@@ -3758,6 +3762,91 @@ class DeltaMemAttention(nn.Module):
         self.projected_kv_surprise = surprise
         self.last_write_routes = torch.stack(write_routes, dim=1)
 
+    def _write_chunk_addressed_kv_slots(
+        self,
+        hidden_states: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> None:
+        if any(
+            metadata is not None
+            for metadata in (
+                self.projected_kv_write_key_mask,
+                self.projected_kv_write_value_mask,
+                self.projected_kv_write_slot_indices,
+            )
+        ):
+            raise ValueError(
+                "chunk_addressed_value derives projected writes from RWKV chunks "
+                "and does not accept explicit projected-KV write spans"
+            )
+        batch_size, seq_len, _ = hidden_states.shape
+        if seq_len == 0:
+            self.last_write_routes = None
+            return
+        positions = self._ensure_rwkv_ms_positions(
+            batch_size,
+            hidden_states.device,
+        )
+        token_slots = rwkv_ms_write_slot_indices(
+            token_mask,
+            batch_size=batch_size,
+            seq_len=seq_len,
+            positions=positions,
+            chunk_size=self.rwkv_ms_chunk_size,
+            num_slots=self.rwkv_ms_num_states,
+        )
+        slot_ids = torch.arange(
+            self.rwkv_ms_num_states,
+            device=hidden_states.device,
+        ).view(1, 1, self.rwkv_ms_num_states)
+        token_indices = torch.arange(
+            seq_len,
+            device=hidden_states.device,
+        ).view(1, seq_len, 1)
+        matching_indices = torch.where(
+            token_slots.unsqueeze(-1).eq(slot_ids),
+            token_indices,
+            token_indices.new_full((), -1),
+        )
+        last_token_indices = matching_indices.amax(dim=1)
+        written_slots = last_token_indices.ge(0)
+        gather_indices = last_token_indices.clamp_min(0).unsqueeze(-1).expand(
+            -1,
+            -1,
+            self.hidden_size,
+        )
+        chunk_hidden = hidden_states.gather(dim=1, index=gather_indices)
+        chunk_keys, _ = self._projected_kv_project_hidden(chunk_hidden)
+        keys, values, occupied, surprise = self._ensure_projected_kv_slot_state(
+            batch_size,
+            hidden_states.device,
+        )
+        keys = torch.where(
+            written_slots.unsqueeze(-1),
+            chunk_keys,
+            keys,
+        )
+        values = torch.where(
+            written_slots.unsqueeze(-1),
+            torch.zeros_like(values),
+            values,
+        )
+        self.projected_kv_keys = keys
+        self.projected_kv_values = values
+        self.projected_kv_occupied = occupied | written_slots
+        self.projected_kv_surprise = torch.where(
+            written_slots,
+            torch.ones_like(surprise),
+            surprise,
+        )
+        self.last_write_routes = F.one_hot(
+            token_slots.clamp_min(0),
+            num_classes=self.rwkv_ms_num_states,
+        ).to(dtype=self.memory_v_proj.dtype)
+        self.last_write_routes = self.last_write_routes * token_slots.ge(0).unsqueeze(
+            -1
+        ).to(dtype=self.last_write_routes.dtype)
+
     def _projected_kv_slot_token_reads(
         self,
         hidden_states: torch.Tensor,
@@ -3870,7 +3959,7 @@ class DeltaMemAttention(nn.Module):
                 * F.normalize(recurrent, dim=-1, eps=1e-6)
             ).sum(dim=-1, keepdim=True)
             fused = projected * (1.0 + gain * alignment.clamp(-1.0, 1.0))
-        elif self.rwkv_ms_hybrid_mode == "addressed_value":
+        elif self.rwkv_ms_hybrid_mode in RWKV_MS_ADDRESSED_VALUE_MODES:
             fused = gain * recurrent_direction
         else:  # pragma: no cover - configuration validation is authoritative
             raise RuntimeError(
@@ -3892,7 +3981,10 @@ class DeltaMemAttention(nn.Module):
             lambda_seq,
         ) = self._memory_sequence_projections(hidden_states)
         if self.write_enabled:
-            self._write_projected_kv_slots(hidden_states, token_mask)
+            if self.rwkv_ms_hybrid_mode == "chunk_addressed_value":
+                self._write_chunk_addressed_kv_slots(hidden_states, token_mask)
+            else:
+                self._write_projected_kv_slots(hidden_states, token_mask)
             state, _ = self._memory_backend_scan(
                 state,
                 token_memory_q_seq,
@@ -3915,7 +4007,7 @@ class DeltaMemAttention(nn.Module):
         else:
             projected_reads = self._projected_kv_slot_token_reads(hidden_states)
             projected_routes = self.last_read_routes
-            if self.rwkv_ms_hybrid_mode == "addressed_value":
+            if self.rwkv_ms_hybrid_mode in RWKV_MS_ADDRESSED_VALUE_MODES:
                 recurrent_reads = (
                     torch.zeros_like(projected_reads)
                     if projected_routes is None
