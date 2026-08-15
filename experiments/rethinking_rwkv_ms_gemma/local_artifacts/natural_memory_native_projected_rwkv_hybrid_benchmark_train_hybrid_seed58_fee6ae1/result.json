@@ -1,0 +1,474 @@
+{
+  "adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 101376794,
+      "sha256": "f8e39ef1c393ec2a2a2cdfb880e52aff3e2669d65d08464bd223589ec37967d9"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2731,
+      "sha256": "19ec87dcb2fd20fbe135fdaab15289b45b12c25ad61129b36cde844b87c43377"
+    }
+  },
+  "adapter_files_sha256": "cd41ab085e94212ded8e8817cceae0665036f192eee3b8ef7ff02a43229956d5",
+  "architecture": "hybrid_candidate",
+  "code_bindings": {
+    "calibration_result_file_sha256": "1d7808f4760a47c40923ee61668cf40b8033629e1399f8e5cee618cd1b6ee5a0",
+    "contrast_runner_sha256": "2f8591a5eb8c308fc0c3d4f8304483d84e5c21dca491c18cbb24b206d1369733",
+    "delta_impl_sha256": "76fb19980dc0645bb866f323fd28ba2f9bef3bf67674271ccac9d879651d7294",
+    "distributed_sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d",
+    "protocol_file_sha256": "47f3636879b1eecfd92c1e824a4fa2fb5168a1486cc3b410277e43a9bf2d877e",
+    "runner_sha256": "a54ad95a114dd35d8aa0d6cc3b368cadd65a621981b6fc0dab1c26c1f9a2c1e8",
+    "rwkv_core_sha256": "b7a07054c150af53f7293a3844e08e00d77d5451676c414e58e225045e4121a1",
+    "rwkv_write_scan_cuda_sha256": "e86802c29835f87738f7072cdf638cc7c5a5f118a128232a63a7315d57e9f506",
+    "rwkv_write_scan_sha256": "2950b8e936ad7b0394433e85bbd51530a8345e5d41f58b7760c084953185e482"
+  },
+  "input_binding": {
+    "architecture": "hybrid_candidate",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "calibration_result_file_sha256": "1d7808f4760a47c40923ee61668cf40b8033629e1399f8e5cee618cd1b6ee5a0",
+    "calibration_result_receipt": "5f48f8d67a2593a2e98d7a64a15b41c1979d627d3ddd7c60e0a4b6648053627d",
+    "calibration_status": "calibration_passed_native_benchmark_authorized",
+    "contrast_weight": 0.25,
+    "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "global_batch_size": 8,
+    "hf_endpoint": "https://hf-mirror.com",
+    "learning_rate": 0.0001,
+    "local_rows": 2,
+    "margin": 0.05,
+    "max_grad_norm": 0.1,
+    "model_audit": {
+      "all_wrappers_valid": true,
+      "architecture": "hybrid_candidate",
+      "backbone_dtype": "bfloat16",
+      "checkpointed_frozen_mlps": 42,
+      "expected_readout": "projected_kv_rwkv_hybrid",
+      "replaced_layers": 42,
+      "trainable_master_dtype": "float32",
+      "trainables": {
+        "architecture": "hybrid_candidate",
+        "parameter_elements": 20969746,
+        "parameter_names_sha256": "88bf815d6915d21bc4a93385da1c1eac6f803614981841a7e899f367ca458bf7",
+        "parameter_tensors": 1302,
+        "passed": true,
+        "recurrent_only_frozen_names_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "recurrent_only_frozen_tensors": 0,
+        "recurrent_only_trainable_names_sha256": "6ba3ebaacc16c3c1b93f7b0ab6def1ee364899c3d9b10255f9351f4c80ce8aac",
+        "recurrent_only_trainable_tensors": 966
+      },
+      "wrapped_layers": 42
+    },
+    "protected_splits_opened": [],
+    "protocol_objective": "Establish or reject a native scene benchmark gain attributable to recurrent RWKV state by comparing a fresh projected-KV control with the calibrated projected-KV plus RWKV hybrid under paired seeds, matched training, and recurrent-only causal interventions.",
+    "protocol_payload_sha256": "b782fdf56386402e0a6f1147b5a9e5e608e1d231c770e174499a63f8e81d3dfd",
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 0,
+        "pid": 1888155,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 1,
+        "pid": 1888156,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 2,
+        "pid": 1888157,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 3,
+        "pid": 1888158,
+        "process_rank": 3
+      }
+    ],
+    "runner_sha256": "a54ad95a114dd35d8aa0d6cc3b368cadd65a621981b6fc0dab1c26c1f9a2c1e8",
+    "scene_fit_file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "schema": "rwkv_ms_natural_memory_native_projected_rwkv_hybrid_train_input.v1",
+    "seed": 58,
+    "training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "training_selected_rows_sha256": "069bb99296b34980d357df0032383a654a13257f75cdf29c011d1b739ad1dcf2",
+    "updates": 32,
+    "world_size": 4
+  },
+  "passed": true,
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "b782fdf56386402e0a6f1147b5a9e5e608e1d231c770e174499a63f8e81d3dfd",
+  "rank_runtime": [
+    {
+      "peak_cuda_memory_bytes": 28749645312,
+      "rank": 0
+    },
+    {
+      "peak_cuda_memory_bytes": 25835644416,
+      "rank": 1
+    },
+    {
+      "peak_cuda_memory_bytes": 28029199872,
+      "rank": 2
+    },
+    {
+      "peak_cuda_memory_bytes": 28955443200,
+      "rank": 3
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "2d0fa8d50603d2e83603b0a3996e27103be7140289a1eebc954fbe1cfe649f48"
+  },
+  "schema": "rwkv_ms_natural_memory_native_projected_rwkv_hybrid_train.v1",
+  "seed": 58,
+  "status": "training_complete_evaluation_pending",
+  "training": {
+    "active_hinge_fraction": 0.953125,
+    "architecture": "hybrid_candidate",
+    "elapsed_seconds": 1032.7036352157593,
+    "final_adapter_sha256": "8b78fed103e207c8f0fd89f4cf488bfb43971f80e629ec6e3cce6dc68d43be7f",
+    "final_recurrent_readout_sha256": "477a46cf9c0761f5c651debd434160053368a3067fb79c350a15e4883773fac3",
+    "final_recurrent_subset_sha256": "e99fe1237e7cf3fbe9b88ec748d02de569521e885e37f6b37e55900a6945a3c6",
+    "final_shared_adapter_sha256": "ab7abe4bd9d0bcd53df3ffbb66addecbdd11e7fa3f6e85a41bb2cb9fc2110147",
+    "first_update_recurrent_gradient_audit": {
+      "all_42_finite_nonzero": true,
+      "layers": [
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 2.0135141767241294e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.3804534546579816e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 6.423836111935088e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.10.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.0092790034832433e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.11.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.61122516146861e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.12.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 6.871345249237493e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.13.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.225952019012766e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.14.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.3576787750935182e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.15.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 9.121372386289295e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.16.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 2.6806726964423433e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.17.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.1389669452910312e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.18.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 8.566605174564756e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.19.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 7.9689943959238e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.2421257451933343e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.20.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.557365249027498e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.21.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.632826570130419e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.22.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.1526449270604644e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.23.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 2.035397665167693e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.24.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 4.079253812960815e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.25.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 5.522946139535634e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.26.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 2.3606673948961543e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.27.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.082842118194094e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.28.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.9012422853847966e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.29.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 4.059350430907216e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 3.6497983728622785e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.30.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 4.811132839677157e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.31.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 9.249652066500857e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.32.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 6.561632744706003e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.33.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 6.343427685351344e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.34.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 6.439655408030376e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.35.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 2.893867076636525e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.36.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.2929419881402282e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.37.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.983461515919771e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.38.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 4.623416771210032e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.39.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 8.226577847381122e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 3.4749052701954497e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.40.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 1.548833097331226e-05,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.41.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 5.497576239577029e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 6.915639460203238e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.6.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 4.437406460056081e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.7.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 3.369466412550537e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.8.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 7.152348189265467e-06,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.9.self_attn.hrm_rwkv7_core.output.weight"
+        }
+      ],
+      "maximum_l2_norm": 2.6806726964423433e-05,
+      "minimum_l2_norm": 1.2929419881402282e-06,
+      "parameter_family": "hrm_rwkv7_core.output.weight",
+      "parameter_names_sha256": "99921f2ff0782fc2be7b3462aa9d2a48ddf1808d94bbe85beb3291f3fc2c4aef",
+      "parameter_tensors": 42,
+      "passed": true
+    },
+    "initial_adapter_sha256": "8f319c2754b25f615920135ffe4a9b617193e388e58a2288637fbdfc0786a868",
+    "initial_recurrent_readout_sha256": "69c5c613571eda7e8fd146944f9cd58a233ff4586eb27b5b73d6c19a84fc6a10",
+    "initial_recurrent_subset_sha256": "66fc197f0de86bd7d99b0df47ba1baeadc8bd35298e842c72b1b30a824c1e56b",
+    "initial_shared_adapter_sha256": "7bb95c4cab5dfa0da89d30f9c6850506fcacbb4177743b1add5b4da785b62f7c",
+    "maximum_global_inactive_parameter_tensors": 0,
+    "mean_donor_minus_positive_ce": -0.4655535029587031,
+    "mean_donor_probe_ce": 2.0954195382070426,
+    "mean_positive_probe_ce": 2.5609730411657456,
+    "minimum_gradient_norm_before_clip": 0.1623469889163971,
+    "peak_cuda_memory_bytes": 28749645312,
+    "progress_sha256": "d8f8d836b108ab46c6f46b7d41607995ecea9d0a863ce770efbf48763eec38fe",
+    "recurrent_subset_changed": true,
+    "rows": 256,
+    "updates": 32
+  },
+  "updates": 32
+}

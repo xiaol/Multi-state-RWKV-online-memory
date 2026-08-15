@@ -105,13 +105,34 @@ changed. After the update, correct-versus-zero recurrent deltas ranged from
 across the four ranks. Zero recurrent state remained exactly equal to the
 projected-only readout, with projected state byte-identical across interventions.
 
-This establishes BF16-visible, trainable causal participation by RWKV state; it
-does **not** yet establish native benchmark improvement. The authorized next
-experiment is a three-seed matched open-data comparison between fresh projected-
-only and fresh selected-hybrid adapters, using identical training rows,
-optimizer updates, and generation settings on the locked 220-row native
-partition. No publisher validation, publisher test, Hard32, or unused strength
-holdout is authorized.
+This established BF16-visible, trainable perturbation by RWKV state, but the
+subsequent three-seed native benchmark showed that perturbation was not the
+cause of the measured gain. The selected hybrid beat fresh projected-only
+controls by mean scene micro-F1 `+0.00730`; two of three seeds were nonnegative,
+and `8.48%` of paired outputs changed. The per-seed gains were `+0.02236`,
+`+0.00281`, and `-0.00326` for seeds 57, 58, and 59.
+
+The recurrent causal gates failed. Mean correct-state minus zero-state micro-F1
+was `-0.00192`, correct-state minus matched-donor was `-0.00227`, and correct-
+state minus layer-permuted was only `+0.00052`, below the locked `+0.005`
+margin. Zero recurrent state exactly reproduced the projected-only bypass and
+the projected carrier remained byte-identical across interventions. The valid
+claim is therefore: **the trained carrier-controller hybrid improves over a
+fresh projected-slot control on this authorized native benchmark, but correct
+RWKV recurrent state did not cause the improvement.** The signed result status
+is `native_benchmark_gain_without_recurrent_causal_pass`; its canonical receipt
+is `7cd97cf939012c831bff96cdcc5fcfcf52ad3f626409d339814798cfa3c0d397`.
+
+The next experiment changes the information path instead of increasing the
+same scalar gate. Projected KV slots will provide address/location information
+only; a bounded RWKV-derived value residual will provide the retrieved content
+and will be exactly zero for zero recurrent state. The projected carrier will
+be frozen after addressing, and training will include explicit zero-state,
+matched-donor, and layer-permuted causal margins. Candidates must first pass
+all three causal margins on already-open publisher-TRAIN-derived development
+rows before any new three-seed benchmark is locked. Publisher validation,
+publisher test, Hard32, and the unused strength holdout remain unopened and
+unauthorized.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -121,6 +142,11 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [signed hybrid calibration](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_projected_rwkv_hybrid_bf16_calibration_v1/result.json),
 [hybrid screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_projected_rwkv_hybrid_screen.py),
 [hybrid calibration runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_projected_rwkv_hybrid_bf16_calibration.py),
+[locked native benchmark protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_projected_rwkv_hybrid_benchmark_protocol_v1.json),
+[signed native benchmark result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_projected_rwkv_hybrid_benchmark_eval_fee6ae1/result.json),
+[benchmark training runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_projected_rwkv_hybrid_benchmark_train.py),
+[benchmark evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_projected_rwkv_hybrid_benchmark_eval.py),
+[hash-bound benchmark analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_projected_rwkv_hybrid_benchmark.py),
 and [focused integrity tests](deltamem/tests/test_natural_memory_native_projected_rwkv_hybrid_bf16_calibration.py).
 
 ### Post-Validation Mechanism Study
