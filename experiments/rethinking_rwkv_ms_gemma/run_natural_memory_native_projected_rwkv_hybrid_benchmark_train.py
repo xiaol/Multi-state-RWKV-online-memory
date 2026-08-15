@@ -831,6 +831,12 @@ def run(
                     "rwkv_core_sha256": sha256_file(
                         PROJECT_ROOT / "deltamem/core/hrm_rwkv7.py"
                     ),
+                    "rwkv_write_scan_sha256": sha256_file(
+                        PROJECT_ROOT / "deltamem/kernels/rwkv_ms_write_scan.py"
+                    ),
+                    "rwkv_write_scan_cuda_sha256": sha256_file(
+                        PROJECT_ROOT / "deltamem/kernels/rwkv_ms_write_scan_cuda.cu"
+                    ),
                 },
             }
             result["receipt"] = {

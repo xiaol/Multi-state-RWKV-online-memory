@@ -57,6 +57,7 @@ setup(
     name=DISTRIBUTION_NAME,
     version=get_version(),
     packages=find_packages(),
+    package_data={"deltamem.kernels": ["*.cu"]},
     include_package_data=True,
     install_requires=get_requirements(),
 )

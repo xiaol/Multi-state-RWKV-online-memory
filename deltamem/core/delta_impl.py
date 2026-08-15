@@ -34,6 +34,10 @@ from deltamem.core.backbone_compat import (
 )
 from deltamem.core.hrm_rwkv7 import HRMRWKV7LowRankCore
 from deltamem.kernels.affine_scan import triton_affine_scan, triton_scan_support
+from deltamem.kernels.rwkv_ms_write_scan import (
+    rwkv_ms_write_scan,
+    write_slot_indices as rwkv_ms_write_slot_indices,
+)
 
 SUPPORTED_BASE_ATTENTION_TYPES = (Qwen3Attention,)
 if HAS_SMOLLM3:
@@ -2869,6 +2873,7 @@ class DeltaMemAttention(nn.Module):
         token_mask: Optional[torch.Tensor] = None,
         *,
         update_positions: bool = True,
+        write_only: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         batch_size, seq_len, _ = memory_source_seq.shape
         if seq_len == 0:
@@ -2920,6 +2925,51 @@ class DeltaMemAttention(nn.Module):
 
         current_state = state.float()
         positions = self._ensure_rwkv_ms_positions(batch_size, memory_source_seq.device).clone()
+        if write_only:
+            slots = rwkv_ms_write_slot_indices(
+                token_mask,
+                batch_size=batch_size,
+                seq_len=seq_len,
+                positions=positions,
+                chunk_size=self.rwkv_ms_chunk_size,
+                num_slots=self.rwkv_ms_num_states,
+            )
+            current_state = rwkv_ms_write_scan(
+                current_state,
+                torch.exp(-torch.exp(w_seq)),
+                k_seq,
+                v_seq,
+                a_seq,
+                b_seq,
+                keep_seq,
+                erase_seq,
+                write_seq,
+                slots,
+                self.rwkv_ms_erase_gate,
+            )
+            valid = slots.ge(0)
+            self.last_write_routes = F.one_hot(
+                slots.clamp_min(0),
+                num_classes=self.rwkv_ms_num_states,
+            ).to(dtype=current_state.dtype)
+            self.last_write_routes = self.last_write_routes * valid.unsqueeze(-1).to(
+                dtype=current_state.dtype
+            )
+            self.last_read_routes = current_state.new_zeros(
+                batch_size,
+                seq_len,
+                self.rwkv_ms_num_states,
+            )
+            if update_positions:
+                self.rwkv_ms_positions = (
+                    positions + valid.sum(dim=1, dtype=torch.long)
+                ).detach()
+                self.rwkv_ms_previous_source = next_previous_source
+            return current_state, memory_source_seq.new_zeros(
+                batch_size,
+                seq_len,
+                self.state_read_dim,
+            )
         read_steps: list[torch.Tensor] = []
         read_routes: list[torch.Tensor] = []
         write_routes: list[torch.Tensor] = []
@@ -3081,6 +3131,7 @@ class DeltaMemAttention(nn.Module):
         write_route_seq: torch.Tensor | None = None,
         read_route_seq: torch.Tensor | None = None,
         token_mask: Optional[torch.Tensor] = None,
+        write_only: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         if self.memory_backend == "rwkv_ms":
             return self._rwkv_ms_scan(
@@ -3089,7 +3140,10 @@ class DeltaMemAttention(nn.Module):
                 beta_seq,
                 lambda_seq,
                 token_mask,
+                write_only=write_only,
             )
+        if write_only:  # pragma: no cover - hybrid validation requires RWKV-MS
+            raise ValueError("Write-only backend scan requires RWKV-MS")
         return self._memory_affine_scan(
             state,
             memory_q_seq,
@@ -3781,6 +3835,7 @@ class DeltaMemAttention(nn.Module):
                 beta_seq,
                 lambda_seq,
                 token_mask=token_mask,
+                write_only=True,
             )
             reads = torch.zeros(
                 hidden_states.size(0),

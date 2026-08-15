@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import pytest
 import torch
 
@@ -211,6 +213,63 @@ def test_vectorized_recurrent_read_matches_token_loop(semantics_version: int) ->
             ),
             "reference_maximum": float(reference_grad.abs().max()),
         }
+
+
+def test_hybrid_write_only_scan_matches_full_rwkv_state_exactly() -> None:
+    torch.manual_seed(17)
+    full_module = _module()
+    write_only_module = copy.deepcopy(full_module)
+    batch_size, seq_len = 2, 7
+    source = torch.randn(batch_size, seq_len, full_module.state_read_dim)
+    beta = torch.sigmoid(torch.randn(batch_size, seq_len, 1, 1))
+    decay = torch.sigmoid(torch.randn(batch_size, seq_len, 1, 1))
+    token_mask = torch.tensor(
+        [[True, True, False, True, True, True, False], [True, False, True, True, True, False, True]]
+    )
+    state = torch.randn(
+        batch_size,
+        full_module.num_state_heads,
+        full_module.rwkv_ms_num_states,
+        full_module.rank,
+        full_module.rank,
+    )
+    positions = torch.tensor([0, 1022])
+    for module in (full_module, write_only_module):
+        module.rwkv_ms_positions = positions.clone()
+        module.rwkv_ms_previous_source = None
+
+    full_state, _ = full_module._rwkv_ms_scan(
+        state,
+        source,
+        beta,
+        decay,
+        token_mask,
+        update_positions=True,
+        write_only=False,
+    )
+    write_only_state, _ = write_only_module._rwkv_ms_scan(
+        state,
+        source,
+        beta,
+        decay,
+        token_mask,
+        update_positions=True,
+        write_only=True,
+    )
+
+    assert torch.equal(write_only_state, full_state)
+    assert torch.equal(
+        write_only_module.rwkv_ms_positions,
+        full_module.rwkv_ms_positions,
+    )
+    assert torch.equal(
+        write_only_module.rwkv_ms_previous_source,
+        full_module.rwkv_ms_previous_source,
+    )
+    assert torch.equal(
+        write_only_module.last_write_routes,
+        full_module.last_write_routes,
+    )
 
 
 def test_hybrid_configuration_rejects_unsafe_values() -> None:
