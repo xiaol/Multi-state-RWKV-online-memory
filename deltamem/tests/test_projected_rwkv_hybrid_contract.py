@@ -41,7 +41,10 @@ def _module(
     )
 
 
-@pytest.mark.parametrize("mode", ("residual", "vector_gate", "scalar_gate"))
+@pytest.mark.parametrize(
+    "mode",
+    ("residual", "alignment_residual", "vector_gate", "scalar_gate"),
+)
 def test_hybrid_modes_preserve_projected_carrier_for_zero_rwkv_state(
     mode: str,
 ) -> None:
@@ -72,6 +75,7 @@ def test_addressed_value_requires_recurrent_state() -> None:
     "mode",
     (
         "residual",
+        "alignment_residual",
         "vector_gate",
         "scalar_gate",
         "addressed_value",
@@ -98,6 +102,27 @@ def test_addressed_value_is_bounded_and_ignores_projected_values() -> None:
     fused = module._fuse_projected_rwkv_reads(projected, recurrent)
 
     assert float(fused.abs().max()) <= 0.25
+
+
+def test_alignment_residual_matches_locked_fusion_equation() -> None:
+    module = _module(hybrid_mode="alignment_residual", hybrid_gain=0.125)
+    projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
+    recurrent = torch.tensor([[[0.25, 0.75], [-0.5, 0.125]]])
+
+    fused = module._fuse_projected_rwkv_reads(projected, recurrent)
+
+    projected_fp32 = projected.float()
+    recurrent_fp32 = recurrent.float()
+    carrier_rms = projected_fp32.square().mean(dim=-1, keepdim=True).sqrt()
+    recurrent_rms = recurrent_fp32.square().mean(dim=-1, keepdim=True).sqrt()
+    direction = torch.tanh(recurrent_fp32 / recurrent_rms.clamp_min(1e-6))
+    alignment = (
+        torch.nn.functional.normalize(projected_fp32, dim=-1, eps=1e-6)
+        * torch.nn.functional.normalize(recurrent_fp32, dim=-1, eps=1e-6)
+    ).sum(dim=-1, keepdim=True).clamp(-1.0, 1.0)
+    expected = projected_fp32 + 0.125 * carrier_rms * alignment * direction
+
+    assert torch.equal(fused, expected.to(dtype=projected.dtype))
 
 
 def test_addressed_value_step_uses_projected_routes_not_projected_values() -> None:

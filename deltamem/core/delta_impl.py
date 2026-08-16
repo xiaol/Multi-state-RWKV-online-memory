@@ -67,6 +67,7 @@ PROJECTED_KV_MEMORY_READOUT_MODES = frozenset(
 )
 VALID_RWKV_MS_HYBRID_MODES = (
     "residual",
+    "alignment_residual",
     "vector_gate",
     "scalar_gate",
     "addressed_value",
@@ -3994,6 +3995,18 @@ class DeltaMemAttention(nn.Module):
         gain = float(self.rwkv_ms_hybrid_gain)
         if self.rwkv_ms_hybrid_mode == "residual":
             fused = projected + gain * carrier_rms * recurrent_direction
+        elif self.rwkv_ms_hybrid_mode == "alignment_residual":
+            alignment = (
+                F.normalize(projected, dim=-1, eps=1e-6)
+                * F.normalize(recurrent, dim=-1, eps=1e-6)
+            ).sum(dim=-1, keepdim=True)
+            fused = (
+                projected
+                + gain
+                * carrier_rms
+                * alignment.clamp(-1.0, 1.0)
+                * recurrent_direction
+            )
         elif self.rwkv_ms_hybrid_mode == "vector_gate":
             fused = projected * (1.0 + gain * recurrent_direction)
         elif self.rwkv_ms_hybrid_mode == "scalar_gate":

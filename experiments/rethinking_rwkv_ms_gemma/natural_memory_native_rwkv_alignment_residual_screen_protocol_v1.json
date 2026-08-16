@@ -1,0 +1,82 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_alignment_residual_screen_protocol.v1",
+  "created_at": "2026-08-17T00:11:37+08:00",
+  "objective": "Determine whether projected/recurrent cosine agreement can make a bounded RWKV residual materially depend on the correct row and layer while preserving the vector gate's exact projected-only zero-state identity.",
+  "authorization_basis": {
+    "prior_result_file": "local_artifacts/natural_memory_native_rwkv_vector_gate_eval_v1/result.json",
+    "prior_result_file_sha256": "7edadd1ed61b85157d4604eac75ab8da8d04f79c0ee3503d7f6535fe1f003471",
+    "prior_result_receipt": "9fcbbd11ba502fdab77bee6c1177a5f5296cd4ff6ebecd0acdb3ce02b4cd10af",
+    "prior_status": "vector_gate_native_gain_without_full_causal_pass",
+    "prior_passed": false,
+    "prior_causal_margins": {
+      "correct_minus_projected_only_micro_f1": 0.006630186832590063,
+      "correct_minus_matched_donor_micro_f1": 0.0037160730437642564,
+      "correct_minus_layer_permuted_micro_f1": -0.0006904259897395904
+    },
+    "diagnosis": "Elementwise vector modulation improved the material projected carrier but did not make the correction sufficiently row- or layer-specific.",
+    "response": "Gate a bounded additive recurrent direction by projected/recurrent cosine agreement so a correction requires content agreement in the destination layer."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "native_dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "calibration_source_ordinals": [718, 1149, 918, 76],
+    "calibration_rows_payload_sha256": "b77caeb963647569648244a8927de9693347bb159de48f5a21d59738169cfe5a",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "alignment_residual",
+    "fusion_equation": "projected_read + 0.125 * rms(projected_read) * clamp(cos(projected_read, recurrent_read), -1, 1) * tanh(recurrent_read / rms(recurrent_read))",
+    "hybrid_gain": 0.125,
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "detach_read_scores": true,
+    "memory_fusion_mode": "content_gated_add",
+    "fusion_gate_probability": 0.25,
+    "zero_recurrent_identity": "A zero recurrent read has zero cosine agreement and zero recurrent direction, so fusion is exactly projected-only."
+  },
+  "causal_conditions": {
+    "projected_only": "Correct-row projected carrier with recurrent readout bypassed.",
+    "correct_recurrent": "Correct-row projected carrier plus correct-row recurrent state.",
+    "zero_recurrent": "Correct-row projected carrier plus zero recurrent state.",
+    "matched_donor_recurrent": "Correct-row projected carrier plus a deterministic different-gold, length-matched donor recurrent state.",
+    "layer_permuted_recurrent": "Correct-row projected carrier plus correct recurrence cyclically moved across all 42 wrapped layers."
+  },
+  "execution": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one locked source/donor pair per rank; no gradient or optimizer update",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 75,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "fresh_initialization": true
+  },
+  "required_gates": {
+    "projected_carrier_hash_fixed_across_all_conditions": true,
+    "zero_recurrent_exactly_equals_projected_only_on_every_rank": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_projected_max_abs_logit_delta_maximum_on_every_rank": 2.0,
+    "all_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize only a separately locked eight-update causal training run with a disjoint open-fit endpoint.",
+    "failure": "Archive the structural failure and do not train this equation.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused strength holdout."
+  },
+  "claim_policy": {
+    "pass": "May claim only BF16-visible structural sensitivity to correct row and layer under fresh initialization.",
+    "native_gain": "Forbidden without later causal training and a separately locked native generation result."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "be6abb289bcc4b2326b0bd14cfedabbccae17486098cc4601d4457f92057668b"
+  }
+}

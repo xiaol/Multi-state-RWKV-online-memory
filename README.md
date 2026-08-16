@@ -297,8 +297,8 @@ architecture fields, the fusion equation, training audit, evaluator assertions,
 and every prediction record consistently bind the executed mode to
 `vector_gate`; no learned tensor changed during restoration.
 
-The result narrows the remaining problem from carrier gain to state
-specificity. The next bounded hybrid will test an alignment-gated residual:
+The result narrowed the remaining problem from carrier gain to state
+specificity. The next bounded hybrid tested an alignment-gated residual:
 
 ```text
 a = clamp(cos(projected_read, recurrent_read), -1, 1)
@@ -307,12 +307,38 @@ projected_read
          * tanh(recurrent_read / rms(recurrent_read))
 ```
 
-This keeps the successful projected carrier, retains exact projected-only
-identity for zero recurrence, and makes the directional correction depend on
-row- and layer-specific projected/recurrent agreement. A locked open-data
-screen must beat zero, donor, and layer permutation before training; no new
-native generation run is authorized otherwise. Publisher validation, publisher
-test, Hard32, and the unused strength holdout remain unopened and unauthorized.
+The locked four-A100 structural screen passed. Zero recurrence was bit-exactly
+projected-only, every projected carrier stayed fixed, and all four ranks showed
+material correct-versus-zero, donor, and layer-permuted logit changes. The
+separately locked eight-update run also passed every training-integrity gate:
+63/64 rows were accepted, only the previously identified unstable ordinal
+`1291` was discarded, all 42 recurrent output tensors had finite nonzero first-
+update gradients, and both the recurrent and full trainable subsets changed.
+
+The fresh 32-row teacher-forced endpoint rejected the equation. Correct
+recurrence beat zero recurrence by `+0.289878` CE, but lost to the matched donor
+by `-0.002166` and to cyclic layer permutation by `-0.007990`. The signed status
+is `alignment_residual_heldout_failed_generation_blocked`, with receipt
+`5f9a2b9ce10e5cd55537cb1bebdfe249494627dc3709e8006402c21e44b867f5`.
+This is a useful negative result: cosine alignment amplified dependence on a
+nonzero recurrent vector but did not identify the correct row or layer. No
+native generation benchmark was opened for this method.
+
+The next bounded hybrid keeps the vector-FiLM operation that produced native
+carrier gain and uses alignment only as its verifier:
+
+```text
+a = clamp(cos(projected_read, recurrent_read), -1, 1)
+projected_read *
+  (1 + gain * a * tanh(recurrent_read / rms(recurrent_read)))
+```
+
+This `aligned_vector_gate` hypothesis preserves exact projected-only identity
+for zero recurrence while requiring agreement before RWKV can modulate each
+carrier feature. It must pass a new locked open-data screen and a fresh causal
+endpoint before any native generation is authorized. Publisher validation,
+publisher test, Hard32, and the unused strength holdout remain unopened and
+unauthorized.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -379,7 +405,14 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [signed vector-FiLM native result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_vector_gate_eval_v1/result.json),
 [vector-FiLM evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_vector_gate_eval.py),
 [hash-bound vector-FiLM analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_vector_gate_eval.py),
-and [focused vector-FiLM tests](deltamem/tests/test_natural_memory_native_rwkv_vector_gate_eval.py).
+[focused vector-FiLM tests](deltamem/tests/test_natural_memory_native_rwkv_vector_gate_eval.py),
+[alignment-residual screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_alignment_residual_screen_protocol_v1.json),
+[signed alignment-residual screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_alignment_residual_screen_v1/result.json),
+[alignment-residual training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_alignment_residual_causal_train_protocol_v1.json),
+[signed alignment-residual causal failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_alignment_residual_causal_train_v1/result.json),
+[alignment-residual screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_alignment_residual_screen.py),
+[alignment-residual training runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_alignment_residual_causal_train.py),
+and [focused alignment-residual tests](deltamem/tests/test_natural_memory_native_rwkv_alignment_residual_causal_train.py).
 
 ### Post-Validation Mechanism Study
 
