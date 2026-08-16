@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
     run_natural_memory_native_rwkv_addressed_affine_causal_train as training,
+)
+
+
+RESULT = (
+    Path(training.__file__).resolve().parent
+    / "local_artifacts/"
+    "natural_memory_native_rwkv_addressed_affine_causal_train_v1/"
+    "result.json"
 )
 
 
@@ -61,3 +70,42 @@ def test_endpoint_payload_is_hash_bound_in_protocol() -> None:
     assert protocol["frozen_inputs"]["sixteen_update_schedule_prefix_sha256"] == (
         training.TRAINING_PREFIX_SHA256
     )
+
+
+def test_signed_result_authorizes_native_generation() -> None:
+    result = json.loads(RESULT.read_text(encoding="utf-8"))
+    unsigned = dict(result)
+    receipt = unsigned.pop("receipt")
+
+    assert training.shared.sha256_file(RESULT) == (
+        "096e20bb01abbe86689745379b12b3f1b8d5de32c7be0ba682793855a85e0e2d"
+    )
+    assert training.shared.canonical_sha256(unsigned) == receipt["payload_sha256"]
+    assert receipt["payload_sha256"] == (
+        "c74dc75bee63bc3cae65671c0978f92969bb08e2e69d6fa1c8ea3c28c232a4e6"
+    )
+    assert result["protocol_payload_sha256"] == training.PROTOCOL_PAYLOAD_SHA256
+    assert result["status"] == training.PASS_STATUS
+    assert result["training_passed"] is True
+    assert result["passed"] is True
+    assert result["open_native_generation_authorized"] is True
+    assert result["protected_splits_opened"] == []
+    assert result["training"]["updates"] == 16
+    assert result["training"]["row_filter"] == {
+        "accepted_gradient_rows": 128,
+        "enabled": True,
+        "maximum_total_rejected_rows": 8,
+        "minimum_accepted_rows_per_update": 8,
+        "minimum_required_accepted_rows_per_update": 6,
+        "rejected_gradient_rows": 0,
+        "rejected_source_ordinals": [],
+    }
+    endpoint = result["heldout_causal_endpoint"]
+    assert endpoint["rows"] == 32
+    assert endpoint["answer_target_tokens"] == 404
+    assert endpoint["mean_ce_margins"] == {
+        "donor_minus_correct": 0.009505824287338704,
+        "layer_permuted_minus_correct": 0.03961818997222588,
+        "zero_minus_correct": 0.8378261056276828,
+    }
+    assert all(endpoint["checks"].values())

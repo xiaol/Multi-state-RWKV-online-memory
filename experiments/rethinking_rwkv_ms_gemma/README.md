@@ -19,20 +19,23 @@ a hybrid with two persistent memories in every wrapped Gemma attention layer:
 2. An RWKV-7 recurrent matrix state is written online into the corresponding
    fixed-chunk slots.
 3. The projected route addresses the matching RWKV state slot. The RWKV read is
-   normalized and used as a bounded elementwise FiLM controller:
+   normalized and used as a bounded elementwise FiLM controller plus a small
+   recurrent value residual:
 
    ```text
-   output = projected_read * (1 + 0.125 * tanh(rwkv_read / rms(rwkv_read)))
+   direction = tanh(rwkv_read / rms(rwkv_read))
+   output = projected_read * (1 + 0.125 * direction)
+          + 0.03125 * rms(projected_read) * direction
    ```
 
 4. The fused read passes through the learned delta output path and a
    content-gated residual into frozen Gemma.
 
-The projected key/value sidecar is therefore still the material carrier. RWKV
-has a causal controller role only when correct recurrent state beats zero,
-matched-donor, and layer-permuted state while the projected carrier is held
-fixed. The repository does not currently establish that full causal claim or a
-native benchmark gain attributable to RWKV.
+The projected key/value sidecar remains the primary material carrier. The
+latest experiment establishes a bounded causal RWKV contribution under
+teacher forcing: correct recurrent state beats zero, matched-donor, and
+layer-permuted state while the projected carrier stays fixed. It does not yet
+establish a native generation gain over the matched projected-only carrier.
 
 ## Current Evidence
 
@@ -43,23 +46,26 @@ rejections and no protected split access.
 
 | recurrent condition | mean CE | margin versus correct |
 | --- | ---: | ---: |
-| correct | 3.018380 | - |
-| zero / projected-only | 3.929799 | +0.911419 |
-| matched donor | 3.015786 | -0.002594 |
-| layer-permuted | 3.036787 | +0.018407 |
+| correct | 2.887219 | - |
+| zero / projected-only | 3.725045 | +0.837826 |
+| matched donor | 2.896725 | +0.009506 |
+| layer-permuted | 2.926837 | +0.039618 |
 
-Lower CE is better, so the zero and layer-permuted controls show that the RWKV
-path is active and layer/order-sensitive. The matched donor is slightly better
-than the correct state, so example-specific recurrent retrieval is not
-established. Native generation remains blocked. The signed result is
-`local_artifacts/natural_memory_native_rwkv_addressed_vector_gate_causal_train_v1/result.json`
+Lower CE is better. All three preregistered mean margins are positive, so this
+run establishes that the RWKV path is active, layer/order-sensitive, and weakly
+example-specific on the fresh endpoint. The donor result is the weakest gate:
+its mean margin is only `+0.009506`, with 59.375% of rows positive. Native
+generation is authorized for a separately locked matched comparison, but no
+native task gain is claimed yet. The signed result is
+`local_artifacts/natural_memory_native_rwkv_addressed_affine_causal_train_v1/result.json`
 (file SHA-256
-`e9a115cd7864e0c31738478c0393aed21c6db40e3ab1adccc50ba76cb8a898e4`,
+`096e20bb01abbe86689745379b12b3f1b8d5de32c7be0ba682793855a85e0e2d`,
 receipt
-`e13f1a45139e28178b0e7ca28b3b647d42a427a23180bc2b7f695fda9dc109c3`).
+`c74dc75bee63bc3cae65671c0978f92969bb08e2e69d6fa1c8ea3c28c232a4e6`).
 
-The next architecture must add state/content identity rather than merely
-increasing recurrent gain. A larger gain would amplify the same donor ambiguity.
+The next gate is a matched projected-only versus addressed-affine native
+generation benchmark. It must also replay zero, donor, and layer-permuted
+generation controls before any gain is attributed to RWKV.
 
 Use the PyTorch/HF delta-Mem path for these diagnostics. The GGUF sidecar path
 is useful for serving, but it does not expose the hidden states, gradients, and
