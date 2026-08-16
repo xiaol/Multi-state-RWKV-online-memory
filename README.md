@@ -333,12 +333,29 @@ projected_read *
   (1 + gain * a * tanh(recurrent_read / rms(recurrent_read)))
 ```
 
-This `aligned_vector_gate` hypothesis preserves exact projected-only identity
-for zero recurrence while requiring agreement before RWKV can modulate each
-carrier feature. It must pass a new locked open-data screen and a fresh causal
-endpoint before any native generation is authorized. Publisher validation,
-publisher test, Hard32, and the unused strength holdout remain unopened and
-unauthorized.
+This `aligned_vector_gate` preserved exact projected-only identity for zero
+recurrence and passed its locked four-A100 structural screen on every rank. Its
+minimum correct-versus-zero, donor, and layer-permuted maximum logit deltas
+were `1.3125`, `1.1875`, and `1.328125`, with every perturbation bounded below
+`2.0`.
+
+The eight-update training run passed all integrity checks with 63/64 accepted
+rows and only ordinal `1291` filtered. On its new 32-row endpoint, correct
+recurrence again beat zero by a large `+0.259662` CE margin, but lost to the
+matched donor by `-0.004416` and to cyclic layer permutation by `-0.004879`.
+The signed status is `aligned_vector_gate_heldout_failed_generation_blocked`,
+with receipt
+`5f4a0f233e8b74a7d5ca17376954144e235e65db9bc2330ef11c8afc7581fff4`.
+No native generation benchmark was opened.
+
+Two different alignment fusions have therefore reproduced the same diagnosis:
+the recurrent branch strongly signals memory presence, but eight updates do not
+make its correction identify the correct row and layer. The next method keeps
+the best carrier equation and moves upstream to specificity-focused training:
+twice the causal updates, a stronger active-control contrast weight, and a new
+source/donor-disjoint endpoint. This must pass before generation. Publisher
+validation, publisher test, Hard32, and the unused strength holdout remain
+unopened and unauthorized.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -412,7 +429,14 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [signed alignment-residual causal failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_alignment_residual_causal_train_v1/result.json),
 [alignment-residual screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_alignment_residual_screen.py),
 [alignment-residual training runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_alignment_residual_causal_train.py),
-and [focused alignment-residual tests](deltamem/tests/test_natural_memory_native_rwkv_alignment_residual_causal_train.py).
+[focused alignment-residual tests](deltamem/tests/test_natural_memory_native_rwkv_alignment_residual_causal_train.py),
+[aligned-vector screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_aligned_vector_gate_screen_protocol_v1.json),
+[signed aligned-vector screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_screen_v1/result.json),
+[aligned-vector training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_aligned_vector_gate_causal_train_protocol_v1.json),
+[signed aligned-vector causal failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_causal_train_v1/result.json),
+[aligned-vector screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_aligned_vector_gate_screen.py),
+[aligned-vector training runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_aligned_vector_gate_causal_train.py),
+and [focused aligned-vector tests](deltamem/tests/test_natural_memory_native_rwkv_aligned_vector_gate_causal_train.py).
 
 ### Post-Validation Mechanism Study
 

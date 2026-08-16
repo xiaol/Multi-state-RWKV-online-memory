@@ -94,6 +94,11 @@ SELECTED_CANDIDATE = {
     "fusion_gate_probability": 0.25,
     "detach_read_scores": True,
 }
+PASS_STATUS = "alignment_residual_screen_passed_training_authorized"
+FAIL_STATUS = "alignment_residual_screen_failed_training_blocked"
+MODEL_AUDIT_KEY = "all_wrappers_alignment_residual_content_gated"
+PRIOR_RESULT_CODE_BINDING_KEY = "vector_result_file_sha256"
+RUNNER_BINDING_PATH = Path(__file__)
 
 
 def canonical_sha256(value: Any) -> str:
@@ -158,17 +163,19 @@ def load_model(
     modules = tuple(iter_delta_mem_modules(model))
     configured = all(
         module.memory_readout_mode == "projected_kv_rwkv_hybrid"
-        and module.rwkv_ms_hybrid_mode == "alignment_residual"
-        and module.rwkv_ms_hybrid_gain == 0.125
-        and module.rwkv_ms_read_temperature == 16.0
-        and module.rwkv_ms_read_top_k == 2
-        and module.rwkv_ms_detach_read_scores is True
+        and module.rwkv_ms_hybrid_mode == SELECTED_CANDIDATE["hybrid_mode"]
+        and module.rwkv_ms_hybrid_gain == SELECTED_CANDIDATE["hybrid_gain"]
+        and module.rwkv_ms_read_temperature
+        == SELECTED_CANDIDATE["read_temperature"]
+        and module.rwkv_ms_read_top_k == SELECTED_CANDIDATE["read_top_k"]
+        and module.rwkv_ms_detach_read_scores
+        is SELECTED_CANDIDATE["detach_read_scores"]
         and module.memory_fusion_mode == "content_gated_add"
         for _, module in modules
     )
     audit = {
         **dict(inherited_audit),
-        "all_wrappers_alignment_residual_content_gated": configured,
+        MODEL_AUDIT_KEY: configured,
     }
     if not configured:
         raise RuntimeError(f"Alignment-residual attachment failed: {audit!r}")
@@ -192,8 +199,8 @@ def local_evidence(
             batch,
             state,
             readout_mode="projected_kv_rwkv_hybrid",
-            hybrid_mode="alignment_residual",
-            hybrid_gain=0.125,
+            hybrid_mode=str(SELECTED_CANDIDATE["hybrid_mode"]),
+            hybrid_gain=float(SELECTED_CANDIDATE["hybrid_gain"]),
         )
         for condition, state in states.items()
     }
@@ -369,11 +376,7 @@ def run(
     passed = all(checks.values())
     result: dict[str, Any] = {
         "schema": SCHEMA,
-        "status": (
-            "alignment_residual_screen_passed_training_authorized"
-            if passed
-            else "alignment_residual_screen_failed_training_blocked"
-        ),
+        "status": PASS_STATUS if passed else FAIL_STATUS,
         "passed": passed,
         "checks": checks,
         "protocol_payload_sha256": PROTOCOL_PAYLOAD_SHA256,
@@ -389,12 +392,13 @@ def run(
         "native_generation_authorized": False,
         "protected_splits_opened": [],
         "code_bindings": {
-            "runner_sha256": sha256_file(Path(__file__)),
+            "runner_sha256": sha256_file(RUNNER_BINDING_PATH),
+            "shared_screen_runner_sha256": sha256_file(Path(__file__)),
             "protocol_file_sha256": sha256_file(PROTOCOL),
             "delta_impl_sha256": sha256_file(
                 PROJECT_ROOT / "deltamem/core/delta_impl.py"
             ),
-            "vector_result_file_sha256": sha256_file(PRIOR_RESULT),
+            PRIOR_RESULT_CODE_BINDING_KEY: sha256_file(PRIOR_RESULT),
         },
     }
     result["receipt"] = {
