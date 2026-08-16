@@ -47,6 +47,7 @@ def _module(
         "residual",
         "alignment_residual",
         "aligned_vector_gate",
+        "addressed_vector_gate",
         "vector_gate",
         "scalar_gate",
     ),
@@ -83,6 +84,7 @@ def test_addressed_value_requires_recurrent_state() -> None:
         "residual",
         "alignment_residual",
         "aligned_vector_gate",
+        "addressed_vector_gate",
         "vector_gate",
         "scalar_gate",
         "addressed_value",
@@ -150,6 +152,77 @@ def test_aligned_vector_gate_matches_locked_fusion_equation() -> None:
     expected = projected_fp32 * (1.0 + 0.125 * alignment * direction)
 
     assert torch.equal(fused, expected.to(dtype=projected.dtype))
+
+
+def test_addressed_vector_gate_matches_locked_fusion_equation() -> None:
+    module = _module(hybrid_mode="addressed_vector_gate", hybrid_gain=0.125)
+    projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
+    recurrent = torch.tensor([[[0.25, 0.75], [-0.5, 0.125]]])
+
+    fused = module._fuse_projected_rwkv_reads(projected, recurrent)
+
+    projected_fp32 = projected.float()
+    recurrent_fp32 = recurrent.float()
+    recurrent_rms = recurrent_fp32.square().mean(dim=-1, keepdim=True).sqrt()
+    direction = torch.tanh(recurrent_fp32 / recurrent_rms.clamp_min(1e-6))
+    expected = projected_fp32 * (1.0 + 0.125 * direction)
+
+    assert torch.equal(fused, expected.to(dtype=projected.dtype))
+
+
+def test_addressed_vector_gate_uses_projected_routes(monkeypatch) -> None:
+    module = _module(hybrid_mode="addressed_vector_gate", hybrid_gain=0.125)
+    module.set_write_enabled(False)
+    hidden = torch.randn(1, 3, module.hidden_size)
+    token_mask = torch.ones(1, 3, dtype=torch.bool)
+    state = torch.randn(
+        1,
+        module.num_state_heads,
+        module.rwkv_ms_num_states,
+        module.rank,
+        module.rank,
+    )
+    module.projected_kv_keys = torch.randn(
+        1,
+        module.rwkv_ms_num_states,
+        module.projected_kv_key_dim,
+    )
+    module.projected_kv_values = torch.randn(
+        1,
+        module.rwkv_ms_num_states,
+        module.state_read_dim,
+    )
+    module.projected_kv_occupied = torch.ones(
+        1,
+        module.rwkv_ms_num_states,
+        dtype=torch.bool,
+    )
+    module.projected_kv_surprise = torch.ones(1, module.rwkv_ms_num_states)
+    captured: dict[str, torch.Tensor] = {}
+    original = module._rwkv_ms_addressed_token_state_reads
+
+    def addressed_read(
+        recurrent_state: torch.Tensor,
+        memory_source: torch.Tensor,
+        projected_routes: torch.Tensor,
+        mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        captured["routes"] = projected_routes.detach().clone()
+        return original(recurrent_state, memory_source, projected_routes, mask)
+
+    monkeypatch.setattr(module, "_rwkv_ms_addressed_token_state_reads", addressed_read)
+    monkeypatch.setattr(
+        module,
+        "_memory_backend_token_reads",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("independent RWKV routing must not run")
+        ),
+    )
+
+    _, reads, _, _ = module._projected_rwkv_hybrid_step(state, hidden, token_mask)
+
+    assert torch.equal(module.last_read_routes, captured["routes"])
+    assert torch.count_nonzero(reads).item() > 0
 
 
 def test_addressed_value_step_uses_projected_routes_not_projected_values() -> None:

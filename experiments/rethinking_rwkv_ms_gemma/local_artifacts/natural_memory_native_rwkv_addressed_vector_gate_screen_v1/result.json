@@ -1,0 +1,387 @@
+{
+  "checks": {
+    "candidate_passed_on_all_ranks": true,
+    "four_distinct_a100_ranks": true,
+    "projected_carrier_fixed_on_all_ranks": true
+  },
+  "code_bindings": {
+    "aligned_native_result_file_sha256": "05342b71790f8584c5f856765896670f60cbed2a3f8090ae1eaeaa50a4ecf747",
+    "delta_impl_sha256": "e37872a8b3f80af6fba91f4225b634c0c638e62f3aae2aaacccac6850bc41664",
+    "protocol_file_sha256": "8f2cf44365d9c31aab76840905104f65f26c61bf33b1cda11153fe3357421c61",
+    "runner_sha256": "81f1517f8edf4f7527b05424dcf2432407f296378f7d2292026383475f7d57b6",
+    "shared_screen_runner_sha256": "0c020ad484bbbf0725bf402c07c458a9638437569879471f5178ab69c29a2b38"
+  },
+  "initial_adapter_sha256": "2f2009693f7222383e022baa429bcd211501e5f17021addda210d4ea368a7d04",
+  "model_audit": {
+    "all_wrappers_addressed_vector_gate_content_gated": true,
+    "all_wrappers_hybrid": true,
+    "replaced_layers": 42,
+    "trainable_parameter_names_sha256": "88bf815d6915d21bc4a93385da1c1eac6f803614981841a7e899f367ca458bf7",
+    "trainable_parameter_tensors": 1302,
+    "wrapped_layers": 42
+  },
+  "native_generation_authorized": false,
+  "passed": true,
+  "protected_splits_opened": [],
+  "protocol_objective": "Test whether forcing the projected carrier and recurrent controller to use the same projected slot address yields a bounded RWKV vector-FiLM hybrid with exact zero-state identity and material row/layer sensitivity.",
+  "protocol_payload_sha256": "763a029133c7125dffa586d80d8fcb129954a9dca2b5b9a98a448be334bdeb6d",
+  "rank_devices": [
+    {
+      "device_index": 0,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 0,
+      "pid": 2033633,
+      "process_rank": 0
+    },
+    {
+      "device_index": 1,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 1,
+      "pid": 2033634,
+      "process_rank": 1
+    },
+    {
+      "device_index": 2,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 2,
+      "pid": 2033635,
+      "process_rank": 2
+    },
+    {
+      "device_index": 3,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 3,
+      "pid": 2033636,
+      "process_rank": 3
+    }
+  ],
+  "rank_evidence": [
+    {
+      "absolute_write_token_delta": 11,
+      "candidate": {
+        "candidate_id": "addressed_vector_gate_t16_k2_gate025_g0125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.125,
+        "hybrid_mode": "addressed_vector_gate",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8205024719238281,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.14867882430553436,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.76641845703125,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.6875,
+          "mean_abs_logit_delta": 0.13016971945762634,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7414649963378906,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.828125,
+          "mean_abs_logit_delta": 0.12551714479923248,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7414649963378906,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.828125,
+          "mean_abs_logit_delta": 0.12551714479923248,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 1149,
+      "donor_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "donor_write_tokens": 210,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16075621888,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "b586ddfa58c34bc88dac1d7c374d428e878f3a05c00861418895d580f38002a3",
+      "rank": 0,
+      "source_ordinal": 718,
+      "source_read_tokens": 209,
+      "source_row_sha256": "d50047bdadf2068dfce0dd6dfd2eb0c2575cbb0ac4b417136da9e206fad9fad6",
+      "source_write_tokens": 199
+    },
+    {
+      "absolute_write_token_delta": 5,
+      "candidate": {
+        "candidate_id": "addressed_vector_gate_t16_k2_gate025_g0125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.125,
+        "hybrid_mode": "addressed_vector_gate",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8196558271135602,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.12379620224237442,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8368723733084542,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.65625,
+          "mean_abs_logit_delta": 0.1410834789276123,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8336767469133649,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4375,
+          "mean_abs_logit_delta": 0.13513077795505524,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8336767469133649,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4375,
+          "mean_abs_logit_delta": 0.13513077795505524,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16077222912,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "835f52a46989cd3ae7aa619272c3963088db66f552a274a4845905d4d162bba7",
+      "rank": 1,
+      "source_ordinal": 1149,
+      "source_read_tokens": 224,
+      "source_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "source_write_tokens": 210
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "addressed_vector_gate_t16_k2_gate025_g0125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.125,
+        "hybrid_mode": "addressed_vector_gate",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8375534057617188,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.375,
+          "mean_abs_logit_delta": 0.155477836728096,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7996612548828125,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4716796875,
+          "mean_abs_logit_delta": 0.15826766192913055,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8162765502929688,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.15635092556476593,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8162765502929688,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.15635092556476593,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 76,
+      "donor_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16077498368,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "355c3db99c28e95dcef8d0903988fb4f094deab8d684dc905251e8bb9aff50b8",
+      "rank": 2,
+      "source_ordinal": 918,
+      "source_read_tokens": 225,
+      "source_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "source_write_tokens": 215
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "addressed_vector_gate_t16_k2_gate025_g0125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.125,
+        "hybrid_mode": "addressed_vector_gate",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7909816395152699,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4375,
+          "mean_abs_logit_delta": 0.1398686319589615,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7816619873046875,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.13279081881046295,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7851416847922585,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.625,
+          "mean_abs_logit_delta": 0.12144695967435837,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7851416847922585,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.625,
+          "mean_abs_logit_delta": 0.12144695967435837,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16077498368,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "7e7f015512a275472c90f65f6986a1dbb366d3d0c2e3358063f95bc99067cee7",
+      "rank": 3,
+      "source_ordinal": 76,
+      "source_read_tokens": 226,
+      "source_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "source_write_tokens": 215
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "db95af434dca190c1934a4acb90a51fc3b5238b17b22fdbedd3505bc8e5d5102"
+  },
+  "schema": "rwkv_ms_natural_memory_native_addressed_vector_gate_screen.v1",
+  "seed": 80,
+  "selected_candidate": {
+    "candidate_id": "addressed_vector_gate_t16_k2_gate025_g0125",
+    "detach_read_scores": true,
+    "fusion_gate_probability": 0.25,
+    "hybrid_gain": 0.125,
+    "hybrid_mode": "addressed_vector_gate",
+    "read_temperature": 16.0,
+    "read_top_k": 2
+  },
+  "status": "addressed_vector_gate_screen_passed_training_authorized",
+  "training_authorized": true,
+  "world_size": 4
+}

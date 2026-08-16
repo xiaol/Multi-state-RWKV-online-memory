@@ -69,6 +69,7 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "residual",
     "alignment_residual",
     "aligned_vector_gate",
+    "addressed_vector_gate",
     "vector_gate",
     "scalar_gate",
     "addressed_value",
@@ -77,6 +78,9 @@ VALID_RWKV_MS_HYBRID_MODES = (
 )
 RWKV_MS_ADDRESSED_VALUE_MODES = frozenset(
     {"addressed_value", "chunk_addressed_value"}
+)
+RWKV_MS_PROJECTED_ROUTE_READ_MODES = (
+    RWKV_MS_ADDRESSED_VALUE_MODES | {"addressed_vector_gate"}
 )
 RWKV_MS_VALUE_BOTTLENECK_MODES = (
     RWKV_MS_ADDRESSED_VALUE_MODES | {"recurrent_value"}
@@ -4019,6 +4023,8 @@ class DeltaMemAttention(nn.Module):
                 * alignment.clamp(-1.0, 1.0)
                 * recurrent_direction
             )
+        elif self.rwkv_ms_hybrid_mode == "addressed_vector_gate":
+            fused = projected * (1.0 + gain * recurrent_direction)
         elif self.rwkv_ms_hybrid_mode == "vector_gate":
             fused = projected * (1.0 + gain * recurrent_direction)
         elif self.rwkv_ms_hybrid_mode == "scalar_gate":
@@ -4085,7 +4091,7 @@ class DeltaMemAttention(nn.Module):
             else:
                 projected_reads = self._projected_kv_slot_token_reads(hidden_states)
                 projected_routes = self.last_read_routes
-            if self.rwkv_ms_hybrid_mode in RWKV_MS_ADDRESSED_VALUE_MODES:
+            if self.rwkv_ms_hybrid_mode in RWKV_MS_PROJECTED_ROUTE_READ_MODES:
                 recurrent_reads = (
                     torch.zeros_like(projected_reads)
                     if projected_routes is None
