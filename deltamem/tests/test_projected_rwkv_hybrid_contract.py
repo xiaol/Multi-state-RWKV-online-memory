@@ -47,6 +47,7 @@ def _module(
         "residual",
         "alignment_residual",
         "aligned_vector_gate",
+        "addressed_affine",
         "addressed_vector_gate",
         "vector_gate",
         "scalar_gate",
@@ -84,6 +85,7 @@ def test_addressed_value_requires_recurrent_state() -> None:
         "residual",
         "alignment_residual",
         "aligned_vector_gate",
+        "addressed_affine",
         "addressed_vector_gate",
         "vector_gate",
         "scalar_gate",
@@ -170,8 +172,29 @@ def test_addressed_vector_gate_matches_locked_fusion_equation() -> None:
     assert torch.equal(fused, expected.to(dtype=projected.dtype))
 
 
-def test_addressed_vector_gate_uses_projected_routes(monkeypatch) -> None:
-    module = _module(hybrid_mode="addressed_vector_gate", hybrid_gain=0.125)
+def test_addressed_affine_matches_locked_fusion_equation() -> None:
+    module = _module(hybrid_mode="addressed_affine", hybrid_gain=0.125)
+    projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
+    recurrent = torch.tensor([[[0.25, 0.75], [-0.5, 0.125]]])
+
+    fused = module._fuse_projected_rwkv_reads(projected, recurrent)
+
+    projected_fp32 = projected.float()
+    recurrent_fp32 = recurrent.float()
+    carrier_rms = projected_fp32.square().mean(dim=-1, keepdim=True).sqrt()
+    recurrent_rms = recurrent_fp32.square().mean(dim=-1, keepdim=True).sqrt()
+    direction = torch.tanh(recurrent_fp32 / recurrent_rms.clamp_min(1e-6))
+    expected = (
+        projected_fp32 * (1.0 + 0.125 * direction)
+        + 0.03125 * carrier_rms * direction
+    )
+
+    assert torch.equal(fused, expected.to(dtype=projected.dtype))
+
+
+@pytest.mark.parametrize("mode", ("addressed_affine", "addressed_vector_gate"))
+def test_addressed_gate_modes_use_projected_routes(monkeypatch, mode: str) -> None:
+    module = _module(hybrid_mode=mode, hybrid_gain=0.125)
     module.set_write_enabled(False)
     hidden = torch.randn(1, 3, module.hidden_size)
     token_mask = torch.ones(1, 3, dtype=torch.bool)

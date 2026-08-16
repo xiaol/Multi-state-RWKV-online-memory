@@ -69,6 +69,7 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "residual",
     "alignment_residual",
     "aligned_vector_gate",
+    "addressed_affine",
     "addressed_vector_gate",
     "vector_gate",
     "scalar_gate",
@@ -80,7 +81,7 @@ RWKV_MS_ADDRESSED_VALUE_MODES = frozenset(
     {"addressed_value", "chunk_addressed_value"}
 )
 RWKV_MS_PROJECTED_ROUTE_READ_MODES = (
-    RWKV_MS_ADDRESSED_VALUE_MODES | {"addressed_vector_gate"}
+    RWKV_MS_ADDRESSED_VALUE_MODES | {"addressed_affine", "addressed_vector_gate"}
 )
 RWKV_MS_VALUE_BOTTLENECK_MODES = (
     RWKV_MS_ADDRESSED_VALUE_MODES | {"recurrent_value"}
@@ -4022,6 +4023,11 @@ class DeltaMemAttention(nn.Module):
                 + gain
                 * alignment.clamp(-1.0, 1.0)
                 * recurrent_direction
+            )
+        elif self.rwkv_ms_hybrid_mode == "addressed_affine":
+            fused = (
+                projected * (1.0 + gain * recurrent_direction)
+                + 0.25 * gain * carrier_rms * recurrent_direction
             )
         elif self.rwkv_ms_hybrid_mode == "addressed_vector_gate":
             fused = projected * (1.0 + gain * recurrent_direction)
