@@ -272,16 +272,47 @@ Correct recurrence changed `9.55%` of outputs relative to projected-only, but
 the changes did not improve native F1 or beat layer permutation, so no native
 RWKV recurrence gain is claimed.
 
-This result isolates an architectural limitation: scalar amplitude modulation
-can be absorbed by later normalization and gating even when teacher-forced CE
-improves. The next bounded hybrid keeps projected KV as the material carrier but
-uses RWKV as an elementwise FiLM controller,
-`projected_read * (1 + gain * tanh(recurrent_read / rms))`. Unlike the scalar
-controller, it changes carrier direction while retaining exact projected-only
-identity for zero recurrent state. A fixed open-development screen will compare
-bounded vector gains before any new full native evaluation. Publisher
-validation, publisher test, Hard32, and the unused strength holdout remain
-unopened and unauthorized.
+The elementwise vector-FiLM follow-up then trained and passed its locked
+teacher-forced causal endpoint. Its zero-minus-correct, donor-minus-correct, and
+layer-permuted-minus-correct CE margins were `+0.30025`, `+0.00393`, and
+`+0.01053`. On the matched 220-row native generation benchmark it established
+a real gain over its own fixed carrier: correct recurrence scored `0.19426`
+micro-F1 versus `0.18763` for both zero recurrence and the explicit
+projected-only bypass, a `+0.00663` margin above the locked `+0.005` gate.
+
+That is not yet a recurrent causal pass. The matched donor scored `0.19054`, so
+correct-minus-donor was only `+0.00372`; cyclic layer permutation scored
+`0.19495`, beating correct recurrence by `0.00069`. Correct recurrence changed
+`10.00%` of outputs relative to projected-only, and zero/projected-only outputs
+were exact while every projected carrier stayed byte-identical. The valid
+status is therefore `vector_gate_native_gain_without_full_causal_pass`, not
+native RWKV causal gain. Its signed receipt is
+`9fcbbd11ba502fdab77bee6c1177a5f5296cd4ff6ebecd0acdb3ce02b4cd10af`.
+
+The locked generation protocol contains two non-operative wording errors: one
+disclosure sentence says `scalar_gate` instead of the executed `vector_gate`,
+and another says generation sets the gain even though `0.125` was already
+serialized and only verified. The signed result carries both errata. Operative
+architecture fields, the fusion equation, training audit, evaluator assertions,
+and every prediction record consistently bind the executed mode to
+`vector_gate`; no learned tensor changed during restoration.
+
+The result narrows the remaining problem from carrier gain to state
+specificity. The next bounded hybrid will test an alignment-gated residual:
+
+```text
+a = clamp(cos(projected_read, recurrent_read), -1, 1)
+projected_read
+  + gain * rms(projected_read) * a
+         * tanh(recurrent_read / rms(recurrent_read))
+```
+
+This keeps the successful projected carrier, retains exact projected-only
+identity for zero recurrence, and makes the directional correction depend on
+row- and layer-specific projected/recurrent agreement. A locked open-data
+screen must beat zero, donor, and layer permutation before training; no new
+native generation run is authorized otherwise. Publisher validation, publisher
+test, Hard32, and the unused strength holdout remain unopened and unauthorized.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -341,7 +372,14 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [signed scalar native failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_scalar_agreement_eval_v2/result.json),
 [scalar native evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_scalar_agreement_eval.py),
 [hash-bound scalar analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_scalar_agreement_eval.py),
-and [focused scalar tests](deltamem/tests/test_natural_memory_native_rwkv_scalar_agreement_eval.py).
+[focused scalar tests](deltamem/tests/test_natural_memory_native_rwkv_scalar_agreement_eval.py),
+[vector-FiLM training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_vector_gate_causal_train_protocol_v1.json),
+[signed vector-FiLM causal endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_vector_gate_causal_train_v1/result.json),
+[locked vector-FiLM native protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_vector_gate_generation_protocol_v1.json),
+[signed vector-FiLM native result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_vector_gate_eval_v1/result.json),
+[vector-FiLM evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_vector_gate_eval.py),
+[hash-bound vector-FiLM analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_vector_gate_eval.py),
+and [focused vector-FiLM tests](deltamem/tests/test_natural_memory_native_rwkv_vector_gate_eval.py).
 
 ### Post-Validation Mechanism Study
 

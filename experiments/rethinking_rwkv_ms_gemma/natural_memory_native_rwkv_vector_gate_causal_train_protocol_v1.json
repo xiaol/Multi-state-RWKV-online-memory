@@ -1,0 +1,113 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_vector_gate_causal_train_protocol.v1",
+  "created_at": "2026-08-16T20:44:34+08:00",
+  "objective": "Determine whether recurrent RWKV state can causally improve a fixed projected-KV carrier when it provides bounded elementwise FiLM modulation and is trained with row-isolated causal contrast.",
+  "authorization_basis": {
+    "prior_native_result_file": "local_artifacts/natural_memory_native_rwkv_scalar_agreement_eval_v2/result.json",
+    "prior_native_result_file_sha256": "b3ccbaaa0e3c31116bdf84c6df76667c83d2e33bc06b8757f469efa18ee7795f",
+    "prior_native_result_receipt": "9590428d136660e378b0b92ce79fcde5d46b7518314f9a629a04d8a9966c2e9e",
+    "prior_native_status": "scalar_agreement_native_gain_not_established",
+    "prior_native_passed": false,
+    "prior_native_causal_margins": {
+      "correct_minus_projected_only_micro_f1": 0.00006355556944748209,
+      "correct_minus_matched_donor_micro_f1": 0.0027537259010466386,
+      "correct_minus_layer_permuted_micro_f1": -0.0016342892383595375
+    },
+    "diagnosis": "Scalar amplitude control changed native outputs but produced negligible gain over projected-only and lost to layer permutation, consistent with later normalization and gating absorbing a scalar rescale.",
+    "response": "Keep projected KV as the material carrier and let recurrent RWKV state apply bounded elementwise FiLM modulation so it can change carrier direction while remaining exactly projected-only for zero recurrent state."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "eight_update_schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "seed": 74,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "selected_candidate": {
+      "candidate_id": "vector_gate_t16_k2_gate025_g0125",
+      "hybrid_mode": "vector_gate",
+      "hybrid_gain": 0.125,
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "fusion_gate_probability": 0.25,
+      "detach_read_scores": true
+    },
+    "fusion_equation": "projected_read * (1 + 0.125 * tanh(recurrent_read / rms(recurrent_read)))",
+    "zero_recurrent_identity": "Zero recurrent read is exactly the projected-only carrier.",
+    "memory_fusion_mode": "content_gated_add",
+    "trainable_parameter_families": ["hrm_rwkv7_core.output.weight", "delta_o_proj", "memory_fusion_hidden_weight", "memory_fusion_read_weight", "memory_fusion_bias"],
+    "trainable_parameter_tensors": 210,
+    "projected_carrier_and_recurrent_router_frozen": true
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "optimizer_updates": 8,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "backward_objective": "correct_state_ce_plus_active_causal_contrasts",
+    "contrast_weight_per_active_control": 0.25,
+    "contrast_margin": 0.05,
+    "row_gradient_validation": "after all active branches and before accumulation",
+    "nonfinite_row_policy": "discard entire row",
+    "minimum_accepted_rows_per_update": 6,
+    "maximum_total_rejected_rows": 8,
+    "gradient_rescale": "8 / accepted_rows"
+  },
+  "heldout_causal_endpoint": {
+    "selection": "Reuse the explicitly open 32-row scalar-agreement causal endpoint as a development endpoint for the architectural follow-up; it remains disjoint from the eight-update training sources and donors.",
+    "source_ordinals": [444, 942, 719, 528, 92, 400, 1372, 129, 1399, 52, 870, 399, 272, 921, 753, 506, 962, 672, 876, 1065, 65, 810, 291, 1408, 912, 1076, 1324, 235, 1402, 340, 1259, 830],
+    "source_donor_payload_sha256": "8fb5c15f465b668b49313761e23e806bfb7ed8c965ff007ecf7249e998ce0822",
+    "rows": 32,
+    "required_mean_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "all_condition_logits_finite": true,
+    "open_only_after_all_training_gates_pass": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_eight_updates_complete": true,
+    "at_least_six_accepted_rows_each_update": true,
+    "at_most_eight_rejected_rows_total": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "projected_carrier_fixed_for_every_intervention": true,
+    "primary_trainable_subset_changed": true,
+    "recurrent_parameter_subset_changed": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true,
+    "all_heldout_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "training_failure": "Do not open the held-out endpoint; archive the failure.",
+    "endpoint_pass": "Authorize a separately locked matched projected-only versus vector-gate native generation benchmark.",
+    "endpoint_failure": "Block generation and do not tune another method on this endpoint.",
+    "always": "Archive, commit, and push the result."
+  },
+  "claim_policy": {
+    "endpoint_pass": "May claim held-out teacher-forced causal preference from recurrent elementwise control of a fixed projected carrier on open fit data.",
+    "native_gain": "Forbidden until the separately authorized matched generation benchmark passes both gain and recurrent causal gates.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "4c2d9724c153f085797652b91e343324b8b12356830672871c7fe809a5bbb447"
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_vector_gate_generation_protocol.v1",
+  "created_at": "2026-08-16T21:05:00+08:00",
+  "objective": "Test whether the causally qualified vector-gate RWKV controller improves native scene-boundary generation over its own matched projected-only carrier and over recurrent-state interventions on open publisher-TRAIN-derived development data.",
+  "authorization_basis": {
+    "training_result_file": "local_artifacts/natural_memory_native_rwkv_vector_gate_causal_train_v1/result.json",
+    "training_result_file_sha256": "deaa6f2004ec61f7cd8d0040a3799db0dfa0624fce03cd6a5975a95aa89ecc5e",
+    "training_result_receipt": "2b042650a1ef0f59fe9035eb55bba23ec1dd648513a3b1f44b53414f733766bc",
+    "training_status": "vector_gate_heldout_passed_generation_authorized",
+    "open_native_generation_authorized": true,
+    "adapter_config_file_sha256": "28830f91f455c77f6b565cacb3069262d991d2030e3564961e0c957f13c8245f",
+    "heldout_teacher_forced_margins": {
+      "zero_minus_correct": 0.30025467315277465,
+      "donor_minus_correct": 0.003929445341035898,
+      "layer_permuted_minus_correct": 0.010530486664214411
+    }
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "authorized_rows": 220,
+    "authorized_rows_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "seed": 74,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "vector_gate",
+    "hybrid_gain": 0.125,
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "detach_read_scores": true,
+    "fusion_equation": "projected_read * (1 + 0.125 * tanh(recurrent_read / rms(recurrent_read)))",
+    "material_carrier": "projected key/value slots",
+    "recurrent_role": "bounded elementwise FiLM controller",
+    "zero_recurrent_identity": "Zero recurrent state is exactly projected-only readout.",
+    "serialized_config_disclosure": "The immutable signed adapter config retained rwkv_ms_hybrid_mode=recurrent_value from the constructor even though the signed training model audit and endpoint ran scalar_gate after a runtime-only candidate switch.",
+    "required_runtime_restoration": "After loading the immutable adapter and before priming any row, set only the non-parameter rwkv_ms_hybrid_mode attribute from recurrent_value to vector_gate and rwkv_ms_hybrid_gain to 0.125 on all 42 wrappers. Do not reinitialize or change learned tensors, including the trained fusion gate."
+  },
+  "generation": {
+    "hardware": "four distinct A100 GPUs, one deterministic shard per GPU",
+    "hf_endpoint": "https://hf-mirror.com",
+    "conditions": [
+      "correct_recurrent_state",
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "layer_permuted_recurrent_state",
+      "projected_only_bypass"
+    ],
+    "projected_carrier_policy": "The correct row's projected carrier is byte-identical in every condition.",
+    "donor_policy": "Deterministic prompt-length-matched donor with different gold boundaries.",
+    "decoding": "The repository's frozen deterministic native generation configuration.",
+    "batch_shape_control": "Generate zero, correct, donor, and layer-permuted vector conditions together at batch size four. Generate the explicit projected-only bypass at the same batch size four using four copies of the identical zero-recurrent state, and compare the same batch position. This prevents BF16 kernel-shape drift from masquerading as a memory effect.",
+    "resume_policy": "Hash-bound append-only JSONL per shard and condition.",
+    "preflight_disclosure": "An initial zero-prediction preflight stopped at the serialized-mode assertion and opened no benchmark outputs; the runtime restoration was locked only after that failure. A subsequent one-row preflight passed. The first full attempt then archived 10 complete rows before same-state zero versus projected-bypass decoding diverged because their batch sizes were four versus one; no metrics were aggregated, and this corrected batch-shape control was locked before a fresh run."
+  },
+  "required_gates": {
+    "coverage_minimum_every_condition": 0.95,
+    "correct_minus_projected_only_micro_f1_minimum": 0.005,
+    "correct_minus_matched_donor_micro_f1_minimum": 0.005,
+    "correct_minus_layer_permuted_micro_f1_minimum": 0.005,
+    "projected_carrier_fixed_across_recurrent_interventions": true,
+    "zero_recurrent_predictions_exactly_match_projected_only_bypass": true,
+    "all_220_rows_present_in_every_condition": true
+  },
+  "stopping_rule": {
+    "pass": "Establish native recurrent causal gain for this vector-gate hybrid on the locked open development benchmark, update the README, archive the signed result, commit, and push.",
+    "failure": "Do not claim native recurrent gain; archive the signed failure, then lock a genuinely different bounded hybrid before further generation testing.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused 73-row strength holdout."
+  },
+  "claim_policy": {
+    "pass": "May claim open-development native gain over the matched projected-only carrier with recurrent vector-gate causal attribution under the locked interventions.",
+    "failure": "May claim only the earlier held-out teacher-forced causal preference, not native generation gain.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "8b404957979865498b77035fa3c0f9c616baa5625c39a2eab2ca798dd57d5732"
+  }
+}
