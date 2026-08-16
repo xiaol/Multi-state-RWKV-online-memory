@@ -54,18 +54,39 @@ rejections and no protected split access.
 Lower CE is better. All three preregistered mean margins are positive, so this
 run establishes that the RWKV path is active, layer/order-sensitive, and weakly
 example-specific on the fresh endpoint. The donor result is the weakest gate:
-its mean margin is only `+0.009506`, with 59.375% of rows positive. Native
-generation is authorized for a separately locked matched comparison, but no
-native task gain is claimed yet. The signed result is
+its mean margin is only `+0.009506`, with 59.375% of rows positive. The signed
+teacher-forced result is
 `local_artifacts/natural_memory_native_rwkv_addressed_affine_causal_train_v1/result.json`
 (file SHA-256
 `096e20bb01abbe86689745379b12b3f1b8d5de32c7be0ba682793855a85e0e2d`,
 receipt
 `c74dc75bee63bc3cae65671c0978f92969bb08e2e69d6fa1c8ea3c28c232a4e6`).
 
-The next gate is a matched projected-only versus addressed-affine native
-generation benchmark. It must also replay zero, donor, and layer-permuted
-generation controls before any gain is attributed to RWKV.
+The separately locked 220-row native generation benchmark failed every causal
+gain gate:
+
+| recurrent condition | micro-F1 | margin from correct |
+| --- | ---: | ---: |
+| correct | 0.189507 | - |
+| zero / projected-only | 0.198083 | -0.008576 |
+| matched donor | 0.195004 | -0.005497 |
+| layer-permuted | 0.196269 | -0.006763 |
+
+Correct recurrence changed 13.64% of outputs from projected-only but reduced
+precision and recall, so the recurrent effect was active and harmful under
+autoregressive decoding. Coverage passed, zero and projected-only generations
+were exact, and every projected carrier stayed byte-identical. The signed
+native result is
+`local_artifacts/natural_memory_native_rwkv_addressed_affine_eval_v1/result.json`
+(file SHA-256
+`43097d4bceef4eb5a4a760f146bf4e5f697e5294e3ba929b948c9fd12f4b6d73`,
+receipt
+`c18d190c8fffcbac142c4d95cce6899129df637685cc551ae0e78214710ecdde`).
+No native RWKV gain is established.
+
+The next hybrid should make recurrent injection conditional on query/state
+agreement and abstain to projected-only when confidence is weak. This targets
+the observed false-positive increase instead of increasing recurrent gain.
 
 Use the PyTorch/HF delta-Mem path for these diagnostics. The GGUF sidecar path
 is useful for serving, but it does not expose the hidden states, gradients, and

@@ -391,6 +391,31 @@ carrier and recurrent controller to refer to the same memory chunk. It must
 pass fresh zero, donor, and layer-permutation teacher-forced controls before any
 further native generation benchmark is opened.
 
+That addressed route was tested in two stages. A pure addressed vector gate
+remained donor-ambiguous, so the next `addressed_affine` hybrid combined its
+bounded FiLM controller with a quarter-strength recurrent value residual. On a
+fresh source/donor-disjoint 32-row teacher-forced endpoint, correct recurrence
+scored `2.887219` CE versus `3.725045` for zero, `2.896725` for a matched donor,
+and `2.926837` for layer permutation. The positive `+0.837826`, `+0.009506`,
+and `+0.039618` margins passed the locked causal gate and authorized native
+generation.
+
+The locked 220-row native benchmark did not transfer. Correct recurrence
+scored `0.189507` micro-F1 versus `0.198083` for zero/projected-only,
+`0.195004` for the matched donor, and `0.196269` for layer permutation. Thus
+all causal margins were negative: `-0.008576`, `-0.005497`, and `-0.006763`.
+Correct recurrence changed `13.64%` of projected-only outputs, but increased
+false positives and reduced both precision and recall. Exact zero/projected
+identity, fixed projected carriers, coverage, and protected-split gates all
+held. The signed status is `addressed_affine_native_gain_not_established`, with
+receipt `c18d190c8fffcbac142c4d95cce6899129df637685cc551ae0e78214710ecdde`.
+
+This establishes a pattern boundary: positive teacher-forced state preference
+is insufficient when recurrent perturbations are injected unconditionally
+during autoregressive decoding. The next hybrid must use query/state agreement
+to abstain to projected-only on weak or conflicting recurrent reads, rather
+than increasing gain or adding another unconditional residual.
+
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
 [hybrid screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_projected_rwkv_hybrid_screen_protocol_v1.json),

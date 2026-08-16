@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import torch
@@ -20,6 +21,15 @@ def _training_result():
         evaluation.SCRIPT_DIR
         / "local_artifacts/"
         "natural_memory_native_rwkv_addressed_affine_causal_train_v1/"
+        "result.json"
+    )
+
+
+def _native_result():
+    return (
+        evaluation.SCRIPT_DIR
+        / "local_artifacts/"
+        "natural_memory_native_rwkv_addressed_affine_eval_v1/"
         "result.json"
     )
 
@@ -92,3 +102,50 @@ def test_analyzer_locks_causal_thresholds_without_prior_errata() -> None:
     with analyzer.analysis_bindings():
         assert analyzer.base.evaluation is evaluation
         assert analyzer.base.INCLUDE_PROTOCOL_ERRATA is False
+
+
+def test_signed_native_result_locks_generation_failure() -> None:
+    result_path = _native_result()
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    unsigned = dict(result)
+    receipt = unsigned.pop("receipt")
+
+    assert evaluation.sha256_file(result_path) == (
+        "43097d4bceef4eb5a4a760f146bf4e5f697e5294e3ba929b948c9fd12f4b6d73"
+    )
+    assert analyzer.canonical_sha256(unsigned) == receipt["payload_sha256"]
+    assert receipt["payload_sha256"] == (
+        "c18d190c8fffcbac142c4d95cce6899129df637685cc551ae0e78214710ecdde"
+    )
+    assert result["status"] == "addressed_affine_native_gain_not_established"
+    assert result["passed"] is False
+    assert result["native_recurrent_causal_gain_established"] is False
+    assert result["causal_margins"] == {
+        "correct_minus_layer_permuted_micro_f1": -0.006762605737164029,
+        "correct_minus_matched_donor_micro_f1": -0.00549737278333523,
+        "correct_minus_projected_only_micro_f1": -0.008576410867123158,
+        "correct_minus_zero_micro_f1": -0.008576410867123158,
+    }
+    assert all(
+        result["gates"][gate] is False
+        for gate in (
+            "correct_minus_projected_only_micro_f1_minimum",
+            "correct_minus_zero_micro_f1_minimum",
+            "correct_minus_matched_donor_micro_f1_minimum",
+            "correct_minus_layer_permuted_micro_f1_minimum",
+        )
+    )
+    assert result["gates"][
+        "zero_recurrent_exactly_matches_projected_only_predictions"
+    ] is True
+    assert result["gates"][
+        "projected_carrier_fixed_across_recurrent_interventions"
+    ] is True
+    assert result["protocol_errata"] == []
+    assert result["scope"] == {
+        "hard32_opened": False,
+        "publisher_test_opened": False,
+        "publisher_validation_predictions_opened": False,
+        "split": "publisher-TRAIN-derived authorized development partition",
+        "strength_holdout_opened": False,
+    }
