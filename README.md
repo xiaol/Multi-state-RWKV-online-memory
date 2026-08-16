@@ -367,6 +367,30 @@ hybrid and authorizes a separately locked native generation benchmark. It does
 not itself establish native generation gain. Publisher validation, publisher
 test, Hard32, and the unused strength holdout remain unopened and unauthorized.
 
+The separately locked 220-row native generation benchmark did not transfer
+that teacher-forced result into autoregressive gain. Correct recurrent state
+scored `0.18964` micro-F1, versus `0.18859` for both zero recurrence and the
+explicit projected-only bypass, `0.19206` for the matched donor, and `0.19010`
+for cyclic layer permutation. The four correct-state margins were therefore
+only `+0.00105` over zero/projected-only, `-0.00242` against the donor, and
+`-0.00045` against layer permutation; every locked `+0.005` causal margin
+failed. Correct recurrence changed `10.91%` of outputs relative to the fixed
+carrier, so the recurrent controller was active, but its changes were not
+useful or state-specific in native generation. Zero and projected-only outputs
+were exact, every projected carrier remained byte-identical, and coverage
+passed in every condition. The signed status is
+`aligned_vector_gate_native_gain_not_established`, with receipt
+`b2c3e76cebc7744021393dd5028d568e8ea334b2008414e6ce0a014ccc9c8c65`.
+
+This rejects more training of the same independently routed aligned gate as the
+next move. The next bounded hybrid should instead use the projected slot route
+to address the corresponding RWKV recurrent matrix, then apply that addressed
+RWKV read as a bounded vector-FiLM controller over the projected value. This
+`addressed_vector_gate` keeps the proven projected carrier while forcing its
+carrier and recurrent controller to refer to the same memory chunk. It must
+pass fresh zero, donor, and layer-permutation teacher-forced controls before any
+further native generation benchmark is opened.
+
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
 [hybrid screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_projected_rwkv_hybrid_screen_protocol_v1.json),
@@ -450,7 +474,12 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [specificity-training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_aligned_vector_gate_specificity_train_protocol_v1.json),
 [signed specificity endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_specificity_train_v1/result.json),
 [specificity-training runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_aligned_vector_gate_specificity_train.py),
-and [focused specificity tests](deltamem/tests/test_natural_memory_native_rwkv_aligned_vector_gate_specificity_train.py).
+[focused specificity tests](deltamem/tests/test_natural_memory_native_rwkv_aligned_vector_gate_specificity_train.py),
+[locked specificity-generation protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_aligned_vector_gate_specificity_generation_protocol_v1.json),
+[signed specificity-generation failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_specificity_eval_v1/result.json),
+[specificity-generation evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_aligned_vector_gate_specificity_eval.py),
+[hash-bound specificity-generation analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_aligned_vector_gate_specificity_eval.py),
+and [focused specificity-generation tests](deltamem/tests/test_natural_memory_native_rwkv_aligned_vector_gate_specificity_eval.py).
 
 ### Post-Validation Mechanism Study
 

@@ -28,6 +28,11 @@ SCHEMA = "rwkv_ms_natural_memory_native_vector_gate_result.v1"
 MARGIN_MINIMUM = 0.005
 COVERAGE_MINIMUM = 0.95
 PARTITIONS_PER_SHARD = 1
+PASS_STATUS = "vector_gate_native_recurrent_causal_gain_established"
+PARTIAL_STATUS = "vector_gate_native_gain_without_full_causal_pass"
+FAIL_STATUS = "vector_gate_native_gain_not_established"
+INCLUDE_PROTOCOL_ERRATA = True
+ANALYZER_BINDING_PATH = Path(__file__)
 
 
 def canonical_sha256(value: Any) -> str:
@@ -59,8 +64,9 @@ def read_records(
             != evaluation.PROTOCOL_PAYLOAD_SHA256
             or binding.get("partitions_per_shard") != PARTITIONS_PER_SHARD
             or binding.get("conditions") != list(evaluation.CONDITIONS)
-            or binding.get("hybrid_mode") != "vector_gate"
-            or binding.get("serialized_adapter_hybrid_mode") != "recurrent_value"
+            or binding.get("hybrid_mode") != evaluation.RUNTIME_HYBRID_MODE
+            or binding.get("serialized_adapter_hybrid_mode")
+            != evaluation.SERIALIZED_HYBRID_MODE
             or binding.get("runtime_mode_restoration_changed_no_parameters") is not True
             or binding.get("generation_batch_shape_control")
             != "four_by_four_same_position"
@@ -99,8 +105,10 @@ def read_records(
                     "seed": evaluation.SEED,
                     "world_size": evaluation.WORLD_SIZE,
                     "projected_carrier_active": True,
-                    "serialized_adapter_hybrid_mode": "recurrent_value",
-                    "runtime_hybrid_mode": "vector_gate",
+                    "serialized_adapter_hybrid_mode": (
+                        evaluation.SERIALIZED_HYBRID_MODE
+                    ),
+                    "runtime_hybrid_mode": evaluation.RUNTIME_HYBRID_MODE,
                     "runtime_mode_restoration_changed_no_parameters": True,
                     "generation_batch_shape_control": (
                         "four_by_four_same_position"
@@ -220,11 +228,11 @@ def analyze(root: Path) -> Mapping[str, Any]:
         and gates["correct_minus_zero_micro_f1_minimum"]
     )
     status = (
-        "vector_gate_native_recurrent_causal_gain_established"
+        PASS_STATUS
         if passed
-        else "vector_gate_native_gain_without_full_causal_pass"
+        else PARTIAL_STATUS
         if native_gain
-        else "vector_gate_native_gain_not_established"
+        else FAIL_STATUS
     )
     result: dict[str, Any] = {
         "schema": SCHEMA,
@@ -282,10 +290,10 @@ def analyze(root: Path) -> Mapping[str, Any]:
                     "recorded gain was already serialized at the required value."
                 ),
             },
-        ],
+        ] if INCLUDE_PROTOCOL_ERRATA else [],
         "artifacts": artifact_manifest,
         "code_bindings": {
-            "analyzer_sha256": sha256_file(Path(__file__)),
+            "analyzer_sha256": sha256_file(ANALYZER_BINDING_PATH),
             "evaluation_runner_sha256": sha256_file(Path(evaluation.__file__)),
             "training_runner_sha256": sha256_file(Path(evaluation.training.__file__)),
             "addressed_analyzer_helper_sha256": sha256_file(

@@ -56,6 +56,12 @@ TRAIN_RESULT_RECEIPT = (
 ADAPTER_CONFIG_SHA256 = (
     "28830f91f455c77f6b565cacb3069262d991d2030e3564961e0c957f13c8245f"
 )
+TRAIN_RESULT_STATUS = "vector_gate_heldout_passed_generation_authorized"
+TRAINING_UPDATES = training.shared.UPDATES
+SELECTED_CANDIDATE = training.SELECTED_CANDIDATE
+RUNTIME_HYBRID_MODE = "vector_gate"
+SERIALIZED_HYBRID_MODE = "recurrent_value"
+RUNNER_BINDING_PATH = Path(__file__)
 HF_MIRROR_ENDPOINT = training.shared.HF_MIRROR_ENDPOINT
 WORLD_SIZE = 4
 SEED = training.SEED
@@ -135,11 +141,11 @@ def validate_train_result(
     unsigned.pop("receipt")
     required = {
         "schema": training.SCHEMA,
-        "status": "vector_gate_heldout_passed_generation_authorized",
+        "status": TRAIN_RESULT_STATUS,
         "passed": True,
         "protocol_payload_sha256": TRAINING_PROTOCOL_PAYLOAD_SHA256,
         "seed": SEED,
-        "updates": training.shared.UPDATES,
+        "updates": TRAINING_UPDATES,
         "open_native_generation_authorized": True,
         "protected_splits_opened": [],
     }
@@ -148,7 +154,7 @@ def validate_train_result(
         or receipt.get("payload_sha256") != TRAIN_RESULT_RECEIPT
         or any(result.get(key) != value for key, value in required.items())
         or result.get("input_binding", {}).get("selected_candidate")
-        != training.SELECTED_CANDIDATE
+        != SELECTED_CANDIDATE
     ):
         raise ValueError("Vector-gate training did not authorize generation")
     expected_files = result.get("adapter_files")
@@ -184,14 +190,14 @@ def _restore_and_assert_vector_gate_modules(model) -> None:
     if len(modules) != training.shared.preflight.EXPECTED_LAYERS:
         raise ValueError(f"Expected 42 vector-gate layers, found {len(modules)}")
     modes = {module.rwkv_ms_hybrid_mode for _, module in modules}
-    if modes == {"recurrent_value"}:
+    if modes == {SERIALIZED_HYBRID_MODE}:
         for _, module in modules:
-            module.rwkv_ms_hybrid_mode = "vector_gate"
-    elif modes != {"vector_gate"}:
+            module.rwkv_ms_hybrid_mode = RUNTIME_HYBRID_MODE
+    elif modes != {RUNTIME_HYBRID_MODE}:
         raise ValueError(f"Unexpected loaded hybrid modes: {sorted(modes)!r}")
     if not all(
         module.memory_readout_mode == "projected_kv_rwkv_hybrid"
-        and module.rwkv_ms_hybrid_mode == "vector_gate"
+        and module.rwkv_ms_hybrid_mode == RUNTIME_HYBRID_MODE
         and module.rwkv_ms_hybrid_gain == 0.125
         and module.rwkv_ms_read_temperature == 16.0
         and module.rwkv_ms_read_top_k == 2
@@ -282,8 +288,8 @@ def generate_row_conditions(
                 "correct_projected_carrier_sha256": projected_digest,
                 "projected_carrier_byte_identical": carrier_fixed,
                 "projected_carrier_active": True,
-                "serialized_adapter_hybrid_mode": "recurrent_value",
-                "runtime_hybrid_mode": "vector_gate",
+                "serialized_adapter_hybrid_mode": SERIALIZED_HYBRID_MODE,
+                "runtime_hybrid_mode": RUNTIME_HYBRID_MODE,
                 "runtime_mode_restoration_changed_no_parameters": True,
                 "generation_batch_shape_control": "four_by_four_same_position",
                 "rwkv_recurrent_vector_controller_active": (
@@ -348,15 +354,15 @@ def input_binding(
         "donor_mapping_rows": len(donor_payload),
         "conditions": list(CONDITIONS),
         "module_names_sha256": canonical_sha256(list(module_names)),
-        "hybrid_mode": "vector_gate",
-        "serialized_adapter_hybrid_mode": "recurrent_value",
+        "hybrid_mode": RUNTIME_HYBRID_MODE,
+        "serialized_adapter_hybrid_mode": SERIALIZED_HYBRID_MODE,
         "runtime_mode_restoration_changed_no_parameters": True,
         "generation_batch_shape_control": "four_by_four_same_position",
         "projected_carrier_active": True,
         "rwkv_recurrent_vector_controller_active": True,
         "zero_recurrent_identity_requires_explicit_bypass_match": True,
         "hf_endpoint": os.environ.get("HF_ENDPOINT"),
-        "runner_sha256": sha256_file(Path(__file__)),
+        "runner_sha256": sha256_file(RUNNER_BINDING_PATH),
         "addressed_eval_helper_sha256": sha256_file(Path(addressed_eval.__file__)),
         "generation_runner_sha256": sha256_file(Path(base_eval.causal.__file__)),
     }
