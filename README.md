@@ -203,14 +203,85 @@ margins were `-0.00169`, `-0.00229`, and `+0.00031`, all below `+0.005`; the
 signed status is `recurrent_value_native_gain_not_established` with receipt
 `1eecbb4a345e4bee390025089082757f7981e7147965e655d7c382952cf078b7`.
 
-The next bounded method targets a concrete remaining defect rather than adding
-another external template. Internal RWKV routing currently applies softmax to
-raw cosine scores at temperature `1`, which can mix four slots nearly uniformly.
-The next screen will compare temperature-sharpened and top-k internal routing,
-while keeping the projected bundle read-inert and retaining the same zero,
-donor, layer-permuted, and protected-split gates. Publisher validation,
-publisher test, Hard32, and the unused strength holdout remain unopened and
-unauthorized.
+The internal-router follow-up tested that hypothesis. A top-1 straight-through
+router became essentially one-hot, but its discrete forward route collapsed the
+useful optimization path. Top-2 routing preserved a differentiable mixture and
+passed a one-update contrastive calibration. Longer AdamW variants then failed
+deterministically at update 2 with non-finite per-row gradients, while an SPSA
+variant completed all eight updates but failed the held-out causal endpoint:
+zero-minus-correct, donor-minus-correct, and layer-permuted-minus-correct CE were
+`-0.00102`, `+0.00454`, and `-0.00510`.
+
+Row-isolated gradient checks found one reproducible numerical culprit, source
+ordinal `1291`. Filtering that whole row removed the update-2 instability.
+Positive-only training completed eight updates with 63/64 accepted rows but
+failed all three fresh endpoint margins (`-0.00825`, `-0.00748`, `-0.00904`).
+Filtered direct recurrent-value contrast training also completed, yet only the
+zero control was weakly positive: `+0.000085` zero-minus-correct, versus
+`-0.00545` donor-minus-correct and `-0.00843` layer-permuted-minus-correct.
+This is evidence that the direct recurrent vector is not a reliable standalone
+material carrier, even after its numerical training failure is isolated.
+
+The current candidate therefore restores projected KV as the material carrier
+and gives RWKV a narrower, causally testable role:
+
+```text
+prompt hidden states
+  |-- projected K/V writer --> four content-addressed carrier slots --|
+  |-- RWKV-7 scan ----------> four recurrent 128-token states --------|-->
+query hidden state --> temperature-16 detached top-2 RWKV router ------|
+                                                                        |
+projected_read * (1 + 0.03125 * clamp(cos(projected_read,
+                                           recurrent_read), -1, 1))
+  --> learned content gate --> Gemma attention output --> decoder
+```
+
+Thus RWKV is active, but it is not the retrieved value template: it writes the
+recurrent matrices, routes over them, produces `recurrent_read`, and controls a
+bounded scalar rescaling of the projected carrier. Zero recurrent state makes
+the cosine term zero and is exactly projected-only. Projected and recurrent
+states are separately captured so zero, matched-donor, and cyclic layer-
+permutation interventions can change RWKV while leaving every projected carrier
+byte-identical.
+
+The selected scalar-agreement configuration uses temperature `16`, top-2
+routing, detached route scores, gain `0.03125`, and content-gate initialization
+`0.25`. Projected carrier and recurrent router tensors were frozen; 210 stable
+readout tensors were trained for eight row-isolated contrastive updates. All
+64 rows were accepted. On a fresh 32-row teacher-forced endpoint it passed:
+zero-minus-correct CE was `+0.29294`, donor-minus-correct was `+0.00746`, and
+layer-permuted-minus-correct was `+0.000474`. This establishes held-out causal
+preference, not yet native generation gain.
+
+The signed adapter config retained the constructor's earlier
+`rwkv_ms_hybrid_mode=recurrent_value` enum even though the signed training model
+audit ran `scalar_gate`; the candidate switch changed runtime attributes rather
+than the serialized config object. The locked generation evaluator discloses
+and hash-binds this mismatch, restores only that non-parameter runtime enum, and
+does not reinitialize any learned tensor.
+
+The matched 220-row open native generation benchmark has now completed under
+exact zero-state/projected-bypass batch-shape controls. Correct recurrent state
+scored `0.18986` micro-F1, versus `0.18979` for zero/projected-only, `0.18710`
+for the matched donor, and `0.19149` for layer-permuted recurrence. The locked
+margins were therefore `+0.000064`, `+0.00275`, and `-0.00163`; all missed the
+required `+0.005` gate. The valid signed status is
+`scalar_agreement_native_gain_not_established`, with receipt
+`9590428d136660e378b0b92ce79fcde5d46b7518314f9a629a04d8a9966c2e9e`.
+Correct recurrence changed `9.55%` of outputs relative to projected-only, but
+the changes did not improve native F1 or beat layer permutation, so no native
+RWKV recurrence gain is claimed.
+
+This result isolates an architectural limitation: scalar amplitude modulation
+can be absorbed by later normalization and gating even when teacher-forced CE
+improves. The next bounded hybrid keeps projected KV as the material carrier but
+uses RWKV as an elementwise FiLM controller,
+`projected_read * (1 + gain * tanh(recurrent_read / rms))`. Unlike the scalar
+controller, it changes carrier direction while retaining exact projected-only
+identity for zero recurrent state. A fixed open-development screen will compare
+bounded vector gains before any new full native evaluation. Publisher
+validation, publisher test, Hard32, and the unused strength holdout remain
+unopened and unauthorized.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -253,7 +324,24 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [signed recurrent-value native result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_eval_v1/result.json),
 [recurrent-value evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_recurrent_value_eval.py),
 [hash-bound recurrent-value analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_recurrent_value_eval.py),
-and [focused recurrent-value tests](deltamem/tests/test_natural_memory_native_rwkv_recurrent_value_eval.py).
+[focused recurrent-value tests](deltamem/tests/test_natural_memory_native_rwkv_recurrent_value_eval.py),
+[sharp-router screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_sharp_router_screen_protocol_v1.json),
+[signed corrected sharp-router screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_sharp_router_screen_v2/result.json),
+[top-2 contrast calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_top2_abstention_contrast_calibration_protocol_v1.json),
+[signed top-2 calibration](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_top2_abstention_contrast_calibration_v1/result.json),
+[SPSA causal-training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_spsa_gate_causal_train_protocol_v1.json),
+[signed SPSA failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_spsa_gate_causal_train_v1/result.json),
+[positive-only filtered protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_positive_only_filtered_causal_train_protocol_v1.json),
+[signed positive-only filtered failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_positive_only_filtered_causal_train_v1/result.json),
+[filtered causal-contrast protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_filtered_contrast_causal_train_protocol_v1.json),
+[signed filtered causal failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_filtered_contrast_causal_train_v1/result.json),
+[scalar-agreement training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_scalar_agreement_causal_train_protocol_v1.json),
+[signed scalar-agreement causal endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_scalar_agreement_causal_train_v1/result.json),
+[locked scalar native protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_scalar_agreement_generation_protocol_v1.json),
+[signed scalar native failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_scalar_agreement_eval_v2/result.json),
+[scalar native evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_scalar_agreement_eval.py),
+[hash-bound scalar analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_scalar_agreement_eval.py),
+and [focused scalar tests](deltamem/tests/test_natural_memory_native_rwkv_scalar_agreement_eval.py).
 
 ### Post-Validation Mechanism Study
 

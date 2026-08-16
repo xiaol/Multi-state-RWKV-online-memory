@@ -71,6 +71,9 @@ SCREEN_RESULT = (
     / "local_artifacts/natural_memory_native_rwkv_recurrent_value_screen_v1/"
     "result.json"
 )
+SCREEN_RESULT_BINDING = (
+    "local_artifacts/natural_memory_native_rwkv_recurrent_value_screen_v1/result.json"
+)
 SCREEN_RESULT_FILE_SHA256 = (
     "de1c661ed1d52681e473821fa48c4eb660d55cb1ca8af3e017e49b433d4f0f3a"
 )
@@ -89,6 +92,7 @@ WORLD_SIZE = 4
 SEED = 63
 LEARNING_RATE = 2e-4
 MAX_GRAD_NORM = 1.0
+RUNNER_BINDING_PATH = Path(__file__)
 
 
 def canonical_sha256(value: Any) -> str:
@@ -121,10 +125,7 @@ def validate_protocol() -> Mapping[str, Any]:
         raise ValueError("Recurrent-value calibration protocol payload differs")
     required_authorization = {
         "screen_protocol_payload_sha256": screen.PROTOCOL_PAYLOAD_SHA256,
-        "screen_result_file": (
-            "local_artifacts/"
-            "natural_memory_native_rwkv_recurrent_value_screen_v1/result.json"
-        ),
+        "screen_result_file": SCREEN_RESULT_BINDING,
         "screen_result_file_sha256": SCREEN_RESULT_FILE_SHA256,
         "screen_result_receipt": SCREEN_RESULT_RECEIPT,
         "screen_status": "screen_passed_causal_calibration_authorized",
@@ -164,7 +165,7 @@ def validate_screen_result() -> Mapping[str, Any]:
         if not isinstance(selected, Mapping)
         else {
             key: selected.get(key)
-            for key in ("candidate_id", "hybrid_mode", "hybrid_gain")
+            for key in SELECTED_CANDIDATE
         }
     )
     required = {
@@ -182,6 +183,19 @@ def validate_screen_result() -> Mapping[str, Any]:
     ):
         raise ValueError("Recurrent-value screen did not authorize calibration")
     return result
+
+
+def configure_selected_candidate(model: torch.nn.Module) -> None:
+    candidate_configurer = getattr(screen, "configure_candidate", None)
+    if callable(candidate_configurer):
+        candidate_configurer(model, SELECTED_CANDIDATE)
+        return
+    hybrid_screen.configure_readout(
+        model,
+        readout_mode="projected_kv_rwkv_hybrid",
+        hybrid_mode=str(SELECTED_CANDIDATE["hybrid_mode"]),
+        hybrid_gain=float(SELECTED_CANDIDATE["hybrid_gain"]),
+    )
 
 
 def run(
@@ -230,6 +244,7 @@ def run(
         base_model,
         device=context.device,
     )
+    configure_selected_candidate(model)
     rows = contrast.load_scene_rows(tokenizer, dataset_root)
     sources, donors, row_payload = recurrent_calibration.calibration_rows(rows)
     source = sources[context.process_rank]
@@ -299,8 +314,114 @@ def run(
         raise RuntimeError("Recurrent-value calibration loss is non-finite")
     loss.backward()
     local_gradient_validation = distributed.validate_local_gradients(named_trainable)
+    local_recurrent_gradient_audit = (
+        recurrent_calibration.audit_recurrent_readout_gradients(named_trainable)
+    )
     if local_gradient_validation["passed"] is not True:
-        raise RuntimeError("Recurrent-value calibration gradients are invalid")
+        local_failure_evidence = {
+            **row_payload[context.process_rank],
+            "answer_target_tokens": local_answer_tokens,
+            "local_loss_sum": float(answer_loss_sum.detach().float().item()),
+            "local_gradient_validation": local_gradient_validation,
+            "local_recurrent_output_gradient_audit": (
+                local_recurrent_gradient_audit
+            ),
+            "peak_cuda_memory_bytes": int(
+                torch.cuda.max_memory_allocated(context.device)
+            ),
+        }
+        rank_evidence = distributed.gather_objects(
+            context,
+            local_failure_evidence,
+        )
+        checks = {
+            "four_distinct_a100_ranks": addressed_screen.four_distinct_a100s(
+                context.rank_devices
+            ),
+            "screen_result_binding_valid": True,
+            "all_local_gradients_finite_fp32": all(
+                rank["local_gradient_validation"]["passed"] is True
+                for rank in rank_evidence
+            ),
+            "all_42_local_recurrent_output_gradients_finite_nonzero": all(
+                rank["local_recurrent_output_gradient_audit"]["passed"] is True
+                for rank in rank_evidence
+            ),
+        }
+        result: dict[str, Any] = {
+            "schema": SCHEMA,
+            "status": "calibration_failed_causal_training_blocked",
+            "passed": False,
+            "failure_phase": "local_backward_gradient_validation",
+            "checks": checks,
+            "protocol_payload_sha256": PROTOCOL_PAYLOAD_SHA256,
+            "protocol_objective": protocol["objective"],
+            "screen_result_binding": {
+                "path": str(SCREEN_RESULT),
+                "file_sha256": SCREEN_RESULT_FILE_SHA256,
+                "receipt": SCREEN_RESULT_RECEIPT,
+                "status": screen_result["status"],
+                "selected_candidate": SELECTED_CANDIDATE,
+            },
+            "hf_endpoint": HF_MIRROR_ENDPOINT,
+            "base_model": str(base_model),
+            "base_config_sha256": preflight.EXPECTED_BASE_CONFIG_SHA256,
+            "dataset_root": str(dataset_root),
+            "scene_fit_file_sha256": contrast.SCENE_FILE_SHA256,
+            "calibration_rows_payload_sha256": (
+                recurrent_calibration.CALIBRATION_ROWS_PAYLOAD_SHA256
+            ),
+            "seed": SEED,
+            "world_size": WORLD_SIZE,
+            "dtype": "bfloat16",
+            "attn_implementation": "sdpa",
+            "learning_rate": LEARNING_RATE,
+            "logical_global_batch_rows": WORLD_SIZE,
+            "optimizer_updates_completed": 0,
+            "global_answer_tokens": global_answer_tokens,
+            "model_audit": model_audit,
+            "initial_adapter_sha256": initial_adapter_sha256,
+            "initial_recurrent_readout_sha256": initial_recurrent_readout_sha256,
+            "rank_devices": list(context.rank_devices),
+            "rank_evidence": list(rank_evidence),
+            "causal_training_authorized": False,
+            "native_benchmark_authorized": False,
+            "protected_splits_opened": [],
+            "code_bindings": {
+                "runner_sha256": sha256_file(RUNNER_BINDING_PATH),
+                "shared_calibration_runner_sha256": sha256_file(Path(__file__)),
+                "protocol_file_sha256": sha256_file(PROTOCOL),
+                "screen_result_file_sha256": sha256_file(SCREEN_RESULT),
+                "screen_runner_sha256": sha256_file(Path(screen.__file__)),
+                "delta_impl_sha256": sha256_file(
+                    PROJECT_ROOT / "deltamem/core/delta_impl.py"
+                ),
+                "rwkv_core_sha256": sha256_file(
+                    PROJECT_ROOT / "deltamem/core/hrm_rwkv7.py"
+                ),
+                "distributed_sha256": sha256_file(Path(distributed.__file__)),
+            },
+        }
+        result["receipt"] = {
+            "algorithm": "sha256",
+            "payload_scope": "canonical_result_without_receipt",
+            "payload_sha256": canonical_sha256(result),
+        }
+        save_error: BaseException | None = None
+        if context.is_primary:
+            try:
+                write_json(resolved_output / "result.json", result)
+            except BaseException as error:
+                save_error = error
+        distributed.phase_consensus(
+            context,
+            phase="recurrent-value-calibration-failure-result-save",
+            error=save_error,
+        )
+        del model, optimizer, logits, batch, donor_batch, rows
+        gc.collect()
+        torch.cuda.empty_cache()
+        return result
     gradient_collective = distributed.sum_gradients(context, named_trainable)
     recurrent_gradient_audit = recurrent_calibration.audit_recurrent_readout_gradients(
         named_trainable
@@ -440,6 +561,19 @@ def run(
             for rank in rank_evidence
         ),
     }
+    optional_candidate_checks = (
+        "minimum_layer_mean_router_peak",
+        "all_router_probabilities_finite_normalized",
+    )
+    for check_name in optional_candidate_checks:
+        if all(
+            check_name in rank["post_update_candidate"]["checks"]
+            for rank in rank_evidence
+        ):
+            checks[f"{check_name}_on_all_ranks"] = all(
+                rank["post_update_candidate"]["checks"][check_name]
+                for rank in rank_evidence
+            )
     passed = all(checks.values())
     result: dict[str, Any] = {
         "schema": SCHEMA,
@@ -494,7 +628,8 @@ def run(
         "native_benchmark_authorized": False,
         "protected_splits_opened": [],
         "code_bindings": {
-            "runner_sha256": sha256_file(Path(__file__)),
+            "runner_sha256": sha256_file(RUNNER_BINDING_PATH),
+            "shared_calibration_runner_sha256": sha256_file(Path(__file__)),
             "protocol_file_sha256": sha256_file(PROTOCOL),
             "screen_result_file_sha256": sha256_file(SCREEN_RESULT),
             "screen_runner_sha256": sha256_file(Path(screen.__file__)),

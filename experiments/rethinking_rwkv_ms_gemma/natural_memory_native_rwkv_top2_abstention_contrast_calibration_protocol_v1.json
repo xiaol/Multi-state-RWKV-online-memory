@@ -1,0 +1,88 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_top2_abstention_contrast_calibration_protocol.v1",
+  "created_at": "2026-08-16T09:00:00+08:00",
+  "objective": "Verify finite, active gradients for a differentiable top-2 recurrent RWKV read with learned abstention under the actual correct-versus-zero, donor, and layer-permuted teacher-forced contrastive objective.",
+  "authorization_basis": {
+    "screen_protocol_payload_sha256": "26b0bd889f6ab28167d286dcd90117ad225a27c1a80c5dc7c629d147d6a18976",
+    "screen_result_file": "local_artifacts/natural_memory_native_rwkv_top2_abstention_screen_v1/result.json",
+    "screen_result_file_sha256": "bd6ead9b8205baba3e5bd0bdd31c4b2a9928aeb23f7e49a0cc0db6aa51caf672",
+    "screen_result_receipt": "e5872d606a7e981af79b190a7e2f403d8568d3eff990651eea59ce6e02d61ba7",
+    "screen_status": "screen_failed_sharp_router_training_blocked",
+    "observed_outcome": "Every candidate preserved causal materiality, state invariants, and finite logits, but the best differentiable top-2 route reached only 0.5024469495 weakest-layer mean peak probability against the locked 0.55 gate.",
+    "protocol_response": "Do not lower the concentration gate; calibrate the first preregistered top-2 abstention candidate under direct causal contrast supervision.",
+    "selected_candidate": {
+      "candidate_id": "recurrent_value_t16_k2_gate025",
+      "hybrid_mode": "recurrent_value",
+      "hybrid_gain": 0.03125,
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "fusion_gate_probability": 0.25
+    }
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "rwkv_ms_hybrid_mode": "recurrent_value",
+    "rwkv_ms_hybrid_gain": 0.03125,
+    "rwkv_ms_read_temperature": 16.0,
+    "rwkv_ms_read_top_k": 2,
+    "memory_fusion_mode": "content_gated_add",
+    "memory_fusion_gate_init": 0.25,
+    "projected_bundle_role": "causally inert on read and frozen in optimization",
+    "router_gradient": "ordinary masked top-2 softmax backward with no straight-through estimator",
+    "backbone_dtype": "bfloat16",
+    "trainable_master_dtype": "float32"
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 67,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "optimizer_updates": 1,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "contrast_weight_per_active_control": 0.25,
+    "contrast_margin": 0.05,
+    "controls": ["zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"],
+    "objective": "correct answer CE plus active signed CE ranking terms against donor and layer-permuted recurrent state; zero state activates the positive coefficient"
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_local_gradients_finite_fp32": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "all_42_recurrent_output_gradients_finite_nonzero": true,
+    "optimizer_update_changed_adapter": true,
+    "optimizer_update_changed_recurrent_subset": true,
+    "projected_carrier_fixed_every_row": true,
+    "projected_router_frozen_tensors": 42
+  },
+  "stopping_rule": {
+    "pass": "Authorize an eight-update contrastive training screen followed by a fixed already-open teacher-forced causal endpoint gate before generation.",
+    "failure": "Reject top-k routing and add explicit token-level retrieval supervision.",
+    "always": "Archive, commit, and push the result."
+  },
+  "claim_policy": {
+    "calibration_pass": "May claim only finite active trainability under the causal contrastive objective.",
+    "native_gain": "Forbidden until a held-out open native causal gate and authorized development generation both pass.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "0b328adb331346d8b008045497e593dab6ee554df9484dcd5297e44e7a6ce032"
+  }
+}

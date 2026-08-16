@@ -1,0 +1,108 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_filtered_contrast_causal_train_protocol.v1",
+  "created_at": "2026-08-16T16:55:00+08:00",
+  "objective": "Determine whether stable row-isolated causal-contrast training makes correct recurrent RWKV state beat zero, matched-donor, and layer-permuted recurrent states on a fresh open native endpoint.",
+  "authorization_basis": {
+    "filtered_positive_result_file": "local_artifacts/natural_memory_native_rwkv_positive_only_filtered_causal_train_v1/result.json",
+    "filtered_positive_result_file_sha256": "cd5cde7bae45a15b558611a324f9dd83c50c656014c8d3943f487654e36ded33",
+    "filtered_positive_result_receipt": "c713578b478e72763efe10cc68dcde45b5d98b3902d11d3456e45e6c14c4833d",
+    "filtered_positive_status": "positive_only_filtered_heldout_failed_generation_blocked",
+    "filtered_positive_training_passed": true,
+    "filtered_positive_endpoint_margins": {
+      "zero_minus_correct": -0.008254713684548332,
+      "donor_minus_correct": -0.007478476177341875,
+      "layer_permuted_minus_correct": -0.009043715382350381
+    },
+    "diagnosis": "Per-row filtering solved the numerical failure with 63 of 64 accepted gradients, but correct-only CE provided no direct signal to prefer the row-correct recurrent state over causal controls.",
+    "response": "Retain finite-gradient row isolation and restore signed hinge-style causal contrast against zero, matched-donor, and layer-permuted recurrence."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "eight_update_schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "seed": 73,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "rwkv_ms_hybrid_mode": "recurrent_value",
+    "rwkv_ms_hybrid_gain": 0.03125,
+    "rwkv_ms_read_temperature": 16.0,
+    "rwkv_ms_read_top_k": 2,
+    "rwkv_ms_detach_read_scores": true,
+    "projected_bundle_read_inert": true,
+    "memory_fusion_mode": "content_gated_add",
+    "trainable_parameter_families": ["hrm_rwkv7_core.output.weight", "delta_o_proj", "memory_fusion_hidden_weight", "memory_fusion_read_weight", "memory_fusion_bias"],
+    "trainable_parameter_tensors": 210,
+    "recurrent_dynamics_and_router_frozen": true
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "optimizer_updates": 8,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "backward_objective": "correct_state_ce_plus_active_causal_contrasts",
+    "contrast_weight_per_active_control": 0.25,
+    "contrast_margin": 0.05,
+    "control_branches": ["zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"],
+    "row_gradient_validation": "after all active branches and before accumulation",
+    "nonfinite_row_policy": "discard entire row",
+    "minimum_accepted_rows_per_update": 6,
+    "maximum_total_rejected_rows": 8,
+    "gradient_rescale": "8 / accepted_rows"
+  },
+  "heldout_causal_endpoint": {
+    "selection": "Lowest 32 SHA256 values of rwkv-filtered-contrast-heldout-v1:73:<row_id> after excluding eight-update training sources/donors and all top2/SPSA and positive-only endpoint sources/donors.",
+    "source_ordinals": [439, 635, 1312, 47, 244, 823, 1054, 576, 1104, 382, 1299, 819, 607, 296, 498, 1285, 578, 548, 558, 1315, 375, 35, 739, 728, 1415, 425, 205, 149, 76, 100, 801, 1226],
+    "source_donor_payload_sha256": "3002b98cbbc27018ef80a6dcd14b9d7992676715b57f3158a9d1342ff5360b7b",
+    "rows": 32,
+    "required_mean_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "all_condition_logits_finite": true,
+    "open_only_after_all_training_gates_pass": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_eight_updates_complete": true,
+    "at_least_six_accepted_rows_each_update": true,
+    "at_most_eight_rejected_rows_total": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "all_42_recurrent_output_gradients_finite_nonzero_on_first_update": true,
+    "primary_trainable_subset_changed": true,
+    "recurrent_parameter_subset_changed": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true,
+    "all_heldout_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "training_failure": "Do not open the held-out endpoint; archive the failure.",
+    "endpoint_pass": "Authorize the already-locked open native generation benchmark.",
+    "endpoint_failure": "Block generation and do not tune another method on this endpoint.",
+    "always": "Archive, commit, and push the result."
+  },
+  "claim_policy": {
+    "endpoint_pass": "May claim held-out teacher-forced causal preference from filtered contrastive recurrent RWKV training on open fit data.",
+    "native_gain": "Forbidden until an authorized generation benchmark passes all causal margins.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "676f1485244d541310feef5ce1a3de07e6dc06b00d340bb9e85e3be30aa6b189"
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_positive_only_filtered_causal_train_protocol.v1",
+  "created_at": "2026-08-16T16:29:07+08:00",
+  "objective": "Determine whether row-isolated finite-gradient accumulation lets the recurrent RWKV stable readout complete training and generalize correct-state preference without allowing non-finite rows to contaminate an update.",
+  "authorization_basis": {
+    "positive_only_protocol_payload_sha256": "50e96d1882335108a9031747b577858fdd59ffb5a3cb95c99008204552417bfd",
+    "failed_input_binding_file": "local_artifacts/natural_memory_native_rwkv_positive_only_causal_train_failed_step2_v1/input_binding.json",
+    "failed_input_binding_file_sha256": "42e5487bf77436200d5903437f299d9071ab7f817e7e83ac3f4e14d197fed616",
+    "failed_progress_file": "local_artifacts/natural_memory_native_rwkv_positive_only_causal_train_failed_step2_v1/training_progress.jsonl",
+    "failed_progress_file_sha256": "3d3dc7af06a9f228ec044163d9bb6b43daf1fa2dd2ab66575b7b9369009d6560",
+    "observed_failure": "The unfiltered positive-only run completed update 1, then rank 3 produced 206 non-finite gradients among 210 trainable tensors after accumulating source ordinals 1032 and 1291 at update 2.",
+    "response": "Zero gradients before every row, accept only finite FP32 row gradients into separate clean buffers, and discard an entire row when any trainable gradient is non-finite."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "eight_update_schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "seed": 73,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "rwkv_ms_hybrid_mode": "recurrent_value",
+    "rwkv_ms_hybrid_gain": 0.03125,
+    "rwkv_ms_read_temperature": 16.0,
+    "rwkv_ms_read_top_k": 2,
+    "rwkv_ms_detach_read_scores": true,
+    "projected_bundle_read_inert": true,
+    "trainable_parameter_families": ["hrm_rwkv7_core.output.weight", "delta_o_proj", "memory_fusion_hidden_weight", "memory_fusion_read_weight", "memory_fusion_bias"],
+    "trainable_parameter_tensors": 210,
+    "recurrent_dynamics_and_router_frozen": true
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "optimizer_updates": 8,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "backward_objective": "correct_state_answer_ce",
+    "control_branch_backward_calls": 0,
+    "row_gradient_validation": "before accumulation",
+    "nonfinite_row_policy": "discard entire row",
+    "minimum_accepted_rows_per_update": 6,
+    "maximum_total_rejected_rows": 8,
+    "gradient_rescale": "8 / accepted_rows",
+    "forward_only_controls": ["zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"]
+  },
+  "heldout_causal_endpoint": {
+    "selection": "Identical unopened positive-only endpoint; no endpoint row was used to choose this filter.",
+    "source_ordinals": [134, 1308, 434, 696, 1187, 861, 253, 87, 412, 947, 1442, 541, 599, 470, 60, 761, 804, 146, 1093, 910, 225, 121, 362, 817, 329, 103, 567, 339, 1257, 585, 616, 521],
+    "source_donor_payload_sha256": "6ceb493d95d55186a8d1ba97a7030ba0c8179c6e4a1e0bb7e7da9d4d10b5e824",
+    "rows": 32,
+    "required_mean_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "all_condition_logits_finite": true,
+    "open_only_after_all_training_gates_pass": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_eight_updates_complete": true,
+    "at_least_six_accepted_rows_each_update": true,
+    "at_most_eight_rejected_rows_total": true,
+    "rejected_ordinals_and_gradient_audits_recorded": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "primary_trainable_subset_changed": true,
+    "recurrent_parameter_subset_changed": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true,
+    "all_heldout_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "training_failure": "Do not open the held-out endpoint; archive the failure.",
+    "endpoint_pass": "Authorize the already-locked open native generation benchmark.",
+    "endpoint_failure": "Block generation and do not tune another method on this endpoint.",
+    "always": "Archive, commit, and push the result."
+  },
+  "claim_policy": {
+    "endpoint_pass": "May claim held-out teacher-forced causal preference from filtered recurrent RWKV readout training on open fit data.",
+    "native_gain": "Forbidden until an authorized generation benchmark passes all causal margins.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "131ff0c1108e97ac9d619fd5fcb0dbf4fe29b680c4acfb9e1ba25a1c9e56450e"
+  }
+}

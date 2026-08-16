@@ -1,0 +1,100 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_top2_abstention_causal_train_protocol.v1",
+  "created_at": "2026-08-16T09:30:00+08:00",
+  "objective": "Train the finite-gradient top-2 RWKV abstention candidate for eight causal-contrast updates and require positive correct-state teacher-forced CE margins on a fixed disjoint 32-row open-fit endpoint before any generation benchmark.",
+  "authorization_basis": {
+    "calibration_protocol_payload_sha256": "0b328adb331346d8b008045497e593dab6ee554df9484dcd5297e44e7a6ce032",
+    "calibration_result_file": "local_artifacts/natural_memory_native_rwkv_top2_abstention_contrast_calibration_v1/result.json",
+    "calibration_result_file_sha256": "f186d0286d10a4bc50118affcb3791dee5d648f5e9b7071d7c79a9eaee82db90",
+    "calibration_result_receipt": "7ffb6ec4796c761030a255fad77d440fa86cc2e16d6b5e5de2c421bfe36f884e",
+    "calibration_status": "calibration_passed_contrastive_training_authorized",
+    "selected_candidate": {
+      "candidate_id": "recurrent_value_t16_k2_gate025",
+      "hybrid_mode": "recurrent_value",
+      "hybrid_gain": 0.03125,
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "fusion_gate_probability": 0.25
+    }
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "eight_update_schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "rwkv_ms_hybrid_mode": "recurrent_value",
+    "rwkv_ms_hybrid_gain": 0.03125,
+    "rwkv_ms_read_temperature": 16.0,
+    "rwkv_ms_read_top_k": 2,
+    "memory_fusion_mode": "content_gated_add",
+    "memory_fusion_gate_init": 0.25,
+    "projected_bundle_role": "causally inert on read and frozen in optimization",
+    "router_gradient": "ordinary masked top-2 softmax backward with no straight-through estimator"
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 68,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "optimizer_updates": 8,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "contrast_weight_per_active_control": 0.25,
+    "contrast_margin": 0.05,
+    "controls": ["zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"]
+  },
+  "heldout_causal_endpoint": {
+    "source": "already-open train_derived_fit rows excluded with their donors from the eight-update source/donor union",
+    "selection": "lowest 32 SHA256 values of rwkv-top2-heldout-v1:68:<row_id>",
+    "source_ordinals": [731, 977, 1355, 327, 588, 261, 1375, 1051, 1124, 416, 1118, 105, 64, 1227, 741, 1418, 303, 698, 592, 694, 1000, 45, 164, 671, 19, 208, 1364, 756, 137, 1067, 971, 473],
+    "source_donor_payload_sha256": "f9a3bbd244c2e60528a5a84749c75ae8495335caf73bffe79c38c94d50059dcd",
+    "rows": 32,
+    "conditions": ["correct_recurrent", "zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"],
+    "required_mean_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "all_condition_logits_finite": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "all_42_recurrent_output_gradients_finite_nonzero": true,
+    "optimizer_updates_changed_adapter_and_recurrent_subset": true,
+    "projected_carrier_fixed_every_training_and_endpoint_row": true,
+    "heldout_rows_and_donors_disjoint_from_training_sources_and_donors": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true,
+    "all_heldout_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize the already-locked 220-row open native generation benchmark with correct, zero, donor, and layer-permuted conditions.",
+    "failure": "Block generation and redesign the retrieval objective using explicit token-level route supervision.",
+    "always": "Archive, commit, and push the result."
+  },
+  "claim_policy": {
+    "endpoint_pass": "May claim held-out teacher-forced causal state preference on open fit data only.",
+    "native_gain": "Forbidden until the authorized 220-row generation benchmark passes all causal margins.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "7c366a005d2f2a1fb6ad720d91f94eec58a363c354b90b94c02cdc4368c6703f"
+  }
+}

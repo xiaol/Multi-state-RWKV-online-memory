@@ -1,0 +1,102 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_gate_bias_causal_train_protocol.v1",
+  "created_at": "2026-08-16T11:35:00+08:00",
+  "objective": "Test whether a stable per-layer acceptance policy can turn frozen recurrent RWKV state into held-out causal native gain while removing every recurrent, value, router, and feature-weight backward path.",
+  "authorization_basis": {
+    "stopgrad_protocol_payload_sha256": "dd12008b1b9416e0f17d4ee7566d58dcbea4ecef97b6c63358ea7c13abab3b19",
+    "failed_stopgrad_training": {
+      "input_binding_file": "local_artifacts/natural_memory_native_rwkv_stopgrad_router_causal_train_failed_step2_v1/input_binding.json",
+      "input_binding_file_sha256": "f14833e823bf0bf36f3ca87ec6ac24f88e6f5ed42a7fed27856cbaa4a362be8d",
+      "progress_file": "local_artifacts/natural_memory_native_rwkv_stopgrad_router_causal_train_failed_step2_v1/training_progress.jsonl",
+      "progress_file_sha256": "32b48fe81ca6bb2d708b9f4202525c6eb6e587113e2929b238406aea2486e086",
+      "completed_updates": 1,
+      "failed_update": 2,
+      "observed_exception": "rank 3 had 206 non-finite gradients among all 210 stable-readout tensors"
+    },
+    "diagnosis": "The identical failure after route-score detachment leaves recurrent-value or checkpointed-state backward as the remaining shared unstable path.",
+    "architectural_response": "Freeze the complete RWKV recurrence, routed values, router, projections, and gate feature weights; optimize only one scalar memory-fusion bias per layer."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "eight_update_schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "rwkv_ms_hybrid_mode": "recurrent_value",
+    "rwkv_ms_hybrid_gain": 0.03125,
+    "rwkv_ms_read_temperature": 16.0,
+    "rwkv_ms_read_top_k": 2,
+    "rwkv_ms_detach_read_scores": true,
+    "router_forward": "masked top-2 softmax over frozen internal RWKV cosine scores",
+    "memory_fusion_mode": "content_gated_add",
+    "memory_fusion_gate_init": 0.25,
+    "trainable_parameter_families": ["memory_fusion_bias"],
+    "trainable_parameter_tensors": 42,
+    "frozen_parameter_families": ["hrm_rwkv7_core", "delta_o_proj", "projected_kv_key_proj", "memory_fusion_hidden_weight", "memory_fusion_read_weight"]
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 71,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.01,
+    "learning_rate_basis": "Adam-normalized scalar updates need a materially larger step than matrix readout training; eight unclipped steps can move each initial -1.0986 gate logit by at most an order of 0.08 under consistent gradient sign.",
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "optimizer_updates": 8,
+    "mandatory_stability_checkpoint_after_update": 2,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "contrast_weight_per_active_control": 0.25,
+    "contrast_margin": 0.05,
+    "controls": ["zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"]
+  },
+  "heldout_causal_endpoint": {
+    "source_ordinals": [731, 977, 1355, 327, 588, 261, 1375, 1051, 1124, 416, 1118, 105, 64, 1227, 741, 1418, 303, 698, 592, 694, 1000, 45, 164, 671, 19, 208, 1364, 756, 137, 1067, 971, 473],
+    "source_donor_payload_sha256": "f9a3bbd244c2e60528a5a84749c75ae8495335caf73bffe79c38c94d50059dcd",
+    "rows": 32,
+    "required_mean_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "all_condition_logits_finite": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "exactly_42_gate_bias_trainable_tensors": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "all_42_gate_bias_gradients_finite_nonzero": true,
+    "all_eight_updates_complete": true,
+    "primary_trainable_subset_changed": true,
+    "recurrent_parameter_subset_unchanged": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true,
+    "all_heldout_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize the already-locked 220-row open native generation benchmark.",
+    "failure": "Block generation and move to an explicit supervised router or bounded residual controller that does not backpropagate through recurrent state.",
+    "always": "Archive, commit, and push the result."
+  },
+  "claim_policy": {
+    "endpoint_pass": "May claim held-out teacher-forced causal preference from frozen recurrent RWKV state with learned layerwise acceptance on open fit data.",
+    "native_gain": "Forbidden until the authorized 220-row generation benchmark passes all causal margins.",
+    "protected_replication": "Forbidden without a new preregistered protocol."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "accba1d0148556606042baa001ee8555794b4f110c8feb7df1d76330fd002290"
+  }
+}

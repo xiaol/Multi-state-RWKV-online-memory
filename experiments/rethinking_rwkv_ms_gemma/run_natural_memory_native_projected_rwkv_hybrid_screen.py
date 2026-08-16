@@ -149,6 +149,7 @@ def load_model(
     base_model: Path,
     *,
     device: torch.device,
+    delta_config: Any | None = None,
 ) -> tuple[torch.nn.Module, Any, Mapping[str, Any]]:
     tokenizer = AutoTokenizer.from_pretrained(
         base_model,
@@ -166,7 +167,10 @@ def load_model(
         trust_remote_code=False,
     ).to(device)
     runtime._disable_training_cache(model)
-    replaced = attach_delta_mem(model, build_config())
+    replaced = attach_delta_mem(
+        model,
+        build_config() if delta_config is None else delta_config,
+    )
     trainable_names = freeze_non_delta_mem_params(model)
     runtime._promote_trainable_parameters_to_fp32(model)
     modules = tuple(iter_delta_mem_modules(model))

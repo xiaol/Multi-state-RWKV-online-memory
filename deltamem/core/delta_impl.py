@@ -379,7 +379,9 @@ class HFDeltaMemConfig:
     rwkv_ms_boundary_mode: str = "fixed_chunk"
     rwkv_ms_write_mode: str = "recurrent"
     rwkv_ms_erase_gate: float = 1.0
+    rwkv_ms_read_temperature: float = 1.0
     rwkv_ms_read_top_k: int = 0
+    rwkv_ms_detach_read_scores: bool = False
     rwkv_ms_mask_empty_slots: bool = False
     rwkv_ms_output_init_scale: float = 0.02
     rwkv_ms_semantics_version: int = 2
@@ -400,6 +402,9 @@ class HFDeltaMemConfig:
             raise ValueError("rwkv_ms_chunk_size must be >= 1")
         if float(self.rwkv_ms_erase_gate) < 0.0:
             raise ValueError("rwkv_ms_erase_gate must be >= 0")
+        read_temperature = float(self.rwkv_ms_read_temperature)
+        if not math.isfinite(read_temperature) or read_temperature <= 0.0:
+            raise ValueError("rwkv_ms_read_temperature must be finite and > 0")
         if int(self.rwkv_ms_read_top_k) < 0:
             raise ValueError("rwkv_ms_read_top_k must be >= 0")
         if float(self.rwkv_ms_output_init_scale) < 0.0:
@@ -432,7 +437,13 @@ class HFDeltaMemConfig:
                 "Non-recurrent RWKV-MS write modes require memory_backend='rwkv_ms'"
             )
         object.__setattr__(self, "rwkv_ms_erase_gate", float(self.rwkv_ms_erase_gate))
+        object.__setattr__(self, "rwkv_ms_read_temperature", read_temperature)
         object.__setattr__(self, "rwkv_ms_read_top_k", int(self.rwkv_ms_read_top_k))
+        object.__setattr__(
+            self,
+            "rwkv_ms_detach_read_scores",
+            bool(self.rwkv_ms_detach_read_scores),
+        )
         object.__setattr__(self, "rwkv_ms_mask_empty_slots", bool(self.rwkv_ms_mask_empty_slots))
         object.__setattr__(
             self,
@@ -858,7 +869,9 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_boundary_mode = config.rwkv_ms_boundary_mode
         self.rwkv_ms_write_mode = config.rwkv_ms_write_mode
         self.rwkv_ms_erase_gate = config.rwkv_ms_erase_gate
+        self.rwkv_ms_read_temperature = config.rwkv_ms_read_temperature
         self.rwkv_ms_read_top_k = config.rwkv_ms_read_top_k
+        self.rwkv_ms_detach_read_scores = config.rwkv_ms_detach_read_scores
         self.rwkv_ms_mask_empty_slots = config.rwkv_ms_mask_empty_slots
         self.rwkv_ms_output_init_scale = config.rwkv_ms_output_init_scale
         self.rwkv_ms_semantics_version = config.rwkv_ms_semantics_version
@@ -2774,17 +2787,30 @@ class DeltaMemAttention(nn.Module):
             )
         else:
             scores = (slot_reads * q_t.unsqueeze(2)).sum(dim=-1) / math.sqrt(float(self.rank))
+        scores = scores * self.rwkv_ms_read_temperature
         if self.rwkv_ms_mask_empty_slots:
             if occupied_slots is None:
                 occupied_slots = slot_reads.ne(0).any(dim=-1)
             all_slots_empty = ~occupied_slots.any(dim=-1, keepdim=True)
             routable_slots = occupied_slots | all_slots_empty
             scores = scores.masked_fill(~routable_slots, torch.finfo(scores.dtype).min)
+        if self.rwkv_ms_detach_read_scores:
+            scores = scores.detach()
         if 0 < self.rwkv_ms_read_top_k < scores.size(-1):
             top_scores, top_indices = torch.topk(scores, k=self.rwkv_ms_read_top_k, dim=-1)
-            masked_scores = torch.full_like(scores, torch.finfo(scores.dtype).min)
-            scores = masked_scores.scatter_(-1, top_indices, top_scores)
-        routes = F.softmax(scores, dim=-1)
+            if self.rwkv_ms_read_top_k == 1:
+                soft_routes = F.softmax(scores, dim=-1)
+                hard_routes = F.one_hot(
+                    top_indices.squeeze(-1),
+                    num_classes=scores.size(-1),
+                ).to(dtype=soft_routes.dtype)
+                routes = hard_routes + soft_routes - soft_routes.detach()
+            else:
+                masked_scores = torch.full_like(scores, torch.finfo(scores.dtype).min)
+                scores = masked_scores.scatter_(-1, top_indices, top_scores)
+                routes = F.softmax(scores, dim=-1)
+        else:
+            routes = F.softmax(scores, dim=-1)
         if valid_t is not None:
             routes = routes * valid_t.view(valid_t.size(0), 1, 1).to(dtype=routes.dtype)
         return routes
@@ -3099,6 +3125,7 @@ class DeltaMemAttention(nn.Module):
             scores = (
                 slot_reads * r_seq.unsqueeze(3)
             ).sum(dim=-1) / math.sqrt(float(self.rank))
+        scores = scores * self.rwkv_ms_read_temperature
         if self.rwkv_ms_mask_empty_slots:
             occupied_slots = current_state.ne(0).any(dim=(-1, -2))
             all_slots_empty = ~occupied_slots.any(dim=-1, keepdim=True)
@@ -3107,18 +3134,30 @@ class DeltaMemAttention(nn.Module):
                 ~routable_slots.unsqueeze(1),
                 torch.finfo(scores.dtype).min,
             )
+        if self.rwkv_ms_detach_read_scores:
+            scores = scores.detach()
         if 0 < self.rwkv_ms_read_top_k < scores.size(-1):
             top_scores, top_indices = torch.topk(
                 scores,
                 k=self.rwkv_ms_read_top_k,
                 dim=-1,
             )
-            masked_scores = torch.full_like(
-                scores,
-                torch.finfo(scores.dtype).min,
-            )
-            scores = masked_scores.scatter_(-1, top_indices, top_scores)
-        routes = F.softmax(scores, dim=-1)
+            if self.rwkv_ms_read_top_k == 1:
+                soft_routes = F.softmax(scores, dim=-1)
+                hard_routes = F.one_hot(
+                    top_indices.squeeze(-1),
+                    num_classes=scores.size(-1),
+                ).to(dtype=soft_routes.dtype)
+                routes = hard_routes + soft_routes - soft_routes.detach()
+            else:
+                masked_scores = torch.full_like(
+                    scores,
+                    torch.finfo(scores.dtype).min,
+                )
+                scores = masked_scores.scatter_(-1, top_indices, top_scores)
+                routes = F.softmax(scores, dim=-1)
+        else:
+            routes = F.softmax(scores, dim=-1)
         if token_mask is not None:
             routes = routes * token_mask.to(
                 device=routes.device,

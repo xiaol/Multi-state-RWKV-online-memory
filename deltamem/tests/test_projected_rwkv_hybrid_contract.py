@@ -197,6 +197,68 @@ def test_recurrent_value_step_ignores_complete_projected_bundle() -> None:
     assert torch.count_nonzero(first_reads).item() > 0
 
 
+def test_rwkv_read_temperature_sharpens_internal_routes() -> None:
+    module = _module(hybrid_mode="recurrent_value", hybrid_gain=0.5)
+    module.rwkv_ms_mask_empty_slots = True
+    slot_reads = torch.tensor([[[[1.0, 0.0], [0.8, 0.6]]]])
+    query = torch.tensor([[[1.0, 0.0]]])
+    valid = torch.ones(1, dtype=torch.bool)
+
+    module.rwkv_ms_read_temperature = 1.0
+    baseline = module._rwkv_ms_read_routes(slot_reads, query, valid)
+    module.rwkv_ms_read_temperature = 16.0
+    sharpened = module._rwkv_ms_read_routes(slot_reads, query, valid)
+
+    assert sharpened[0, 0, 0] > baseline[0, 0, 0]
+    assert torch.equal(sharpened.argmax(dim=-1), baseline.argmax(dim=-1))
+
+
+def test_rwkv_read_temperature_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="rwkv_ms_read_temperature"):
+        HFDeltaMemConfig(rwkv_ms_read_temperature=0.0)
+
+
+def test_top_one_rwkv_route_is_hard_forward_soft_backward() -> None:
+    module = _module(hybrid_mode="recurrent_value", hybrid_gain=0.5)
+    module.rwkv_ms_mask_empty_slots = True
+    module.rwkv_ms_read_top_k = 1
+    slot_reads = torch.tensor(
+        [[[[1.0, 0.0], [0.8, 0.6]]]],
+        requires_grad=True,
+    )
+    query = torch.tensor([[[1.0, 0.0]]])
+
+    routes = module._rwkv_ms_read_routes(
+        slot_reads,
+        query,
+        torch.ones(1, dtype=torch.bool),
+    )
+    weighted = (routes * torch.tensor([[[1.0, -1.0]]])).sum()
+    weighted.backward()
+
+    assert torch.equal(routes.detach(), torch.tensor([[[1.0, 0.0]]]))
+    assert slot_reads.grad is not None
+    assert torch.count_nonzero(slot_reads.grad).item() > 0
+
+
+def test_detached_rwkv_scores_preserve_routes_without_router_gradient() -> None:
+    module = _module(hybrid_mode="recurrent_value", hybrid_gain=0.5)
+    module.rwkv_ms_mask_empty_slots = True
+    slot_reads = torch.tensor(
+        [[[[1.0, 0.0], [0.8, 0.6]]]],
+        requires_grad=True,
+    )
+    query = torch.tensor([[[1.0, 0.0]]])
+    valid = torch.ones(1, dtype=torch.bool)
+
+    baseline = module._rwkv_ms_read_routes(slot_reads, query, valid)
+    module.rwkv_ms_detach_read_scores = True
+    detached = module._rwkv_ms_read_routes(slot_reads, query, valid)
+
+    assert torch.equal(detached, baseline)
+    assert detached.requires_grad is False
+
+
 def test_hybrid_write_populates_projected_and_recurrent_state() -> None:
     module = _module()
     hidden = torch.randn(1, 4, module.hidden_size)

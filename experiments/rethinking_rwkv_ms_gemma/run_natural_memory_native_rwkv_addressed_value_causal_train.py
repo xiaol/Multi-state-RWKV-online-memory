@@ -98,6 +98,12 @@ LEARNING_RATE = 1e-4
 MAX_GRAD_NORM = 0.1
 CONTRAST_WEIGHT = 0.25
 MARGIN = 0.05
+FIRST_UPDATE_GRADIENT_AUDITOR = (
+    recurrent_calibration.audit_recurrent_readout_gradients
+)
+FILTER_NONFINITE_ROWS = False
+MIN_ACCEPTED_ROWS_PER_UPDATE = GLOBAL_BATCH_SIZE
+MAX_TOTAL_REJECTED_ROWS = 0
 RECURRENT_ATTRIBUTES = (
     "delta_state",
     "rwkv_ms_positions",
@@ -404,6 +410,53 @@ def backward_logits(
     return tokens, chunks
 
 
+def trainable_subset_sha256(
+    named_trainable: Sequence[tuple[str, torch.nn.Parameter]],
+) -> str:
+    return runtime._state_dict_sha256(
+        {
+            name: parameter.detach().float().cpu().clone()
+            for name, parameter in named_trainable
+        }
+    )
+
+
+def accumulate_finite_row_gradients(
+    named_trainable: Sequence[tuple[str, torch.nn.Parameter]],
+    clean_gradients: dict[str, torch.Tensor],
+) -> Mapping[str, Any]:
+    validation = distributed.validate_local_gradients(named_trainable)
+    if validation["non_fp32_gradient_tensors"]:
+        raise RuntimeError(f"Causal row gradients are not FP32: {validation!r}")
+    if validation["active_gradient_tensors"] == 0:
+        raise RuntimeError(f"Causal row has no active gradients: {validation!r}")
+    if validation["nonfinite_gradient_tensors"]:
+        return validation
+    with torch.no_grad():
+        for name, parameter in named_trainable:
+            if parameter.grad is None:
+                continue
+            if name not in clean_gradients:
+                clean_gradients[name] = parameter.grad.detach().clone()
+            else:
+                clean_gradients[name].add_(parameter.grad.detach())
+    return validation
+
+
+def materialize_clean_gradients(
+    named_trainable: Sequence[tuple[str, torch.nn.Parameter]],
+    clean_gradients: Mapping[str, torch.Tensor],
+    *,
+    scale: float,
+) -> None:
+    if not math.isfinite(scale) or scale <= 0.0:
+        raise ValueError("Causal clean-gradient scale must be finite and positive")
+    with torch.no_grad():
+        for name, parameter in named_trainable:
+            gradient = clean_gradients.get(name)
+            parameter.grad = None if gradient is None else gradient.mul(scale)
+
+
 def train(
     model: torch.nn.Module,
     rows: Sequence[contrast.SceneContrastRow],
@@ -429,9 +482,11 @@ def train(
         initial_state,
         recurrent_only=True,
     )
+    initial_trainable_sha256 = trainable_subset_sha256(named_trainable)
     for description, value in (
         ("initial adapter", initial_adapter_sha256),
         ("initial recurrent subset", initial_recurrent_sha256),
+        ("initial trainable subset", initial_trainable_sha256),
     ):
         distributed.require_consensus(context, value, description=description)
 
@@ -445,8 +500,12 @@ def train(
     total_active_permuted = 0.0
     minimum_gradient_norm = math.inf
     maximum_global_inactive = 0
-    first_recurrent_gradient_audit: Mapping[str, Any] | None = None
+    first_update_gradient_audit: Mapping[str, Any] | None = None
     projected_carrier_fixed_every_row = True
+    total_accepted_gradient_rows = 0
+    total_rejected_gradient_rows = 0
+    minimum_accepted_rows_per_update = GLOBAL_BATCH_SIZE
+    rejected_source_ordinals: list[int] = []
     started = time.time()
     for schedule_step in schedule[:updates]:
         local_start = context.process_rank * LOCAL_ROWS
@@ -457,6 +516,8 @@ def train(
             raise RuntimeError("Addressed causal local schedule size differs")
         optimizer.zero_grad(set_to_none=True)
         local_metrics = [0.0] * 14
+        clean_gradients: dict[str, torch.Tensor] = {}
+        local_row_gradient_evidence: list[dict[str, Any]] = []
         for source_ordinal in local_sources:
             target = rows[source_ordinal].example
             source_offset = schedule_step.source_ordinals.index(source_ordinal)
@@ -540,6 +601,21 @@ def train(
                     coefficient=-CONTRAST_WEIGHT,
                 )
                 chunks += permuted_chunks
+            if FILTER_NONFINITE_ROWS:
+                row_gradient_validation = accumulate_finite_row_gradients(
+                    named_trainable,
+                    clean_gradients,
+                )
+                accepted = row_gradient_validation["passed"] is True
+                local_row_gradient_evidence.append(
+                    {
+                        "rank": context.process_rank,
+                        "source_ordinal": source_ordinal,
+                        "accepted": accepted,
+                        "gradient_validation": row_gradient_validation,
+                    }
+                )
+                optimizer.zero_grad(set_to_none=True)
             carrier_fixed = bool(
                 donor_audit["projected_carrier_references_fixed"]
                 and permuted_audit["projected_carrier_references_fixed"]
@@ -579,24 +655,78 @@ def train(
             raise RuntimeError("Addressed causal projected-carrier audit failed")
         if updates == PREFLIGHT_UPDATES and any(metrics[index] < 1 for index in (7, 8, 9)):
             raise RuntimeError("Addressed causal preflight found an inactive control family")
+        row_filter_evidence: Mapping[str, Any] | None = None
+        if FILTER_NONFINITE_ROWS:
+            gathered_row_evidence = distributed.gather_objects(
+                context,
+                local_row_gradient_evidence,
+            )
+            rank_rows = [list(value) for value in gathered_row_evidence]
+            all_row_evidence = [row for rows_on_rank in rank_rows for row in rows_on_rank]
+            accepted_rows = sum(row["accepted"] is True for row in all_row_evidence)
+            rejected_rows = [
+                int(row["source_ordinal"])
+                for row in all_row_evidence
+                if row["accepted"] is not True
+            ]
+            total_accepted_gradient_rows += accepted_rows
+            total_rejected_gradient_rows += len(rejected_rows)
+            rejected_source_ordinals.extend(rejected_rows)
+            minimum_accepted_rows_per_update = min(
+                minimum_accepted_rows_per_update,
+                accepted_rows,
+            )
+            filter_error: BaseException | None = None
+            if len(all_row_evidence) != GLOBAL_BATCH_SIZE:
+                filter_error = RuntimeError("Causal row-filter evidence is incomplete")
+            elif accepted_rows < MIN_ACCEPTED_ROWS_PER_UPDATE:
+                filter_error = RuntimeError(
+                    "Causal row filter accepted too few rows: "
+                    f"{accepted_rows} < {MIN_ACCEPTED_ROWS_PER_UPDATE}"
+                )
+            elif total_rejected_gradient_rows > MAX_TOTAL_REJECTED_ROWS:
+                filter_error = RuntimeError(
+                    "Causal row filter rejected too many total rows: "
+                    f"{total_rejected_gradient_rows} > {MAX_TOTAL_REJECTED_ROWS}"
+                )
+            distributed.phase_consensus(
+                context,
+                phase=f"causal-step-{schedule_step.step}-row-filter",
+                error=filter_error,
+            )
+            gradient_rescale = GLOBAL_BATCH_SIZE / accepted_rows
+            materialize_clean_gradients(
+                named_trainable,
+                clean_gradients,
+                scale=gradient_rescale,
+            )
+            row_filter_evidence = {
+                "enabled": True,
+                "accepted_rows": accepted_rows,
+                "rejected_rows": len(rejected_rows),
+                "rejected_source_ordinals": rejected_rows,
+                "gradient_rescale": gradient_rescale,
+                "rank_rows": rank_rows,
+            }
+        else:
+            total_accepted_gradient_rows += GLOBAL_BATCH_SIZE
         local_gradient_validation = distributed.validate_local_gradients(named_trainable)
         if local_gradient_validation["passed"] is not True:
-            raise RuntimeError("Addressed causal local gradients are invalid")
+            raise RuntimeError(
+                "Addressed causal local gradients are invalid: "
+                f"{local_gradient_validation!r}"
+            )
         collective = distributed.sum_gradients(context, named_trainable)
         inactive = len(collective["global_inactive_parameter_indices"])
         maximum_global_inactive = max(maximum_global_inactive, inactive)
         if inactive:
             raise RuntimeError("Addressed causal optimizer has inactive parameters")
-        recurrent_gradient_audit = None
+        gradient_audit = None
         if schedule_step.step == 1:
-            recurrent_gradient_audit = (
-                recurrent_calibration.audit_recurrent_readout_gradients(
-                    named_trainable
-                )
-            )
-            if recurrent_gradient_audit["passed"] is not True:
-                raise RuntimeError("Addressed causal recurrent gradients are invalid")
-            first_recurrent_gradient_audit = recurrent_gradient_audit
+            gradient_audit = FIRST_UPDATE_GRADIENT_AUDITOR(named_trainable)
+            if gradient_audit["passed"] is not True:
+                raise RuntimeError("Addressed causal first-update gradients are invalid")
+            first_update_gradient_audit = gradient_audit
         gradient_norm = torch.nn.utils.clip_grad_norm_(trainable, MAX_GRAD_NORM)
         gradient_norm_value = float(gradient_norm.detach().float().item())
         if not bool(torch.isfinite(gradient_norm).item()) or gradient_norm_value <= 0.0:
@@ -625,7 +755,9 @@ def train(
             "gradient_norm_before_clip": gradient_norm_value,
             "gradient_collective_sha256": canonical_sha256(collective),
             "local_gradient_validation": local_gradient_validation,
-            "recurrent_gradient_audit": recurrent_gradient_audit,
+            "row_filter": row_filter_evidence,
+            "gradient_audit": gradient_audit,
+            "recurrent_gradient_audit": gradient_audit,
             "source_ordinals": list(schedule_step.source_ordinals),
             "donor_ordinals": list(schedule_step.donor_ordinals),
         }
@@ -659,6 +791,7 @@ def train(
         final_state,
         recurrent_only=True,
     )
+    final_trainable_sha256 = trainable_subset_sha256(named_trainable)
     distributed.require_consensus(
         context,
         final_adapter_sha256,
@@ -668,6 +801,11 @@ def train(
         context,
         final_recurrent_sha256,
         description="final addressed causal recurrent subset",
+    )
+    distributed.require_consensus(
+        context,
+        final_trainable_sha256,
+        description="final addressed causal trainable subset",
     )
     return {
         "updates": updates,
@@ -690,6 +828,17 @@ def train(
         "minimum_gradient_norm_before_clip": minimum_gradient_norm,
         "maximum_global_inactive_parameter_tensors": maximum_global_inactive,
         "projected_carrier_fixed_every_row": projected_carrier_fixed_every_row,
+        "row_filter": {
+            "enabled": FILTER_NONFINITE_ROWS,
+            "minimum_required_accepted_rows_per_update": (
+                MIN_ACCEPTED_ROWS_PER_UPDATE
+            ),
+            "maximum_total_rejected_rows": MAX_TOTAL_REJECTED_ROWS,
+            "minimum_accepted_rows_per_update": minimum_accepted_rows_per_update,
+            "accepted_gradient_rows": total_accepted_gradient_rows,
+            "rejected_gradient_rows": total_rejected_gradient_rows,
+            "rejected_source_ordinals": rejected_source_ordinals,
+        },
         "initial_adapter_sha256": initial_adapter_sha256,
         "final_adapter_sha256": final_adapter_sha256,
         "initial_recurrent_subset_sha256": initial_recurrent_sha256,
@@ -697,7 +846,13 @@ def train(
         "recurrent_subset_changed": (
             initial_recurrent_sha256 != final_recurrent_sha256
         ),
-        "first_update_recurrent_gradient_audit": first_recurrent_gradient_audit,
+        "initial_trainable_subset_sha256": initial_trainable_sha256,
+        "final_trainable_subset_sha256": final_trainable_sha256,
+        "trainable_subset_changed": (
+            initial_trainable_sha256 != final_trainable_sha256
+        ),
+        "first_update_gradient_audit": first_update_gradient_audit,
+        "first_update_recurrent_gradient_audit": first_update_gradient_audit,
         "progress_sha256": sha256_file(progress_path) if context.is_primary else None,
         "peak_cuda_memory_bytes": int(torch.cuda.max_memory_allocated(context.device)),
     }
