@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
     run_natural_memory_native_rwkv_addressed_route_agreement_screen as screen,
 )
@@ -43,3 +46,34 @@ def test_screen_bindings_replace_and_restore_shared_contract() -> None:
     assert screen.shared.SELECTED_CANDIDATE is original_candidate
     assert screen.shared.validate_protocol is original_validator
     assert screen.shared.load_model is original_loader
+
+
+def test_signed_screen_result_authorizes_only_causal_training() -> None:
+    result_path = (
+        Path(screen.__file__).resolve().parent
+        / "local_artifacts/natural_memory_native_rwkv_addressed_route_agreement_screen_v1/"
+        "result.json"
+    )
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    unsigned = dict(result)
+    receipt = unsigned.pop("receipt")
+
+    assert screen.shared.sha256_file(result_path) == (
+        "d23cad9a006f452b1fb61a640bdc03c82ef08d3d6ec3989ea47b1adbea610050"
+    )
+    assert screen.shared.canonical_sha256(unsigned) == receipt["payload_sha256"]
+    assert receipt["payload_sha256"] == (
+        "d5dbb7f381e1630b2ed20ca8dba8ae84c99d3794353c910c2d9f580f59a203ab"
+    )
+    assert result["status"] == screen.PASS_STATUS
+    assert result["passed"] is True
+    assert result["training_authorized"] is True
+    assert result["native_generation_authorized"] is False
+    assert result["protected_splits_opened"] == []
+    assert result["checks"] == {
+        "candidate_passed_on_all_ranks": True,
+        "four_distinct_a100_ranks": True,
+        "projected_carrier_fixed_on_all_ranks": True,
+    }
+    assert len(result["rank_evidence"]) == 4
+    assert all(row["passed"] for row in result["rank_evidence"])
