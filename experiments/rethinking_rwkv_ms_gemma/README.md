@@ -9,6 +9,58 @@ The target question is:
 > Does RWKV-MS carry long-range information, or does it mostly perturb/shape
 > Gemma attention while full attention still carries retrieval?
 
+## Current Architecture And Claim Boundary
+
+The current native-memory candidate is not a pure RWKV retrieval system. It is
+a hybrid with two persistent memories in every wrapped Gemma attention layer:
+
+1. A projected key/value slot sidecar stores the material value and chooses a
+   slot from the current query by cosine routing.
+2. An RWKV-7 recurrent matrix state is written online into the corresponding
+   fixed-chunk slots.
+3. The projected route addresses the matching RWKV state slot. The RWKV read is
+   normalized and used as a bounded elementwise FiLM controller:
+
+   ```text
+   output = projected_read * (1 + 0.125 * tanh(rwkv_read / rms(rwkv_read)))
+   ```
+
+4. The fused read passes through the learned delta output path and a
+   content-gated residual into frozen Gemma.
+
+The projected key/value sidecar is therefore still the material carrier. RWKV
+has a causal controller role only when correct recurrent state beats zero,
+matched-donor, and layer-permuted state while the projected carrier is held
+fixed. The repository does not currently establish that full causal claim or a
+native benchmark gain attributable to RWKV.
+
+## Current Evidence
+
+The latest locked open-fit experiment used four A100 GPUs, 16 optimizer
+updates, 128 accepted training rows, and a fresh source/donor-disjoint 32-row
+teacher-forced endpoint. All training and integrity gates passed, with no row
+rejections and no protected split access.
+
+| recurrent condition | mean CE | margin versus correct |
+| --- | ---: | ---: |
+| correct | 3.018380 | - |
+| zero / projected-only | 3.929799 | +0.911419 |
+| matched donor | 3.015786 | -0.002594 |
+| layer-permuted | 3.036787 | +0.018407 |
+
+Lower CE is better, so the zero and layer-permuted controls show that the RWKV
+path is active and layer/order-sensitive. The matched donor is slightly better
+than the correct state, so example-specific recurrent retrieval is not
+established. Native generation remains blocked. The signed result is
+`local_artifacts/natural_memory_native_rwkv_addressed_vector_gate_causal_train_v1/result.json`
+(file SHA-256
+`e9a115cd7864e0c31738478c0393aed21c6db40e3ab1adccc50ba76cb8a898e4`,
+receipt
+`e13f1a45139e28178b0e7ca28b3b647d42a427a23180bc2b7f695fda9dc109c3`).
+
+The next architecture must add state/content identity rather than merely
+increasing recurrent gain. A larger gain would amplify the same donor ambiguity.
+
 Use the PyTorch/HF delta-Mem path for these diagnostics. The GGUF sidecar path
 is useful for serving, but it does not expose the hidden states, gradients, and
 RWKV-MS routing tensors needed here.
