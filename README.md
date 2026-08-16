@@ -348,14 +348,24 @@ with receipt
 `5f4a0f233e8b74a7d5ca17376954144e235e65db9bc2330ef11c8afc7581fff4`.
 No native generation benchmark was opened.
 
-Two different alignment fusions have therefore reproduced the same diagnosis:
-the recurrent branch strongly signals memory presence, but eight updates do not
-make its correction identify the correct row and layer. The next method keeps
-the best carrier equation and moves upstream to specificity-focused training:
-twice the causal updates, a stronger active-control contrast weight, and a new
-source/donor-disjoint endpoint. This must pass before generation. Publisher
-validation, publisher test, Hard32, and the unused strength holdout remain
-unopened and unauthorized.
+Two different alignment fusions therefore reproduced the same initial
+diagnosis: the recurrent branch strongly signaled memory presence, but eight
+updates did not make its correction identify the correct row and layer. A
+preregistered specificity-focused run kept the aligned vector-FiLM equation,
+doubled training to 16 updates, and raised the active-control contrast weight
+from `0.25` to `1.0`. It passed every training-integrity gate with 127/128
+accepted rows; ordinal `1291` was the only filtered row.
+
+On a new source/donor-disjoint 32-row endpoint, correct recurrence scored
+`2.932965` CE versus `3.872879` for zero, `2.937126` for a matched donor, and
+`2.947671` for cyclic layer permutation. All three locked margins are positive:
+`+0.939914`, `+0.004161`, and `+0.014706`. The signed status is
+`aligned_vector_gate_specificity_heldout_passed_generation_authorized`, with
+receipt `96ccb53dbcf9f8927125a2b9ff0d6118007c11f54770d54c5fc4a3cdfee915a7`.
+This establishes held-out teacher-forced state specificity for the aligned
+hybrid and authorizes a separately locked native generation benchmark. It does
+not itself establish native generation gain. Publisher validation, publisher
+test, Hard32, and the unused strength holdout remain unopened and unauthorized.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -436,7 +446,11 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [signed aligned-vector causal failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_causal_train_v1/result.json),
 [aligned-vector screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_aligned_vector_gate_screen.py),
 [aligned-vector training runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_aligned_vector_gate_causal_train.py),
-and [focused aligned-vector tests](deltamem/tests/test_natural_memory_native_rwkv_aligned_vector_gate_causal_train.py).
+[focused aligned-vector tests](deltamem/tests/test_natural_memory_native_rwkv_aligned_vector_gate_causal_train.py),
+[specificity-training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_aligned_vector_gate_specificity_train_protocol_v1.json),
+[signed specificity endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_specificity_train_v1/result.json),
+[specificity-training runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_aligned_vector_gate_specificity_train.py),
+and [focused specificity tests](deltamem/tests/test_natural_memory_native_rwkv_aligned_vector_gate_specificity_train.py).
 
 ### Post-Validation Mechanism Study
 

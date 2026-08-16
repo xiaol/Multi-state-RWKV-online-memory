@@ -1,0 +1,115 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_aligned_vector_gate_specificity_train_protocol.v1",
+  "created_at": "2026-08-17T02:03:00+08:00",
+  "objective": "Test whether longer, stronger state-specific causal contrast makes the screened aligned-vector RWKV hybrid prefer the correct recurrent row and layer on a fresh open-fit endpoint.",
+  "authorization_basis": {
+    "prior_result_file": "local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_causal_train_v1/result.json",
+    "prior_result_file_sha256": "27aab0f513424ad0b137817e793cfc291f529767fe271af422330312b67e1670",
+    "prior_result_receipt": "5f4a0f233e8b74a7d5ca17376954144e235e65db9bc2330ef11c8afc7581fff4",
+    "prior_status": "aligned_vector_gate_heldout_failed_generation_blocked",
+    "prior_training_passed": true,
+    "prior_causal_margins": {
+      "zero_minus_correct": 0.2596623022951672,
+      "donor_minus_correct": -0.004415885886954296,
+      "layer_permuted_minus_correct": -0.004878595246741391
+    },
+    "diagnosis": "Two alignment-aware fusion equations made recurrence necessary versus zero but did not identify the correct row or layer after eight updates.",
+    "response": "Keep the structurally qualified aligned-vector equation and target specificity directly with twice the updates and four times the active-control contrast weight."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "sixteen_update_schedule_prefix_sha256": "121c2eea4904545b2f8c44ef2e4b16e905ca76809af9c34de5b7f848825872fd",
+    "seed": 79,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "selected_candidate": {
+      "candidate_id": "aligned_vector_gate_t16_k2_gate025_g0125",
+      "hybrid_mode": "aligned_vector_gate",
+      "hybrid_gain": 0.125,
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "fusion_gate_probability": 0.25,
+      "detach_read_scores": true
+    },
+    "fusion_equation": "projected_read * (1 + 0.125 * clamp(cos(projected_read, recurrent_read), -1, 1) * tanh(recurrent_read / rms(recurrent_read)))",
+    "zero_recurrent_identity": "Zero recurrence is exactly projected-only.",
+    "memory_fusion_mode": "content_gated_add",
+    "trainable_parameter_families": ["hrm_rwkv7_core.output.weight", "delta_o_proj", "memory_fusion_hidden_weight", "memory_fusion_read_weight", "memory_fusion_bias"],
+    "trainable_parameter_tensors": 210,
+    "projected_carrier_and_recurrent_router_frozen": true
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "optimizer_updates": 16,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "backward_objective": "correct_state_ce_plus_active_causal_contrasts",
+    "contrast_weight_per_active_control": 1.0,
+    "contrast_margin": 0.05,
+    "control_branches": ["zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"],
+    "zero_control_policy": "Retain the same hinge; it becomes inactive naturally when its CE margin reaches 0.05.",
+    "row_gradient_validation": "after all active branches and before accumulation",
+    "nonfinite_row_policy": "discard entire row",
+    "minimum_accepted_rows_per_update": 6,
+    "maximum_total_rejected_rows": 8,
+    "gradient_rescale": "8 / accepted_rows"
+  },
+  "heldout_causal_endpoint": {
+    "selection": "Seed-79 sample from open fit rows whose source and mapped donor both remain after excluding all sources and donors in the sixteen-update schedule, every earlier causal endpoint, and the four structural calibration pairs.",
+    "candidate_rows_after_exclusions": 412,
+    "source_ordinals": [270, 795, 600, 1097, 304, 429, 435, 1311, 1262, 925, 287, 127, 606, 67, 356, 199, 1313, 917, 1302, 553, 316, 744, 885, 1254, 632, 1127, 180, 676, 197, 454, 1394, 890],
+    "source_donor_payload_sha256": "d48074234ab7ce894e267c79ae92c96db0cb05620499a7dea2d930b94d846cf2",
+    "rows": 32,
+    "required_mean_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "all_condition_logits_finite": true,
+    "open_only_after_all_training_gates_pass": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_sixteen_updates_complete": true,
+    "at_least_six_accepted_rows_each_update": true,
+    "at_most_eight_rejected_rows_total": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "projected_carrier_fixed_for_every_intervention": true,
+    "primary_trainable_subset_changed": true,
+    "recurrent_parameter_subset_changed": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true,
+    "all_heldout_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "training_failure": "Do not open the held-out endpoint; archive the failure.",
+    "endpoint_pass": "Authorize a separately locked matched projected-only versus aligned-vector-gate native generation benchmark.",
+    "endpoint_failure": "Block generation, archive the causal failure, and move to a different state-specific hybrid mechanism.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused strength holdout."
+  },
+  "claim_policy": {
+    "endpoint_pass": "May claim held-out teacher-forced causal preference on a newly frozen open-fit endpoint.",
+    "native_gain": "Forbidden until a separately authorized generation benchmark passes carrier-gain and recurrent causal gates."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "e72258c5339b258a07387f87cd28126165926ae05b5960aa4eafecd96c808fbe"
+  }
+}
