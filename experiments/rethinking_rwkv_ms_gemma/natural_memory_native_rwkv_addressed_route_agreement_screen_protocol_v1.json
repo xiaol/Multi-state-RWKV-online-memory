@@ -1,0 +1,82 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_addressed_route_agreement_screen_protocol.v1",
+  "created_at": "2026-08-17T06:30:00+08:00",
+  "objective": "Test a query-verified addressed RWKV hybrid that applies recurrent modulation only when the projected-KV router and RWKV's independent query-to-state router agree beyond chance.",
+  "authorization_basis": {
+    "prior_result_file": "local_artifacts/natural_memory_native_rwkv_addressed_affine_eval_v1/result.json",
+    "prior_result_file_sha256": "43097d4bceef4eb5a4a760f146bf4e5f697e5294e3ba929b948c9fd12f4b6d73",
+    "prior_result_receipt": "c18d190c8fffcbac142c4d95cce6899129df637685cc551ae0e78214710ecdde",
+    "prior_protocol_payload_sha256": "050a63b99bc5259bcb74053e435d4c207410fe4bc88e490a2bfde421d20b8a56",
+    "prior_status": "addressed_affine_native_gain_not_established",
+    "prior_outcome": "The addressed affine recurrent read changed native outputs but was worse than projected-only, zero, matched-donor, and layer-permuted controls on the locked 220-row open development generation endpoint.",
+    "architectural_response": "Retain projected addressing for the recurrent value read, independently compute RWKV's own query-driven route, and abstain unless the two route distributions agree beyond uniform chance."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "native_dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "calibration_source_ordinals": [718, 1149, 918, 76],
+    "calibration_rows_payload_sha256": "b77caeb963647569648244a8927de9693347bb159de48f5a21d59738169cfe5a",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "addressed_route_agreement",
+    "addressing": "The projected key/value slot route selects the corresponding recurrent RWKV state slots; an independent RWKV query-to-state route is computed from the same state and token query.",
+    "route_agreement": "overlap = sum(projected_route * rwkv_route); agreement = clamp((overlap - 1/num_states)/(1 - 1/num_states), 0, 1)",
+    "fusion_equation": "projected_read * (1 + 0.125 * agreement * direction), where direction = tanh(projected_addressed_recurrent_read / rms(projected_addressed_recurrent_read))",
+    "material_carriers": ["projected slot value", "query-verified addressed recurrent controller"],
+    "recurrent_role": "bounded elementwise controller gated by agreement between two independently query-driven state routes",
+    "hybrid_gain": 0.125,
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "detach_read_scores": true,
+    "memory_fusion_mode": "content_gated_add",
+    "fusion_gate_probability": 0.25,
+    "zero_recurrent_identity": "A zero recurrent state produces zero direction, so fusion is exactly projected-only.",
+    "chance_overlap_identity": "A uniform-overlap route pair produces zero agreement, so fusion is exactly projected-only."
+  },
+  "causal_conditions": {
+    "projected_only": "Correct-row projected carrier with recurrent readout bypassed.",
+    "correct_recurrent": "Correct-row projected carrier plus addressed recurrent readout gated by independent RWKV route agreement.",
+    "zero_recurrent": "Correct-row projected carrier plus zero recurrent state.",
+    "matched_donor_recurrent": "Correct-row projected carrier plus a deterministic different-gold, length-matched donor recurrent state; agreement is recomputed for the donor state.",
+    "layer_permuted_recurrent": "Correct-row projected carrier plus correct recurrence cyclically moved across all 42 wrapped layers; agreement is recomputed."
+  },
+  "execution": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one locked source/donor pair per rank; no gradient or optimizer update",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 84,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "fresh_initialization": true
+  },
+  "required_gates": {
+    "projected_carrier_hash_fixed_across_all_conditions": true,
+    "zero_recurrent_exactly_equals_projected_only_on_every_rank": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_projected_max_abs_logit_delta_maximum_on_every_rank": 2.0,
+    "all_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize only a separately locked causal training run for this route-agreement equation with a new source/donor-disjoint open endpoint.",
+    "failure": "Archive the structural failure and move to a supervised query/state retrieval hybrid without native generation testing this equation.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused strength holdout."
+  },
+  "claim_policy": {
+    "pass": "May claim only BF16-visible structural sensitivity to recurrent row and layer under query-verified route agreement before training.",
+    "native_gain": "Forbidden without later held-out causal preference and a separately locked native generation result."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "940c0456d91ff8aff63db3ae55ff58a35f2bde5edfd40509fb09ea4b6fbdb28d"
+  }
+}

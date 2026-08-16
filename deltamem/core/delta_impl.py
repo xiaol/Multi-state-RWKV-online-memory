@@ -70,6 +70,7 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "alignment_residual",
     "aligned_vector_gate",
     "addressed_affine",
+    "addressed_route_agreement",
     "addressed_vector_gate",
     "vector_gate",
     "scalar_gate",
@@ -81,7 +82,8 @@ RWKV_MS_ADDRESSED_VALUE_MODES = frozenset(
     {"addressed_value", "chunk_addressed_value"}
 )
 RWKV_MS_PROJECTED_ROUTE_READ_MODES = (
-    RWKV_MS_ADDRESSED_VALUE_MODES | {"addressed_affine", "addressed_vector_gate"}
+    RWKV_MS_ADDRESSED_VALUE_MODES
+    | {"addressed_affine", "addressed_route_agreement", "addressed_vector_gate"}
 )
 RWKV_MS_VALUE_BOTTLENECK_MODES = (
     RWKV_MS_ADDRESSED_VALUE_MODES | {"recurrent_value"}
@@ -3082,20 +3084,13 @@ class DeltaMemAttention(nn.Module):
             self.rwkv_ms_previous_source = next_previous_source
         return current_state, reads
 
-    def _rwkv_ms_token_state_reads(
+    def _rwkv_ms_token_state_read_basis(
         self,
         state: torch.Tensor,
         memory_source_seq: torch.Tensor,
         token_mask: Optional[torch.Tensor],
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         batch_size, seq_len, _ = memory_source_seq.shape
-        if seq_len == 0:
-            self.last_read_routes = memory_source_seq.new_zeros(
-                batch_size,
-                0,
-                self.rwkv_ms_num_states,
-            )
-            return memory_source_seq.new_zeros(batch_size, 0, self.state_read_dim)
         if self.hrm_rwkv7_core is None:  # pragma: no cover
             raise RuntimeError("RWKV-MS backend requires HRM RWKV-7 core")
         previous_source = self.rwkv_ms_previous_source
@@ -3114,13 +3109,22 @@ class DeltaMemAttention(nn.Module):
             token_mask=token_mask,
             advance_within_sequence=False,
         )
-        current_state = state.float()
         r_seq = self._rwkv_ms_project_heads(features.r).float()
         slot_reads = torch.einsum(
             "bhsij,bthj->bthsi",
-            current_state,
+            state.float(),
             r_seq,
         )
+        return r_seq, slot_reads, features.g
+
+    def _rwkv_ms_token_state_routes(
+        self,
+        state: torch.Tensor,
+        r_seq: torch.Tensor,
+        slot_reads: torch.Tensor,
+        token_mask: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        batch_size, seq_len = r_seq.shape[:2]
         if self.rwkv_ms_semantics_version >= 2:
             scores = F.cosine_similarity(
                 slot_reads.float(),
@@ -3134,7 +3138,7 @@ class DeltaMemAttention(nn.Module):
             ).sum(dim=-1) / math.sqrt(float(self.rank))
         scores = scores * self.rwkv_ms_read_temperature
         if self.rwkv_ms_mask_empty_slots:
-            occupied_slots = current_state.ne(0).any(dim=(-1, -2))
+            occupied_slots = state.float().ne(0).any(dim=(-1, -2))
             all_slots_empty = ~occupied_slots.any(dim=-1, keepdim=True)
             routable_slots = occupied_slots | all_slots_empty
             scores = scores.masked_fill(
@@ -3170,14 +3174,41 @@ class DeltaMemAttention(nn.Module):
                 device=routes.device,
                 dtype=routes.dtype,
             ).view(batch_size, seq_len, 1, 1)
+        return routes
+
+    def _rwkv_ms_token_state_reads(
+        self,
+        state: torch.Tensor,
+        memory_source_seq: torch.Tensor,
+        token_mask: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        batch_size, seq_len, _ = memory_source_seq.shape
+        if seq_len == 0:
+            self.last_read_routes = memory_source_seq.new_zeros(
+                batch_size,
+                0,
+                self.rwkv_ms_num_states,
+            )
+            return memory_source_seq.new_zeros(batch_size, 0, self.state_read_dim)
+        r_seq, slot_reads, readout_gate = self._rwkv_ms_token_state_read_basis(
+            state,
+            memory_source_seq,
+            token_mask,
+        )
+        routes = self._rwkv_ms_token_state_routes(
+            state,
+            r_seq,
+            slot_reads,
+            token_mask,
+        )
         read_inputs = torch.einsum(
             "bths,bthsi->bthi",
             routes,
             slot_reads,
         ).reshape(batch_size, seq_len, self.state_read_dim)
         self.last_read_routes = routes.mean(dim=2)
-        read_inputs = read_inputs.to(dtype=features.g.dtype)
-        return self.hrm_rwkv7_core.readout(read_inputs, features.g)
+        read_inputs = read_inputs.to(dtype=readout_gate.dtype)
+        return self.hrm_rwkv7_core.readout(read_inputs, readout_gate)
 
     def _rwkv_ms_addressed_token_state_reads(
         self,
@@ -3194,29 +3225,10 @@ class DeltaMemAttention(nn.Module):
                 f"expected={expected_routes_shape} "
                 f"actual={tuple(projected_routes.shape)}"
             )
-        if self.hrm_rwkv7_core is None:  # pragma: no cover
-            raise RuntimeError("RWKV-MS backend requires HRM RWKV-7 core")
-        previous_source = self.rwkv_ms_previous_source
-        if previous_source is not None:
-            expected_previous_shape = (batch_size, self.state_read_dim)
-            if previous_source.shape != expected_previous_shape:
-                previous_source = None
-            else:
-                previous_source = previous_source.to(
-                    device=memory_source_seq.device,
-                    dtype=memory_source_seq.dtype,
-                )
-        features = self.hrm_rwkv7_core.project(
+        _, slot_reads, readout_gate = self._rwkv_ms_token_state_read_basis(
+            state,
             memory_source_seq,
-            previous_x=previous_source,
-            token_mask=token_mask,
-            advance_within_sequence=False,
-        )
-        r_seq = self._rwkv_ms_project_heads(features.r).float()
-        slot_reads = torch.einsum(
-            "bhsij,bthj->bthsi",
-            state.float(),
-            r_seq,
+            token_mask,
         )
         routes = projected_routes.to(
             device=slot_reads.device,
@@ -3234,9 +3246,57 @@ class DeltaMemAttention(nn.Module):
         ).reshape(batch_size, seq_len, self.state_read_dim)
         self.last_read_routes = routes
         return self.hrm_rwkv7_core.readout(
-            read_inputs.to(dtype=features.g.dtype),
-            features.g,
+            read_inputs.to(dtype=readout_gate.dtype),
+            readout_gate,
         )
+
+    def _rwkv_ms_route_agreement_token_state_reads(
+        self,
+        state: torch.Tensor,
+        memory_source_seq: torch.Tensor,
+        projected_routes: torch.Tensor,
+        token_mask: Optional[torch.Tensor],
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        batch_size, seq_len, _ = memory_source_seq.shape
+        expected_routes_shape = (batch_size, seq_len, self.rwkv_ms_num_states)
+        if tuple(projected_routes.shape) != expected_routes_shape:
+            raise ValueError(
+                "Projected routes must match RWKV-MS route-agreement read shape: "
+                f"expected={expected_routes_shape} "
+                f"actual={tuple(projected_routes.shape)}"
+            )
+        r_seq, slot_reads, readout_gate = self._rwkv_ms_token_state_read_basis(
+            state,
+            memory_source_seq,
+            token_mask,
+        )
+        recurrent_head_routes = self._rwkv_ms_token_state_routes(
+            state,
+            r_seq,
+            slot_reads,
+            token_mask,
+        )
+        recurrent_routes = recurrent_head_routes.mean(dim=2)
+        addressed_routes = projected_routes.to(
+            device=slot_reads.device,
+            dtype=slot_reads.dtype,
+        )
+        if token_mask is not None:
+            addressed_routes = addressed_routes * token_mask.to(
+                device=addressed_routes.device,
+                dtype=addressed_routes.dtype,
+            ).unsqueeze(-1)
+        read_inputs = torch.einsum(
+            "bts,bthsi->bthi",
+            addressed_routes,
+            slot_reads,
+        ).reshape(batch_size, seq_len, self.state_read_dim)
+        self.last_read_routes = recurrent_routes
+        reads = self.hrm_rwkv7_core.readout(
+            read_inputs.to(dtype=readout_gate.dtype),
+            readout_gate,
+        )
+        return reads, recurrent_routes
 
     def _memory_backend_scan(
         self,
@@ -3984,6 +4044,7 @@ class DeltaMemAttention(nn.Module):
         self,
         projected_reads: torch.Tensor,
         recurrent_reads: torch.Tensor,
+        route_agreement: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if projected_reads.shape != recurrent_reads.shape:
             raise ValueError(
@@ -4028,6 +4089,25 @@ class DeltaMemAttention(nn.Module):
             fused = (
                 projected * (1.0 + gain * recurrent_direction)
                 + 0.25 * gain * carrier_rms * recurrent_direction
+            )
+        elif self.rwkv_ms_hybrid_mode == "addressed_route_agreement":
+            if route_agreement is None:
+                raise ValueError(
+                    "Addressed route-agreement fusion requires route agreement"
+                )
+            expected_shape = (*projected.shape[:-1], 1)
+            if tuple(route_agreement.shape) != expected_shape:
+                raise ValueError(
+                    "Route agreement must match the hybrid token shape: "
+                    f"expected={expected_shape} "
+                    f"actual={tuple(route_agreement.shape)}"
+                )
+            agreement = route_agreement.to(
+                device=projected.device,
+                dtype=projected.dtype,
+            ).clamp(0.0, 1.0)
+            fused = projected * (
+                1.0 + gain * agreement * recurrent_direction
             )
         elif self.rwkv_ms_hybrid_mode == "addressed_vector_gate":
             fused = projected * (1.0 + gain * recurrent_direction)
@@ -4097,7 +4177,35 @@ class DeltaMemAttention(nn.Module):
             else:
                 projected_reads = self._projected_kv_slot_token_reads(hidden_states)
                 projected_routes = self.last_read_routes
-            if self.rwkv_ms_hybrid_mode in RWKV_MS_PROJECTED_ROUTE_READ_MODES:
+            route_agreement = None
+            if self.rwkv_ms_hybrid_mode == "addressed_route_agreement":
+                if projected_routes is None:
+                    recurrent_reads = torch.zeros_like(projected_reads)
+                    recurrent_routes = None
+                    route_agreement = projected_reads.new_zeros(
+                        *projected_reads.shape[:-1],
+                        1,
+                    )
+                else:
+                    recurrent_reads, recurrent_routes = (
+                        self._rwkv_ms_route_agreement_token_state_reads(
+                            state,
+                            token_memory_v_seq,
+                            projected_routes,
+                            token_mask,
+                        )
+                    )
+                    overlap = (
+                        projected_routes.float() * recurrent_routes.float()
+                    ).sum(dim=-1, keepdim=True)
+                    if self.rwkv_ms_num_states == 1:
+                        route_agreement = overlap.clamp(0.0, 1.0)
+                    else:
+                        chance = 1.0 / float(self.rwkv_ms_num_states)
+                        route_agreement = (
+                            (overlap - chance) / (1.0 - chance)
+                        ).clamp(0.0, 1.0)
+            elif self.rwkv_ms_hybrid_mode in RWKV_MS_PROJECTED_ROUTE_READ_MODES:
                 recurrent_reads = (
                     torch.zeros_like(projected_reads)
                     if projected_routes is None
@@ -4108,6 +4216,7 @@ class DeltaMemAttention(nn.Module):
                         token_mask,
                     )
                 )
+                recurrent_routes = self.last_read_routes
             else:
                 recurrent_reads = self._memory_backend_token_reads(
                     state,
@@ -4115,10 +4224,11 @@ class DeltaMemAttention(nn.Module):
                     None,
                     token_mask,
                 )
-            recurrent_routes = self.last_read_routes
+                recurrent_routes = self.last_read_routes
             reads = self._fuse_projected_rwkv_reads(
                 projected_reads,
                 recurrent_reads,
+                route_agreement,
             )
             self.last_read_routes = (
                 recurrent_routes

@@ -48,6 +48,7 @@ def _module(
         "alignment_residual",
         "aligned_vector_gate",
         "addressed_affine",
+        "addressed_route_agreement",
         "addressed_vector_gate",
         "vector_gate",
         "scalar_gate",
@@ -59,9 +60,15 @@ def test_hybrid_modes_preserve_projected_carrier_for_zero_rwkv_state(
     module = _module(hybrid_mode=mode)
     projected = torch.randn(2, 3, module.state_read_dim)
 
+    kwargs = (
+        {"route_agreement": torch.ones(*projected.shape[:-1], 1)}
+        if mode == "addressed_route_agreement"
+        else {}
+    )
     fused = module._fuse_projected_rwkv_reads(
         projected,
         torch.zeros_like(projected),
+        **kwargs,
     )
 
     assert torch.equal(fused, projected)
@@ -86,6 +93,7 @@ def test_addressed_value_requires_recurrent_state() -> None:
         "alignment_residual",
         "aligned_vector_gate",
         "addressed_affine",
+        "addressed_route_agreement",
         "addressed_vector_gate",
         "vector_gate",
         "scalar_gate",
@@ -99,7 +107,12 @@ def test_hybrid_modes_are_sensitive_to_nonzero_rwkv_read(mode: str) -> None:
     projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
     recurrent = torch.tensor([[[0.25, 0.75], [-0.5, 0.125]]])
 
-    fused = module._fuse_projected_rwkv_reads(projected, recurrent)
+    kwargs = (
+        {"route_agreement": torch.ones(*projected.shape[:-1], 1)}
+        if mode == "addressed_route_agreement"
+        else {}
+    )
+    fused = module._fuse_projected_rwkv_reads(projected, recurrent, **kwargs)
 
     assert torch.isfinite(fused).all()
     assert not torch.equal(fused, projected)
@@ -190,6 +203,110 @@ def test_addressed_affine_matches_locked_fusion_equation() -> None:
     )
 
     assert torch.equal(fused, expected.to(dtype=projected.dtype))
+
+
+def test_addressed_route_agreement_matches_locked_fusion_equation() -> None:
+    module = _module(hybrid_mode="addressed_route_agreement", hybrid_gain=0.125)
+    projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
+    recurrent = torch.tensor([[[0.25, 0.75], [-0.5, 0.125]]])
+    agreement = torch.tensor([[[0.75], [0.0]]])
+
+    fused = module._fuse_projected_rwkv_reads(
+        projected,
+        recurrent,
+        route_agreement=agreement,
+    )
+
+    recurrent_rms = recurrent.float().square().mean(dim=-1, keepdim=True).sqrt()
+    direction = torch.tanh(recurrent.float() / recurrent_rms.clamp_min(1e-6))
+    expected = projected.float() * (1.0 + 0.125 * agreement * direction)
+
+    assert torch.equal(fused, expected.to(dtype=projected.dtype))
+    assert torch.equal(fused[:, 1], projected[:, 1])
+
+
+def test_addressed_route_agreement_requires_route_agreement() -> None:
+    module = _module(hybrid_mode="addressed_route_agreement")
+    projected = torch.randn(1, 2, module.state_read_dim)
+
+    with pytest.raises(ValueError, match="requires route agreement"):
+        module._fuse_projected_rwkv_reads(projected, torch.randn_like(projected))
+
+
+def test_addressed_route_agreement_step_abstains_at_chance_overlap(
+    monkeypatch,
+) -> None:
+    module = _module(hybrid_mode="addressed_route_agreement", hybrid_gain=0.125)
+    module.set_write_enabled(False)
+    hidden = torch.randn(1, 2, module.hidden_size)
+    token_mask = torch.ones(1, 2, dtype=torch.bool)
+    state = torch.randn(
+        1,
+        module.num_state_heads,
+        module.rwkv_ms_num_states,
+        module.rank,
+        module.rank,
+    )
+    projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
+    projected_routes = torch.tensor([[[1.0, 0.0], [0.0, 1.0]]])
+
+    def projected_read(_: torch.Tensor) -> torch.Tensor:
+        module.last_read_routes = projected_routes
+        return projected
+
+    recurrent = torch.full_like(projected, 0.5)
+    recurrent_routes = torch.full_like(projected_routes, 0.5)
+    monkeypatch.setattr(module, "_projected_kv_slot_token_reads", projected_read)
+    monkeypatch.setattr(
+        module,
+        "_rwkv_ms_route_agreement_token_state_reads",
+        lambda *args: (recurrent, recurrent_routes),
+    )
+
+    _, reads, _, _ = module._projected_rwkv_hybrid_step(
+        state,
+        hidden,
+        token_mask,
+    )
+
+    assert torch.equal(reads, projected)
+    assert torch.equal(module.last_read_routes, projected_routes)
+
+
+def test_addressed_route_agreement_step_uses_matching_routes(monkeypatch) -> None:
+    module = _module(hybrid_mode="addressed_route_agreement", hybrid_gain=0.125)
+    module.set_write_enabled(False)
+    hidden = torch.randn(1, 2, module.hidden_size)
+    token_mask = torch.ones(1, 2, dtype=torch.bool)
+    state = torch.randn(
+        1,
+        module.num_state_heads,
+        module.rwkv_ms_num_states,
+        module.rank,
+        module.rank,
+    )
+    projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
+    projected_routes = torch.tensor([[[1.0, 0.0], [0.0, 1.0]]])
+
+    def projected_read(_: torch.Tensor) -> torch.Tensor:
+        module.last_read_routes = projected_routes
+        return projected
+
+    monkeypatch.setattr(module, "_projected_kv_slot_token_reads", projected_read)
+    monkeypatch.setattr(
+        module,
+        "_rwkv_ms_route_agreement_token_state_reads",
+        lambda *args: (torch.full_like(projected, 0.5), projected_routes),
+    )
+
+    _, reads, _, _ = module._projected_rwkv_hybrid_step(
+        state,
+        hidden,
+        token_mask,
+    )
+
+    assert not torch.equal(reads, projected)
+    assert torch.equal(module.last_read_routes, projected_routes)
 
 
 @pytest.mark.parametrize("mode", ("addressed_affine", "addressed_vector_gate"))
