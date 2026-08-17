@@ -75,6 +75,7 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "addressed_route_agreement",
     "addressed_query_state_gate",
     "addressed_moe_controller",
+    "addressed_moe_deepembed_ffn",
     "addressed_moe_outer_ffn",
     "addressed_vector_gate",
     "vector_gate",
@@ -82,6 +83,9 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "addressed_value",
     "chunk_addressed_value",
     "recurrent_value",
+)
+RWKV_MS_OUTER_FFN_MODES = frozenset(
+    {"addressed_moe_deepembed_ffn", "addressed_moe_outer_ffn"}
 )
 RWKV_MS_ADDRESSED_VALUE_MODES = frozenset(
     {"addressed_value", "chunk_addressed_value"}
@@ -93,6 +97,7 @@ RWKV_MS_PROJECTED_ROUTE_READ_MODES = (
         "address_bound_write",
         "address_bound_moe_controller",
         "addressed_moe_controller",
+        "addressed_moe_deepembed_ffn",
         "addressed_moe_outer_ffn",
         "addressed_route_agreement",
         "addressed_query_state_gate",
@@ -454,9 +459,9 @@ class HFDeltaMemConfig:
         outer_ffn_layers = tuple(sorted(set(int(i) for i in self.rwkv_ms_outer_ffn_layers)))
         if any(layer < 0 for layer in outer_ffn_layers):
             raise ValueError("rwkv_ms_outer_ffn_layers must contain nonnegative indices")
-        if outer_ffn_layers and self.rwkv_ms_hybrid_mode != "addressed_moe_outer_ffn":
+        if outer_ffn_layers and self.rwkv_ms_hybrid_mode not in RWKV_MS_OUTER_FFN_MODES:
             raise ValueError(
-                "rwkv_ms_outer_ffn_layers requires addressed_moe_outer_ffn mode"
+                "rwkv_ms_outer_ffn_layers requires an outer-FFN hybrid mode"
             )
         object.__setattr__(self, "rwkv_ms_outer_ffn_layers", outer_ffn_layers)
         object.__setattr__(self, "rwkv_ms_num_states", int(self.rwkv_ms_num_states))
@@ -926,7 +931,7 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_outer_ffn_gain = config.rwkv_ms_outer_ffn_gain
         self.rwkv_ms_outer_ffn_layers = config.rwkv_ms_outer_ffn_layers
         self.rwkv_ms_outer_ffn_enabled = (
-            self.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn"
+            self.rwkv_ms_hybrid_mode in RWKV_MS_OUTER_FFN_MODES
             and (
                 not self.rwkv_ms_outer_ffn_layers
                 or self.layer_idx in self.rwkv_ms_outer_ffn_layers
@@ -1046,6 +1051,7 @@ class DeltaMemAttention(nn.Module):
         if self.rwkv_ms_hybrid_mode in {
             "addressed_moe_controller",
             "address_bound_moe_controller",
+            "addressed_moe_deepembed_ffn",
             "addressed_moe_outer_ffn",
         }:
             self.rwkv_moe_hidden_weight = nn.Parameter(torch.empty(3, hidden_size))
@@ -1123,6 +1129,10 @@ class DeltaMemAttention(nn.Module):
         ] | None = None
         self._post_attention_norm_hook_handle = None
         self._pending_outer_ffn_delta: torch.Tensor | None = None
+        self._pending_deepembed_ffn_control: torch.Tensor | None = None
+        self._pending_deepembed_ffn_scale: torch.Tensor | None = None
+        self._deepembed_ffn_pre_hook_handle = None
+        self._deepembed_ffn_down_pre_hook_handle = None
         self._post_feedforward_norm_hook_handle = None
         self.write_message_ids: torch.Tensor | None = None
         self.write_sentence_ids: torch.Tensor | None = None
@@ -1241,6 +1251,7 @@ class DeltaMemAttention(nn.Module):
         if self.rwkv_ms_hybrid_mode in {
             "addressed_moe_controller",
             "address_bound_moe_controller",
+            "addressed_moe_deepembed_ffn",
             "addressed_moe_outer_ffn",
         }:
             nn.init.zeros_(self.rwkv_moe_hidden_weight)
@@ -4244,6 +4255,7 @@ class DeltaMemAttention(nn.Module):
         elif self.rwkv_ms_hybrid_mode in {
             "addressed_moe_controller",
             "address_bound_moe_controller",
+            "addressed_moe_deepembed_ffn",
             "addressed_moe_outer_ffn",
         }:
             if global_recurrent_reads is None or hidden_states is None:
@@ -4316,8 +4328,10 @@ class DeltaMemAttention(nn.Module):
         hidden_states: torch.Tensor,
         token_mask: torch.Tensor | None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        if self.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn":
+        if self.rwkv_ms_hybrid_mode in RWKV_MS_OUTER_FFN_MODES:
             self._pending_outer_ffn_delta = None
+            self._pending_deepembed_ffn_control = None
+            self._pending_deepembed_ffn_scale = None
         (
             token_memory_q_seq,
             token_memory_k_seq,
@@ -4450,6 +4464,7 @@ class DeltaMemAttention(nn.Module):
             if self.rwkv_ms_hybrid_mode in {
                 "addressed_moe_controller",
                 "address_bound_moe_controller",
+                "addressed_moe_deepembed_ffn",
                 "addressed_moe_outer_ffn",
             }:
                 global_recurrent_reads = self._memory_backend_token_reads(
@@ -4477,11 +4492,16 @@ class DeltaMemAttention(nn.Module):
                 recurrent_control = (
                     reads.float() - projected_reads.float()
                 ) / control_scale
-                self._pending_outer_ffn_delta = self._outer_ffn_residual(
-                    hidden_states,
-                    recurrent_control,
-                    token_mask,
-                )
+                if self.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn":
+                    self._pending_deepembed_ffn_control = recurrent_control.to(
+                        dtype=hidden_states.dtype
+                    )
+                else:
+                    self._pending_outer_ffn_delta = self._outer_ffn_residual(
+                        hidden_states,
+                        recurrent_control,
+                        token_mask,
+                    )
             self.last_read_routes = (
                 recurrent_routes
                 if self.rwkv_ms_hybrid_mode == "recurrent_value"
@@ -4490,6 +4510,16 @@ class DeltaMemAttention(nn.Module):
             self.last_write_routes = None
         if (
             self.rwkv_ms_outer_ffn_enabled
+            and self.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+            and self._pending_deepembed_ffn_control is None
+        ):
+            self._pending_deepembed_ffn_control = hidden_states.new_zeros(
+                *hidden_states.shape[:-1],
+                self.state_read_dim,
+            )
+        if (
+            self.rwkv_ms_outer_ffn_enabled
+            and self.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn"
             and self._pending_outer_ffn_delta is None
         ):
             self._pending_outer_ffn_delta = hidden_states.new_zeros(
@@ -4540,6 +4570,55 @@ class DeltaMemAttention(nn.Module):
                 dtype=residual.dtype,
             ).unsqueeze(-1)
         return residual.to(dtype=hidden_states.dtype)
+
+    def _deepembed_ffn_scale(
+        self,
+        hidden_states: torch.Tensor,
+        recurrent_control: torch.Tensor,
+        up_proj_weight: torch.Tensor,
+    ) -> torch.Tensor:
+        """Build a bounded DeepEmbed-style modulation for the frozen MLP channels."""
+        if not self.rwkv_ms_outer_ffn_enabled:
+            raise RuntimeError("DeepEmbed FFN modulation requires an active outer FFN")
+        compute_dtype = hidden_states.dtype
+        normalized_hidden = F.rms_norm(
+            hidden_states,
+            (hidden_states.shape[-1],),
+            eps=1e-6,
+        )
+        normalized_control = F.rms_norm(
+            recurrent_control.to(dtype=compute_dtype),
+            (recurrent_control.shape[-1],),
+            eps=1e-6,
+        )
+        state = F.silu(
+            F.linear(
+                normalized_control,
+                self.rwkv_outer_ffn_down_weight.to(dtype=compute_dtype),
+            )
+        )
+        query_gate = torch.sigmoid(
+            F.linear(
+                normalized_hidden,
+                self.rwkv_outer_ffn_gate_weight.to(dtype=compute_dtype),
+            )
+        )
+        hidden_modulation = F.linear(
+            state * query_gate,
+            self.rwkv_outer_ffn_up_weight.to(dtype=compute_dtype),
+        )
+        hidden_modulation = F.rms_norm(
+            hidden_modulation,
+            (hidden_modulation.shape[-1],),
+            eps=1e-6,
+        )
+        channel_direction = torch.tanh(
+            F.linear(
+                hidden_modulation,
+                up_proj_weight.to(dtype=compute_dtype),
+            )
+        )
+        return 1.0 + self.rwkv_ms_outer_ffn_gain * channel_direction
 
     def _fuse_delta_o_output(
         self,
@@ -4950,6 +5029,104 @@ class DeltaMemAttention(nn.Module):
         if handle is not None:
             handle.remove()
 
+    def _deepembed_ffn_pre_hook(
+        self,
+        module: nn.Module,
+        inputs: tuple[torch.Tensor, ...],
+    ) -> None:
+        if self.rwkv_ms_hybrid_mode != "addressed_moe_deepembed_ffn":
+            self._pending_deepembed_ffn_control = None
+            self._pending_deepembed_ffn_scale = None
+            return None
+        if not self.rwkv_ms_outer_ffn_enabled:
+            return None
+        control = self._pending_deepembed_ffn_control
+        if control is None:
+            raise RuntimeError(
+                "Gemma MLP ran without a pending DeepEmbed recurrent control for "
+                f"layer {self.layer_idx}"
+            )
+        if not inputs or not isinstance(inputs[0], torch.Tensor):
+            raise RuntimeError("DeepEmbed FFN hook requires a tensor MLP input")
+        hidden_states = inputs[0]
+        up_proj = getattr(module, "up_proj", None)
+        weight = getattr(up_proj, "weight", None)
+        if not isinstance(weight, torch.Tensor):
+            raise RuntimeError("DeepEmbed FFN hook requires Gemma's up_proj weight")
+        if control.shape[:-1] != hidden_states.shape[:-1]:
+            raise RuntimeError(
+                "DeepEmbed recurrent control does not match the MLP token shape: "
+                f"control={tuple(control.shape)} hidden={tuple(hidden_states.shape)}"
+            )
+        self._pending_deepembed_ffn_control = None
+        self._pending_deepembed_ffn_scale = self._deepembed_ffn_scale(
+            hidden_states,
+            control,
+            weight,
+        )
+        return None
+
+    def _deepembed_ffn_down_pre_hook(
+        self,
+        module: nn.Module,
+        inputs: tuple[torch.Tensor, ...],
+    ) -> tuple[torch.Tensor, ...] | None:
+        del module
+        if self.rwkv_ms_hybrid_mode != "addressed_moe_deepembed_ffn":
+            self._pending_deepembed_ffn_scale = None
+            return None
+        if not self.rwkv_ms_outer_ffn_enabled:
+            return None
+        scale = self._pending_deepembed_ffn_scale
+        if scale is None:
+            raise RuntimeError(
+                "Gemma down_proj ran without a pending DeepEmbed channel scale for "
+                f"layer {self.layer_idx}"
+            )
+        if not inputs or not isinstance(inputs[0], torch.Tensor):
+            raise RuntimeError("DeepEmbed down_proj hook requires a tensor input")
+        activation = inputs[0]
+        self._pending_deepembed_ffn_scale = None
+        if scale.shape != activation.shape:
+            raise RuntimeError(
+                "DeepEmbed channel scale does not match the MLP activation: "
+                f"scale={tuple(scale.shape)} activation={tuple(activation.shape)}"
+            )
+        return (activation * scale.to(device=activation.device, dtype=activation.dtype),)
+
+    def bind_deepembed_ffn(self, mlp: nn.Module) -> None:
+        if self.rwkv_ms_hybrid_mode != "addressed_moe_deepembed_ffn":
+            raise ValueError(
+                "A DeepEmbed FFN hook is only available for "
+                "addressed_moe_deepembed_ffn"
+            )
+        if (
+            self._deepembed_ffn_pre_hook_handle is not None
+            or self._deepembed_ffn_down_pre_hook_handle is not None
+        ):
+            raise RuntimeError(f"Layer {self.layer_idx} already has DeepEmbed FFN hooks")
+        down_proj = getattr(mlp, "down_proj", None)
+        if not isinstance(down_proj, nn.Module) or not hasattr(mlp, "up_proj"):
+            raise ValueError("DeepEmbed FFN hooks require Gemma up_proj and down_proj")
+        self._deepembed_ffn_pre_hook_handle = mlp.register_forward_pre_hook(
+            self._deepembed_ffn_pre_hook
+        )
+        self._deepembed_ffn_down_pre_hook_handle = down_proj.register_forward_pre_hook(
+            self._deepembed_ffn_down_pre_hook
+        )
+
+    def remove_deepembed_ffn_hooks(self) -> None:
+        for attribute in (
+            "_deepembed_ffn_pre_hook_handle",
+            "_deepembed_ffn_down_pre_hook_handle",
+        ):
+            handle = getattr(self, attribute)
+            setattr(self, attribute, None)
+            if handle is not None:
+                handle.remove()
+        self._pending_deepembed_ffn_control = None
+        self._pending_deepembed_ffn_scale = None
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -4977,17 +5154,31 @@ class DeltaMemAttention(nn.Module):
                     f"attention forward in layer {self.layer_idx}"
                 )
 
-        if self.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn":
+        if self.rwkv_ms_hybrid_mode in RWKV_MS_OUTER_FFN_MODES:
             if (
                 not self.is_gemma4_attention
-                or self._post_feedforward_norm_hook_handle is None
+                or (
+                    self.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn"
+                    and self._post_feedforward_norm_hook_handle is None
+                )
+                or (
+                    self.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+                    and (
+                        self._deepembed_ffn_pre_hook_handle is None
+                        or self._deepembed_ffn_down_pre_hook_handle is None
+                    )
+                )
             ):
                 raise RuntimeError(
-                    "addressed_moe_outer_ffn requires a Gemma post-feedforward hook"
+                    "Outer-FFN hybrids require their Gemma MLP hooks"
                 )
-            if self._pending_outer_ffn_delta is not None:
+            if (
+                self._pending_outer_ffn_delta is not None
+                or self._pending_deepembed_ffn_control is not None
+                or self._pending_deepembed_ffn_scale is not None
+            ):
                 raise RuntimeError(
-                    "Previous outer FFN residual was not consumed before the next "
+                    "Previous outer FFN payload was not consumed before the next "
                     f"attention forward in layer {self.layer_idx}"
                 )
         batch_size, seq_len, _ = hidden_states.shape
@@ -5364,27 +5555,38 @@ def validate_outer_ffn_target(
     *,
     module_name: str,
 ) -> nn.Module | None:
-    if config.rwkv_ms_hybrid_mode != "addressed_moe_outer_ffn":
+    if config.rwkv_ms_hybrid_mode not in RWKV_MS_OUTER_FFN_MODES:
         return None
     if Gemma4TextAttention is None or not isinstance(module, Gemma4TextAttention):
         raise ValueError(
-            "addressed_moe_outer_ffn is currently Gemma4-only; "
+            "DeepEmbed outer FFN hybrids are currently Gemma4-only; "
             f"unsupported target: {module_name} ({type(module).__name__})"
         )
     if attribute != "self_attn":
         raise ValueError(
-            "addressed_moe_outer_ffn requires a decoder self_attn target; "
+            "DeepEmbed outer FFN hybrids require a decoder self_attn target; "
             f"got {module_name}"
         )
     if Gemma4TextDecoderLayer is None or not isinstance(parent, Gemma4TextDecoderLayer):
         raise ValueError(
-            "addressed_moe_outer_ffn requires a Gemma4TextDecoderLayer parent; "
+            "DeepEmbed outer FFN hybrids require a Gemma4TextDecoderLayer parent; "
             f"got {type(parent).__name__} for {module_name}"
         )
     if config.memory_readout_mode != "projected_kv_rwkv_hybrid":
         raise ValueError(
-            "addressed_moe_outer_ffn requires projected_kv_rwkv_hybrid readout"
+            "DeepEmbed outer FFN hybrids require projected_kv_rwkv_hybrid readout"
         )
+    if config.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn":
+        mlp = getattr(parent, "mlp", None)
+        if not isinstance(mlp, nn.Module) or not all(
+            isinstance(getattr(mlp, name, None), nn.Module)
+            for name in ("up_proj", "down_proj")
+        ):
+            raise ValueError(
+                "addressed_moe_deepembed_ffn requires Gemma's MLP up_proj and down_proj; "
+                f"missing from the parent of {module_name}"
+            )
+        return mlp
     layernorm = getattr(parent, "post_feedforward_layernorm", None)
     if not isinstance(layernorm, nn.Module):
         raise ValueError(
@@ -5454,12 +5656,18 @@ def attach_delta_mem(model: nn.Module, config: HFDeltaMemConfig) -> list[str]:
             installed.append((parent, attr, module, wrapped))
             if layernorm is not None:
                 wrapped.bind_post_attention_layernorm(layernorm)
-            if outer_ffn_layernorm is not None:
+            if (
+                outer_ffn_layernorm is not None
+                and config.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+            ):
+                wrapped.bind_deepembed_ffn(outer_ffn_layernorm)
+            elif outer_ffn_layernorm is not None:
                 wrapped.bind_post_feedforward_layernorm(outer_ffn_layernorm)
     except Exception:
         for parent, attr, original, wrapped in reversed(installed):
             wrapped.remove_post_attention_layernorm_hook()
             wrapped.remove_post_feedforward_layernorm_hook()
+            wrapped.remove_deepembed_ffn_hooks()
             setattr(parent, attr, original)
         raise
     return [name for name, *_ in candidates]
@@ -6343,14 +6551,22 @@ def validate_attached_delta_config(
         outer_ffn_hook_bound = (
             module._post_feedforward_norm_hook_handle is not None
         )
-        expects_outer_ffn_hook = (
-            module.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn"
+        deepembed_ffn_hooks_bound = (
+            module._deepembed_ffn_pre_hook_handle is not None
+            and module._deepembed_ffn_down_pre_hook_handle is not None
         )
-        if outer_ffn_hook_bound != expects_outer_ffn_hook:
+        expects_outer_ffn_hook = module.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn"
+        expects_deepembed_ffn_hooks = (
+            module.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+        )
+        if outer_ffn_hook_bound != expects_outer_ffn_hook or (
+            deepembed_ffn_hooks_bound != expects_deepembed_ffn_hooks
+        ):
             raise ValueError(
                 f"Attached Delta-Mem outer FFN topology is invalid at {name}: "
                 f"hybrid_mode={module.rwkv_ms_hybrid_mode!r} "
-                f"hook_bound={outer_ffn_hook_bound}"
+                f"post_mlp_hook={outer_ffn_hook_bound} "
+                f"deepembed_hooks={deepembed_ffn_hooks_bound}"
             )
 
 

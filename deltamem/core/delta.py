@@ -176,12 +176,18 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
             installed.append((parent, attr, module, wrapped))
             if layernorm is not None:
                 wrapped.bind_post_attention_layernorm(layernorm)
-            if outer_ffn_layernorm is not None:
+            if (
+                outer_ffn_layernorm is not None
+                and config.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+            ):
+                wrapped.bind_deepembed_ffn(outer_ffn_layernorm)
+            elif outer_ffn_layernorm is not None:
                 wrapped.bind_post_feedforward_layernorm(outer_ffn_layernorm)
     except Exception:
         for parent, attr, original, wrapped in reversed(installed):
             wrapped.remove_post_attention_layernorm_hook()
             wrapped.remove_post_feedforward_layernorm_hook()
+            wrapped.remove_deepembed_ffn_hooks()
             setattr(parent, attr, original)
         raise
     return [name for name, *_ in candidates]

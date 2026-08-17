@@ -45,6 +45,20 @@ def _module(
     )
 
 
+class _TinyDeepEmbedMLP(torch.nn.Module):
+    def __init__(self, hidden_size: int, intermediate_size: int) -> None:
+        super().__init__()
+        self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.up_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.down_proj = torch.nn.Linear(intermediate_size, hidden_size, bias=False)
+        self.act_fn = torch.nn.SiLU()
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        return self.down_proj(
+            self.act_fn(self.gate_proj(hidden_states)) * self.up_proj(hidden_states)
+        )
+
+
 @pytest.mark.parametrize(
     "mode",
     (
@@ -458,6 +472,57 @@ def test_addressed_moe_outer_ffn_can_be_sparse_across_depth() -> None:
     assert not hasattr(inactive, "rwkv_outer_ffn_up_weight")
     assert torch.equal(layernorm(source), source)
     inactive.remove_post_feedforward_layernorm_hook()
+
+
+def test_deepembed_ffn_mode_is_zero_preserving_and_multiplicative() -> None:
+    module = _module(
+        hybrid_mode="addressed_moe_deepembed_ffn",
+        hybrid_gain=0.03125,
+        outer_ffn_gain=1.0 / 2048.0,
+    )
+    mlp = _TinyDeepEmbedMLP(module.hidden_size, 7)
+    module.bind_deepembed_ffn(mlp)
+    hidden = torch.randn(2, 3, module.hidden_size)
+    control = torch.randn(2, 3, module.state_read_dim)
+    module._pending_deepembed_ffn_control = torch.zeros_like(control)
+    baseline = mlp(hidden)
+
+    module._pending_deepembed_ffn_control = torch.zeros_like(control)
+    zero = mlp(hidden)
+    assert torch.equal(zero, baseline)
+
+    module._pending_deepembed_ffn_control = control
+    changed = mlp(hidden)
+    assert torch.isfinite(changed).all()
+    assert not torch.equal(changed, baseline)
+    module.remove_deepembed_ffn_hooks()
+    assert module._deepembed_ffn_pre_hook_handle is None
+    assert module._deepembed_ffn_down_pre_hook_handle is None
+
+
+def test_deepembed_ffn_mode_keeps_bf16_gradients_finite() -> None:
+    module = _module(
+        hybrid_mode="addressed_moe_deepembed_ffn",
+        hybrid_gain=0.03125,
+        outer_ffn_gain=1.0 / 2048.0,
+    )
+    mlp = _TinyDeepEmbedMLP(module.hidden_size, 7).to(dtype=torch.bfloat16)
+    module.bind_deepembed_ffn(mlp)
+    hidden = torch.randn(2, 3, module.hidden_size, dtype=torch.bfloat16)
+    control = torch.randn(2, 3, module.state_read_dim, dtype=torch.bfloat16)
+    module._pending_deepembed_ffn_control = control
+    output = mlp(hidden)
+    output.float().square().mean().backward()
+
+    for parameter in (
+        module.rwkv_outer_ffn_down_weight,
+        module.rwkv_outer_ffn_gate_weight,
+        module.rwkv_outer_ffn_up_weight,
+    ):
+        assert parameter.grad is not None
+        assert parameter.grad.dtype == torch.float32
+        assert torch.isfinite(parameter.grad).all()
+    module.remove_deepembed_ffn_hooks()
 
 
 def test_addressed_route_agreement_step_abstains_at_chance_overlap(

@@ -452,9 +452,54 @@ signed status is `addressed_moe_outer_ffn_gain_ablation_screen_failed_branch_sto
 no causal endpoint or native generation was opened for this branch.
 
 The outer hook is live, but its small per-layer residual is amplified by the
-frozen stack. The next experiment should change the write/read identity with a
-projected-address-conditioned RWKV write/value adapter and donor-contrast loss,
-not simply add more outer-FFN gain or reopen generation.
+frozen stack. A DeepEmbed-style follow-up therefore moved the FFN interaction
+inside Gemma's frozen gated MLP. The all-layer addressed/global RWKV MoE
+attention remains active, but at decoder anchors `(10, 21, 31, 41)` a recurrent
+ChannelMix maps the RWKV control and current hidden state to a bounded
+multiplicative scale on Gemma's native intermediate activation before the
+frozen `down_proj`:
+
+```text
+state = silu(W_down * rms(recurrent_control))
+gate = sigmoid(W_gate * rms(hidden))
+channel_scale = 1 + ffn_gain * tanh(
+    Gemma_up_proj(rms(W_up * (state * gate)))
+)
+Gemma_down_proj(native_gated_mlp_activation * channel_scale)
+```
+
+Zero recurrent state produces a unit channel scale and exact projected-only
+behavior. The first `1/8192` through `1/2048` gain grid was exactly invisible
+at BF16 final logits. A corrected BF16 grid selected `ffn_gain=1/128` with
+attention gain `1/64`. The prior all-layer FFN training layout was not
+memory-safe for the 40 GiB A100 budget, so the qualified sparse design retained
+attention on every layer and instantiated only 12 ChannelMix tensors at the
+four anchors. Its structural screen passed with result SHA-256
+`079be7f01b2c8e53199c1db4efeda4d66e4428b8fd2dc5ad4f41a1bbf61a3844`.
+
+The exact four-A100 causal run then completed all 16 updates, accepted 127 of
+128 rows under the preregistered non-finite-row filter, trained all 390 selected
+tensors with zero globally inactive tensors, and stayed within the per-device
+memory budget. On its fresh 11-row endpoint, zero-minus-correct CE was
+`+1.221520` and layer-permuted-minus-correct was `+0.231559`, both positive on
+all 11 rows. Matched-donor-minus-correct CE was `-0.003740`, however, and was
+positive on only 7 of 11 rows. Thus the deeper FFN path made recurrence and
+layer placement strongly visible but still did not encode the correct donor
+identity. The signed status is
+`addressed_moe_deepembed_ffn_sparse_heldout_failed_generation_blocked`, result
+SHA-256 is
+`5067878c838b55ad953b606563ce0e21a290efe55d054bc3136fad9239b488ef`, and
+receipt is
+`980123e096fb4125ebe0c8da98e25a0333404df4772131bf2b732b95effa4af7`.
+No native generation benchmark was authorized and no native benchmark gain is
+claimed.
+
+The result rules out "add a stronger readout" as the immediate next move. The
+next experiment should inject the projected slot key/address into RWKV's own
+write/value feature computation, rather than only using the address to choose a
+state slot, and optimize an internal matched-donor contrast. That directly
+targets the remaining donor-neutral boundary; increasing FFN gain or reopening
+generation does not.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -506,6 +551,18 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [outer-FFN architecture screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_moe_outer_ffn_gain_ablation_screen_protocol_v1.json),
 [signed outer-FFN screen failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_outer_ffn_gain_ablation_screen_v1/result.json),
 [outer-FFN screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_outer_ffn_gain_ablation_screen.py),
+[DeepEmbed initial screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
+[signed DeepEmbed BF16-invisible screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
+[DeepEmbed BF16 screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v2.json),
+[signed DeepEmbed BF16 screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v2/result.json),
+[sparse DeepEmbed screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_screen_protocol_v1.json),
+[signed sparse DeepEmbed screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_screen_v1/result.json),
+[sparse DeepEmbed causal protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train_protocol_v1.json),
+[signed sparse DeepEmbed causal failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train_v1/result.json),
+[DeepEmbed screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen.py),
+[DeepEmbed BF16 screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v2.py),
+[sparse DeepEmbed screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_screen.py),
+[sparse DeepEmbed causal runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train.py),
 [recurrent-value screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_screen_protocol_v1.json),
 [signed recurrent-value screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_screen_v1/result.json),
 [recurrent-value calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_calibration_protocol_v1.json),

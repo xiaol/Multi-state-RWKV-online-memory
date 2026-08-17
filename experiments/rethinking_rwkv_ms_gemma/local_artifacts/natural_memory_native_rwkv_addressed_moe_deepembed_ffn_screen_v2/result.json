@@ -1,0 +1,92 @@
+{
+  "attn_implementation": "sdpa",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "candidate_results": [
+    {
+      "candidate": {
+        "candidate_id": "deepembed_ffn_bf16_t16_k2_ag015625_fg0078125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.015625,
+        "hybrid_mode": "addressed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.0078125,
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "passed": true,
+      "result_dir": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v2/deepembed_ffn_bf16_t16_k2_ag015625_fg0078125",
+      "result_receipt": "bbf3a676d380b2c476d5705d400bc96450f511be1dfc7dff029d0418d92ec2cf",
+      "status": "addressed_moe_deepembed_ffn_bf16_screen_passed_training_authorized"
+    },
+    {
+      "candidate": {
+        "candidate_id": "deepembed_ffn_bf16_t16_k2_ag015625_fg015625",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.015625,
+        "hybrid_mode": "addressed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.015625,
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "passed": false,
+      "result_dir": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v2/deepembed_ffn_bf16_t16_k2_ag015625_fg015625",
+      "result_receipt": "ef6ff276b52f344b57f9819b120ff0d16efbd5f8df8a3bbf2cb65222dbc5b646",
+      "status": "addressed_moe_deepembed_ffn_bf16_screen_failed_training_blocked"
+    },
+    {
+      "candidate": {
+        "candidate_id": "deepembed_ffn_bf16_t16_k2_ag015625_fg03125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.015625,
+        "hybrid_mode": "addressed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.03125,
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "passed": false,
+      "result_dir": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v2/deepembed_ffn_bf16_t16_k2_ag015625_fg03125",
+      "result_receipt": "191485b7c5b0a89b2b35e14be205af489ca9954d9c4b1303cc46c5b62afd052f",
+      "status": "addressed_moe_deepembed_ffn_bf16_screen_failed_training_blocked"
+    }
+  ],
+  "checks": {
+    "candidate_selected": true,
+    "four_distinct_a100_ranks": true
+  },
+  "code_bindings": {
+    "delta_impl_sha256": "798272e12fa1abb0c64e8535645e85295b6646b429e1d1d169a5f635ca1200b7",
+    "protocol_file_sha256": "5e022fd0ffabd8622017d8b9ab34cab7eeca458a7934987d73796eb14c5c4a9f",
+    "runner_sha256": "e1f3b0bcf602061740d0d013c9e64035c6e52aee6a55d25b9d7e99bd9f9f9573",
+    "shared_screen_runner_sha256": "0c020ad484bbbf0725bf402c07c458a9638437569879471f5178ab69c29a2b38"
+  },
+  "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "dtype": "bfloat16",
+  "hf_endpoint": "https://hf-mirror.com",
+  "native_generation_authorized": false,
+  "passed": true,
+  "protected_splits_opened": [],
+  "protocol_objective": "Calibrate BF16-resolvable DeepEmbed ChannelMix gains while reducing the attention-side RWKV gain enough to preserve the locked combined-effect bound.",
+  "protocol_payload_sha256": "c4602ff981199cc9312422c88884082facbb8b9d33eb61597a6135f0b7fe157d",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "5dae1e213ae2f8808b7d9278fb1f9033caa03f54f05321f99aabfe16c8490e02"
+  },
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_deepembed_ffn_screen.v2",
+  "selected_candidate": {
+    "candidate_id": "deepembed_ffn_bf16_t16_k2_ag015625_fg0078125",
+    "detach_read_scores": true,
+    "fusion_gate_probability": 0.25,
+    "hybrid_gain": 0.015625,
+    "hybrid_mode": "addressed_moe_deepembed_ffn",
+    "outer_ffn_gain": 0.0078125,
+    "read_temperature": 16.0,
+    "read_top_k": 2
+  },
+  "selected_candidate_result_receipt": "bbf3a676d380b2c476d5705d400bc96450f511be1dfc7dff029d0418d92ec2cf",
+  "status": "addressed_moe_deepembed_ffn_bf16_screen_passed_training_authorized",
+  "training_authorized": true,
+  "world_size": 4
+}

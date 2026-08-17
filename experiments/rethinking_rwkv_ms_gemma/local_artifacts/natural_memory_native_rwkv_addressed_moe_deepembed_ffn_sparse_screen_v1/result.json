@@ -1,0 +1,72 @@
+{
+  "attn_implementation": "sdpa",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "candidate_results": [
+    {
+      "candidate": {
+        "candidate_id": "deepembed_ffn_sparse_t16_k2_ag015625_fg0078125_l10_21_31_41",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.015625,
+        "hybrid_mode": "addressed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.0078125,
+        "outer_ffn_layers": [
+          10,
+          21,
+          31,
+          41
+        ],
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "passed": true,
+      "result_dir": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_screen_v1/deepembed_ffn_sparse_t16_k2_ag015625_fg0078125_l10_21_31_41",
+      "result_receipt": "5219e89b8df37452f15cf4dd42d89edd45bf14d146fa90bfd8a0fc56bfabf10e",
+      "status": "addressed_moe_deepembed_ffn_sparse_screen_passed_training_authorized"
+    }
+  ],
+  "checks": {
+    "candidate_selected": true,
+    "four_distinct_a100_ranks": true
+  },
+  "code_bindings": {
+    "delta_impl_sha256": "798272e12fa1abb0c64e8535645e85295b6646b429e1d1d169a5f635ca1200b7",
+    "protocol_file_sha256": "6011f9ba1429da758f0eb349d98355cc22090e82fcae4b2c708b12836dde5e7f",
+    "runner_sha256": "460ed2ea4e655867fbd420cfd61862916b0a9e2085e6808c72228b706e8df415",
+    "shared_screen_runner_sha256": "0c020ad484bbbf0725bf402c07c458a9638437569879471f5178ab69c29a2b38"
+  },
+  "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "dtype": "bfloat16",
+  "hf_endpoint": "https://hf-mirror.com",
+  "native_generation_authorized": false,
+  "passed": true,
+  "protected_splits_opened": [],
+  "protocol_objective": "Screen a four-anchor DeepEmbed FFN placement that preserves all-layer RWKV attention while avoiding the known all-layer outer-FFN causal memory failure.",
+  "protocol_payload_sha256": "38f5a4f2a451b9ae6360d6718a6696a19c24f222a0febaf88e5e794073a022f7",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "bfdb7ef9d40683a87404243811548764cc4a7bdec8c3993d5409505ace04d275"
+  },
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_deepembed_ffn_sparse_screen.v1",
+  "selected_candidate": {
+    "candidate_id": "deepembed_ffn_sparse_t16_k2_ag015625_fg0078125_l10_21_31_41",
+    "detach_read_scores": true,
+    "fusion_gate_probability": 0.25,
+    "hybrid_gain": 0.015625,
+    "hybrid_mode": "addressed_moe_deepembed_ffn",
+    "outer_ffn_gain": 0.0078125,
+    "outer_ffn_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "read_temperature": 16.0,
+    "read_top_k": 2
+  },
+  "selected_candidate_result_receipt": "5219e89b8df37452f15cf4dd42d89edd45bf14d146fa90bfd8a0fc56bfabf10e",
+  "status": "addressed_moe_deepembed_ffn_sparse_screen_passed_training_authorized",
+  "training_authorized": true,
+  "world_size": 4
+}

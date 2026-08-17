@@ -1,0 +1,83 @@
+{
+  "attn_implementation": "sdpa",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "candidate_results": [
+    {
+      "candidate": {
+        "candidate_id": "deepembed_ffn_t16_k2_ag03125_fg0001220703125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.0001220703125,
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "passed": false,
+      "result_dir": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/deepembed_ffn_t16_k2_ag03125_fg0001220703125",
+      "result_receipt": "793b95b17d6a77be801f1ce2eb851105aa783ad2677ef7ccb9fb45059645db52",
+      "status": "addressed_moe_deepembed_ffn_screen_failed_training_blocked"
+    },
+    {
+      "candidate": {
+        "candidate_id": "deepembed_ffn_t16_k2_ag03125_fg000244140625",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.000244140625,
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "passed": false,
+      "result_dir": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/deepembed_ffn_t16_k2_ag03125_fg000244140625",
+      "result_receipt": "6a3d0cebb7b683e409046b5f7e681c1c6d3d178fa84a4856dcef6ed2eeb82b79",
+      "status": "addressed_moe_deepembed_ffn_screen_failed_training_blocked"
+    },
+    {
+      "candidate": {
+        "candidate_id": "deepembed_ffn_t16_k2_ag03125_fg00048828125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.00048828125,
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "passed": false,
+      "result_dir": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/deepembed_ffn_t16_k2_ag03125_fg00048828125",
+      "result_receipt": "ac08b848f45bf8dae803e03f8140be9038bba849c116e3db6ac475a8f8a3be07",
+      "status": "addressed_moe_deepembed_ffn_screen_failed_training_blocked"
+    }
+  ],
+  "checks": {
+    "candidate_selected": false,
+    "four_distinct_a100_ranks": true
+  },
+  "code_bindings": {
+    "delta_impl_sha256": "798272e12fa1abb0c64e8535645e85295b6646b429e1d1d169a5f635ca1200b7",
+    "protocol_file_sha256": "3ae7ea9de3584eab7d96d5ed775f08b59153b54a13f60efa315ef2ef07b1bd26",
+    "runner_sha256": "876abfabc39e79dacf1dffdc2d438e60c851163209032d39d2ec764f1a9b5f20",
+    "shared_screen_runner_sha256": "0c020ad484bbbf0725bf402c07c458a9638437569879471f5178ab69c29a2b38"
+  },
+  "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "dtype": "bfloat16",
+  "hf_endpoint": "https://hf-mirror.com",
+  "native_generation_authorized": false,
+  "passed": false,
+  "protected_splits_opened": [],
+  "protocol_objective": "Screen a bounded DeepEmbed-style recurrent ChannelMix modulation over the existing addressed/global RWKV attention controller before any causal training.",
+  "protocol_payload_sha256": "0fd7434b2b999042ca662fb2d9291b2bd6837d465e5be68056c646ff484146c4",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "72c40ca277df0eb8072701052d12081eadeb7f31a24d2c7b493fa3ca7e25f9e9"
+  },
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_deepembed_ffn_screen.v1",
+  "selected_candidate": null,
+  "selected_candidate_result_receipt": null,
+  "status": "addressed_moe_deepembed_ffn_screen_failed_training_blocked",
+  "training_authorized": false,
+  "world_size": 4
+}

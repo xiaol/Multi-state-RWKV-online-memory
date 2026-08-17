@@ -35,7 +35,7 @@ recurrent contribution is active under teacher forcing, but the causal
 endpoints do not jointly establish correct-state preference over both donor
 and layer-permuted controls. Native generation is blocked for these candidates.
 
-### Outer-FFN branch
+### FFN branches
 
 The addressed-MoE candidate also has an optional post-MLP path. At sparse
 decoder anchors `(10, 21, 31, 41)`, the addressed/global RWKV correction is
@@ -61,6 +61,59 @@ the locked `0.5` bound. The signed result is
 `5c0e2babcd68aaeeb7db381f137c9abca183f716ddfe723fb35d42061c293278`). Its
 status is `addressed_moe_outer_ffn_gain_ablation_screen_failed_branch_stopped`;
 the causal endpoint and native generation remain closed.
+
+The subsequent `addressed_moe_deepembed_ffn` branch does not add a residual
+after the MLP. It preserves the all-layer addressed/global MoE attention path
+and uses its normalized RWKV control to modulate Gemma's native MLP channels:
+
+```text
+state = silu(W_down * rms(recurrent_control))
+gate = sigmoid(W_gate * rms(hidden))
+modulation = rms(W_up * (state * gate))
+scale = 1 + ffn_gain * tanh(Gemma_up_proj(modulation))
+output = Gemma_down_proj(native_gated_mlp_activation * scale)
+```
+
+Gemma's weights stay frozen. Zero recurrent state gives a unit scale, so both
+the attention fusion and ChannelMix path are exactly projected-only. The first
+gain grid (`1/8192`, `1/4096`, `1/2048`) produced exactly zero BF16 final-logit
+change versus FFN-gain zero. The BF16-resolvable grid selected the lowest
+passing gain, `1/128`, together with attention gain `1/64`.
+
+All-layer FFN training exceeded the 40 GiB A100 budget at update 6. The sparse
+design therefore keeps recurrent attention in all 42 layers and instantiates
+the three ChannelMix tensors only at anchors `(10, 21, 31, 41)`. Its four-A100
+screen passed; the signed top-level result has SHA-256
+`079be7f01b2c8e53199c1db4efeda4d66e4428b8fd2dc5ad4f41a1bbf61a3844` and
+receipt
+`bfdb7ef9d40683a87404243811548764cc4a7bdec8c3993d5409505ace04d275`.
+
+The locked sparse causal run completed 16 updates in 602 seconds. It accepted
+127 of 128 rows after filtering known non-finite ordinal `1291`, exercised all
+390 selected trainable tensors with zero globally inactive tensors, and peaked
+at `41,354,340,352` bytes on the busiest rank. The fresh 11-row endpoint was:
+
+| recurrent condition | mean CE | margin versus correct | positive rows |
+| --- | ---: | ---: | ---: |
+| correct | 2.881166 | - | - |
+| zero | 4.102686 | +1.221520 | 11 / 11 |
+| matched donor | 2.877426 | **-0.003740** | 7 / 11 |
+| layer-permuted | 3.112725 | +0.231559 | 11 / 11 |
+
+Lower CE is better. DeepEmbed learned a strong dependence on state presence and
+layer placement, but not on matched-donor identity. The endpoint status is
+`addressed_moe_deepembed_ffn_sparse_heldout_failed_generation_blocked`; the
+result SHA-256 is
+`5067878c838b55ad953b606563ce0e21a290efe55d054bc3136fad9239b488ef` and
+receipt is
+`980123e096fb4125ebe0c8da98e25a0333404df4772131bf2b732b95effa4af7`.
+Native generation stayed closed, so this branch establishes no native
+benchmark gain.
+
+Provenance limitation: this v1 result binds the delegated shared causal engine,
+protocol, and Delta-Mem core, but the thin DeepEmbed wrapper did not include its
+own file SHA in the signed payload. The repository commit pins that wrapper;
+future result schemas should self-bind the top-level wrapper as well.
 
 ## Current Evidence
 
@@ -123,17 +176,22 @@ receipt
 `c18d190c8fffcbac142c4d95cce6899129df637685cc551ae0e78214710ecdde`).
 No native RWKV gain is established.
 
-The next hybrid should use a bounded mixture-of-experts recurrent controller:
-small addressed and global-state readout experts compete under a normalized
-query-conditioned gate, with donor/layer contrast and an explicit projected-only
-abstention arm. This targets example-specificity without opening native
-generation for an unproven recurrent readout.
+The next direction is write-side identity. The current address-bound variants
+use the projected address to select the RWKV state slot, but the address does
+not condition RWKV's `k/v/a/b` write features. The next candidate should inject
+the projected slot key/address into that write/value computation through a
+bounded adapter and train an internal matched-donor contrast. The MoE attention
+and sparse DeepEmbed paths can remain readout ablations, but another gate or a
+larger FFN gain does not target the repeated donor-neutral failure.
 
-The next direction is write-side identity: condition the RWKV write/value
-update on the projected slot address, then train with a donor-contrast loss.
-This targets the repeated donor-neutral result directly. A smaller or more
-sparsely applied outer FFN can remain a diagnostic control, but it is not an
-authorized training or generation path after the bound failure.
+Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
+[initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
+[BF16 protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v2.json),
+[BF16 signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v2/result.json),
+[sparse screen protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_screen_protocol_v1.json),
+[sparse screen result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_screen_v1/result.json),
+[sparse causal protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train_protocol_v1.json),
+and [sparse causal result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train_v1/result.json).
 
 Use the PyTorch/HF delta-Mem path for these diagnostics. The GGUF sidecar path
 is useful for serving, but it does not expose the hidden states, gradients, and
