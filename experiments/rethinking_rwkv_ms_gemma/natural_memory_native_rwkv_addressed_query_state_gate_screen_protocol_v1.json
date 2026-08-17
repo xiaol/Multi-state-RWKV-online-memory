@@ -1,0 +1,82 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_addressed_query_state_gate_screen_protocol.v1",
+  "created_at": "2026-08-17T07:30:00+08:00",
+  "objective": "Test a projected-addressed RWKV hybrid whose recurrent modulation is controlled by a trainable query/state gate before separately supervised causal training.",
+  "authorization_basis": {
+    "prior_result_file": "local_artifacts/natural_memory_native_rwkv_addressed_route_agreement_causal_train_v1/result.json",
+    "prior_result_file_sha256": "fa665edfa75620de412c12f85e453cfdbb4f6f19fc15088fc0babc3bd1be2ca8",
+    "prior_result_receipt": "d4f2ff8f105fbba9d29c64d1e5e56c33e067f7a674babf4805be40144aa9f622",
+    "prior_protocol_payload_sha256": "eb8e01a83e44092559efcf914401cbeb26fb1990b655d623083c8c7260e8d716",
+    "prior_status": "addressed_route_agreement_heldout_failed_generation_blocked",
+    "prior_outcome": "Route agreement passed every training gate and strongly beat zero recurrence, but its fresh held-out donor-minus-correct mean CE was -0.00007892565780798222, so generation remained blocked.",
+    "architectural_response": "Retain projected addressing but replace the fixed route-overlap abstention rule with a trainable token gate over the current query representation and its projected-addressed RWKV read. Train the gate later with correct-versus-zero, donor, and layer-permuted causal supervision."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "native_dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "calibration_source_ordinals": [718, 1149, 918, 76],
+    "calibration_rows_payload_sha256": "b77caeb963647569648244a8927de9693347bb159de48f5a21d59738169cfe5a",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "addressed_query_state_gate",
+    "addressing": "The frozen projected key/value slot route selects the corresponding recurrent RWKV state slots.",
+    "query_state_gate": "gate = sigmoid(linear(rms(query_hidden)) + linear(rms(projected_addressed_rwkv_read)) + bias)",
+    "fusion_equation": "projected_read * (1 + 0.125 * gate * direction), where direction = tanh(projected_addressed_rwkv_read / rms(projected_addressed_rwkv_read))",
+    "material_carriers": ["projected slot value", "supervised query-conditioned addressed recurrent controller"],
+    "recurrent_role": "bounded elementwise controller admitted by a trainable token-level query/state gate",
+    "hybrid_gain": 0.125,
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "detach_read_scores": true,
+    "memory_fusion_mode": "content_gated_add",
+    "fusion_gate_probability": 0.25,
+    "zero_recurrent_identity": "A zero recurrent state produces zero direction, so fusion is exactly projected-only regardless of the gate.",
+    "training_boundary": "This screen performs no optimization. A pass authorizes a separately locked causal run that directly supervises correct-state preference and gate abstention."
+  },
+  "causal_conditions": {
+    "projected_only": "Correct-row projected carrier with recurrent readout bypassed.",
+    "correct_recurrent": "Correct-row projected carrier plus query-gated addressed recurrent readout.",
+    "zero_recurrent": "Correct-row projected carrier plus zero recurrent state.",
+    "matched_donor_recurrent": "Correct-row projected carrier plus a deterministic different-gold, length-matched donor recurrent state; the query/state gate is recomputed.",
+    "layer_permuted_recurrent": "Correct-row projected carrier plus correct recurrence cyclically moved across all 42 wrapped layers; the query/state gate is recomputed."
+  },
+  "execution": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one locked source/donor pair per rank; no gradient or optimizer update",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 85,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "fresh_initialization": true
+  },
+  "required_gates": {
+    "projected_carrier_hash_fixed_across_all_conditions": true,
+    "zero_recurrent_exactly_equals_projected_only_on_every_rank": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_projected_max_abs_logit_delta_maximum_on_every_rank": 2.0,
+    "all_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize only a separately locked supervised causal training run with a new source/donor-disjoint open endpoint.",
+    "failure": "Archive the structural failure and test a bounded mixture-of-experts recurrent controller.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused strength holdout."
+  },
+  "claim_policy": {
+    "pass": "May claim only BF16-visible bounded structural sensitivity before training.",
+    "native_gain": "Forbidden without later held-out causal preference and a separately locked native generation result."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "b12bce10ca2efd35119caef95460ba73c522a2d83246caedb85632b0009b5847"
+  }
+}

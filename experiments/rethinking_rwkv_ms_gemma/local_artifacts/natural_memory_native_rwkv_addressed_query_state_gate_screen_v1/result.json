@@ -1,0 +1,387 @@
+{
+  "checks": {
+    "candidate_passed_on_all_ranks": true,
+    "four_distinct_a100_ranks": true,
+    "projected_carrier_fixed_on_all_ranks": true
+  },
+  "code_bindings": {
+    "addressed_route_agreement_result_file_sha256": "fa665edfa75620de412c12f85e453cfdbb4f6f19fc15088fc0babc3bd1be2ca8",
+    "delta_impl_sha256": "e7f0d7df689d57e8798c93702aa18750b71b4d5841a94034dc62d5e854051639",
+    "protocol_file_sha256": "6d1671917d914eb596ca5042c1cd76ad5ba783ce697ec23d6d80bab89e6fdcc8",
+    "runner_sha256": "458083e146be270642411e8b207ff94ae0cd9f45304ab6f3a4c97a982b3a3d8f",
+    "shared_screen_runner_sha256": "0c020ad484bbbf0725bf402c07c458a9638437569879471f5178ab69c29a2b38"
+  },
+  "initial_adapter_sha256": "5c044a8ce06283b93f0e6a764427c106e931e60c45ef653b2e6dc2d59846922c",
+  "model_audit": {
+    "all_wrappers_addressed_query_state_gate_content_gated": true,
+    "all_wrappers_hybrid": true,
+    "replaced_layers": 42,
+    "trainable_parameter_names_sha256": "88bf815d6915d21bc4a93385da1c1eac6f803614981841a7e899f367ca458bf7",
+    "trainable_parameter_tensors": 1302,
+    "wrapped_layers": 42
+  },
+  "native_generation_authorized": false,
+  "passed": true,
+  "protected_splits_opened": [],
+  "protocol_objective": "Test a projected-addressed RWKV hybrid whose recurrent modulation is controlled by a trainable query/state gate before separately supervised causal training.",
+  "protocol_payload_sha256": "b12bce10ca2efd35119caef95460ba73c522a2d83246caedb85632b0009b5847",
+  "rank_devices": [
+    {
+      "device_index": 0,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 0,
+      "pid": 2063009,
+      "process_rank": 0
+    },
+    {
+      "device_index": 1,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 1,
+      "pid": 2063010,
+      "process_rank": 1
+    },
+    {
+      "device_index": 2,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 2,
+      "pid": 2063011,
+      "process_rank": 2
+    },
+    {
+      "device_index": 3,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 3,
+      "pid": 2063012,
+      "process_rank": 3
+    }
+  ],
+  "rank_evidence": [
+    {
+      "absolute_write_token_delta": 11,
+      "candidate": {
+        "candidate_id": "addressed_query_state_gate_t16_k2_gate025_g0125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.125,
+        "hybrid_mode": "addressed_query_state_gate",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8110786437988281,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.8125,
+          "mean_abs_logit_delta": 0.18044260144233704,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7740562438964844,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.5625,
+          "mean_abs_logit_delta": 0.13050539791584015,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7684165954589843,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4375,
+          "mean_abs_logit_delta": 0.1309766322374344,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7684165954589843,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4375,
+          "mean_abs_logit_delta": 0.1309766322374344,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 1149,
+      "donor_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "donor_write_tokens": 210,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16075621888,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "798050abc04781d1898b79b98cb05946c7ec80f17d0e5d130f48c3da05e7b68f",
+      "rank": 0,
+      "source_ordinal": 718,
+      "source_read_tokens": 209,
+      "source_row_sha256": "d50047bdadf2068dfce0dd6dfd2eb0c2575cbb0ac4b417136da9e206fad9fad6",
+      "source_write_tokens": 199
+    },
+    {
+      "absolute_write_token_delta": 5,
+      "candidate": {
+        "candidate_id": "addressed_query_state_gate_t16_k2_gate025_g0125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.125,
+        "hybrid_mode": "addressed_query_state_gate",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7979978833879743,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.265625,
+          "mean_abs_logit_delta": 0.11202410608530045,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8159899030412946,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.12396615743637085,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8164190564836774,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4609375,
+          "mean_abs_logit_delta": 0.1210050955414772,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8164190564836774,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4609375,
+          "mean_abs_logit_delta": 0.1210050955414772,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16076317184,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "6acebf3db27857a141c6f00db5c829cb4530783348447617e5c2bd702114300f",
+      "rank": 1,
+      "source_ordinal": 1149,
+      "source_read_tokens": 224,
+      "source_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "source_write_tokens": 210
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "addressed_query_state_gate_t16_k2_gate025_g0125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.125,
+        "hybrid_mode": "addressed_query_state_gate",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7783161163330078,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.13757364451885223,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7810340881347656,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.2890625,
+          "mean_abs_logit_delta": 0.1350432187318802,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8278549194335938,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.271484375,
+          "mean_abs_logit_delta": 0.16579316556453705,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8278549194335938,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.271484375,
+          "mean_abs_logit_delta": 0.16579316556453705,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 76,
+      "donor_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16077498368,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "d8cc9057b4e68b79348fd0aae8a9394522e45339df99fbf05d046a53a8f5d0ee",
+      "rank": 2,
+      "source_ordinal": 918,
+      "source_read_tokens": 225,
+      "source_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "source_write_tokens": 215
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "addressed_query_state_gate_t16_k2_gate025_g0125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.125,
+        "hybrid_mode": "addressed_query_state_gate",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7721200422807173,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.5,
+          "mean_abs_logit_delta": 0.12772223353385925,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7670263810591265,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.5625,
+          "mean_abs_logit_delta": 0.11943595856428146,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8189870660955255,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.296875,
+          "mean_abs_logit_delta": 0.1344193071126938,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8189870660955255,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.296875,
+          "mean_abs_logit_delta": 0.1344193071126938,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16077498368,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "35573b81a705d2b782fbeb0804c82aaa7d5fa3e14adc507c627ebb6d6cbb2634",
+      "rank": 3,
+      "source_ordinal": 76,
+      "source_read_tokens": 226,
+      "source_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "source_write_tokens": 215
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "ab0691924065eeef754df3b07080df5df120e908ec14eafda5e1eb188554946a"
+  },
+  "schema": "rwkv_ms_natural_memory_native_addressed_query_state_gate_screen.v1",
+  "seed": 85,
+  "selected_candidate": {
+    "candidate_id": "addressed_query_state_gate_t16_k2_gate025_g0125",
+    "detach_read_scores": true,
+    "fusion_gate_probability": 0.25,
+    "hybrid_gain": 0.125,
+    "hybrid_mode": "addressed_query_state_gate",
+    "read_temperature": 16.0,
+    "read_top_k": 2
+  },
+  "status": "addressed_query_state_gate_screen_passed_training_authorized",
+  "training_authorized": true,
+  "world_size": 4
+}

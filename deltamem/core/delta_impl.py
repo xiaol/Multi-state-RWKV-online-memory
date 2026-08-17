@@ -71,6 +71,7 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "aligned_vector_gate",
     "addressed_affine",
     "addressed_route_agreement",
+    "addressed_query_state_gate",
     "addressed_vector_gate",
     "vector_gate",
     "scalar_gate",
@@ -83,7 +84,12 @@ RWKV_MS_ADDRESSED_VALUE_MODES = frozenset(
 )
 RWKV_MS_PROJECTED_ROUTE_READ_MODES = (
     RWKV_MS_ADDRESSED_VALUE_MODES
-    | {"addressed_affine", "addressed_route_agreement", "addressed_vector_gate"}
+    | {
+        "addressed_affine",
+        "addressed_route_agreement",
+        "addressed_query_state_gate",
+        "addressed_vector_gate",
+    }
 )
 RWKV_MS_VALUE_BOTTLENECK_MODES = (
     RWKV_MS_ADDRESSED_VALUE_MODES | {"recurrent_value"}
@@ -4045,6 +4051,7 @@ class DeltaMemAttention(nn.Module):
         projected_reads: torch.Tensor,
         recurrent_reads: torch.Tensor,
         route_agreement: torch.Tensor | None = None,
+        query_state_gate: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if projected_reads.shape != recurrent_reads.shape:
             raise ValueError(
@@ -4109,6 +4116,22 @@ class DeltaMemAttention(nn.Module):
             fused = projected * (
                 1.0 + gain * agreement * recurrent_direction
             )
+        elif self.rwkv_ms_hybrid_mode == "addressed_query_state_gate":
+            if query_state_gate is None:
+                raise ValueError(
+                    "Addressed query-state fusion requires a supervised query-state gate"
+                )
+            expected_shape = (*projected.shape[:-1], 1)
+            if tuple(query_state_gate.shape) != expected_shape:
+                raise ValueError(
+                    "Query-state gate must match the hybrid token shape: "
+                    f"expected={expected_shape} actual={tuple(query_state_gate.shape)}"
+                )
+            gate = query_state_gate.to(
+                device=projected.device,
+                dtype=projected.dtype,
+            ).clamp(0.0, 1.0)
+            fused = projected * (1.0 + gain * gate * recurrent_direction)
         elif self.rwkv_ms_hybrid_mode == "addressed_vector_gate":
             fused = projected * (1.0 + gain * recurrent_direction)
         elif self.rwkv_ms_hybrid_mode == "vector_gate":
@@ -4178,6 +4201,7 @@ class DeltaMemAttention(nn.Module):
                 projected_reads = self._projected_kv_slot_token_reads(hidden_states)
                 projected_routes = self.last_read_routes
             route_agreement = None
+            query_state_gate = None
             if self.rwkv_ms_hybrid_mode == "addressed_route_agreement":
                 if projected_routes is None:
                     recurrent_reads = torch.zeros_like(projected_reads)
@@ -4225,10 +4249,16 @@ class DeltaMemAttention(nn.Module):
                     token_mask,
                 )
                 recurrent_routes = self.last_read_routes
+            if self.rwkv_ms_hybrid_mode == "addressed_query_state_gate":
+                query_state_gate = self._memory_fusion_gate(
+                    hidden_states,
+                    recurrent_reads,
+                )
             reads = self._fuse_projected_rwkv_reads(
                 projected_reads,
                 recurrent_reads,
                 route_agreement,
+                query_state_gate,
             )
             self.last_read_routes = (
                 recurrent_routes

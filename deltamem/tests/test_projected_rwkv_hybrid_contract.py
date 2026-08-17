@@ -49,6 +49,7 @@ def _module(
         "aligned_vector_gate",
         "addressed_affine",
         "addressed_route_agreement",
+        "addressed_query_state_gate",
         "addressed_vector_gate",
         "vector_gate",
         "scalar_gate",
@@ -63,6 +64,8 @@ def test_hybrid_modes_preserve_projected_carrier_for_zero_rwkv_state(
     kwargs = (
         {"route_agreement": torch.ones(*projected.shape[:-1], 1)}
         if mode == "addressed_route_agreement"
+        else {"query_state_gate": torch.full((*projected.shape[:-1], 1), 0.5)}
+        if mode == "addressed_query_state_gate"
         else {}
     )
     fused = module._fuse_projected_rwkv_reads(
@@ -94,6 +97,7 @@ def test_addressed_value_requires_recurrent_state() -> None:
         "aligned_vector_gate",
         "addressed_affine",
         "addressed_route_agreement",
+        "addressed_query_state_gate",
         "addressed_vector_gate",
         "vector_gate",
         "scalar_gate",
@@ -110,6 +114,8 @@ def test_hybrid_modes_are_sensitive_to_nonzero_rwkv_read(mode: str) -> None:
     kwargs = (
         {"route_agreement": torch.ones(*projected.shape[:-1], 1)}
         if mode == "addressed_route_agreement"
+        else {"query_state_gate": torch.full((*projected.shape[:-1], 1), 0.5)}
+        if mode == "addressed_query_state_gate"
         else {}
     )
     fused = module._fuse_projected_rwkv_reads(projected, recurrent, **kwargs)
@@ -230,6 +236,34 @@ def test_addressed_route_agreement_requires_route_agreement() -> None:
     projected = torch.randn(1, 2, module.state_read_dim)
 
     with pytest.raises(ValueError, match="requires route agreement"):
+        module._fuse_projected_rwkv_reads(projected, torch.randn_like(projected))
+
+
+def test_addressed_query_state_gate_matches_locked_fusion_equation() -> None:
+    module = _module(hybrid_mode="addressed_query_state_gate", hybrid_gain=0.125)
+    projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
+    recurrent = torch.tensor([[[0.25, 0.75], [-0.5, 0.125]]])
+    gate = torch.tensor([[[0.75], [0.0]]])
+
+    fused = module._fuse_projected_rwkv_reads(
+        projected,
+        recurrent,
+        query_state_gate=gate,
+    )
+
+    recurrent_rms = recurrent.float().square().mean(dim=-1, keepdim=True).sqrt()
+    direction = torch.tanh(recurrent.float() / recurrent_rms.clamp_min(1e-6))
+    expected = projected.float() * (1.0 + 0.125 * gate * direction)
+
+    assert torch.equal(fused, expected.to(dtype=projected.dtype))
+    assert torch.equal(fused[:, 1], projected[:, 1])
+
+
+def test_addressed_query_state_gate_requires_gate() -> None:
+    module = _module(hybrid_mode="addressed_query_state_gate")
+    projected = torch.randn(1, 2, module.state_read_dim)
+
+    with pytest.raises(ValueError, match="requires a supervised query-state gate"):
         module._fuse_projected_rwkv_reads(projected, torch.randn_like(projected))
 
 
