@@ -1,0 +1,46 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_address_keyed_moe_deepembed_ffn_causal_train_failure.v3",
+  "status": "address_keyed_moe_deepembed_ffn_training_cuda_oom_step6_endpoint_unopened",
+  "protocol_payload_sha256": "dc697cc94926c094f1c4c2c537b9288b30eabede3ff5d8f019aa09a33792aa77",
+  "input_binding_file_sha256": "c7442203c6a582180211dd89efb56b632d47b2d0b26594f97b1c2048e829ac8a",
+  "training_progress_file_sha256": "cdc4641f0079d3f8884c797c1115d0d0a14d2c260f218693dd642b0685bc9ed4",
+  "world_size": 4,
+  "rank_devices": "four distinct NVIDIA A100-PCIE-40GB devices, as bound in input_binding.json",
+  "completed_optimizer_updates": 5,
+  "failed_optimizer_update": 6,
+  "completed_training_evidence": {
+    "accepted_rows": 40,
+    "rejected_rows": 0,
+    "finite_active_trainable_tensors_per_update": 390,
+    "step5_mean_correct_ce": 3.5207655814879724,
+    "step5_mean_zero_minus_correct_ce": 0.21864116638101988,
+    "step5_mean_donor_minus_correct_ce": -0.00875803774053413,
+    "step5_mean_layer_permuted_minus_correct_ce": 0.18601316181733651
+  },
+  "failure": {
+    "phase": "step_6_rank_3_donor_state_backward_recomputation",
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 24.0,
+    "gpu_capacity_gib": 39.49,
+    "gpu_free_mib": 9.38,
+    "pytorch_allocated_gib": 38.53,
+    "pytorch_reserved_unallocated_mib": 303.95,
+    "cause": "The serialized row graph fit before fused Adam initialized its persistent moment tensors. After five updates, those moments remained resident during checkpoint recomputation and consumed the final workspace needed by the step-6 rank-3 donor branch."
+  },
+  "model_decision": "This is an execution-memory failure, not a causal or benchmark result. The five completed updates demonstrate finite gradients but do not authorize endpoint access or native generation.",
+  "authorized_execution_change": "Move initialized fused-Adam state tensors to CPU before each update's serialized row forwards and backwards, release the CUDA allocator cache, and restore the same tensors to their owning GPU after gradients are finalized and before optimizer.step(). Audit tensor and byte counts on every update. Keep seed 108, architecture, model capacity, gains, objective, global batch, schedule, and endpoint unchanged.",
+  "heldout_causal_endpoint_opened": false,
+  "native_generation_opened": false,
+  "protected_splits_opened": [],
+  "code_bindings_at_failure": {
+    "runner_sha256": "0634108977ea1d93cbc0bc6a1dbf2ea1da6b2c950932fb38711bee6cdec455ab",
+    "causal_trainer_sha256": "ceac32bb3d810637995da35d630f1190e5ac72ff5587750087dde483bce5686b",
+    "evolution_runtime_sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7",
+    "delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "a1bda5854dc5eb5a95326a30cdad4404f763943e328dd4cd5af527dc24db7979"
+  }
+}

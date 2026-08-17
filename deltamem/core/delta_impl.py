@@ -76,6 +76,7 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "addressed_query_state_gate",
     "addressed_moe_controller",
     "addressed_moe_deepembed_ffn",
+    "address_keyed_moe_deepembed_ffn",
     "addressed_moe_outer_ffn",
     "addressed_vector_gate",
     "vector_gate",
@@ -84,8 +85,27 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "chunk_addressed_value",
     "recurrent_value",
 )
-RWKV_MS_OUTER_FFN_MODES = frozenset(
-    {"addressed_moe_deepembed_ffn", "addressed_moe_outer_ffn"}
+RWKV_MS_DEEPEMBED_FFN_MODES = frozenset(
+    {"addressed_moe_deepembed_ffn", "address_keyed_moe_deepembed_ffn"}
+)
+RWKV_MS_OUTER_FFN_MODES = RWKV_MS_DEEPEMBED_FFN_MODES | {
+    "addressed_moe_outer_ffn"
+}
+RWKV_MS_ADDRESS_BOUND_WRITE_MODES = frozenset(
+    {
+        "address_bound_write",
+        "address_bound_moe_controller",
+        "address_keyed_moe_deepembed_ffn",
+    }
+)
+RWKV_MS_MOE_MODES = frozenset(
+    {
+        "addressed_moe_controller",
+        "address_bound_moe_controller",
+        "addressed_moe_deepembed_ffn",
+        "address_keyed_moe_deepembed_ffn",
+        "addressed_moe_outer_ffn",
+    }
 )
 RWKV_MS_ADDRESSED_VALUE_MODES = frozenset(
     {"addressed_value", "chunk_addressed_value"}
@@ -98,6 +118,7 @@ RWKV_MS_PROJECTED_ROUTE_READ_MODES = (
         "address_bound_moe_controller",
         "addressed_moe_controller",
         "addressed_moe_deepembed_ffn",
+        "address_keyed_moe_deepembed_ffn",
         "addressed_moe_outer_ffn",
         "addressed_route_agreement",
         "addressed_query_state_gate",
@@ -415,6 +436,7 @@ class HFDeltaMemConfig:
     rwkv_ms_semantics_version: int = 2
     rwkv_ms_hybrid_mode: str = "residual"
     rwkv_ms_hybrid_gain: float = 0.125
+    rwkv_ms_write_address_gain: float = 0.0
     rwkv_ms_outer_ffn_gain: float = 0.03125
     rwkv_ms_outer_ffn_layers: tuple[int, ...] = ()
 
@@ -444,6 +466,13 @@ class HFDeltaMemConfig:
         hybrid_gain = float(self.rwkv_ms_hybrid_gain)
         if not math.isfinite(hybrid_gain) or not (0.0 <= hybrid_gain <= 1.0):
             raise ValueError("rwkv_ms_hybrid_gain must be finite and satisfy 0 <= gain <= 1")
+        write_address_gain = float(self.rwkv_ms_write_address_gain)
+        if not math.isfinite(write_address_gain) or not (
+            0.0 <= write_address_gain <= 1.0
+        ):
+            raise ValueError(
+                "rwkv_ms_write_address_gain must be finite and satisfy 0 <= gain <= 1"
+            )
         outer_ffn_gain = float(self.rwkv_ms_outer_ffn_gain)
         if not math.isfinite(outer_ffn_gain) or not (0.0 <= outer_ffn_gain <= 1.0):
             raise ValueError(
@@ -455,7 +484,16 @@ class HFDeltaMemConfig:
             normalize_rwkv_ms_hybrid_mode(self.rwkv_ms_hybrid_mode),
         )
         object.__setattr__(self, "rwkv_ms_hybrid_gain", hybrid_gain)
+        object.__setattr__(self, "rwkv_ms_write_address_gain", write_address_gain)
         object.__setattr__(self, "rwkv_ms_outer_ffn_gain", outer_ffn_gain)
+        if (
+            write_address_gain != 0.0
+            and self.rwkv_ms_hybrid_mode != "address_keyed_moe_deepembed_ffn"
+        ):
+            raise ValueError(
+                "rwkv_ms_write_address_gain is only active for "
+                "address_keyed_moe_deepembed_ffn"
+            )
         outer_ffn_layers = tuple(sorted(set(int(i) for i in self.rwkv_ms_outer_ffn_layers)))
         if any(layer < 0 for layer in outer_ffn_layers):
             raise ValueError("rwkv_ms_outer_ffn_layers must contain nonnegative indices")
@@ -723,6 +761,18 @@ class HFDeltaMemConfig:
                     "Projected-KV memory readout requires "
                     "memory_backend='rwkv_ms'"
                 )
+            if self.rwkv_ms_hybrid_mode == "address_keyed_moe_deepembed_ffn":
+                state_read_dim = int(self.rank) * int(self.num_state_heads)
+                if projected_kv_key_dim % state_read_dim != 0:
+                    raise ValueError(
+                        "address_keyed_moe_deepembed_ffn requires projected_kv_key_dim "
+                        "to be divisible by rank * num_state_heads "
+                        f"({state_read_dim})"
+                    )
+                if self.rwkv_ms_write_mode != "recurrent":
+                    raise ValueError(
+                        "address_keyed_moe_deepembed_ffn requires recurrent RWKV writes"
+                    )
         elif (
             projected_kv_key_dim != 32
             or projected_kv_temperature != 16.0
@@ -928,6 +978,7 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_semantics_version = config.rwkv_ms_semantics_version
         self.rwkv_ms_hybrid_mode = config.rwkv_ms_hybrid_mode
         self.rwkv_ms_hybrid_gain = config.rwkv_ms_hybrid_gain
+        self.rwkv_ms_write_address_gain = config.rwkv_ms_write_address_gain
         self.rwkv_ms_outer_ffn_gain = config.rwkv_ms_outer_ffn_gain
         self.rwkv_ms_outer_ffn_layers = config.rwkv_ms_outer_ffn_layers
         self.rwkv_ms_outer_ffn_enabled = (
@@ -1048,12 +1099,7 @@ class DeltaMemAttention(nn.Module):
             self.memory_fusion_hidden_weight = nn.Parameter(torch.empty(1, hidden_size))
             self.memory_fusion_read_weight = nn.Parameter(torch.empty(1, self.state_read_dim))
             self.memory_fusion_bias = nn.Parameter(torch.empty(1))
-        if self.rwkv_ms_hybrid_mode in {
-            "addressed_moe_controller",
-            "address_bound_moe_controller",
-            "addressed_moe_deepembed_ffn",
-            "addressed_moe_outer_ffn",
-        }:
+        if self.rwkv_ms_hybrid_mode in RWKV_MS_MOE_MODES:
             self.rwkv_moe_hidden_weight = nn.Parameter(torch.empty(3, hidden_size))
             self.rwkv_moe_addressed_weight = nn.Parameter(
                 torch.empty(3, self.state_read_dim)
@@ -1248,12 +1294,7 @@ class DeltaMemAttention(nn.Module):
                 self.memory_fusion_gate_init / (1.0 - self.memory_fusion_gate_init)
             )
             nn.init.constant_(self.memory_fusion_bias, gate_logit)
-        if self.rwkv_ms_hybrid_mode in {
-            "addressed_moe_controller",
-            "address_bound_moe_controller",
-            "addressed_moe_deepembed_ffn",
-            "addressed_moe_outer_ffn",
-        }:
+        if self.rwkv_ms_hybrid_mode in RWKV_MS_MOE_MODES:
             nn.init.zeros_(self.rwkv_moe_hidden_weight)
             nn.init.zeros_(self.rwkv_moe_addressed_weight)
             nn.init.zeros_(self.rwkv_moe_global_weight)
@@ -3013,6 +3054,59 @@ class DeltaMemAttention(nn.Module):
             self.rwkv_ms_previous_source = next_previous_source
         return next_state, reads
 
+    def _rwkv_ms_address_conditioned_write_features(
+        self,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        a: torch.Tensor,
+        b: torch.Tensor,
+        address_seq: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        expected_shape = (*k.shape[:-1], self.state_read_dim)
+        if tuple(address_seq.shape) != expected_shape:
+            raise ValueError(
+                "RWKV-MS write addresses must match the write feature shape: "
+                f"expected={expected_shape} actual={tuple(address_seq.shape)}"
+            )
+        gain = float(self.rwkv_ms_write_address_gain)
+        if gain == 0.0:
+            return k, v, a, b
+
+        address = address_seq.to(device=k.device, dtype=torch.float32)
+        address_square_mean = address.square().mean(dim=-1, keepdim=True)
+        active = address_square_mean.gt(0.0)
+        address_rms = (address_square_mean + 1e-12).sqrt()
+        if token_mask is not None:
+            expected_mask_shape = k.shape[:2]
+            if tuple(token_mask.shape) != expected_mask_shape:
+                raise ValueError(
+                    "RWKV-MS token mask must match address-conditioned writes: "
+                    f"expected={expected_mask_shape} actual={tuple(token_mask.shape)}"
+                )
+            active = active & token_mask.to(
+                device=k.device,
+                dtype=torch.bool,
+            ).unsqueeze(-1)
+        direction = torch.tanh(address / address_rms.clamp_min(1e-6))
+
+        def additive(feature: torch.Tensor) -> torch.Tensor:
+            feature_float = feature.float()
+            feature_rms = (
+                feature_float.square().mean(dim=-1, keepdim=True) + 1e-12
+            ).sqrt()
+            candidate = feature_float + gain * feature_rms * direction
+            return torch.where(active, candidate, feature_float).to(dtype=feature.dtype)
+
+        multiplier = 1.0 + gain * direction
+
+        def multiplicative(feature: torch.Tensor) -> torch.Tensor:
+            feature_float = feature.float()
+            candidate = feature_float * multiplier
+            return torch.where(active, candidate, feature_float).to(dtype=feature.dtype)
+
+        return additive(k), additive(v), multiplicative(a), multiplicative(b)
+
     def _rwkv_ms_scan(
         self,
         state: torch.Tensor,
@@ -3024,6 +3118,7 @@ class DeltaMemAttention(nn.Module):
         update_positions: bool = True,
         write_only: bool = False,
         write_route_seq: torch.Tensor | None = None,
+        write_address_seq: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         batch_size, seq_len, _ = memory_source_seq.shape
         if seq_len == 0:
@@ -3052,13 +3147,13 @@ class DeltaMemAttention(nn.Module):
             return_previous=True,
         )
         r_seq = self._rwkv_ms_project_heads(features.r).float()
-        k_seq = self._rwkv_ms_project_heads(features.k).float()
-        v_seq = self._rwkv_ms_project_heads(features.v).float()
         if self.rwkv_ms_write_mode == "last_token_overwrite":
-            if write_route_seq is not None:
+            if write_route_seq is not None or write_address_seq is not None:
                 raise ValueError(
                     "Address-bound RWKV writes require recurrent write mode"
                 )
+            k_seq = self._rwkv_ms_project_heads(features.k).float()
+            v_seq = self._rwkv_ms_project_heads(features.v).float()
             return self._rwkv_ms_last_token_overwrite(
                 state,
                 r_seq,
@@ -3069,9 +3164,28 @@ class DeltaMemAttention(nn.Module):
                 next_previous_source,
                 update_positions=update_positions,
             )
+        feature_k, feature_v, feature_a, feature_b = (
+            features.k,
+            features.v,
+            features.a,
+            features.b,
+        )
+        if write_address_seq is not None:
+            feature_k, feature_v, feature_a, feature_b = (
+                self._rwkv_ms_address_conditioned_write_features(
+                    feature_k,
+                    feature_v,
+                    feature_a,
+                    feature_b,
+                    write_address_seq,
+                    token_mask,
+                )
+            )
+        k_seq = self._rwkv_ms_project_heads(feature_k).float()
+        v_seq = self._rwkv_ms_project_heads(feature_v).float()
         w_seq = self._rwkv_ms_project_heads(features.w).float()
-        a_seq = self._rwkv_ms_project_heads(features.a).float()
-        b_seq = self._rwkv_ms_project_heads(features.b).float()
+        a_seq = self._rwkv_ms_project_heads(feature_a).float()
+        b_seq = self._rwkv_ms_project_heads(feature_b).float()
         keep_seq, erase_seq, write_seq = self._rwkv_ms_update_coefficients(beta_seq, lambda_seq)
         keep_seq = keep_seq.float()
         erase_seq = erase_seq.float()
@@ -3430,6 +3544,7 @@ class DeltaMemAttention(nn.Module):
         lambda_seq: torch.Tensor,
         write_route_seq: torch.Tensor | None = None,
         rwkv_write_route_seq: torch.Tensor | None = None,
+        rwkv_write_address_seq: torch.Tensor | None = None,
         read_route_seq: torch.Tensor | None = None,
         token_mask: Optional[torch.Tensor] = None,
         write_only: bool = False,
@@ -3443,6 +3558,7 @@ class DeltaMemAttention(nn.Module):
                 token_mask,
                 write_only=write_only,
                 write_route_seq=rwkv_write_route_seq,
+                write_address_seq=rwkv_write_address_seq,
             )
         if write_only:  # pragma: no cover - hybrid validation requires RWKV-MS
             raise ValueError("Write-only backend scan requires RWKV-MS")
@@ -4081,6 +4197,62 @@ class DeltaMemAttention(nn.Module):
             -1
         ).to(dtype=self.last_write_routes.dtype)
 
+    def _projected_rwkv_write_address_sequence(
+        self,
+        hidden_states: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        batch_size, seq_len, _ = hidden_states.shape
+        empty = hidden_states.new_zeros(batch_size, seq_len, self.state_read_dim)
+        routes = self.last_write_routes
+        if routes is None:
+            return empty
+        expected_route_shape = (batch_size, 1, self.rwkv_ms_num_states)
+        if tuple(routes.shape) != expected_route_shape:
+            raise ValueError(
+                "Address-keyed RWKV writes require one projected proposal per row: "
+                f"expected={expected_route_shape} actual={tuple(routes.shape)}"
+            )
+        keys = self.projected_kv_keys
+        if keys is None:
+            raise RuntimeError("Address-keyed RWKV writes require projected slot keys")
+        expected_key_shape = (
+            batch_size,
+            self.rwkv_ms_num_states,
+            self.projected_kv_key_dim,
+        )
+        if tuple(keys.shape) != expected_key_shape:
+            raise ValueError(
+                "Address-keyed RWKV writes require complete projected slot keys: "
+                f"expected={expected_key_shape} actual={tuple(keys.shape)}"
+            )
+        selected_projected = torch.einsum(
+            "bps,bsd->bpd",
+            routes.float(),
+            keys.float(),
+        )
+        fold = self.projected_kv_key_dim // self.state_read_dim
+        selected = selected_projected.reshape(
+            batch_size,
+            1,
+            fold,
+            self.state_read_dim,
+        ).sum(dim=2) / math.sqrt(float(fold))
+        selected = selected.to(dtype=hidden_states.dtype)
+        address_seq = selected.expand(-1, seq_len, -1)
+        if token_mask is not None:
+            expected_mask_shape = (batch_size, seq_len)
+            if tuple(token_mask.shape) != expected_mask_shape:
+                raise ValueError(
+                    "Address-keyed RWKV token mask differs from the write sequence: "
+                    f"expected={expected_mask_shape} actual={tuple(token_mask.shape)}"
+                )
+            address_seq = address_seq * token_mask.to(
+                device=address_seq.device,
+                dtype=address_seq.dtype,
+            ).unsqueeze(-1)
+        return address_seq
+
     def _projected_kv_slot_token_reads(
         self,
         hidden_states: torch.Tensor,
@@ -4181,11 +4353,20 @@ class DeltaMemAttention(nn.Module):
             )
         projected = projected_reads.float()
         recurrent = recurrent_reads.float()
-        recurrent_rms = recurrent.square().mean(dim=-1, keepdim=True).sqrt()
+
+        def stable_exact_rms(value: torch.Tensor) -> torch.Tensor:
+            square_mean = value.square().mean(dim=-1, keepdim=True)
+            return torch.where(
+                square_mean.gt(0.0),
+                (square_mean + 1e-12).sqrt(),
+                square_mean,
+            )
+
+        recurrent_rms = stable_exact_rms(recurrent)
         recurrent_direction = torch.tanh(
             recurrent / recurrent_rms.clamp_min(1e-6)
         )
-        carrier_rms = projected.square().mean(dim=-1, keepdim=True).sqrt()
+        carrier_rms = stable_exact_rms(projected)
         gain = float(self.rwkv_ms_hybrid_gain)
         if self.rwkv_ms_hybrid_mode == "residual":
             fused = projected + gain * carrier_rms * recurrent_direction
@@ -4252,12 +4433,7 @@ class DeltaMemAttention(nn.Module):
                 dtype=projected.dtype,
             ).clamp(0.0, 1.0)
             fused = projected * (1.0 + gain * gate * recurrent_direction)
-        elif self.rwkv_ms_hybrid_mode in {
-            "addressed_moe_controller",
-            "address_bound_moe_controller",
-            "addressed_moe_deepembed_ffn",
-            "addressed_moe_outer_ffn",
-        }:
+        elif self.rwkv_ms_hybrid_mode in RWKV_MS_MOE_MODES:
             if global_recurrent_reads is None or hidden_states is None:
                 raise ValueError(
                     "Addressed MoE fusion requires global recurrent reads and query states"
@@ -4291,9 +4467,7 @@ class DeltaMemAttention(nn.Module):
             addressed_direction = torch.tanh(
                 recurrent / recurrent_rms.clamp_min(1e-6)
             )
-            global_rms = global_recurrent_reads.float().square().mean(
-                dim=-1, keepdim=True
-            ).sqrt()
+            global_rms = stable_exact_rms(global_recurrent_reads.float())
             global_direction = torch.tanh(
                 global_recurrent_reads.float() / global_rms.clamp_min(1e-6)
             )
@@ -4341,14 +4515,12 @@ class DeltaMemAttention(nn.Module):
         ) = self._memory_sequence_projections(hidden_states)
         if self.write_enabled:
             rwkv_write_route_seq = None
+            rwkv_write_address_seq = None
             if self.rwkv_ms_hybrid_mode == "chunk_addressed_value":
                 self._write_chunk_addressed_kv_slots(hidden_states, token_mask)
             else:
                 self._write_projected_kv_slots(hidden_states, token_mask)
-            if self.rwkv_ms_hybrid_mode in {
-                "address_bound_write",
-                "address_bound_moe_controller",
-            }:
+            if self.rwkv_ms_hybrid_mode in RWKV_MS_ADDRESS_BOUND_WRITE_MODES:
                 projected_write_routes = self.last_write_routes
                 if projected_write_routes is None:
                     rwkv_write_route_seq = hidden_states.new_zeros(
@@ -4373,6 +4545,13 @@ class DeltaMemAttention(nn.Module):
                             device=rwkv_write_route_seq.device,
                             dtype=rwkv_write_route_seq.dtype,
                         ).unsqueeze(-1)
+                if self.rwkv_ms_hybrid_mode == "address_keyed_moe_deepembed_ffn":
+                    rwkv_write_address_seq = (
+                        self._projected_rwkv_write_address_sequence(
+                            hidden_states,
+                            token_mask,
+                        )
+                    )
             state, _ = self._memory_backend_scan(
                 state,
                 token_memory_q_seq,
@@ -4381,6 +4560,7 @@ class DeltaMemAttention(nn.Module):
                 beta_seq,
                 lambda_seq,
                 rwkv_write_route_seq=rwkv_write_route_seq,
+                rwkv_write_address_seq=rwkv_write_address_seq,
                 token_mask=token_mask,
                 write_only=True,
             )
@@ -4461,12 +4641,7 @@ class DeltaMemAttention(nn.Module):
                     recurrent_reads,
                 )
             global_recurrent_reads = None
-            if self.rwkv_ms_hybrid_mode in {
-                "addressed_moe_controller",
-                "address_bound_moe_controller",
-                "addressed_moe_deepembed_ffn",
-                "addressed_moe_outer_ffn",
-            }:
+            if self.rwkv_ms_hybrid_mode in RWKV_MS_MOE_MODES:
                 global_recurrent_reads = self._memory_backend_token_reads(
                     state,
                     token_memory_v_seq,
@@ -4492,7 +4667,7 @@ class DeltaMemAttention(nn.Module):
                 recurrent_control = (
                     reads.float() - projected_reads.float()
                 ) / control_scale
-                if self.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn":
+                if self.rwkv_ms_hybrid_mode in RWKV_MS_DEEPEMBED_FFN_MODES:
                     self._pending_deepembed_ffn_control = recurrent_control.to(
                         dtype=hidden_states.dtype
                     )
@@ -4510,7 +4685,7 @@ class DeltaMemAttention(nn.Module):
             self.last_write_routes = None
         if (
             self.rwkv_ms_outer_ffn_enabled
-            and self.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+            and self.rwkv_ms_hybrid_mode in RWKV_MS_DEEPEMBED_FFN_MODES
             and self._pending_deepembed_ffn_control is None
         ):
             self._pending_deepembed_ffn_control = hidden_states.new_zeros(
@@ -5034,7 +5209,7 @@ class DeltaMemAttention(nn.Module):
         module: nn.Module,
         inputs: tuple[torch.Tensor, ...],
     ) -> None:
-        if self.rwkv_ms_hybrid_mode != "addressed_moe_deepembed_ffn":
+        if self.rwkv_ms_hybrid_mode not in RWKV_MS_DEEPEMBED_FFN_MODES:
             self._pending_deepembed_ffn_control = None
             self._pending_deepembed_ffn_scale = None
             return None
@@ -5072,7 +5247,7 @@ class DeltaMemAttention(nn.Module):
         inputs: tuple[torch.Tensor, ...],
     ) -> tuple[torch.Tensor, ...] | None:
         del module
-        if self.rwkv_ms_hybrid_mode != "addressed_moe_deepembed_ffn":
+        if self.rwkv_ms_hybrid_mode not in RWKV_MS_DEEPEMBED_FFN_MODES:
             self._pending_deepembed_ffn_scale = None
             return None
         if not self.rwkv_ms_outer_ffn_enabled:
@@ -5095,10 +5270,10 @@ class DeltaMemAttention(nn.Module):
         return (activation * scale.to(device=activation.device, dtype=activation.dtype),)
 
     def bind_deepembed_ffn(self, mlp: nn.Module) -> None:
-        if self.rwkv_ms_hybrid_mode != "addressed_moe_deepembed_ffn":
+        if self.rwkv_ms_hybrid_mode not in RWKV_MS_DEEPEMBED_FFN_MODES:
             raise ValueError(
                 "A DeepEmbed FFN hook is only available for "
-                "addressed_moe_deepembed_ffn"
+                f"{sorted(RWKV_MS_DEEPEMBED_FFN_MODES)}"
             )
         if (
             self._deepembed_ffn_pre_hook_handle is not None
@@ -5162,7 +5337,7 @@ class DeltaMemAttention(nn.Module):
                     and self._post_feedforward_norm_hook_handle is None
                 )
                 or (
-                    self.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+                    self.rwkv_ms_hybrid_mode in RWKV_MS_DEEPEMBED_FFN_MODES
                     and (
                         self._deepembed_ffn_pre_hook_handle is None
                         or self._deepembed_ffn_down_pre_hook_handle is None
@@ -5576,14 +5751,14 @@ def validate_outer_ffn_target(
         raise ValueError(
             "DeepEmbed outer FFN hybrids require projected_kv_rwkv_hybrid readout"
         )
-    if config.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn":
+    if config.rwkv_ms_hybrid_mode in RWKV_MS_DEEPEMBED_FFN_MODES:
         mlp = getattr(parent, "mlp", None)
         if not isinstance(mlp, nn.Module) or not all(
             isinstance(getattr(mlp, name, None), nn.Module)
             for name in ("up_proj", "down_proj")
         ):
             raise ValueError(
-                "addressed_moe_deepembed_ffn requires Gemma's MLP up_proj and down_proj; "
+                "DeepEmbed FFN hybrids require Gemma's MLP up_proj and down_proj; "
                 f"missing from the parent of {module_name}"
             )
         return mlp
@@ -5658,7 +5833,7 @@ def attach_delta_mem(model: nn.Module, config: HFDeltaMemConfig) -> list[str]:
                 wrapped.bind_post_attention_layernorm(layernorm)
             if (
                 outer_ffn_layernorm is not None
-                and config.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+                and config.rwkv_ms_hybrid_mode in RWKV_MS_DEEPEMBED_FFN_MODES
             ):
                 wrapped.bind_deepembed_ffn(outer_ffn_layernorm)
             elif outer_ffn_layernorm is not None:
@@ -6557,7 +6732,7 @@ def validate_attached_delta_config(
         )
         expects_outer_ffn_hook = module.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn"
         expects_deepembed_ffn_hooks = (
-            module.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+            module.rwkv_ms_hybrid_mode in RWKV_MS_DEEPEMBED_FFN_MODES
         )
         if outer_ffn_hook_bound != expects_outer_ffn_hook or (
             deepembed_ffn_hooks_bound != expects_deepembed_ffn_hooks

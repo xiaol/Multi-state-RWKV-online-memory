@@ -17,6 +17,7 @@ from deltamem.core.delta_impl import (
     VALID_MEMORY_FUSION_PLACEMENTS,
     VALID_MEMORY_PARTITION_BASIS,
     VALID_MEMORY_PARTITION_ROUTING,
+    RWKV_MS_DEEPEMBED_FFN_MODES,
     VALID_RWKV_MS_HYBRID_MODES,
     VALID_RWKV_MS_WRITE_MODES,
     VALID_STATE_UPDATE_MODES,
@@ -178,7 +179,7 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
                 wrapped.bind_post_attention_layernorm(layernorm)
             if (
                 outer_ffn_layernorm is not None
-                and config.rwkv_ms_hybrid_mode == "addressed_moe_deepembed_ffn"
+                and config.rwkv_ms_hybrid_mode in RWKV_MS_DEEPEMBED_FFN_MODES
             ):
                 wrapped.bind_deepembed_ffn(outer_ffn_layernorm)
             elif outer_ffn_layernorm is not None:

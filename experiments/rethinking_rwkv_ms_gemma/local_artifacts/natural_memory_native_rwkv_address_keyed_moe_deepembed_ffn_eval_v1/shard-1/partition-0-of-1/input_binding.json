@@ -1,0 +1,60 @@
+{
+  "adapter_dir": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/adapter",
+  "adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 105400046,
+      "sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2969,
+      "sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44"
+    }
+  },
+  "addressed_eval_helper_sha256": "92edd8aee01a87e8f1a924ae694f42ea1942026b44e99e54357e7c67bf3da873",
+  "authorized_rows": 220,
+  "authorized_rows_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+  "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "conditions": [
+    "correct_recurrent_state",
+    "zero_recurrent_state",
+    "matched_donor_recurrent_state",
+    "layer_permuted_recurrent_state",
+    "projected_only_bypass"
+  ],
+  "dataset_file": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_development.jsonl",
+  "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+  "deepembed_outer_ffn_layers": [
+    10,
+    21,
+    31,
+    41
+  ],
+  "deepembed_outer_ffn_path_active": true,
+  "donor_mapping_payload_sha256": "7d7ea49b185229e047ea187d5cc86f1787e3feec6c0367d8c9db60104a64949a",
+  "donor_mapping_rows": 220,
+  "generation_batch_shape_control": "four_by_four_same_position",
+  "generation_runner_sha256": "37d6c88436caf5f097f284759e18488581f04de0c84405b9f14e276adf040fc0",
+  "hf_endpoint": "https://hf-mirror.com",
+  "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+  "module_names_sha256": "2364d5acf758dc89f8bd472add6ca5e1548a56cd0261edf82d1e596e5574c707",
+  "partition_index": 0,
+  "partition_rows": 63,
+  "partition_rows_payload_sha256": "f065af9fce11f36deb64afbf4f5b02b6efae0944a28dcdc7384d2aa94efbb13d",
+  "partitions_per_shard": 1,
+  "projected_carrier_active": true,
+  "protocol_file_sha256": "e0c0ca6d11ee4b5b1b9671f372242818173d1f681ca439b684f921cb217e4ecf",
+  "protocol_payload_sha256": "a22ac623486d5cfa1688ad8d8bc8977c8e3f90dc302a4b7ba243125354a66959",
+  "recurrent_attention_path_active": true,
+  "runner_sha256": "78f605c2e6b389e30fd97a98391b60cad99661f7bdc8cf3a4397aac6b5560a16",
+  "schema": "rwkv_ms_natural_memory_native_address_keyed_moe_deepembed_ffn_eval_input.v1",
+  "seed": 108,
+  "shard_index": 1,
+  "train_result": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json",
+  "train_result_file_sha256": "95376ed78da98cf36183146ce56a3623988e94645723c9b34aee0510e0457545",
+  "train_result_receipt": "7afee3fd1d88c7db91c86dd3f7febfd80656a35d54971fd824623a29883dba8e",
+  "training_protocol_payload_sha256": "749d5a6f6edf2ac8ee259d1494916529a2046621a52736ad02960760a8ed4ddd",
+  "world_size": 4,
+  "zero_recurrent_identity_requires_explicit_bypass_match": true
+}

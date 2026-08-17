@@ -1,0 +1,538 @@
+{
+  "checks": {
+    "candidate_passed_on_all_ranks": true,
+    "four_distinct_a100_ranks": true,
+    "projected_carrier_fixed_on_all_ranks": true
+  },
+  "code_bindings": {
+    "deepembed_ffn_runner_self_sha256": "f45ffe882d438114bd3ae4aef81894e38f63b589d96ecca06c61697af49a35b1",
+    "delta_impl_sha256": "5302743bfd3604c8f8e1c50aa4d3faa328f71fb9017dfa642c62b4a8c5399069",
+    "protocol_file_sha256": "62a339e6e1bcfbb58960c0fda5c1f88d212c5e3666cb78f12f08db64474dee7a",
+    "runner_sha256": "f45ffe882d438114bd3ae4aef81894e38f63b589d96ecca06c61697af49a35b1",
+    "shared_screen_runner_sha256": "0c020ad484bbbf0725bf402c07c458a9638437569879471f5178ab69c29a2b38"
+  },
+  "initial_adapter_sha256": "3db1cf75c2aa30eb165d2ffcc9cd5ee560b28d78f62e194642a3ee454135baa5",
+  "model_audit": {
+    "all_wrappers_address_keyed_moe_deepembed_ffn": true,
+    "all_wrappers_addressed_moe_deepembed_ffn": true,
+    "all_wrappers_hybrid": true,
+    "deepembed_ffn_active_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "deepembed_ffn_down_hook_count": 42,
+    "deepembed_ffn_family_counts": {
+      "rwkv_outer_ffn_down_weight": 4,
+      "rwkv_outer_ffn_gate_weight": 4,
+      "rwkv_outer_ffn_up_weight": 4
+    },
+    "deepembed_ffn_pre_hook_count": 42,
+    "replaced_layers": 42,
+    "trainable_parameter_names_sha256": "a197f0d2410d1f158b804b18b333fa19b2dcc15febc9fd41421b5437cd4e5c26",
+    "trainable_parameter_tensors": 1482,
+    "wrapped_layers": 42,
+    "write_address_gain": 0.25
+  },
+  "native_generation_authorized": false,
+  "passed": true,
+  "protected_splits_opened": [],
+  "protocol_objective": "Test whether binding the normalized projected address into recurrent RWKV k/v/a/b write features makes the sparse DeepEmbed hybrid materially address-specific without opening native generation or protected data.",
+  "protocol_payload_sha256": "8f6219f0c2c1f7b19ac17ed98940c5524a7a4395fb6eded1950ac8f030746895",
+  "rank_devices": [
+    {
+      "device_index": 0,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 0,
+      "pid": 2149234,
+      "process_rank": 0
+    },
+    {
+      "device_index": 1,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 1,
+      "pid": 2149235,
+      "process_rank": 1
+    },
+    {
+      "device_index": 2,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 2,
+      "pid": 2149236,
+      "process_rank": 2
+    },
+    {
+      "device_index": 3,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 3,
+      "pid": 2149237,
+      "process_rank": 3
+    }
+  ],
+  "rank_evidence": [
+    {
+      "absolute_write_token_delta": 11,
+      "candidate": {
+        "candidate_id": "address_keyed_deepembed_t16_k2_ag015625_wag025_fg0078125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.015625,
+        "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.0078125,
+        "outer_ffn_layers": [
+          10,
+          21,
+          31,
+          41
+        ],
+        "read_temperature": 16.0,
+        "read_top_k": 2,
+        "write_address_gain": 0.25
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "deepembed_ffn_ablation_material": true,
+        "write_address_ablation_material": true,
+        "write_address_changes_recurrent_state": true,
+        "write_address_preserves_projected_carrier": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_ffn_gain_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7430671691894531,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.53125,
+          "mean_abs_logit_delta": 0.12506523728370667,
+          "passed": true
+        },
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7826038360595703,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.6640625,
+          "mean_abs_logit_delta": 0.15535852313041687,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7823711395263672,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.375,
+          "mean_abs_logit_delta": 0.14719419181346893,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7755870819091797,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.13458439707756042,
+          "passed": true
+        },
+        "correct_vs_write_address_gain_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7784858703613281,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.5625,
+          "mean_abs_logit_delta": 0.1610439121723175,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7755870819091797,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.13458439707756042,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 1149,
+      "donor_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "donor_write_tokens": 210,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16083717632,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "14871b1705aa46cb11935dbed8f0d201c7cc3fc8dddd4862c4b765b595b1ab94",
+      "rank": 0,
+      "source_ordinal": 718,
+      "source_read_tokens": 209,
+      "source_row_sha256": "d50047bdadf2068dfce0dd6dfd2eb0c2575cbb0ac4b417136da9e206fad9fad6",
+      "source_write_tokens": 199,
+      "write_address_audit": {
+        "correct_recurrent_sha256": "093c1293c52ab687c71830f38811d3b2c1b761748bc0154e7531be5987cbcf10",
+        "gain_zero_recurrent_sha256": "689f59ee09b05fbc37a2c6b93afb71087b5c875f5e4fdecba114855ef12c073a"
+      }
+    },
+    {
+      "absolute_write_token_delta": 5,
+      "candidate": {
+        "candidate_id": "address_keyed_deepembed_t16_k2_ag015625_wag025_fg0078125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.015625,
+        "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.0078125,
+        "outer_ffn_layers": [
+          10,
+          21,
+          31,
+          41
+        ],
+        "read_temperature": 16.0,
+        "read_top_k": 2,
+        "write_address_gain": 0.25
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "deepembed_ffn_ablation_material": true,
+        "write_address_ablation_material": true,
+        "write_address_changes_recurrent_state": true,
+        "write_address_preserves_projected_carrier": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_ffn_gain_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8422568184988839,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.1875,
+          "mean_abs_logit_delta": 0.13751359283924103,
+          "passed": true
+        },
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8392031533377511,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.21875,
+          "mean_abs_logit_delta": 0.14535188674926758,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8331069946289062,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.13882312178611755,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8327244349888393,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.5,
+          "mean_abs_logit_delta": 0.15111562609672546,
+          "passed": true
+        },
+        "correct_vs_write_address_gain_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.821742194039481,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.34765625,
+          "mean_abs_logit_delta": 0.13312028348445892,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8327244349888393,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.5,
+          "mean_abs_logit_delta": 0.15111562609672546,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16085344256,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "97170121f0fb7d358ec2537a81712bfd02b8fa820424669b638a91d44f0862af",
+      "rank": 1,
+      "source_ordinal": 1149,
+      "source_read_tokens": 224,
+      "source_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "source_write_tokens": 210,
+      "write_address_audit": {
+        "correct_recurrent_sha256": "9a51c538200c704c743c56dfdca2523b51b6dc4cec2ab3a73ab8301f13869491",
+        "gain_zero_recurrent_sha256": "f93a08694fb5f7f57b747a70e85a314566fb557a4647de889c699bf8c838e75c"
+      }
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "address_keyed_deepembed_t16_k2_ag015625_wag025_fg0078125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.015625,
+        "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.0078125,
+        "outer_ffn_layers": [
+          10,
+          21,
+          31,
+          41
+        ],
+        "read_temperature": 16.0,
+        "read_top_k": 2,
+        "write_address_gain": 0.25
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "deepembed_ffn_ablation_material": true,
+        "write_address_ablation_material": true,
+        "write_address_changes_recurrent_state": true,
+        "write_address_preserves_projected_carrier": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_ffn_gain_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8146835327148437,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.625,
+          "mean_abs_logit_delta": 0.1728091686964035,
+          "passed": true
+        },
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7786460876464844,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.625,
+          "mean_abs_logit_delta": 0.14289814233779907,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7282321929931641,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.3125,
+          "mean_abs_logit_delta": 0.11323042213916779,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7828742980957031,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.75,
+          "mean_abs_logit_delta": 0.1380821317434311,
+          "passed": true
+        },
+        "correct_vs_write_address_gain_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8298160552978515,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.5,
+          "mean_abs_logit_delta": 0.16356852650642395,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7828742980957031,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.75,
+          "mean_abs_logit_delta": 0.1380821317434311,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 76,
+      "donor_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16085766144,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "69f7e0ee0a35fad775ebed94645fa5d468e768f2d8c205b0abf05b19f8e9c195",
+      "rank": 2,
+      "source_ordinal": 918,
+      "source_read_tokens": 225,
+      "source_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "source_write_tokens": 215,
+      "write_address_audit": {
+        "correct_recurrent_sha256": "30a9bd71069483e36a6260666f31bb5bacb2d4049233de0083cd3ba4ebcfe238",
+        "gain_zero_recurrent_sha256": "975e1e85d860a39e88fd84a885fa8c7f8ace3d700103aab663fa69b93f9ffb0e"
+      }
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "address_keyed_deepembed_t16_k2_ag015625_wag025_fg0078125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.015625,
+        "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.0078125,
+        "outer_ffn_layers": [
+          10,
+          21,
+          31,
+          41
+        ],
+        "read_temperature": 16.0,
+        "read_top_k": 2,
+        "write_address_gain": 0.25
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "deepembed_ffn_ablation_material": true,
+        "write_address_ablation_material": true,
+        "write_address_changes_recurrent_state": true,
+        "write_address_preserves_projected_carrier": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_ffn_gain_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7898219715465199,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.53125,
+          "mean_abs_logit_delta": 0.13801850378513336,
+          "passed": true
+        },
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.833588340065696,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.8125,
+          "mean_abs_logit_delta": 0.16116978228092194,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7901316556063566,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.8720703125,
+          "mean_abs_logit_delta": 0.14021939039230347,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8092093034224077,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.6875,
+          "mean_abs_logit_delta": 0.14007608592510223,
+          "passed": true
+        },
+        "correct_vs_write_address_gain_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7760575034401633,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4375,
+          "mean_abs_logit_delta": 0.12718398869037628,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8092093034224077,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.6875,
+          "mean_abs_logit_delta": 0.14007608592510223,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16085675008,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "0dc7eb16168300364a4cdd35f0abda21d554588d45817e9609e32373d635a2a2",
+      "rank": 3,
+      "source_ordinal": 76,
+      "source_read_tokens": 226,
+      "source_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "source_write_tokens": 215,
+      "write_address_audit": {
+        "correct_recurrent_sha256": "4f2026d3ae5f5848bc211f5eab6f6961002f812fe750fbd06bcb9fa33fea823c",
+        "gain_zero_recurrent_sha256": "a51c87c48879033ed207ad45747e90c9818bbca9295cdf1c559471d2262f585d"
+      }
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "0989150f19958293a3e89344311552b7434e9a92fb9a6bab554d8b4c14a93a5e"
+  },
+  "schema": "rwkv_ms_natural_memory_native_address_keyed_moe_deepembed_ffn_screen.v1",
+  "seed": 105,
+  "selected_candidate": {
+    "candidate_id": "address_keyed_deepembed_t16_k2_ag015625_wag025_fg0078125",
+    "detach_read_scores": true,
+    "fusion_gate_probability": 0.25,
+    "hybrid_gain": 0.015625,
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "outer_ffn_gain": 0.0078125,
+    "outer_ffn_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "write_address_gain": 0.25
+  },
+  "status": "address_keyed_moe_deepembed_ffn_screen_passed_training_authorized",
+  "training_authorized": true,
+  "world_size": 4
+}

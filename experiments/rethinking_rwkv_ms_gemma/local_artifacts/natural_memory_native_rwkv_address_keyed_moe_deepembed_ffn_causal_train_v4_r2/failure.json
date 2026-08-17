@@ -1,0 +1,49 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_address_keyed_moe_deepembed_ffn_causal_train_failure.v4",
+  "status": "address_keyed_moe_deepembed_ffn_training_cuda_oom_step6_endpoint_unopened",
+  "protocol_payload_sha256": "a70c9eb52c7266bda416b896fa8aa1ca0c3573e0d4bf917fe1fd963dcc81cbbf",
+  "input_binding_file_sha256": "40686eba49a1be19ad582beb24a76724c7ff5904e3d9ad4af5183566017b6179",
+  "training_progress_file_sha256": "4feae8f6a2f44c9055999b4d5ce778df27be19fc8a016d85e4733d5d66fe897f",
+  "world_size": 4,
+  "rank_devices": "four distinct NVIDIA A100-PCIE-40GB devices, as bound in input_binding.json",
+  "completed_optimizer_updates": 5,
+  "failed_optimizer_update": 6,
+  "completed_training_evidence": {
+    "accepted_rows": 40,
+    "rejected_rows": 0,
+    "finite_active_trainable_tensors_per_update": 390,
+    "optimizer_state_cpu_offload_tensors_per_rank": 1170,
+    "optimizer_state_cpu_offload_bytes_per_rank": 36663640,
+    "optimizer_state_restored_before_completed_updates": true,
+    "step5_mean_correct_ce": 3.515224545779713,
+    "step5_mean_zero_minus_correct_ce": 0.22418220208927908,
+    "step5_mean_donor_minus_correct_ce": -0.004522004611989483,
+    "step5_mean_layer_permuted_minus_correct_ce": 0.20359857401108372
+  },
+  "failure": {
+    "phase": "step_6_rank_3_second_row_donor_state_backward_recomputation",
+    "source_ordinal": 899,
+    "donor_ordinal": 430,
+    "exception_type": "torch.OutOfMemoryError",
+    "requested_allocation_mib": 12.0,
+    "gpu_capacity_gib": 39.49,
+    "gpu_free_mib": 5.38,
+    "cause": "Optimizer-state offload succeeded, but the row retained the correct, donor, and layer-permuted checkpoint outputs and their autograd graphs simultaneously. The donor backward recomputation then lacked the final activation workspace."
+  },
+  "model_decision": "This is an execution-memory failure, not a causal or benchmark result. The five completed updates demonstrate finite gradients and successful optimizer-state offload but do not authorize endpoint access or native generation.",
+  "authorized_execution_change": "Evaluate donor and layer-permuted control logits without autograd for metrics and margin activation, release them, backpropagate the correct branch, then recreate and immediately backpropagate each active control branch in isolation. Release online state and allocator cache between graphs. Keep seed 108, architecture, model capacity, gains, objective, coefficients, global batch, schedule, optimizer-state offload, and endpoint unchanged.",
+  "heldout_causal_endpoint_opened": false,
+  "native_generation_opened": false,
+  "protected_splits_opened": [],
+  "code_bindings_at_failure": {
+    "runner_sha256": "abff8bc7903bcbb29fa5661a21088fdf7ff68d32d4db3dc16b9741feb73e2c0c",
+    "causal_trainer_sha256": "28c6d7ae38de52e4e7f05e21e67b22d7ec068b2632f43a579982f2ef432f0179",
+    "evolution_runtime_sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7",
+    "delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "64a21070e6a3713ed3e4cfd863e887fbe5537203f8d34a3e6f43651544b994ad"
+  }
+}

@@ -104,6 +104,8 @@ FIRST_UPDATE_GRADIENT_AUDITOR = (
 FILTER_NONFINITE_ROWS = False
 MIN_ACCEPTED_ROWS_PER_UPDATE = GLOBAL_BATCH_SIZE
 MAX_TOTAL_REJECTED_ROWS = 0
+OFFLOAD_OPTIMIZER_STATE_DURING_ROWS = False
+SERIALIZE_CONTROL_BRANCH_GRAPHS = False
 RECURRENT_ATTRIBUTES = (
     "delta_state",
     "rwkv_ms_positions",
@@ -410,6 +412,67 @@ def backward_logits(
     return tokens, chunks
 
 
+def evaluate_intervened_condition_without_grad(
+    model: torch.nn.Module,
+    target_batch: evolution.NativeFullRowBatch,
+    *,
+    donor_batch: evolution.NativeFullRowBatch | None,
+    rotate_recurrent_layers: bool,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> tuple[float, int, Mapping[str, bool]]:
+    logits: torch.Tensor | None = None
+    try:
+        with torch.no_grad():
+            logits, audit = checkpointed_intervened_write_read(
+                model,
+                target_batch,
+                donor_batch=donor_batch,
+                rotate_recurrent_layers=rotate_recurrent_layers,
+                dtype=dtype,
+            )
+            mean_ce, tokens = contrast.detached_answer_ce(
+                logits,
+                target_batch.labels,
+            )
+        return mean_ce, tokens, audit
+    finally:
+        del logits
+        reset_delta_mem_states(model)
+        evolution.release_native_row_allocator_cache(device)
+
+
+def backward_serialized_intervened_condition(
+    model: torch.nn.Module,
+    target_batch: evolution.NativeFullRowBatch,
+    *,
+    donor_batch: evolution.NativeFullRowBatch | None,
+    rotate_recurrent_layers: bool,
+    coefficient: float,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> tuple[int, int, Mapping[str, bool]]:
+    logits: torch.Tensor | None = None
+    try:
+        logits, audit = checkpointed_intervened_write_read(
+            model,
+            target_batch,
+            donor_batch=donor_batch,
+            rotate_recurrent_layers=rotate_recurrent_layers,
+            dtype=dtype,
+        )
+        tokens, chunks = backward_logits(
+            logits,
+            target_batch.labels,
+            coefficient=coefficient,
+        )
+        return tokens, chunks, audit
+    finally:
+        del logits
+        reset_delta_mem_states(model)
+        evolution.release_native_row_allocator_cache(device)
+
+
 def trainable_subset_sha256(
     named_trainable: Sequence[tuple[str, torch.nn.Parameter]],
 ) -> str:
@@ -506,6 +569,9 @@ def train(
     total_rejected_gradient_rows = 0
     minimum_accepted_rows_per_update = GLOBAL_BATCH_SIZE
     rejected_source_ordinals: list[int] = []
+    optimizer_state_cpu_offload_steps = 0
+    optimizer_state_cpu_offload_tensors = 0
+    optimizer_state_cpu_offload_bytes = 0
     started = time.time()
     for schedule_step in schedule[:updates]:
         local_start = context.process_rank * LOCAL_ROWS
@@ -515,6 +581,25 @@ def train(
         if len(local_sources) != LOCAL_ROWS:
             raise RuntimeError("Addressed causal local schedule size differs")
         optimizer.zero_grad(set_to_none=True)
+        optimizer_state_offload = None
+        optimizer_state_restore = None
+        if OFFLOAD_OPTIMIZER_STATE_DURING_ROWS and optimizer.state:
+            optimizer_state_offload = evolution.move_optimizer_state(
+                optimizer,
+                device=torch.device("cpu"),
+            )
+            if optimizer_state_offload.tensors <= 0:
+                raise RuntimeError("Causal optimizer state offload moved no tensors")
+            optimizer_state_cpu_offload_steps += 1
+            optimizer_state_cpu_offload_tensors = max(
+                optimizer_state_cpu_offload_tensors,
+                optimizer_state_offload.tensors,
+            )
+            optimizer_state_cpu_offload_bytes = max(
+                optimizer_state_cpu_offload_bytes,
+                optimizer_state_offload.bytes,
+            )
+            evolution.release_native_row_allocator_cache(context.device)
         local_metrics = [0.0] * 14
         clean_gradients: dict[str, torch.Tensor] = {}
         local_row_gradient_evidence: list[dict[str, Any]] = []
@@ -538,20 +623,44 @@ def train(
                 target_batch,
                 dtype=torch.bfloat16,
             )
-            donor_logits, donor_audit = checkpointed_intervened_write_read(
-                model,
-                target_batch,
-                donor_batch=donor_batch,
-                rotate_recurrent_layers=False,
-                dtype=torch.bfloat16,
-            )
-            permuted_logits, permuted_audit = checkpointed_intervened_write_read(
-                model,
-                target_batch,
-                donor_batch=None,
-                rotate_recurrent_layers=True,
-                dtype=torch.bfloat16,
-            )
+            donor_logits: torch.Tensor | None = None
+            permuted_logits: torch.Tensor | None = None
+            if SERIALIZE_CONTROL_BRANCH_GRAPHS:
+                donor_ce, donor_tokens, donor_audit = (
+                    evaluate_intervened_condition_without_grad(
+                        model,
+                        target_batch,
+                        donor_batch=donor_batch,
+                        rotate_recurrent_layers=False,
+                        dtype=torch.bfloat16,
+                        device=context.device,
+                    )
+                )
+                permuted_ce, permuted_tokens, permuted_audit = (
+                    evaluate_intervened_condition_without_grad(
+                        model,
+                        target_batch,
+                        donor_batch=None,
+                        rotate_recurrent_layers=True,
+                        dtype=torch.bfloat16,
+                        device=context.device,
+                    )
+                )
+            else:
+                donor_logits, donor_audit = checkpointed_intervened_write_read(
+                    model,
+                    target_batch,
+                    donor_batch=donor_batch,
+                    rotate_recurrent_layers=False,
+                    dtype=torch.bfloat16,
+                )
+                permuted_logits, permuted_audit = checkpointed_intervened_write_read(
+                    model,
+                    target_batch,
+                    donor_batch=None,
+                    rotate_recurrent_layers=True,
+                    dtype=torch.bfloat16,
+                )
             zero_ce, zero_tokens = contrast.evaluate_condition_ce(
                 model,
                 target_batch,
@@ -562,14 +671,17 @@ def train(
                 correct_logits,
                 target_batch.labels,
             )
-            donor_ce, donor_tokens = contrast.detached_answer_ce(
-                donor_logits,
-                target_batch.labels,
-            )
-            permuted_ce, permuted_tokens = contrast.detached_answer_ce(
-                permuted_logits,
-                target_batch.labels,
-            )
+            if not SERIALIZE_CONTROL_BRANCH_GRAPHS:
+                if donor_logits is None or permuted_logits is None:
+                    raise RuntimeError("Causal control graph construction failed")
+                donor_ce, donor_tokens = contrast.detached_answer_ce(
+                    donor_logits,
+                    target_batch.labels,
+                )
+                permuted_ce, permuted_tokens = contrast.detached_answer_ce(
+                    permuted_logits,
+                    target_batch.labels,
+                )
             if len({zero_tokens, correct_tokens, donor_tokens, permuted_tokens}) != 1:
                 raise RuntimeError("Addressed causal answer token counts differ")
             zero_margin = zero_ce - correct_ce
@@ -587,20 +699,78 @@ def train(
                 coefficient=positive_coefficient,
             )
             chunks = correct_chunks
-            if active_donor:
-                _, donor_chunks = backward_logits(
-                    donor_logits,
-                    target_batch.labels,
-                    coefficient=-CONTRAST_WEIGHT,
-                )
-                chunks += donor_chunks
-            if active_permuted:
-                _, permuted_chunks = backward_logits(
-                    permuted_logits,
-                    target_batch.labels,
-                    coefficient=-CONTRAST_WEIGHT,
-                )
-                chunks += permuted_chunks
+            backward_carrier_fixed = True
+            if SERIALIZE_CONTROL_BRANCH_GRAPHS:
+                del correct_logits
+                reset_delta_mem_states(model)
+                evolution.release_native_row_allocator_cache(context.device)
+                if active_donor:
+                    donor_backward_tokens, donor_chunks, donor_backward_audit = (
+                        backward_serialized_intervened_condition(
+                            model,
+                            target_batch,
+                            donor_batch=donor_batch,
+                            rotate_recurrent_layers=False,
+                            coefficient=-CONTRAST_WEIGHT,
+                            dtype=torch.bfloat16,
+                            device=context.device,
+                        )
+                    )
+                    if donor_backward_tokens != donor_tokens:
+                        raise RuntimeError(
+                            "Serialized donor answer token count changed"
+                        )
+                    backward_carrier_fixed = bool(
+                        backward_carrier_fixed
+                        and donor_backward_audit[
+                            "projected_carrier_references_fixed"
+                        ]
+                    )
+                    chunks += donor_chunks
+                if active_permuted:
+                    (
+                        permuted_backward_tokens,
+                        permuted_chunks,
+                        permuted_backward_audit,
+                    ) = backward_serialized_intervened_condition(
+                        model,
+                        target_batch,
+                        donor_batch=None,
+                        rotate_recurrent_layers=True,
+                        coefficient=-CONTRAST_WEIGHT,
+                        dtype=torch.bfloat16,
+                        device=context.device,
+                    )
+                    if permuted_backward_tokens != permuted_tokens:
+                        raise RuntimeError(
+                            "Serialized layer-permuted answer token count changed"
+                        )
+                    backward_carrier_fixed = bool(
+                        backward_carrier_fixed
+                        and permuted_backward_audit[
+                            "projected_carrier_references_fixed"
+                        ]
+                    )
+                    chunks += permuted_chunks
+            else:
+                if active_donor:
+                    if donor_logits is None:
+                        raise RuntimeError("Causal donor graph is missing")
+                    _, donor_chunks = backward_logits(
+                        donor_logits,
+                        target_batch.labels,
+                        coefficient=-CONTRAST_WEIGHT,
+                    )
+                    chunks += donor_chunks
+                if active_permuted:
+                    if permuted_logits is None:
+                        raise RuntimeError("Causal layer-permuted graph is missing")
+                    _, permuted_chunks = backward_logits(
+                        permuted_logits,
+                        target_batch.labels,
+                        coefficient=-CONTRAST_WEIGHT,
+                    )
+                    chunks += permuted_chunks
             if FILTER_NONFINITE_ROWS:
                 row_gradient_validation = accumulate_finite_row_gradients(
                     named_trainable,
@@ -619,6 +789,7 @@ def train(
             carrier_fixed = bool(
                 donor_audit["projected_carrier_references_fixed"]
                 and permuted_audit["projected_carrier_references_fixed"]
+                and backward_carrier_fixed
             )
             projected_carrier_fixed_every_row = (
                 projected_carrier_fixed_every_row and carrier_fixed
@@ -642,7 +813,9 @@ def train(
             local_metrics = [
                 total + value for total, value in zip(local_metrics, values)
             ]
-            del target_batch, donor_batch, correct_logits, donor_logits, permuted_logits
+            if not SERIALIZE_CONTROL_BRANCH_GRAPHS:
+                del correct_logits
+            del target_batch, donor_batch, donor_logits, permuted_logits
             reset_delta_mem_states(model)
             evolution.release_native_row_allocator_cache(context.device)
 
@@ -732,6 +905,14 @@ def train(
         if not bool(torch.isfinite(gradient_norm).item()) or gradient_norm_value <= 0.0:
             raise RuntimeError("Addressed causal gradient norm is invalid")
         minimum_gradient_norm = min(minimum_gradient_norm, gradient_norm_value)
+        if optimizer_state_offload is not None:
+            evolution.release_native_row_allocator_cache(context.device)
+            optimizer_state_restore = evolution.move_optimizer_state(
+                optimizer,
+                device=context.device,
+            )
+            if optimizer_state_restore != optimizer_state_offload:
+                raise RuntimeError("Causal optimizer state restore audit differs")
         optimizer.step()
         record_value = {
             "schema": STEP_SCHEMA,
@@ -756,6 +937,39 @@ def train(
             "gradient_collective_sha256": canonical_sha256(collective),
             "local_gradient_validation": local_gradient_validation,
             "row_filter": row_filter_evidence,
+            "optimizer_state_cpu_offload": {
+                "enabled": OFFLOAD_OPTIMIZER_STATE_DURING_ROWS,
+                "tensors": (
+                    0
+                    if optimizer_state_offload is None
+                    else optimizer_state_offload.tensors
+                ),
+                "bytes": (
+                    0
+                    if optimizer_state_offload is None
+                    else optimizer_state_offload.bytes
+                ),
+                "restored_before_optimizer_step": (
+                    optimizer_state_offload is None
+                    or optimizer_state_restore == optimizer_state_offload
+                ),
+            },
+            "control_branch_graph_serialization": {
+                "enabled": SERIALIZE_CONTROL_BRANCH_GRAPHS,
+                "metric_only_forwards_without_grad": (
+                    2 * GLOBAL_BATCH_SIZE
+                    if SERIALIZE_CONTROL_BRANCH_GRAPHS
+                    else 0
+                ),
+                "active_control_graphs_recreated": (
+                    int(metrics[8] + metrics[9])
+                    if SERIALIZE_CONTROL_BRANCH_GRAPHS
+                    else 0
+                ),
+                "maximum_simultaneous_autograd_graphs_per_rank": (
+                    1 if SERIALIZE_CONTROL_BRANCH_GRAPHS else 3
+                ),
+            },
             "gradient_audit": gradient_audit,
             "recurrent_gradient_audit": gradient_audit,
             "source_ordinals": list(schedule_step.source_ordinals),
@@ -838,6 +1052,24 @@ def train(
             "accepted_gradient_rows": total_accepted_gradient_rows,
             "rejected_gradient_rows": total_rejected_gradient_rows,
             "rejected_source_ordinals": rejected_source_ordinals,
+        },
+        "optimizer_state_cpu_offload": {
+            "enabled": OFFLOAD_OPTIMIZER_STATE_DURING_ROWS,
+            "steps": optimizer_state_cpu_offload_steps,
+            "maximum_tensors_per_rank": optimizer_state_cpu_offload_tensors,
+            "maximum_bytes_per_rank": optimizer_state_cpu_offload_bytes,
+            "restored_before_every_optimizer_step": True,
+        },
+        "control_branch_graph_serialization": {
+            "enabled": SERIALIZE_CONTROL_BRANCH_GRAPHS,
+            "metric_only_forwards_without_grad": (
+                2 * updates * GLOBAL_BATCH_SIZE
+                if SERIALIZE_CONTROL_BRANCH_GRAPHS
+                else 0
+            ),
+            "maximum_simultaneous_autograd_graphs_per_rank": (
+                1 if SERIALIZE_CONTROL_BRANCH_GRAPHS else 3
+            ),
         },
         "initial_adapter_sha256": initial_adapter_sha256,
         "final_adapter_sha256": final_adapter_sha256,

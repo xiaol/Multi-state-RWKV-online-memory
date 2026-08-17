@@ -494,12 +494,54 @@ receipt is
 No native generation benchmark was authorized and no native benchmark gain is
 claimed.
 
-The result rules out "add a stronger readout" as the immediate next move. The
-next experiment should inject the projected slot key/address into RWKV's own
-write/value feature computation, rather than only using the address to choose a
-state slot, and optimize an internal matched-donor contrast. That directly
-targets the remaining donor-neutral boundary; increasing FFN gain or reopening
-generation does not.
+The result rules out "add a stronger readout" as the immediate next move. An
+address-keyed follow-up therefore injected the selected projected slot key into
+RWKV's own `k/v/a/b` write features while retaining all-layer recurrent MoE
+attention and the four sparse DeepEmbed anchors. This is a real RWKV write/read
+path, not a template lookup: projected routing chooses and conditions the
+recurrent write, RWKV-7 evolves four matrix states per layer, and query-time
+projected routing selects the recurrent read used by attention and ChannelMix.
+
+The first four-A100 execution completed five optimizer updates before update 6
+ran out of memory while retaining three control graphs. The execution-only v5
+retry serialized those graphs, then completed all 16 updates and accepted all
+128 rows. Its fresh 11-row teacher-forced endpoint passed:
+zero-minus-correct CE was `+1.469673`, layer-permuted-minus-correct was
+`+0.335185`, and matched-donor-minus-correct was `+0.006768`. The signed
+training status is
+`address_keyed_moe_deepembed_ffn_serialized_graphs_heldout_passed_generation_authorized`.
+
+The authorized 220-row publisher-TRAIN-derived native generation benchmark was
+then run as four deterministic A100 shards against the exact projected-only
+bypass:
+
+| recurrent condition | micro-F1 | margin from correct |
+| --- | ---: | ---: |
+| correct | 0.192212 | - |
+| zero / projected-only | 0.194250 | **-0.002038** |
+| matched donor | 0.195688 | **-0.003476** |
+| layer-permuted | 0.187192 | +0.005020 |
+
+Coverage passed for every condition, every projected carrier stayed
+byte-identical, and zero recurrence matched the explicit attention-plus-FFN
+bypass exactly in both parsed predictions and raw generations. Native gain did
+not pass: correct recurrence lost to the projected-only carrier and to matched
+donor recurrence. The signed status is
+`address_keyed_deepembed_native_gain_not_established`; result SHA-256 is
+`9435980573f845ee0fde3abff987ea39ffa106e597a4ee47d5c8f2e00f7f6aba` and
+receipt is
+`1c79acb43b7ee6fea75dc3579bccb06c9cf81fb4485d6d82e893f58d33fdae71`.
+No native RWKV/DeepEmbed benchmark gain is claimed.
+
+The failure is informative. Correct recurrence reduced false positives from
+`922` to `851`, but also reduced true positives from `125` to `116`; matched
+donor state was slightly better than correct state. The current fixed
+address-to-write perturbation is acting mainly as a conservative decoder
+calibrator, not identity-specific memory. The best next hybrid is a learned
+low-rank address-to-RWKV write transform for `k/v/a/b`, trained with an
+internal query/state InfoNCE or hinge objective before answer CE. A final
+state-conditioned boundary-logit adapter is the secondary direction. Merely
+increasing attention or FFN gain is not supported by these results.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -563,6 +605,12 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [DeepEmbed BF16 screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v2.py),
 [sparse DeepEmbed screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_screen.py),
 [sparse DeepEmbed causal runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train.py),
+[address-keyed DeepEmbed v5 training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_protocol_v5.json),
+[signed address-keyed DeepEmbed training endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json),
+[locked address-keyed native protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
+[signed address-keyed native failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
+[address-keyed native evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py),
+[address-keyed native analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py),
 [recurrent-value screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_screen_protocol_v1.json),
 [signed recurrent-value screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_screen_v1/result.json),
 [recurrent-value calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_calibration_protocol_v1.json),

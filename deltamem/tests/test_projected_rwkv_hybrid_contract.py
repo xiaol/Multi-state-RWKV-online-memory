@@ -356,19 +356,26 @@ def test_address_bound_modes_broadcast_projected_slot_to_recurrent_tokens(
 
 def test_address_bound_moe_zero_state_is_exactly_projected_only() -> None:
     module = _module(hybrid_mode="address_bound_moe_controller")
-    projected = torch.randn(2, 3, module.state_read_dim)
-    recurrent = torch.zeros_like(projected)
-    hidden = torch.randn(2, 3, module.hidden_size)
+    projected = torch.randn(
+        2, 3, module.state_read_dim, requires_grad=True
+    )
+    recurrent = torch.zeros_like(projected, requires_grad=True)
+    global_recurrent = torch.zeros_like(projected, requires_grad=True)
+    hidden = torch.randn(2, 3, module.hidden_size, requires_grad=True)
 
     fused = module._fuse_projected_rwkv_reads(
         projected,
         recurrent,
-        global_recurrent_reads=recurrent,
+        global_recurrent_reads=global_recurrent,
         hidden_states=hidden,
     )
+    fused.sum().backward()
 
     assert hasattr(module, "rwkv_moe_bias")
     assert torch.equal(fused, projected)
+    for tensor in (projected, recurrent, global_recurrent, hidden):
+        assert tensor.grad is not None
+        assert torch.isfinite(tensor.grad).all()
 
 
 def test_addressed_moe_outer_ffn_zero_state_is_exactly_projected_only() -> None:

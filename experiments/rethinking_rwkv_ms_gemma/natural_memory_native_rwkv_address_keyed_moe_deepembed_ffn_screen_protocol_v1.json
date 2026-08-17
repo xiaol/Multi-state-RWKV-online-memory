@@ -1,0 +1,103 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_address_keyed_moe_deepembed_ffn_screen.v1",
+  "created_at": "2026-08-18T20:00:00+08:00",
+  "objective": "Test whether binding the normalized projected address into recurrent RWKV k/v/a/b write features makes the sparse DeepEmbed hybrid materially address-specific without opening native generation or protected data.",
+  "authorization_basis": {
+    "deepembed_causal_result_file": "local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train_v1/result.json",
+    "deepembed_causal_result_file_sha256": "5067878c838b55ad953b606563ce0e21a290efe55d054bc3136fad9239b488ef",
+    "deepembed_causal_result_receipt": "980123e096fb4125ebe0c8da98e25a0333404df4772131bf2b732b95effa4af7",
+    "observed_failure": "The trained sparse DeepEmbed endpoint passed zero and layer-permuted controls but donor-minus-correct mean CE was -0.0037399953, so generation remained blocked.",
+    "architectural_response": "Condition recurrent write features on the selected projected address instead of increasing another readout or FFN gain."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "native_dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "calibration_source_ordinals": [718, 1149, 918, 76],
+    "calibration_rows_payload_sha256": "b77caeb963647569648244a8927de9693347bb159de48f5a21d59738169cfe5a",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "projected_address_dim": 64,
+    "rwkv_feature_dim": 32,
+    "write_slot_binding": "The one projected proposal route is expanded over valid write tokens and used as the RWKV state-slot route.",
+    "write_address_source": "The selected L2-normalized 64D projected slot key is folded parameter-free into 32D as (first_half + second_half) / sqrt(2), then expanded over valid write tokens.",
+    "write_feature_equations": {
+      "direction": "d = tanh(address / max(rms(address), 1e-6))",
+      "key": "k' = k + write_address_gain * rms(k) * d",
+      "value": "v' = v + write_address_gain * rms(v) * d",
+      "receptance_correction_a": "a' = a * (1 + write_address_gain * d)",
+      "receptance_correction_b": "b' = b * (1 + write_address_gain * d)"
+    },
+    "write_address_gain": 0.25,
+    "attention_hybrid_gain": 0.015625,
+    "attention_layers": "0..41",
+    "outer_ffn_gain": 0.0078125,
+    "outer_ffn_layers": [10, 21, 31, 41],
+    "learned_write_parameters": 0,
+    "identity_controls": "Zero write-address gain or a zero address returns the pre-existing RWKV write features exactly."
+  },
+  "candidate_grid": [
+    {
+      "candidate_id": "address_keyed_deepembed_t16_k2_ag015625_wag025_fg0078125",
+      "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+      "hybrid_gain": 0.015625,
+      "write_address_gain": 0.25,
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "fusion_gate_probability": 0.25,
+      "detach_read_scores": true,
+      "outer_ffn_gain": 0.0078125,
+      "outer_ffn_layers": [10, 21, 31, 41]
+    }
+  ],
+  "causal_conditions": {
+    "projected_only": "Correct-row projected carrier with recurrent readout bypassed.",
+    "hybrid_correct": "Correct projected carrier plus address-keyed correct recurrent bundle.",
+    "hybrid_zero_recurrent": "Correct projected carrier with every recurrent tensor zeroed.",
+    "hybrid_matched_donor_recurrent": "Correct projected carrier with an address-keyed write-length-matched donor recurrent bundle.",
+    "hybrid_layer_permuted_recurrent": "Correct projected carrier with address-keyed recurrent bundles cyclically shifted across all 42 layers.",
+    "ffn_gain_zero": "Correct projected and recurrent bundles with DeepEmbed FFN gain set to zero.",
+    "write_address_gain_zero": "Recompute the correct recurrent bundle with the same slot route and projected carrier but no address injection."
+  },
+  "execution": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one locked source/donor pair per rank; no gradient synchronization or optimizer update",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 105,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "fresh_initialization": true
+  },
+  "required_gates": {
+    "all_42_address_keyed_wrappers_and_deepembed_hook_pairs_bound": true,
+    "exactly_four_active_outer_ffn_layers_per_family": true,
+    "projected_carrier_hash_fixed_across_recurrent_conditions": true,
+    "write_address_gain_zero_preserves_projected_carrier": true,
+    "write_address_gain_changes_recurrent_state_on_every_rank": true,
+    "write_address_gain_ablation_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "zero_recurrent_exactly_equals_projected_only_on_every_rank": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_projected_max_abs_logit_delta_maximum_on_every_rank": 2.0,
+    "correct_vs_ffn_gain_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "all_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize a separately locked causal training run on the open development prefix with zero, matched-donor, and layer-permuted controls.",
+    "failure": "Archive the signed failure and revise only the write-conditioning method or gain; do not open native generation or protected endpoints.",
+    "always": "Do not open publisher validation/test, Hard32, unused strength holdout, or native generation."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "8f6219f0c2c1f7b19ac17ed98940c5524a7a4395fb6eded1950ac8f030746895"
+  }
+}

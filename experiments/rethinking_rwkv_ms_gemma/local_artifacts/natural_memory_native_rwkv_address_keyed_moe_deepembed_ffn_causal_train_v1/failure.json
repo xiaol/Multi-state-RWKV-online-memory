@@ -1,0 +1,31 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_address_keyed_moe_deepembed_ffn_causal_train_failure.v1",
+  "status": "address_keyed_moe_deepembed_ffn_training_nonfinite_step1_endpoint_unopened",
+  "protocol_payload_sha256": "f7cdda7a31f48128b56289166a85fed55824d59c89889b0a18e14371b94f0400",
+  "input_binding_file_sha256": "b483c1eb2e630b31e7835bd072995301ef5897265b645fdebcefafed73e0df20",
+  "world_size": 4,
+  "rank_devices": "four distinct NVIDIA A100-PCIE-40GB devices, as bound in input_binding.json",
+  "completed_optimizer_updates": 0,
+  "failed_optimizer_update": 1,
+  "row_filter": {
+    "accepted_rows": 0,
+    "minimum_required_accepted_rows": 6,
+    "rejected_rows": 8,
+    "failure_consensus_ranks": 4
+  },
+  "observed_failure": "All eight step-1 rows produced nonfinite gradients, so the locked row filter stopped training before any optimizer update.",
+  "root_cause": "The address conditioner evaluated sqrt(mean(address^2)) at exactly zero for padded or inactive address tokens before masking. Its forward output remained the exact identity, but the sqrt derivative at zero contaminated backward with nonfinite values.",
+  "authorized_numerical_change": "Replace sqrt(mean(x^2)) with sqrt(mean(x^2) + 1e-12) for address and feature RMS calculations while retaining the explicit zero-address identity branch. Do not change the architecture, gains, trainable families, training schedule, or endpoint.",
+  "heldout_causal_endpoint_opened": false,
+  "native_generation_opened": false,
+  "protected_splits_opened": [],
+  "code_bindings_at_failure": {
+    "runner_sha256": "27995bb507d0cf8b474def0042e28f998cf1f43a844425a0e99129549c615c51",
+    "delta_impl_sha256": "5302743bfd3604c8f8e1c50aa4d3faa328f71fb9017dfa642c62b4a8c5399069"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "9230c945c9221bd66e081474b2a6d68f2e3a5c533f26e6a6615dab69f189c88d"
+  }
+}

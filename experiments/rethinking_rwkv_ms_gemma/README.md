@@ -115,6 +115,59 @@ protocol, and Delta-Mem core, but the thin DeepEmbed wrapper did not include its
 own file SHA in the signed payload. The repository commit pins that wrapper;
 future result schemas should self-bind the top-level wrapper as well.
 
+The subsequent `address_keyed_moe_deepembed_ffn` branch moved the intervention
+upstream into RWKV itself. The selected projected slot key conditions recurrent
+RWKV `k/v/a/b` write features, while the same all-layer addressed/global MoE
+readout and sparse ChannelMix anchors remain active. The projected sidecar is
+still the material carrier, but RWKV now has an explicit write-side identity
+signal rather than only a routed state slot.
+
+The v4 training execution stopped after five updates because three active
+control graphs exceeded a 40 GiB A100 during update 6. The signed failure kept
+the endpoint closed. The v5 execution serialized the donor and layer-permuted
+control graphs without changing the candidate, schedule, data, objective, or
+optimizer. It completed all 16 updates, accepted 128/128 rows, and passed its
+fresh 11-row endpoint:
+
+| recurrent condition | mean CE | margin versus correct | positive rows |
+| --- | ---: | ---: | ---: |
+| correct | 2.828835 | - | - |
+| zero | 4.298508 | +1.469673 | 11 / 11 |
+| matched donor | 2.835603 | +0.006768 | 6 / 11 |
+| layer-permuted | 3.164019 | +0.335185 | 11 / 11 |
+
+The separately locked native benchmark then evaluated 220 open
+publisher-TRAIN-derived rows on four A100s. It compared the same checkpoint and
+projected carrier under correct, zero, matched-donor, layer-permuted, and exact
+projected-only conditions:
+
+| recurrent condition | micro-F1 | precision | recall |
+| --- | ---: | ---: | ---: |
+| correct | 0.192212 | 0.119959 | 0.483333 |
+| zero / projected-only | 0.194250 | 0.119389 | 0.520833 |
+| matched donor | 0.195688 | 0.122153 | 0.491667 |
+| layer-permuted | 0.187192 | 0.116564 | 0.475000 |
+
+Coverage, fixed-carrier, and exact zero/bypass identity gates passed. Only the
+correct-minus-layer-permuted margin passed (`+0.005020`). Correct-minus-bypass
+was `-0.002038`, and correct-minus-donor was `-0.003476`, so the status is
+`address_keyed_deepembed_native_gain_not_established`. The signed result file
+SHA-256 is
+`9435980573f845ee0fde3abff987ea39ffa106e597a4ee47d5c8f2e00f7f6aba`, and
+its receipt is
+`1c79acb43b7ee6fea75dc3579bccb06c9cf81fb4485d6d82e893f58d33fdae71`.
+No native benchmark gain is established.
+
+The correct state suppressed false positives (`851` versus `922`) but also
+suppressed true positives (`116` versus `125`), while a matched donor slightly
+outperformed the correct state. The fixed address perturbation therefore acts
+like a generic decoding calibrator rather than a learned identity binding. The
+next candidate should replace that parameter-free perturbation with learned
+low-rank address-to-RWKV `k/v/a/b` transforms and directly supervise
+query-to-state identity with an internal contrastive loss. A final
+state-conditioned boundary-logit adapter is a separate fallback; another gain
+increase in the existing attention or FFN path is not justified.
+
 ## Current Evidence
 
 Earlier locked open-fit experiments used four A100 GPUs, 16 optimizer
@@ -176,13 +229,13 @@ receipt
 `c18d190c8fffcbac142c4d95cce6899129df637685cc551ae0e78214710ecdde`).
 No native RWKV gain is established.
 
-The next direction is write-side identity. The current address-bound variants
-use the projected address to select the RWKV state slot, but the address does
-not condition RWKV's `k/v/a/b` write features. The next candidate should inject
-the projected slot key/address into that write/value computation through a
-bounded adapter and train an internal matched-donor contrast. The MoE attention
-and sparse DeepEmbed paths can remain readout ablations, but another gate or a
-larger FFN gain does not target the repeated donor-neutral failure.
+The fixed address-keyed write plus DeepEmbed experiment above has now tested
+write-side identity and failed native transfer. The remaining write-side move
+is learned identity binding: train low-rank address projections into RWKV's
+`k/v/a/b` features and enforce a direct query/state contrast before decoding.
+The MoE attention and sparse DeepEmbed paths can remain controlled readout
+ablations, but another gate or a larger gain does not target the repeated
+donor-neutral failure.
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
@@ -191,7 +244,11 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [sparse screen protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_screen_protocol_v1.json),
 [sparse screen result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_screen_v1/result.json),
 [sparse causal protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train_protocol_v1.json),
-and [sparse causal result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train_v1/result.json).
+[sparse causal result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train_v1/result.json),
+[address-keyed v5 training protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_protocol_v5.json),
+[address-keyed v5 endpoint](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json),
+[locked address-keyed generation protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
+and [signed address-keyed native failure](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json).
 
 Use the PyTorch/HF delta-Mem path for these diagnostics. The GGUF sidecar path
 is useful for serving, but it does not expose the hidden states, gradients, and

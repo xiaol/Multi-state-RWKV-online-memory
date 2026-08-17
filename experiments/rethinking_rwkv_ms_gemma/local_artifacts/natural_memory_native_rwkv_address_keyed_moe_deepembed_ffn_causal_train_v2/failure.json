@@ -1,0 +1,53 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_address_keyed_moe_deepembed_ffn_causal_train_failure.v2",
+  "status": "address_keyed_moe_deepembed_ffn_training_nonfinite_step1_endpoint_unopened",
+  "protocol_payload_sha256": "13e8b88cde6800b2f7963c02f8eed7b2d2648be1d647d7d2f6f83ab5d6c1bb0c",
+  "input_binding_file_sha256": "64276d96add15c7985597a98129577e9e5484a8e5587f89c729ef5de3bbb7394",
+  "world_size": 4,
+  "rank_devices": "four distinct NVIDIA A100-PCIE-40GB devices, as bound in input_binding.json",
+  "completed_optimizer_updates": 0,
+  "failed_optimizer_update": 1,
+  "row_filter": {
+    "accepted_rows": 0,
+    "minimum_required_accepted_rows": 6,
+    "rejected_rows": 8,
+    "failure_consensus_ranks": 4
+  },
+  "observed_failure": "All eight step-1 rows still produced nonfinite gradients after the v1 address-conditioner stabilization, so training stopped before any optimizer update.",
+  "gradient_diagnostic": {
+    "failing_runner_sha256": "9ac010626623b4b16e4dc60924334303244fdc80b2fde82bce6ab6b2e24c7931",
+    "failing_input_binding_file_sha256": "8d23dafec6571a93e93a3a7cad50760a00c89b1516c86cde7d0e838bc5cdbc75",
+    "failing_rank_jsonl_sha256": "e29cc71568de10d45f139abfed99386e662b32c9a43aedb9eae58a6c6fe8cfe5",
+    "failing_rank_files_identical": true,
+    "logits_finite": true,
+    "first_correct_backward_nonfinite_tensors": 379,
+    "active_trainable_tensors": 390,
+    "affected_scope": "All 41 earlier attention layers and three earlier sparse FFN taps were nonfinite; the final attention layer and final FFN tap remained finite.",
+    "branch_attribution": "The correct-state branch was already nonfinite before donor-state and layer-permuted-state contrast branches ran. The contrast branches were not the origin."
+  },
+  "root_cause": "The MoE fusion evaluated sqrt(mean(global_recurrent_reads^2)) at an exact zero recurrent read. Clamping only after sqrt preserved the finite forward identity but could not prevent the singular sqrt derivative from contaminating backward.",
+  "authorized_numerical_change": "Evaluate recurrent, projected-carrier, and global-recurrent RMS as sqrt(mean(x^2) + 1e-12), then explicitly return exact zero for exact-zero inputs. Do not change model capacity, architecture, gains, trainable families, training schedule, or the locked endpoint.",
+  "post_fix_diagnostic": {
+    "runner_sha256": "9ac010626623b4b16e4dc60924334303244fdc80b2fde82bce6ab6b2e24c7931",
+    "delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "input_binding_file_sha256": "82f23678d294881d5adf39936d621dbdf20dad50a58f50338dbdd3f55b556407",
+    "rank_jsonl_sha256": "7652e4956e3ec27233644827de0ec2928cf4e6fa20fb968bb660f10de6970d70",
+    "rank_files_identical": true,
+    "finite_rows": 8,
+    "active_finite_trainable_tensors_per_rank": 390,
+    "nonfinite_trainable_tensors_after_each_branch": 0,
+    "optimizer_updates_completed": 0,
+    "diagnostic_stop": "The diagnostic deliberately required nine accepted rows from an eight-row global batch, forcing a stop before optimizer update 1 and before endpoint access."
+  },
+  "heldout_causal_endpoint_opened": false,
+  "native_generation_opened": false,
+  "protected_splits_opened": [],
+  "code_bindings_at_failure": {
+    "runner_sha256": "b7232df81e38bb873c0f864ace7fc36fe5ea53d110b0cc538ac6c7fea0e405fe"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "38b38d20778eed349058ee8256ea43c0f13781497e05358d9a9edf8b1c8bbe1c"
+  }
+}

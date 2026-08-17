@@ -1,0 +1,74 @@
+{
+  "attn_implementation": "sdpa",
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "candidate_results": [
+    {
+      "candidate": {
+        "candidate_id": "address_keyed_deepembed_t16_k2_ag015625_wag025_fg0078125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.015625,
+        "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+        "outer_ffn_gain": 0.0078125,
+        "outer_ffn_layers": [
+          10,
+          21,
+          31,
+          41
+        ],
+        "read_temperature": 16.0,
+        "read_top_k": 2,
+        "write_address_gain": 0.25
+      },
+      "passed": true,
+      "result_dir": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_screen_v2/address_keyed_deepembed_t16_k2_ag015625_wag025_fg0078125",
+      "result_receipt": "0989150f19958293a3e89344311552b7434e9a92fb9a6bab554d8b4c14a93a5e",
+      "status": "address_keyed_moe_deepembed_ffn_screen_passed_training_authorized"
+    }
+  ],
+  "checks": {
+    "candidate_selected": true,
+    "four_distinct_a100_ranks": true
+  },
+  "code_bindings": {
+    "delta_impl_sha256": "5302743bfd3604c8f8e1c50aa4d3faa328f71fb9017dfa642c62b4a8c5399069",
+    "protocol_file_sha256": "62a339e6e1bcfbb58960c0fda5c1f88d212c5e3666cb78f12f08db64474dee7a",
+    "runner_sha256": "f45ffe882d438114bd3ae4aef81894e38f63b589d96ecca06c61697af49a35b1",
+    "shared_screen_runner_sha256": "0c020ad484bbbf0725bf402c07c458a9638437569879471f5178ab69c29a2b38"
+  },
+  "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+  "dtype": "bfloat16",
+  "hf_endpoint": "https://hf-mirror.com",
+  "native_generation_authorized": false,
+  "passed": true,
+  "protected_splits_opened": [],
+  "protocol_objective": "Test whether binding the normalized projected address into recurrent RWKV k/v/a/b write features makes the sparse DeepEmbed hybrid materially address-specific without opening native generation or protected data.",
+  "protocol_payload_sha256": "8f6219f0c2c1f7b19ac17ed98940c5524a7a4395fb6eded1950ac8f030746895",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "de1a4b8f8c213abfbc8778fe9c66c7f22266527f5747aaafed43ae1b1aa14f4b"
+  },
+  "schema": "rwkv_ms_natural_memory_native_address_keyed_moe_deepembed_ffn_screen.v1",
+  "selected_candidate": {
+    "candidate_id": "address_keyed_deepembed_t16_k2_ag015625_wag025_fg0078125",
+    "detach_read_scores": true,
+    "fusion_gate_probability": 0.25,
+    "hybrid_gain": 0.015625,
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "outer_ffn_gain": 0.0078125,
+    "outer_ffn_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "write_address_gain": 0.25
+  },
+  "selected_candidate_result_receipt": "0989150f19958293a3e89344311552b7434e9a92fb9a6bab554d8b4c14a93a5e",
+  "status": "address_keyed_moe_deepembed_ffn_screen_passed_training_authorized",
+  "training_authorized": true,
+  "world_size": 4
+}
