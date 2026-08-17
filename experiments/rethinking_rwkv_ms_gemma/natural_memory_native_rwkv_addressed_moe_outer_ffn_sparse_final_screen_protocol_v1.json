@@ -1,0 +1,65 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_outer_ffn_sparse_final_screen_protocol.v1",
+  "created_at": "2026-08-18T14:00:00+08:00",
+  "objective": "Run the final structural screen for the four-anchor outer FFN at 1/32768 gain, retaining a direct branch cap of 0.5 and stopping the branch on failure.",
+  "authorization_basis": {
+    "prior_protocol_payload_sha256": "97daef8ccc57e4159f2575d3d6c7387ce5b34c0674ec55974e03605c1363021f",
+    "prior_result_file": "local_artifacts/natural_memory_native_rwkv_addressed_moe_outer_ffn_sparse_scaled_screen_v1/result.json",
+    "prior_result_file_sha256": "832b40ec199d80e2e93cab86f35c3405120213d5ef87074be05b3454b3787ea8",
+    "prior_result_receipt": "f40ed5bf23dbab372a671f5ef7cee0796bb9f7af7036c722e54c9373e32f82fc",
+    "prior_status": "addressed_moe_outer_ffn_sparse_scaled_screen_failed_training_blocked",
+    "prior_outcome": "All carrier, state-control, exact-zero, finiteness, and global 2.0 bounds passed, but the direct outer-versus-attention-only effect was 1.125 to 1.656 against the 0.5 cap.",
+    "architectural_response": "Reduce only the four-anchor outer gain by 4x from 1/8192 to 1/32768."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "native_dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "addressed_moe_outer_ffn",
+    "attention_hybrid_gain": 0.03125,
+    "outer_ffn_gain": 0.000030517578125,
+    "outer_ffn_layers": [10, 21, 31, 41],
+    "direct_ablation": "addressed_moe_outer_ffn versus addressed_moe_controller with identical state, carrier, gain, and MoE parameters",
+    "zero_recurrent_identity": "Zero recurrence is exactly projected-only; inactive layers are exact no-ops."
+  },
+  "execution": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one locked source/donor pair per rank; no optimization",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 99,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "fresh_initialization": true
+  },
+  "required_gates": {
+    "all_42_outer_ffn_hooks_bound": true,
+    "exactly_four_active_outer_ffn_layers_per_family": true,
+    "projected_carrier_hash_fixed_across_all_conditions": true,
+    "zero_recurrent_exactly_equals_projected_only_on_every_rank": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_projected_max_abs_logit_delta_maximum_on_every_rank": 2.0,
+    "outer_ffn_vs_attention_only_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "outer_ffn_vs_attention_only_max_abs_logit_delta_maximum_on_every_rank": 0.5,
+    "all_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize one separately locked causal training run with 390 trainable tensors and the remaining open endpoint.",
+    "failure": "Stop the outer-FFN branch and keep the held-out endpoint closed.",
+    "always": "Do not open publisher validation/test, Hard32, the unused strength holdout, or native generation."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "22ad5ee06e0dced49b51c6cbd84c3a6f44956e7bb6927aec03e441ae1bcd92b7"
+  }
+}

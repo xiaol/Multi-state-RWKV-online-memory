@@ -1,0 +1,133 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_outer_ffn_causal_train_protocol.v2",
+  "created_at": "2026-08-18T11:00:00+08:00",
+  "objective": "Run a full causal training gate for the BF16-safe, layer-safe addressed-MoE outer-FFN hybrid after two endpoint-unopened OOM failures in the first implementation.",
+  "authorization_basis": {
+    "screen_protocol_payload_sha256": "6bd5aa2f3d4d2d2aa190b9db8aca74245408a35994327a73b70411822c63e672",
+    "screen_result_file": "local_artifacts/natural_memory_native_rwkv_addressed_moe_outer_ffn_scaled_screen_v2/result.json",
+    "screen_result_file_sha256": "6917c25c0fc3d8353780a873c2f50c19b13bf9ecb7c95e6550ac61f9ddf5b3d5",
+    "screen_result_receipt": "0fe44645f1830670193bae3910b9e90ac8502ade8b354717a47c968063d837b0",
+    "screen_status": "addressed_moe_outer_ffn_scaled_screen_passed_training_authorized",
+    "implementation_amendment": "The outer-FFN residual now performs RMS normalization, linear projections, and bounded direction computation in the model activation dtype, while trainable adapter storage remains FP32.",
+    "prior_training_failures": [
+      {
+        "failure_file": "local_artifacts/natural_memory_native_rwkv_addressed_moe_outer_ffn_causal_train_v1/",
+        "failure": "rank-3 CUDA OOM during update 6 donor backward",
+        "heldout_causal_endpoint_opened": false
+      },
+      {
+        "failure_file": "local_artifacts/natural_memory_native_rwkv_addressed_moe_outer_ffn_causal_train_v2/failure.json",
+        "failure_file_sha256": "3c83d09e48ab9b836206387953fd00d1db0732abb00a2af2fb0892aa407a67be",
+        "failure_receipt": "ba8c9aea72e724882bf8bef8c5fccacc149676e636303d56e845652ada44f5aa",
+        "failure": "rank-3 CUDA OOM during update 6 donor backward with expandable segments",
+        "heldout_causal_endpoint_opened": false
+      }
+    ],
+    "selected_candidate": {
+      "candidate_id": "addressed_moe_outer_ffn_t16_k2_ag03125_fg00048828125",
+      "hybrid_mode": "addressed_moe_outer_ffn",
+      "hybrid_gain": 0.03125,
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "fusion_gate_probability": 0.25,
+      "detach_read_scores": true,
+      "outer_ffn_gain": 0.00048828125
+    }
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "sixteen_update_schedule_prefix_sha256": "121c2eea4904545b2f8c44ef2e4b16e905ca76809af9c34de5b7f848825872fd",
+    "seed": 98,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "selected_candidate": {
+      "candidate_id": "addressed_moe_outer_ffn_t16_k2_ag03125_fg00048828125",
+      "hybrid_mode": "addressed_moe_outer_ffn",
+      "hybrid_gain": 0.03125,
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "fusion_gate_probability": 0.25,
+      "detach_read_scores": true,
+      "outer_ffn_gain": 0.00048828125
+    },
+    "attention_experts": ["projected-addressed RWKV read", "global recurrent-state RWKV read", "projected-only abstention"],
+    "outer_ffn": "BF16-safe RMS-normalized recurrent control -> identity-initialized down projection -> SiLU times query-conditioned sigmoid gate -> delta-o-initialized up projection -> BF16-safe RMS-normalized tanh direction",
+    "outer_ffn_placement": "after the frozen Gemma MLP through its post_feedforward_layernorm hook and before the decoder residual addition",
+    "attention_hybrid_gain": 0.03125,
+    "outer_ffn_gain": 0.00048828125,
+    "zero_recurrent_identity": "Zero recurrence is exactly projected-only in both attention and outer-FFN paths.",
+    "projected_carrier_and_address_route_fixed_across_interventions": true,
+    "trainable_parameter_families": ["hrm_rwkv7_core.output.weight", "delta_o_proj", "memory_fusion_hidden_weight", "memory_fusion_read_weight", "memory_fusion_bias", "rwkv_moe_hidden_weight", "rwkv_moe_addressed_weight", "rwkv_moe_global_weight", "rwkv_moe_bias", "rwkv_outer_ffn_down_weight", "rwkv_outer_ffn_gate_weight", "rwkv_outer_ffn_up_weight"],
+    "expected_trainable_parameter_tensors": 504
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "optimizer_updates": 16,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "backward_objective": "correct_state_ce_plus_active_causal_contrasts",
+    "contrast_weight_per_active_control": 1.0,
+    "contrast_margin": 0.05,
+    "control_branches": ["zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"],
+    "nonfinite_row_policy": "discard entire row",
+    "minimum_accepted_rows_per_update": 6,
+    "maximum_total_rejected_rows": 8,
+    "gradient_rescale": "8 / accepted_rows",
+    "cuda_allocator": "expandable_segments:True"
+  },
+  "heldout_causal_endpoint": {
+    "selection": "The remaining seed-96 open-fit sample whose source and mapped donor are disjoint from the sixteen-update schedule and all previously opened causal endpoints.",
+    "candidate_rows_after_exclusions": 19,
+    "source_ordinals": [545, 765, 582, 718, 863, 1432, 1349, 1436, 29, 586, 456, 596],
+    "source_donor_payload_sha256": "97b043c06f2981446705b7c8aba3574d11d52a25ff99fa3ce242343f475cd417",
+    "rows": 12,
+    "required_mean_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "all_condition_logits_finite": true,
+    "open_only_after_all_training_gates_pass": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_sixteen_updates_complete": true,
+    "at_least_six_accepted_rows_each_update": true,
+    "at_most_eight_rejected_rows_total": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "projected_carrier_fixed_for_every_intervention": true,
+    "primary_trainable_subset_changed": true,
+    "recurrent_parameter_subset_changed": true,
+    "all_126_outer_ffn_parameter_tensors_receive_finite_gradients": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true,
+    "all_heldout_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "training_failure": "Do not open the held-out endpoint; archive the failure.",
+    "endpoint_pass": "Authorize a separately locked matched projected-only versus outer-FFN hybrid native generation benchmark.",
+    "endpoint_failure": "Block generation, archive the causal failure, and use the control margins to choose the next hybrid.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused strength holdout."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "a124dca10f395ebbbdb4a8e962372ee8e664fd50b12e0adc28e61b13a39a006b"
+  }
+}

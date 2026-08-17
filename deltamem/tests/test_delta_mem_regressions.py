@@ -2059,6 +2059,55 @@ def test_gemma4_post_attention_norm_gradients_reach_memory_and_gate(
     )
 
 
+def test_gemma4_addressed_moe_outer_ffn_runs_after_frozen_mlp() -> None:
+    if Gemma4TextModel is None:
+        pytest.skip("Gemma4 is not available in this Transformers version")
+    torch.manual_seed(0)
+    model = Gemma4TextModel(make_gemma4_shared_kv_config()).train()
+    attach_delta_mem(
+        model,
+        HFDeltaMemConfig(
+            rank=2,
+            output_init="random",
+            online_gain=0.2,
+            memory_backend="rwkv_ms",
+            memory_readout_mode="projected_kv_rwkv_hybrid",
+            projected_kv_key_dim=2,
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            rwkv_ms_hybrid_mode="addressed_moe_outer_ffn",
+            rwkv_ms_hybrid_gain=0.03125,
+            rwkv_ms_outer_ffn_gain=1.0 / 2048.0,
+            delta_heads=("q", "o"),
+            memory_fusion_mode="content_gated_qo_add",
+            memory_fusion_gate_init=0.25,
+            target_layers=(0, 1, 2, 3),
+            target_modules=("self_attn",),
+        ),
+    )
+    freeze_non_delta_mem_params(model)
+
+    model(input_ids=torch.tensor([[1, 2, 3, 4, 5]]), use_cache=False)
+    set_delta_mem_write_enabled(model, False)
+    output = model(input_ids=torch.tensor([[6, 7, 8]]), use_cache=False)
+    output.last_hidden_state.square().mean().backward()
+
+    wrapped = model.layers[3].self_attn
+    assert isinstance(wrapped, DeltaMemAttention)
+    assert wrapped._post_feedforward_norm_hook_handle is not None
+    assert wrapped._pending_outer_ffn_delta is None
+    for parameter in (
+        wrapped.rwkv_outer_ffn_down_weight,
+        wrapped.rwkv_outer_ffn_gate_weight,
+        wrapped.rwkv_outer_ffn_up_weight,
+    ):
+        assert parameter.grad is not None
+        assert torch.isfinite(parameter.grad).all()
+        assert parameter.grad.float().norm().item() > 0.0
+    assert all(parameter.grad is None for parameter in wrapped.base.parameters())
+    assert all(parameter.grad is None for parameter in model.layers[3].mlp.parameters())
+
+
 @pytest.mark.parametrize(
     "memory_fusion_placement",
     [

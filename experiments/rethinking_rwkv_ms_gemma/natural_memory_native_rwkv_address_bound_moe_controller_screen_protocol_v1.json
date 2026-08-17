@@ -1,0 +1,70 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_address_bound_moe_controller_screen_protocol.v1",
+  "created_at": "2026-08-17T17:00:00+08:00",
+  "objective": "Screen a hybrid that combines projected-address-bound recurrent writes with a trainable addressed/global RWKV mixture-of-experts controller and projected-only abstention.",
+  "authorization_basis": {
+    "prior_protocol_payload_sha256": "053c85e5e3f7c44db6c0f242962979e1d2bfeb4af39d027b2f8c36f72e4907ed",
+    "prior_result_file": "local_artifacts/natural_memory_native_rwkv_address_bound_write_causal_train_v1/result.json",
+    "prior_result_file_sha256": "6227f5ad9f252ec9709c627da9d188394c88f7ec7f4b5704ce174032acaf3d45",
+    "prior_result_receipt": "438205f95fc7b4b41d0828a6c5a163aa2e09eb3098253f07399d7c1c921d440c",
+    "prior_status": "address_bound_write_heldout_failed_generation_blocked",
+    "prior_outcome": "Address-bound stable readout strongly separated correct from zero recurrence by 0.934338 mean CE but failed donor and layer-permuted specificity at -0.008722 and -0.000784.",
+    "architectural_response": "Preserve the verified write-address binding and add a learned query-conditioned choice among addressed recurrence, global recurrence, and projected-only abstention."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "native_dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "address_bound_moe_controller",
+    "write_binding": "The projected proposal selects one slot; every valid recurrent RWKV token update from that write episode is scanned into that slot.",
+    "read_addressing": "The projected query route selects the corresponding recurrent slot for the addressed expert.",
+    "experts": ["projected-addressed RWKV read", "global recurrent-state RWKV read", "projected-only abstention"],
+    "gate": "three-way query-conditioned softmax over normalized query, addressed read, and global read",
+    "fusion_equation": "projected_read + 0.03125 * projected_rms * (w_addressed * addressed_direction + w_global * global_direction)",
+    "hybrid_gain": 0.03125,
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "detach_read_scores": true,
+    "memory_fusion_mode": "content_gated_add",
+    "fusion_gate_probability": 0.25,
+    "zero_recurrent_identity": "Zero addressed and global recurrence is exactly projected-only.",
+    "projected_carrier": "Projected keys and values remain the fixed material carrier under recurrent interventions."
+  },
+  "execution": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one locked source/donor pair per rank; no gradient or optimizer update",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 95,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "fresh_initialization": true
+  },
+  "required_gates": {
+    "projected_and_recurrent_occupied_write_slots_identical_on_every_layer_and_rank": true,
+    "projected_carrier_hash_fixed_across_all_conditions": true,
+    "zero_recurrent_exactly_equals_projected_only_on_every_rank": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_projected_max_abs_logit_delta_maximum_on_every_rank": 2.0,
+    "all_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize only a separately locked supervised causal training run with a fresh source/donor-disjoint open endpoint.",
+    "failure": "Archive the structural failure and redesign the controller or writer.",
+    "always": "Do not open publisher validation/test, Hard32, the unused strength holdout, or native generation."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "dbb12dffeddaeb4f1ec4ba24b663ecdead3c8571770383ebd5550a5b578bb0fa"
+  }
+}

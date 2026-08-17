@@ -1,0 +1,111 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_address_bound_write_causal_train_protocol.v1",
+  "created_at": "2026-08-17T14:45:00+08:00",
+  "objective": "Test whether binding every recurrent RWKV write to the projected proposal address yields positive correct-state preference over zero, donor, and layer-permuted controls on a fresh source/donor-disjoint endpoint.",
+  "authorization_basis": {
+    "screen_protocol_payload_sha256": "78bfefd54d7cbca8ee69fea1084ce48fa552a6f9a68c1e8919ae65f1264854f2",
+    "screen_result_file": "local_artifacts/natural_memory_native_rwkv_address_bound_write_screen_v4/result.json",
+    "screen_result_file_sha256": "fc2e53e07d0b797322276e0a12b94ac684b6d6256fa0fed083fc17fda7480d14",
+    "screen_result_receipt": "f1c91a769f100bcae94f5006f06ae662a8877603c48ad7ab5b047819d4e706ee",
+    "screen_status": "address_bound_write_screen_passed_training_authorized",
+    "selected_candidate": {
+      "candidate_id": "address_bound_write_t16_k2_g003125",
+      "hybrid_mode": "address_bound_write",
+      "hybrid_gain": 0.03125,
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "fusion_gate_probability": 0.25,
+      "detach_read_scores": true
+    }
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "sixteen_update_schedule_prefix_sha256": "121c2eea4904545b2f8c44ef2e4b16e905ca76809af9c34de5b7f848825872fd",
+    "seed": 94,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "selected_candidate": {
+      "candidate_id": "address_bound_write_t16_k2_g003125",
+      "hybrid_mode": "address_bound_write",
+      "hybrid_gain": 0.03125,
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "fusion_gate_probability": 0.25,
+      "detach_read_scores": true
+    },
+    "write_binding": "The projected proposal chooses one memory slot, and every valid recurrent RWKV token update in that write episode is scanned into the same slot.",
+    "read_addressing": "The projected query route reads the corresponding recurrent slot.",
+    "fusion_equation": "projected_read * (1 + 0.03125 * direction) + 0.0078125 * projected_rms * direction, where direction = tanh(addressed_recurrent_read / recurrent_rms)",
+    "zero_recurrent_identity": "Zero recurrence is exactly projected-only.",
+    "projected_carrier_and_address_route_fixed_across_interventions": true,
+    "trainable_parameter_families": ["hrm_rwkv7_core.output.weight", "delta_o_proj", "memory_fusion_hidden_weight", "memory_fusion_read_weight", "memory_fusion_bias"]
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "optimizer_updates": 16,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "backward_objective": "correct_state_ce_plus_active_causal_contrasts",
+    "contrast_weight_per_active_control": 1.0,
+    "contrast_margin": 0.05,
+    "control_branches": ["zero_recurrent", "matched_donor_recurrent", "layer_permuted_recurrent"],
+    "nonfinite_row_policy": "discard entire row",
+    "minimum_accepted_rows_per_update": 6,
+    "maximum_total_rejected_rows": 8,
+    "gradient_rescale": "8 / accepted_rows"
+  },
+  "heldout_causal_endpoint": {
+    "selection": "Seed-94 greedy draw from open fit rows after excluding all sources and mapped donors used by the sixteen-update schedule and all thirteen prior locked causal or specificity endpoints; selected source and donor sets are internally disjoint.",
+    "candidate_rows_after_exclusions": 91,
+    "source_ordinals": [488, 742, 106, 102, 231, 1046, 406, 1049, 1223, 1267, 461, 1310, 12, 477, 976, 565, 1026, 1300, 1125, 1085, 598, 1352, 98, 854, 1323, 1120, 621, 191, 1334, 1419, 440, 848],
+    "source_donor_payload_sha256": "96c62e69cb1b9128cc57472bc4885d3328694ea89a7d0ea3ff790fdfb9083459",
+    "rows": 32,
+    "required_mean_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "all_condition_logits_finite": true,
+    "open_only_after_all_training_gates_pass": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_sixteen_updates_complete": true,
+    "at_least_six_accepted_rows_each_update": true,
+    "at_most_eight_rejected_rows_total": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "projected_carrier_fixed_for_every_intervention": true,
+    "primary_trainable_subset_changed": true,
+    "recurrent_parameter_subset_changed": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true,
+    "all_heldout_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "training_failure": "Do not open the held-out endpoint; archive the failure.",
+    "endpoint_pass": "Authorize a separately locked matched projected-only versus address-bound-write native generation benchmark.",
+    "endpoint_failure": "Block generation, archive the causal failure, and use the control margins to choose the next hybrid.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused strength holdout."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "053c85e5e3f7c44db6c0f242962979e1d2bfeb4af39d027b2f8c36f72e4907ed"
+  }
+}

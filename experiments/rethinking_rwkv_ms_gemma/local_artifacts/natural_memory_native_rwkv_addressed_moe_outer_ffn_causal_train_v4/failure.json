@@ -1,0 +1,23 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_outer_ffn_causal_train_failure.v2",
+  "status": "addressed_moe_outer_ffn_training_oom_endpoint_unopened",
+  "protocol_payload_sha256": "a124dca10f395ebbbdb4a8e962372ee8e664fd50b12e0adc28e61b13a39a006b",
+  "failure_phase": "update_6_matched_donor_backward_rank_3",
+  "failure_type": "torch.OutOfMemoryError",
+  "failure_summary": "The BF16-safe outer-FFN retry still exhausted the 40 GiB A100 during checkpoint recomputation of the frozen Gemma MLP after five completed updates.",
+  "completed_optimizer_updates": 5,
+  "expected_optimizer_updates": 16,
+  "first_update_all_504_gradients_finite_nonzero": true,
+  "input_binding_file_sha256": "850c7c124703a477373fd6193a1e9fac44d6cc7a5a790e5fb24342f7d680a74a",
+  "training_progress_file_sha256": "2fdd66dde5ed5ef72fd734132de87d6fd8d31bdaf6caf951ced61051a7fcf692",
+  "cuda_allocator": "expandable_segments:True",
+  "heldout_causal_endpoint_opened": false,
+  "native_generation_authorized": false,
+  "protected_splits_opened": [],
+  "architectural_response": "Keep the attention-side MoE at all layers but instantiate and train the outer FFN only at depth anchors 10, 21, 31, and 41.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_failure_without_receipt",
+    "payload_sha256": "0dc8b7e793b353a5f9ec5baea71732c2220f305bb6dfedb04288845d379c6091"
+  }
+}

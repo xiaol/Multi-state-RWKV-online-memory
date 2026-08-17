@@ -18,49 +18,88 @@ a hybrid with two persistent memories in every wrapped Gemma attention layer:
    slot from the current query by cosine routing.
 2. An RWKV-7 recurrent matrix state is written online into the corresponding
    fixed-chunk slots.
-3. The projected route addresses the matching RWKV state slot. The RWKV read is
-   normalized and used as a bounded elementwise FiLM controller plus a small
-   recurrent value residual:
+3. Candidate hybrids use the projected route to address the matching RWKV state
+   slot. The recurrent read is normalized and used as a bounded elementwise
+   controller:
 
    ```text
    direction = tanh(rwkv_read / rms(rwkv_read))
-   output = projected_read * (1 + 0.125 * direction)
-          + 0.03125 * rms(projected_read) * direction
+   output = projected_read * (1 + gain * controller * direction)
    ```
 
 4. The fused read passes through the learned delta output path and a
    content-gated residual into frozen Gemma.
 
 The projected key/value sidecar remains the primary material carrier. The
-latest experiment establishes a bounded causal RWKV contribution under
-teacher forcing: correct recurrent state beats zero, matched-donor, and
-layer-permuted state while the projected carrier stays fixed. It does not yet
-establish a native generation gain over the matched projected-only carrier.
+recurrent contribution is active under teacher forcing, but the causal
+endpoints do not jointly establish correct-state preference over both donor
+and layer-permuted controls. Native generation is blocked for these candidates.
+
+### Outer-FFN branch
+
+The addressed-MoE candidate also has an optional post-MLP path. At sparse
+decoder anchors `(10, 21, 31, 41)`, the addressed/global RWKV correction is
+normalized and passed through a small gated FFN, then added by a forward hook
+after Gemma's frozen MLP and before the layer residual addition:
+
+```text
+control = (hybrid_read - projected_read) /
+          (attention_gain * rms(projected_read))
+outer = outer_gain * tanh(rms_norm(
+    up(silu(down(rms_norm(control))) * sigmoid(gate(rms_norm(query))))
+))
+```
+
+The four-A100 same-mode ablation kept the projected carrier, recurrent state,
+routing, and attention gain fixed and changed only `outer_gain` from `1/8192`
+to zero. Recurrent and carrier identity checks passed, but outer-on versus
+outer-zero logit deltas were `1.46875`, `1.375`, `1.65625`, and `1.125`, above
+the locked `0.5` bound. The signed result is
+`local_artifacts/natural_memory_native_rwkv_addressed_moe_outer_ffn_gain_ablation_screen_v1/result.json`
+(file SHA-256
+`645f2dbe5098b23366797de154065677cd5fb57ad7e7bc5d733380ef0168c285`, receipt
+`5c0e2babcd68aaeeb7db381f137c9abca183f716ddfe723fb35d42061c293278`). Its
+status is `addressed_moe_outer_ffn_gain_ablation_screen_failed_branch_stopped`;
+the causal endpoint and native generation remain closed.
 
 ## Current Evidence
 
-The latest locked open-fit experiment used four A100 GPUs, 16 optimizer
-updates, 128 accepted training rows, and a fresh source/donor-disjoint 32-row
-teacher-forced endpoint. All training and integrity gates passed, with no row
+Earlier locked open-fit experiments used four A100 GPUs, 16 optimizer
+updates, 128 accepted training rows, and fresh source/donor-disjoint 32-row
+teacher-forced endpoints. All training and integrity gates passed, with no row
 rejections and no protected split access.
 
-| recurrent condition | mean CE | margin versus correct |
+| candidate / recurrent condition | mean CE | margin versus correct |
 | --- | ---: | ---: |
-| correct | 2.887219 | - |
-| zero / projected-only | 3.725045 | +0.837826 |
-| matched donor | 2.896725 | +0.009506 |
-| layer-permuted | 2.926837 | +0.039618 |
+| route agreement / correct | 2.636815 | - |
+| route agreement / zero | 3.414512 | +0.777697 |
+| route agreement / donor | 2.636736 | **-0.000079** |
+| route agreement / layer-permuted | 2.642873 | +0.006058 |
+| query-state gate / correct | 2.981633 | - |
+| query-state gate / zero | 3.824999 | +0.843366 |
+| query-state gate / donor | 2.974421 | **-0.007213** |
+| query-state gate / layer-permuted | 2.962663 | **-0.018970** |
 
-Lower CE is better. All three preregistered mean margins are positive, so this
-run establishes that the RWKV path is active, layer/order-sensitive, and weakly
-example-specific on the fresh endpoint. The donor result is the weakest gate:
-its mean margin is only `+0.009506`, with 59.375% of rows positive. The signed
-teacher-forced result is
-`local_artifacts/natural_memory_native_rwkv_addressed_affine_causal_train_v1/result.json`
+Lower CE is better. Zero recurrence is consistently worse, proving the RWKV
+path is active. Route agreement is donor-neutral, while the query-state gate
+is donor- and layer-unfavorable on its fresh endpoint. The signed results are
+`local_artifacts/natural_memory_native_rwkv_addressed_route_agreement_causal_train_v1/result.json`
+(file SHA-256 `fa665edfa75620de412c12f85e453cfdbb4f6f19fc15088fc0babc3bd1be2ca8`,
+receipt `d4f2ff8f105fbba9d29c64d1e5e56c33e067f7a674babf4805be40144aa9f622`)
+and
+`local_artifacts/natural_memory_native_rwkv_addressed_query_state_gate_causal_train_v1/result.json`
+(file SHA-256 `7bc255f1784c2e36df9ef2abd53903e634d3164e51f29631911fa2235b736343`,
+receipt `a4f9bb3943a9e47cfd8457d58aea52ba9403998b5eddd440ae8d657b1d6b0512`).
+
+The final addressed/global MoE rerun also completed 16 updates and all
+integrity gates. On its fresh 32-row endpoint, zero-minus-correct CE was
+`+0.882820` and donor-minus-correct was `+0.002533`, but
+layer-permuted-minus-correct was `-0.000107`. The full causal gate therefore
+failed and native generation stayed closed. The signed result is
+`local_artifacts/natural_memory_native_rwkv_addressed_moe_controller_causal_train_v4/result.json`
 (file SHA-256
-`096e20bb01abbe86689745379b12b3f1b8d5de32c7be0ba682793855a85e0e2d`,
-receipt
-`c74dc75bee63bc3cae65671c0978f92969bb08e2e69d6fa1c8ea3c28c232a4e6`).
+`6b4f835e487eb01bdc4058013b00df0ec4e364e7a8bf19dada182c59e4e18df2`, receipt
+`aaec56edc52ab77a207617685e8dc3c8ead1b550614763012fe0595e222e9e29`).
 
 The separately locked 220-row native generation benchmark failed every causal
 gain gate:
@@ -84,9 +123,17 @@ receipt
 `c18d190c8fffcbac142c4d95cce6899129df637685cc551ae0e78214710ecdde`).
 No native RWKV gain is established.
 
-The next hybrid should make recurrent injection conditional on query/state
-agreement and abstain to projected-only when confidence is weak. This targets
-the observed false-positive increase instead of increasing recurrent gain.
+The next hybrid should use a bounded mixture-of-experts recurrent controller:
+small addressed and global-state readout experts compete under a normalized
+query-conditioned gate, with donor/layer contrast and an explicit projected-only
+abstention arm. This targets example-specificity without opening native
+generation for an unproven recurrent readout.
+
+The next direction is write-side identity: condition the RWKV write/value
+update on the projected slot address, then train with a donor-contrast loss.
+This targets the repeated donor-neutral result directly. A smaller or more
+sparsely applied outer FFN can remain a diagnostic control, but it is not an
+authorized training or generation path after the bound failure.
 
 Use the PyTorch/HF delta-Mem path for these diagnostics. The GGUF sidecar path
 is useful for serving, but it does not expose the hidden states, gradients, and

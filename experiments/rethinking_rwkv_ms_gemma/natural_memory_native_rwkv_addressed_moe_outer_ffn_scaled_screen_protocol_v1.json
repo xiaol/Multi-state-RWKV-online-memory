@@ -1,0 +1,70 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_outer_ffn_scaled_screen_protocol.v1",
+  "created_at": "2026-08-18T09:00:00+08:00",
+  "objective": "Screen a layer-safe outer-FFN scale while preserving the structurally causal addressed/global RWKV MoE and exact projected-only zero-state identity.",
+  "authorization_basis": {
+    "prior_protocol_payload_sha256": "add90c4801b2a492c0e7abe487b11d6feb2375d928c99b296e35544b936c5a76",
+    "prior_result_file": "local_artifacts/natural_memory_native_rwkv_addressed_moe_outer_ffn_screen_v1/result.json",
+    "prior_result_file_sha256": "b8ea91e7ecee62573d383393d736fff8dfdf6fa5a2a701debaf000c8361ca2c3",
+    "prior_result_receipt": "ff23246156174653dca227a3c0cd186124498aba8887725157a69ab0c1484f4f",
+    "prior_status": "addressed_moe_outer_ffn_screen_failed_training_blocked",
+    "prior_outcome": "All four ranks passed exact-zero, finiteness, donor, layer-permutation, and materiality gates, but the 0.03125 per-layer outer residual produced 12.84375 to 15.09375 maximum logit deltas and violated the 2.0 bound.",
+    "architectural_response": "Decouple the outer-FFN amplitude from the attention-side hybrid gain and reduce only the per-layer post-MLP residual by 64x to 1/2048."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "native_dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "addressed_moe_outer_ffn",
+    "attention_hybrid_gain": 0.03125,
+    "outer_ffn_gain": 0.00048828125,
+    "outer_ffn_scale_response": "The outer residual is bounded independently at 1/2048 per layer instead of reusing the 1/32 attention correction bound.",
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "detach_read_scores": true,
+    "memory_fusion_mode": "content_gated_add",
+    "fusion_gate_probability": 0.25,
+    "attention_experts": ["projected-addressed RWKV read", "global recurrent-state RWKV read", "projected-only abstention"],
+    "outer_ffn": "identity-initialized recurrent down projection, query-conditioned sigmoid gate, SiLU, and delta-o-initialized up projection",
+    "outer_ffn_placement": "after Gemma's frozen MLP and before the decoder residual addition",
+    "zero_recurrent_identity": "Zero addressed and global recurrence makes both the attention correction and outer FFN residual exactly zero."
+  },
+  "execution": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one locked source/donor pair per rank; no gradient or optimizer update",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 98,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "fresh_initialization": true
+  },
+  "required_gates": {
+    "all_42_outer_ffn_hooks_bound": true,
+    "all_three_outer_ffn_parameter_families_present_on_all_42_layers": true,
+    "projected_carrier_hash_fixed_across_all_conditions": true,
+    "zero_recurrent_exactly_equals_projected_only_on_every_rank": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_projected_max_abs_logit_delta_maximum_on_every_rank": 2.0,
+    "all_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize only a separately locked supervised causal training run on the remaining source/donor-disjoint open endpoint.",
+    "failure": "Archive the structural failure and do not open that endpoint.",
+    "always": "Do not open publisher validation/test, Hard32, the unused strength holdout, or native generation."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "6bd5aa2f3d4d2d2aa190b9db8aca74245408a35994327a73b70411822c63e672"
+  }
+}

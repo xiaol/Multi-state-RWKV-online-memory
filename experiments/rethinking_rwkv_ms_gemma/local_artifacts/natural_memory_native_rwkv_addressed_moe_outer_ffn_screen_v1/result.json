@@ -1,0 +1,393 @@
+{
+  "checks": {
+    "candidate_passed_on_all_ranks": false,
+    "four_distinct_a100_ranks": true,
+    "projected_carrier_fixed_on_all_ranks": true
+  },
+  "code_bindings": {
+    "addressed_moe_result_file_sha256": "6b4f835e487eb01bdc4058013b00df0ec4e364e7a8bf19dada182c59e4e18df2",
+    "delta_impl_sha256": "275d88eb96df5420ac069a9fef878d241a7b2dec7398f4aa70d7b0159f006b8a",
+    "protocol_file_sha256": "b2b1837019fce556147047e96b5a86c1731170bbe40bf491f9b95090900efcfb",
+    "runner_sha256": "169471f3b536d96c1f5e46ab5f39dfa1b63a616f780859b45ffc28751a5ea47a",
+    "shared_screen_runner_sha256": "0c020ad484bbbf0725bf402c07c458a9638437569879471f5178ab69c29a2b38"
+  },
+  "initial_adapter_sha256": "5e44a7862a85b019cb341852b334f47a9329832c96537af9c15d29607d3f266f",
+  "model_audit": {
+    "all_wrappers_addressed_moe_outer_ffn": true,
+    "all_wrappers_hybrid": true,
+    "outer_ffn_family_counts": {
+      "rwkv_outer_ffn_down_weight": 42,
+      "rwkv_outer_ffn_gate_weight": 42,
+      "rwkv_outer_ffn_up_weight": 42
+    },
+    "outer_ffn_hook_count": 42,
+    "replaced_layers": 42,
+    "trainable_parameter_names_sha256": "627630ac5936e7c66b080cbba2cfc58188198b1b70fa4dd140fe9836a0b2a639",
+    "trainable_parameter_tensors": 1596,
+    "wrapped_layers": 42
+  },
+  "native_generation_authorized": false,
+  "passed": false,
+  "protected_splits_opened": [],
+  "protocol_objective": "Screen whether a bounded recurrent-only FFN residual injected after Gemma's frozen MLP adds a structurally causal path beyond the attention-side addressed/global RWKV mixture.",
+  "protocol_payload_sha256": "add90c4801b2a492c0e7abe487b11d6feb2375d928c99b296e35544b936c5a76",
+  "rank_devices": [
+    {
+      "device_index": 0,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 0,
+      "pid": 2099816,
+      "process_rank": 0
+    },
+    {
+      "device_index": 1,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 1,
+      "pid": 2099817,
+      "process_rank": 1
+    },
+    {
+      "device_index": 2,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 2,
+      "pid": 2099818,
+      "process_rank": 2
+    },
+    {
+      "device_index": 3,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 3,
+      "pid": 2099819,
+      "process_rank": 3
+    }
+  ],
+  "rank_evidence": [
+    {
+      "absolute_write_token_delta": 11,
+      "candidate": {
+        "candidate_id": "addressed_moe_outer_ffn_t16_k2_g03125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_outer_ffn",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": false,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9822898864746094,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 16.15625,
+          "mean_abs_logit_delta": 1.8636554479599,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9722118377685547,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 11.78125,
+          "mean_abs_logit_delta": 0.9348123669624329,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9809074401855469,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 15.09375,
+          "mean_abs_logit_delta": 1.3976494073867798,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9809074401855469,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 15.09375,
+          "mean_abs_logit_delta": 1.3976494073867798,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 1149,
+      "donor_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "donor_write_tokens": 210,
+      "passed": false,
+      "peak_cuda_memory_bytes": 16119803904,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "ccc3fbaf15416e0cf94fc245c21bd99f33102e03b33f903314b11e0a6f0fbc19",
+      "rank": 0,
+      "source_ordinal": 718,
+      "source_read_tokens": 209,
+      "source_row_sha256": "d50047bdadf2068dfce0dd6dfd2eb0c2575cbb0ac4b417136da9e206fad9fad6",
+      "source_write_tokens": 199
+    },
+    {
+      "absolute_write_token_delta": 5,
+      "candidate": {
+        "candidate_id": "addressed_moe_outer_ffn_t16_k2_g03125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_outer_ffn",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": false,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9816360473632812,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 16.34375,
+          "mean_abs_logit_delta": 1.4920011758804321,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.974719728742327,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 10.65625,
+          "mean_abs_logit_delta": 0.9431491494178772,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9815355028424945,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 14.90234375,
+          "mean_abs_logit_delta": 1.5195273160934448,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9815355028424945,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 14.90234375,
+          "mean_abs_logit_delta": 1.5195273160934448,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": false,
+      "peak_cuda_memory_bytes": 16121867776,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "bb4b7a0effc87636ae1982c9726e9f07492e1e8becd604e0b23cd907857432b7",
+      "rank": 1,
+      "source_ordinal": 1149,
+      "source_read_tokens": 224,
+      "source_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "source_write_tokens": 210
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "addressed_moe_outer_ffn_t16_k2_g03125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_outer_ffn",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": false,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9785442352294922,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 16.265625,
+          "mean_abs_logit_delta": 1.6289745569229126,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9526424407958984,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 8.609375,
+          "mean_abs_logit_delta": 0.715687096118927,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9740474700927735,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 15.08203125,
+          "mean_abs_logit_delta": 1.254367470741272,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9740474700927735,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 15.08203125,
+          "mean_abs_logit_delta": 1.254367470741272,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 76,
+      "donor_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "donor_write_tokens": 215,
+      "passed": false,
+      "peak_cuda_memory_bytes": 16121218048,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "71c496992827709d214a32865953f9334e313aaf5d272ad94335913cf49336fe",
+      "rank": 2,
+      "source_ordinal": 918,
+      "source_read_tokens": 225,
+      "source_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "source_write_tokens": 215
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "addressed_moe_outer_ffn_t16_k2_g03125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_outer_ffn",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": false,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.982956279407848,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 14.03125,
+          "mean_abs_logit_delta": 1.5269557237625122,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9671689813787286,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 9.78125,
+          "mean_abs_logit_delta": 1.0298150777816772,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9742799238725142,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 12.84375,
+          "mean_abs_logit_delta": 1.319014310836792,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.9742799238725142,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 12.84375,
+          "mean_abs_logit_delta": 1.319014310836792,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": false,
+      "peak_cuda_memory_bytes": 16121985024,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "7a066b7eeed68b00616f31f2a65b7b0a5eea66ba3739512452a3d03965cd41d2",
+      "rank": 3,
+      "source_ordinal": 76,
+      "source_read_tokens": 226,
+      "source_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "source_write_tokens": 215
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "ff23246156174653dca227a3c0cd186124498aba8887725157a69ab0c1484f4f"
+  },
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_outer_ffn_screen.v1",
+  "seed": 97,
+  "selected_candidate": {
+    "candidate_id": "addressed_moe_outer_ffn_t16_k2_g03125",
+    "detach_read_scores": true,
+    "fusion_gate_probability": 0.25,
+    "hybrid_gain": 0.03125,
+    "hybrid_mode": "addressed_moe_outer_ffn",
+    "read_temperature": 16.0,
+    "read_top_k": 2
+  },
+  "status": "addressed_moe_outer_ffn_screen_failed_training_blocked",
+  "training_authorized": false,
+  "world_size": 4
+}

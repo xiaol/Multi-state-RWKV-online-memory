@@ -1,0 +1,387 @@
+{
+  "checks": {
+    "candidate_passed_on_all_ranks": true,
+    "four_distinct_a100_ranks": true,
+    "projected_carrier_fixed_on_all_ranks": true
+  },
+  "code_bindings": {
+    "addressed_query_state_gate_result_file_sha256": "7bc255f1784c2e36df9ef2abd53903e634d3164e51f29631911fa2235b736343",
+    "delta_impl_sha256": "c1c027b9b113686b71a0bdb09bafa9388282334a76c95b05608ff9c10c4956e7",
+    "protocol_file_sha256": "2a204fdcb045ee242cf7f25b35ce67dddec56709163e4530ba1177737767eeb4",
+    "runner_sha256": "939e941ad87c6350e0cde87f4352679612ab320ceb8ac3a06b334812b03a21c2",
+    "shared_screen_runner_sha256": "0c020ad484bbbf0725bf402c07c458a9638437569879471f5178ab69c29a2b38"
+  },
+  "initial_adapter_sha256": "85d5368648c4a98433c317cec51143a9f1e708d849466e18174a09bfa8a0c38a",
+  "model_audit": {
+    "all_wrappers_addressed_moe_controller": true,
+    "all_wrappers_hybrid": true,
+    "replaced_layers": 42,
+    "trainable_parameter_names_sha256": "b1bfa37af6d6f34d64ceb29e833660e04815b12e1bc0b8d9269c9ce15583b630",
+    "trainable_parameter_tensors": 1470,
+    "wrapped_layers": 42
+  },
+  "native_generation_authorized": false,
+  "passed": true,
+  "protected_splits_opened": [],
+  "protocol_objective": "Screen a bounded mixture-of-experts recurrent controller with addressed and global RWKV reads plus an explicit projected-only abstention arm.",
+  "protocol_payload_sha256": "e0b5d8f370957e3c7bb340047be718088e8e83e5484a40df55aeceb3f8435c6f",
+  "rank_devices": [
+    {
+      "device_index": 0,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 0,
+      "pid": 2069730,
+      "process_rank": 0
+    },
+    {
+      "device_index": 1,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 1,
+      "pid": 2069731,
+      "process_rank": 1
+    },
+    {
+      "device_index": 2,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 2,
+      "pid": 2069732,
+      "process_rank": 2
+    },
+    {
+      "device_index": 3,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+      "hostname": "ubuntu-arm-gpu",
+      "local_rank": 3,
+      "pid": 2069733,
+      "process_rank": 3
+    }
+  ],
+  "rank_evidence": [
+    {
+      "absolute_write_token_delta": 11,
+      "candidate": {
+        "candidate_id": "addressed_moe_controller_t16_k2_g03125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_controller",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8294002532958984,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.5625,
+          "mean_abs_logit_delta": 0.16008594632148743,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.779757308959961,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.515625,
+          "mean_abs_logit_delta": 0.12886248528957367,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7784751892089844,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4375,
+          "mean_abs_logit_delta": 0.14059415459632874,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7784751892089844,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4375,
+          "mean_abs_logit_delta": 0.14059415459632874,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 1149,
+      "donor_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "donor_write_tokens": 210,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16076976640,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "9c9b493df41547758c4ed6566276322508fecfe23d68bf23ba723d0870be5be8",
+      "rank": 0,
+      "source_ordinal": 718,
+      "source_read_tokens": 209,
+      "source_row_sha256": "d50047bdadf2068dfce0dd6dfd2eb0c2575cbb0ac4b417136da9e206fad9fad6",
+      "source_write_tokens": 199
+    },
+    {
+      "absolute_write_token_delta": 5,
+      "candidate": {
+        "candidate_id": "addressed_moe_controller_t16_k2_g03125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_controller",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7882535117013114,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.546875,
+          "mean_abs_logit_delta": 0.12556730210781097,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8690989358084542,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 2.0,
+          "mean_abs_logit_delta": 0.181616872549057,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8266029357910156,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.34375,
+          "mean_abs_logit_delta": 0.13361693918704987,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8266029357910156,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.34375,
+          "mean_abs_logit_delta": 0.13361693918704987,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16078118912,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "dc9a66546d3ee55c9a0621e97fd4b5855d9d17c0c5282a149455b6659f551afc",
+      "rank": 1,
+      "source_ordinal": 1149,
+      "source_read_tokens": 224,
+      "source_row_sha256": "7553323b79fa93c925a713f1eb1912d84c9df7de020bd661a1635327f0b8999c",
+      "source_write_tokens": 210
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "addressed_moe_controller_t16_k2_g03125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_controller",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8088287353515625,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.75,
+          "mean_abs_logit_delta": 0.15879668295383453,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8174518585205078,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.390625,
+          "mean_abs_logit_delta": 0.15419699251651764,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7643974304199219,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.7734375,
+          "mean_abs_logit_delta": 0.13826072216033936,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7643974304199219,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.7734375,
+          "mean_abs_logit_delta": 0.13826072216033936,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 76,
+      "donor_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16078853120,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "938ef8c09786c6c71b00593e927e6e51720aff3e3bdcfa9c10e8699ade39b457",
+      "rank": 2,
+      "source_ordinal": 918,
+      "source_read_tokens": 225,
+      "source_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "source_write_tokens": 215
+    },
+    {
+      "absolute_write_token_delta": 0,
+      "candidate": {
+        "candidate_id": "addressed_moe_controller_t16_k2_g03125",
+        "detach_read_scores": true,
+        "fusion_gate_probability": 0.25,
+        "hybrid_gain": 0.03125,
+        "hybrid_mode": "addressed_moe_controller",
+        "read_temperature": 16.0,
+        "read_top_k": 2
+      },
+      "checks": {
+        "all_condition_logits_finite": true,
+        "correct_vs_layer_permuted_material": true,
+        "correct_vs_matched_donor_material": true,
+        "correct_vs_projected_bounded": true,
+        "correct_vs_zero_material": true,
+        "zero_recurrent_exactly_equals_projected_only": true
+      },
+      "comparisons": {
+        "correct_vs_layer_permuted": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7741931568492543,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.392578125,
+          "mean_abs_logit_delta": 0.12102320790290833,
+          "passed": true
+        },
+        "correct_vs_matched_donor": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.8220596313476562,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.53125,
+          "mean_abs_logit_delta": 0.16362708806991577,
+          "passed": true
+        },
+        "correct_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7809534939852628,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4296875,
+          "mean_abs_logit_delta": 0.12868040800094604,
+          "passed": true
+        },
+        "correct_vs_zero": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.7809534939852628,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 1.4296875,
+          "mean_abs_logit_delta": 0.12868040800094604,
+          "passed": true
+        },
+        "zero_vs_projected_only": {
+          "all_finite": true,
+          "changed_logit_fraction": 0.0,
+          "materiality_minimum": 0.001,
+          "max_abs_logit_delta": 0.0,
+          "mean_abs_logit_delta": 0.0,
+          "passed": false
+        }
+      },
+      "donor_ordinal": 918,
+      "donor_row_sha256": "458bddb0cf96388c1d25f091956f99068893c64345d1ce6e7c81c5f1bf9ea552",
+      "donor_write_tokens": 215,
+      "passed": true,
+      "peak_cuda_memory_bytes": 16078853120,
+      "projected_carrier_fixed_across_conditions": true,
+      "projected_carrier_sha256": "1a53e551b9a1c6deb45bd3934bba2ec1e6b3a9bd4bead487a9f7e74baabce58e",
+      "rank": 3,
+      "source_ordinal": 76,
+      "source_read_tokens": 226,
+      "source_row_sha256": "b5e4160020b38d4997a9e5c704574e22f14054e1016a226b5159b9788e38bcdd",
+      "source_write_tokens": 215
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "04ea2779d83e0f8048786eae50761acf17f8135c01f924bb3f563c4dd0a3888a"
+  },
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_controller_screen.v1",
+  "seed": 91,
+  "selected_candidate": {
+    "candidate_id": "addressed_moe_controller_t16_k2_g03125",
+    "detach_read_scores": true,
+    "fusion_gate_probability": 0.25,
+    "hybrid_gain": 0.03125,
+    "hybrid_mode": "addressed_moe_controller",
+    "read_temperature": 16.0,
+    "read_top_k": 2
+  },
+  "status": "addressed_moe_controller_screen_passed_training_authorized",
+  "training_authorized": true,
+  "world_size": 4
+}

@@ -18,6 +18,8 @@ def _module(
     *,
     hybrid_mode: str = "residual",
     hybrid_gain: float = 0.125,
+    outer_ffn_gain: float = 0.03125,
+    outer_ffn_layers: tuple[int, ...] = (),
 ) -> DeltaMemAttention:
     torch.manual_seed(0)
     return DeltaMemAttention(
@@ -37,6 +39,8 @@ def _module(
             rwkv_ms_output_init_scale=0.02,
             rwkv_ms_hybrid_mode=hybrid_mode,
             rwkv_ms_hybrid_gain=hybrid_gain,
+            rwkv_ms_outer_ffn_gain=outer_ffn_gain,
+            rwkv_ms_outer_ffn_layers=outer_ffn_layers,
         ),
     )
 
@@ -48,6 +52,7 @@ def _module(
         "alignment_residual",
         "aligned_vector_gate",
         "addressed_affine",
+        "address_bound_write",
         "addressed_route_agreement",
         "addressed_query_state_gate",
         "addressed_vector_gate",
@@ -96,6 +101,7 @@ def test_addressed_value_requires_recurrent_state() -> None:
         "alignment_residual",
         "aligned_vector_gate",
         "addressed_affine",
+        "address_bound_write",
         "addressed_route_agreement",
         "addressed_query_state_gate",
         "addressed_vector_gate",
@@ -211,6 +217,26 @@ def test_addressed_affine_matches_locked_fusion_equation() -> None:
     assert torch.equal(fused, expected.to(dtype=projected.dtype))
 
 
+def test_address_bound_write_matches_addressed_read_equation() -> None:
+    module = _module(hybrid_mode="address_bound_write", hybrid_gain=0.125)
+    projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
+    recurrent = torch.tensor([[[0.25, 0.75], [-0.5, 0.125]]])
+
+    fused = module._fuse_projected_rwkv_reads(projected, recurrent)
+
+    projected_fp32 = projected.float()
+    recurrent_fp32 = recurrent.float()
+    carrier_rms = projected_fp32.square().mean(dim=-1, keepdim=True).sqrt()
+    recurrent_rms = recurrent_fp32.square().mean(dim=-1, keepdim=True).sqrt()
+    direction = torch.tanh(recurrent_fp32 / recurrent_rms.clamp_min(1e-6))
+    expected = (
+        projected_fp32 * (1.0 + 0.125 * direction)
+        + 0.03125 * carrier_rms * direction
+    )
+
+    assert torch.equal(fused, expected.to(dtype=projected.dtype))
+
+
 def test_addressed_route_agreement_matches_locked_fusion_equation() -> None:
     module = _module(hybrid_mode="addressed_route_agreement", hybrid_gain=0.125)
     projected = torch.tensor([[[1.0, -2.0], [0.5, 3.0]]])
@@ -265,6 +291,173 @@ def test_addressed_query_state_gate_requires_gate() -> None:
 
     with pytest.raises(ValueError, match="requires a supervised query-state gate"):
         module._fuse_projected_rwkv_reads(projected, torch.randn_like(projected))
+
+
+@pytest.mark.parametrize(
+    "hybrid_mode",
+    ("address_bound_write", "address_bound_moe_controller"),
+)
+def test_address_bound_modes_broadcast_projected_slot_to_recurrent_tokens(
+    monkeypatch,
+    hybrid_mode: str,
+) -> None:
+    module = _module(hybrid_mode=hybrid_mode)
+    module.set_write_enabled(True)
+    hidden = torch.randn(2, 3, module.hidden_size)
+    token_mask = torch.tensor([[True, True, True], [True, True, False]])
+    projected_routes = torch.tensor(
+        [[[1.0, 0.0]], [[0.0, 1.0]]],
+    )
+    captured: dict[str, torch.Tensor | None] = {}
+
+    def write_slots(*args) -> None:
+        module.last_write_routes = projected_routes
+
+    def backend_scan(*args, **kwargs):
+        captured["routes"] = kwargs["rwkv_write_route_seq"]
+        return args[0], torch.zeros(
+            hidden.size(0),
+            hidden.size(1),
+            module.state_read_dim,
+        )
+
+    monkeypatch.setattr(module, "_write_projected_kv_slots", write_slots)
+    monkeypatch.setattr(module, "_memory_backend_scan", backend_scan)
+
+    module._projected_rwkv_hybrid_step(
+        torch.zeros(
+            hidden.size(0),
+            module.num_state_heads,
+            module.rwkv_ms_num_states,
+            module.rank,
+            module.rank,
+        ),
+        hidden,
+        token_mask,
+    )
+
+    expected = projected_routes.expand(-1, hidden.size(1), -1) * token_mask.unsqueeze(-1)
+    assert torch.equal(captured["routes"], expected)
+
+
+def test_address_bound_moe_zero_state_is_exactly_projected_only() -> None:
+    module = _module(hybrid_mode="address_bound_moe_controller")
+    projected = torch.randn(2, 3, module.state_read_dim)
+    recurrent = torch.zeros_like(projected)
+    hidden = torch.randn(2, 3, module.hidden_size)
+
+    fused = module._fuse_projected_rwkv_reads(
+        projected,
+        recurrent,
+        global_recurrent_reads=recurrent,
+        hidden_states=hidden,
+    )
+
+    assert hasattr(module, "rwkv_moe_bias")
+    assert torch.equal(fused, projected)
+
+
+def test_addressed_moe_outer_ffn_zero_state_is_exactly_projected_only() -> None:
+    module = _module(hybrid_mode="addressed_moe_outer_ffn")
+    projected = torch.randn(2, 3, module.state_read_dim)
+    recurrent = torch.zeros_like(projected)
+    hidden = torch.randn(2, 3, module.hidden_size)
+
+    fused = module._fuse_projected_rwkv_reads(
+        projected,
+        recurrent,
+        global_recurrent_reads=recurrent,
+        hidden_states=hidden,
+    )
+
+    assert torch.equal(fused, projected)
+
+
+def test_addressed_moe_outer_ffn_is_bounded_zero_preserving_and_trainable() -> None:
+    module = _module(
+        hybrid_mode="addressed_moe_outer_ffn",
+        hybrid_gain=0.03125,
+        outer_ffn_gain=1.0 / 2048.0,
+    )
+    hidden = torch.randn(2, 3, module.hidden_size)
+    zero_control = torch.zeros(2, 3, module.state_read_dim)
+
+    zero_residual = module._outer_ffn_residual(hidden, zero_control, None)
+    assert torch.equal(zero_residual, torch.zeros_like(hidden))
+
+    control = torch.randn_like(zero_control)
+    residual = module._outer_ffn_residual(hidden, control, None)
+    residual.square().mean().backward()
+
+    assert torch.isfinite(residual).all()
+    assert float(residual.abs().max()) <= 1.0 / 2048.0
+    assert module.rwkv_outer_ffn_down_weight.grad is not None
+    assert module.rwkv_outer_ffn_gate_weight.grad is not None
+    assert module.rwkv_outer_ffn_up_weight.grad is not None
+    assert all(
+        torch.isfinite(parameter.grad).all()
+        for parameter in (
+            module.rwkv_outer_ffn_down_weight,
+            module.rwkv_outer_ffn_gate_weight,
+            module.rwkv_outer_ffn_up_weight,
+        )
+    )
+
+
+def test_addressed_moe_outer_ffn_bf16_activations_keep_fp32_gradients() -> None:
+    module = _module(
+        hybrid_mode="addressed_moe_outer_ffn",
+        hybrid_gain=0.03125,
+        outer_ffn_gain=1.0 / 2048.0,
+    )
+    hidden = torch.randn(2, 3, module.hidden_size, dtype=torch.bfloat16)
+    control = torch.randn(2, 3, module.state_read_dim, dtype=torch.bfloat16)
+
+    residual = module._outer_ffn_residual(hidden, control, None)
+    residual.float().square().mean().backward()
+
+    assert residual.dtype == torch.bfloat16
+    for parameter in (
+        module.rwkv_outer_ffn_down_weight,
+        module.rwkv_outer_ffn_gate_weight,
+        module.rwkv_outer_ffn_up_weight,
+    ):
+        assert parameter.dtype == torch.float32
+        assert parameter.grad is not None
+        assert parameter.grad.dtype == torch.float32
+        assert torch.isfinite(parameter.grad).all()
+        assert parameter.grad.float().norm().item() > 0.0
+
+
+def test_addressed_moe_outer_ffn_hook_adds_and_consumes_pending_residual() -> None:
+    module = _module(hybrid_mode="addressed_moe_outer_ffn")
+    layernorm = torch.nn.Identity()
+    module.bind_post_feedforward_layernorm(layernorm)
+    source = torch.randn(2, 3, module.hidden_size)
+    residual = torch.full_like(source, 0.125)
+    module._pending_outer_ffn_delta = residual
+
+    output = layernorm(source)
+
+    assert torch.equal(output, source + residual)
+    assert module._pending_outer_ffn_delta is None
+    module.remove_post_feedforward_layernorm_hook()
+
+
+def test_addressed_moe_outer_ffn_can_be_sparse_across_depth() -> None:
+    inactive = _module(
+        hybrid_mode="addressed_moe_outer_ffn",
+        outer_ffn_layers=(1, 3),
+    )
+    layernorm = torch.nn.Identity()
+    inactive.bind_post_feedforward_layernorm(layernorm)
+    source = torch.randn(2, 3, inactive.hidden_size)
+
+    assert inactive.layer_idx == 0
+    assert inactive.rwkv_ms_outer_ffn_enabled is False
+    assert not hasattr(inactive, "rwkv_outer_ffn_up_weight")
+    assert torch.equal(layernorm(source), source)
+    inactive.remove_post_feedforward_layernorm_hook()
 
 
 def test_addressed_route_agreement_step_abstains_at_chance_overlap(

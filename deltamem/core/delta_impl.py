@@ -70,8 +70,12 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "alignment_residual",
     "aligned_vector_gate",
     "addressed_affine",
+    "address_bound_write",
+    "address_bound_moe_controller",
     "addressed_route_agreement",
     "addressed_query_state_gate",
+    "addressed_moe_controller",
+    "addressed_moe_outer_ffn",
     "addressed_vector_gate",
     "vector_gate",
     "scalar_gate",
@@ -86,6 +90,10 @@ RWKV_MS_PROJECTED_ROUTE_READ_MODES = (
     RWKV_MS_ADDRESSED_VALUE_MODES
     | {
         "addressed_affine",
+        "address_bound_write",
+        "address_bound_moe_controller",
+        "addressed_moe_controller",
+        "addressed_moe_outer_ffn",
         "addressed_route_agreement",
         "addressed_query_state_gate",
         "addressed_vector_gate",
@@ -402,6 +410,8 @@ class HFDeltaMemConfig:
     rwkv_ms_semantics_version: int = 2
     rwkv_ms_hybrid_mode: str = "residual"
     rwkv_ms_hybrid_gain: float = 0.125
+    rwkv_ms_outer_ffn_gain: float = 0.03125
+    rwkv_ms_outer_ffn_layers: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "delta_heads", normalize_delta_heads(self.delta_heads))
@@ -429,12 +439,26 @@ class HFDeltaMemConfig:
         hybrid_gain = float(self.rwkv_ms_hybrid_gain)
         if not math.isfinite(hybrid_gain) or not (0.0 <= hybrid_gain <= 1.0):
             raise ValueError("rwkv_ms_hybrid_gain must be finite and satisfy 0 <= gain <= 1")
+        outer_ffn_gain = float(self.rwkv_ms_outer_ffn_gain)
+        if not math.isfinite(outer_ffn_gain) or not (0.0 <= outer_ffn_gain <= 1.0):
+            raise ValueError(
+                "rwkv_ms_outer_ffn_gain must be finite and satisfy 0 <= gain <= 1"
+            )
         object.__setattr__(
             self,
             "rwkv_ms_hybrid_mode",
             normalize_rwkv_ms_hybrid_mode(self.rwkv_ms_hybrid_mode),
         )
         object.__setattr__(self, "rwkv_ms_hybrid_gain", hybrid_gain)
+        object.__setattr__(self, "rwkv_ms_outer_ffn_gain", outer_ffn_gain)
+        outer_ffn_layers = tuple(sorted(set(int(i) for i in self.rwkv_ms_outer_ffn_layers)))
+        if any(layer < 0 for layer in outer_ffn_layers):
+            raise ValueError("rwkv_ms_outer_ffn_layers must contain nonnegative indices")
+        if outer_ffn_layers and self.rwkv_ms_hybrid_mode != "addressed_moe_outer_ffn":
+            raise ValueError(
+                "rwkv_ms_outer_ffn_layers requires addressed_moe_outer_ffn mode"
+            )
+        object.__setattr__(self, "rwkv_ms_outer_ffn_layers", outer_ffn_layers)
         object.__setattr__(self, "rwkv_ms_num_states", int(self.rwkv_ms_num_states))
         object.__setattr__(self, "rwkv_ms_chunk_size", int(self.rwkv_ms_chunk_size))
         object.__setattr__(
@@ -819,6 +843,13 @@ class HFDeltaMemConfig:
         if "delta_heads" in data and isinstance(data["delta_heads"], list):
             data = dict(data)
             data["delta_heads"] = tuple(data["delta_heads"])
+        if "rwkv_ms_outer_ffn_layers" in data and isinstance(
+            data["rwkv_ms_outer_ffn_layers"], list
+        ):
+            data = dict(data)
+            data["rwkv_ms_outer_ffn_layers"] = tuple(
+                data["rwkv_ms_outer_ffn_layers"]
+            )
         return cls(**data)
 
     def save_pretrained(self, output_dir: str | Path) -> None:
@@ -892,6 +923,15 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_semantics_version = config.rwkv_ms_semantics_version
         self.rwkv_ms_hybrid_mode = config.rwkv_ms_hybrid_mode
         self.rwkv_ms_hybrid_gain = config.rwkv_ms_hybrid_gain
+        self.rwkv_ms_outer_ffn_gain = config.rwkv_ms_outer_ffn_gain
+        self.rwkv_ms_outer_ffn_layers = config.rwkv_ms_outer_ffn_layers
+        self.rwkv_ms_outer_ffn_enabled = (
+            self.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn"
+            and (
+                not self.rwkv_ms_outer_ffn_layers
+                or self.layer_idx in self.rwkv_ms_outer_ffn_layers
+            )
+        )
         self.delta_scaling = config.alpha / config.rank
         self.trainable_delta_scale = config.trainable_delta_scale
         self.delta_scale_max = config.delta_scale_max
@@ -1003,6 +1043,31 @@ class DeltaMemAttention(nn.Module):
             self.memory_fusion_hidden_weight = nn.Parameter(torch.empty(1, hidden_size))
             self.memory_fusion_read_weight = nn.Parameter(torch.empty(1, self.state_read_dim))
             self.memory_fusion_bias = nn.Parameter(torch.empty(1))
+        if self.rwkv_ms_hybrid_mode in {
+            "addressed_moe_controller",
+            "address_bound_moe_controller",
+            "addressed_moe_outer_ffn",
+        }:
+            self.rwkv_moe_hidden_weight = nn.Parameter(torch.empty(3, hidden_size))
+            self.rwkv_moe_addressed_weight = nn.Parameter(
+                torch.empty(3, self.state_read_dim)
+            )
+            self.rwkv_moe_global_weight = nn.Parameter(
+                torch.empty(3, self.state_read_dim)
+            )
+            self.rwkv_moe_bias = nn.Parameter(torch.empty(3))
+        if self.rwkv_ms_outer_ffn_enabled:
+            # This branch is deliberately outside the attention output: it is
+            # consumed after Gemma's frozen MLP and added to that residual.
+            self.rwkv_outer_ffn_down_weight = nn.Parameter(
+                torch.empty(self.state_read_dim, self.state_read_dim)
+            )
+            self.rwkv_outer_ffn_gate_weight = nn.Parameter(
+                torch.empty(self.state_read_dim, hidden_size)
+            )
+            self.rwkv_outer_ffn_up_weight = nn.Parameter(
+                torch.empty(hidden_size, self.state_read_dim)
+            )
         if self.memory_fusion_placement == "post_attention_residual_hybrid":
             self.memory_fusion_residual_gain_raw = nn.Parameter(torch.empty(1))
 
@@ -1057,6 +1122,8 @@ class DeltaMemAttention(nn.Module):
             torch.Tensor | None,
         ] | None = None
         self._post_attention_norm_hook_handle = None
+        self._pending_outer_ffn_delta: torch.Tensor | None = None
+        self._post_feedforward_norm_hook_handle = None
         self.write_message_ids: torch.Tensor | None = None
         self.write_sentence_ids: torch.Tensor | None = None
         self.projected_kv_write_key_mask: torch.Tensor | None = None
@@ -1171,6 +1238,22 @@ class DeltaMemAttention(nn.Module):
                 self.memory_fusion_gate_init / (1.0 - self.memory_fusion_gate_init)
             )
             nn.init.constant_(self.memory_fusion_bias, gate_logit)
+        if self.rwkv_ms_hybrid_mode in {
+            "addressed_moe_controller",
+            "address_bound_moe_controller",
+            "addressed_moe_outer_ffn",
+        }:
+            nn.init.zeros_(self.rwkv_moe_hidden_weight)
+            nn.init.zeros_(self.rwkv_moe_addressed_weight)
+            nn.init.zeros_(self.rwkv_moe_global_weight)
+            nn.init.constant_(self.rwkv_moe_bias, 0.0)
+            with torch.no_grad():
+                self.rwkv_moe_bias[2] = 2.0
+        if self.rwkv_ms_outer_ffn_enabled:
+            nn.init.eye_(self.rwkv_outer_ffn_down_weight)
+            nn.init.zeros_(self.rwkv_outer_ffn_gate_weight)
+            with torch.no_grad():
+                self.rwkv_outer_ffn_up_weight.copy_(self.delta_o_proj)
         if self.memory_fusion_placement == "post_attention_residual_hybrid":
             self.set_memory_fusion_residual_gain(
                 self.memory_fusion_residual_scale
@@ -1215,6 +1298,7 @@ class DeltaMemAttention(nn.Module):
         self.last_memory_residual_ratio = None
         self.last_memory_residual_gain = None
         self._pending_post_attention_delta = None
+        self._pending_outer_ffn_delta = None
         self.write_message_ids = None
         self.write_sentence_ids = None
         self.projected_kv_write_key_mask = None
@@ -2928,6 +3012,7 @@ class DeltaMemAttention(nn.Module):
         *,
         update_positions: bool = True,
         write_only: bool = False,
+        write_route_seq: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         batch_size, seq_len, _ = memory_source_seq.shape
         if seq_len == 0:
@@ -2959,6 +3044,10 @@ class DeltaMemAttention(nn.Module):
         k_seq = self._rwkv_ms_project_heads(features.k).float()
         v_seq = self._rwkv_ms_project_heads(features.v).float()
         if self.rwkv_ms_write_mode == "last_token_overwrite":
+            if write_route_seq is not None:
+                raise ValueError(
+                    "Address-bound RWKV writes require recurrent write mode"
+                )
             return self._rwkv_ms_last_token_overwrite(
                 state,
                 r_seq,
@@ -2980,14 +3069,37 @@ class DeltaMemAttention(nn.Module):
         current_state = state.float()
         positions = self._ensure_rwkv_ms_positions(batch_size, memory_source_seq.device).clone()
         if write_only:
-            slots = rwkv_ms_write_slot_indices(
-                token_mask,
-                batch_size=batch_size,
-                seq_len=seq_len,
-                positions=positions,
-                chunk_size=self.rwkv_ms_chunk_size,
-                num_slots=self.rwkv_ms_num_states,
-            )
+            if write_route_seq is None:
+                slots = rwkv_ms_write_slot_indices(
+                    token_mask,
+                    batch_size=batch_size,
+                    seq_len=seq_len,
+                    positions=positions,
+                    chunk_size=self.rwkv_ms_chunk_size,
+                    num_slots=self.rwkv_ms_num_states,
+                )
+                valid = slots.ge(0)
+                write_routes = F.one_hot(
+                    slots.clamp_min(0),
+                    num_classes=self.rwkv_ms_num_states,
+                ).to(dtype=current_state.dtype)
+                write_routes = write_routes * valid.unsqueeze(-1).to(
+                    dtype=write_routes.dtype
+                )
+            else:
+                expected_shape = (batch_size, seq_len, self.rwkv_ms_num_states)
+                if tuple(write_route_seq.shape) != expected_shape:
+                    raise ValueError(
+                        "RWKV-MS write routes must match token/state shape: "
+                        f"expected={expected_shape} actual={tuple(write_route_seq.shape)}"
+                    )
+                write_routes = write_route_seq.to(
+                    device=current_state.device,
+                    dtype=current_state.dtype,
+                )
+                valid = write_routes.sum(dim=-1).gt(0)
+                slots = write_routes.argmax(dim=-1)
+                slots = torch.where(valid, slots, slots.new_full((), -1))
             current_state = rwkv_ms_write_scan(
                 current_state,
                 torch.exp(-torch.exp(w_seq)),
@@ -3001,14 +3113,7 @@ class DeltaMemAttention(nn.Module):
                 slots,
                 self.rwkv_ms_erase_gate,
             )
-            valid = slots.ge(0)
-            self.last_write_routes = F.one_hot(
-                slots.clamp_min(0),
-                num_classes=self.rwkv_ms_num_states,
-            ).to(dtype=current_state.dtype)
-            self.last_write_routes = self.last_write_routes * valid.unsqueeze(-1).to(
-                dtype=current_state.dtype
-            )
+            self.last_write_routes = write_routes
             self.last_read_routes = current_state.new_zeros(
                 batch_size,
                 seq_len,
@@ -3313,6 +3418,7 @@ class DeltaMemAttention(nn.Module):
         beta_seq: torch.Tensor,
         lambda_seq: torch.Tensor,
         write_route_seq: torch.Tensor | None = None,
+        rwkv_write_route_seq: torch.Tensor | None = None,
         read_route_seq: torch.Tensor | None = None,
         token_mask: Optional[torch.Tensor] = None,
         write_only: bool = False,
@@ -3325,6 +3431,7 @@ class DeltaMemAttention(nn.Module):
                 lambda_seq,
                 token_mask,
                 write_only=write_only,
+                write_route_seq=rwkv_write_route_seq,
             )
         if write_only:  # pragma: no cover - hybrid validation requires RWKV-MS
             raise ValueError("Write-only backend scan requires RWKV-MS")
@@ -4052,6 +4159,8 @@ class DeltaMemAttention(nn.Module):
         recurrent_reads: torch.Tensor,
         route_agreement: torch.Tensor | None = None,
         query_state_gate: torch.Tensor | None = None,
+        global_recurrent_reads: torch.Tensor | None = None,
+        hidden_states: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if projected_reads.shape != recurrent_reads.shape:
             raise ValueError(
@@ -4092,7 +4201,7 @@ class DeltaMemAttention(nn.Module):
                 * alignment.clamp(-1.0, 1.0)
                 * recurrent_direction
             )
-        elif self.rwkv_ms_hybrid_mode == "addressed_affine":
+        elif self.rwkv_ms_hybrid_mode in {"addressed_affine", "address_bound_write"}:
             fused = (
                 projected * (1.0 + gain * recurrent_direction)
                 + 0.25 * gain * carrier_rms * recurrent_direction
@@ -4132,6 +4241,57 @@ class DeltaMemAttention(nn.Module):
                 dtype=projected.dtype,
             ).clamp(0.0, 1.0)
             fused = projected * (1.0 + gain * gate * recurrent_direction)
+        elif self.rwkv_ms_hybrid_mode in {
+            "addressed_moe_controller",
+            "address_bound_moe_controller",
+            "addressed_moe_outer_ffn",
+        }:
+            if global_recurrent_reads is None or hidden_states is None:
+                raise ValueError(
+                    "Addressed MoE fusion requires global recurrent reads and query states"
+                )
+            if global_recurrent_reads.shape != recurrent_reads.shape:
+                raise ValueError(
+                    "Global and addressed recurrent reads must have identical shapes"
+                )
+            normalized_hidden = F.rms_norm(
+                hidden_states.float(), (hidden_states.shape[-1],), eps=1e-6
+            )
+            normalized_addressed = F.rms_norm(
+                recurrent.float(), (recurrent.shape[-1],), eps=1e-6
+            )
+            normalized_global = F.rms_norm(
+                global_recurrent_reads.float(),
+                (global_recurrent_reads.shape[-1],),
+                eps=1e-6,
+            )
+            moe_logits = F.linear(
+                normalized_hidden, self.rwkv_moe_hidden_weight.float()
+            )
+            moe_logits = moe_logits + F.linear(
+                normalized_addressed, self.rwkv_moe_addressed_weight.float()
+            )
+            moe_logits = moe_logits + F.linear(
+                normalized_global, self.rwkv_moe_global_weight.float()
+            )
+            moe_logits = moe_logits + self.rwkv_moe_bias.float()
+            expert_weights = torch.softmax(moe_logits, dim=-1)
+            addressed_direction = torch.tanh(
+                recurrent / recurrent_rms.clamp_min(1e-6)
+            )
+            global_rms = global_recurrent_reads.float().square().mean(
+                dim=-1, keepdim=True
+            ).sqrt()
+            global_direction = torch.tanh(
+                global_recurrent_reads.float() / global_rms.clamp_min(1e-6)
+            )
+            # Expert 2 is the projected-only abstention arm and contributes no
+            # vector.  The carrier RMS bounds the two recurrent corrections.
+            recurrent_correction = (
+                expert_weights[..., 0:1] * addressed_direction
+                + expert_weights[..., 1:2] * global_direction
+            )
+            fused = projected + gain * carrier_rms * recurrent_correction
         elif self.rwkv_ms_hybrid_mode == "addressed_vector_gate":
             fused = projected * (1.0 + gain * recurrent_direction)
         elif self.rwkv_ms_hybrid_mode == "vector_gate":
@@ -4156,6 +4316,8 @@ class DeltaMemAttention(nn.Module):
         hidden_states: torch.Tensor,
         token_mask: torch.Tensor | None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        if self.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn":
+            self._pending_outer_ffn_delta = None
         (
             token_memory_q_seq,
             token_memory_k_seq,
@@ -4164,10 +4326,39 @@ class DeltaMemAttention(nn.Module):
             lambda_seq,
         ) = self._memory_sequence_projections(hidden_states)
         if self.write_enabled:
+            rwkv_write_route_seq = None
             if self.rwkv_ms_hybrid_mode == "chunk_addressed_value":
                 self._write_chunk_addressed_kv_slots(hidden_states, token_mask)
             else:
                 self._write_projected_kv_slots(hidden_states, token_mask)
+            if self.rwkv_ms_hybrid_mode in {
+                "address_bound_write",
+                "address_bound_moe_controller",
+            }:
+                projected_write_routes = self.last_write_routes
+                if projected_write_routes is None:
+                    rwkv_write_route_seq = hidden_states.new_zeros(
+                        hidden_states.size(0),
+                        hidden_states.size(1),
+                        self.rwkv_ms_num_states,
+                    )
+                else:
+                    expected_prefix = (hidden_states.size(0), 1)
+                    if tuple(projected_write_routes.shape[:2]) != expected_prefix:
+                        raise ValueError(
+                            "Address-bound RWKV writes require one projected proposal "
+                            f"per row; actual={tuple(projected_write_routes.shape)}"
+                        )
+                    rwkv_write_route_seq = projected_write_routes.expand(
+                        -1,
+                        hidden_states.size(1),
+                        -1,
+                    )
+                    if token_mask is not None:
+                        rwkv_write_route_seq = rwkv_write_route_seq * token_mask.to(
+                            device=rwkv_write_route_seq.device,
+                            dtype=rwkv_write_route_seq.dtype,
+                        ).unsqueeze(-1)
             state, _ = self._memory_backend_scan(
                 state,
                 token_memory_q_seq,
@@ -4175,6 +4366,7 @@ class DeltaMemAttention(nn.Module):
                 token_memory_v_seq,
                 beta_seq,
                 lambda_seq,
+                rwkv_write_route_seq=rwkv_write_route_seq,
                 token_mask=token_mask,
                 write_only=True,
             )
@@ -4254,19 +4446,100 @@ class DeltaMemAttention(nn.Module):
                     hidden_states,
                     recurrent_reads,
                 )
+            global_recurrent_reads = None
+            if self.rwkv_ms_hybrid_mode in {
+                "addressed_moe_controller",
+                "address_bound_moe_controller",
+                "addressed_moe_outer_ffn",
+            }:
+                global_recurrent_reads = self._memory_backend_token_reads(
+                    state,
+                    token_memory_v_seq,
+                    None,
+                    token_mask,
+                )
             reads = self._fuse_projected_rwkv_reads(
                 projected_reads,
                 recurrent_reads,
                 route_agreement,
                 query_state_gate,
+                global_recurrent_reads,
+                hidden_states,
             )
+            if self.rwkv_ms_outer_ffn_enabled:
+                carrier_rms = projected_reads.float().square().mean(
+                    dim=-1,
+                    keepdim=True,
+                ).sqrt()
+                control_scale = (
+                    self.rwkv_ms_hybrid_gain * carrier_rms
+                ).clamp_min(1e-6)
+                recurrent_control = (
+                    reads.float() - projected_reads.float()
+                ) / control_scale
+                self._pending_outer_ffn_delta = self._outer_ffn_residual(
+                    hidden_states,
+                    recurrent_control,
+                    token_mask,
+                )
             self.last_read_routes = (
                 recurrent_routes
                 if self.rwkv_ms_hybrid_mode == "recurrent_value"
                 else projected_routes
             )
             self.last_write_routes = None
+        if (
+            self.rwkv_ms_outer_ffn_enabled
+            and self._pending_outer_ffn_delta is None
+        ):
+            self._pending_outer_ffn_delta = hidden_states.new_zeros(
+                hidden_states.shape
+            )
         return state, reads, beta_seq, lambda_seq
+
+    def _outer_ffn_residual(
+        self,
+        hidden_states: torch.Tensor,
+        recurrent_control: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        if not self.rwkv_ms_outer_ffn_enabled:
+            raise RuntimeError("Outer FFN residual requires addressed_moe_outer_ffn")
+        compute_dtype = hidden_states.dtype
+        normalized_hidden = F.rms_norm(
+            hidden_states,
+            (hidden_states.shape[-1],),
+            eps=1e-6,
+        )
+        normalized_control = F.rms_norm(
+            recurrent_control.to(dtype=compute_dtype),
+            (recurrent_control.shape[-1],),
+            eps=1e-6,
+        )
+        down = F.linear(
+            normalized_control,
+            self.rwkv_outer_ffn_down_weight.to(dtype=compute_dtype),
+        )
+        gate = torch.sigmoid(
+            F.linear(
+                normalized_hidden,
+                self.rwkv_outer_ffn_gate_weight.to(dtype=compute_dtype),
+            )
+        )
+        raw = F.linear(
+            F.silu(down) * gate,
+            self.rwkv_outer_ffn_up_weight.to(dtype=compute_dtype),
+        )
+        direction = torch.tanh(
+            F.rms_norm(raw, (raw.shape[-1],), eps=1e-6)
+        )
+        residual = self.rwkv_ms_outer_ffn_gain * direction
+        if token_mask is not None:
+            residual = residual * token_mask.to(
+                device=residual.device,
+                dtype=residual.dtype,
+            ).unsqueeze(-1)
+        return residual.to(dtype=hidden_states.dtype)
 
     def _fuse_delta_o_output(
         self,
@@ -4629,6 +4902,54 @@ class DeltaMemAttention(nn.Module):
         if handle is not None:
             handle.remove()
 
+    def _post_feedforward_norm_outer_ffn_hook(
+        self,
+        module: nn.Module,
+        inputs: tuple[torch.Tensor, ...],
+        output: torch.Tensor,
+    ) -> torch.Tensor:
+        del module, inputs
+        if self.rwkv_ms_hybrid_mode != "addressed_moe_outer_ffn":
+            self._pending_outer_ffn_delta = None
+            return output
+        if not self.rwkv_ms_outer_ffn_enabled:
+            self._pending_outer_ffn_delta = None
+            return output
+        residual = self._pending_outer_ffn_delta
+        if residual is None:
+            raise RuntimeError(
+                "Gemma post_feedforward_layernorm ran without a pending outer FFN "
+                f"residual for layer {self.layer_idx}"
+            )
+        self._pending_outer_ffn_delta = None
+        if residual.shape != output.shape:
+            raise RuntimeError(
+                "Outer FFN residual shape does not match Gemma's feed-forward output: "
+                f"residual={tuple(residual.shape)} output={tuple(output.shape)}"
+            )
+        return output + residual.to(device=output.device, dtype=output.dtype)
+
+    def bind_post_feedforward_layernorm(self, layernorm: nn.Module) -> None:
+        if self.rwkv_ms_hybrid_mode != "addressed_moe_outer_ffn":
+            raise ValueError(
+                "A post-feedforward hook is only available for "
+                "addressed_moe_outer_ffn"
+            )
+        if self._post_feedforward_norm_hook_handle is not None:
+            raise RuntimeError(
+                f"Layer {self.layer_idx} already has a post-feedforward outer FFN hook"
+            )
+        self._post_feedforward_norm_hook_handle = layernorm.register_forward_hook(
+            self._post_feedforward_norm_outer_ffn_hook
+        )
+
+    def remove_post_feedforward_layernorm_hook(self) -> None:
+        handle = self._post_feedforward_norm_hook_handle
+        self._post_feedforward_norm_hook_handle = None
+        self._pending_outer_ffn_delta = None
+        if handle is not None:
+            handle.remove()
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -4656,6 +4977,19 @@ class DeltaMemAttention(nn.Module):
                     f"attention forward in layer {self.layer_idx}"
                 )
 
+        if self.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn":
+            if (
+                not self.is_gemma4_attention
+                or self._post_feedforward_norm_hook_handle is None
+            ):
+                raise RuntimeError(
+                    "addressed_moe_outer_ffn requires a Gemma post-feedforward hook"
+                )
+            if self._pending_outer_ffn_delta is not None:
+                raise RuntimeError(
+                    "Previous outer FFN residual was not consumed before the next "
+                    f"attention forward in layer {self.layer_idx}"
+                )
         batch_size, seq_len, _ = hidden_states.shape
         state = self._ensure_state(batch_size, hidden_states.device, hidden_states.dtype)
         token_mask = self._token_validity_mask(
@@ -5022,8 +5356,55 @@ def validate_memory_fusion_placement_target(
     return layernorm
 
 
+def validate_outer_ffn_target(
+    module: nn.Module,
+    parent: nn.Module,
+    attribute: str,
+    config: HFDeltaMemConfig,
+    *,
+    module_name: str,
+) -> nn.Module | None:
+    if config.rwkv_ms_hybrid_mode != "addressed_moe_outer_ffn":
+        return None
+    if Gemma4TextAttention is None or not isinstance(module, Gemma4TextAttention):
+        raise ValueError(
+            "addressed_moe_outer_ffn is currently Gemma4-only; "
+            f"unsupported target: {module_name} ({type(module).__name__})"
+        )
+    if attribute != "self_attn":
+        raise ValueError(
+            "addressed_moe_outer_ffn requires a decoder self_attn target; "
+            f"got {module_name}"
+        )
+    if Gemma4TextDecoderLayer is None or not isinstance(parent, Gemma4TextDecoderLayer):
+        raise ValueError(
+            "addressed_moe_outer_ffn requires a Gemma4TextDecoderLayer parent; "
+            f"got {type(parent).__name__} for {module_name}"
+        )
+    if config.memory_readout_mode != "projected_kv_rwkv_hybrid":
+        raise ValueError(
+            "addressed_moe_outer_ffn requires projected_kv_rwkv_hybrid readout"
+        )
+    layernorm = getattr(parent, "post_feedforward_layernorm", None)
+    if not isinstance(layernorm, nn.Module):
+        raise ValueError(
+            "addressed_moe_outer_ffn requires a post_feedforward_layernorm module; "
+            f"missing from the parent of {module_name}"
+        )
+    return layernorm
+
+
 def attach_delta_mem(model: nn.Module, config: HFDeltaMemConfig) -> list[str]:
-    candidates: list[tuple[str, nn.Module, nn.Module, str, nn.Module | None]] = []
+    candidates: list[
+        tuple[
+            str,
+            nn.Module,
+            nn.Module,
+            str,
+            nn.Module | None,
+            nn.Module | None,
+        ]
+    ] = []
     for name, module in list(model.named_modules()):
         if not isinstance(module, SUPPORTED_BASE_ATTENTION_TYPES):
             continue
@@ -5047,14 +5428,23 @@ def attach_delta_mem(model: nn.Module, config: HFDeltaMemConfig) -> list[str]:
             config,
             module_name=name,
         )
-        candidates.append((name, module, parent, attr, layernorm))
+        outer_ffn_layernorm = validate_outer_ffn_target(
+            module,
+            parent,
+            attr,
+            config,
+            module_name=name,
+        )
+        candidates.append(
+            (name, module, parent, attr, layernorm, outer_ffn_layernorm)
+        )
 
     if not candidates:
         raise RuntimeError("No target modules were replaced")
 
     installed: list[tuple[nn.Module, str, nn.Module, DeltaMemAttention]] = []
     try:
-        for name, module, parent, attr, layernorm in candidates:
+        for name, module, parent, attr, layernorm, outer_ffn_layernorm in candidates:
             module = ensure_attention_compat_views(module)
             wrapped = DeltaMemAttention(module, config).to(
                 device=module.q_proj.weight.device,
@@ -5064,9 +5454,12 @@ def attach_delta_mem(model: nn.Module, config: HFDeltaMemConfig) -> list[str]:
             installed.append((parent, attr, module, wrapped))
             if layernorm is not None:
                 wrapped.bind_post_attention_layernorm(layernorm)
+            if outer_ffn_layernorm is not None:
+                wrapped.bind_post_feedforward_layernorm(outer_ffn_layernorm)
     except Exception:
         for parent, attr, original, wrapped in reversed(installed):
             wrapped.remove_post_attention_layernorm_hook()
+            wrapped.remove_post_feedforward_layernorm_hook()
             setattr(parent, attr, original)
         raise
     return [name for name, *_ in candidates]
@@ -5946,6 +6339,18 @@ def validate_attached_delta_config(
             raise ValueError(
                 f"Attached Delta-Mem fusion topology is invalid at {name}: "
                 f"placement={module.memory_fusion_placement!r} hook_bound={hook_bound}"
+            )
+        outer_ffn_hook_bound = (
+            module._post_feedforward_norm_hook_handle is not None
+        )
+        expects_outer_ffn_hook = (
+            module.rwkv_ms_hybrid_mode == "addressed_moe_outer_ffn"
+        )
+        if outer_ffn_hook_bound != expects_outer_ffn_hook:
+            raise ValueError(
+                f"Attached Delta-Mem outer FFN topology is invalid at {name}: "
+                f"hybrid_mode={module.rwkv_ms_hybrid_mode!r} "
+                f"hook_bound={outer_ffn_hook_bound}"
             )
 
 

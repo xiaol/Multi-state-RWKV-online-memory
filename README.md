@@ -412,9 +412,49 @@ receipt `c18d190c8fffcbac142c4d95cce6899129df637685cc551ae0e78214710ecdde`.
 
 This establishes a pattern boundary: positive teacher-forced state preference
 is insufficient when recurrent perturbations are injected unconditionally
-during autoregressive decoding. The next hybrid must use query/state agreement
-to abstain to projected-only on weak or conflicting recurrent reads, rather
-than increasing gain or adding another unconditional residual.
+during autoregressive decoding. Two bounded addressed controllers were then
+tested under fresh source/donor-disjoint causal endpoints. `addressed_route_agreement`
+used the overlap between the projected and RWKV slot routes as its scalar
+abstention signal; `addressed_query_state_gate` learned a query/read gate. Both
+kept the projected carrier fixed and reproduced exact projected-only behavior
+when recurrence was zero, but neither acquired the required donor-specific
+positive margin. Their causal endpoints were therefore rejected before native
+generation was opened.
+
+The bounded mixture-of-experts follow-up also passed its four-A100 structural
+screen: it combined addressed and global recurrent reads with a three-way
+query-conditioned softmax and an explicit projected-only abstention arm. The
+zero-recurrent identity and fixed projected carrier held, with minimum donor
+and layer-permuted perturbations of `1.390625` and `1.392578`. Its fresh
+16-update causal run completed all integrity gates, but the held-out endpoint
+still failed the full specificity gate: zero-minus-correct CE was `+0.882820`,
+layer-permuted-minus-correct was `-0.000107`, and donor-minus-correct was
+`+0.002533`. Native generation remains closed. The signed status is
+`addressed_moe_controller_heldout_failed_generation_blocked`.
+
+This is now a write/read identity boundary rather than a missing readout gate:
+three addressed controllers all make recurrence visible, but none makes the
+correct state reliably preferable to a matched donor. The next experiment
+should bind the recurrent write itself to the projected address, with a
+bounded key-conditioned write/value adapter and an explicit donor-contrast
+objective. Readout-only hybrids should not be promoted to native generation
+without a positive donor margin.
+
+An outer-FFN variant then tested whether RWKV information should enter after
+Gemma's frozen MLP rather than only through attention. It kept the addressed /
+global MoE and projected carrier unchanged, adding a gated RMS-normalized FFN
+residual at sparse decoder anchors `(10, 21, 31, 41)`. The corrected same-mode
+zero-gain screen held routing, state, carrier, and attention gain fixed while
+changing only the outer-FFN gain. Recurrent and carrier controls passed, but
+outer-on versus outer-zero logit deltas were `1.46875`, `1.375`, `1.65625`, and
+`1.125` across the four A100 ranks, above the preregistered `0.5` cap. The
+signed status is `addressed_moe_outer_ffn_gain_ablation_screen_failed_branch_stopped`;
+no causal endpoint or native generation was opened for this branch.
+
+The outer hook is live, but its small per-layer residual is amplified by the
+frozen stack. The next experiment should change the write/read identity with a
+projected-address-conditioned RWKV write/value adapter and donor-contrast loss,
+not simply add more outer-FFN gain or reopen generation.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
@@ -448,6 +488,24 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [chunk-addressed evaluation runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_chunk_addressed_value_eval.py),
 [hash-bound chunk-addressed analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_chunk_addressed_value_eval.py),
 [focused chunk-addressed tests](deltamem/tests/test_natural_memory_native_rwkv_chunk_addressed_value_screen.py),
+[addressed route-agreement screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_route_agreement_screen_protocol_v1.json),
+[signed addressed route-agreement screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_route_agreement_screen_v1/result.json),
+[addressed route-agreement causal protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_route_agreement_causal_train_protocol_v1.json),
+[signed addressed route-agreement causal endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_route_agreement_causal_train_v1/result.json),
+[addressed route-agreement runners](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_route_agreement_screen.py),
+[addressed query-state-gate screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_query_state_gate_screen_protocol_v1.json),
+[signed addressed query-state-gate screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_query_state_gate_screen_v1/result.json),
+[addressed query-state-gate causal protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_query_state_gate_causal_train_protocol_v1.json),
+[signed addressed query-state-gate causal endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_query_state_gate_causal_train_v1/result.json),
+[addressed query-state-gate runners](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_query_state_gate_screen.py),
+[addressed MoE-controller screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_moe_controller_screen_protocol_v1.json),
+[signed addressed MoE-controller screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_controller_screen_v4/result.json),
+[addressed MoE-controller causal protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_moe_controller_causal_train_protocol_v1.json),
+[signed addressed MoE-controller causal endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_controller_causal_train_v4/result.json),
+[addressed MoE-controller runners](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_controller_screen.py),
+[outer-FFN architecture screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_addressed_moe_outer_ffn_gain_ablation_screen_protocol_v1.json),
+[signed outer-FFN screen failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_addressed_moe_outer_ffn_gain_ablation_screen_v1/result.json),
+[outer-FFN screen runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_outer_ffn_gain_ablation_screen.py),
 [recurrent-value screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_screen_protocol_v1.json),
 [signed recurrent-value screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_screen_v1/result.json),
 [recurrent-value calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_calibration_protocol_v1.json),

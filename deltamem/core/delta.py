@@ -57,6 +57,7 @@ from deltamem.core.delta_impl import (
     snapshot_delta_mem_weights,
     validate_gemma4_shared_delta_heads,
     validate_memory_fusion_placement_target,
+    validate_outer_ffn_target,
     HFDeltaMemConfig as ExperimentalHFDeltaMemConfig,
     DeltaMemAttention as ExperimentalDeltaMemAttention,
 )
@@ -149,14 +150,23 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
             config,
             module_name=name,
         )
-        candidates.append((name, module, parent, attr, layernorm))
+        outer_ffn_layernorm = validate_outer_ffn_target(
+            module,
+            parent,
+            attr,
+            config,
+            module_name=name,
+        )
+        candidates.append(
+            (name, module, parent, attr, layernorm, outer_ffn_layernorm)
+        )
 
     if not candidates:
         raise RuntimeError("No target modules were replaced")
 
     installed = []
     try:
-        for name, module, parent, attr, layernorm in candidates:
+        for name, module, parent, attr, layernorm, outer_ffn_layernorm in candidates:
             module = ensure_attention_compat_views(module)
             wrapped = DeltaMemAttention(module, config).to(
                 device=module.q_proj.weight.device,
@@ -166,9 +176,12 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
             installed.append((parent, attr, module, wrapped))
             if layernorm is not None:
                 wrapped.bind_post_attention_layernorm(layernorm)
+            if outer_ffn_layernorm is not None:
+                wrapped.bind_post_feedforward_layernorm(outer_ffn_layernorm)
     except Exception:
         for parent, attr, original, wrapped in reversed(installed):
             wrapped.remove_post_attention_layernorm_hook()
+            wrapped.remove_post_feedforward_layernorm_hook()
             setattr(parent, attr, original)
         raise
     return [name for name, *_ in candidates]

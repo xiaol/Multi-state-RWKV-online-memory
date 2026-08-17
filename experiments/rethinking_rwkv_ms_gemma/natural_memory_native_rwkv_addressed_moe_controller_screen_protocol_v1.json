@@ -1,0 +1,61 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_addressed_moe_controller_screen_protocol.v1",
+  "created_at": "2026-08-17T08:00:00+08:00",
+  "objective": "Screen a bounded mixture-of-experts recurrent controller with addressed and global RWKV reads plus an explicit projected-only abstention arm.",
+  "authorization_basis": {
+    "prior_result_file": "local_artifacts/natural_memory_native_rwkv_addressed_query_state_gate_causal_train_v1/result.json",
+    "prior_result_file_sha256": "7bc255f1784c2e36df9ef2abd53903e634d3164e51f29631911fa2235b736343",
+    "prior_result_receipt": "a4f9bb3943a9e47cfd8457d58aea52ba9403998b5eddd440ae8d657b1d6b0512",
+    "prior_status": "addressed_query_state_gate_heldout_failed_generation_blocked",
+    "architectural_response": "Replace the single addressed gate with normalized query-conditioned addressed/global recurrent experts and an explicit projected-only abstention arm."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "addressed_moe_controller",
+    "experts": ["projected-addressed RWKV read", "global recurrent-state RWKV read", "projected-only abstention"],
+    "gate": "softmax(linear(rms(query_hidden)) + linear(rms(addressed_read)) + linear(rms(global_read)) + bias)",
+    "fusion_equation": "projected_read + 0.03125 * projected_rms * (w_addressed * tanh(addressed_read/rms) + w_global * tanh(global_read/rms))",
+    "hybrid_gain": 0.03125,
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "detach_read_scores": true,
+    "memory_fusion_mode": "content_gated_add",
+    "zero_recurrent_identity": "Both recurrent directions are zero, so the bounded correction is exactly zero and the projected carrier is returned bit-exactly.",
+    "training_boundary": "This screen performs no optimization. A pass authorizes a separately locked causal training run."
+  },
+  "execution": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "distribution": "one locked source/donor pair per rank; no gradient or optimizer update",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 91,
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "fresh_initialization": true
+  },
+  "required_gates": {
+    "projected_carrier_hash_fixed_across_all_conditions": true,
+    "zero_recurrent_exactly_equals_projected_only_on_every_rank": true,
+    "correct_vs_zero_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_matched_donor_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_layer_permuted_max_abs_logit_delta_minimum_on_every_rank": 0.001,
+    "correct_vs_projected_max_abs_logit_delta_maximum_on_every_rank": 2.0,
+    "all_condition_logits_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize only a separately locked supervised causal training run with a new source/donor-disjoint open endpoint.",
+    "failure": "Archive the structural failure and redesign the recurrent controller.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused strength holdout."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "e0b5d8f370957e3c7bb340047be718088e8e83e5484a40df55aeceb3f8435c6f"
+  }
+}
