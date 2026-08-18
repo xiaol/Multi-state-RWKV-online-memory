@@ -559,6 +559,34 @@ address strongly enough. The next goal is direct internal query/state
 InfoNCE or hinge supervision, with the answer objective retained as a
 secondary loss.
 
+That direct identity experiment has now completed on four A100s. It retained
+the learned rank-2 `k/v/a/b` writes, addressed MoE readout, and four sparse
+DeepEmbed anchors, added no probe parameters, and trained a cosine hinge
+between a detached projected-slot key address and the addressed RWKV read. All
+eight updates completed, all 726 selected tensors were active, and the frozen
+projected carrier remained fixed. On the fresh 32-row endpoint,
+zero-minus-correct CE was `+0.499466` and layer-permuted-minus-correct was
+`+0.248370`, but donor-minus-correct CE was `-0.001470`. More importantly, the
+training identity advantage was only `+0.000504` with a mean hinge of
+`0.199496` against the `0.2` margin; held-out correct-minus-donor cosine then
+reversed to `-0.002735`, positive on only `43.75%` of rows. The signed status
+is `query_state_identity_heldout_failed_generation_blocked`, result SHA-256 is
+`e1acc2d492339540dc89abcf2a1cfe619f5b55d9f8c459396bead19f84199b1a`,
+and receipt is
+`45684bccf63bd46908fff632790b8e0484e87c3bdfdfc0e5f293439df499221a`.
+Generation remains blocked and no native benchmark gain is claimed.
+
+This failure narrows the problem to representation compatibility and loss
+reduction. The projected key describes location, while the RWKV read is a
+value-space vector; their raw cosine need not encode identity. The next
+controlled method will freeze the target projected slot **value** as the
+same-space target and apply the donor hinge independently at each answer
+position and layer before reduction. Correct and donor branches will remain
+separate checkpoints with a fixed detached active mask and serialized
+backward. This retains the proven hybrid carrier and changes only the failed
+compatibility objective; another gain increase or larger batch would not
+address the observed geometry.
+
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
 [hybrid screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_projected_rwkv_hybrid_screen_protocol_v1.json),
@@ -630,6 +658,9 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [learned-write causal protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_keyed_learned_write_causal_train_protocol_v1.json),
 [learned-write causal runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_keyed_learned_write_causal_train.py),
 [signed learned-write causal result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_learned_write_causal_train_v3/result.json),
+[query-state identity protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_query_state_identity_causal_train_protocol_v1.json),
+[query-state identity runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_query_state_identity_causal_train.py),
+[signed query-state identity failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_query_state_identity_causal_train_v3/result.json),
 [recurrent-value screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_screen_protocol_v1.json),
 [signed recurrent-value screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_screen_v1/result.json),
 [recurrent-value calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_calibration_protocol_v1.json),

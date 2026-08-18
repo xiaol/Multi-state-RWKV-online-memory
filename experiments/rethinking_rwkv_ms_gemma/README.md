@@ -247,6 +247,39 @@ remains blocked. The next experiment must supervise internal query/state
 identity directly; scaling the learned write or outer FFN would not address
 this near-zero donor margin.
 
+The direct query/state identity run then retained that full hybrid and added a
+parameter-free cosine hinge between a detached target projected-key address
+and the addressed RWKV read. It completed all eight four-A100 updates with all
+726 trainable tensors active and no carrier mutation. Training never opened a
+meaningful identity margin: correct-minus-donor cosine was `+0.000504`, the
+mean hinge remained `0.199496` against its `0.2` initialization, and every
+training row kept the hinge active. The fresh 32-row endpoint was:
+
+| condition / identity metric | held-out result |
+| --- | ---: |
+| zero-minus-correct CE | +0.499466 |
+| donor-minus-correct CE | **-0.001470** |
+| layer-permuted-minus-correct CE | +0.248370 |
+| correct-minus-donor identity cosine | **-0.002735** |
+| positive identity rows | **43.75%** |
+
+The signed status is
+`query_state_identity_heldout_failed_generation_blocked`, result SHA-256 is
+`e1acc2d492339540dc89abcf2a1cfe619f5b55d9f8c459396bead19f84199b1a`,
+and receipt is
+`45684bccf63bd46908fff632790b8e0484e87c3bdfdfc0e5f293439df499221a`.
+The result proves recurrence and layer placement remain material but rejects
+this key/read compatibility target. Projected keys represent slot addresses;
+RWKV reads live in the value space.
+
+The next locked candidate should instead freeze the selected projected slot
+**value** and contrast it with correct and donor RWKV reads in the same
+32-dimensional space. Its hinge must be formed per answer token and layer,
+then reduced, rather than averaging 42 layers before the hinge. Independent
+correct/donor checkpoints, a detached active mask, serialized backward, the
+learned rank-2 write, addressed MoE, and sparse DeepEmbed anchors remain fixed.
+Only a fresh endpoint pass may reopen native generation.
+
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
 [BF16 protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v2.json),
@@ -261,7 +294,10 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [signed address-keyed native failure](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [learned-write causal protocol](natural_memory_native_rwkv_address_keyed_learned_write_causal_train_protocol_v1.json),
 [learned-write causal runner](run_natural_memory_native_rwkv_address_keyed_learned_write_causal_train.py),
-and [signed learned-write causal failure](local_artifacts/natural_memory_native_rwkv_address_keyed_learned_write_causal_train_v3/result.json).
+[signed learned-write causal failure](local_artifacts/natural_memory_native_rwkv_address_keyed_learned_write_causal_train_v3/result.json),
+[query-state identity protocol](natural_memory_native_rwkv_query_state_identity_causal_train_protocol_v1.json),
+[query-state identity runner](run_natural_memory_native_rwkv_query_state_identity_causal_train.py),
+and [signed query-state identity failure](local_artifacts/natural_memory_native_rwkv_query_state_identity_causal_train_v3/result.json).
 
 Use the PyTorch/HF delta-Mem path for these diagnostics. The GGUF sidecar path
 is useful for serving, but it does not expose the hidden states, gradients, and

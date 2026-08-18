@@ -22,8 +22,12 @@ from experiments.rethinking_rwkv_ms_gemma import (
     run_natural_memory_native_rwkv_addressed_value_causal_train as causal_execution,
 )
 from experiments.rethinking_rwkv_ms_gemma import learned_rwkv_write
+from experiments.rethinking_rwkv_ms_gemma import rwkv_query_state_identity
 from experiments.rethinking_rwkv_ms_gemma import (
     run_natural_memory_native_rwkv_address_keyed_learned_write_causal_train as learned_train,
+)
+from experiments.rethinking_rwkv_ms_gemma import (
+    run_natural_memory_native_rwkv_query_state_identity_causal_train as identity_train,
 )
 
 
@@ -204,6 +208,81 @@ def test_learned_write_conditioner_starts_as_exact_noop_and_trains() -> None:
     assert torch.isfinite(torch.stack(changed)).all()
 
 
+def test_query_state_identity_capture_preserves_forward_and_trains_state() -> None:
+    module = _module(write_address_gain=0.25)
+    model = torch.nn.Module()
+    model.attention = module
+    shape = (1, 3, module.state_read_dim)
+    projected = torch.randn(shape)
+    positive_state = torch.randn(shape, requires_grad=True)
+    donor_state = torch.randn(shape, requires_grad=True)
+    global_state = torch.randn(shape)
+    hidden = torch.randn(1, 3, module.hidden_size)
+    projected_keys = torch.randn(1, module.rwkv_ms_num_states, 2, requires_grad=True)
+    routes = torch.nn.functional.one_hot(
+        torch.tensor([[0, 1, 0]]),
+        num_classes=module.rwkv_ms_num_states,
+    ).float()
+    module.projected_kv_keys = projected_keys
+    module.last_read_routes = routes
+    module.last_write_routes = torch.nn.functional.one_hot(
+        torch.tensor([[1, 0, 1]]),
+        num_classes=module.rwkv_ms_num_states,
+    ).float()
+    baseline = module._fuse_projected_rwkv_reads(
+        projected,
+        positive_state,
+        global_recurrent_reads=global_state,
+        hidden_states=hidden,
+    )
+    audit = rwkv_query_state_identity.install(model)
+    write_addresses = rwkv_query_state_identity.capture_write_addresses(model)
+    rwkv_query_state_identity.set_fixed_query_addresses(model, write_addresses)
+    module.projected_kv_values = torch.randn(
+        1,
+        module.rwkv_ms_num_states,
+        module.state_read_dim,
+    )
+    module.projected_kv_occupied = torch.ones(
+        1,
+        module.rwkv_ms_num_states,
+        dtype=torch.bool,
+    )
+    module.projected_kv_surprise = torch.zeros(1, module.rwkv_ms_num_states)
+    module._projected_kv_slot_token_reads(hidden)
+    actual = module._fuse_projected_rwkv_reads(
+        projected,
+        positive_state,
+        global_recurrent_reads=global_state,
+        hidden_states=hidden,
+    )
+    positive = rwkv_query_state_identity.capture(model)
+    expected_address = (
+        (projected_keys[:, 0:1] + projected_keys[:, 1:2] * 2.0) / 3.0
+    ).expand_as(positive_state)
+    assert torch.allclose(positive[0].query_address, expected_address)
+    assert positive[0].query_address.requires_grad is False
+    module._fuse_projected_rwkv_reads(
+        projected,
+        donor_state,
+        global_recurrent_reads=global_state,
+        hidden_states=hidden,
+    )
+    donor = rwkv_query_state_identity.capture(model)
+    _, _, loss = rwkv_query_state_identity.donor_hinge(
+        positive,
+        donor,
+        torch.tensor([[-100, 1, 2]]),
+        margin=3.0,
+    )
+    loss.backward()
+    assert audit["forward_output_changed"] is False
+    assert torch.equal(actual, baseline)
+    assert positive_state.grad is not None and bool(positive_state.grad.ne(0).any())
+    assert donor_state.grad is not None and bool(donor_state.grad.ne(0).any())
+    assert projected_keys.grad is None
+
+
 def test_selected_projected_key_expands_over_only_valid_write_tokens() -> None:
     module = _module(write_address_gain=0.25)
     hidden = torch.randn(2, 3, module.hidden_size)
@@ -348,6 +427,75 @@ def test_learned_write_protocol_and_signed_endpoint_are_locked() -> None:
     assert result["status"] == "address_keyed_learned_write_heldout_failed_generation_blocked"
     assert result["heldout_causal_endpoint"]["checks"]["donor_minus_correct_mean_ce_positive"] is False
     assert result["heldout_causal_endpoint"]["checks"]["projected_carrier_fixed_every_row"] is True
+
+
+def test_query_state_identity_protocol_and_fresh_endpoint_are_locked() -> None:
+    protocol = identity_train.validate_protocol()
+    assert protocol["architecture"]["identity_probe_parameters"] == 0
+    assert protocol["architecture"]["forward_output_changed"] is False
+    assert protocol["training"]["identity_margin"] == 0.2
+    assert protocol["heldout_causal_endpoint"]["source_ordinals"] == list(
+        identity_train.HELDOUT_ORDINALS
+    )
+    assert set(identity_train.HELDOUT_ORDINALS).isdisjoint(
+        learned_train.shared.HELDOUT_ORDINALS
+    )
+
+
+def test_query_state_identity_backward_serializes_scalar_checkpoints(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[object] = []
+    model = torch.nn.Module()
+    positive = torch.tensor(0.1, requires_grad=True)
+    donor = torch.tensor(0.2, requires_grad=True)
+    positive.register_hook(lambda gradient: events.append(("positive", gradient.item())))
+    donor.register_hook(lambda gradient: events.append(("donor", gradient.item())))
+    monkeypatch.setattr(
+        identity_train,
+        "_ORIGINAL_BACKWARD_LOGITS",
+        lambda *args, **kwargs: events.append("answer") or (1, 1),
+    )
+    monkeypatch.setattr(
+        identity_train.identity,
+        "clear",
+        lambda *args, **kwargs: events.append("clear"),
+    )
+    monkeypatch.setattr(
+        identity_train,
+        "reset_delta_mem_states",
+        lambda *args, **kwargs: events.append("reset"),
+    )
+    monkeypatch.setattr(
+        identity_train.evolution,
+        "release_native_row_allocator_cache",
+        lambda *args, **kwargs: events.append("release"),
+    )
+    identity_train._reset_identity_metrics()
+    identity_train._pending_identity = (model, positive, donor)
+    scale = identity_train.IDENTITY_WEIGHT / identity_train.causal_train.GLOBAL_BATCH_SIZE
+
+    identity_train._backward_logits_with_identity(
+        torch.tensor([0.0]),
+        torch.tensor([0]),
+        coefficient=1.0,
+    )
+
+    assert events == [
+        "answer",
+        "clear",
+        "reset",
+        "release",
+        ("positive", -scale),
+        "clear",
+        "reset",
+        "release",
+        ("donor", scale),
+        "clear",
+        "reset",
+        "release",
+    ]
+    assert identity_train._pending_identity is None
 
 
 def test_serialized_graph_protocol_validates_inside_active_bindings() -> None:
