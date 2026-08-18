@@ -311,6 +311,24 @@ the gate patch passes exact zero/projected identity, fixed-carrier, coverage,
 and donor/layer-permutation controls. This tests the native objective directly
 without reopening the failed key/value identity geometry.
 
+The precision-unlikelihood run is now locked and complete. It started from the
+passed specificity adapter
+`natural_memory_native_rwkv_aligned_vector_gate_specificity_train_v1`, kept the
+projected carrier and RWKV controller frozen, and updated only the 126 content
+gate tensors on 256 untouched fit rows. All 16 updates on four A100s completed:
+all rows were finite, all gate tensors were active, the non-gate state hash was
+unchanged, and the proximal retention stayed at `0.995`. The signed training
+receipt is in
+`local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_precision_unlikelihood_train_v1/result.json`.
+
+The separately locked 220-row native benchmark is currently running under
+`natural_memory_native_rwkv_aligned_vector_gate_precision_unlikelihood_eval_v1`.
+Its only admissible claim is a full causal native gain if the correct state
+beats projected-only, zero, matched-donor, and layer-permuted controls by the
+locked `0.005` micro-F1 margins with exact zero/projected identity and fixed
+carrier. Until the signed analyzer result passes those gates, native gain
+remains blocked.
+
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
 [BF16 protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v2.json),

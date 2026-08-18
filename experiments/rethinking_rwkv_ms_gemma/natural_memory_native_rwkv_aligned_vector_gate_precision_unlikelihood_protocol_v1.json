@@ -1,0 +1,58 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_aligned_vector_gate_precision_unlikelihood_protocol.v1",
+  "created_at": "2026-08-19T04:00:00+08:00",
+  "objective": "Reduce native scene false positives by adapting only the aligned-vector content gate with gold boundary CE and deterministic wrong-boundary unlikelihood.",
+  "starting_artifact": {
+    "source": "natural_memory_native_rwkv_aligned_vector_gate_specificity_train_v1",
+    "adapter_files_sha256": "2503a387cec74a53dcb1dc163733a267b3091e029f77e582cf5908c7921ce0ac",
+    "adapter_config_sha256": "28830f91f455c77f6b565cacb3069262d991d2030e3564961e0c957f13c8245f",
+    "result_receipt": "96ccb53dbcf9f8927125a2b9ff0d6118007c11f54770d54c5fc4a3cdfee915a7",
+    "projected_carrier_frozen": true,
+    "rwkv_controller_frozen": true
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "hybrid_mode": "aligned_vector_gate",
+    "hybrid_gain": 0.125,
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "detach_read_scores": true,
+    "memory_fusion_mode": "content_gated_add",
+    "content_gate_parameter_families": [
+      "memory_fusion_hidden_weight",
+      "memory_fusion_read_weight",
+      "memory_fusion_bias"
+    ],
+    "content_gate_parameter_tensors": 126,
+    "all_other_adapter_parameters_frozen": true
+  },
+  "training": {
+    "source": "publisher-TRAIN-derived scene fit only",
+    "updates": 16,
+    "global_batch_size": 16,
+    "local_rows_per_rank": 4,
+    "seed": 131,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.000015,
+    "unlikelihood_weight": 0.5,
+    "max_gradient_norm": 0.1,
+    "post_step_delta_retention": 0.995,
+    "wrong_boundary_rule": "Add boundary 1 when absent; otherwise choose a deterministic absent boundary by SHA-256 ranking.",
+    "content_gate_parameter_tensors": 126,
+    "hf_endpoint": "https://hf-mirror.com",
+    "hardware": "exactly four distinct A100 GPUs"
+  },
+  "controls": {
+    "exact_zero_projected_identity": true,
+    "projected_carrier_fixed_every_intervention": true,
+    "native_benchmark_requires_donor_and_layer_permutation": true,
+    "protected_splits_opened": []
+  },
+  "stopping_rule": "Do not claim native gain unless a separately signed four-GPU benchmark passes coverage, exact zero/projected identity, fixed-carrier, donor, and layer-permutation gates.",
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "4a6a93aeda67be9503e2f036838b66957ca536380966a94ee4a1b18140c7daf8"
+  }
+}

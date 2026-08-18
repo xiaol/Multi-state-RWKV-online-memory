@@ -1,0 +1,64 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_aligned_vector_gate_precision_unlikelihood_generation_protocol.v1",
+  "created_at": "2026-08-19T05:00:00+08:00",
+  "objective": "Measure whether native wrong-boundary unlikelihood improves the aligned-vector gate over its fixed projected carrier and recurrent controls.",
+  "authorization_basis": {
+    "training_result_file": "local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_precision_unlikelihood_train_v1/result.json",
+    "training_result_file_sha256": "dd93ffad256ec887dc2c688f0de46485735f8a6ba3f0913fb7d735f7292d7412",
+    "training_result_receipt": "c765c24c89a4b0569d8b703cdaead6494a0290030abac84e6608a91ee5cc26d8",
+    "training_status": "aligned_vector_gate_precision_unlikelihood_training_passed_generation_authorized",
+    "open_native_generation_authorized": true,
+    "adapter_config_file_sha256": "39dd450d660cd139f34f2aeb5ca1f7a068ad41cd4be684069107f21195d41a1e"
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "dataset_file": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "authorized_rows": 220,
+    "authorized_rows_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "seed": 131,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "aligned_vector_gate",
+    "hybrid_gain": 0.125,
+    "read_temperature": 16.0,
+    "read_top_k": 2,
+    "detach_read_scores": true,
+    "memory_fusion_mode": "content_gated_add",
+    "projected_carrier_and_rwkv_controller_frozen_during_precision_training": true
+  },
+  "generation": {
+    "hardware": "four distinct A100 GPUs, one deterministic shard per GPU",
+    "conditions": [
+      "correct_recurrent_state",
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "layer_permuted_recurrent_state",
+      "projected_only_bypass"
+    ],
+    "projected_carrier_policy": "The correct row projected carrier is byte-identical in every recurrent intervention.",
+    "decoding": "Repository frozen deterministic native generation configuration",
+    "rows": 220
+  },
+  "required_gates": {
+    "coverage_minimum_every_condition": 0.95,
+    "correct_minus_projected_only_micro_f1_minimum": 0.005,
+    "correct_minus_zero_micro_f1_minimum": 0.005,
+    "correct_minus_matched_donor_micro_f1_minimum": 0.005,
+    "correct_minus_layer_permuted_micro_f1_minimum": 0.005,
+    "projected_carrier_fixed_across_recurrent_interventions": true,
+    "zero_recurrent_predictions_exactly_match_projected_only_bypass": true,
+    "all_220_rows_present_in_every_condition": true
+  },
+  "stopping_rule": "Archive and report the signed native result. Claim native gain only if every causal gate passes; otherwise keep native gain blocked.",
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "3d31d3831fa9e741870aea7a23d13c8f74c92c16339e62f8f90ba3412958c70e"
+  }
+}
