@@ -543,6 +543,22 @@ internal query/state InfoNCE or hinge objective before answer CE. A final
 state-conditioned boundary-logit adapter is the secondary direction. Merely
 increasing attention or FFN gain is not supported by these results.
 
+The next rank-2 learned-write experiment kept the same projected carrier,
+RWKV-MS readout, and four sparse DeepEmbed anchors, but added eight no-op-at-
+initialization low-rank tensors per layer to learn separate address transforms
+for RWKV `k/v/a/b`. The four-A100 run used one row per rank to stay below the
+40-GB allocator ceiling and completed all eight updates with zero globally
+inactive tensors. Its 32-row causal endpoint passed the zero and layer-
+permutation checks, but matched-donor-minus-correct CE was `-0.0000795`, so
+the donor-identity gate failed. The signed status is
+`address_keyed_learned_write_heldout_failed_generation_blocked`, result receipt
+`022d28748453e5743a24a52b3b7eaa1144d29f4e96cdaf13da8a8c8c6b14a3a8`. This
+isolates the remaining problem: the learned write is active and trainable, but
+answer CE plus state-intervention contrasts still does not bind the correct
+address strongly enough. The next goal is direct internal query/state
+InfoNCE or hinge supervision, with the answer objective retained as a
+secondary loss.
+
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
 [hybrid screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_projected_rwkv_hybrid_screen_protocol_v1.json),
@@ -611,6 +627,9 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [signed address-keyed native failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [address-keyed native evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py),
 [address-keyed native analyzer](experiments/rethinking_rwkv_ms_gemma/analyze_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py),
+[learned-write causal protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_keyed_learned_write_causal_train_protocol_v1.json),
+[learned-write causal runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_keyed_learned_write_causal_train.py),
+[signed learned-write causal result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_learned_write_causal_train_v3/result.json),
 [recurrent-value screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_screen_protocol_v1.json),
 [signed recurrent-value screen](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_recurrent_value_screen_v1/result.json),
 [recurrent-value calibration protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_recurrent_value_calibration_protocol_v1.json),

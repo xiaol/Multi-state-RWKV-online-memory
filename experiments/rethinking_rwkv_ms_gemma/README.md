@@ -237,6 +237,16 @@ The MoE attention and sparse DeepEmbed paths can remain controlled readout
 ablations, but another gate or a larger gain does not target the repeated
 donor-neutral failure.
 
+The rank-2 learned-write follow-up added separate low-rank projected-address
+transforms for RWKV `k/v/a/b`, initialized as an exact no-op. A four-A100,
+global-batch-four run completed eight updates with all 726 selected tensors
+active. The 32-row causal endpoint produced zero-minus-correct CE `+0.500323`
+and layer-permuted-minus-correct `+0.211665`, but donor-minus-correct was
+`-0.0000795`. The donor-specific gate therefore failed and native generation
+remains blocked. The next experiment must supervise internal query/state
+identity directly; scaling the learned write or outer FFN would not address
+this near-zero donor margin.
+
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
 [BF16 protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v2.json),
@@ -248,7 +258,10 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [address-keyed v5 training protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_protocol_v5.json),
 [address-keyed v5 endpoint](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json),
 [locked address-keyed generation protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
-and [signed address-keyed native failure](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json).
+[signed address-keyed native failure](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
+[learned-write causal protocol](natural_memory_native_rwkv_address_keyed_learned_write_causal_train_protocol_v1.json),
+[learned-write causal runner](run_natural_memory_native_rwkv_address_keyed_learned_write_causal_train.py),
+and [signed learned-write causal failure](local_artifacts/natural_memory_native_rwkv_address_keyed_learned_write_causal_train_v3/result.json).
 
 Use the PyTorch/HF delta-Mem path for these diagnostics. The GGUF sidecar path
 is useful for serving, but it does not expose the hidden states, gradients, and

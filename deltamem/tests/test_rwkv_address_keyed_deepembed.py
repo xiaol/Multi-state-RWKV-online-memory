@@ -21,6 +21,10 @@ from experiments.rethinking_rwkv_ms_gemma import (
 from experiments.rethinking_rwkv_ms_gemma import (
     run_natural_memory_native_rwkv_addressed_value_causal_train as causal_execution,
 )
+from experiments.rethinking_rwkv_ms_gemma import learned_rwkv_write
+from experiments.rethinking_rwkv_ms_gemma import (
+    run_natural_memory_native_rwkv_address_keyed_learned_write_causal_train as learned_train,
+)
 
 
 def _module(
@@ -168,6 +172,38 @@ def test_address_conditioner_nonzero_carriers_have_finite_feature_gradients() ->
     assert torch.isfinite(address.grad).all()
 
 
+def test_learned_write_conditioner_starts_as_exact_noop_and_trains() -> None:
+    module = _module(write_address_gain=0.25)
+    model = torch.nn.Module()
+    model.attention = module
+    audit = learned_rwkv_write.install(model, rank=2)
+    assert audit["parameter_tensors"] == 8
+    shape = (2, 3, module.state_read_dim)
+    features = tuple(torch.randn(shape) for _ in range(4))
+    address = torch.randn(shape)
+    initial = module._rwkv_ms_address_conditioned_write_features(
+        *features,
+        address,
+        None,
+    )
+    assert all(torch.equal(actual, expected) for actual, expected in zip(initial, features))
+    loss = sum(output.square().mean() for output in initial)
+    loss.backward()
+    assert all(
+        getattr(module, name[1:]).grad is not None
+        for name in learned_rwkv_write.parameter_suffixes()
+    )
+    with torch.no_grad():
+        module.rwkv_learned_write_k_up[0, 0] = 0.25
+    changed = module._rwkv_ms_address_conditioned_write_features(
+        *features,
+        address,
+        None,
+    )
+    assert not torch.equal(changed[0], features[0])
+    assert torch.isfinite(torch.stack(changed)).all()
+
+
 def test_selected_projected_key_expands_over_only_valid_write_tokens() -> None:
     module = _module(write_address_gain=0.25)
     hidden = torch.randn(2, 3, module.hidden_size)
@@ -296,6 +332,22 @@ def test_address_keyed_causal_protocol_and_native_write_are_locked() -> None:
         )
     assert causal_train.evolution._native_write is original_write
     assert causal_train.SHARED_TRAINER.RUNNER_BINDING_PATH == original_runner
+
+
+def test_learned_write_protocol_and_signed_endpoint_are_locked() -> None:
+    protocol = learned_train.validate_protocol()
+    assert protocol["architecture"]["learned_write_conditioner"] == "rank2_per_feature_low_rank"
+    assert protocol["training"]["global_batch_rows"] == 4
+    assert learned_train.SELECTED_CANDIDATE["learned_write_rank"] == 2
+    result = learned_train.json.loads(
+        (
+            learned_train.SCRIPT_DIR
+            / "local_artifacts/natural_memory_native_rwkv_address_keyed_learned_write_causal_train_v3/result.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert result["status"] == "address_keyed_learned_write_heldout_failed_generation_blocked"
+    assert result["heldout_causal_endpoint"]["checks"]["donor_minus_correct_mean_ce_positive"] is False
+    assert result["heldout_causal_endpoint"]["checks"]["projected_carrier_fixed_every_row"] is True
 
 
 def test_serialized_graph_protocol_validates_inside_active_bindings() -> None:
