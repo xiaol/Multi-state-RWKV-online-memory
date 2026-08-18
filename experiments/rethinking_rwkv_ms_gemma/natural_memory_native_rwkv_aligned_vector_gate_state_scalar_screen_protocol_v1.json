@@ -1,0 +1,36 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_aligned_vector_gate_state_scalar_screen_protocol.v1",
+  "created_at": "2026-08-19T08:30:00+08:00",
+  "objective": "Screen a frozen-readout layer-aware scalar identity head before implementing a native boundary-logit abstention calibration.",
+  "starting_artifact": {
+    "source": "natural_memory_native_rwkv_aligned_vector_gate_precision_unlikelihood_train_v1",
+    "adapter_config_sha256": "39dd450d660cd139f34f2aeb5ca1f7a068ad41cd4be684069107f21195d41a1e",
+    "projected_carrier_frozen": true,
+    "rwkv_controller_frozen": true
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "hybrid_mode": "aligned_vector_gate",
+    "feature": "42 per-layer recurrent-state L2 norms",
+    "candidate_head": "single linear scalar over layer features",
+    "interventions": ["correct", "zero", "matched_donor", "layer_permuted"]
+  },
+  "evaluation": {
+    "source": "locked open 220-row native development endpoint",
+    "authorized_rows": 220,
+    "authorized_rows_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "hardware": "exactly four A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "protected_splits_opened": []
+  },
+  "decision_rule": {
+    "minimum_matched_donor_pairwise_separation": 0.95,
+    "on_failure": "Do not run a native generation calibration; retire the aligned-vector branch and return to a genuinely learned state-identity mechanism."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "8edab2dfe3d0995d0e53b313297d008b7176a4415ca8f0ed6480362d9c894816"
+  }
+}

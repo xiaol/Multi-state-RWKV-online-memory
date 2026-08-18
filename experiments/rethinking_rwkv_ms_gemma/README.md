@@ -337,13 +337,25 @@ The signed status is
 `aligned_vector_gate_precision_unlikelihood_native_gain_not_established`;
 native generation gain remains blocked. The loss improved the correct state
 over the projected-only carrier, but not enough to establish donor or layer
-specificity. The next move should be a small readout calibration, not more
-updates to this gate: freeze this adapter, measure a deterministic
-state-conditioned boundary-logit abstention scalar on the same open rows, and
-require it to improve precision while preserving the exact carrier and control
-gates. If that calibration cannot separate correct from donor, retire this
-aligned-vector branch and return to a genuinely learned state-identity
-mechanism rather than increasing gain or training duration.
+specificity. The prescribed next move was a small frozen-readout calibration,
+not more updates to this gate. That screen is now complete. It used the same
+locked 220 open rows, exactly four A100s, and 42 per-layer recurrent-state L2
+norms. A deterministic ridge scalar separated all layer-permuted controls
+(pairwise positive fraction `1.0`) but separated a matched donor on only
+`0.586364` of rows, below the locked `0.95` threshold; zero-state separation
+was `0.531818`. The signed status is
+`state_scalar_screen_failed_donor_separation_blocked` (result SHA-256
+`bd066174c8b994c9d3174025216b328c4f9a6cba12084d0cd875394cfcb76ca0`, receipt
+`7ae6ba19c915fdf9243d4d595ce9ebbfd57a58ae0fb9e53f97075e9edc930881`). Because
+the donor gate failed, no native generation calibration was authorized or
+run. The aligned-vector branch is retired; increasing its gain, batch size, or
+training duration is not justified.
+
+The next goal is a genuinely learned state-identity mechanism: address-
+conditioned low-rank transforms into RWKV `k/v/a/b`, or direct query-to-state
+contrastive supervision, with a causal donor-separation gate before any native
+generation. The projected carrier and exact control checks remain fixed, and
+the HF endpoint remains `https://hf-mirror.com`.
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
@@ -363,6 +375,12 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [query-state identity protocol](natural_memory_native_rwkv_query_state_identity_causal_train_protocol_v1.json),
 [query-state identity runner](run_natural_memory_native_rwkv_query_state_identity_causal_train.py),
 and [signed query-state identity failure](local_artifacts/natural_memory_native_rwkv_query_state_identity_causal_train_v3/result.json).
+
+The state-scalar screen is documented by
+[its protocol](natural_memory_native_rwkv_aligned_vector_gate_state_scalar_screen_protocol_v1.json),
+[its probe](probe_native_state_scalar.py),
+[its analyzer](analyze_native_state_scalar.py), and
+[its signed result](local_artifacts/natural_memory_native_state_scalar_probe_v1/result.json).
 
 Use the PyTorch/HF delta-Mem path for these diagnostics. The GGUF sidecar path
 is useful for serving, but it does not expose the hidden states, gradients, and
