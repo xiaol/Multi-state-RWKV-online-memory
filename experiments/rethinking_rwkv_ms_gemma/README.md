@@ -321,13 +321,29 @@ unchanged, and the proximal retention stayed at `0.995`. The signed training
 receipt is in
 `local_artifacts/natural_memory_native_rwkv_aligned_vector_gate_precision_unlikelihood_train_v1/result.json`.
 
-The separately locked 220-row native benchmark is currently running under
+The separately locked 220-row native benchmark completed under
 `natural_memory_native_rwkv_aligned_vector_gate_precision_unlikelihood_eval_v1`.
-Its only admissible claim is a full causal native gain if the correct state
-beats projected-only, zero, matched-donor, and layer-permuted controls by the
-locked `0.005` micro-F1 margins with exact zero/projected identity and fixed
-carrier. Until the signed analyzer result passes those gates, native gain
-remains blocked.
+Coverage, fixed-carrier, and exact zero/projected identity passed, but the
+causal margins did not reach the locked `0.005` threshold:
+
+| condition | micro-F1 | margin versus correct |
+| --- | ---: | ---: |
+| correct recurrent | 0.195356 | — |
+| zero / projected-only | 0.191975 | +0.003381 |
+| matched donor | 0.194815 | +0.000541 |
+| layer-permuted | 0.194145 | +0.001211 |
+
+The signed status is
+`aligned_vector_gate_precision_unlikelihood_native_gain_not_established`;
+native generation gain remains blocked. The loss improved the correct state
+over the projected-only carrier, but not enough to establish donor or layer
+specificity. The next move should be a small readout calibration, not more
+updates to this gate: freeze this adapter, measure a deterministic
+state-conditioned boundary-logit abstention scalar on the same open rows, and
+require it to improve precision while preserving the exact carrier and control
+gates. If that calibration cannot separate correct from donor, retire this
+aligned-vector branch and return to a genuinely learned state-identity
+mechanism rather than increasing gain or training duration.
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
