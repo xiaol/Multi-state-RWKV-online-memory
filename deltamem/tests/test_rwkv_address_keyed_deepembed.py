@@ -23,6 +23,7 @@ from experiments.rethinking_rwkv_ms_gemma import (
 )
 from experiments.rethinking_rwkv_ms_gemma import learned_rwkv_write
 from experiments.rethinking_rwkv_ms_gemma import rwkv_query_state_identity
+from experiments.rethinking_rwkv_ms_gemma import rwkv_projected_value_identity
 from experiments.rethinking_rwkv_ms_gemma import (
     run_natural_memory_native_rwkv_address_keyed_learned_write_causal_train as learned_train,
 )
@@ -281,6 +282,52 @@ def test_query_state_identity_capture_preserves_forward_and_trains_state() -> No
     assert positive_state.grad is not None and bool(positive_state.grad.ne(0).any())
     assert donor_state.grad is not None and bool(donor_state.grad.ne(0).any())
     assert projected_keys.grad is None
+
+
+def test_projected_value_identity_captures_same_space_target_and_per_token_hinge() -> None:
+    module = _module(write_address_gain=0.25)
+    model = torch.nn.Module()
+    model.attention = module
+    module.last_write_routes = torch.nn.functional.one_hot(
+        torch.tensor([[1]]), num_classes=module.rwkv_ms_num_states
+    ).float()
+    module.projected_kv_values = torch.randn(
+        1, module.rwkv_ms_num_states, module.state_read_dim
+    )
+    module.projected_kv_occupied = torch.ones(
+        1, module.rwkv_ms_num_states, dtype=torch.bool
+    )
+    module.projected_kv_surprise = torch.zeros(1, module.rwkv_ms_num_states)
+    module.projected_kv_keys = torch.randn(
+        1, module.rwkv_ms_num_states, module.projected_kv_key_dim
+    )
+    values = rwkv_projected_value_identity.capture_write_values(model)
+    expected = module.projected_kv_values[:, 1:2].detach()
+    assert torch.allclose(values["attention"], expected)
+    rwkv_projected_value_identity.install(model)
+    rwkv_projected_value_identity.set_fixed_target_values(model, values)
+    module.last_read_routes = torch.nn.functional.one_hot(
+        torch.tensor([[1, 1]]), num_classes=module.rwkv_ms_num_states
+    ).float()
+    hidden = torch.randn(1, 2, module.hidden_size)
+    projected = module._projected_kv_slot_token_reads(hidden)
+    recurrent = expected.expand_as(projected).clone().requires_grad_()
+    module._fuse_projected_rwkv_reads(
+        projected,
+        recurrent,
+        global_recurrent_reads=projected,
+        hidden_states=hidden,
+    )
+    captured = rwkv_projected_value_identity.capture(model)
+    scores = rwkv_projected_value_identity.score_tensor(
+        captured, torch.tensor([[-100, 1]])
+    )
+    assert scores.shape[1] == 1
+    active, hinge = rwkv_projected_value_identity.active_hinge(
+        scores, scores - 0.1, margin=0.2
+    )
+    assert bool(active.all())
+    assert torch.allclose(hinge, torch.full_like(hinge, 0.1))
 
 
 def test_selected_projected_key_expands_over_only_valid_write_tokens() -> None:

@@ -1,0 +1,106 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_projected_value_identity_causal_train_protocol.v1",
+  "created_at": "2026-08-19T03:00:00+08:00",
+  "objective": "Test whether direct matched-donor supervision in the shared projected-value/RWKV read space creates recurrent identity while retaining answer CE, causal state controls, and the learned address-conditioned write.",
+  "authorization_basis": {
+    "prior_protocol_payload_sha256": "5b3195da9922bbaf83171dc2a1fd8634691a1ed3ff55e4d0cfbddfb44746aff9",
+    "prior_result_file": "local_artifacts/natural_memory_native_rwkv_query_state_identity_causal_train_v3/result.json",
+    "prior_result_file_sha256": "e1acc2d492339540dc89abcf2a1cfe619f5b55d9f8c459396bead19f84199b1a",
+    "prior_result_receipt": "45684bccf63bd46908fff632790b8e0484e87c3bdfdfc0e5f293439df499221a",
+    "prior_status": "query_state_identity_heldout_failed_generation_blocked",
+    "observed_failure": "The projected-key versus RWKV-read identity advantage was +0.000504 on training rows and -0.002735 on the fresh held-out endpoint, with a 43.75% positive row fraction.",
+    "method_change": "Replace the incompatible projected-key target with the detached projected slot value in the same RWKV state-read space, and apply the hinge independently per answer position and layer before reduction."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "full_training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "eight_update_schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "seed": 111,
+    "checkpoint_resume": false,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "learned_write_conditioner": "rank2_per_feature_low_rank_for_k_v_a_b",
+    "identity_target": "detached_projected_slot_value_in_rwkv_state_read_space",
+    "identity_score": "cosine(frozen_target_projected_slot_value,addressed_rwkv_read)",
+    "identity_negative": "The exact same detached target projected slot value paired with a length-matched different-gold donor recurrent state while retaining the target projected carrier.",
+    "identity_probe_parameters": 0,
+    "forward_output_changed": false,
+    "expected_trainable_parameter_tensors": 726,
+    "projected_carrier_and_router_frozen": true,
+    "outer_ffn_layers": [10, 21, 31, 41]
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW",
+    "optimizer_updates": 8,
+    "global_batch_rows": 4,
+    "local_rows_per_rank": 1,
+    "answer_objective": "correct_state_ce_plus_active_zero_donor_and_layer_permuted_ce_hinges",
+    "identity_objective": "mean_over_active(max(0, identity_margin - correct_value_read_cosine + donor_value_read_cosine)) with per-layer per-answer-token active mask",
+    "identity_margin": 0.2,
+    "identity_weight": 1.0,
+    "identity_layer_reduction": "per-layer per-answer-token hinge before mean reduction",
+    "identity_query_gradient": "detached",
+    "identity_state_gradient": "live through correct and donor RWKV writes and reads",
+    "identity_pair_autograd": "two independent non-reentrant tensor checkpoints with serialized active-mask backward",
+    "optimizer_state_cpu_offload_enabled": true,
+    "control_branch_graph_serialization_enabled": true,
+    "maximum_simultaneous_full_vocabulary_autograd_graphs_per_rank": 1
+  },
+  "heldout_causal_endpoint": {
+    "selection": "Deterministic SHA-256 selection from rows with donor token delta at most 16, after excluding the first eight training schedule steps and every source or mapped donor used by tracked signed causal endpoints including the preceding query-state identity endpoint; source and mapped donor must both remain eligible.",
+    "selection_salt": "rwkv-projected-value-identity-v1-heldout:",
+    "candidate_rows_after_prior_endpoint_exclusions": 17,
+    "source_ordinals": [1002, 1431, 1161, 1128, 1189, 1232, 1437, 1220, 718, 805, 1331, 546, 472, 973, 101, 1154],
+    "source_donor_payload_sha256": "94a7ce9e5c1ee6d649daa3d377e5433956ac891fc1ec13625f7e89b34f06d75b",
+    "rows": 16,
+    "required_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "required_identity_metrics": {
+      "mean_correct_minus_donor_score": 0.0,
+      "minimum_positive_row_fraction": 0.5,
+      "minimum_positive_element_fraction": 0.5
+    },
+    "all_condition_logits_finite": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_eight_updates_complete": true,
+    "all_identity_rows_executed": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "projected_carrier_fixed_for_every_intervention": true,
+    "heldout_identity_endpoint_passed": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true
+  },
+  "stopping_rule": {
+    "training_failure": "Do not interpret the endpoint; archive the failure.",
+    "endpoint_pass": "Authorize a separately locked native generation benchmark against the projected-only base.",
+    "endpoint_failure": "Block generation and decide from the signed same-space identity and CE margins whether to change the recurrent write target or stop this branch.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused strength holdout."
+  },
+  "claim_policy": {
+    "endpoint_pass": "May claim held-out internal same-space donor identity and teacher-forced causal preference on this newly frozen open-fit endpoint.",
+    "native_gain": "Forbidden until a separately authorized generation benchmark passes both carrier-gain and recurrent causal gates."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "3dd5230bbd22a42b502e8e35ff0d2c1f65f934f23002e131f2c7554d9ab4b4b0"
+  }
+}

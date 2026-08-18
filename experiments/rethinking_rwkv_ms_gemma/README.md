@@ -280,6 +280,37 @@ correct/donor checkpoints, a detached active mask, serialized backward, the
 learned rank-2 write, addressed MoE, and sparse DeepEmbed anchors remain fixed.
 Only a fresh endpoint pass may reopen native generation.
 
+That same-space projected-value run completed after the control-graph binding
+was corrected. All eight four-A100 updates completed with serialized control
+graphs, CPU optimizer-state offload, 726 active trainable tensors, and 32/32
+identity rows. The training audit passed, but the fresh 16-row endpoint did not:
+
+| held-out metric | result |
+| --- | ---: |
+| zero-minus-correct CE | +0.514081 |
+| donor-minus-correct CE | **+0.002462** |
+| layer-permuted-minus-correct CE | +0.211908 |
+| correct-minus-donor projected-value cosine | **+0.000095** |
+| positive identity rows | **43.75%** |
+
+The signed status is
+`projected_value_identity_heldout_failed_generation_blocked`, with result
+receipt `c3f7faa1e286a4990ef1299624f3b325f279712981905fc364501c84e6b24944`.
+This closes the raw projected-value identity branch: it makes layer placement
+visible, but does not make a matched donor preferable. Native generation stays
+blocked.
+
+The next goal is therefore a different loss and boundary, not a larger RWKV
+gain. Start from the native-active aligned vector-gate checkpoint, freeze the
+projected carrier and RWKV controller, and train only the content gate against
+gold scene-boundary CE plus a deterministic wrong-boundary unlikelihood term.
+The gate should learn to abstain on recurrent changes that increase false
+positives while preserving the existing `+0.00663` correct-versus-projected
+native F1 signal. A fresh four-A100 native benchmark is authorized only after
+the gate patch passes exact zero/projected identity, fixed-carrier, coverage,
+and donor/layer-permutation controls. This tests the native objective directly
+without reopening the failed key/value identity geometry.
+
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
 [BF16 protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v2.json),

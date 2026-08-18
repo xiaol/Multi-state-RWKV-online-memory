@@ -1,0 +1,1719 @@
+{
+  "adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 105604606,
+      "sha256": "6239cc9cec980aec75b43a59e6b843754a98c5760aaf5b9def38089d61a3c8d8"
+    },
+    "delta_mem_config.json": {
+      "bytes": 2969,
+      "sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44"
+    }
+  },
+  "adapter_files_sha256": "91e53977a04a85f5d714fa651c3fa08b5ed1de6f332f494bf27ab6d94047c612",
+  "code_bindings": {
+    "calibration_result_file_sha256": "8b9cfcdacd52a38b31a4a739c04e6f92be5267dbf119415adc4e69a4d7744012",
+    "contrast_runner_sha256": "2f8591a5eb8c308fc0c3d4f8304483d84e5c21dca491c18cbb24b206d1369733",
+    "delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "distributed_sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d",
+    "protocol_file_sha256": "9742e5c792ebee3eaf89fa09ca2f1db50f6044e88ed6ae20ecf98204183cb44b",
+    "runner_sha256": "1cc864438966e3691f346fb0a16eee581c869ea79d33ac1352d1998341b79651",
+    "rwkv_core_sha256": "b7a07054c150af53f7293a3844e08e00d77d5451676c414e58e225045e4121a1",
+    "shared_training_runner_sha256": "9874b75ff325066d897a502f1096852b8e4c06377c21012e6609ce6160cde859",
+    "training_helper_sha256": "3036e7c75c1dedd31ab7f3d8aa79126c849a5c64e5e37395bbe3e2c43822fbc7"
+  },
+  "heldout_causal_endpoint": {
+    "answer_target_tokens": 189,
+    "checks": {
+      "all_condition_logits_finite": true,
+      "donor_minus_correct_mean_ce_positive": true,
+      "layer_permuted_minus_correct_mean_ce_positive": true,
+      "projected_carrier_fixed_every_row": true,
+      "projected_value_identity_endpoint_passed": false,
+      "rows_complete": true,
+      "zero_minus_correct_mean_ce_positive": true
+    },
+    "condition_mean_ce": {
+      "correct": 3.299429938906715,
+      "donor": 3.301891851677466,
+      "layer_permuted": 3.511338067433191,
+      "zero": 3.8135108947753906
+    },
+    "mean_ce_margins": {
+      "donor_minus_correct": 0.002461912770750807,
+      "layer_permuted_minus_correct": 0.2119081285264759,
+      "zero_minus_correct": 0.5140809558686756
+    },
+    "passed": false,
+    "positive_row_fractions": {
+      "donor_minus_correct": 0.625,
+      "layer_permuted_minus_correct": 1.0,
+      "zero_minus_correct": 1.0
+    },
+    "projected_value_identity": {
+      "checks": {
+        "mean_positive_minus_donor_score_positive": true,
+        "positive_element_fraction_at_least_half": true,
+        "positive_row_fraction_at_least_half": false,
+        "projected_carrier_fixed_every_row": true,
+        "rows_complete": true
+      },
+      "mean_donor_score": -0.027751947578508407,
+      "mean_positive_minus_donor_score": 9.467953350394964e-05,
+      "mean_positive_score": -0.027657268045004457,
+      "passed": false,
+      "positive_element_fraction": 0.5045377388596535,
+      "positive_row_fraction": 0.4375,
+      "rank_rows": [
+        [
+          {
+            "donor_ordinal": 805,
+            "donor_score": -0.02636699378490448,
+            "positive_element_fraction": 0.45408162474632263,
+            "positive_minus_donor_score": -0.006077975500375032,
+            "positive_score": -0.032444972544908524,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1002
+          },
+          {
+            "donor_ordinal": 647,
+            "donor_score": -0.030647261068224907,
+            "positive_element_fraction": 0.511904776096344,
+            "positive_minus_donor_score": -0.004733201581984758,
+            "positive_score": -0.03538046404719353,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1189
+          },
+          {
+            "donor_ordinal": 1149,
+            "donor_score": -0.04839977249503136,
+            "positive_element_fraction": 0.5928571820259094,
+            "positive_minus_donor_score": 0.015341938473284245,
+            "positive_score": -0.03305783122777939,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 718
+          },
+          {
+            "donor_ordinal": 1172,
+            "donor_score": -0.013975624926388264,
+            "positive_element_fraction": 0.4682539403438568,
+            "positive_minus_donor_score": -0.008739977143704891,
+            "positive_score": -0.022715600207448006,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 472
+          }
+        ],
+        [
+          {
+            "donor_ordinal": 1128,
+            "donor_score": -0.021005364134907722,
+            "positive_element_fraction": 0.5170068144798279,
+            "positive_minus_donor_score": 0.005489278584718704,
+            "positive_score": -0.015516086481511593,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1431
+          },
+          {
+            "donor_ordinal": 1096,
+            "donor_score": -0.012572807259857655,
+            "positive_element_fraction": 0.4464285969734192,
+            "positive_minus_donor_score": -0.019041400402784348,
+            "positive_score": -0.03161420673131943,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1232
+          },
+          {
+            "donor_ordinal": 1002,
+            "donor_score": -0.015427867881953716,
+            "positive_element_fraction": 0.49841269850730896,
+            "positive_minus_donor_score": -0.0016535422764718533,
+            "positive_score": -0.017081409692764282,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 805
+          },
+          {
+            "donor_ordinal": 1154,
+            "donor_score": -0.05054714158177376,
+            "positive_element_fraction": 0.5043290257453918,
+            "positive_minus_donor_score": 0.012501784600317478,
+            "positive_score": -0.038045357912778854,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 973
+          }
+        ],
+        [
+          {
+            "donor_ordinal": 647,
+            "donor_score": -0.0333743616938591,
+            "positive_element_fraction": 0.49761906266212463,
+            "positive_minus_donor_score": 0.0005907019367441535,
+            "positive_score": -0.03278366103768349,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1161
+          },
+          {
+            "donor_ordinal": 1268,
+            "donor_score": -0.027113089337944984,
+            "positive_element_fraction": 0.5515873432159424,
+            "positive_minus_donor_score": 0.010120718739926815,
+            "positive_score": -0.016992369666695595,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1437
+          },
+          {
+            "donor_ordinal": 1220,
+            "donor_score": -0.03040934167802334,
+            "positive_element_fraction": 0.523809552192688,
+            "positive_minus_donor_score": 0.0070659383200109005,
+            "positive_score": -0.0233434047549963,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1331
+          },
+          {
+            "donor_ordinal": 1220,
+            "donor_score": -0.03364301845431328,
+            "positive_element_fraction": 0.47142860293388367,
+            "positive_minus_donor_score": -0.0022613953333348036,
+            "positive_score": -0.0359044186770916,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 101
+          }
+        ],
+        [
+          {
+            "donor_ordinal": 1431,
+            "donor_score": -0.023042911663651466,
+            "positive_element_fraction": 0.49523812532424927,
+            "positive_minus_donor_score": -0.0062886388041079044,
+            "positive_score": -0.029331548139452934,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1128
+          },
+          {
+            "donor_ordinal": 101,
+            "donor_score": -0.025887729600071907,
+            "positive_element_fraction": 0.45670995116233826,
+            "positive_minus_donor_score": -0.0008408506982959807,
+            "positive_score": -0.02672857791185379,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1220
+          },
+          {
+            "donor_ordinal": 1220,
+            "donor_score": -0.028885619714856148,
+            "positive_element_fraction": 0.5690476298332214,
+            "positive_minus_donor_score": 0.004020851105451584,
+            "positive_score": -0.024864770472049713,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 546
+          },
+          {
+            "donor_ordinal": 973,
+            "donor_score": -0.02273225598037243,
+            "positive_element_fraction": 0.5138888955116272,
+            "positive_minus_donor_score": -0.003979354165494442,
+            "positive_score": -0.026711609214544296,
+            "projected_carrier_fixed": true,
+            "source_ordinal": 1154
+          }
+        ]
+      ],
+      "rows": 16
+    },
+    "rank_rows": [
+      [
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 14,
+          "condition_mean_ce": {
+            "correct": 3.193027768816267,
+            "donor": 3.1815332685198103,
+            "layer_permuted": 3.3548006330217635,
+            "zero": 3.575296401977539
+          },
+          "donor_minus_correct_ce": -0.0114945002964566,
+          "donor_ordinal": 805,
+          "layer_permuted_minus_correct_ce": 0.16177286420549652,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1002,
+          "zero_minus_correct_ce": 0.38226863316127213
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 10,
+          "condition_mean_ce": {
+            "correct": 3.6246383666992186,
+            "donor": 3.657224655151367,
+            "layer_permuted": 3.906781768798828,
+            "zero": 4.222591400146484
+          },
+          "donor_minus_correct_ce": 0.032586288452148615,
+          "donor_ordinal": 647,
+          "layer_permuted_minus_correct_ce": 0.28214340209960964,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1189,
+          "zero_minus_correct_ce": 0.5979530334472658
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 10,
+          "condition_mean_ce": {
+            "correct": 3.298009490966797,
+            "donor": 3.32509765625,
+            "layer_permuted": 3.5382434844970705,
+            "zero": 3.811353302001953
+          },
+          "donor_minus_correct_ce": 0.027088165283203125,
+          "donor_ordinal": 1149,
+          "layer_permuted_minus_correct_ce": 0.24023399353027353,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 718,
+          "zero_minus_correct_ce": 0.5133438110351562
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 18,
+          "condition_mean_ce": {
+            "correct": 2.490669674343533,
+            "donor": 2.4801646338568792,
+            "layer_permuted": 2.647282282511393,
+            "zero": 2.8600891960991754
+          },
+          "donor_minus_correct_ce": -0.010505040486653794,
+          "donor_ordinal": 1172,
+          "layer_permuted_minus_correct_ce": 0.15661260816786005,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 472,
+          "zero_minus_correct_ce": 0.3694195217556424
+        }
+      ],
+      [
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 14,
+          "condition_mean_ce": {
+            "correct": 3.4602628435407365,
+            "donor": 3.4963362557547435,
+            "layer_permuted": 3.6668423243931363,
+            "zero": 3.9293365478515625
+          },
+          "donor_minus_correct_ce": 0.03607341221400695,
+          "donor_ordinal": 1128,
+          "layer_permuted_minus_correct_ce": 0.20657948085239974,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1431,
+          "zero_minus_correct_ce": 0.46907370431082596
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 12,
+          "condition_mean_ce": {
+            "correct": 2.9729445775349936,
+            "donor": 2.980652173360189,
+            "layer_permuted": 3.2184788386027017,
+            "zero": 3.483156204223633
+          },
+          "donor_minus_correct_ce": 0.0077075958251953125,
+          "donor_ordinal": 1096,
+          "layer_permuted_minus_correct_ce": 0.24553426106770804,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1232,
+          "zero_minus_correct_ce": 0.5102116266886392
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 15,
+          "condition_mean_ce": {
+            "correct": 2.69324213663737,
+            "donor": 2.68676274617513,
+            "layer_permuted": 2.825629170735677,
+            "zero": 3.1016248067220054
+          },
+          "donor_minus_correct_ce": -0.006479390462239998,
+          "donor_ordinal": 1002,
+          "layer_permuted_minus_correct_ce": 0.13238703409830688,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 805,
+          "zero_minus_correct_ce": 0.40838267008463536
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 11,
+          "condition_mean_ce": {
+            "correct": 3.4365529147061435,
+            "donor": 3.437172629616477,
+            "layer_permuted": 3.6860226717862217,
+            "zero": 4.007743835449219
+          },
+          "donor_minus_correct_ce": 0.0006197149103335242,
+          "donor_ordinal": 1154,
+          "layer_permuted_minus_correct_ce": 0.24946975708007812,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 973,
+          "zero_minus_correct_ce": 0.5711909207430752
+        }
+      ],
+      [
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 10,
+          "condition_mean_ce": {
+            "correct": 3.745756912231445,
+            "donor": 3.7162330627441404,
+            "layer_permuted": 3.9701141357421874,
+            "zero": 4.378496170043945
+          },
+          "donor_minus_correct_ce": -0.029523849487304688,
+          "donor_ordinal": 647,
+          "layer_permuted_minus_correct_ce": 0.22435722351074228,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1161,
+          "zero_minus_correct_ce": 0.6327392578125002
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 12,
+          "condition_mean_ce": {
+            "correct": 3.0078484217325845,
+            "donor": 3.0214548110961914,
+            "layer_permuted": 3.1891953150431314,
+            "zero": 3.519026438395182
+          },
+          "donor_minus_correct_ce": 0.013606389363606919,
+          "donor_ordinal": 1268,
+          "layer_permuted_minus_correct_ce": 0.18134689331054688,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1437,
+          "zero_minus_correct_ce": 0.5111780166625977
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 10,
+          "condition_mean_ce": {
+            "correct": 3.472390365600586,
+            "donor": 3.480426025390625,
+            "layer_permuted": 3.7477455139160156,
+            "zero": 4.1060131072998045
+          },
+          "donor_minus_correct_ce": 0.008035659790039062,
+          "donor_ordinal": 1220,
+          "layer_permuted_minus_correct_ce": 0.2753551483154295,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1331,
+          "zero_minus_correct_ce": 0.6336227416992184
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 10,
+          "condition_mean_ce": {
+            "correct": 4.240696716308594,
+            "donor": 4.242391967773438,
+            "layer_permuted": 4.435553359985351,
+            "zero": 4.799681854248047
+          },
+          "donor_minus_correct_ce": 0.001695251464844283,
+          "donor_ordinal": 1220,
+          "layer_permuted_minus_correct_ce": 0.1948566436767578,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 101,
+          "zero_minus_correct_ce": 0.5589851379394535
+        }
+      ],
+      [
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 10,
+          "condition_mean_ce": {
+            "correct": 3.417340850830078,
+            "donor": 3.383916473388672,
+            "layer_permuted": 3.654049301147461,
+            "zero": 3.9416934967041017
+          },
+          "donor_minus_correct_ce": -0.03342437744140625,
+          "donor_ordinal": 1431,
+          "layer_permuted_minus_correct_ce": 0.23670845031738263,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1128,
+          "zero_minus_correct_ce": 0.5243526458740235
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 11,
+          "condition_mean_ce": {
+            "correct": 3.5471236489035864,
+            "donor": 3.5648751692338423,
+            "layer_permuted": 3.764067909934304,
+            "zero": 4.155482552268288
+          },
+          "donor_minus_correct_ce": 0.017751520330255843,
+          "donor_ordinal": 101,
+          "layer_permuted_minus_correct_ce": 0.21694426103071773,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1220,
+          "zero_minus_correct_ce": 0.6083589033647017
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 10,
+          "condition_mean_ce": {
+            "correct": 3.6406089782714846,
+            "donor": 3.6629764556884767,
+            "layer_permuted": 3.966329574584961,
+            "zero": 4.267302703857422
+          },
+          "donor_minus_correct_ce": 0.022367477416992188,
+          "donor_ordinal": 1220,
+          "layer_permuted_minus_correct_ce": 0.3257205963134764,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 546,
+          "zero_minus_correct_ce": 0.6266937255859375
+        },
+        {
+          "all_condition_logits_finite": true,
+          "answer_target_tokens": 12,
+          "condition_mean_ce": {
+            "correct": 3.5192607243855796,
+            "donor": 3.491042455037435,
+            "layer_permuted": 3.6894264221191406,
+            "zero": 4.049143155415853
+          },
+          "donor_minus_correct_ce": -0.02821826934814453,
+          "donor_ordinal": 973,
+          "layer_permuted_minus_correct_ce": 0.17016569773356105,
+          "projected_carrier_fixed": true,
+          "source_ordinal": 1154,
+          "zero_minus_correct_ce": 0.529882431030273
+        }
+      ]
+    ],
+    "rows": 16
+  },
+  "input_binding": {
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "calibration_result_file_sha256": "8b9cfcdacd52a38b31a4a739c04e6f92be5267dbf119415adc4e69a4d7744012",
+    "calibration_result_receipt": "de1a4b8f8c213abfbc8778fe9c66c7f22266527f5747aaafed43ae1b1aa14f4b",
+    "calibration_status": "legacy_causal_provenance_validated",
+    "contrast_weight": 0.25,
+    "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+    "donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "global_batch_size": 4,
+    "heldout_disjoint_from_training": true,
+    "heldout_payload_sha256": "94a7ce9e5c1ee6d649daa3d377e5433956ac891fc1ec13625f7e89b34f06d75b",
+    "heldout_rows": 16,
+    "hf_endpoint": "https://hf-mirror.com",
+    "learning_rate": 0.0001,
+    "local_rows": 1,
+    "margin": 0.05,
+    "max_gradient_norm": 0.1,
+    "model_audit": {
+      "all_wrappers_address_keyed_moe_deepembed_ffn_causal": true,
+      "all_wrappers_hybrid": true,
+      "deepembed_ffn_active_layers": [
+        10,
+        21,
+        31,
+        41
+      ],
+      "deepembed_ffn_down_hook_count": 42,
+      "deepembed_ffn_family_counts": {
+        "rwkv_outer_ffn_down_weight": 4,
+        "rwkv_outer_ffn_gate_weight": 4,
+        "rwkv_outer_ffn_up_weight": 4
+      },
+      "deepembed_ffn_pre_hook_count": 42,
+      "learned_write": {
+        "initialized_as_exact_noop": true,
+        "modules": 42,
+        "parameter_elements": 21504,
+        "parameter_names": [
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_b_up"
+        ],
+        "parameter_tensors": 336,
+        "rank": 2
+      },
+      "learned_write_mode": "parameter_free_address_keyed_deepembed_control_plus_learned_write",
+      "native_write_mode_locked": true,
+      "projected_router_frozen_tensors": 42,
+      "query_state_identity": {
+        "forward_output_changed": false,
+        "module_names": [
+          "model.language_model.layers.0.self_attn",
+          "model.language_model.layers.1.self_attn",
+          "model.language_model.layers.2.self_attn",
+          "model.language_model.layers.3.self_attn",
+          "model.language_model.layers.4.self_attn",
+          "model.language_model.layers.5.self_attn",
+          "model.language_model.layers.6.self_attn",
+          "model.language_model.layers.7.self_attn",
+          "model.language_model.layers.8.self_attn",
+          "model.language_model.layers.9.self_attn",
+          "model.language_model.layers.10.self_attn",
+          "model.language_model.layers.11.self_attn",
+          "model.language_model.layers.12.self_attn",
+          "model.language_model.layers.13.self_attn",
+          "model.language_model.layers.14.self_attn",
+          "model.language_model.layers.15.self_attn",
+          "model.language_model.layers.16.self_attn",
+          "model.language_model.layers.17.self_attn",
+          "model.language_model.layers.18.self_attn",
+          "model.language_model.layers.19.self_attn",
+          "model.language_model.layers.20.self_attn",
+          "model.language_model.layers.21.self_attn",
+          "model.language_model.layers.22.self_attn",
+          "model.language_model.layers.23.self_attn",
+          "model.language_model.layers.24.self_attn",
+          "model.language_model.layers.25.self_attn",
+          "model.language_model.layers.26.self_attn",
+          "model.language_model.layers.27.self_attn",
+          "model.language_model.layers.28.self_attn",
+          "model.language_model.layers.29.self_attn",
+          "model.language_model.layers.30.self_attn",
+          "model.language_model.layers.31.self_attn",
+          "model.language_model.layers.32.self_attn",
+          "model.language_model.layers.33.self_attn",
+          "model.language_model.layers.34.self_attn",
+          "model.language_model.layers.35.self_attn",
+          "model.language_model.layers.36.self_attn",
+          "model.language_model.layers.37.self_attn",
+          "model.language_model.layers.38.self_attn",
+          "model.language_model.layers.39.self_attn",
+          "model.language_model.layers.40.self_attn",
+          "model.language_model.layers.41.self_attn"
+        ],
+        "modules": 42,
+        "query_address_gradient": "detached_frozen_projected_route_and_key",
+        "state_gradient": "live_addressed_rwkv_read",
+        "trainable_parameters_added": 0
+      },
+      "replaced_layers": 42,
+      "trainable_parameter_names_sha256": "a197f0d2410d1f158b804b18b333fa19b2dcc15febc9fd41421b5437cd4e5c26",
+      "trainable_parameter_tensors": 1482,
+      "wrapped_layers": 42,
+      "write_address_gain": 0.25
+    },
+    "protected_splits_opened": [],
+    "protocol_objective": "Test whether direct matched-donor supervision in the shared projected-value/RWKV read space creates recurrent identity while retaining answer CE, causal state controls, and the learned address-conditioned write.",
+    "protocol_payload_sha256": "3dd5230bbd22a42b502e8e35ff0d2c1f65f934f23002e131f2c7554d9ab4b4b0",
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 0,
+        "pid": 2221818,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 1,
+        "pid": 2221819,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 2,
+        "pid": 2221820,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 3,
+        "pid": 2221821,
+        "process_rank": 3
+      }
+    ],
+    "runner_sha256": "1cc864438966e3691f346fb0a16eee581c869ea79d33ac1352d1998341b79651",
+    "scene_fit_file_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "schema": "rwkv_ms_natural_memory_native_projected_value_identity_causal_train_input.v1",
+    "seed": 111,
+    "selected_candidate": {
+      "candidate_id": "address_keyed_learned_write_t16_k2_rank2_ag015625_wag025_fg0078125",
+      "detach_read_scores": true,
+      "fusion_gate_probability": 0.25,
+      "hybrid_gain": 0.015625,
+      "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+      "learned_write_rank": 2,
+      "outer_ffn_gain": 0.0078125,
+      "outer_ffn_layers": [
+        10,
+        21,
+        31,
+        41
+      ],
+      "read_temperature": 16.0,
+      "read_top_k": 2,
+      "write_address_gain": 0.25
+    },
+    "trainable_audit": {
+      "architecture": "address_keyed_learned_write_deepembed_ffn",
+      "expected_learned_write_parameter_tensors": 336,
+      "learned_write_parameter_tensors": 336,
+      "learned_write_rank": 2,
+      "parameter_elements": 4604264,
+      "parameter_names_sha256": "e2fff3a2cc51c2e382ba4524e5bf787265f65251508bae29eb550b56101eb849",
+      "parameter_subset_changed": true,
+      "parameter_tensors": 726,
+      "passed": true,
+      "projected_router_frozen_tensors": 42,
+      "query_state_identity_forward_parameters": 0,
+      "query_state_identity_parameter_tensors": 0,
+      "query_state_identity_uses_frozen_projected_address": true
+    },
+    "training_schedule_sha256": "12141aecb4f4952e2d76d5d6926d798cc1200ac5753c6407f131a79ad1799aa2",
+    "updates": 8,
+    "world_size": 4
+  },
+  "open_native_generation_authorized": false,
+  "passed": false,
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "3dd5230bbd22a42b502e8e35ff0d2c1f65f934f23002e131f2c7554d9ab4b4b0",
+  "rank_runtime": [
+    {
+      "peak_cuda_memory_bytes": 36996586496,
+      "rank": 0
+    },
+    {
+      "peak_cuda_memory_bytes": 33492280320,
+      "rank": 1
+    },
+    {
+      "peak_cuda_memory_bytes": 31762015744,
+      "rank": 2
+    },
+    {
+      "peak_cuda_memory_bytes": 35704050176,
+      "rank": 3
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "c3f7faa1e286a4990ef1299624f3b325f279712981905fc364501c84e6b24944"
+  },
+  "schema": "rwkv_ms_natural_memory_native_projected_value_identity_causal_train.v1",
+  "seed": 111,
+  "status": "projected_value_identity_heldout_failed_generation_blocked",
+  "training": {
+    "active_donor_fraction": 0.9375,
+    "active_layer_permuted_fraction": 0.1875,
+    "active_zero_fraction": 0.15625,
+    "control_branch_graph_serialization": {
+      "enabled": true,
+      "maximum_simultaneous_autograd_graphs_per_rank": 1,
+      "metric_only_forwards_without_grad": 64
+    },
+    "elapsed_seconds": 369.6090121269226,
+    "final_adapter_sha256": "1c3f303ecc082c23c196ae9854408e6f6b4d5ebb1cd4631b858305783133dc2e",
+    "final_recurrent_subset_sha256": "763fe3b18be161160770e716fa1f42c461016e6547dae15f917c312c39092561",
+    "final_trainable_subset_sha256": "2fee55ca752985f854496dc5fb731e3c33b155f7da0c4e38076fd3a02e9a06b7",
+    "first_update_gradient_audit": {
+      "all_42_finite_nonzero": true,
+      "layers": [
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.019210997968912125,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03696668893098831,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.16035331785678864,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.10.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03431474044919014,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.11.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04136157035827637,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.12.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.06284471601247787,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.13.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.05372844263911247,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.14.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04349827393889427,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.15.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04538615047931671,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.16.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.043277155607938766,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.17.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04205479472875595,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.18.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.022434841841459274,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.19.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02604852244257927,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04567110165953636,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.20.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.20609548687934875,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.21.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.0340530127286911,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.22.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03390926867723465,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.23.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.027880223467946053,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.24.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.027401307597756386,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.25.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.0366816520690918,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.26.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04119309410452843,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.27.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.05429190397262573,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.28.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02042938582599163,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.29.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.042830608785152435,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.0409817211329937,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.30.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.2180229127407074,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.31.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04575691744685173,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.32.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.024674762040376663,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.33.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.028678249567747116,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.34.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.037980664521455765,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.35.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02419729344546795,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.36.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02910202369093895,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.37.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04710801690816879,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.38.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.016383178532123566,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.39.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03950243070721626,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.012065866030752659,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.40.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.3989172577857971,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.41.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02980593778192997,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03563489019870758,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.6.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.017143771052360535,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.7.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.027644092217087746,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.8.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.021586153656244278,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.9.self_attn.hrm_rwkv7_core.output.weight"
+        }
+      ],
+      "maximum_l2_norm": 0.3989172577857971,
+      "minimum_l2_norm": 0.012065866030752659,
+      "parameter_family": "hrm_rwkv7_core.output.weight",
+      "parameter_names_sha256": "99921f2ff0782fc2be7b3462aa9d2a48ddf1808d94bbe85beb3291f3fc2c4aef",
+      "parameter_tensors": 42,
+      "passed": true
+    },
+    "first_update_recurrent_gradient_audit": {
+      "all_42_finite_nonzero": true,
+      "layers": [
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.019210997968912125,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03696668893098831,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.16035331785678864,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.10.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03431474044919014,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.11.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04136157035827637,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.12.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.06284471601247787,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.13.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.05372844263911247,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.14.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04349827393889427,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.15.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04538615047931671,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.16.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.043277155607938766,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.17.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04205479472875595,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.18.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.022434841841459274,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.19.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02604852244257927,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04567110165953636,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.20.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.20609548687934875,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.21.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.0340530127286911,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.22.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03390926867723465,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.23.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.027880223467946053,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.24.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.027401307597756386,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.25.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.0366816520690918,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.26.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04119309410452843,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.27.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.05429190397262573,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.28.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02042938582599163,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.29.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.042830608785152435,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.0409817211329937,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.30.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.2180229127407074,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.31.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04575691744685173,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.32.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.024674762040376663,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.33.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.028678249567747116,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.34.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.037980664521455765,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.35.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02419729344546795,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.36.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02910202369093895,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.37.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.04710801690816879,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.38.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.016383178532123566,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.39.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03950243070721626,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.012065866030752659,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.40.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.3989172577857971,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.41.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.02980593778192997,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.03563489019870758,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.6.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.017143771052360535,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.7.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.027644092217087746,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.8.self_attn.hrm_rwkv7_core.output.weight"
+        },
+        {
+          "gradient_finite": true,
+          "gradient_l2_norm": 0.021586153656244278,
+          "gradient_nonzero": true,
+          "gradient_present": true,
+          "name": "model.language_model.layers.9.self_attn.hrm_rwkv7_core.output.weight"
+        }
+      ],
+      "maximum_l2_norm": 0.3989172577857971,
+      "minimum_l2_norm": 0.012065866030752659,
+      "parameter_family": "hrm_rwkv7_core.output.weight",
+      "parameter_names_sha256": "99921f2ff0782fc2be7b3462aa9d2a48ddf1808d94bbe85beb3291f3fc2c4aef",
+      "parameter_tensors": 42,
+      "passed": true
+    },
+    "initial_adapter_sha256": "b258f271d63de543c5581eff66b660c76561c77b706b625b4676e136c58a23ae",
+    "initial_recurrent_subset_sha256": "19dbbebe5e920e13e51391236856f2ed838c11312433cdc93b4a31dfd27dc4e1",
+    "initial_trainable_subset_sha256": "9fb17c1de19ecff2e45762380fd5bf50f481b121b35292dd2e142e0cabf8b5c7",
+    "maximum_global_inactive_parameter_tensors": 0,
+    "mean_correct_ce": 3.761891042384062,
+    "mean_donor_minus_correct_ce": -0.0052433967288366,
+    "mean_layer_permuted_minus_correct_ce": 0.11921595487027994,
+    "mean_zero_minus_correct_ce": 0.207348036620262,
+    "minimum_gradient_norm_before_clip": 2.0147957801818848,
+    "optimizer_state_cpu_offload": {
+      "enabled": true,
+      "maximum_bytes_per_rank": 36837016,
+      "maximum_tensors_per_rank": 2178,
+      "restored_before_every_optimizer_step": true,
+      "steps": 7
+    },
+    "peak_cuda_memory_bytes": 36996586496,
+    "progress_sha256": "50b718ccbabc364085e0680f88f8dd37e60565aa234b8b1c300e782304b22119",
+    "projected_carrier_fixed_every_row": true,
+    "projected_value_identity": {
+      "active_fraction": 0.9846588119783997,
+      "active_row_fraction": 1.0,
+      "margin": 0.2,
+      "mean_donor_score": -0.020407870280905627,
+      "mean_hinge": 0.20286129927262664,
+      "mean_positive_minus_donor_score": -0.002104988541759667,
+      "mean_positive_score": -0.022512858822665294,
+      "objective": "matched_donor_projected_value_identity_per_layer_token_hinge",
+      "passed": true,
+      "projected_carrier_fixed_rows": 32,
+      "rows": 32,
+      "target": "detached_projected_slot_value",
+      "weight": 1.0
+    },
+    "recurrent_subset_changed": true,
+    "row_filter": {
+      "accepted_gradient_rows": 32,
+      "enabled": false,
+      "maximum_total_rejected_rows": 0,
+      "minimum_accepted_rows_per_update": 4,
+      "minimum_required_accepted_rows_per_update": 4,
+      "rejected_gradient_rows": 0,
+      "rejected_source_ordinals": []
+    },
+    "rows": 32,
+    "trainable_subset_changed": true,
+    "updates": 8
+  },
+  "training_passed": true,
+  "updates": 8
+}
