@@ -1,0 +1,69 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_joint_pair_crossglu_mechanics.v1",
+  "created_at": "2026-08-20T00:00:00+08:00",
+  "objective": "No-training four-A100 mechanics screen for a frozen-bilinear-map joint query/state CrossGLU bridge in RWKV-MS.",
+  "authorization_basis": {
+    "crossfit_result": "local_artifacts/natural_memory_native_rwkv_query_state_bilinear_crossfit_v1/result.json",
+    "crossfit_rows": "176 component-disjoint train / 44 heldout rows",
+    "full_bandwidth_inspiration": "mandatory full-vector state value with identity-dependent multiplicative gate",
+    "retired_separable_family": "DeepEmbed and plain state-times-query CrossGLU donor-neutral causal results"
+  },
+  "architecture": {
+    "module": "rwkv_joint_pair_crossglu.JointPairGatedCrossGLU",
+    "state_dim": 32,
+    "pair_features": "concat(normalize(map_query(q))*normalize(map_state(s)), abs(normalize(map_query(q))-normalize(map_state(s))))",
+    "gate": "0.25*sigmoid(2.0*G[pair_features])",
+    "gate_projection": "bias-free deterministic [I, 0.5I]",
+    "value_projection": "bias-free identity initialization",
+    "output_projection": "bias-free identity initialization",
+    "crossfit_maps": "reconstructed from signed shards and frozen",
+    "insertion": "projected state-width carrier plus bounded joint state bridge at fused RWKV read hook",
+    "writes_changed": false,
+    "projected_carrier_changed": false
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "model_updates": 0,
+    "gradient_probe": "one correct-state answer-CE backward; bridge tensors must have finite nonzero global gradients",
+    "protected_splits_opened_by_this_protocol": []
+  },
+  "controls": [
+    "target query + target state",
+    "target query + matched donor state",
+    "donor query + target state",
+    "donor query + donor state",
+    "target gate held fixed + donor value",
+    "gate shuffled across token positions + correct value",
+    "norm-matched random state",
+    "zero state",
+    "cyclic layer-permuted state",
+    "explicit projected-only bypass"
+  ],
+  "required_gates": {
+    "all_control_logits_finite": true,
+    "projected_carrier_fixed_every_intervention": true,
+    "zero_recurrent_logits_byte_equal_explicit_projected_only_bypass": true,
+    "matched_donor_changed_row_fraction_minimum": 0.95,
+    "matched_donor_mean_normalized_l2_change_minimum": 0.05,
+    "fixed_gate_donor_value_path_used": true,
+    "gate_shuffle_path_used": true,
+    "gate_non_saturated_fraction_minimum": 0.5,
+    "all_joint_pair_gradients_finite_nonzero": true,
+    "all_values_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize a separately signed eight-update causal endpoint with frozen crossfit maps and the finalized bridge.",
+    "fail": "Retire joint pair CrossGLU; do not tune gain, batch size, learning rate, or duration.",
+    "always": "Protected validation/test, Hard32, strength holdouts, generation, and native benchmark remain closed."
+  },
+  "generation_authorized": false,
+  "causal_endpoint_authorized": false,
+  "adapter_saved": false,
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "ca4d747496a2a6084b6182cd736e2a2de8aaa2440475d2309994d4da9f639e6f"
+  }
+}

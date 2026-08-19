@@ -84,6 +84,7 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "addressed_value",
     "chunk_addressed_value",
     "recurrent_value",
+    "joint_pair_crossglu",
 )
 RWKV_MS_DEEPEMBED_FFN_MODES = frozenset(
     {"addressed_moe_deepembed_ffn", "address_keyed_moe_deepembed_ffn"}
@@ -123,6 +124,7 @@ RWKV_MS_PROJECTED_ROUTE_READ_MODES = (
         "addressed_route_agreement",
         "addressed_query_state_gate",
         "addressed_vector_gate",
+        "joint_pair_crossglu",
     }
 )
 RWKV_MS_VALUE_BOTTLENECK_MODES = (
@@ -1177,6 +1179,13 @@ class DeltaMemAttention(nn.Module):
         self._pending_outer_ffn_delta: torch.Tensor | None = None
         self._pending_deepembed_ffn_control: torch.Tensor | None = None
         self._pending_deepembed_ffn_scale: torch.Tensor | None = None
+        self.rwkv_joint_pair_crossglu: nn.Module | None = None
+        self.rwkv_joint_pair_crossglu_query: torch.Tensor | None = None
+        self.rwkv_joint_pair_crossglu_gate_override: torch.Tensor | None = None
+        self.rwkv_joint_pair_crossglu_gate_shuffle = False
+        self.rwkv_joint_pair_crossglu_last_gate: torch.Tensor | None = None
+        self.rwkv_joint_pair_crossglu_last_value: torch.Tensor | None = None
+        self.rwkv_joint_pair_crossglu_last_correction: torch.Tensor | None = None
         self._deepembed_ffn_pre_hook_handle = None
         self._deepembed_ffn_down_pre_hook_handle = None
         self._post_feedforward_norm_hook_handle = None
@@ -1351,6 +1360,12 @@ class DeltaMemAttention(nn.Module):
         self.last_memory_residual_gain = None
         self._pending_post_attention_delta = None
         self._pending_outer_ffn_delta = None
+        self.rwkv_joint_pair_crossglu_query = None
+        self.rwkv_joint_pair_crossglu_gate_override = None
+        self.rwkv_joint_pair_crossglu_gate_shuffle = False
+        self.rwkv_joint_pair_crossglu_last_gate = None
+        self.rwkv_joint_pair_crossglu_last_value = None
+        self.rwkv_joint_pair_crossglu_last_correction = None
         self.write_message_ids = None
         self.write_sentence_ids = None
         self.projected_kv_write_key_mask = None
@@ -4490,6 +4505,34 @@ class DeltaMemAttention(nn.Module):
             fused = projected * (1.0 + gain * alignment.clamp(-1.0, 1.0))
         elif self.rwkv_ms_hybrid_mode in RWKV_MS_VALUE_BOTTLENECK_MODES:
             fused = gain * recurrent_direction
+        elif self.rwkv_ms_hybrid_mode == "joint_pair_crossglu":
+            bridge = self.rwkv_joint_pair_crossglu
+            if bridge is None:
+                raise RuntimeError(
+                    "joint_pair_crossglu requires an installed pair-gated bridge"
+                )
+            query = self.rwkv_joint_pair_crossglu_query
+            if query is None:
+                query = projected
+            if tuple(query.shape) != tuple(projected.shape):
+                raise RuntimeError(
+                    "joint pair CrossGLU query shape differs from projected carrier"
+                )
+            bridge_output, bridge_gate, bridge_value, bridge_correction = bridge(
+                projected,
+                query,
+                recurrent,
+                gate_override=self.rwkv_joint_pair_crossglu_gate_override,
+                gate_shuffle=self.rwkv_joint_pair_crossglu_gate_shuffle,
+            )
+            self.rwkv_joint_pair_crossglu_last_gate = bridge_gate
+            self.rwkv_joint_pair_crossglu_last_value = bridge_value
+            self.rwkv_joint_pair_crossglu_last_correction = bridge_correction
+            if tuple(bridge_output.shape) != tuple(projected.shape):
+                raise RuntimeError(
+                    "joint pair CrossGLU output shape differs from projected carrier"
+                )
+            fused = bridge_output
         else:  # pragma: no cover - configuration validation is authoritative
             raise RuntimeError(
                 f"Unsupported RWKV-MS hybrid mode: {self.rwkv_ms_hybrid_mode}"

@@ -449,12 +449,23 @@ gating failed its causal donor endpoint (`-0.000080` donor CE margin;
 `0.386364` donor-positive rows). Dense rotary binding failed RWKV
 channelwise-update commutation. Full-key diagonal-sign binding passed
 cancellation and all finite/zero/carrier controls, but changed only
-`0.750`--`0.769` donor decoded rows against the required `0.95`; no causal run
-was authorized. The next active route is therefore a bias-free **joint
-pair-gated** deep-to-shallow CrossGLU with explicit query/state swap and fixed
-gate/value controls. See the [full paper-to-RWKV review](FULL_BANDWIDTH_RWKV_REVIEW.md)
-for equations, reported results, caveats, factorial controls, and stopping
-gates.
+`0.750`--`0.769` donor decoded rows against the required `0.95`.
+
+The Full-Bandwidth-inspired joint pair-gated CrossGLU then passed its signed
+v22 four-A100 mechanics screen, including exact zero/projected-only equality
+and fixed-gate/shuffled-gate value controls. Its authorized eight-update causal
+endpoint failed donor identity: matched-donor CE was `-0.001360` relative to
+correct and only `0.045455` of donor rows were positive. The route is retired,
+native generation was never authorized, and no native benchmark claim follows.
+The signed causal result is
+`local_artifacts/natural_memory_native_rwkv_joint_pair_crossglu_causal_train_v1/result.json`.
+
+The next goal is a separately locked two-pass Jacobi-style read-feedback
+diagnostic on the already causal-passing `address_keyed_moe_deepembed_ffn`
+branch, with per-layer donor InfoNCE and recurrence-contraction checks. The
+full paper-to-RWKV review lists that route and the other bounded alternatives.
+See [FULL_BANDWIDTH_RWKV_REVIEW.md](FULL_BANDWIDTH_RWKV_REVIEW.md) for
+equations, reported results, caveats, factorial controls, and stopping gates.
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),

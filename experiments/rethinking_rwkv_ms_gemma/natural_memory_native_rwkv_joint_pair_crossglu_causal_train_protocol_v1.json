@@ -1,0 +1,120 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_joint_pair_crossglu_causal_train_protocol.v1",
+  "created_at": "2026-08-20T00:00:00+08:00",
+  "objective": "Test whether the mechanics-passed frozen component-disjoint bilinear identity maps, coupled through a bounded joint query/state CrossGLU bridge, produce heldout causal answer preference for the correct recurrent state without changing the projected carrier.",
+  "authorization_basis": {
+    "mechanics_result": "local_artifacts/natural_memory_native_rwkv_joint_pair_crossglu_mechanics_v22/result.json",
+    "mechanics_result_file_sha256": "dba313f9a2a441ed1c81fac0a83cc42b4ca6f94975d8e8b5b483db654296bcc3",
+    "mechanics_result_receipt": "ba9a986ef0bc937c652e82204c8edb3efc80855136e1261c30c9fe15e3954ddd",
+    "mechanics_status": "joint_pair_crossglu_mechanics_passed_generation_blocked",
+    "crossfit_result": "local_artifacts/natural_memory_native_rwkv_query_state_bilinear_crossfit_v1/result.json",
+    "crossfit_result_file_sha256": "5e41c4569273fd5841381fcb6c5738b26212dd326b4f7cf56b589528df346ba3",
+    "crossfit_result_receipt": "89392eaeffa50c0bed9109fd8db3d33a5625eb4ff7117f81d710cf9b5be93945",
+    "crossfit_status": "bilinear_crossfit_passed_causal_training_design_authorized",
+    "mechanics_checks_required": [
+      "all_logits_finite",
+      "all_values_finite",
+      "bridge_gradients_nonzero",
+      "carrier_fixed_all_conditions",
+      "fixed_gate_donor_value_path",
+      "four_a100_ranks",
+      "gate_shuffle_path",
+      "matched_donor_mean_relative_l2",
+      "matched_donor_row_fraction",
+      "pair_gate_changes_with_state",
+      "pair_gate_non_saturated",
+      "zero_equals_projected_only"
+    ]
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "training_dataset": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "training_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "training_donor_mapping_payload_sha256": "55247488b4e8297ca9bbe66b9cb4e5e8959093a86972b947530a792472581e6d",
+    "training_schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "causal_endpoint_dataset": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "causal_endpoint_dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "seed": 116,
+    "hf_endpoint": "https://hf-mirror.com"
+  },
+  "feature_reconstruction": {
+    "reconstruction_state_sha256": "1bbb5e8ff1b61aa2309c81d4a0235a9b74e0c8eb855604c03c6bbea4b939790f",
+    "required": "Replay the signed 176-row fit exactly and require byte-stable reconstructed maps before model load."
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "joint_pair_crossglu",
+    "module": "rwkv_joint_pair_crossglu.JointPairGatedCrossGLU",
+    "state_dim": 32,
+    "pair_features": "concat(normalize(map_query(q))*normalize(map_state(s)),abs(normalize(map_query(q))-normalize(map_state(s))))",
+    "gate": "0.25*sigmoid(2.0*G[pair_features])",
+    "fusion": "projected + output(value_proj(map_state(recurrent))*gate)",
+    "crossfit_maps": "42 frozen source-and-donor-component-disjoint residual bilinear maps",
+    "projected_carrier": "frozen and held by reference across correct, zero-recurrent, matched-donor, layer-permuted, and projected-only-bypass conditions",
+    "zero_identity": "zero recurrent state must produce logits byte-identical to explicit projected-only bypass",
+    "trainable_parameter_tensors": 126,
+    "trainable_parameter_elements": 172032,
+    "trainable_per_layer": "gate_proj, value_proj, output_proj",
+    "identity_parameters_frozen": true,
+    "base_model_writer_router_and_existing_adapter_frozen": true
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "optimizer_updates": 8,
+    "global_batch_rows": 4,
+    "local_rows_per_rank": 1,
+    "answer_objective": "correct-state answer CE plus active zero-recurrent, matched-donor, and layer-permuted CE hinges",
+    "ce_hinge_margin": 0.05,
+    "contrast_weight_per_active_control": 0.25,
+    "control_graph_serialization": "serialized",
+    "optimizer_state_cpu_offload_enabled": true,
+    "all_126_bridge_tensors_require_finite_nonzero_global_gradient_each_update": true,
+    "delta_mem_adapter_saved": false
+  },
+  "heldout_causal_endpoint": {
+    "rows": 44,
+    "source_indices": [7, 12, 14, 19, 24, 26, 29, 30, 33, 52, 59, 62, 66, 73, 80, 96, 100, 101, 119, 121, 128, 129, 139, 144, 152, 172, 177, 181, 201, 211, 216, 218, 225, 233, 236, 247, 255, 259, 279, 296, 321, 322, 356, 358],
+    "source_donor_payload_sha256": "84ae348079351f96f70172bfc8c02b3ae44f54bc74db260e8ba4d7c9164117a2",
+    "selection": "All whole donor components held out from the 176-row bilinear fit. No endpoint row or mapped donor trained the maps.",
+    "required_ce_margins": {
+      "zero_minus_correct_mean": 0.0,
+      "donor_minus_correct_mean": 0.02,
+      "layer_permuted_minus_correct_mean": 0.0,
+      "minimum_donor_positive_row_fraction": 0.75
+    },
+    "required_retained_identity": {
+      "donor_pairwise_positive_fraction_minimum": 0.95,
+      "donor_mean_correct_minus_control_score_minimum": 0.05,
+      "layer_permuted_pairwise_positive_fraction_minimum": 0.95
+    },
+    "all_condition_logits_finite": true,
+    "projected_carrier_fixed_every_intervention": true,
+    "zero_recurrent_logits_byte_equal_projected_only_bypass_every_row": true
+  },
+  "stopping_rule": {
+    "endpoint_pass": "Authorize only a separately locked open native generation benchmark against projected-only, matched-donor, and layer-permuted controls.",
+    "endpoint_failure": "Retire joint pair CrossGLU without changing gain, batch size, learning rate, or update count on this endpoint.",
+    "always": "Do not open publisher validation/test, Hard32, strength holdout, generation, or native benchmark."
+  },
+  "claim_policy": {
+    "endpoint_pass": "May claim heldout teacher-forced causal preference on disclosed open development components.",
+    "native_gain": "Forbidden until a separately locked native generation benchmark beats projected-only and both recurrent controls.",
+    "sota": "Forbidden until native gain is replicated under the locked benchmark contract."
+  },
+  "generation_authorized": false,
+  "causal_endpoint_authorized": true,
+  "delta_mem_adapter_saved": false,
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "80901c5eed1d95f66b2e89af25c2d0b0be929a29059f5e08095cd8110cf46edd"
+  }
+}

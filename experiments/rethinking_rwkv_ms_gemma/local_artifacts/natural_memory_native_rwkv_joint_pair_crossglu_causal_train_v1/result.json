@@ -1,0 +1,2382 @@
+{
+  "causal_endpoint_authorized": true,
+  "claim_policy": {
+    "endpoint_pass": "May claim heldout teacher-forced causal preference on disclosed open development components.",
+    "native_gain": "Forbidden until a separately locked native generation benchmark beats projected-only and both recurrent controls.",
+    "sota": "Forbidden until native gain is replicated under the locked benchmark contract."
+  },
+  "delta_mem_adapter_saved": false,
+  "generation_authorized": false,
+  "heldout_causal_endpoint": {
+    "checks": {
+      "all_bridge_values_finite": true,
+      "all_condition_logits_finite": true,
+      "donor_identity_mean_margin": false,
+      "donor_identity_pairwise_fraction": false,
+      "donor_minus_correct_mean_positive": false,
+      "donor_positive_row_fraction": false,
+      "identity_query_fixed_every_intervention": true,
+      "layer_permuted_identity_pairwise_fraction": false,
+      "layer_permuted_minus_correct_mean_positive": false,
+      "projected_carrier_fixed_every_intervention": true,
+      "query_fixed_equal_every_intervention": true,
+      "rows_complete": true,
+      "sources_exact": true,
+      "zero_equals_projected_only_bypass_every_row": true,
+      "zero_minus_correct_mean_positive": false
+    },
+    "donor_ce_positive_row_fraction": 0.045454545454545456,
+    "learned_identity": {
+      "correct_mean": 0.016500320965530012,
+      "correct_minus_donor": -0.003611170768801292,
+      "correct_minus_layer_permuted": 0.05033169241770255,
+      "donor_mean": 0.020111491531927393,
+      "donor_pairwise_positive_fraction": 0.4972943799062209,
+      "layer_permuted_mean": -0.03383137132781981,
+      "layer_permuted_pairwise_positive_fraction": 0.5530303113839843
+    },
+    "mean_ce": {
+      "correct": 3.9698031831366,
+      "donor": 3.968443054347553,
+      "layer_permuted": 3.9667918412244307,
+      "projected_only_bypass": 3.9696337978291627,
+      "zero": 3.9696337978291627
+    },
+    "mean_ce_margins": {
+      "donor_minus_correct": -0.0013601287890468892,
+      "layer_permuted_minus_correct": -0.0030113419121687757,
+      "zero_minus_correct": -0.0001693853074369917
+    },
+    "passed": false,
+    "rank_rows": [
+      [
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 5.183543395996094,
+            "donor": 5.183543395996094,
+            "layer_permuted": 5.183543395996094,
+            "projected_only_bypass": 5.183543395996094,
+            "zero": 5.183543395996094
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 255,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.054319821298122406,
+            "correct_minus_donor": 0.030060555785894394,
+            "correct_minus_layer_permuted": 0.08577491343021393,
+            "donor_mean": 0.024259261786937714,
+            "donor_pairwise_positive_fraction": 0.5,
+            "layer_permuted_mean": -0.03145509213209152,
+            "layer_permuted_pairwise_positive_fraction": 0.5952380895614624,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 7,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.329629724675959,
+            "donor": 4.329629724675959,
+            "layer_permuted": 4.329629724675959,
+            "projected_only_bypass": 4.329629724675959,
+            "zero": 4.329629724675959
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 80,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.02785453386604786,
+            "correct_minus_donor": -0.006197493989020586,
+            "correct_minus_layer_permuted": -0.0020835017785429955,
+            "donor_mean": -0.021657045930624008,
+            "donor_pairwise_positive_fraction": 0.3571428656578064,
+            "layer_permuted_mean": -0.025771036744117737,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 24,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.227343819358132,
+            "donor": 4.192005851052024,
+            "layer_permuted": 4.227343819358132,
+            "projected_only_bypass": 4.210718675093218,
+            "zero": 4.210718675093218
+          },
+          "ce_margins": {
+            "donor_minus_correct": -0.03533796830610747,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": -0.016625144264914127
+          },
+          "donor_source_index": 321,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.010250439867377281,
+            "correct_minus_donor": 0.010658998042345047,
+            "correct_minus_layer_permuted": 0.058443889021873474,
+            "donor_mean": -0.0004085628897882998,
+            "donor_pairwise_positive_fraction": 0.523809552192688,
+            "layer_permuted_mean": -0.04819346219301224,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 33,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.257272893732244,
+            "donor": 4.257272893732244,
+            "layer_permuted": 4.257272893732244,
+            "projected_only_bypass": 4.257272893732244,
+            "zero": 4.257272893732244
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 172,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.03711608424782753,
+            "correct_minus_donor": 0.00659590819850564,
+            "correct_minus_layer_permuted": 0.10382883995771408,
+            "donor_mean": 0.030520176514983177,
+            "donor_pairwise_positive_fraction": 0.5476190447807312,
+            "layer_permuted_mean": -0.06671274453401566,
+            "layer_permuted_pairwise_positive_fraction": 0.5,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 66,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 12,
+          "ce": {
+            "correct": 3.3338797887166343,
+            "donor": 3.3338797887166343,
+            "layer_permuted": 3.3338797887166343,
+            "projected_only_bypass": 3.3338797887166343,
+            "zero": 3.3338797887166343
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 96,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.01913440227508545,
+            "correct_minus_donor": -0.025010697543621063,
+            "correct_minus_layer_permuted": 0.0776287093758583,
+            "donor_mean": 0.044145096093416214,
+            "donor_pairwise_positive_fraction": 0.4761904776096344,
+            "layer_permuted_mean": -0.058494314551353455,
+            "layer_permuted_pairwise_positive_fraction": 0.5,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 100,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 4.168368911743164,
+            "donor": 4.168368911743164,
+            "layer_permuted": 4.168368911743164,
+            "projected_only_bypass": 4.168368911743164,
+            "zero": 4.168368911743164
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 144,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.05954838544130325,
+            "correct_minus_donor": -0.007377932779490948,
+            "correct_minus_layer_permuted": 0.05883600190281868,
+            "donor_mean": 0.06692632287740707,
+            "donor_pairwise_positive_fraction": 0.4761904776096344,
+            "layer_permuted_mean": 0.000712377717718482,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 128,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 3.81158561706543,
+            "donor": 3.81158561706543,
+            "layer_permuted": 3.81158561706543,
+            "projected_only_bypass": 3.81158561706543,
+            "zero": 3.81158561706543
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 255,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.0029939045198261738,
+            "correct_minus_donor": -0.0030314805917441845,
+            "correct_minus_layer_permuted": -0.010446193628013134,
+            "donor_mean": 0.006025385577231646,
+            "donor_pairwise_positive_fraction": 0.5,
+            "layer_permuted_mean": 0.013440101407468319,
+            "layer_permuted_pairwise_positive_fraction": 0.4285714328289032,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 152,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 14,
+          "ce": {
+            "correct": 3.212235859462193,
+            "donor": 3.212235859462193,
+            "layer_permuted": 3.212235859462193,
+            "projected_only_bypass": 3.212235859462193,
+            "zero": 3.212235859462193
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 139,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.00698991771787405,
+            "correct_minus_donor": -0.0033515209797769785,
+            "correct_minus_layer_permuted": 0.021122874692082405,
+            "donor_mean": -0.0036383960396051407,
+            "donor_pairwise_positive_fraction": 0.523809552192688,
+            "layer_permuted_mean": -0.02811279520392418,
+            "layer_permuted_pairwise_positive_fraction": 0.5,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 201,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 4.156586456298828,
+            "donor": 4.156586456298828,
+            "layer_permuted": 4.171673202514649,
+            "projected_only_bypass": 4.156586456298828,
+            "zero": 4.156586456298828
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.015086746215820845,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 255,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.0065639871172606945,
+            "correct_minus_donor": 0.00555084366351366,
+            "correct_minus_layer_permuted": 0.038160987198352814,
+            "donor_mean": 0.0010131413582712412,
+            "donor_pairwise_positive_fraction": 0.6190476417541504,
+            "layer_permuted_mean": -0.03159700334072113,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 225,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.286915865811435,
+            "donor": 4.286915865811435,
+            "layer_permuted": 4.33884707364169,
+            "projected_only_bypass": 4.286915865811435,
+            "zero": 4.286915865811435
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.05193120783025584,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 7,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.0008706904482096434,
+            "correct_minus_donor": -0.0336616151034832,
+            "correct_minus_layer_permuted": 0.01975620910525322,
+            "donor_mean": 0.03279092162847519,
+            "donor_pairwise_positive_fraction": 0.4285714328289032,
+            "layer_permuted_mean": -0.020626893267035484,
+            "layer_permuted_pairwise_positive_fraction": 0.5,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 255,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 12,
+          "ce": {
+            "correct": 4.413215319315593,
+            "donor": 4.413215319315593,
+            "layer_permuted": 4.413215319315593,
+            "projected_only_bypass": 4.413215319315593,
+            "zero": 4.413215319315593
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 33,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.013801099732518196,
+            "correct_minus_donor": -0.02567964233458042,
+            "correct_minus_layer_permuted": 0.020736126229166985,
+            "donor_mean": 0.011878547258675098,
+            "donor_pairwise_positive_fraction": 0.523809552192688,
+            "layer_permuted_mean": -0.03453722223639488,
+            "layer_permuted_pairwise_positive_fraction": 0.5476190447807312,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 321,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        }
+      ],
+      [
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 19,
+          "ce": {
+            "correct": 2.6840643631784538,
+            "donor": 2.700737200285259,
+            "layer_permuted": 2.6944774828459086,
+            "projected_only_bypass": 2.695829893413343,
+            "zero": 2.695829893413343
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.01667283710680545,
+            "layer_permuted_minus_correct": 0.01041311966745484,
+            "zero_minus_correct": 0.011765530234889354
+          },
+          "donor_source_index": 59,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.0009986971272155643,
+            "correct_minus_donor": -0.012122584506869316,
+            "correct_minus_layer_permuted": 0.05389583110809326,
+            "donor_mean": 0.013121281750500202,
+            "donor_pairwise_positive_fraction": 0.5,
+            "layer_permuted_mean": -0.0528971292078495,
+            "layer_permuted_pairwise_positive_fraction": 0.4523809552192688,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 12,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 4.392770767211914,
+            "donor": 4.392770767211914,
+            "layer_permuted": 4.392770767211914,
+            "projected_only_bypass": 4.392770767211914,
+            "zero": 4.392770767211914
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 259,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.021361839026212692,
+            "correct_minus_donor": -0.012044180184602737,
+            "correct_minus_layer_permuted": 0.036083851009607315,
+            "donor_mean": 0.03340601921081543,
+            "donor_pairwise_positive_fraction": 0.4761904776096344,
+            "layer_permuted_mean": -0.0147220054641366,
+            "layer_permuted_pairwise_positive_fraction": 0.5,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 26,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 15,
+          "ce": {
+            "correct": 3.2941408793131512,
+            "donor": 3.2941408793131512,
+            "layer_permuted": 3.282029469807943,
+            "projected_only_bypass": 3.2941408793131512,
+            "zero": 3.2941408793131512
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": -0.012111409505208393,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 181,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.02538476698100567,
+            "correct_minus_donor": -0.011978460475802422,
+            "correct_minus_layer_permuted": 0.022499680519104004,
+            "donor_mean": -0.01340631116181612,
+            "donor_pairwise_positive_fraction": 0.5476190447807312,
+            "layer_permuted_mean": -0.04788444936275482,
+            "layer_permuted_pairwise_positive_fraction": 0.5,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 52,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.281672737815163,
+            "donor": 4.281672737815163,
+            "layer_permuted": 4.239199898459694,
+            "projected_only_bypass": 4.316964582963423,
+            "zero": 4.316964582963423
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": -0.04247283935546875,
+            "zero_minus_correct": 0.03529184514825978
+          },
+          "donor_source_index": 181,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.01636248081922531,
+            "correct_minus_donor": -0.0033019541297107935,
+            "correct_minus_layer_permuted": 0.058845147490501404,
+            "donor_mean": 0.01966443657875061,
+            "donor_pairwise_positive_fraction": 0.4761904776096344,
+            "layer_permuted_mean": -0.042482659220695496,
+            "layer_permuted_pairwise_positive_fraction": 0.5952380895614624,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 73,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.328949668190696,
+            "donor": 4.328949668190696,
+            "layer_permuted": 4.328949668190696,
+            "projected_only_bypass": 4.328949668190696,
+            "zero": 4.328949668190696
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 24,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.03307323157787323,
+            "correct_minus_donor": -0.0015060511650517583,
+            "correct_minus_layer_permuted": 0.03445504605770111,
+            "donor_mean": -0.031567178666591644,
+            "donor_pairwise_positive_fraction": 0.5476190447807312,
+            "layer_permuted_mean": -0.06752828508615494,
+            "layer_permuted_pairwise_positive_fraction": 0.5476190447807312,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 101,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 17,
+          "ce": {
+            "correct": 2.7814270468319164,
+            "donor": 2.7814270468319164,
+            "layer_permuted": 2.7814270468319164,
+            "projected_only_bypass": 2.7814270468319164,
+            "zero": 2.7814270468319164
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 259,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.04356473684310913,
+            "correct_minus_donor": 0.009121361188590527,
+            "correct_minus_layer_permuted": 0.08910684287548065,
+            "donor_mean": 0.03444337472319603,
+            "donor_pairwise_positive_fraction": 0.5,
+            "layer_permuted_mean": -0.04554210975766182,
+            "layer_permuted_pairwise_positive_fraction": 0.5476190447807312,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 129,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 4.005695724487305,
+            "donor": 4.005695724487305,
+            "layer_permuted": 4.005695724487305,
+            "projected_only_bypass": 4.005695724487305,
+            "zero": 4.005695724487305
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 144,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.04461241140961647,
+            "correct_minus_donor": -0.0203241016715765,
+            "correct_minus_layer_permuted": 0.02770967222750187,
+            "donor_mean": 0.06493651121854782,
+            "donor_pairwise_positive_fraction": 0.3333333432674408,
+            "layer_permuted_mean": 0.016902748495340347,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 172,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.258466893976385,
+            "donor": 4.258466893976385,
+            "layer_permuted": 4.204941836270419,
+            "projected_only_bypass": 4.258466893976385,
+            "zero": 4.258466893976385
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": -0.05352505770596583,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 216,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.01754564419388771,
+            "correct_minus_donor": 0.020414279773831367,
+            "correct_minus_layer_permuted": 0.0427701435983181,
+            "donor_mean": -0.0028686311561614275,
+            "donor_pairwise_positive_fraction": 0.5,
+            "layer_permuted_mean": -0.02522450126707554,
+            "layer_permuted_pairwise_positive_fraction": 0.523809552192688,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 211,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.447796908291903,
+            "donor": 4.414698860862038,
+            "layer_permuted": 4.422647302800959,
+            "projected_only_bypass": 4.414698860862038,
+            "zero": 4.414698860862038
+          },
+          "ce_margins": {
+            "donor_minus_correct": -0.03309804742986522,
+            "layer_permuted_minus_correct": -0.02514960549094436,
+            "zero_minus_correct": -0.03309804742986522
+          },
+          "donor_source_index": 181,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.02825789898633957,
+            "correct_minus_donor": -0.016779562458395958,
+            "correct_minus_layer_permuted": 0.026935499161481857,
+            "donor_mean": -0.011478339321911335,
+            "donor_pairwise_positive_fraction": 0.4523809552192688,
+            "layer_permuted_mean": -0.055193401873111725,
+            "layer_permuted_pairwise_positive_fraction": 0.5476190447807312,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 233,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 15,
+          "ce": {
+            "correct": 3.138483683268229,
+            "donor": 3.1480361938476564,
+            "layer_permuted": 3.1345677693684895,
+            "projected_only_bypass": 3.1480361938476564,
+            "zero": 3.1480361938476564
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.009552510579427409,
+            "layer_permuted_minus_correct": -0.003915913899739554,
+            "zero_minus_correct": 0.009552510579427409
+          },
+          "donor_source_index": 129,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.007389430422335863,
+            "correct_minus_donor": -0.012632060796022415,
+            "correct_minus_layer_permuted": 0.05888909474015236,
+            "donor_mean": 0.02002149261534214,
+            "donor_pairwise_positive_fraction": 0.523809552192688,
+            "layer_permuted_mean": -0.051499661058187485,
+            "layer_permuted_pairwise_positive_fraction": 0.5952380895614624,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 259,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.05991640957919,
+            "donor": 4.05991640957919,
+            "layer_permuted": 4.05991640957919,
+            "projected_only_bypass": 4.05991640957919,
+            "zero": 4.05991640957919
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 96,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.0022467346861958504,
+            "correct_minus_donor": -0.012087306007742882,
+            "correct_minus_layer_permuted": -0.013802477158606052,
+            "donor_mean": 0.01433403417468071,
+            "donor_pairwise_positive_fraction": 0.5952380895614624,
+            "layer_permuted_mean": 0.016049206256866455,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 322,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        }
+      ],
+      [
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 19,
+          "ce": {
+            "correct": 2.5241628948010897,
+            "donor": 2.5241628948010897,
+            "layer_permuted": 2.51406519036544,
+            "projected_only_bypass": 2.51406519036544,
+            "zero": 2.51406519036544
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": -0.010097704435649835,
+            "zero_minus_correct": -0.010097704435649835
+          },
+          "donor_source_index": 62,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.0204290933907032,
+            "correct_minus_donor": -0.01081260945647955,
+            "correct_minus_layer_permuted": 0.004957224242389202,
+            "donor_mean": -0.009616488590836525,
+            "donor_pairwise_positive_fraction": 0.3333333432674408,
+            "layer_permuted_mean": -0.02538631111383438,
+            "layer_permuted_pairwise_positive_fraction": 0.5,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 14,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.479035117409446,
+            "donor": 4.479035117409446,
+            "layer_permuted": 4.480864091352983,
+            "projected_only_bypass": 4.479035117409446,
+            "zero": 4.479035117409446
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0018289739435370933,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 218,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.03520103543996811,
+            "correct_minus_donor": 0.007026971317827702,
+            "correct_minus_layer_permuted": 0.048700083047151566,
+            "donor_mean": 0.028174065053462982,
+            "donor_pairwise_positive_fraction": 0.5,
+            "layer_permuted_mean": -0.013499042019248009,
+            "layer_permuted_pairwise_positive_fraction": 0.5952380895614624,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 29,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 4.012404251098633,
+            "donor": 4.012404251098633,
+            "layer_permuted": 4.012404251098633,
+            "projected_only_bypass": 4.012404251098633,
+            "zero": 4.012404251098633
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 12,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.020835019648075104,
+            "correct_minus_donor": -0.002611527917906642,
+            "correct_minus_layer_permuted": 0.026157595217227936,
+            "donor_mean": 0.023446548730134964,
+            "donor_pairwise_positive_fraction": 0.4761904776096344,
+            "layer_permuted_mean": -0.00532258115708828,
+            "layer_permuted_pairwise_positive_fraction": 0.5,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 59,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 3.836851119995117,
+            "donor": 3.836851119995117,
+            "layer_permuted": 3.836851119995117,
+            "projected_only_bypass": 3.836851119995117,
+            "zero": 3.836851119995117
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 24,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.008174007758498192,
+            "correct_minus_donor": -0.022080879658460617,
+            "correct_minus_layer_permuted": 0.043617717921733856,
+            "donor_mean": 0.013906873762607574,
+            "donor_pairwise_positive_fraction": 0.523809552192688,
+            "layer_permuted_mean": -0.0517917238175869,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 80,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.22868555242365,
+            "donor": 4.211050553755327,
+            "layer_permuted": 4.187463933771307,
+            "projected_only_bypass": 4.2109080227938565,
+            "zero": 4.2109080227938565
+          },
+          "ce_margins": {
+            "donor_minus_correct": -0.0176349986683233,
+            "layer_permuted_minus_correct": -0.04122161865234375,
+            "zero_minus_correct": -0.017777529629793953
+          },
+          "donor_source_index": 177,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.01795916073024273,
+            "correct_minus_donor": 0.017514511942863464,
+            "correct_minus_layer_permuted": 0.08124089241027832,
+            "donor_mean": 0.00044465065002441406,
+            "donor_pairwise_positive_fraction": 0.5476190447807312,
+            "layer_permuted_mean": -0.06328173726797104,
+            "layer_permuted_pairwise_positive_fraction": 0.5476190447807312,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 119,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.4454709833318535,
+            "donor": 4.4454709833318535,
+            "layer_permuted": 4.4594199440696025,
+            "projected_only_bypass": 4.4454709833318535,
+            "zero": 4.4454709833318535
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.013948960737748983,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 201,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.038292571902275085,
+            "correct_minus_donor": 0.019627723842859268,
+            "correct_minus_layer_permuted": 0.051810357719659805,
+            "donor_mean": 0.018664851784706116,
+            "donor_pairwise_positive_fraction": 0.6190476417541504,
+            "layer_permuted_mean": -0.013517783023416996,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 139,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 3.9780006408691406,
+            "donor": 3.9780006408691406,
+            "layer_permuted": 3.9780006408691406,
+            "projected_only_bypass": 3.9780006408691406,
+            "zero": 3.9780006408691406
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 119,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.01963925175368786,
+            "correct_minus_donor": -0.024989208206534386,
+            "correct_minus_layer_permuted": 0.022903304547071457,
+            "donor_mean": 0.044628456234931946,
+            "donor_pairwise_positive_fraction": 0.380952388048172,
+            "layer_permuted_mean": -0.00326406117528677,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 177,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 12,
+          "ce": {
+            "correct": 3.683401107788086,
+            "donor": 3.683401107788086,
+            "layer_permuted": 3.6473232905069985,
+            "projected_only_bypass": 3.683401107788086,
+            "zero": 3.683401107788086
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": -0.03607781728108739,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 211,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.001178236212581396,
+            "correct_minus_donor": 0.006860700435936451,
+            "correct_minus_layer_permuted": 0.057196084409952164,
+            "donor_mean": -0.005682465620338917,
+            "donor_pairwise_positive_fraction": 0.5,
+            "layer_permuted_mean": -0.05601784959435463,
+            "layer_permuted_pairwise_positive_fraction": 0.5476190447807312,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 216,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 3.867855765602805,
+            "donor": 3.867855765602805,
+            "layer_permuted": 3.867855765602805,
+            "projected_only_bypass": 3.867855765602805,
+            "zero": 3.867855765602805
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 101,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.041001029312610626,
+            "correct_minus_donor": 0.02360461838543415,
+            "correct_minus_layer_permuted": 0.1068328469991684,
+            "donor_mean": 0.017396410927176476,
+            "donor_pairwise_positive_fraction": 0.4523809552192688,
+            "layer_permuted_mean": -0.06583181023597717,
+            "layer_permuted_pairwise_positive_fraction": 0.6666666865348816,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 236,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.388214804909446,
+            "donor": 4.388214804909446,
+            "layer_permuted": 4.388214804909446,
+            "projected_only_bypass": 4.388214804909446,
+            "zero": 4.388214804909446
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 119,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.04039938002824783,
+            "correct_minus_donor": 0.0012764963321387768,
+            "correct_minus_layer_permuted": 0.09112867712974548,
+            "donor_mean": 0.03912288695573807,
+            "donor_pairwise_positive_fraction": 0.523809552192688,
+            "layer_permuted_mean": -0.05072929710149765,
+            "layer_permuted_pairwise_positive_fraction": 0.5952380895614624,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 279,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.072990070689809,
+            "donor": 4.072990070689809,
+            "layer_permuted": 4.058318398215554,
+            "projected_only_bypass": 4.072990070689809,
+            "zero": 4.072990070689809
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": -0.014671672474254827,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 152,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.008400877937674522,
+            "correct_minus_donor": -0.006347840651869774,
+            "correct_minus_layer_permuted": 0.04385926574468613,
+            "donor_mean": 0.01474872138351202,
+            "donor_pairwise_positive_fraction": 0.4523809552192688,
+            "layer_permuted_mean": -0.03545838221907616,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 356,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        }
+      ],
+      [
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.083701740611684,
+            "donor": 4.083701740611684,
+            "layer_permuted": 4.0972373268821025,
+            "projected_only_bypass": 4.0972373268821025,
+            "zero": 4.0972373268821025
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.013535586270418953,
+            "zero_minus_correct": 0.013535586270418953
+          },
+          "donor_source_index": 96,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.019068336114287376,
+            "correct_minus_donor": -0.02623363398015499,
+            "correct_minus_layer_permuted": 0.050096772611141205,
+            "donor_mean": 0.04530197009444237,
+            "donor_pairwise_positive_fraction": 0.4761904776096344,
+            "layer_permuted_mean": -0.031028442084789276,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 19,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 3.814070129394531,
+            "donor": 3.814070129394531,
+            "layer_permuted": 3.814070129394531,
+            "projected_only_bypass": 3.814070129394531,
+            "zero": 3.814070129394531
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 255,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.027292950078845024,
+            "correct_minus_donor": 0.006941739935427904,
+            "correct_minus_layer_permuted": 0.0894179716706276,
+            "donor_mean": 0.020351208746433258,
+            "donor_pairwise_positive_fraction": 0.6190476417541504,
+            "layer_permuted_mean": -0.06212502717971802,
+            "layer_permuted_pairwise_positive_fraction": 0.6190476417541504,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 30,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.284873615611684,
+            "donor": 4.284873615611684,
+            "layer_permuted": 4.284873615611684,
+            "projected_only_bypass": 4.284873615611684,
+            "zero": 4.284873615611684
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 14,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.04431519657373428,
+            "correct_minus_donor": 0.018233058974146843,
+            "correct_minus_layer_permuted": 0.10442672669887543,
+            "donor_mean": 0.02608213573694229,
+            "donor_pairwise_positive_fraction": 0.5,
+            "layer_permuted_mean": -0.060111530125141144,
+            "layer_permuted_pairwise_positive_fraction": 0.6666666865348816,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 62,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 14,
+          "ce": {
+            "correct": 3.218520028250558,
+            "donor": 3.218520028250558,
+            "layer_permuted": 3.218520028250558,
+            "projected_only_bypass": 3.218520028250558,
+            "zero": 3.218520028250558
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 100,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.03052118979394436,
+            "correct_minus_donor": 0.03371211141347885,
+            "correct_minus_layer_permuted": 0.09690976142883301,
+            "donor_mean": -0.0031909197568893433,
+            "donor_pairwise_positive_fraction": 0.5952380895614624,
+            "layer_permuted_mean": -0.0663885697722435,
+            "layer_permuted_pairwise_positive_fraction": 0.5714285969734192,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 96,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 4.38110466003418,
+            "donor": 4.38110466003418,
+            "layer_permuted": 4.38110466003418,
+            "projected_only_bypass": 4.38110466003418,
+            "zero": 4.38110466003418
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 144,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.058148544281721115,
+            "correct_minus_donor": -0.022512182593345642,
+            "correct_minus_layer_permuted": 0.11373738199472427,
+            "donor_mean": 0.08066072314977646,
+            "donor_pairwise_positive_fraction": 0.4285714328289032,
+            "layer_permuted_mean": -0.05558883771300316,
+            "layer_permuted_pairwise_positive_fraction": 0.6190476417541504,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 121,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 4.323800173672763,
+            "donor": 4.323800173672763,
+            "layer_permuted": 4.323800173672763,
+            "projected_only_bypass": 4.323800173672763,
+            "zero": 4.323800173672763
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 172,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.07797093689441681,
+            "correct_minus_donor": 0.006174155976623297,
+            "correct_minus_layer_permuted": 0.09629292786121368,
+            "donor_mean": 0.07179677486419678,
+            "donor_pairwise_positive_fraction": 0.5952380895614624,
+            "layer_permuted_mean": -0.01832200214266777,
+            "layer_permuted_pairwise_positive_fraction": 0.5952380895614624,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 144,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 12,
+          "ce": {
+            "correct": 4.3146162033081055,
+            "donor": 4.3146162033081055,
+            "layer_permuted": 4.3146162033081055,
+            "projected_only_bypass": 4.3146162033081055,
+            "zero": 4.3146162033081055
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 52,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.03258078917860985,
+            "correct_minus_donor": 0.004824451636523008,
+            "correct_minus_layer_permuted": 0.05317944660782814,
+            "donor_mean": 0.027756342664361,
+            "donor_pairwise_positive_fraction": 0.523809552192688,
+            "layer_permuted_mean": -0.020598649978637695,
+            "layer_permuted_pairwise_positive_fraction": 0.5952380895614624,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 181,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 11,
+          "ce": {
+            "correct": 3.904684240167791,
+            "donor": 3.904684240167791,
+            "layer_permuted": 3.904684240167791,
+            "projected_only_bypass": 3.904684240167791,
+            "zero": 3.904684240167791
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 29,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.05053488537669182,
+            "correct_minus_donor": -0.005113136488944292,
+            "correct_minus_layer_permuted": 0.05779607221484184,
+            "donor_mean": 0.05564802139997482,
+            "donor_pairwise_positive_fraction": 0.523809552192688,
+            "layer_permuted_mean": -0.0072611854411661625,
+            "layer_permuted_pairwise_positive_fraction": 0.5476190447807312,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 218,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 14,
+          "ce": {
+            "correct": 3.118071964808873,
+            "donor": 3.118071964808873,
+            "layer_permuted": 3.118071964808873,
+            "projected_only_bypass": 3.118071964808873,
+            "zero": 3.118071964808873
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 296,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.01730341836810112,
+            "correct_minus_donor": -0.0068268789909780025,
+            "correct_minus_layer_permuted": -0.0022177754435688257,
+            "donor_mean": -0.010476537048816681,
+            "donor_pairwise_positive_fraction": 0.4523809552192688,
+            "layer_permuted_mean": -0.015085634775459766,
+            "layer_permuted_pairwise_positive_fraction": 0.4761904776096344,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 247,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 4.07135124206543,
+            "donor": 4.07135124206543,
+            "layer_permuted": 4.07135124206543,
+            "projected_only_bypass": 4.07135124206543,
+            "zero": 4.07135124206543
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 247,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": 0.011520902626216412,
+            "correct_minus_donor": -0.01629835180938244,
+            "correct_minus_layer_permuted": 0.058761417865753174,
+            "donor_mean": 0.027819259092211723,
+            "donor_pairwise_positive_fraction": 0.4285714328289032,
+            "layer_permuted_mean": -0.04724050685763359,
+            "layer_permuted_pairwise_positive_fraction": 0.4761904776096344,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 296,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        },
+        {
+          "all_bridge_values_finite": true,
+          "all_logits_finite": true,
+          "answer_tokens": 10,
+          "ce": {
+            "correct": 4.585511016845703,
+            "donor": 4.585511016845703,
+            "layer_permuted": 4.585511016845703,
+            "projected_only_bypass": 4.585511016845703,
+            "zero": 4.585511016845703
+          },
+          "ce_margins": {
+            "donor_minus_correct": 0.0,
+            "layer_permuted_minus_correct": 0.0,
+            "zero_minus_correct": 0.0
+          },
+          "donor_source_index": 211,
+          "fixed_carrier": {
+            "correct": true,
+            "donor": true,
+            "layer_permuted": true,
+            "projected_only_bypass": true,
+            "zero": true
+          },
+          "identity": {
+            "correct_mean": -0.010716511867940426,
+            "correct_minus_donor": -0.03617710620164871,
+            "correct_minus_layer_permuted": 0.008642526343464851,
+            "donor_mean": 0.02546059899032116,
+            "donor_pairwise_positive_fraction": 0.5,
+            "layer_permuted_mean": -0.019359041005373,
+            "layer_permuted_pairwise_positive_fraction": 0.5476190447807312,
+            "query_fixed": true
+          },
+          "query_fixed_equal": true,
+          "source_index": 358,
+          "zero_logits_byte_equal_projected_only_bypass": true
+        }
+      ]
+    ],
+    "rows": 44
+  },
+  "input_binding": {
+    "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+    "crossfit_result_file_sha256": "5e41c4569273fd5841381fcb6c5738b26212dd326b4f7cf56b589528df346ba3",
+    "crossfit_result_receipt": "89392eaeffa50c0bed9109fd8db3d33a5625eb4ff7117f81d710cf9b5be93945",
+    "crossfit_split_payload_sha256": "3b6306fdd2120faf9b2a20f370ad08a7fa7eaffa347e6f8deaa91e3cc1a7bf3c",
+    "dataset_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1",
+    "global_batch_size": 4,
+    "heldout_payload_sha256": "84ae348079351f96f70172bfc8c02b3ae44f54bc74db260e8ba4d7c9164117a2",
+    "heldout_sources": [
+      7,
+      12,
+      14,
+      19,
+      24,
+      26,
+      29,
+      30,
+      33,
+      52,
+      59,
+      62,
+      66,
+      73,
+      80,
+      96,
+      100,
+      101,
+      119,
+      121,
+      128,
+      129,
+      139,
+      144,
+      152,
+      172,
+      177,
+      181,
+      201,
+      211,
+      216,
+      218,
+      225,
+      233,
+      236,
+      247,
+      255,
+      259,
+      279,
+      296,
+      321,
+      322,
+      356,
+      358
+    ],
+    "hf_endpoint": "https://hf-mirror.com",
+    "installation": {
+      "hybrid_gain": 0.125,
+      "identity_bottleneck": 4,
+      "identity_maps_frozen": true,
+      "layers": 42,
+      "max_gain": 0.25,
+      "mode": "joint_pair_crossglu",
+      "projected_carrier_unchanged": true,
+      "state_dim": 32,
+      "value_identity": {
+        "forward_output_changed": false,
+        "module_names": [
+          "model.language_model.layers.0.self_attn",
+          "model.language_model.layers.1.self_attn",
+          "model.language_model.layers.2.self_attn",
+          "model.language_model.layers.3.self_attn",
+          "model.language_model.layers.4.self_attn",
+          "model.language_model.layers.5.self_attn",
+          "model.language_model.layers.6.self_attn",
+          "model.language_model.layers.7.self_attn",
+          "model.language_model.layers.8.self_attn",
+          "model.language_model.layers.9.self_attn",
+          "model.language_model.layers.10.self_attn",
+          "model.language_model.layers.11.self_attn",
+          "model.language_model.layers.12.self_attn",
+          "model.language_model.layers.13.self_attn",
+          "model.language_model.layers.14.self_attn",
+          "model.language_model.layers.15.self_attn",
+          "model.language_model.layers.16.self_attn",
+          "model.language_model.layers.17.self_attn",
+          "model.language_model.layers.18.self_attn",
+          "model.language_model.layers.19.self_attn",
+          "model.language_model.layers.20.self_attn",
+          "model.language_model.layers.21.self_attn",
+          "model.language_model.layers.22.self_attn",
+          "model.language_model.layers.23.self_attn",
+          "model.language_model.layers.24.self_attn",
+          "model.language_model.layers.25.self_attn",
+          "model.language_model.layers.26.self_attn",
+          "model.language_model.layers.27.self_attn",
+          "model.language_model.layers.28.self_attn",
+          "model.language_model.layers.29.self_attn",
+          "model.language_model.layers.30.self_attn",
+          "model.language_model.layers.31.self_attn",
+          "model.language_model.layers.32.self_attn",
+          "model.language_model.layers.33.self_attn",
+          "model.language_model.layers.34.self_attn",
+          "model.language_model.layers.35.self_attn",
+          "model.language_model.layers.36.self_attn",
+          "model.language_model.layers.37.self_attn",
+          "model.language_model.layers.38.self_attn",
+          "model.language_model.layers.39.self_attn",
+          "model.language_model.layers.40.self_attn",
+          "model.language_model.layers.41.self_attn"
+        ],
+        "modules": 42,
+        "query_address_gradient": "detached_frozen_projected_route_and_value",
+        "query_target": "detached_projected_slot_value",
+        "state_gradient": "live_addressed_rwkv_read",
+        "trainable_parameters_added": 0
+      }
+    },
+    "local_rows": 1,
+    "mechanics_result_file_sha256": "dba313f9a2a441ed1c81fac0a83cc42b4ca6f94975d8e8b5b483db654296bcc3",
+    "mechanics_result_receipt": "ba9a986ef0bc937c652e82204c8edb3efc80855136e1261c30c9fe15e3954ddd",
+    "mechanics_status": "joint_pair_crossglu_mechanics_passed_generation_blocked",
+    "model_audit": {
+      "all_wrappers_address_keyed_moe_deepembed_ffn_causal": true,
+      "all_wrappers_hybrid": true,
+      "deepembed_ffn_active_layers": [
+        10,
+        21,
+        31,
+        41
+      ],
+      "deepembed_ffn_down_hook_count": 42,
+      "deepembed_ffn_family_counts": {
+        "rwkv_outer_ffn_down_weight": 4,
+        "rwkv_outer_ffn_gate_weight": 4,
+        "rwkv_outer_ffn_up_weight": 4
+      },
+      "deepembed_ffn_pre_hook_count": 42,
+      "learned_write": {
+        "initialized_as_exact_noop": true,
+        "modules": 42,
+        "parameter_elements": 21504,
+        "parameter_names": [
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.0.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.1.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.2.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.3.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.4.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.5.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.6.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.7.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.8.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.9.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.10.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.11.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.12.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.13.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.14.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.15.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.16.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.17.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.18.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.19.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.20.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.21.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.22.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.23.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.24.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.25.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.26.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.27.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.28.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.29.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.30.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.31.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.32.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.33.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.34.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.35.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.36.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.37.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.38.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.39.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.40.self_attn.rwkv_learned_write_b_up",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_k_down",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_k_up",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_v_down",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_v_up",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_a_down",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_a_up",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_b_down",
+          "model.language_model.layers.41.self_attn.rwkv_learned_write_b_up"
+        ],
+        "parameter_tensors": 336,
+        "rank": 2
+      },
+      "learned_write_mode": "parameter_free_address_keyed_deepembed_control_plus_learned_write",
+      "native_write_mode_locked": true,
+      "projected_router_frozen_tensors": 42,
+      "replaced_layers": 42,
+      "trainable_parameter_names_sha256": "a197f0d2410d1f158b804b18b333fa19b2dcc15febc9fd41421b5437cd4e5c26",
+      "trainable_parameter_tensors": 1482,
+      "wrapped_layers": 42,
+      "write_address_gain": 0.25
+    },
+    "protected_splits_opened": [],
+    "protocol_objective": "Test whether the mechanics-passed frozen component-disjoint bilinear identity maps, coupled through a bounded joint query/state CrossGLU bridge, produce heldout causal answer preference for the correct recurrent state without changing the projected carrier.",
+    "protocol_payload_sha256": "80901c5eed1d95f66b2e89af25c2d0b0be929a29059f5e08095cd8110cf46edd",
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 0,
+        "pid": 2362495,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 1,
+        "pid": 2362496,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 2,
+        "pid": 2362497,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 3,
+        "pid": 2362498,
+        "process_rank": 3
+      }
+    ],
+    "reconstruction_state_sha256": "1bbb5e8ff1b61aa2309c81d4a0235a9b74e0c8eb855604c03c6bbea4b939790f",
+    "runner_sha256": "fab4b053c39df27fe074d9fb7e321eb48aa2a6474067072437399b7d1c5d95ba",
+    "schema": "rwkv_ms_natural_memory_native_joint_pair_crossglu_causal_train_input.v1",
+    "seed": 116,
+    "trainable_audit": {
+      "identity_parameters_frozen": true,
+      "trainable_elements": 172032,
+      "trainable_tensors": 126
+    },
+    "trainable_elements": 172032,
+    "trainable_tensors": 126,
+    "training_schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "updates": 8,
+    "world_size": 4
+  },
+  "joint_pair_crossglu_checkpoint": {
+    "elements": 172032,
+    "path": "joint_pair_crossglu.safetensors",
+    "sha256": "63d6d39512e40178ba21ffdee450b30c2afc553e7fe1d3736d5fe74461a3df20",
+    "tensors": 126
+  },
+  "native_generation_benchmark_authorized": false,
+  "passed": false,
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "80901c5eed1d95f66b2e89af25c2d0b0be929a29059f5e08095cd8110cf46edd",
+  "rank_runtime": [
+    {
+      "peak_cuda_memory_bytes": 22893660160,
+      "rank": 0
+    },
+    {
+      "peak_cuda_memory_bytes": 21811591168,
+      "rank": 1
+    },
+    {
+      "peak_cuda_memory_bytes": 21129157632,
+      "rank": 2
+    },
+    {
+      "peak_cuda_memory_bytes": 22552806912,
+      "rank": 3
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "e7e007540e30976da22af006b4cab46dcdc0d3c02bbfec45685a6662931e1e3d"
+  },
+  "schema": "rwkv_ms_natural_memory_native_joint_pair_crossglu_causal_train.v1",
+  "seed": 116,
+  "status": "joint_pair_crossglu_heldout_causal_failed_generation_blocked",
+  "training": {
+    "active_donor_fraction": 0.96875,
+    "active_layer_permuted_fraction": 0.96875,
+    "active_zero_fraction": 1.0,
+    "control_branch_graph_serialization": {
+      "enabled": true,
+      "maximum_simultaneous_autograd_graphs_per_rank": 1,
+      "metric_only_forwards_without_grad": 64
+    },
+    "elapsed_seconds": 178.90659165382385,
+    "final_adapter_sha256": "c2f36f838ee8937ff2f9de37a27b9305666a37295fecef3a3ade11cf94b1be28",
+    "final_recurrent_subset_sha256": "95f55f8b77709cbfd48b0c9a0a6012556d3b3039c1eed70209f06fc4b75434f4",
+    "final_trainable_subset_sha256": "368a4272f1214b01f301cda738e5be383ce8a18c43c3575dc0b1e493395c412f",
+    "first_update_gradient_audit": {
+      "global_finite_fp32_tensors": 126,
+      "global_finite_nonzero_tensors": 126,
+      "passed": true,
+      "trainable_tensors": 126
+    },
+    "first_update_recurrent_gradient_audit": {
+      "global_finite_fp32_tensors": 126,
+      "global_finite_nonzero_tensors": 126,
+      "passed": true,
+      "trainable_tensors": 126
+    },
+    "initial_adapter_sha256": "f135d77a2fa428bc2d57d0b960237e699f0d83c9f0d9e7ea15c67603482839f9",
+    "initial_recurrent_subset_sha256": "95f55f8b77709cbfd48b0c9a0a6012556d3b3039c1eed70209f06fc4b75434f4",
+    "initial_trainable_subset_sha256": "2dd9d1dfab42fd329584298abd8e141af8e308b768651d79cc1f5bebbd60c4ce",
+    "maximum_global_inactive_parameter_tensors": 0,
+    "mean_correct_ce": 3.965607514525026,
+    "mean_donor_minus_correct_ce": 0.0009830954719915602,
+    "mean_layer_permuted_minus_correct_ce": 0.005657940301574543,
+    "mean_zero_minus_correct_ce": 0.0021133952000657596,
+    "minimum_gradient_norm_before_clip": 1.2463232224035892e-07,
+    "optimizer_state_cpu_offload": {
+      "enabled": true,
+      "maximum_bytes_per_rank": 1376760,
+      "maximum_tensors_per_rank": 378,
+      "restored_before_every_optimizer_step": true,
+      "steps": 7
+    },
+    "peak_cuda_memory_bytes": 22893660160,
+    "progress_sha256": "e736861439e19f9fd3681ee54b61fb08efe124c1c2fae78b01552005405e23e2",
+    "projected_carrier_fixed_every_row": true,
+    "recurrent_subset_changed": false,
+    "row_filter": {
+      "accepted_gradient_rows": 32,
+      "enabled": false,
+      "maximum_total_rejected_rows": 0,
+      "minimum_accepted_rows_per_update": 4,
+      "minimum_required_accepted_rows_per_update": 4,
+      "rejected_gradient_rows": 0,
+      "rejected_source_ordinals": []
+    },
+    "rows": 32,
+    "trainable_subset_changed": true,
+    "updates": 8
+  },
+  "training_passed": true,
+  "updates": 8
+}

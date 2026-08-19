@@ -2,8 +2,8 @@
 
 Source: [arXiv:2608.08888v1](https://arxiv.org/abs/2608.08888v1),
 *Full-bandwidth transformer* (Wang et al., submitted 2026-08-09).  This review
-uses the official arXiv source and is design-only; it launches no GPU job and
-opens no split.
+uses the official arXiv source. The follow-on mechanics screen is recorded
+separately below; no protected split is opened by either document.
 
 ## Exact paper mechanism
 
@@ -328,17 +328,48 @@ cancellation (`0.000553`--`0.000816` maximum), but changed only `0.750`--`0.769`
 of donor decoded rows (required `>=0.95`).  The diagonal-sign family is
 retired without causal training.
 
-The next active route is the joint pair-gated CrossGLU bridge.  It is the only
-Full-Bandwidth-inspired option that makes the gate depend jointly on query and
-state, rather than repeating the retired separable state-times-query family.
-It must first pass the existing factorial mechanics screen; no causal run or
-native benchmark is authorized by this review.
+The joint pair-gated CrossGLU bridge was the first Full-Bandwidth-inspired
+causal candidate. Its signed four-A100 mechanics screen passed, but its locked
+held-out causal endpoint failed donor identity: matched-donor CE was
+`-0.001360` relative to correct, donor-positive rows were `0.045455`, and the
+layer-permuted and zero controls were also slightly better than correct. The
+route is therefore retired without gain, batch-size, learning-rate, or
+duration tuning. Native generation was not authorized.
 
 | priority | route | evidence | main upside | main risk |
 | --- | --- | --- | --- | --- |
-| 1 | joint pair-gated deep-to-shallow CrossGLU | Full-Bandwidth principle + passed bilinear seed only | pair-dependent full-vector causal use with renewed depth | no inverse binding; early-residual distribution shift |
+| retired | joint pair-gated deep-to-shallow CrossGLU | mechanics passed; causal donor gate failed | pair-dependent full-vector causal use with renewed depth | donor-neutral endpoint and early-residual bypass |
 | retired | bilinear compatibility + output gate | cross-fit passed, causal donor gate failed | held-out score alignment | donor-neutral causal endpoint |
 | retired | rotary / diagonal-sign binding | rotary non-commutation; sign donor rows `0.750`--`0.769` | algebraic cancellation in limited controls | insufficient donor specificity |
+
+### Next directions after the CrossGLU failure
+
+The paper's useful contribution is now a training recipe, not a drop-in
+identity module. The best next move is a small open-row diagnostic that adds
+Jacobi-style read feedback and an explicit state-identity objective to the
+already causal-passing `address_keyed_moe_deepembed_ffn` branch. Keep its
+successful sparse DeepEmbed readout fixed, inject one read snapshot at the
+earliest feasible anchor, and train two feedback passes with losses on both
+passes plus a per-layer donor InfoNCE term. Measure the paper's recurrence
+contraction (`delta_k`) before authorizing any native run. This directly tests
+whether renewed depth, rather than another gate shape, repairs the donor-neutral
+failure.
+
+Other bounded directions, in descending priority, are:
+
+1. a slot-codebook bridge that binds the projected slot value to the RWKV read
+   with a learned discrete identity code and a donor/code swap control;
+2. a confidence/abstention controller that falls back to projected-only when
+   query-state agreement is low, evaluated on the locked 220-row native set
+   only after causal donor specificity passes;
+3. a multi-slot or chunked RWKV read that reduces overwrite interference while
+   preserving the original writer and isolates state capacity from identity;
+4. a write-side address code experiment, changing only the RWKV value feature
+   with a frozen read path, followed by the same matched-donor endpoint.
+
+Do not combine these directions in one run. Each must first pass mechanics,
+then an eight-update four-A100 causal endpoint, before the protected native
+benchmark can be reopened.
 
 Do not combine the joint CrossGLU bridge with bilinear output gating or rotary
 binding before an independent causal result.  Combining gates would make a
@@ -346,8 +377,9 @@ donor margin uninterpretable.
 
 ## Safe experiment gates
 
-No GPU run is authorized by this note.  If the current winner fails and this
-fallback is activated, use the following sequence.
+The mechanics-only fallback has now been run under the following sequence. If
+the causal endpoint fails, retire this route without gain, batch-size, or
+duration tuning.
 
 ### Mechanics, no model update
 
@@ -400,6 +432,30 @@ row fraction at least `0.75`, and the same held-out identity gates.  The
 donor-query/donor-state pair, fixed-gate donor value, and shuffled-gate correct
 value must each be worse than the correct pair.  Native generation remains
 blocked until all pass.
+
+### Current mechanics receipt
+
+The v22 run used exactly four A100s and `HF_ENDPOINT=https://hf-mirror.com`:
+
+- result: `local_artifacts/natural_memory_native_rwkv_joint_pair_crossglu_mechanics_v22/result.json`;
+- result SHA-256: `dba313f9a2a441ed1c81fac0a83cc42b4ca6f94975d8e8b5b483db654296bcc3`;
+- receipt payload: `ba9a986ef0bc937c652e82204c8edb3efc80855136e1261c30c9fe15e3954ddd`;
+- all mechanics checks pass, including exact zero/projected-only element equality,
+  `1.0` matched-donor changed-row fraction, non-saturated gates, fixed-gate and
+  shuffled-gate value paths, finite outputs, fixed carrier references, and live
+  bridge gradients.
+
+### Current causal receipt
+
+The authorized v1 endpoint also used exactly four A100s and
+`HF_ENDPOINT=https://hf-mirror.com`, with eight serialized optimizer updates.
+Training invariants passed: all 126 bridge tensors had finite nonzero global
+gradients on every update, all projected carriers stayed fixed, and zero-state
+logits exactly matched the projected-only bypass. The signed endpoint failed
+only the identity and causal-preference gates; its result is
+`local_artifacts/natural_memory_native_rwkv_joint_pair_crossglu_causal_train_v1/result.json`
+with receipt payload
+`e7e007540e30976da22af006b4cab46dcdc0d3c02bbfec45685a6662931e1e3d`.
 
 ### Feedback-depth stability
 
