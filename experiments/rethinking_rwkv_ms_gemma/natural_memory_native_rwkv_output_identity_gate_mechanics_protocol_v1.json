@@ -1,0 +1,56 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_output_identity_gate_mechanics_protocol.v1",
+  "created_at": "2026-08-19T13:00:00+08:00",
+  "objective": "One-update four-A100 mechanics check that reconstructs the passed bilinear identity head from signed feature shards, installs it into a bounded output gate, and proves exact zero-recurrent/projected-only bypass identity.",
+  "authorization_basis": {
+    "crossfit_result": "local_artifacts/natural_memory_native_rwkv_query_state_bilinear_crossfit_v1/result.json",
+    "crossfit_result_file_sha256": "5e41c4569273fd5841381fcb6c5738b26212dd326b4f7cf56b589528df346ba3",
+    "crossfit_result_receipt": "89392eaeffa50c0bed9109fd8db3d33a5625eb4ff7117f81d710cf9b5be93945",
+    "crossfit_status": "bilinear_crossfit_passed_causal_training_design_authorized",
+    "crossfit_weights": "not saved; deterministically reconstructed from the exact signed feature shards before gate installation."
+  },
+  "feature_reconstruction": {
+    "shards": [
+      {"path": "local_artifacts/natural_memory_native_rwkv_query_state_bilinear_crossfit_v1/shard-0.jsonl", "sha256": "5ae1827fa71d9ef0a76fec6b4d96853bf40d55667d70cd8a930a3bf59bb39ada"},
+      {"path": "local_artifacts/natural_memory_native_rwkv_query_state_bilinear_crossfit_v1/shard-1.jsonl", "sha256": "981b36516248086f739229e71d4877d078db26ca1ead9ffd90fab7b1e1ae8136"},
+      {"path": "local_artifacts/natural_memory_native_rwkv_query_state_bilinear_crossfit_v1/shard-2.jsonl", "sha256": "410be4be336639060d9b8056e68cbefa91e99aa5331db255b7e97d4790755650"},
+      {"path": "local_artifacts/natural_memory_native_rwkv_query_state_bilinear_crossfit_v1/shard-3.jsonl", "sha256": "165ab30ccd44d0a14ed85fa23477591e01e9951e982fca0af75091cd411bf7eb"}
+    ],
+    "training_replay": {"seed": 114, "train_rows": 176, "heldout_rows": 44, "layers": 42, "state_dim": 32, "bottleneck": 4, "steps": 512, "optimizer": "AdamW lr=0.01 weight_decay=0.001", "objective": "mean(relu(0.2-correct+donor))+mean(relu(0.2-correct+layer_permuted))"},
+    "required": "reconstructed analysis must exactly equal the signed cross-fit analysis before weights may be installed."
+  },
+  "architecture": {
+    "fusion": "original_fused_output is converted to projected + gate(query,recurrent_read) * (original_fused_output-projected)",
+    "gate": "0.25 * sigmoid(4 * (bilinear_cosine_score - 0) - 6)",
+    "gate_weights": "reconstructed bilinear q_down/q_up/s_down/s_up installed into 42 output gates",
+    "projected_carrier": "fixed by reference across zero/donor/layer-permuted branches",
+    "zero_identity": "zero recurrent state must byte-equal explicit projected-only bypass logits"
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "open_fit_rows_only": "first four rows of inherited open fit schedule, one per rank",
+    "optimizer_updates": 1,
+    "trainable": "168 reconstructed output-gate tensors only",
+    "optimizer": "fused AdamW lr=0.0001",
+    "control_graphs": "serialized no-grad before one correct-state output-gate CE backward",
+    "adapter_saved": false
+  },
+  "required_gates": {
+    "all_control_logits_finite": true,
+    "fixed_projected_carrier_every_intervention": true,
+    "zero_recurrent_logits_byte_equal_explicit_projected_only_bypass": true,
+    "all_168_output_gate_tensors_finite_nonzero_global_gradients": true,
+    "generation_authorized": false,
+    "causal_endpoint_authorized": false
+  },
+  "stopping_rule": {
+    "pass": "This proves installation mechanics only. It does not authorize an eight-update causal endpoint or generation.",
+    "fail": "Block causal endpoint and generation.",
+    "always": "Do not open protected splits or save adapter weights."
+  },
+  "generation_authorized": false,
+  "adapter_saved": false,
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {"algorithm": "sha256", "payload_scope": "canonical_protocol_without_receipt", "payload_sha256": "10e8f4d82f6c42a1691513be02c3643ac9e62be72522df70b129f1933e8a638a"}
+}

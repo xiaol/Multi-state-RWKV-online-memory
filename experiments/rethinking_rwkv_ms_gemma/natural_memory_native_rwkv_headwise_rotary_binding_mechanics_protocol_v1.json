@@ -1,0 +1,67 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_headwise_rotary_binding_mechanics_protocol.v1",
+  "created_at": "2026-08-19T14:00:00+08:00",
+  "objective": "One-update-free four-A100 integration check for invertible headwise rotary address-value binding inside RWKV-MS.",
+  "authorization_basis": {
+    "failed_route": "local_artifacts/natural_memory_native_rwkv_output_identity_gate_causal_train_v1/result.json",
+    "failed_route_result_sha256": "b1b71c3a8efb3c9c3b5eaed27bb286e495ec913e26c15c57665ff435b5eff27",
+    "failed_route_status": "output_identity_gate_heldout_causal_failed_generation_blocked",
+    "stopping_rule": "The bilinear output-coupling family is retired; rotary binding is the separately locked fallback.",
+    "paper_review": "FULL_BANDWIDTH_RWKV_REVIEW.md"
+  },
+  "architecture": {
+    "module": "rwkv_headwise_rotary_binding.HeadwiseRotaryBinding",
+    "state_dim": 32,
+    "rwkv_head_size": 32,
+    "rwkv_heads": 1,
+    "complex_pairs_per_head": 16,
+    "phase_map": "theta=pi*tanh(P*rmsnorm(projected_slot_address))",
+    "write": "Apply block-diagonal two-coordinate rotations to RWKV v after existing address-conditioned feature transforms and before the recurrent state scan.",
+    "read": "Apply the inverse query-address rotations to the aggregated RWKV matrix read immediately before HRM group normalization and output projection.",
+    "parameters_per_layer": 512,
+    "total_parameters_for_42_layers": 21504,
+    "scalar_gate": false,
+    "cosine_readout": false,
+    "projected_carrier_changed": false
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "open_fit_rows_only": "one inherited open-fit schedule row per rank",
+    "model_updates": 0,
+    "adapter_saved": false,
+    "random_projection": "fresh deterministic orthogonal phase maps, seed 115",
+    "protected_splits_opened_by_this_protocol": []
+  },
+  "required_gates": {
+    "all_control_logits_finite": true,
+    "projected_carrier_fixed_every_intervention": true,
+    "correct_decoded_minus_unbound_raw_read_max_abs": 0.00001,
+    "zero_recurrent_logits_byte_equal_explicit_projected_only_bypass": true,
+    "matched_donor_decoded_change_row_fraction_minimum": 0.95,
+    "matched_donor_decoded_mean_normalized_l2_change_minimum": 0.05,
+    "stable_write_address_per_routed_slot": true,
+    "all_values_finite": true
+  },
+  "controls": [
+    "correct recurrent rotary binding",
+    "zero recurrent rotary binding",
+    "matched donor recurrent rotary binding",
+    "layer-permuted recurrent rotary binding",
+    "explicit projected-only bypass"
+  ],
+  "stopping_rule": {
+    "pass": "Authorize a separately signed eight-update causal rotary endpoint; generation remains blocked until its held-out donor and phase-separation gates pass.",
+    "fail": "Retire headwise rotary binding; do not tune gain, batch size, learning rate, or duration.",
+    "always": "Do not open publisher validation/test, Hard32, or strength holdouts; do not save adapter weights."
+  },
+  "generation_authorized": false,
+  "causal_endpoint_authorized": false,
+  "adapter_saved": false,
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "4f12a66cd6852697e3f2695e9e1ec231807ddfa3b50a296c7d28f2996c30c27c"
+  }
+}

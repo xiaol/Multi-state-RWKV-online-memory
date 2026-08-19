@@ -1,0 +1,118 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_headwise_rotary_binding_protocol_draft.v1",
+  "status": "conditional_fallback_crossfit_winner_active_gpu_launch_not_authorized",
+  "objective": "Test a representation-level address-value binding in which correct RWKV state is decoded in its write basis and a matched-donor state with a separated address code is decoded in the wrong basis.",
+  "evidence_basis": {
+    "bilinear_component_disjoint_crossfit": {
+      "result": "local_artifacts/natural_memory_native_rwkv_query_state_bilinear_crossfit_v1/result.json",
+      "passed": true,
+      "heldout_donor_mean_gap": 0.11818312853574753,
+      "heldout_donor_pairwise_positive_fraction": 0.9545454382896423,
+      "heldout_layer_permuted_pairwise_positive_fraction": 1.0,
+      "decision": "The bilinear output-coupling route is the current winner. Rotary binding remains inactive unless that route fails its separately locked mechanics or causal endpoint."
+    },
+    "learned_address_conditioned_write": {
+      "result": "local_artifacts/natural_memory_native_rwkv_address_keyed_learned_write_causal_train_v3/result.json",
+      "donor_minus_correct_mean_ce": -0.0000795308130996375,
+      "donor_positive_row_fraction": 0.53125,
+      "interpretation": "An additive or multiplicative address perturbation of k/v/a/b can be ignored and supplies no inverse read transform."
+    },
+    "direct_query_state_identity": {
+      "result": "local_artifacts/natural_memory_native_rwkv_query_state_identity_causal_train_v3/result.json",
+      "mean_correct_minus_donor_score": -0.0027352992979103874,
+      "positive_row_fraction": 0.4375
+    },
+    "state_scalar": {
+      "result": "local_artifacts/natural_memory_native_state_scalar_probe_v1/result.json",
+      "matched_donor_pairwise_separation": 0.586364,
+      "required_separation": 0.95
+    }
+  },
+  "architecture": {
+    "module": "rwkv_headwise_rotary_binding.HeadwiseRotaryBinding",
+    "state_dim": 32,
+    "rwkv_head_size": 32,
+    "rwkv_heads": 1,
+    "complex_pairs_per_head": 16,
+    "phase_map": "theta_h=tanh(P_h*rmsnorm(projected_slot_address_h))*pi",
+    "write": "Rotate each two-coordinate pair of RWKV v by theta(write_address) before the recurrent state scan.",
+    "read": "Apply the inverse rotation from theta(query_address) to the raw matrix read before HRM RWKV group normalization and output projection.",
+    "parameters_per_layer": 512,
+    "total_parameters_for_42_layers": 21504,
+    "correct_address_property": "The write and read rotations cancel algebraically inside each RWKV head.",
+    "matched_donor_property": "A donor state carries donor-address rotations and is inversely rotated with the target address; the held-out code-separation gate prevents phase aliasing.",
+    "scalar_gate": false,
+    "cosine_readout": false,
+    "projected_carrier_changed": false
+  },
+  "priority_relative_to_bilinear_infonce": {
+    "current_winner": "bilinear InfoNCE compatibility followed by the separately gated output-coupling route",
+    "winner_evidence": "The component-disjoint 176/44 cross-fit passed every held-out gate: donor fraction 0.954545, donor mean gap 0.118183, and layer-permuted fraction 1.0.",
+    "conditional_fallback": "headwise rotary address-value binding",
+    "fallback_activation": "Only if the bilinear route fails its output-coupled mechanics or causal endpoint and its stopping rule returns the project to architectural alternatives.",
+    "fallback_rationale": "It moves identity into the stored value basis, but currently has only algebraic unit evidence, adds the same 512 parameters per layer as the bilinear head under the actual one-head width-32 adapter geometry, and requires two integration hooks.",
+    "hybrid_policy": "Do not combine the routes before each has independent causal evidence."
+  },
+  "phase_0_completed_pure_contract": {
+    "gpu_required": false,
+    "same_address_round_trip_tolerance": 0.000002,
+    "norm_preservation": true,
+    "headwise_outer_product_commutation": true,
+    "matched_donor_basis_distortion": true,
+    "zero_value_remains_exact_zero": true
+  },
+  "phase_1_future_mechanics_gate": {
+    "authorization": "Requires the current bilinear winner to fail a locked downstream gate and a separately finalized fallback protocol.",
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "data": "Already-open fit rows only; no development generation rows and no protected split.",
+    "model_updates": 0,
+    "adapter_saved": false,
+    "required": {
+      "binding_inserted_after_v_projection_before_headwise_state_scan": true,
+      "unbinding_inserted_after_headwise_matrix_read_before_group_norm_and_output": true,
+      "write_address_constant_within_each_routed_slot": true,
+      "correct_bound_minus_unbound_raw_read_max_abs": 0.00001,
+      "zero_recurrent_exact_projected_only": true,
+      "matched_donor_decoded_read_changed_row_fraction_minimum": 0.95,
+      "matched_donor_mean_normalized_l2_change_minimum": 0.05,
+      "all_values_finite": true
+    },
+    "failure": "Retire the binding branch without causal training or generation."
+  },
+  "phase_2_future_causal_gate": {
+    "authorization": "Only a signed phase-1 mechanics pass may authorize this phase.",
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "data": "Source-and-donor-component-disjoint open-fit schedule and endpoint fixed before launch.",
+    "updates": 8,
+    "phase_projection": "Frozen after an address-only component-disjoint code-separation fit so answer CE cannot collapse all addresses to one phase.",
+    "controls": ["correct", "zero recurrent", "matched donor recurrent", "layer-permuted recurrent"],
+    "required_before_generation": {
+      "projected_carrier_fixed_every_row": true,
+      "all_condition_logits_finite": true,
+      "donor_minus_correct_mean_ce_minimum": 0.02,
+      "donor_minus_correct_positive_row_fraction_minimum": 0.75,
+      "zero_minus_correct_mean_ce_positive": true,
+      "layer_permuted_minus_correct_mean_ce_positive": true,
+      "heldout_address_code_pairwise_separation_minimum": 0.95,
+      "heldout_mean_normalized_phase_distance_minimum": 0.05
+    },
+    "failure": "Block generation; do not tune gain, batch size, or duration on the endpoint."
+  },
+  "phase_3_future_native_benchmark_gate": {
+    "authorization": "Only a separately signed phase-2 causal pass may authorize a locked generation protocol.",
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "conditions": ["correct recurrent", "projected-only", "matched donor recurrent", "layer-permuted recurrent"],
+    "required_micro_f1_margins": {
+      "correct_minus_projected_only": 0.005,
+      "correct_minus_matched_donor": 0.005,
+      "correct_minus_layer_permuted": 0.005
+    },
+    "claim_rule": "Passing supports native open-development memory gain only. It is not an official SOTA claim and does not authorize opening publisher validation/test, Hard32, or strength holdouts."
+  },
+  "generation_authorized": false,
+  "adapter_saved": false,
+  "protected_splits_opened_by_this_protocol": []
+}

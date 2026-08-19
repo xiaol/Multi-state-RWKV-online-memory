@@ -1,0 +1,34 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_output_identity_gate_mechanics_protocol_draft.v1",
+  "status": "draft_not_authorized_until_cross_fit_passes",
+  "objective": "Verify one four-A100 output-coupled identity-gate update preserves exact projected-only output under zero recurrent correction and has finite active gradients.",
+  "authorization_precondition": {
+    "required_cross_fit_result": "A separately signed donor-disjoint open-fit cross-fit result must pass its preregistered learned identity margin and carrier-invariance gates.",
+    "forbidden_before_pass": ["GPU launch", "eight-update causal training", "held-out endpoint", "generation"]
+  },
+  "architecture": {
+    "reuse": ["rwkv_query_state_bilinear.ResidualBilinearIdentity", "rwkv_query_state_infonce.LowRankQueryProjector"],
+    "fusion": "projected + 0.25 * sigmoid(4 * (compatibility_score - 0) - 6) * recurrent_correction",
+    "carrier_rule": "The projected carrier is retained by reference and is not an identity-head input to the output residual.",
+    "zero_rule": "With explicitly zero recurrent correction, output logits must byte-match the explicit projected-only bypass.",
+    "trainable_parameters": "42 layers x 4 bilinear rank-4 tensors = 168 FP32 tensors / 21,504 elements; optional query projector is excluded unless cross-fit protocol explicitly selects it."
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "open_rows_only": "Four already-open fit rows, one per rank",
+    "updates": 1,
+    "controls": ["correct", "fixed-carrier zero recurrent", "fixed-carrier matched donor", "fixed-carrier layer permutation", "explicit projected-only bypass"],
+    "control_graphs": "serialized",
+    "adapter_saved": false
+  },
+  "required_gates": {
+    "projected_carrier_fixed_for_all_interventions": true,
+    "zero_recurrent_logits_byte_equal_projected_only_bypass": true,
+    "all_control_logits_finite": true,
+    "all_output_gate_trainables_finite_and_globally_active": true,
+    "gate_values_in_closed_interval_zero_to_0_25": true,
+    "no_generation_authorization": true
+  },
+  "protected_splits_opened_by_this_protocol": []
+}

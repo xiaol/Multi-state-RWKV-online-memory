@@ -1,0 +1,59 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_diagonal_sign_binding_fullkey_mechanics_protocol.v1",
+  "created_at": "2026-08-20T02:00:00+08:00",
+  "objective": "Locked four-A100 mechanics check for full projected-key address diagonal-sign binding in RWKV-MS.",
+  "authorization_basis": {
+    "prior_sign_result": "local_artifacts/natural_memory_native_rwkv_diagonal_sign_binding_mechanics_v8/result.json",
+    "prior_sign_failure": "Folded 32-D addresses separated only 0.74-0.77 donor rows; full projected keys retain the 64-D address before coding.",
+    "rotary_failure": "local_artifacts/natural_memory_native_rwkv_headwise_rotary_binding_mechanics_v5/result.json"
+  },
+  "architecture": {
+    "module": "rwkv_diagonal_sign_binding.DiagonalSignBinding",
+    "value_state_dim": 32,
+    "projected_key_address_dim": 64,
+    "rwkv_head_size": 32,
+    "rwkv_heads": 1,
+    "write": "bind RWKV v with a hard detached diagonal +/-1 code from the full projected slot key before scan; use the committed argmax slot address",
+    "read": "unbind each RWKV slot read with that slot's full projected key code before route aggregation and HRM readout",
+    "frequency": 64.0,
+    "parameters_per_layer": 2048,
+    "total_parameters_for_42_layers": 86016,
+    "commutation": "diagonal signs commute with RWKV value-axis keep/erase/correction updates",
+    "projected_carrier_changed": false,
+    "adapter_saved": false
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "open_fit_rows_only": "one inherited open-fit schedule row per rank",
+    "model_updates": 0,
+    "projection": "deterministic rectangular QR projections, seed 115 plus layer index",
+    "protected_splits_opened_by_this_protocol": []
+  },
+  "required_gates": {
+    "all_control_logits_finite": true,
+    "projected_carrier_fixed_every_intervention": true,
+    "correct_write_read_code_match": true,
+    "correct_decoded_minus_unbound_raw_read_max_abs": 0.001,
+    "zero_recurrent_logits_byte_equal_explicit_projected_only_bypass": true,
+    "matched_donor_decoded_change_row_fraction_minimum": 0.95,
+    "matched_donor_decoded_mean_normalized_l2_change_minimum": 0.05,
+    "stable_write_address_per_routed_slot": true,
+    "all_values_finite": true
+  },
+  "controls": ["correct", "zero recurrent", "matched donor recurrent", "layer-permuted recurrent", "projected-only bypass"],
+  "stopping_rule": {
+    "pass": "Authorize a separately signed eight-update causal run with full-key codes frozen.",
+    "fail": "Retire diagonal-sign binding; do not tune gain, batch size, learning rate, or duration.",
+    "always": "Protected validation/test, Hard32, and strength holdouts remain closed; generation remains blocked."
+  },
+  "generation_authorized": false,
+  "causal_endpoint_authorized": false,
+  "adapter_saved": false,
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "bfd48c8c5b0cf3e1fb3036cc9ed5ca8cfb17c62dd5bef48339cbde5b37b11897"
+  }
+}

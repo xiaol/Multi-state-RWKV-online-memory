@@ -375,17 +375,86 @@ layer permutation (`-0.000127`), and the pre-update InfoNCE donor margin was
 `-0.846677`. It does **not** test or establish causal preference, and neither
 eight-update causal training nor generation is authorized.
 
-The next bounded experiment is a source-and-donor-disjoint cross-fit screen,
-not an output-coupled training run. It replaces the one-sided projector with
-separate rank-4 residual maps for the projected query and recurrent state, and
-requires at least `0.95` held-out donor pairwise separation plus a `0.05` mean
-score gap. Only that result may authorize wiring a compatibility gate into the
-recurrent correction.
+The strict source-and-donor-component-disjoint cross-fit screen is now
+complete. It captured correct, matched-donor, and cyclic layer-permuted
+answer-position features for all 220 authorized open rows on exactly four
+A100s. The undirected matched-donor graph had 78 connected components; whole
+components formed an exact 176-row train / 44-row heldout split, so no source
+or its donor crossed partitions. Model outputs and adapter weights remained
+frozen, no head or adapter weights were saved, and no generation ran.
+
+Before learning, heldout donor separation was `0.386364` with mean gap
+`-0.002108`; layer-permuted separation was `0.886364` with mean gap
+`+0.021160`. After 512 CPU AdamW updates to only the 21,504-parameter
+two-sided rank-4 compatibility head, the locked heldout result was:
+
+| recurrent control | pairwise positive fraction | mean correct-minus-control score gap |
+| --- | ---: | ---: |
+| matched donor | **0.954545** | **+0.118183** |
+| layer-permuted | **1.000000** | **+0.581383** |
+
+All preregistered gates passed: donor pairwise separation was at least `0.95`,
+donor mean gap exceeded `0.05`, layer-permuted separation was at least `0.95`,
+and every heldout score was finite. The signed status is
+`bilinear_crossfit_passed_causal_training_design_authorized` (result SHA-256
+`5e41c4569273fd5841381fcb6c5738b26212dd326b4f7cf56b589528df346ba3`,
+receipt
+`89392eaeffa50c0bed9109fd8db3d33a5625eb4ff7117f81d710cf9b5be93945`).
+
+This is the first heldout internal donor-identity pass for the learned
+compatibility family. It authorizes designing a separately preregistered
+causal run that uses the score as a bounded recurrent-correction gate. It does
+**not** establish answer-CE preference, native benchmark gain, or authorize
+generation.
+
+The signed output-coupled causal endpoint then failed its preregistered donor
+gate after all eight updates on exactly four A100s. Training itself was valid:
+all 168 gate tensors had finite nonzero global gradients, the projected carrier
+was fixed on every row, and zero recurrent logits were byte-identical to the
+explicit projected-only bypass. The 44-row endpoint had positive zero and
+layer-permuted CE margins (`+0.003578` and `+0.006910`), but matched-donor CE
+was slightly **better** than correct (`-0.000080`), donor-positive rows were
+`0.386364`, and learned donor identity was `-0.003583` with only `0.386364`
+positive rows. The signed status is
+`output_identity_gate_heldout_causal_failed_generation_blocked` (result
+SHA-256 `b1b71c3a8efb3c9c3b5eaed27bb286e495ec913e26c15c57665ff435b5eff27`).
+Per the stopping rule, the bilinear output-gate family is retired without gain,
+batch-size, learning-rate, or duration tuning; generation and native benchmark
+claims remain blocked.
 
 Evidence: [InfoNCE screen protocol](natural_memory_native_rwkv_query_state_infonce_screen_protocol_v1.json),
 [signed screen result](local_artifacts/natural_memory_native_rwkv_query_state_infonce_screen_v4/result.json),
 [causal mechanics protocol](natural_memory_native_rwkv_query_state_infonce_causal_preflight_protocol_v1.json),
-and [signed mechanics result](local_artifacts/natural_memory_native_rwkv_query_state_infonce_causal_preflight_v2/result.json).
+[signed mechanics result](local_artifacts/natural_memory_native_rwkv_query_state_infonce_causal_preflight_v2/result.json),
+[strict cross-fit protocol](natural_memory_native_rwkv_query_state_bilinear_crossfit_protocol_v1.json),
+[strict cross-fit runner](run_natural_memory_native_rwkv_query_state_bilinear_crossfit.py),
+and [signed strict cross-fit result](local_artifacts/natural_memory_native_rwkv_query_state_bilinear_crossfit_v1/result.json).
+
+Evidence: [output-gate mechanics protocol](natural_memory_native_rwkv_output_identity_gate_mechanics_protocol_v1.json),
+[signed mechanics result](local_artifacts/natural_memory_native_rwkv_output_identity_gate_mechanics_v2/result.json),
+[output-gate causal protocol](natural_memory_native_rwkv_output_identity_gate_causal_train_protocol_v1.json),
+[output-gate causal runner](run_natural_memory_native_rwkv_output_identity_gate_causal_train.py),
+and [signed output-gate causal failure](local_artifacts/natural_memory_native_rwkv_output_identity_gate_causal_train_v1/result.json).
+
+The review of arXiv `2608.08888`, *Full Bandwidth Transformer*, supplies two
+useful principles: make the carried state the mandatory full-vector value path
+and reinject it early enough to receive renewed computation depth. Its
+single-adjacent-state experiments report no matched-donor, wrong-state,
+zero-state, or layer-permutation controls, so they do not establish our
+identity claim. A plain state-times-query CrossGLU repeats the separable family
+already tested by DeepEmbed and is retired.
+
+The later identity routes are now closed by signed gates. Bilinear output
+gating failed its causal donor endpoint (`-0.000080` donor CE margin;
+`0.386364` donor-positive rows). Dense rotary binding failed RWKV
+channelwise-update commutation. Full-key diagonal-sign binding passed
+cancellation and all finite/zero/carrier controls, but changed only
+`0.750`--`0.769` donor decoded rows against the required `0.95`; no causal run
+was authorized. The next active route is therefore a bias-free **joint
+pair-gated** deep-to-shallow CrossGLU with explicit query/state swap and fixed
+gate/value controls. See the [full paper-to-RWKV review](FULL_BANDWIDTH_RWKV_REVIEW.md)
+for equations, reported results, caveats, factorial controls, and stopping
+gates.
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
@@ -405,6 +474,11 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [query-state identity protocol](natural_memory_native_rwkv_query_state_identity_causal_train_protocol_v1.json),
 [query-state identity runner](run_natural_memory_native_rwkv_query_state_identity_causal_train.py),
 and [signed query-state identity failure](local_artifacts/natural_memory_native_rwkv_query_state_identity_causal_train_v3/result.json).
+
+Full-key diagonal-sign mechanics evidence:
+[protocol](natural_memory_native_rwkv_diagonal_sign_binding_fullkey_mechanics_protocol_v1.json),
+[runner](run_natural_memory_native_rwkv_diagonal_sign_binding_mechanics.py),
+and [signed donor-specificity failure](local_artifacts/natural_memory_native_rwkv_diagonal_sign_binding_fullkey_mechanics_v2/result.json).
 
 The state-scalar screen is documented by
 [its protocol](natural_memory_native_rwkv_aligned_vector_gate_state_scalar_screen_protocol_v1.json),
