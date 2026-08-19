@@ -1,0 +1,54 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_query_state_infonce_screen_protocol.v1",
+  "created_at": "2026-08-19T10:42:00+08:00",
+  "objective": "Cheap geometry-only screen of a zero-noop learned low-rank projected-value to RWKV-read compatibility map using four-rank in-batch InfoNCE.",
+  "authorization_basis": {
+    "prior_failures": ["learned_write_causal_train_v3", "query_state_identity_causal_train_v3", "projected_value_identity_causal_train_v3", "state_scalar_probe_v1"],
+    "method_change": "Learn a bounded residual compatibility map and contrast each state against three in-batch donor states; do not interpret this as causal teacher-forced preference."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "dataset": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "dataset_root": "local_artifacts/natural_memory_native_development_v1",
+    "seed": 112,
+    "hf_endpoint": "https://hf-mirror.com"
+  },
+  "architecture": {
+    "projector": "per-layer rank-4 residual x + 0.25 Up(tanh(Down(x)))",
+    "input": "detached projected slot value in RWKV state-read space",
+    "state": "detached addressed recurrent read",
+    "initialization": "Down normal(0,1/sqrt(32)); Up zero; exact forward no-op",
+    "parameters": {"layers": 42, "tensors": 84, "fp32_elements": 10752},
+    "output_changed": false
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "global_rows": 4,
+    "rows": "first four source rows from inherited already-open fit schedule step 1",
+    "steps": 32,
+    "optimizer": "fused AdamW lr=0.05",
+    "temperature": 0.07,
+    "negative_set": "three other ranks per anchor",
+    "native_write_and_model": "frozen",
+    "adapter_saved": false
+  },
+  "gates": {
+    "initial_exact_noop": true,
+    "all_42_up_tensors_finite_nonzero_on_first_step": true,
+    "all_42_down_tensors_zero_on_first_step_due_to_zero_up_cold_start": true,
+    "mean_final_loss_less_than_initial": true,
+    "mean_final_correct_minus_hardest_donor_margin_positive": true
+  },
+  "stopping_rule": {
+    "pass": "May justify implementation of a separately preregistered causal one-update preflight; does not authorize it automatically.",
+    "fail": "Block causal preflight and generation.",
+    "always": "Do not open publisher validation/test, Hard32, strength holdout, or run generation."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "d7e2205ab3a03918cb8c3deeeefd3c438ec9cfcfeb616602a0de3e5f3e386a71"
+  }
+}

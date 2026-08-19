@@ -357,6 +357,36 @@ contrastive supervision, with a causal donor-separation gate before any native
 generation. The projected carrier and exact control checks remain fixed, and
 the HF endpoint remains `https://hf-mirror.com`.
 
+The rank-4 learned projected-value-to-RWKV-read InfoNCE compatibility screen
+then passed its four-A100 geometry check on four already-open fit rows: its
+mean loss fell from `1.831140` to `0.522844`, and correct-minus-hardest-donor
+margin moved from `-0.920785` to `+1.471007`. All 42 zero-initialized `Up`
+matrices had finite nonzero first-step gradients; `Down` matrices correctly
+had zero cold-start gradients. This is only an internal representation fit,
+not a causal result.
+
+The separately preregistered one-update fixed-carrier mechanics preflight also
+completed on four A100s. It preserved the target projected carrier for zero,
+donor, and layer-permuted recurrent interventions; all control logits and the
+compatibility gradients were finite. But the compatibility head is output-
+inactive, so its update cannot affect the frozen answer CE controls. Those
+mechanics-only CE margins were negative for matched donor (`-0.003903`) and
+layer permutation (`-0.000127`), and the pre-update InfoNCE donor margin was
+`-0.846677`. It does **not** test or establish causal preference, and neither
+eight-update causal training nor generation is authorized.
+
+The next bounded experiment is a source-and-donor-disjoint cross-fit screen,
+not an output-coupled training run. It replaces the one-sided projector with
+separate rank-4 residual maps for the projected query and recurrent state, and
+requires at least `0.95` held-out donor pairwise separation plus a `0.05` mean
+score gap. Only that result may authorize wiring a compatibility gate into the
+recurrent correction.
+
+Evidence: [InfoNCE screen protocol](natural_memory_native_rwkv_query_state_infonce_screen_protocol_v1.json),
+[signed screen result](local_artifacts/natural_memory_native_rwkv_query_state_infonce_screen_v4/result.json),
+[causal mechanics protocol](natural_memory_native_rwkv_query_state_infonce_causal_preflight_protocol_v1.json),
+and [signed mechanics result](local_artifacts/natural_memory_native_rwkv_query_state_infonce_causal_preflight_v2/result.json).
+
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
 [BF16 protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v2.json),
