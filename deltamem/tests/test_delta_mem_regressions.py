@@ -713,6 +713,12 @@ def make_delta_module(
     rwkv_ms_chunk_size: int = 2,
     rwkv_ms_output_init_scale: float = 0.02,
     rwkv_ms_semantics_version: int = 2,
+    rwkv_ms_anchor_interval: int = 0,
+    rwkv_ms_anchor_capacity: int = 0,
+    rwkv_ms_anchor_route_dim: int = 64,
+    rwkv_ms_anchor_top_k: int = 0,
+    rwkv_ms_anchor_residual_scale: float = 1.0,
+    rwkv_ms_anchor_null_bias_init: float = 2.0,
     rankwise_gates: bool = True,
     slot_read_top_k: int = 0,
     memory_readout_mode: str = "delta",
@@ -734,6 +740,12 @@ def make_delta_module(
             rwkv_ms_chunk_size=rwkv_ms_chunk_size,
             rwkv_ms_output_init_scale=rwkv_ms_output_init_scale,
             rwkv_ms_semantics_version=rwkv_ms_semantics_version,
+            rwkv_ms_anchor_interval=rwkv_ms_anchor_interval,
+            rwkv_ms_anchor_capacity=rwkv_ms_anchor_capacity,
+            rwkv_ms_anchor_route_dim=rwkv_ms_anchor_route_dim,
+            rwkv_ms_anchor_top_k=rwkv_ms_anchor_top_k,
+            rwkv_ms_anchor_residual_scale=rwkv_ms_anchor_residual_scale,
+            rwkv_ms_anchor_null_bias_init=rwkv_ms_anchor_null_bias_init,
             output_init=output_init,
             rankwise_gates=rankwise_gates,
             slot_read_top_k=slot_read_top_k,
@@ -3710,8 +3722,183 @@ def test_rwkv_ms_online_state_round_trips_streaming_predecessor() -> None:
     assert not torch.equal(lossy_reads, source_reads)
 
 
+def test_rwkv_ms_historical_anchors_are_causal_and_capacity_bounded() -> None:
+    module = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=2,
+        rwkv_ms_chunk_size=1,
+        rwkv_ms_anchor_interval=2,
+        rwkv_ms_anchor_capacity=2,
+        rwkv_ms_anchor_route_dim=4,
+    )
+    x = torch.randn(1, 7, 8)
+    position_embeddings = make_position_embeddings(
+        batch_size=1,
+        seq_len=x.size(1),
+        head_dim=module.base.head_dim,
+        device=x.device,
+        dtype=x.dtype,
+    )
+
+    _ = module(x, position_embeddings, None)
+
+    assert module.rwkv_ms_anchor_states is not None
+    assert module.rwkv_ms_anchor_keys is not None
+    assert module.rwkv_ms_anchor_mask is not None
+    assert module.rwkv_ms_anchor_states.shape[:2] == (1, 2)
+    assert module.rwkv_ms_anchor_keys.shape == (1, 2, 4)
+    assert module.rwkv_ms_anchor_mask.tolist() == [[True, True]]
+    assert module.last_anchor_routes is not None
+    assert module.last_anchor_routes.shape == (1, 7, 3)
+    torch.testing.assert_close(
+        module.last_anchor_routes.sum(dim=-1),
+        torch.ones(1, 7),
+    )
+    assert module.last_anchor_routes[0, 0, -1].item() == pytest.approx(1.0)
+    assert module.last_anchor_routes[0, 1, -1].item() == pytest.approx(1.0)
+    assert module.last_anchor_routes[0, 2, 0].item() > 0.0
+
+
+def test_rwkv_ms_historical_anchors_match_chunked_streaming() -> None:
+    full_sequence = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=3,
+        rwkv_ms_chunk_size=2,
+        rwkv_ms_anchor_interval=2,
+        rwkv_ms_anchor_capacity=3,
+        rwkv_ms_anchor_route_dim=4,
+        rwkv_ms_anchor_top_k=2,
+    )
+    chunked = copy.deepcopy(full_sequence)
+    x = torch.randn(2, 7, 8)
+    full_position_embeddings = make_position_embeddings(
+        batch_size=x.size(0),
+        seq_len=x.size(1),
+        head_dim=full_sequence.base.head_dim,
+        device=x.device,
+        dtype=x.dtype,
+    )
+    _ = full_sequence(x, full_position_embeddings, None)
+
+    for start, end in ((0, 3), (3, 4), (4, 7)):
+        chunk = x[:, start:end]
+        chunk_position_embeddings = make_position_embeddings(
+            batch_size=chunk.size(0),
+            seq_len=chunk.size(1),
+            head_dim=chunked.base.head_dim,
+            device=chunk.device,
+            dtype=chunk.dtype,
+        )
+        _ = chunked(chunk, chunk_position_embeddings, None)
+
+    torch.testing.assert_close(chunked.delta_state, full_sequence.delta_state)
+    assert torch.equal(chunked.rwkv_ms_positions, full_sequence.rwkv_ms_positions)
+    torch.testing.assert_close(
+        chunked.rwkv_ms_previous_source,
+        full_sequence.rwkv_ms_previous_source,
+    )
+    torch.testing.assert_close(
+        chunked.rwkv_ms_anchor_states,
+        full_sequence.rwkv_ms_anchor_states,
+    )
+    torch.testing.assert_close(
+        chunked.rwkv_ms_anchor_keys,
+        full_sequence.rwkv_ms_anchor_keys,
+    )
+    assert torch.equal(chunked.rwkv_ms_anchor_mask, full_sequence.rwkv_ms_anchor_mask)
+
+
+def test_rwkv_ms_historical_anchor_online_state_round_trip() -> None:
+    source = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=2,
+        rwkv_ms_anchor_interval=2,
+        rwkv_ms_anchor_capacity=3,
+        rwkv_ms_anchor_route_dim=4,
+    )
+    source_model = torch.nn.Module()
+    source_model.add_module("attn", source)
+    x = torch.randn(1, 5, 8)
+    position_embeddings = make_position_embeddings(
+        batch_size=1,
+        seq_len=x.size(1),
+        head_dim=source.base.head_dim,
+        device=x.device,
+        dtype=x.dtype,
+    )
+    _ = source(x, position_embeddings, None)
+    snapshot = get_delta_mem_online_state(source_model)
+
+    target = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=2,
+        rwkv_ms_anchor_interval=2,
+        rwkv_ms_anchor_capacity=3,
+        rwkv_ms_anchor_route_dim=4,
+    )
+    target.load_state_dict(source.state_dict(), strict=True)
+    target_model = torch.nn.Module()
+    target_model.add_module("attn", target)
+    load_delta_mem_online_state(target_model, snapshot)
+
+    assert {
+        "attn.__rwkv_ms_anchor_states",
+        "attn.__rwkv_ms_anchor_keys",
+        "attn.__rwkv_ms_anchor_mask",
+    }.issubset(snapshot)
+    torch.testing.assert_close(target.rwkv_ms_anchor_states, source.rwkv_ms_anchor_states)
+    torch.testing.assert_close(target.rwkv_ms_anchor_keys, source.rwkv_ms_anchor_keys)
+    assert torch.equal(target.rwkv_ms_anchor_mask, source.rwkv_ms_anchor_mask)
+    for tensor in snapshot.values():
+        assert not tensor.requires_grad
+        assert tensor.grad_fn is None
+
+
+def test_rwkv_ms_historical_anchor_router_receives_gradients() -> None:
+    module = make_delta_module(
+        output_init="random",
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=2,
+        rwkv_ms_anchor_interval=2,
+        rwkv_ms_anchor_capacity=3,
+        rwkv_ms_anchor_route_dim=4,
+        rwkv_ms_anchor_null_bias_init=0.0,
+    )
+    x = torch.randn(1, 6, 8)
+    position_embeddings = make_position_embeddings(
+        batch_size=1,
+        seq_len=x.size(1),
+        head_dim=module.base.head_dim,
+        device=x.device,
+        dtype=x.dtype,
+    )
+
+    output, _ = module(x, position_embeddings, None)
+    output.square().mean().backward()
+
+    for parameter_name in (
+        "rwkv_ms_anchor_state_query",
+        "rwkv_ms_anchor_key_proj",
+        "rwkv_ms_anchor_query_proj",
+        "rwkv_ms_anchor_null_proj",
+        "rwkv_ms_anchor_null_bias",
+    ):
+        parameter = getattr(module, parameter_name)
+        assert parameter.grad is not None
+        assert torch.isfinite(parameter.grad).all()
+
+
 def test_rwkv_ms_trainer_capture_and_scatter_include_streaming_predecessor() -> None:
-    module = make_delta_module(memory_backend="rwkv_ms")
+    module = make_delta_module(
+        memory_backend="rwkv_ms",
+        rwkv_ms_anchor_interval=2,
+        rwkv_ms_anchor_capacity=2,
+        rwkv_ms_anchor_route_dim=4,
+    )
     model = torch.nn.Module()
     model.add_module("attn", module)
     x = torch.randn(2, 3, 8)
@@ -3726,6 +3913,9 @@ def test_rwkv_ms_trainer_capture_and_scatter_include_streaming_predecessor() -> 
     active_state = module.delta_state.clone()
     active_positions = module.rwkv_ms_positions.clone()
     active_previous_source = module.rwkv_ms_previous_source.clone()
+    active_anchor_states = module.rwkv_ms_anchor_states.clone()
+    active_anchor_keys = module.rwkv_ms_anchor_keys.clone()
+    active_anchor_mask = module.rwkv_ms_anchor_mask.clone()
     trainer = object.__new__(experimental_train.DeltaMemTrainer)
 
     captured = trainer._capture_live_online_state(model)
@@ -3739,14 +3929,26 @@ def test_rwkv_ms_trainer_capture_and_scatter_include_streaming_predecessor() -> 
         "attn",
         "attn.__rwkv_ms_positions",
         "attn.__rwkv_ms_previous_source",
+        "attn.__rwkv_ms_anchor_states",
+        "attn.__rwkv_ms_anchor_keys",
+        "attn.__rwkv_ms_anchor_mask",
     }
     assert torch.equal(captured["attn.__rwkv_ms_previous_source"], active_previous_source)
+    assert torch.equal(captured["attn.__rwkv_ms_anchor_states"], active_anchor_states)
+    assert torch.equal(captured["attn.__rwkv_ms_anchor_keys"], active_anchor_keys)
+    assert torch.equal(captured["attn.__rwkv_ms_anchor_mask"], active_anchor_mask)
     assert torch.equal(module.delta_state[[0, 2]], active_state)
     assert torch.equal(module.rwkv_ms_positions[[0, 2]], active_positions)
     assert torch.equal(module.rwkv_ms_previous_source[[0, 2]], active_previous_source)
+    assert torch.equal(module.rwkv_ms_anchor_states[[0, 2]], active_anchor_states)
+    assert torch.equal(module.rwkv_ms_anchor_keys[[0, 2]], active_anchor_keys)
+    assert torch.equal(module.rwkv_ms_anchor_mask[[0, 2]], active_anchor_mask)
     assert torch.count_nonzero(module.delta_state[[1, 3]]) == 0
     assert torch.count_nonzero(module.rwkv_ms_positions[[1, 3]]) == 0
     assert torch.count_nonzero(module.rwkv_ms_previous_source[[1, 3]]) == 0
+    assert torch.count_nonzero(module.rwkv_ms_anchor_states[[1, 3]]) == 0
+    assert torch.count_nonzero(module.rwkv_ms_anchor_keys[[1, 3]]) == 0
+    assert torch.count_nonzero(module.rwkv_ms_anchor_mask[[1, 3]]) == 0
 
 
 def test_rwkv_ms_core_uses_physical_backbone_depth_for_initialization() -> None:
@@ -4361,6 +4563,18 @@ def test_rwkv_ms_output_init_scale_round_trips_and_is_exposed_by_cli(
             "base_slice_fixed",
             "--rwkv-ms-output-init-scale",
             "0.013",
+            "--rwkv-ms-anchor-interval",
+            "16",
+            "--rwkv-ms-anchor-capacity",
+            "8",
+            "--rwkv-ms-anchor-route-dim",
+            "32",
+            "--rwkv-ms-anchor-top-k",
+            "2",
+            "--rwkv-ms-anchor-residual-scale",
+            "0.5",
+            "--rwkv-ms-anchor-null-bias-init",
+            "1.5",
             "--memory-fusion-mode",
             "content_gated_add",
             "--memory-fusion-gate-init",
@@ -4372,6 +4586,12 @@ def test_rwkv_ms_output_init_scale_round_trips_and_is_exposed_by_cli(
 
     parsed = parse_args()
     assert parsed.rwkv_ms_output_init_scale == 0.013
+    assert parsed.rwkv_ms_anchor_interval == 16
+    assert parsed.rwkv_ms_anchor_capacity == 8
+    assert parsed.rwkv_ms_anchor_route_dim == 32
+    assert parsed.rwkv_ms_anchor_top_k == 2
+    assert parsed.rwkv_ms_anchor_residual_scale == 0.5
+    assert parsed.rwkv_ms_anchor_null_bias_init == 1.5
     assert parsed.memory_fusion_mode == "content_gated_add"
     assert parsed.memory_fusion_gate_init == 0.25
     assert parsed.memory_fusion_placement == "post_attention_norm"

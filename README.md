@@ -1400,6 +1400,20 @@ Result summary (5 seeds; full tables in `experiments/hola_hippocampus/REPORT.md`
 
 Run: `.venv/bin/python experiments/hola_hippocampus/hola_rwkv_ms.py`
 
+## MARCH-Inspired Historical State Anchors
+
+The RWKV-MS runtime now includes an optional, default-off historical-anchor
+residual inspired by MARCH (arXiv:2608.12435). Existing RWKV-MS keeps a fixed
+bank of current-time slots; the extension periodically snapshots the full slot
+bank, assigns it a compact learned key, and retrieves earlier snapshots through
+a token-conditioned router with a learned null route. This composes temporal
+state expansion with the repository's existing parallel-slot expansion.
+
+See [`docs/MARCH_RWKV_MS_COMPARISON.md`](docs/MARCH_RWKV_MS_COMPARISON.md) for
+the mathematical mapping, exact differences, configuration, evidence boundary,
+and proposed experiments. The feature remains disabled when
+`rwkv_ms_anchor_interval=0`.
+
 ## Delta-Mem RWKV-MS Online Memory
 
 The practical RWKV-MS online-memory integration is self-contained in this

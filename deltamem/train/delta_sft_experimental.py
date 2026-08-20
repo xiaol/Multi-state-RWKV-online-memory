@@ -245,6 +245,9 @@ def _preserve_delta_runtime(model):
         "projected_kv_surprise",
         "rwkv_ms_positions",
         "rwkv_ms_previous_source",
+        "rwkv_ms_anchor_states",
+        "rwkv_ms_anchor_keys",
+        "rwkv_ms_anchor_mask",
         "read_context_mask",
         "read_representation_capture_mask",
         "last_read_representation",
@@ -252,6 +255,7 @@ def _preserve_delta_runtime(model):
         "last_lambda_mean",
         "last_write_routes",
         "last_read_routes",
+        "last_anchor_routes",
         "last_read_route_logits",
         "last_base_o_norm",
         "last_delta_o_norm",
@@ -6748,6 +6752,33 @@ class DeltaMemTrainer(Trainer):
                     active_rows.to(device=active_slots.device)
                 ] = active_slots
                 setattr(module, attribute, full_slots)
+            if module.rwkv_ms_anchor_states is not None:
+                active_anchor_states = module.rwkv_ms_anchor_states
+                full_anchor_states = active_anchor_states.new_zeros(
+                    (batch_size, *active_anchor_states.shape[1:])
+                )
+                full_anchor_states[
+                    active_rows.to(device=active_anchor_states.device)
+                ] = active_anchor_states
+                module.rwkv_ms_anchor_states = full_anchor_states
+            if module.rwkv_ms_anchor_keys is not None:
+                active_anchor_keys = module.rwkv_ms_anchor_keys
+                full_anchor_keys = active_anchor_keys.new_zeros(
+                    (batch_size, *active_anchor_keys.shape[1:])
+                )
+                full_anchor_keys[
+                    active_rows.to(device=active_anchor_keys.device)
+                ] = active_anchor_keys
+                module.rwkv_ms_anchor_keys = full_anchor_keys
+            if module.rwkv_ms_anchor_mask is not None:
+                active_anchor_mask = module.rwkv_ms_anchor_mask
+                full_anchor_mask = active_anchor_mask.new_zeros(
+                    (batch_size, *active_anchor_mask.shape[1:])
+                )
+                full_anchor_mask[
+                    active_rows.to(device=active_anchor_mask.device)
+                ] = active_anchor_mask
+                module.rwkv_ms_anchor_mask = full_anchor_mask
 
     def _corrupt_online_state(
         self,
@@ -6756,7 +6787,50 @@ class DeltaMemTrainer(Trainer):
         corrupted: dict[str, torch.Tensor] = {}
         for name, tensor in online_state.items():
             corrupt = tensor.clone()
-            if name.endswith(".__projected_kv_keys"):
+            if name.endswith(".__rwkv_ms_anchor_keys"):
+                anchor_perm = torch.roll(
+                    torch.arange(corrupt.size(1), device=corrupt.device),
+                    shifts=1,
+                )
+                feature_perm = torch.arange(
+                    corrupt.size(-1) - 1,
+                    -1,
+                    -1,
+                    device=corrupt.device,
+                )
+                corrupt = corrupt.index_select(1, anchor_perm).index_select(-1, feature_perm)
+            elif name.endswith(".__rwkv_ms_anchor_mask"):
+                anchor_perm = torch.roll(
+                    torch.arange(corrupt.size(1), device=corrupt.device),
+                    shifts=1,
+                )
+                corrupt = corrupt.index_select(1, anchor_perm)
+            elif name.endswith(".__rwkv_ms_anchor_states"):
+                anchor_perm = torch.roll(
+                    torch.arange(corrupt.size(1), device=corrupt.device),
+                    shifts=1,
+                )
+                state_perm = torch.roll(
+                    torch.arange(corrupt.size(3), device=corrupt.device),
+                    shifts=1,
+                )
+                row_perm = torch.roll(
+                    torch.arange(corrupt.size(-1), device=corrupt.device),
+                    shifts=1,
+                )
+                col_perm = torch.arange(
+                    corrupt.size(-1) - 1,
+                    -1,
+                    -1,
+                    device=corrupt.device,
+                )
+                corrupt = (
+                    corrupt.index_select(1, anchor_perm)
+                    .index_select(3, state_perm)
+                    .index_select(-2, row_perm)
+                    .index_select(-1, col_perm)
+                )
+            elif name.endswith(".__projected_kv_keys"):
                 corrupt = torch.roll(corrupt, shifts=1, dims=-1)
             elif name.endswith(".__projected_kv_values"):
                 corrupt = torch.flip(corrupt, dims=(-1,))
@@ -7113,6 +7187,10 @@ class DeltaMemTrainer(Trainer):
                     state[f"{name}.__rwkv_ms_positions"] = module.rwkv_ms_positions
                 if module.memory_backend == "rwkv_ms" and module.rwkv_ms_previous_source is not None:
                     state[f"{name}.__rwkv_ms_previous_source"] = module.rwkv_ms_previous_source
+            if module.memory_backend == "rwkv_ms" and module.rwkv_ms_anchor_states is not None:
+                state[f"{name}.__rwkv_ms_anchor_states"] = module.rwkv_ms_anchor_states
+                state[f"{name}.__rwkv_ms_anchor_keys"] = module.rwkv_ms_anchor_keys
+                state[f"{name}.__rwkv_ms_anchor_mask"] = module.rwkv_ms_anchor_mask
             if module.direct_last_hidden is not None:
                 state[f"{name}.__direct_last_hidden"] = module.direct_last_hidden
             if module.projected_last_hidden is not None:
@@ -21174,6 +21252,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rwkv-ms-read-top-k", type=int, default=0)
     parser.add_argument("--rwkv-ms-output-init-scale", type=float, default=0.02)
     parser.add_argument("--rwkv-ms-semantics-version", type=int, choices=[1, 2], default=2)
+    parser.add_argument("--rwkv-ms-anchor-interval", type=int, default=0)
+    parser.add_argument("--rwkv-ms-anchor-capacity", type=int, default=0)
+    parser.add_argument("--rwkv-ms-anchor-route-dim", type=int, default=64)
+    parser.add_argument("--rwkv-ms-anchor-top-k", type=int, default=0)
+    parser.add_argument("--rwkv-ms-anchor-residual-scale", type=float, default=1.0)
+    parser.add_argument("--rwkv-ms-anchor-null-bias-init", type=float, default=2.0)
     parser.add_argument(
         "--rwkv-ms-hybrid-mode",
         choices=["residual", "vector_gate", "scalar_gate"],
@@ -21891,6 +21975,16 @@ def parse_args() -> argparse.Namespace:
         )
     if args.rwkv_ms_output_init_scale < 0.0:
         raise ValueError("rwkv-ms-output-init-scale must be non-negative")
+    if args.rwkv_ms_anchor_interval < 0:
+        raise ValueError("rwkv-ms-anchor-interval must be non-negative")
+    if args.rwkv_ms_anchor_capacity < 0:
+        raise ValueError("rwkv-ms-anchor-capacity must be non-negative")
+    if args.rwkv_ms_anchor_route_dim < 1:
+        raise ValueError("rwkv-ms-anchor-route-dim must be positive")
+    if args.rwkv_ms_anchor_top_k < 0:
+        raise ValueError("rwkv-ms-anchor-top-k must be non-negative")
+    if args.rwkv_ms_anchor_residual_scale < 0.0:
+        raise ValueError("rwkv-ms-anchor-residual-scale must be non-negative")
     if not 0.0 <= args.rwkv_ms_hybrid_gain <= 1.0:
         raise ValueError("rwkv-ms-hybrid-gain must satisfy 0 <= gain <= 1")
     if args.memory_base_kl_weight > 0.0 and args.memory_loss_mode != "context_dropout_ce":
@@ -26046,6 +26140,20 @@ def build_training_protocol(
         "rwkv_ms_output_init_scale": getattr(args, "rwkv_ms_output_init_scale", 0.02),
         "rwkv_ms_write_mode": getattr(args, "rwkv_ms_write_mode", "recurrent"),
         "rwkv_ms_semantics_version": getattr(args, "rwkv_ms_semantics_version", 2),
+        "rwkv_ms_anchor_interval": getattr(args, "rwkv_ms_anchor_interval", 0),
+        "rwkv_ms_anchor_capacity": getattr(args, "rwkv_ms_anchor_capacity", 0),
+        "rwkv_ms_anchor_route_dim": getattr(args, "rwkv_ms_anchor_route_dim", 64),
+        "rwkv_ms_anchor_top_k": getattr(args, "rwkv_ms_anchor_top_k", 0),
+        "rwkv_ms_anchor_residual_scale": getattr(
+            args,
+            "rwkv_ms_anchor_residual_scale",
+            1.0,
+        ),
+        "rwkv_ms_anchor_null_bias_init": getattr(
+            args,
+            "rwkv_ms_anchor_null_bias_init",
+            2.0,
+        ),
         "rwkv_ms_hybrid_mode": getattr(args, "rwkv_ms_hybrid_mode", "residual"),
         "rwkv_ms_hybrid_gain": getattr(args, "rwkv_ms_hybrid_gain", 0.125),
         "memory_loss_mode": args.memory_loss_mode,
@@ -28287,6 +28395,12 @@ def main() -> None:
         rwkv_ms_read_top_k=args.rwkv_ms_read_top_k,
         rwkv_ms_output_init_scale=args.rwkv_ms_output_init_scale,
         rwkv_ms_semantics_version=args.rwkv_ms_semantics_version,
+        rwkv_ms_anchor_interval=args.rwkv_ms_anchor_interval,
+        rwkv_ms_anchor_capacity=args.rwkv_ms_anchor_capacity,
+        rwkv_ms_anchor_route_dim=args.rwkv_ms_anchor_route_dim,
+        rwkv_ms_anchor_top_k=args.rwkv_ms_anchor_top_k,
+        rwkv_ms_anchor_residual_scale=args.rwkv_ms_anchor_residual_scale,
+        rwkv_ms_anchor_null_bias_init=args.rwkv_ms_anchor_null_bias_init,
         rwkv_ms_hybrid_mode=normalize_rwkv_ms_hybrid_mode(
             args.rwkv_ms_hybrid_mode
         ),

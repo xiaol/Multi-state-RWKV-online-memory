@@ -436,6 +436,12 @@ class HFDeltaMemConfig:
     rwkv_ms_mask_empty_slots: bool = False
     rwkv_ms_output_init_scale: float = 0.02
     rwkv_ms_semantics_version: int = 2
+    rwkv_ms_anchor_interval: int = 0
+    rwkv_ms_anchor_capacity: int = 0
+    rwkv_ms_anchor_route_dim: int = 64
+    rwkv_ms_anchor_top_k: int = 0
+    rwkv_ms_anchor_residual_scale: float = 1.0
+    rwkv_ms_anchor_null_bias_init: float = 2.0
     rwkv_ms_hybrid_mode: str = "residual"
     rwkv_ms_hybrid_gain: float = 0.125
     rwkv_ms_write_address_gain: float = 0.0
@@ -465,6 +471,22 @@ class HFDeltaMemConfig:
             raise ValueError("rwkv_ms_output_init_scale must be >= 0")
         if int(self.rwkv_ms_semantics_version) not in {1, 2}:
             raise ValueError("rwkv_ms_semantics_version must be 1 or 2")
+        if int(self.rwkv_ms_anchor_interval) < 0:
+            raise ValueError("rwkv_ms_anchor_interval must be >= 0")
+        if int(self.rwkv_ms_anchor_capacity) < 0:
+            raise ValueError("rwkv_ms_anchor_capacity must be >= 0")
+        if int(self.rwkv_ms_anchor_route_dim) < 1:
+            raise ValueError("rwkv_ms_anchor_route_dim must be >= 1")
+        if int(self.rwkv_ms_anchor_top_k) < 0:
+            raise ValueError("rwkv_ms_anchor_top_k must be >= 0")
+        if not math.isfinite(float(self.rwkv_ms_anchor_residual_scale)) or float(
+            self.rwkv_ms_anchor_residual_scale
+        ) < 0.0:
+            raise ValueError("rwkv_ms_anchor_residual_scale must be finite and >= 0")
+        if not math.isfinite(float(self.rwkv_ms_anchor_null_bias_init)):
+            raise ValueError("rwkv_ms_anchor_null_bias_init must be finite")
+        if int(self.rwkv_ms_anchor_interval) > 0 and self.memory_backend != "rwkv_ms":
+            raise ValueError("RWKV-MS state anchors require memory_backend='rwkv_ms'")
         hybrid_gain = float(self.rwkv_ms_hybrid_gain)
         if not math.isfinite(hybrid_gain) or not (0.0 <= hybrid_gain <= 1.0):
             raise ValueError("rwkv_ms_hybrid_gain must be finite and satisfy 0 <= gain <= 1")
@@ -538,6 +560,20 @@ class HFDeltaMemConfig:
             self,
             "rwkv_ms_semantics_version",
             int(self.rwkv_ms_semantics_version),
+        )
+        object.__setattr__(self, "rwkv_ms_anchor_interval", int(self.rwkv_ms_anchor_interval))
+        object.__setattr__(self, "rwkv_ms_anchor_capacity", int(self.rwkv_ms_anchor_capacity))
+        object.__setattr__(self, "rwkv_ms_anchor_route_dim", int(self.rwkv_ms_anchor_route_dim))
+        object.__setattr__(self, "rwkv_ms_anchor_top_k", int(self.rwkv_ms_anchor_top_k))
+        object.__setattr__(
+            self,
+            "rwkv_ms_anchor_residual_scale",
+            float(self.rwkv_ms_anchor_residual_scale),
+        )
+        object.__setattr__(
+            self,
+            "rwkv_ms_anchor_null_bias_init",
+            float(self.rwkv_ms_anchor_null_bias_init),
         )
         if int(self.num_state_heads) < 1:
             raise ValueError("num_state_heads must be >= 1")
@@ -978,6 +1014,12 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_mask_empty_slots = config.rwkv_ms_mask_empty_slots
         self.rwkv_ms_output_init_scale = config.rwkv_ms_output_init_scale
         self.rwkv_ms_semantics_version = config.rwkv_ms_semantics_version
+        self.rwkv_ms_anchor_interval = config.rwkv_ms_anchor_interval
+        self.rwkv_ms_anchor_capacity = config.rwkv_ms_anchor_capacity
+        self.rwkv_ms_anchor_route_dim = config.rwkv_ms_anchor_route_dim
+        self.rwkv_ms_anchor_top_k = config.rwkv_ms_anchor_top_k
+        self.rwkv_ms_anchor_residual_scale = config.rwkv_ms_anchor_residual_scale
+        self.rwkv_ms_anchor_null_bias_init = config.rwkv_ms_anchor_null_bias_init
         self.rwkv_ms_hybrid_mode = config.rwkv_ms_hybrid_mode
         self.rwkv_ms_hybrid_gain = config.rwkv_ms_hybrid_gain
         self.rwkv_ms_write_address_gain = config.rwkv_ms_write_address_gain
@@ -1132,6 +1174,20 @@ class DeltaMemAttention(nn.Module):
             self.lambda_bias = nn.Parameter(
                 torch.full((self.gate_dim,), -config.beta_bias_init)
             )
+        if self.rwkv_ms_anchor_interval > 0:
+            self.rwkv_ms_anchor_state_query = nn.Parameter(
+                torch.empty(self.num_state_heads, self.rank)
+            )
+            self.rwkv_ms_anchor_key_proj = nn.Parameter(
+                torch.empty(self.rwkv_ms_anchor_route_dim, self.state_read_dim)
+            )
+            self.rwkv_ms_anchor_query_proj = nn.Parameter(
+                torch.empty(self.rwkv_ms_anchor_route_dim, self.state_read_dim)
+            )
+            self.rwkv_ms_anchor_null_proj = nn.Parameter(
+                torch.empty(1, self.state_read_dim)
+            )
+            self.rwkv_ms_anchor_null_bias = nn.Parameter(torch.empty(1))
 
         self.reset_parameters()
         self.delta_state: torch.Tensor | None = None
@@ -1143,6 +1199,9 @@ class DeltaMemAttention(nn.Module):
         self.projected_kv_surprise: torch.Tensor | None = None
         self.rwkv_ms_positions: torch.Tensor | None = None
         self.rwkv_ms_previous_source: torch.Tensor | None = None
+        self.rwkv_ms_anchor_states: torch.Tensor | None = None
+        self.rwkv_ms_anchor_keys: torch.Tensor | None = None
+        self.rwkv_ms_anchor_mask: torch.Tensor | None = None
         self.read_context_mask: torch.Tensor | None = None
         self.read_representation_capture_mask: torch.Tensor | None = None
         self.last_read_representation: torch.Tensor | None = None
@@ -1151,6 +1210,7 @@ class DeltaMemAttention(nn.Module):
         self.write_enabled = True
         self.last_write_routes: torch.Tensor | None = None
         self.last_read_routes: torch.Tensor | None = None
+        self.last_anchor_routes: torch.Tensor | None = None
         self.last_read_route_logits: torch.Tensor | None = None
         self.last_base_o_norm: torch.Tensor | None = None
         self.last_delta_o_norm: torch.Tensor | None = None
@@ -1324,6 +1384,15 @@ class DeltaMemAttention(nn.Module):
         nn.init.zeros_(self.beta_proj)
         if not self.couple_lambda:
             nn.init.zeros_(self.lambda_proj)
+        if self.rwkv_ms_anchor_interval > 0:
+            nn.init.normal_(self.rwkv_ms_anchor_state_query, mean=0.0, std=self.rank**-0.5)
+            nn.init.xavier_uniform_(self.rwkv_ms_anchor_key_proj)
+            nn.init.xavier_uniform_(self.rwkv_ms_anchor_query_proj)
+            nn.init.zeros_(self.rwkv_ms_anchor_null_proj)
+            nn.init.constant_(
+                self.rwkv_ms_anchor_null_bias,
+                self.rwkv_ms_anchor_null_bias_init,
+            )
 
     def reset_state(self) -> None:
         self.delta_state = None
@@ -1335,6 +1404,9 @@ class DeltaMemAttention(nn.Module):
         self.projected_kv_surprise = None
         self.rwkv_ms_positions = None
         self.rwkv_ms_previous_source = None
+        self.rwkv_ms_anchor_states = None
+        self.rwkv_ms_anchor_keys = None
+        self.rwkv_ms_anchor_mask = None
         self.read_context_mask = None
         self.read_representation_capture_mask = None
         self.last_read_representation = None
@@ -1342,6 +1414,7 @@ class DeltaMemAttention(nn.Module):
         self.last_lambda_mean = None
         self.last_write_routes = None
         self.last_read_routes = None
+        self.last_anchor_routes = None
         self.last_read_route_logits = None
         self.last_base_o_norm = None
         self.last_delta_o_norm = None
@@ -1489,6 +1562,9 @@ class DeltaMemAttention(nn.Module):
                     device=device,
                     dtype=dtype,
                 )
+                self.rwkv_ms_anchor_states = None
+                self.rwkv_ms_anchor_keys = None
+                self.rwkv_ms_anchor_mask = None
             elif self.multi_head_state:
                 self.delta_state = torch.zeros(
                     batch_size,
@@ -2985,6 +3061,184 @@ class DeltaMemAttention(nn.Module):
             routes = routes * valid_t.view(valid_t.size(0), 1, 1).to(dtype=routes.dtype)
         return routes
 
+    def _rwkv_ms_anchor_key(self, state: torch.Tensor) -> torch.Tensor:
+        if self.rwkv_ms_anchor_interval <= 0:
+            raise RuntimeError("RWKV-MS state anchors are disabled")
+        probe = F.normalize(self.rwkv_ms_anchor_state_query.float(), dim=-1, eps=1e-6)
+        slot_summaries = torch.einsum("bhsij,hj->bhsi", state.float(), probe)
+        state_summary = slot_summaries.mean(dim=2).reshape(state.size(0), self.state_read_dim)
+        key = F.linear(state_summary, self.rwkv_ms_anchor_key_proj.float())
+        return F.normalize(key, dim=-1, eps=1e-6)
+
+    def _rwkv_ms_append_anchors(
+        self,
+        state: torch.Tensor,
+        boundary_mask: torch.Tensor,
+    ) -> None:
+        if self.rwkv_ms_anchor_interval <= 0 or not bool(boundary_mask.any()):
+            return
+        batch_size = state.size(0)
+        new_keys = self._rwkv_ms_anchor_key(state)
+        if self.rwkv_ms_anchor_states is None:
+            old_states = state.new_empty(
+                batch_size,
+                0,
+                self.num_state_heads,
+                self.rwkv_ms_num_states,
+                self.rank,
+                self.rank,
+            )
+            old_keys = new_keys.new_empty(batch_size, 0, self.rwkv_ms_anchor_route_dim)
+            old_mask = torch.zeros(batch_size, 0, dtype=torch.bool, device=state.device)
+        else:
+            old_states = self.rwkv_ms_anchor_states.to(device=state.device, dtype=torch.float32)
+            old_keys = self.rwkv_ms_anchor_keys.to(device=state.device, dtype=torch.float32)
+            old_mask = self.rwkv_ms_anchor_mask.to(device=state.device, dtype=torch.bool)
+
+        row_states: list[torch.Tensor] = []
+        row_keys: list[torch.Tensor] = []
+        row_lengths: list[int] = []
+        for batch_idx in range(batch_size):
+            valid_indices = old_mask[batch_idx].nonzero(as_tuple=False).flatten()
+            states = old_states[batch_idx].index_select(0, valid_indices)
+            keys = old_keys[batch_idx].index_select(0, valid_indices)
+            if bool(boundary_mask[batch_idx]):
+                states = torch.cat([states, state[batch_idx].float().unsqueeze(0)], dim=0)
+                keys = torch.cat([keys, new_keys[batch_idx].float().unsqueeze(0)], dim=0)
+            if self.rwkv_ms_anchor_capacity > 0 and states.size(0) > self.rwkv_ms_anchor_capacity:
+                states = states[-self.rwkv_ms_anchor_capacity :]
+                keys = keys[-self.rwkv_ms_anchor_capacity :]
+            row_states.append(states)
+            row_keys.append(keys)
+            row_lengths.append(states.size(0))
+
+        target_length = max(row_lengths, default=0)
+        padded_states: list[torch.Tensor] = []
+        padded_keys: list[torch.Tensor] = []
+        padded_masks: list[torch.Tensor] = []
+        for states, keys, length in zip(row_states, row_keys, row_lengths):
+            pad_length = target_length - length
+            padded_states.append(
+                torch.cat(
+                    [
+                        states,
+                        states.new_zeros(
+                            pad_length,
+                            self.num_state_heads,
+                            self.rwkv_ms_num_states,
+                            self.rank,
+                            self.rank,
+                        ),
+                    ],
+                    dim=0,
+                )
+            )
+            padded_keys.append(
+                torch.cat(
+                    [keys, keys.new_zeros(pad_length, self.rwkv_ms_anchor_route_dim)],
+                    dim=0,
+                )
+            )
+            padded_masks.append(
+                torch.cat(
+                    [
+                        torch.ones(length, dtype=torch.bool, device=state.device),
+                        torch.zeros(pad_length, dtype=torch.bool, device=state.device),
+                    ],
+                    dim=0,
+                )
+            )
+        self.rwkv_ms_anchor_states = torch.stack(padded_states, dim=0)
+        self.rwkv_ms_anchor_keys = torch.stack(padded_keys, dim=0)
+        self.rwkv_ms_anchor_mask = torch.stack(padded_masks, dim=0)
+
+    def _rwkv_ms_historical_read(
+        self,
+        r_t: torch.Tensor,
+        source_t: torch.Tensor,
+        valid_t: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        batch_size = source_t.size(0)
+        if (
+            self.rwkv_ms_anchor_interval <= 0
+            or self.rwkv_ms_anchor_states is None
+            or self.rwkv_ms_anchor_states.size(1) == 0
+        ):
+            null_route = source_t.new_ones(batch_size, 1, dtype=torch.float32)
+            if valid_t is not None:
+                null_route = null_route * valid_t.unsqueeze(-1).to(dtype=null_route.dtype)
+            return r_t.new_zeros(batch_size, self.num_state_heads, self.rank), null_route
+
+        anchor_states = self.rwkv_ms_anchor_states.float()
+        anchor_keys = self.rwkv_ms_anchor_keys.float()
+        anchor_mask = self.rwkv_ms_anchor_mask
+        route_query = F.linear(source_t.float(), self.rwkv_ms_anchor_query_proj.float())
+        route_query = F.normalize(route_query, dim=-1, eps=1e-6)
+        anchor_scores = torch.einsum("bd,bad->ba", route_query, anchor_keys)
+        anchor_scores = anchor_scores.masked_fill(
+            ~anchor_mask,
+            torch.finfo(anchor_scores.dtype).min,
+        )
+        if 0 < self.rwkv_ms_anchor_top_k < anchor_scores.size(-1):
+            top_scores, top_indices = torch.topk(
+                anchor_scores,
+                k=self.rwkv_ms_anchor_top_k,
+                dim=-1,
+            )
+            sparse_scores = torch.full_like(anchor_scores, torch.finfo(anchor_scores.dtype).min)
+            anchor_scores = sparse_scores.scatter(-1, top_indices, top_scores)
+        null_score = F.linear(
+            source_t.float(),
+            self.rwkv_ms_anchor_null_proj.float(),
+            self.rwkv_ms_anchor_null_bias.float(),
+        )
+        route_logits = torch.cat([anchor_scores, null_score], dim=-1)
+        routes = F.softmax(route_logits, dim=-1)
+        if valid_t is not None:
+            routes = routes * valid_t.unsqueeze(-1).to(dtype=routes.dtype)
+
+        slot_reads = torch.einsum("bahsij,bhj->bahsi", anchor_states, r_t.float())
+        slot_scores = F.cosine_similarity(
+            slot_reads,
+            r_t.float().unsqueeze(1).unsqueeze(3),
+            dim=-1,
+            eps=1e-6,
+        )
+        if 0 < self.rwkv_ms_read_top_k < slot_scores.size(-1):
+            top_scores, top_indices = torch.topk(
+                slot_scores,
+                k=self.rwkv_ms_read_top_k,
+                dim=-1,
+            )
+            sparse_scores = torch.full_like(slot_scores, torch.finfo(slot_scores.dtype).min)
+            slot_scores = sparse_scores.scatter(-1, top_indices, top_scores)
+        slot_routes = F.softmax(slot_scores, dim=-1)
+        anchor_reads = torch.einsum("bahs,bahsi->bahi", slot_routes, slot_reads)
+        historical_read = torch.einsum("ba,bahi->bhi", routes[:, :-1], anchor_reads)
+        return historical_read, routes
+
+    @staticmethod
+    def _pad_rwkv_ms_anchor_routes(
+        route_steps: list[torch.Tensor],
+    ) -> torch.Tensor | None:
+        if not route_steps:
+            return None
+        target_anchors = max(route.size(-1) - 1 for route in route_steps)
+        padded_steps = []
+        for route in route_steps:
+            anchor_count = route.size(-1) - 1
+            padded_steps.append(
+                torch.cat(
+                    [
+                        route[:, :anchor_count],
+                        route.new_zeros(route.size(0), target_anchors - anchor_count),
+                        route[:, -1:],
+                    ],
+                    dim=-1,
+                )
+            )
+        return torch.stack(padded_steps, dim=1)
+
     def _rwkv_ms_last_token_overwrite(
         self,
         state: torch.Tensor,
@@ -3151,6 +3405,7 @@ class DeltaMemAttention(nn.Module):
                 0,
                 self.rwkv_ms_num_states,
             )
+            self.last_anchor_routes = memory_source_seq.new_zeros(batch_size, 0, 1)
             return state.float(), memory_source_seq.new_zeros(batch_size, 0, self.state_read_dim)
         if self.hrm_rwkv7_core is None:  # pragma: no cover
             raise RuntimeError("RWKV-MS backend requires HRM RWKV-7 core")
@@ -3276,6 +3531,7 @@ class DeltaMemAttention(nn.Module):
         read_steps: list[torch.Tensor] = []
         read_routes: list[torch.Tensor] = []
         write_routes: list[torch.Tensor] = []
+        anchor_route_steps: list[torch.Tensor] = []
 
         for token_idx in range(seq_len):
             r_t = r_seq[:, token_idx]
@@ -3298,8 +3554,15 @@ class DeltaMemAttention(nn.Module):
                 occupied_slots=occupied_slots,
             )
             read_t = torch.einsum("bhs,bhsi->bhi", routes, slot_reads)
+            historical_read, anchor_routes = self._rwkv_ms_historical_read(
+                r_t,
+                memory_source_seq[:, token_idx],
+                valid_t,
+            )
+            read_t = read_t + self.rwkv_ms_anchor_residual_scale * historical_read
             read_steps.append(read_t.reshape(batch_size, self.state_read_dim))
             read_routes.append(routes.mean(dim=1))
+            anchor_route_steps.append(anchor_routes)
 
             slot_idx = self._rwkv_ms_slot_indices(positions)
             slot_mask = F.one_hot(slot_idx, num_classes=self.rwkv_ms_num_states).to(
@@ -3327,11 +3590,17 @@ class DeltaMemAttention(nn.Module):
                 positions = positions + 1
             else:
                 positions = positions + valid_t.to(dtype=torch.long)
+            if self.rwkv_ms_anchor_interval > 0:
+                boundary_mask = positions.remainder(self.rwkv_ms_anchor_interval).eq(0)
+                if valid_t is not None:
+                    boundary_mask = boundary_mask & valid_t.to(dtype=torch.bool)
+                self._rwkv_ms_append_anchors(current_state, boundary_mask)
 
         reads = torch.stack(read_steps, dim=1).to(dtype=features.g.dtype)
         reads = self.hrm_rwkv7_core.readout(reads, features.g)
         self.last_read_routes = torch.stack(read_routes, dim=1)
         self.last_write_routes = torch.stack(write_routes, dim=1)
+        self.last_anchor_routes = self._pad_rwkv_ms_anchor_routes(anchor_route_steps)
         if update_positions:
             self.rwkv_ms_positions = positions.detach()
             # Keep the write-to-read time-mix path live inside an episode. Online
@@ -3371,6 +3640,30 @@ class DeltaMemAttention(nn.Module):
             r_seq,
         )
         return r_seq, slot_reads, features.g
+
+    def _rwkv_ms_historical_read_inputs(
+        self,
+        r_seq: torch.Tensor,
+        memory_source_seq: torch.Tensor,
+        token_mask: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        batch_size, seq_len = r_seq.shape[:2]
+        if seq_len == 0:
+            self.last_anchor_routes = memory_source_seq.new_zeros(batch_size, 0, 1)
+            return memory_source_seq.new_zeros(batch_size, 0, self.state_read_dim)
+        read_steps: list[torch.Tensor] = []
+        anchor_route_steps: list[torch.Tensor] = []
+        for token_idx in range(seq_len):
+            valid_t = None if token_mask is None else token_mask[:, token_idx]
+            historical_read, anchor_routes = self._rwkv_ms_historical_read(
+                r_seq[:, token_idx],
+                memory_source_seq[:, token_idx],
+                valid_t,
+            )
+            read_steps.append(historical_read.reshape(batch_size, self.state_read_dim))
+            anchor_route_steps.append(anchor_routes)
+        self.last_anchor_routes = self._pad_rwkv_ms_anchor_routes(anchor_route_steps)
+        return torch.stack(read_steps, dim=1)
 
     def _rwkv_ms_token_state_routes(
         self,
@@ -3444,6 +3737,7 @@ class DeltaMemAttention(nn.Module):
                 0,
                 self.rwkv_ms_num_states,
             )
+            self.last_anchor_routes = memory_source_seq.new_zeros(batch_size, 0, 1)
             return memory_source_seq.new_zeros(batch_size, 0, self.state_read_dim)
         r_seq, slot_reads, readout_gate = self._rwkv_ms_token_state_read_basis(
             state,
@@ -3461,6 +3755,15 @@ class DeltaMemAttention(nn.Module):
             routes,
             slot_reads,
         ).reshape(batch_size, seq_len, self.state_read_dim)
+        historical_read_inputs = self._rwkv_ms_historical_read_inputs(
+            r_seq,
+            memory_source_seq,
+            token_mask,
+        )
+        read_inputs = (
+            read_inputs
+            + self.rwkv_ms_anchor_residual_scale * historical_read_inputs
+        )
         self.last_read_routes = routes.mean(dim=2)
         read_inputs = read_inputs.to(dtype=readout_gate.dtype)
         return self.hrm_rwkv7_core.readout(read_inputs, readout_gate)
@@ -3480,7 +3783,7 @@ class DeltaMemAttention(nn.Module):
                 f"expected={expected_routes_shape} "
                 f"actual={tuple(projected_routes.shape)}"
             )
-        _, slot_reads, readout_gate = self._rwkv_ms_token_state_read_basis(
+        r_seq, slot_reads, readout_gate = self._rwkv_ms_token_state_read_basis(
             state,
             memory_source_seq,
             token_mask,
@@ -3499,6 +3802,15 @@ class DeltaMemAttention(nn.Module):
             routes,
             slot_reads,
         ).reshape(batch_size, seq_len, self.state_read_dim)
+        historical_read_inputs = self._rwkv_ms_historical_read_inputs(
+            r_seq,
+            memory_source_seq,
+            token_mask,
+        )
+        read_inputs = (
+            read_inputs
+            + self.rwkv_ms_anchor_residual_scale * historical_read_inputs
+        )
         self.last_read_routes = routes
         return self.hrm_rwkv7_core.readout(
             read_inputs.to(dtype=readout_gate.dtype),
@@ -3546,6 +3858,15 @@ class DeltaMemAttention(nn.Module):
             addressed_routes,
             slot_reads,
         ).reshape(batch_size, seq_len, self.state_read_dim)
+        historical_read_inputs = self._rwkv_ms_historical_read_inputs(
+            r_seq,
+            memory_source_seq,
+            token_mask,
+        )
+        read_inputs = (
+            read_inputs
+            + self.rwkv_ms_anchor_residual_scale * historical_read_inputs
+        )
         self.last_read_routes = recurrent_routes
         reads = self.hrm_rwkv7_core.readout(
             read_inputs.to(dtype=readout_gate.dtype),
@@ -6585,6 +6906,16 @@ def get_delta_mem_online_state(model: nn.Module) -> dict[str, torch.Tensor]:
             state[f"{name}.__direct_last_hidden"] = (
                 module.direct_last_hidden.detach().cpu().clone()
             )
+        if module.memory_backend == "rwkv_ms" and module.rwkv_ms_anchor_states is not None:
+            state[f"{name}.__rwkv_ms_anchor_states"] = (
+                module.rwkv_ms_anchor_states.detach().cpu().clone()
+            )
+            state[f"{name}.__rwkv_ms_anchor_keys"] = (
+                module.rwkv_ms_anchor_keys.detach().cpu().clone()
+            )
+            state[f"{name}.__rwkv_ms_anchor_mask"] = (
+                module.rwkv_ms_anchor_mask.detach().cpu().clone()
+            )
         if module.projected_last_hidden is not None:
             state[f"{name}.__projected_last_hidden"] = (
                 module.projected_last_hidden.detach().cpu().clone()
@@ -6679,6 +7010,36 @@ def load_delta_mem_online_state(model: nn.Module, state: dict[str, torch.Tensor]
             # dtype can differ from the frozen base attention weights.
             module.rwkv_ms_previous_source = tensor.to(
                 device=module.base.q_proj.weight.device,
+            )
+            continue
+        if name.endswith(".__rwkv_ms_anchor_states"):
+            module_name = name[: -len(".__rwkv_ms_anchor_states")]
+            module = module_map[module_name]
+            if not isinstance(module, DeltaMemAttention):
+                raise TypeError(f"{module_name} is not a DeltaMemAttention")
+            module.rwkv_ms_anchor_states = tensor.to(
+                device=module.base.q_proj.weight.device,
+                dtype=torch.float32,
+            )
+            continue
+        if name.endswith(".__rwkv_ms_anchor_keys"):
+            module_name = name[: -len(".__rwkv_ms_anchor_keys")]
+            module = module_map[module_name]
+            if not isinstance(module, DeltaMemAttention):
+                raise TypeError(f"{module_name} is not a DeltaMemAttention")
+            module.rwkv_ms_anchor_keys = tensor.to(
+                device=module.base.q_proj.weight.device,
+                dtype=torch.float32,
+            )
+            continue
+        if name.endswith(".__rwkv_ms_anchor_mask"):
+            module_name = name[: -len(".__rwkv_ms_anchor_mask")]
+            module = module_map[module_name]
+            if not isinstance(module, DeltaMemAttention):
+                raise TypeError(f"{module_name} is not a DeltaMemAttention")
+            module.rwkv_ms_anchor_mask = tensor.to(
+                device=module.base.q_proj.weight.device,
+                dtype=torch.bool,
             )
             continue
         module = module_map[name]
