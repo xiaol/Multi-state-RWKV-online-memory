@@ -505,8 +505,17 @@ result should re-enter early enough to receive renewed computation depth.
 Repeated self-composition should be trained and measured for contraction.
 Plain and joint CrossGLU gates and the learned identity-bound DeepEmbed binder
 all failed matched-donor causal gates, so another one-pass gate shape is not
-the next move. The exact-source detached shadow-replay mechanics screen is next;
-it may authorize live-gradient two-pass training, but cannot itself establish
-Jacobi training or native gain. The paper does not establish matched-state
-identity, so any eventual native benchmark claim must remain separate from its
-single-state feedback evidence.
+the next move. The exact-source v5 shadow cross-fit screen subsequently passed
+on a donor-component-disjoint `176/44` split: held-out matched-donor pairwise
+accuracy was `0.954545`, its mean score gap was `0.103092`, and layer-permuted
+accuracy was `1.0`. The signed result receipt is
+`4ba137387216a8f2bc2c5562a764b4f340afa795cc4dbc88d4d2cf0ea470443c`.
+
+That result establishes learnable identity in untouched v5 shadow features,
+not causal model use. It authorizes only a separately signed recurrent
+mechanics design in which the detached shadow certifies identity and the live
+RWKV read remains the material value. The next screen must test wrong-state,
+wrong-shadow, zero, permutation, shuffle, random, and disabled controls plus
+eight-pass contraction before live-gradient two-pass training can begin. The
+paper does not establish matched-state identity, so any eventual native
+benchmark claim must remain separate from its single-state feedback evidence.

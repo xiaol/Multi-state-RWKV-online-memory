@@ -1,0 +1,99 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_v5_shadow_crossfit_protocol.v1",
+  "created_at": "2026-08-20T18:00:00+08:00",
+  "objective": "Refit and retire-or-authorize a layerwise RWKV identity map using only detached, binder-disabled shadow reads from the strict-loaded trained address-keyed DeepEmbed v5 adapter.",
+  "authorization_basis": {
+    "v5_result": "local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json",
+    "v5_result_sha256": "95376ed78da98cf36183146ce56a3623988e94645723c9b34aee0510e0457545",
+    "v5_result_receipt": "7afee3fd1d88c7db91c86dd3f7febfd80656a35d54971fd824623a29883dba8e",
+    "v5_status": "address_keyed_moe_deepembed_ffn_serialized_graphs_heldout_passed_generation_authorized",
+    "v5_adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "v5_adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44"
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "dataset": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "authorized_rows": 220,
+    "authorized_rows_payload_sha256": "0493e75da858d4ddebba580cc7b5aaaa32249527e5e44502e6ff06591cd82d09",
+    "capture_seed": 118,
+    "head_seed": 114,
+    "hf_endpoint": "https://hf-mirror.com",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_v5_delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788"
+  },
+  "exact_source_loader": {
+    "entrypoint": "experiments.rethinking_rwkv_ms_gemma.common.load_model_and_tokenizer",
+    "required_source_root_environment": "RWKV_V5_EXACT_SOURCE_ROOT",
+    "source_root_contract": "detached worktree HEAD equals signed_v5_source_commit and imported delta_impl is inside that root with the signed hash",
+    "adapter_loading": "strict saved HFDeltaMemConfig topology plus complete delta_mem_adapter.pt",
+    "config_overrides": [],
+    "initialize_missing_parameters": false,
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "learned_write_installed": false,
+    "outer_ffn_layers": [10, 21, 31, 41],
+    "hooks_expected": 42
+  },
+  "shadow_feature_capture": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "sharding": "source_index modulo 4",
+    "model_gradients": false,
+    "model_output_changed": false,
+    "binder_or_bridge_installed": false,
+    "state_snapshot": "detached cloned projected and recurrent tensors before every intervention",
+    "query": "detached target projected slot value fixed across all conditions",
+    "positive_shadow": "answer-position addressed RWKV read from an untouched v5 target-state read",
+    "negative_shadows": [
+      "untouched v5 matched-donor recurrent-state read with target projected carrier",
+      "untouched v5 cyclic layer-permuted target recurrent-state read with target projected carrier"
+    ],
+    "reduction": "mean over answer positions while retaining all 42 layers and state width 32",
+    "generation": false,
+    "adapter_saved": false
+  },
+  "crossfit_split": {
+    "algorithm": "Hash-order complete source/donor graph components and select whole components totaling exactly 44 heldout rows.",
+    "selection_salt": "rwkv-v5-shadow-crossfit-v1:",
+    "train_rows": 176,
+    "heldout_rows": 44,
+    "source_and_donor_component_disjoint": true,
+    "heldout_used_for_training_or_model_selection": false
+  },
+  "offline_training": {
+    "head": "per-layer identity-plus-rank4 residual maps for projected value and v5 shadow state followed by cosine compatibility",
+    "bottleneck": 4,
+    "parameters_per_layer": 512,
+    "total_parameters": 21504,
+    "initialization": "down Gaussian std 0.02; up zero; exact identity maps",
+    "objective": "mean relu(0.2-correct+donor) plus mean relu(0.2-correct+layer_permuted), reduced over train rows and layers",
+    "optimizer": "AdamW",
+    "steps": 512,
+    "learning_rate": 0.01,
+    "weight_decay": 0.001,
+    "adapter_or_model_weights_updated": false,
+    "head_weights_saved": false
+  },
+  "heldout_gates": {
+    "donor_pairwise_positive_fraction_minimum": 0.95,
+    "donor_mean_gap_minimum": 0.05,
+    "layer_permuted_pairwise_positive_fraction_minimum": 0.95,
+    "all_scores_finite": true
+  },
+  "stopping_rule": {
+    "pass": "Authorize only a separately signed exact-v5 two-pass shadow binder mechanics probe; training and generation remain blocked.",
+    "fail": "Retire this exact v5 shadow compatibility family without training.",
+    "always": "Do not open publisher validation/test, Hard32, the strength holdout, or any protected split."
+  },
+  "causal_mechanics_authorized": false,
+  "training_authorized": false,
+  "generation_authorized": false,
+  "adapter_saved": false,
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "faa6d1125a13506820485148885904fc7a1b35eef14bf57c6190106acc2f70bf"
+  }
+}

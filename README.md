@@ -601,14 +601,27 @@ and receipt is
 `96f782b35e2d920c72a07cc01d323f3fd4a9c1177d338d93e2b5561518871c96`.
 No native benchmark or SOTA gain is claimed.
 
-The Full-Bandwidth Transformer review changes the next architectural question
-from another one-pass gate to renewed computation depth. The next bounded test
-executes the learned writer exactly once, snapshots its state, and runs
-detached, read-only shadow replay through the same sparse DeepEmbed path for up
-to eight passes. It must beat matched-donor, donor-state-plus-donor-shadow,
-zero, layer-permuted, shuffled, random, and disabled-shadow controls and show a
-contracting replay tail before any live-gradient two-pass causal training or
-native benchmark is authorized. See the
+The exact-source v5 shadow cross-fit has now passed on all 220 open development
+rows. It executed the causal-passing adapter under its signed `cd7deb91` core,
+changed no model output, and fit a disposable identity head on a source-and-
+donor-component-disjoint `176/44` split. Held-out matched-donor pairwise
+accuracy was `0.954545` with a `0.103092` mean score gap; cyclic layer-
+permutation accuracy was `1.0`. The result SHA-256 is
+`c3607fbc6f42b6a2ebcdfab7d5cdf399e5b8e4c8ab52a1c707e8f1d19d44108d`
+and receipt is
+`4ba137387216a8f2bc2c5562a764b4f340afa795cc4dbc88d4d2cf0ea470443c`.
+This establishes learnable identity in untouched RWKV shadows, not causal use
+or native gain; training, generation, and the native benchmark remain blocked.
+
+The Full-Bandwidth Transformer review therefore changes the next architectural
+question from another one-pass gate to renewed computation depth. The next
+bounded test executes the learned writer exactly once, snapshots its state,
+keeps the live RWKV read as the material value, and uses detached shadow replay
+only to certify identity through the same sparse DeepEmbed path for up to eight
+passes. It must beat matched-donor, donor-state-plus-donor-shadow, zero, layer-
+permuted, shuffled, random, and disabled-shadow controls and show a contracting
+replay tail before any live-gradient two-pass causal training or native
+benchmark is authorized. See the
 [paper review](experiments/rethinking_rwkv_ms_gemma/FULL_BANDWIDTH_RWKV_REVIEW.md)
 for the transfer boundary and stopping gates.
 
@@ -676,6 +689,9 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [sparse DeepEmbed causal runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train.py),
 [address-keyed DeepEmbed v5 training protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_protocol_v5.json),
 [signed address-keyed DeepEmbed training endpoint](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json),
+[exact-v5 shadow cross-fit protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_v5_shadow_crossfit_protocol_v1.json),
+[exact-v5 shadow cross-fit runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_v5_shadow_crossfit.py),
+[signed exact-v5 shadow identity pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_v5_shadow_crossfit_v1/result.json),
 [locked address-keyed native protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
 [signed address-keyed native failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [address-keyed native evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py),

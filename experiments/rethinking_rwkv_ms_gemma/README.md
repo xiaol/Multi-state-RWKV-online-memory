@@ -484,9 +484,32 @@ Zero and layer-permutation controls prove that the state path and layer layout
 matter, but a matched donor remains better than the correct state. Native
 generation was not opened, and this route establishes no native or SOTA gain.
 
-The next goal is an exact-source, detached shadow-replay mechanics diagnostic.
-Execute the learned writer once, snapshot its RWKV and projected states, and
-run read-only replay passes through the same sparse DeepEmbed feature path.
+The exact-source v5 shadow cross-fit screen has now passed. It strict-loaded
+the causal-passing v5 adapter under its signed `cd7deb91` Delta-Mem source,
+captured all 220 open development rows on four A100s without changing model
+output, and trained only a disposable 21,504-parameter compatibility head on a
+source-and-donor-component-disjoint `176/44` split. The predeclared held-out
+gates all pass:
+
+| held-out shadow identity metric | result | gate |
+| --- | ---: | ---: |
+| matched-donor pairwise-positive fraction | **0.954545** | >= 0.95 |
+| matched-donor mean score gap | **0.103092** | >= 0.05 |
+| layer-permuted pairwise-positive fraction | **1.000000** | >= 0.95 |
+
+The result SHA-256 is
+`c3607fbc6f42b6a2ebcdfab7d5cdf399e5b8e4c8ab52a1c707e8f1d19d44108d`
+and its receipt is
+`4ba137387216a8f2bc2c5562a764b4f340afa795cc4dbc88d4d2cf0ea470443c`.
+This proves that untouched v5 RWKV shadows contain cross-source identity that
+generalizes across the locked open split. It does not prove that the model
+causally uses that identity, and it does not authorize training, generation,
+the native benchmark, or a SOTA claim.
+
+The authorized next goal is a separately signed exact-v5 recurrent mechanics
+diagnostic. Execute the learned writer once, keep the live RWKV read as the
+material value, use the detached shadow only to certify identity, and run
+read-only feedback passes through the unchanged sparse DeepEmbed feature path.
 Compare correct, matched-donor, donor-state-plus-donor-shadow, zero, layer-
 permuted, row-shuffled, random, and disabled-shadow controls while measuring
 `delta_k` through eight passes. This is Jacobi-inspired rather than true Jacobi
@@ -507,6 +530,9 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [sparse causal result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_sparse_causal_train_v1/result.json),
 [address-keyed v5 training protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_protocol_v5.json),
 [address-keyed v5 endpoint](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json),
+[exact-v5 shadow cross-fit protocol](natural_memory_native_rwkv_v5_shadow_crossfit_protocol_v1.json),
+[exact-v5 shadow cross-fit runner](run_natural_memory_native_rwkv_v5_shadow_crossfit.py),
+[signed exact-v5 shadow identity pass](local_artifacts/natural_memory_native_rwkv_v5_shadow_crossfit_v1/result.json),
 [locked address-keyed generation protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
 [signed address-keyed native failure](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [learned-write causal protocol](natural_memory_native_rwkv_address_keyed_learned_write_causal_train_protocol_v1.json),
