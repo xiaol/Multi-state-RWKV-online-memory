@@ -1,0 +1,100 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_plmsc_code_alignment_operational_failure.v1",
+  "created_at": "2026-08-21T07:31:18+08:00",
+  "status": "plmsc_v1_observer_call_count_contract_failed_before_feature_save",
+  "experiment_result": null,
+  "mechanics_gate_evaluated": false,
+  "passed": false,
+  "failure_class": "instrumentation_topology_mismatch",
+  "failure_phase": "plmsc-fit-and-mechanics-feature-capture",
+  "error": {
+    "type": "RuntimeError",
+    "message": "PLMSC anchor read-basis observer must run exactly once per read",
+    "traceback_sha256": "78907116e3879c0b382ae13d8546ae65308a19be3d1f59912b9bd0348bd3c804",
+    "identical_on_all_four_ranks": true
+  },
+  "root_cause": {
+    "static_call_sites": [
+      "_rwkv_ms_addressed_token_state_reads",
+      "_memory_backend_token_reads for the MOE global recurrent read"
+    ],
+    "observed_calls_per_anchor_before_failure": 2,
+    "signed_v1_expected_calls_per_anchor": 1,
+    "interpretation": "The frozen address_keyed_moe_deepembed_ffn topology computes the same live RWKV read basis once for the addressed recurrent value and once for the MOE global recurrent value. The v1 observer rejected the second invocation before writing a feature row."
+  },
+  "bindings": {
+    "git_commit": "7c5a87491ea6f9367b6d34e94963be914558738b",
+    "git_remote_ref": "origin/main",
+    "protocol": "natural_memory_native_rwkv_plmsc_code_alignment_protocol_v1.json",
+    "protocol_file_sha256": "8428742275084b901d677395514228e2410323322d5041d92af6b6578f0cb93d",
+    "protocol_payload_sha256": "5f849ec1c6fbc590f4bb8df6c976136213c928dc3270acc9e2291ec88ca76400",
+    "runner": "run_natural_memory_native_rwkv_plmsc_code_alignment.py",
+    "runner_sha256": "2a30f50e921f018e7e3cedb0641cb582c3ffdf308f7261e54765ec07b6c0b6d9",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_v5_delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "split_payload_sha256": "ab2a225c4a4710316a88b61fa48b5a48bb5ff0772c28d04455db20370fd0f737"
+  },
+  "execution": {
+    "command_world_size": 4,
+    "runtime_hardware_validation_completed": true,
+    "accelerators": "four distinct NVIDIA A100-PCIE-40GB GPUs",
+    "model_backend": "nccl",
+    "control_backend": "gloo",
+    "hf_endpoint": "https://hf-mirror.com",
+    "four_rank_failure_consensus_completed": true,
+    "rank_errors": 4,
+    "process_exit_code": 1
+  },
+  "data_firewall": {
+    "dataset_whole_file_hash_verified": true,
+    "capture_row_hashes_verified_per_rank": 98,
+    "local_capture_rows_decoded_before_first_forward": true,
+    "first_forward_source_by_rank": {
+      "0": 40,
+      "1": 5,
+      "2": 14,
+      "3": 7
+    },
+    "first_forward_split_by_rank": {
+      "0": "fit",
+      "1": "mechanics",
+      "2": "fit",
+      "3": "fit"
+    },
+    "saved_feature_rows": 0,
+    "feature_shards_written": 0,
+    "code_map_fit_started": false,
+    "mechanics_metrics_computed": false,
+    "result_written": false,
+    "causal_rows_opened": false,
+    "causal_rows_hashed_individually": false,
+    "causal_rows_decoded": 0,
+    "causal_rows_tokenized": 0,
+    "causal_rows_model_forwarded": 0,
+    "causal_features_captured": 0,
+    "protected_splits_opened": []
+  },
+  "output_audit": {
+    "output_directory": "local_artifacts/natural_memory_native_rwkv_plmsc_code_alignment_v1",
+    "files_present_before_this_receipt": 0,
+    "shard_files_present": 0,
+    "result_file_present": false
+  },
+  "authorization": {
+    "v1_retry_authorized": false,
+    "v1_mechanics_result_claim_authorized": false,
+    "causal_protocol_authorized": false,
+    "model_or_adapter_training_authorized": false,
+    "generation_authorized": false,
+    "native_benchmark_or_sota_claim_authorized": false,
+    "bounded_v2_protocol_draft_authorized": true,
+    "v2_constraint": "Change only the observer contract to require exactly two byte-identical prompt-boundary r_seq captures per anchor, preserving every split, feature, optimizer, gate, firewall, and stopping rule."
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_operational_failure_without_receipt",
+    "payload_sha256": "283adb5c5d8ed021eb4301156fd40a1ea41db101c49cc97c0b7a4127003ba1d5"
+  }
+}
