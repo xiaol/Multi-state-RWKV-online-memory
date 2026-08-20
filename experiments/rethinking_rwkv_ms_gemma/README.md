@@ -501,15 +501,19 @@ The result SHA-256 is
 `c3607fbc6f42b6a2ebcdfab7d5cdf399e5b8e4c8ab52a1c707e8f1d19d44108d`
 and its receipt is
 `4ba137387216a8f2bc2c5562a764b4f340afa795cc4dbc88d4d2cf0ea470443c`.
-This proves that untouched v5 RWKV shadows contain cross-source identity that
-generalizes across the locked open split. It does not prove that the model
-causally uses that identity, and it does not authorize training, generation,
-the native benchmark, or a SOTA claim.
+This proves that untouched v5 RWKV shadows at teacher-forced answer positions
+contain cross-source identity that generalizes across the locked open split.
+It does not prove identity at the preceding causal predictor positions or that
+the model causally uses that identity, and it does not authorize training,
+generation, the native benchmark, or a SOTA claim.
 
 The authorized next goal is a separately signed exact-v5 recurrent mechanics
-diagnostic. Execute the learned writer once, keep the live RWKV read as the
-material value, use the detached shadow only to certify identity, and run
-read-only feedback passes through the unchanged sparse DeepEmbed feature path.
+diagnostic. It must first recapture and refit identity entirely at causal
+predictor positions on the same donor-component-disjoint `176/44` split and
+repeat the `0.95/0.05/0.95` held-out gates. Only then may it execute the learned
+writer once, keep the live RWKV read as the material value, use the detached
+shadow only to certify identity, and run read-only feedback passes through the
+unchanged sparse DeepEmbed feature path.
 Compare correct, matched-donor, donor-state-plus-donor-shadow, zero, layer-
 permuted, row-shuffled, random, and disabled-shadow controls while measuring
 `delta_k` through eight passes. This is Jacobi-inspired rather than true Jacobi

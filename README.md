@@ -610,8 +610,10 @@ permutation accuracy was `1.0`. The result SHA-256 is
 `c3607fbc6f42b6a2ebcdfab7d5cdf399e5b8e4c8ab52a1c707e8f1d19d44108d`
 and receipt is
 `4ba137387216a8f2bc2c5562a764b4f340afa795cc4dbc88d4d2cf0ea470443c`.
-This establishes learnable identity in untouched RWKV shadows, not causal use
-or native gain; training, generation, and the native benchmark remain blocked.
+This establishes learnable identity in untouched teacher-forced answer-position
+RWKV shadows, not identity at the preceding causal predictor positions, causal
+use, or native gain; training, generation, and the native benchmark remain
+blocked.
 
 The Full-Bandwidth Transformer review therefore changes the next architectural
 question from another one-pass gate to renewed computation depth. The next

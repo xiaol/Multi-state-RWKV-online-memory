@@ -511,11 +511,14 @@ accuracy was `0.954545`, its mean score gap was `0.103092`, and layer-permuted
 accuracy was `1.0`. The signed result receipt is
 `4ba137387216a8f2bc2c5562a764b4f340afa795cc4dbc88d4d2cf0ea470443c`.
 
-That result establishes learnable identity in untouched v5 shadow features,
-not causal model use. It authorizes only a separately signed recurrent
-mechanics design in which the detached shadow certifies identity and the live
-RWKV read remains the material value. The next screen must test wrong-state,
-wrong-shadow, zero, permutation, shuffle, random, and disabled controls plus
-eight-pass contraction before live-gradient two-pass training can begin. The
-paper does not establish matched-state identity, so any eventual native
-benchmark claim must remain separate from its single-state feedback evidence.
+That result establishes learnable identity in untouched v5 shadow features at
+teacher-forced answer positions, not at the preceding causal predictor
+positions and not as causal model use. It authorizes only a separately signed
+recurrent mechanics design. That design must first repeat the cross-fit gates
+using predictor-position features; only then may the detached shadow certify
+identity while the live RWKV read remains the material value. The next screen
+must test wrong-state, wrong-shadow, zero, permutation, shuffle, random, and
+disabled controls plus eight-pass contraction before live-gradient two-pass
+training can begin. The paper does not establish matched-state identity, so
+any eventual native benchmark claim must remain separate from its single-state
+feedback evidence.
