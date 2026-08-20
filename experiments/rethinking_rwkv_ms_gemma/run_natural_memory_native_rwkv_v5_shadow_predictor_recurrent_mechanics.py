@@ -41,6 +41,7 @@ WORLD_SIZE = 4
 STAGE2_ROWS_PER_RANK = 11
 PASSES = 8
 SEED = 119
+DISTRIBUTED_TIMEOUT_SECONDS = 1800
 HEAD_SEED = shadow.HEAD_SEED
 TRAIN_ROWS = shadow.TRAIN_ROWS
 HELDOUT_ROWS = shadow.HELDOUT_ROWS
@@ -1316,8 +1317,16 @@ def aggregate_stage2(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
     return {"conditions": aggregate, "rank_rows": list(rows), "checks": checks, "passed": all(checks.values())}
 
 
-def run(*, base_model: Path, dataset_root: Path, output_dir: Path) -> Mapping[str, Any]:
-    context = distributed.initialize_distributed_training("cuda")
+def run(
+    *,
+    base_model: Path,
+    dataset_root: Path,
+    output_dir: Path,
+    resume_complete_stage1_shards: bool = False,
+) -> Mapping[str, Any]:
+    context = distributed.initialize_distributed_training(
+        "cuda", timeout_seconds=DISTRIBUTED_TIMEOUT_SECONDS
+    )
     if context is None:
         raise RuntimeError("Run with torchrun --nproc_per_node=4")
     try:
@@ -1327,19 +1336,34 @@ def run(*, base_model: Path, dataset_root: Path, output_dir: Path) -> Mapping[st
             raise RuntimeError("Predictor recurrent mechanics requires four distinct A100s")
         if os.environ.get("HF_ENDPOINT") != HF_ENDPOINT:
             raise RuntimeError(f"HF_ENDPOINT must be exactly {HF_ENDPOINT}")
-        fresh_error = (
-            ValueError(f"Predictor recurrent output must be fresh: {output_dir}")
-            if context.is_primary and output_dir.exists()
-            else None
-        )
-        distributed.phase_consensus(context, phase="predictor-recurrent-fresh", error=fresh_error)
-        create_error: BaseException | None = None
+        output_error: BaseException | None = None
         if context.is_primary:
-            try:
-                output_dir.mkdir(parents=True, exist_ok=False)
-            except BaseException as error:
-                create_error = error
-        distributed.phase_consensus(context, phase="predictor-recurrent-create", error=create_error)
+            if resume_complete_stage1_shards:
+                expected = {
+                    f"stage1-shard-{rank}.jsonl" for rank in range(WORLD_SIZE)
+                }
+                observed = (
+                    {path.name for path in output_dir.iterdir()}
+                    if output_dir.is_dir()
+                    else set()
+                )
+                if not output_dir.is_dir() or observed != expected:
+                    output_error = ValueError(
+                        "Predictor recurrent resume requires exactly four stage1 shards "
+                        f"and no result: {output_dir}"
+                    )
+            elif output_dir.exists():
+                output_error = ValueError(
+                    f"Predictor recurrent output must be fresh: {output_dir}"
+                )
+            else:
+                try:
+                    output_dir.mkdir(parents=True, exist_ok=False)
+                except BaseException as error:
+                    output_error = error
+        distributed.phase_consensus(
+            context, phase="predictor-recurrent-output", error=output_error
+        )
         torch.manual_seed(SEED)
         torch.cuda.manual_seed_all(SEED)
         model, tokenizer, model_audit = shadow.load_exact_v5_model(base_model, device=context.device)
@@ -1355,40 +1379,59 @@ def run(*, base_model: Path, dataset_root: Path, output_dir: Path) -> Mapping[st
         ):
             raise RuntimeError("Predictor stage does not reproduce the signed 176/44 split")
         split = {int(row["source_index"]): str(row["split"]) for row in split_payload["rows"]}
-        shard_path = output_dir / f"stage1-shard-{context.process_rank}.jsonl"
-        shard_sources = [source for source in sorted(examples) if source % WORLD_SIZE == context.process_rank]
-        for ordinal, source_index in enumerate(shard_sources, start=1):
-            donor_index = mapping[source_index]
-            feature = capture_predictor_row(
-                model,
-                examples[source_index],
-                examples[donor_index],
-                pad_token_id=int(tokenizer.pad_token_id),
-                device=context.device,
+        records: list[Mapping[str, Any]] | None = None
+        provenance: list[Mapping[str, Any]] = []
+        resume_error: BaseException | None = None
+        if resume_complete_stage1_shards:
+            if context.is_primary:
+                try:
+                    records, provenance = load_feature_records(output_dir, split_payload)
+                except BaseException as error:
+                    resume_error = error
+            distributed.phase_consensus(
+                context,
+                phase="predictor-recurrent-resume-stage1-validation",
+                error=resume_error,
             )
-            append_jsonl(
-                shard_path,
-                {
-                    "schema": FEATURE_SCHEMA,
-                    "source_index": source_index,
-                    "row_sha256": rows[source_index]["row_sha256"],
-                    "donor_source_index": donor_index,
-                    "donor_row_sha256": rows[donor_index]["row_sha256"],
-                    "split": split[source_index],
-                    **feature,
-                },
-            )
-            print(
-                f"V5_PREDICTOR_STAGE1 rank={context.process_rank} row={source_index} ordinal={ordinal}/{len(shard_sources)}",
-                flush=True,
-            )
+        else:
+            shard_path = output_dir / f"stage1-shard-{context.process_rank}.jsonl"
+            shard_sources = [
+                source
+                for source in sorted(examples)
+                if source % WORLD_SIZE == context.process_rank
+            ]
+            for ordinal, source_index in enumerate(shard_sources, start=1):
+                donor_index = mapping[source_index]
+                feature = capture_predictor_row(
+                    model,
+                    examples[source_index],
+                    examples[donor_index],
+                    pad_token_id=int(tokenizer.pad_token_id),
+                    device=context.device,
+                )
+                append_jsonl(
+                    shard_path,
+                    {
+                        "schema": FEATURE_SCHEMA,
+                        "source_index": source_index,
+                        "row_sha256": rows[source_index]["row_sha256"],
+                        "donor_source_index": donor_index,
+                        "donor_row_sha256": rows[donor_index]["row_sha256"],
+                        "split": split[source_index],
+                        **feature,
+                    },
+                )
+                print(
+                    f"V5_PREDICTOR_STAGE1 rank={context.process_rank} row={source_index} ordinal={ordinal}/{len(shard_sources)}",
+                    flush=True,
+                )
         dist.barrier()
         head: LayerwiseBilinear | None = None
         thresholds: torch.Tensor | None = None
         stage1: Mapping[str, Any] | None = None
-        provenance: list[Mapping[str, Any]] = []
         if context.is_primary:
-            records, provenance = load_feature_records(output_dir, split_payload)
+            if records is None:
+                records, provenance = load_feature_records(output_dir, split_payload)
             head, thresholds, stage1 = fit_predictor_head(records)
         head, thresholds, stage1 = _broadcast_stage1(context, head, thresholds, stage1)
         stage2_local: Mapping[str, Any] | None = None
@@ -1440,6 +1483,15 @@ def run(*, base_model: Path, dataset_root: Path, output_dir: Path) -> Mapping[st
                 "stage2": stage2,
                 "crossfit_split": split_payload,
                 "feature_provenance": provenance,
+                "stage1_capture": {
+                    "fresh_capture_required": True,
+                    "resumed_complete_shards_after_control_timeout": bool(
+                        resume_complete_stage1_shards
+                    ),
+                    "recaptured_rows_during_resume": 0
+                    if resume_complete_stage1_shards
+                    else endpoint.EVALUATION_ROWS,
+                },
                 "source_audit": source_audit,
                 "model_audit": {
                     **dict(model_audit),
@@ -1479,11 +1531,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--base-model", type=Path, required=True)
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--resume-complete-stage1-shards", action="store_true")
     args = parser.parse_args(argv)
     result = run(
         base_model=args.base_model.expanduser().resolve(strict=True),
         dataset_root=args.dataset_root.expanduser().resolve(strict=True),
         output_dir=args.output_dir.expanduser().resolve(),
+        resume_complete_stage1_shards=args.resume_complete_stage1_shards,
     )
     return 0
 

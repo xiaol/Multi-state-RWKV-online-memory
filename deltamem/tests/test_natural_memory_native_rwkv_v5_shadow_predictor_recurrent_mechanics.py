@@ -212,7 +212,13 @@ def test_stage2_aggregation_enforces_balanced_rows_and_exact_collapse() -> None:
 
 
 def test_main_returns_success_on_non_primary_empty_result(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(mechanics, "run", lambda **kwargs: {})
+    captured = {}
+
+    def fake_run(**kwargs):
+        captured.update(kwargs)
+        return {}
+
+    monkeypatch.setattr(mechanics, "run", fake_run)
 
     assert mechanics.main(
         [
@@ -222,8 +228,10 @@ def test_main_returns_success_on_non_primary_empty_result(monkeypatch, tmp_path)
             str(tmp_path),
             "--output-dir",
             str(tmp_path / "fresh"),
+            "--resume-complete-stage1-shards",
         ]
     ) == 0
+    assert captured["resume_complete_stage1_shards"] is True
 
 
 def test_read_write_flag_audit_requires_explicit_false() -> None:

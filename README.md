@@ -615,15 +615,30 @@ RWKV shadows, not identity at the preceding causal predictor positions, causal
 use, or native gain; training, generation, and the native benchmark remain
 blocked.
 
-The Full-Bandwidth Transformer review therefore changes the next architectural
-question from another one-pass gate to renewed computation depth. The next
-bounded test executes the learned writer exactly once, snapshots its state,
-keeps the live RWKV read as the material value, and uses detached shadow replay
-only to certify identity through the same sparse DeepEmbed path for up to eight
-passes. It must beat matched-donor, donor-state-plus-donor-shadow, zero, layer-
-permuted, shuffled, random, and disabled-shadow controls and show a contracting
-replay tail before any live-gradient two-pass causal training or native
-benchmark is authorized. See the
+The separately signed causal-predictor replication has now rejected that
+identity family. It recaptured all 220 open rows one token before each
+teacher-forced answer position on exactly four A100s and reused the same
+donor-component-disjoint `176/44` split. The held-out row-level donor fraction
+was `0.954545`, but token-level donor separation was only `0.878327` and the
+mean donor gap was `0.047801`, missing the locked `0.95` and `0.05` gates.
+Layer-permuted separation remained `1.0`. Stage 2 recurrent mechanics did not
+run; no weights were trained, no protected split was opened, and native
+generation remains blocked. The result SHA-256 is
+`44e4b22c6db8b9c9e98a947ec9baf829291bb49efd2b5dc5b21ca98574ca9cbb`
+and receipt is
+`3489154f6bae3feadd3510ca2aeddce31dea3fb3d5e5f995c043bf466c544959`.
+
+The Full-Bandwidth Transformer review therefore motivates identity transport,
+not another predictor-state classifier. The next bounded family will derive an
+identity latch once from the causal prompt boundary, shift that latch across
+answer predictors, use it to query the immutable exact-v5 RWKV online state,
+and pass the live RWKV value through a sparse outer FFN before early-layer
+fusion. This gives RWKV the material keyed-memory role while the shifted latch
+prevents every predictor token from having to rediscover source identity.
+Wrong-latch, wrong-state, paired-wrong, zero, layer-permuted, shuffled, random,
+and disabled controls must pass on a new pre-signed donor-disjoint mechanics
+screen, followed by eight-pass contraction, before any live-gradient training
+or native benchmark is authorized. See the
 [paper review](experiments/rethinking_rwkv_ms_gemma/FULL_BANDWIDTH_RWKV_REVIEW.md)
 for the transfer boundary and stopping gates.
 
@@ -694,6 +709,9 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [exact-v5 shadow cross-fit protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_v5_shadow_crossfit_protocol_v1.json),
 [exact-v5 shadow cross-fit runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_v5_shadow_crossfit.py),
 [signed exact-v5 shadow identity pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_v5_shadow_crossfit_v1/result.json),
+[causal-predictor recurrent protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics_protocol_v1.json),
+[causal-predictor recurrent runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics.py),
+[signed causal-predictor identity failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics_v1/result.json),
 [locked address-keyed native protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
 [signed address-keyed native failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [address-keyed native evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py),

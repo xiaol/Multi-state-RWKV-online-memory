@@ -507,20 +507,29 @@ It does not prove identity at the preceding causal predictor positions or that
 the model causally uses that identity, and it does not authorize training,
 generation, the native benchmark, or a SOTA claim.
 
-The authorized next goal is a separately signed exact-v5 recurrent mechanics
-diagnostic. It must first recapture and refit identity entirely at causal
-predictor positions on the same donor-component-disjoint `176/44` split and
-repeat the `0.95/0.05/0.95` held-out gates. Only then may it execute the learned
-writer once, keep the live RWKV read as the material value, use the detached
-shadow only to certify identity, and run read-only feedback passes through the
-unchanged sparse DeepEmbed feature path.
-Compare correct, matched-donor, donor-state-plus-donor-shadow, zero, layer-
-permuted, row-shuffled, random, and disabled-shadow controls while measuring
-`delta_k` through eight passes. This is Jacobi-inspired rather than true Jacobi
-training because the mechanics screen detaches the replay state. Only a donor-
-specific, contracting mechanics pass may authorize a separately locked two-
-pass live-gradient causal run. The full paper-to-RWKV review lists that route
-and the other bounded alternatives.
+The separately signed causal-predictor replication has now failed before
+recurrent mechanics. It captured all 220 open rows one token before each
+answer position on exactly four A100s and fit only on the same 176 training
+rows. On the 44 held-out rows, donor-positive row fraction was `0.954545`, but
+donor-positive token fraction was `0.878327` and mean donor gap was `0.047801`
+against locked `0.95`, `0.95`, and `0.05` gates. Layer-permuted token and row
+fractions were both `1.0`. The status is
+`predictor_crossfit_failed_stage2_not_run`; no mechanics pass, weight update,
+generation, or protected evaluation occurred. Result SHA-256 is
+`44e4b22c6db8b9c9e98a947ec9baf829291bb49efd2b5dc5b21ca98574ca9cbb`
+and receipt is
+`3489154f6bae3feadd3510ca2aeddce31dea3fb3d5e5f995c043bf466c544959`.
+
+That family is retired rather than tuned against held-out results. The next
+bounded family will transport a prompt-bound identity latch across causal
+answer predictors instead of independently recovering identity from every
+predictor hidden state. The latch will query an immutable exact-v5 RWKV state;
+the live RWKV read remains the material value and a sparse outer FFN renews its
+computation depth before early-layer fusion. A new pre-signed donor-disjoint
+screen must pass wrong-latch, wrong-state, paired-wrong, zero, layer-permuted,
+row-shuffled, norm-random, disabled, and eight-pass contraction controls before
+any live-gradient training or native benchmark is authorized. The full
+paper-to-RWKV review defines the transfer boundary.
 See [FULL_BANDWIDTH_RWKV_REVIEW.md](FULL_BANDWIDTH_RWKV_REVIEW.md) for
 equations, reported results, caveats, factorial controls, and stopping gates.
 
@@ -537,6 +546,9 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [exact-v5 shadow cross-fit protocol](natural_memory_native_rwkv_v5_shadow_crossfit_protocol_v1.json),
 [exact-v5 shadow cross-fit runner](run_natural_memory_native_rwkv_v5_shadow_crossfit.py),
 [signed exact-v5 shadow identity pass](local_artifacts/natural_memory_native_rwkv_v5_shadow_crossfit_v1/result.json),
+[causal-predictor recurrent protocol](natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics_protocol_v1.json),
+[causal-predictor recurrent runner](run_natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics.py),
+[signed causal-predictor identity failure](local_artifacts/natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics_v1/result.json),
 [locked address-keyed generation protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
 [signed address-keyed native failure](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [learned-write causal protocol](natural_memory_native_rwkv_address_keyed_learned_write_causal_train_protocol_v1.json),

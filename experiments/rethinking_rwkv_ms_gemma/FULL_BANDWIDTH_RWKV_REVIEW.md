@@ -346,11 +346,23 @@ rows were only `0.4375`. The binder score itself preferred the donor by
 `0.002040`. This closes another gate-shape route: mandatory state use and layer
 sensitivity still do not imply source identity.
 
+The exact-v5 answer-position shadow head then passed, but its predeclared
+causal-predictor replication failed before recurrent mechanics. On the same
+donor-component-disjoint `176/44` split, held-out donor-positive row fraction
+was `0.954545`, while donor-positive token fraction was `0.878327` and mean
+donor gap was `0.047801`; the locked gates were `0.95`, `0.95`, and `0.05`.
+Layer-permuted token and row fractions were both `1.0`. This is a position
+boundary, not evidence for threshold tuning: source identity is recoverable
+after teacher-forced answer tokens but is not uniformly recoverable from each
+preceding causal predictor state. Stage 2 was skipped and no weights were
+trained.
+
 | priority | route | evidence | main upside | main risk |
 | --- | --- | --- | --- | --- |
 | retired | projected-value/RWKV identity-bound DeepEmbed | eight updates passed; causal and binder donor gates failed | direct pair supervision on the strongest sparse FFN path | learned score remains donor-neutral |
 | retired | joint pair-gated deep-to-shallow CrossGLU | mechanics passed; causal donor gate failed | pair-dependent full-vector causal use with renewed depth | donor-neutral endpoint and early-residual bypass |
 | retired | bilinear compatibility + output gate | cross-fit passed, causal donor gate failed | held-out score alignment | donor-neutral causal endpoint |
+| retired | exact-v5 per-token predictor shadow | row identity `0.954545`; token identity `0.878327`; mean gap `0.047801` | exact causal-position test with immutable live state | each predictor must rediscover prompt identity |
 | retired | rotary / diagonal-sign binding | rotary non-commutation; sign donor rows `0.750`--`0.769` | algebraic cancellation in limited controls | insufficient donor specificity |
 
 ### Next directions after the CrossGLU failure
@@ -512,13 +524,18 @@ accuracy was `1.0`. The signed result receipt is
 `4ba137387216a8f2bc2c5562a764b4f340afa795cc4dbc88d4d2cf0ea470443c`.
 
 That result establishes learnable identity in untouched v5 shadow features at
-teacher-forced answer positions, not at the preceding causal predictor
-positions and not as causal model use. It authorizes only a separately signed
-recurrent mechanics design. That design must first repeat the cross-fit gates
-using predictor-position features; only then may the detached shadow certify
-identity while the live RWKV read remains the material value. The next screen
-must test wrong-state, wrong-shadow, zero, permutation, shuffle, random, and
-disabled controls plus eight-pass contraction before live-gradient two-pass
-training can begin. The paper does not establish matched-state identity, so
-any eventual native benchmark claim must remain separate from its single-state
-feedback evidence.
+teacher-forced answer positions, not as causal model use. The causal-predictor
+replication subsequently failed its token and mean-gap gates, so the detached
+per-token shadow family is retired and recurrent mechanics remain unexecuted.
+
+The next paper-inspired move is **identity transport rather than identity
+recovery**. Derive a latch once from the causal prompt boundary, shift it across
+answer predictors, and use that stable address to query immutable exact-v5
+RWKV state. RWKV remains the material online key/value store; a sparse outer
+FFN transforms the live read before early-layer fusion and shifted feedback
+renews its computation depth. This is distinct from the paper's token gate and
+must be established independently with wrong-latch, wrong-state, paired-wrong,
+zero, permutation, shuffle, random, disabled, immutability, and eight-pass
+contraction controls on a new pre-signed donor-disjoint split. The paper does
+not establish matched-state identity, so any eventual native benchmark claim
+remains separate from its single-state feedback evidence.
