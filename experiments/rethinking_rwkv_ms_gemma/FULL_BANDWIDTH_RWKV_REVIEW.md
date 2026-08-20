@@ -336,8 +336,19 @@ layer-permuted and zero controls were also slightly better than correct. The
 route is therefore retired without gain, batch-size, learning-rate, or
 duration tuning. Native generation was not authorized.
 
+The learned identity-bound DeepEmbed follow-up also completed all eight
+four-A100 updates after serializing positive and donor backward graphs. It
+trained only 168 binder tensors while freezing the inherited address-keyed
+writer and DeepEmbed adapter. Zero-minus-correct and layer-permuted-minus-
+correct CE were strongly positive (`+1.301495` and `+0.285514`), but donor-
+minus-correct CE was `-0.007757`; both donor-positive CE rows and binder-score
+rows were only `0.4375`. The binder score itself preferred the donor by
+`0.002040`. This closes another gate-shape route: mandatory state use and layer
+sensitivity still do not imply source identity.
+
 | priority | route | evidence | main upside | main risk |
 | --- | --- | --- | --- | --- |
+| retired | projected-value/RWKV identity-bound DeepEmbed | eight updates passed; causal and binder donor gates failed | direct pair supervision on the strongest sparse FFN path | learned score remains donor-neutral |
 | retired | joint pair-gated deep-to-shallow CrossGLU | mechanics passed; causal donor gate failed | pair-dependent full-vector causal use with renewed depth | donor-neutral endpoint and early-residual bypass |
 | retired | bilinear compatibility + output gate | cross-fit passed, causal donor gate failed | held-out score alignment | donor-neutral causal endpoint |
 | retired | rotary / diagonal-sign binding | rotary non-commutation; sign donor rows `0.750`--`0.769` | algebraic cancellation in limited controls | insufficient donor specificity |
@@ -345,15 +356,25 @@ duration tuning. Native generation was not authorized.
 ### Next directions after the CrossGLU failure
 
 The paper's useful contribution is now a training recipe, not a drop-in
-identity module. The best next move is a small open-row diagnostic that adds
-Jacobi-style read feedback and an explicit state-identity objective to the
-already causal-passing `address_keyed_moe_deepembed_ffn` branch. Keep its
-successful sparse DeepEmbed readout fixed, inject one read snapshot at the
-earliest feasible anchor, and train two feedback passes with losses on both
-passes plus a per-layer donor InfoNCE term. Measure the paper's recurrence
-contraction (`delta_k`) before authorizing any native run. This directly tests
-whether renewed depth, rather than another gate shape, repairs the donor-neutral
-failure.
+identity module. The best next move is an exact-source detached shadow-replay
+mechanics screen on the causal-passing `address_keyed_moe_deepembed_ffn`
+branch. Earlier combined routes did not always replay the same learned writer
+and DeepEmbed feature generator, so the diagnostic must execute the learned
+writer once, snapshot both RWKV and projected state, and keep those snapshots
+immutable. Feed the previous pass's detached RWKV read back before query/read
+formation, rerun only the read path through the same sparse DeepEmbed anchors,
+and measure recurrence contraction (`delta_k`) through eight passes.
+
+The required controls are target state plus target shadow, target state plus
+matched-donor shadow, donor state plus donor shadow while retaining the target
+answer, zero, cyclic layer permutation, row-shuffled shadow, norm-matched
+random shadow, and shadow disabled. This is Jacobi-inspired mechanics, not the
+paper's live-gradient Jacobi training: detachment deliberately isolates whether
+renewed read depth can create donor-specific behavior without mutating or
+double-writing memory. Only if correct replay beats every donor control and the
+tail contracts may a separately locked two-pass experiment keep gradients
+through pass 1 and apply answer losses on both passes plus per-layer donor
+InfoNCE.
 
 Other bounded directions, in descending priority, are:
 
@@ -481,9 +502,11 @@ state is required.
 Full-bandwidth transformer gives us two valuable design principles: identity
 information should gate a full-vector state value path, and a deep memory
 result should re-enter early enough to receive renewed computation depth.
-Repeated self-composition should be trained and measured for contraction.  A
-plain separable CrossGLU repeats the donor-neutral DeepEmbed family and is
-retired.  The joint pair-gated form is the next GPU experiment, but only after
-its mechanics-only factorial controls pass.  The paper does not establish
-matched-state identity, so any eventual native benchmark claim must remain
-separate from its single-state feedback evidence.
+Repeated self-composition should be trained and measured for contraction.
+Plain and joint CrossGLU gates and the learned identity-bound DeepEmbed binder
+all failed matched-donor causal gates, so another one-pass gate shape is not
+the next move. The exact-source detached shadow-replay mechanics screen is next;
+it may authorize live-gradient two-pass training, but cannot itself establish
+Jacobi training or native gain. The paper does not establish matched-state
+identity, so any eventual native benchmark claim must remain separate from its
+single-state feedback evidence.

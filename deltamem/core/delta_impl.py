@@ -1181,11 +1181,13 @@ class DeltaMemAttention(nn.Module):
         self._pending_deepembed_ffn_scale: torch.Tensor | None = None
         self.rwkv_joint_pair_crossglu: nn.Module | None = None
         self.rwkv_joint_pair_crossglu_query: torch.Tensor | None = None
+        self.rwkv_joint_pair_crossglu_shadow_state: torch.Tensor | None = None
         self.rwkv_joint_pair_crossglu_gate_override: torch.Tensor | None = None
         self.rwkv_joint_pair_crossglu_gate_shuffle = False
         self.rwkv_joint_pair_crossglu_last_gate: torch.Tensor | None = None
         self.rwkv_joint_pair_crossglu_last_value: torch.Tensor | None = None
         self.rwkv_joint_pair_crossglu_last_correction: torch.Tensor | None = None
+        self.rwkv_joint_pair_crossglu_last_identity_state: torch.Tensor | None = None
         self._deepembed_ffn_pre_hook_handle = None
         self._deepembed_ffn_down_pre_hook_handle = None
         self._post_feedforward_norm_hook_handle = None
@@ -1361,11 +1363,13 @@ class DeltaMemAttention(nn.Module):
         self._pending_post_attention_delta = None
         self._pending_outer_ffn_delta = None
         self.rwkv_joint_pair_crossglu_query = None
+        self.rwkv_joint_pair_crossglu_shadow_state = None
         self.rwkv_joint_pair_crossglu_gate_override = None
         self.rwkv_joint_pair_crossglu_gate_shuffle = False
         self.rwkv_joint_pair_crossglu_last_gate = None
         self.rwkv_joint_pair_crossglu_last_value = None
         self.rwkv_joint_pair_crossglu_last_correction = None
+        self.rwkv_joint_pair_crossglu_last_identity_state = None
         self.write_message_ids = None
         self.write_sentence_ids = None
         self.projected_kv_write_key_mask = None
@@ -4383,7 +4387,73 @@ class DeltaMemAttention(nn.Module):
         )
         carrier_rms = stable_exact_rms(projected)
         gain = float(self.rwkv_ms_hybrid_gain)
-        if self.rwkv_ms_hybrid_mode == "residual":
+        if getattr(
+            self,
+            "rwkv_joint_pair_crossglu_identity_vector_gate_enabled",
+            False,
+        ) and self.rwkv_joint_pair_crossglu is not None and self.rwkv_ms_hybrid_mode == getattr(
+            self,
+            "rwkv_joint_pair_crossglu_original_hybrid_mode",
+            self.rwkv_ms_hybrid_mode,
+        ):
+            bridge = self.rwkv_joint_pair_crossglu
+            query = self.rwkv_joint_pair_crossglu_query
+            if query is None:
+                query = projected
+            if tuple(query.shape) != tuple(projected.shape):
+                raise RuntimeError(
+                    "Identity vector-gate query shape differs from projected carrier"
+                )
+            identity_state = self.rwkv_joint_pair_crossglu_shadow_state
+            if identity_state is None:
+                identity_state = recurrent
+            elif tuple(identity_state.shape) != tuple(recurrent.shape):
+                raise RuntimeError(
+                    "Identity vector-gate shadow state shape differs from recurrent read"
+                )
+            recurrent_present = recurrent.float().square().sum(
+                dim=-1,
+                keepdim=True,
+            ).gt(0.0)
+            identity_state = torch.where(
+                recurrent_present,
+                identity_state,
+                torch.zeros_like(identity_state),
+            )
+            _, mapped_state, pair_features = bridge.pair_features(
+                query,
+                identity_state,
+            )
+            gate = bridge.max_gain * torch.sigmoid(
+                bridge.temperature * bridge.gate_proj(pair_features.float())
+            )
+            gate_override = self.rwkv_joint_pair_crossglu_gate_override
+            if gate_override is not None:
+                if tuple(gate_override.shape) != tuple(gate.shape):
+                    raise ValueError(
+                        "Identity vector-gate override shape differs from computed gate"
+                    )
+                gate = gate_override
+            elif self.rwkv_joint_pair_crossglu_gate_shuffle:
+                gate = torch.roll(gate, shifts=1, dims=-1)
+            value = bridge.output_proj(
+                bridge.value_proj(mapped_state.float())
+            )
+            value_rms = stable_exact_rms(value)
+            value_direction = torch.tanh(value / value_rms.clamp_min(1e-6))
+            identity_rms = stable_exact_rms(identity_state.float())
+            identity_direction = torch.tanh(
+                identity_state.float() / identity_rms.clamp_min(1e-6)
+            )
+            correction = carrier_rms * gate * (
+                0.5 * identity_direction + 0.5 * value_direction
+            )
+            fused = projected + correction
+            self.rwkv_joint_pair_crossglu_last_gate = gate
+            self.rwkv_joint_pair_crossglu_last_value = value
+            self.rwkv_joint_pair_crossglu_last_correction = correction
+            self.rwkv_joint_pair_crossglu_last_identity_state = identity_state
+        elif self.rwkv_ms_hybrid_mode == "residual":
             fused = projected + gain * carrier_rms * recurrent_direction
         elif self.rwkv_ms_hybrid_mode == "alignment_residual":
             alignment = (

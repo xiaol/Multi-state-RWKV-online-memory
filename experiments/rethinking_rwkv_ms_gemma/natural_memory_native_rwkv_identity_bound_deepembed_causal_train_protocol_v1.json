@@ -1,0 +1,97 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_identity_bound_deepembed_causal_train_protocol.v1",
+  "created_at": "2026-08-20T10:00:00+08:00",
+  "objective": "Learn a projected-value to addressed-RWKV identity binder while retaining the causal-passing address-keyed DeepEmbed outer-FFN adapter.",
+  "authorization_basis": {
+    "warm_start_result_file": "local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json",
+    "warm_start_result_file_sha256": "95376ed78da98cf36183146ce56a3623988e94645723c9b34aee0510e0457545",
+    "warm_start_result_receipt": "7afee3fd1d88c7db91c86dd3f7febfd80656a35d54971fd824623a29883dba8e",
+    "warm_start_status": "address_keyed_moe_deepembed_ffn_serialized_graphs_heldout_passed_generation_authorized",
+    "method_change": "Preserve the warm-start address-keyed DeepEmbed path and add per-layer learned projected-value/RWKV pair maps plus a bounded identity gate trained with a matched-donor hinge."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "native_dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "eight_update_schedule_prefix_sha256": "108b83ce2f2dd590c6ad45c7d46affeb4fd01afddee08dce35b2d5d18219876d",
+    "seed": 117,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "identity_binder": "learned_projected_value_rwkv_pair_score",
+    "identity_target": "detached_projected_slot_value",
+    "identity_score": "cosine(residual_map(projected_value),residual_map(addressed_rwkv_read)) + learned_pair_residual",
+    "identity_negative": "same target projected carrier and projected slot value paired with a source-and-donor-disjoint matched donor RWKV state",
+    "identity_binder_hidden_dim": 8,
+    "identity_gate": "sigmoid(4 * (score - 0) - 2) times bounded carrier-RMS recurrent direction",
+    "forward_output_changed": true,
+    "zero_state_exact_projected_only": true,
+    "projected_carrier_and_route_frozen": true,
+    "warm_start_adapter": "address_keyed_moe_deepembed_ffn_causal_train_v5_r1",
+    "outer_ffn_layers": [10, 21, 31, 41]
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW",
+    "optimizer_updates": 8,
+    "global_batch_rows": 4,
+    "local_rows_per_rank": 1,
+    "answer_objective": "warm-start DeepEmbed answer CE plus active zero/donor/layer-permuted CE hinges",
+    "identity_objective": "per-layer per-answer-token hinge(max(0, margin - correct binder score + donor binder score))",
+    "identity_margin": 0.2,
+    "identity_weight": 1.0,
+    "identity_query_gradient": "detached projected slot value",
+    "identity_state_gradient": "live through binder and RWKV read",
+    "control_branch_graph_serialization_enabled": true,
+    "optimizer_state_cpu_offload_enabled": true
+  },
+  "heldout_causal_endpoint": {
+    "selection": "Fresh source-and-donor-disjoint open-fit rows retained by the prior projected-value identity endpoint after its schedule and prior signed endpoint exclusions.",
+    "source_ordinals": [1002, 1431, 1161, 1128, 1189, 1232, 1437, 1220, 718, 805, 1331, 546, 472, 973, 101, 1154],
+    "source_donor_payload_sha256": "94a7ce9e5c1ee6d649daa3d377e5433956ac891fc1ec13625f7e89b34f06d75b",
+    "rows": 16,
+    "required_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "required_identity_metrics": {
+      "mean_correct_minus_donor_score": 0.0,
+      "minimum_positive_row_fraction": 0.75,
+      "minimum_positive_element_fraction": 0.75
+    },
+    "all_condition_logits_finite": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_eight_updates_complete": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "projected_carrier_fixed_for_every_intervention": true,
+    "heldout_identity_endpoint_passed": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true
+  },
+  "stopping_rule": {
+    "training_failure": "Do not interpret the endpoint; archive the signed failure.",
+    "endpoint_pass": "Authorize a separately locked native generation benchmark against projected-only and recurrent controls.",
+    "endpoint_failure": "Block generation and use the signed identity and CE margins to revise the binder, not its gain or duration.",
+    "always": "Do not open publisher validation/test, Hard32, or the unused strength holdout."
+  },
+  "claim_policy": {
+    "endpoint_pass": "May claim held-out learned projected-value/RWKV identity and teacher-forced causal preference on this open-fit endpoint.",
+    "native_gain": "Forbidden until a separately locked native benchmark beats the strongest projected/base model and recurrent controls."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "e52bef493088d48ec71744c1e5bfb4c569df865cf7c6de9f6572418a133432df"
+  }
+}

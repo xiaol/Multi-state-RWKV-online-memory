@@ -587,6 +587,31 @@ backward. This retains the proven hybrid carrier and changes only the failed
 compatibility objective; another gain increase or larger batch would not
 address the observed geometry.
 
+That projected-value target and its learned identity-bound DeepEmbed follow-up
+have now both completed. The final binder run froze the causal-passing learned
+writer and sparse DeepEmbed adapter, trained only 168 binder tensors on exactly
+four A100s, and completed all eight updates without OOM. On its fresh 16-row
+endpoint, zero-minus-correct and layer-permuted-minus-correct CE were
+`+1.301495` and `+0.285514`, but matched-donor-minus-correct was `-0.007757`.
+The learned binder score also preferred the donor by `0.002040`, with correct
+positive on only `43.75%` of rows. The signed status is
+`identity_bound_deepembed_heldout_failed_generation_blocked`, result SHA-256
+is `90aa3aba6fd7ec885f16f344801ea8575825dce07103a37dc90b821d6fc9ba46`,
+and receipt is
+`96f782b35e2d920c72a07cc01d323f3fd4a9c1177d338d93e2b5561518871c96`.
+No native benchmark or SOTA gain is claimed.
+
+The Full-Bandwidth Transformer review changes the next architectural question
+from another one-pass gate to renewed computation depth. The next bounded test
+executes the learned writer exactly once, snapshots its state, and runs
+detached, read-only shadow replay through the same sparse DeepEmbed path for up
+to eight passes. It must beat matched-donor, donor-state-plus-donor-shadow,
+zero, layer-permuted, shuffled, random, and disabled-shadow controls and show a
+contracting replay tail before any live-gradient two-pass causal training or
+native benchmark is authorized. See the
+[paper review](experiments/rethinking_rwkv_ms_gemma/FULL_BANDWIDTH_RWKV_REVIEW.md)
+for the transfer boundary and stopping gates.
+
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),
 [hybrid screen protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_projected_rwkv_hybrid_screen_protocol_v1.json),

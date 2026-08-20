@@ -250,31 +250,42 @@ def _backward_logits_with_value_identity(
     base._pending_donor_batch = None
     if donor_batch is None:
         raise RuntimeError("Projected-value identity donor batch is missing")
-    positive_score = _checkpointed_positive_value_score(model, target_batch, dtype=dtype)
-    donor_score, audit = _checkpointed_donor_value_score(
-        model, target_batch, donor_batch, dtype=dtype
-    )
-    if not bool(torch.isfinite(torch.cat((positive_score.flatten(), donor_score.flatten()))).all()):
+    with torch.no_grad():
+        probe_positive = _checkpointed_positive_value_score(model, target_batch, dtype=dtype)
+        probe_donor, audit = _checkpointed_donor_value_score(
+            model, target_batch, donor_batch, dtype=dtype
+        )
+    if not bool(torch.isfinite(torch.cat((probe_positive.flatten(), probe_donor.flatten()))).all()):
         raise RuntimeError("Projected-value identity checkpoint produced non-finite scores")
     base._identity_metrics["projected_carrier_fixed_rows"] += float(
         audit["projected_carrier_references_fixed"]
     )
     active, hinge = value_identity.active_hinge(
-        positive_score, donor_score, margin=IDENTITY_MARGIN
+        probe_positive, probe_donor, margin=IDENTITY_MARGIN
     )
-    positive_value = float(positive_score.detach().mean().item())
-    donor_value = float(donor_score.detach().mean().item())
+    active = active.detach()
+    positive_value = float(probe_positive.mean().item())
+    donor_value = float(probe_donor.mean().item())
     hinge_value = float(hinge.detach().mean().item())
-    scale = IDENTITY_WEIGHT / causal_train.GLOBAL_BATCH_SIZE / positive_score.numel()
+    score_elements = probe_positive.numel()
+    scale = IDENTITY_WEIGHT / causal_train.GLOBAL_BATCH_SIZE / score_elements
+    del probe_positive, probe_donor
     value_identity.clear(model)
     reset_delta_mem_states(model)
     evolution.release_native_row_allocator_cache(device)
     if bool(active.any().item()):
+        positive_score = _checkpointed_positive_value_score(model, target_batch, dtype=dtype)
         (-positive_score * active).sum().mul(scale).backward()
+        del positive_score
         value_identity.clear(model)
         reset_delta_mem_states(model)
         evolution.release_native_row_allocator_cache(device)
+        donor_score, donor_audit = _checkpointed_donor_value_score(
+            model, target_batch, donor_batch, dtype=dtype
+        )
         (donor_score * active).sum().mul(scale).backward()
+        del donor_score
+        audit = donor_audit
     value_identity.clear(model)
     reset_delta_mem_states(model)
     evolution.release_native_row_allocator_cache(device)
@@ -287,7 +298,6 @@ def _backward_logits_with_value_identity(
     metrics["active_elements"] += float(active.sum().item())
     metrics["elements"] += float(active.numel())
     del active, hinge
-    del positive_score, donor_score
     return result
 
 

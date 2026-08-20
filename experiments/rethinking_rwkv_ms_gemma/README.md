@@ -460,10 +460,40 @@ native generation was never authorized, and no native benchmark claim follows.
 The signed causal result is
 `local_artifacts/natural_memory_native_rwkv_joint_pair_crossglu_causal_train_v1/result.json`.
 
-The next goal is a separately locked two-pass Jacobi-style read-feedback
-diagnostic on the already causal-passing `address_keyed_moe_deepembed_ffn`
-branch, with per-layer donor InfoNCE and recurrence-contraction checks. The
-full paper-to-RWKV review lists that route and the other bounded alternatives.
+The subsequent identity-bound DeepEmbed run kept the causal-passing
+address-keyed writer and sparse DeepEmbed adapter frozen and trained only 168
+binder tensors (`107,856` parameters). The four-A100 execution completed all
+eight updates and 64 rows with finite nonzero gradients, serialized control
+graphs, CPU gradient accumulation, and no OOM. Its fresh 16-row endpoint still
+rejected state identity:
+
+| held-out metric | result |
+| --- | ---: |
+| zero-minus-correct CE | +1.301495 |
+| donor-minus-correct CE | **-0.007757** |
+| layer-permuted-minus-correct CE | +0.285514 |
+| correct-minus-donor binder score | **-0.002040** |
+| donor-positive CE / binder rows | **43.75% / 43.75%** |
+
+The signed status is
+`identity_bound_deepembed_heldout_failed_generation_blocked`, result SHA-256
+is `90aa3aba6fd7ec885f16f344801ea8575825dce07103a37dc90b821d6fc9ba46`,
+and receipt is
+`96f782b35e2d920c72a07cc01d323f3fd4a9c1177d338d93e2b5561518871c96`.
+Zero and layer-permutation controls prove that the state path and layer layout
+matter, but a matched donor remains better than the correct state. Native
+generation was not opened, and this route establishes no native or SOTA gain.
+
+The next goal is an exact-source, detached shadow-replay mechanics diagnostic.
+Execute the learned writer once, snapshot its RWKV and projected states, and
+run read-only replay passes through the same sparse DeepEmbed feature path.
+Compare correct, matched-donor, donor-state-plus-donor-shadow, zero, layer-
+permuted, row-shuffled, random, and disabled-shadow controls while measuring
+`delta_k` through eight passes. This is Jacobi-inspired rather than true Jacobi
+training because the mechanics screen detaches the replay state. Only a donor-
+specific, contracting mechanics pass may authorize a separately locked two-
+pass live-gradient causal run. The full paper-to-RWKV review lists that route
+and the other bounded alternatives.
 See [FULL_BANDWIDTH_RWKV_REVIEW.md](FULL_BANDWIDTH_RWKV_REVIEW.md) for
 equations, reported results, caveats, factorial controls, and stopping gates.
 
