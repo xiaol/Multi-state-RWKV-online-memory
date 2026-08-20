@@ -1,0 +1,114 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_v5_shadow_predictor_recurrent_mechanics_protocol.v1",
+  "created_at": "2026-08-21T00:00:00+08:00",
+  "objective": "Run a signed exact-v5 two-stage open-row mechanics experiment that first re-establishes shadow identity at causal predictor positions and, only after that gate passes, tests detached-shadow/live-value recurrent feedback without changing or saving model weights.",
+  "authorization_basis": {
+    "shadow_crossfit_result": "local_artifacts/natural_memory_native_rwkv_v5_shadow_crossfit_v1/result.json",
+    "shadow_crossfit_result_sha256": "c3607fbc6f42b6a2ebcdfab7d5cdf399e5b8e4c8ab52a1c707e8f1d19d44108d",
+    "shadow_crossfit_receipt": "4ba137387216a8f2bc2c5562a764b4f340afa795cc4dbc88d4d2cf0ea470443c",
+    "authorization_scope": "separately signed recurrent mechanics design only"
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "dataset": "v4-scene-boundary-detection/train_derived_development.jsonl",
+    "dataset_sha256": "b383625cee07e6a7565142e38bb0b0a4d4a2468b2c91171570115b7b311e1e68",
+    "authorized_open_rows": 220,
+    "hf_endpoint": "https://hf-mirror.com",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_v5_delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "required_source_root_environment": "RWKV_V5_EXACT_SOURCE_ROOT",
+    "capture_seed": 119,
+    "head_seed": 114
+  },
+  "hardware": {
+    "world_size": 4,
+    "accelerators": "exactly four distinct NVIDIA A100 GPUs",
+    "stage1_sharding": "source_index modulo four",
+    "stage2_sharding": "hash-selected heldout sources in sorted ordinal round-robin order",
+    "stage2_rows_per_rank": 11
+  },
+  "stage1_predictor_crossfit": {
+    "fresh_capture_required": true,
+    "feature_positions": "causal predictors selected by labels[:,1:] != -100 and shifted one token left",
+    "feature_shape_per_row": "answer_predictor_tokens by 42 layers by 32 state dimensions",
+    "conditions": [
+      "untouched target state",
+      "untouched matched-donor recurrent state with target projected carrier",
+      "cyclic layer-permuted target recurrent state with target projected carrier"
+    ],
+    "model_output_changed_during_capture": false,
+    "split_salt": "rwkv-v5-shadow-crossfit-v1:",
+    "train_rows": 176,
+    "heldout_rows": 44,
+    "donor_component_disjoint": true,
+    "head": "new per-layer identity-plus-rank4 residual bilinear head",
+    "optimizer": "AdamW for 512 train-only steps at learning-rate 0.01 and weight-decay 0.001",
+    "thresholds": "per-layer midpoint of the train-only 0.05 correct-score quantile and 0.95 max-negative-score quantile",
+    "heldout_used_for_training_thresholds_or_selection": false,
+    "pass_gates": {
+      "donor_token_pairwise_positive_fraction_minimum": 0.95,
+      "donor_row_pairwise_positive_fraction_minimum": 0.95,
+      "donor_mean_gap_minimum": 0.05,
+      "layer_permuted_token_pairwise_positive_fraction_minimum": 0.95,
+      "layer_permuted_row_pairwise_positive_fraction_minimum": 0.95,
+      "all_scores_finite": true
+    }
+  },
+  "stage2_recurrent_mechanics": {
+    "execution_gate": "run only when every stage1 heldout gate passes",
+    "rows": "exactly the 44 stage1 heldout open rows",
+    "state_capture": "one target write and one matched-donor write per rank batch, followed by detached immutable clones",
+    "read_invariant": "no writes during any baseline, condition, or recurrent pass read",
+    "passes": 8,
+    "identity": "detached token-causal predictor-position shadow only gates",
+    "material_value": "live current-condition RWKV recurrent read",
+    "correction_mask": "exactly supervised causal predictor positions; all other token corrections are exact zero",
+    "feedback": "for pass k greater than one, mask pass k-1 detached live RWKV values to causal predictors and inject them one token right through a pre-hook before attention query/read formation",
+    "feedback_projection": "frozen signed-v5 delta_o_proj",
+    "conditions": [
+      "correct",
+      "donor-shadow",
+      "donor-pair",
+      "zero",
+      "layer-permuted",
+      "row-shuffled",
+      "norm-random",
+      "fixed-correct-gate donor-value",
+      "correct-no-feedback",
+      "disabled"
+    ],
+    "control_semantics": {
+      "row-shuffled": "shuffle only the detached shadow rows while retaining target live recurrent state and target original-v5 fusion",
+      "norm-random": "replace only the detached shadow with a norm-matched random shadow while retaining target live recurrent state and target original-v5 fusion",
+      "fixed-correct-gate donor-value": "retain target recurrent state, target original-v5 fusion, correct shadow, and correct gate; substitute the detached donor baseline read only inside the certified binder material-value input and its replay source"
+    },
+    "material_control_gate": "At pass one and pass eight, at least 0.95 of heldout rows must have at least 0.95 of supervised predictor-logit vectors differ from correct for donor-shadow, donor-pair, zero, layer-permuted, row-shuffled, norm-random, and fixed-correct-gate donor-value.",
+    "feedback_and_disabled_gates": "Correct-no-feedback must equal correct exactly at pass one and materially differ on at least 0.95 of rows at pass eight; disabled must materially differ on at least 0.95 of rows at both pass one and pass eight.",
+    "reports": [
+      "overall first-token and later-token cross entropy by condition and pass",
+      "mean live-value pass deltas",
+      "final-three-step tail contraction at ratio 0.95",
+      "correct pass two differs from pass one",
+      "disabled logits collapse exactly across all passes",
+      "target and donor immutable state hashes before and after all reads",
+      "per-row predictor-logit changed fractions versus correct at pass one and pass eight",
+      "condition-minus-correct overall first-token and later-token cross entropy with positive-row fractions",
+      "write_enabled is false after every baseline and condition read"
+    ]
+  },
+  "stopping_rule": {
+    "stage1_fail": "stop before installing or running recurrent mechanics",
+    "stage1_pass": "run stage2 mechanics only; do not authorize training or generation",
+    "always": "open rows only; do not open publisher validation, test, Hard32, strength holdout, or any protected split"
+  },
+  "model_or_adapter_training_authorized": false,
+  "generation_authorized": false,
+  "adapter_saved": false,
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "c6f8393baf0b8ef778f6b9125c9b26887ac844bbd4f62213c0e2e39d7ff2630c"
+  }
+}
