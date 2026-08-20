@@ -628,17 +628,26 @@ generation remains blocked. The result SHA-256 is
 and receipt is
 `3489154f6bae3feadd3510ca2aeddce31dea3fb3d5e5f995c043bf466c544959`.
 
-The Full-Bandwidth Transformer review therefore motivates identity transport,
-not another predictor-state classifier. The next bounded family will derive an
-identity latch once from the causal prompt boundary, shift that latch across
-answer predictors, use it to query the immutable exact-v5 RWKV online state,
-and pass the live RWKV value through a sparse outer FFN before early-layer
-fusion. This gives RWKV the material keyed-memory role while the shifted latch
-prevents every predictor token from having to rediscover source identity.
-Wrong-latch, wrong-state, paired-wrong, zero, layer-permuted, shuffled, random,
-and disabled controls must pass on a new pre-signed donor-disjoint mechanics
-screen, followed by eight-pass contraction, before any live-gradient training
-or native benchmark is authorized. See the
+The pre-signed prompt-latched follow-up also failed before model mechanics. It
+excluded the earlier 44 held-out rows, formed a new donor-component-disjoint
+`132/44` split from the former fit rows, and expanded only the first causal
+predictor query across each answer. Held-out donor row fraction (`0.954545`),
+mean gap (`0.054514`), layer-permuted separation (`1.0`), and finiteness passed,
+but donor token fraction was only `0.919414` against the locked `0.95` gate.
+No model was loaded and no weights, Stage 2, generation, or protected split
+were opened. Result SHA-256 is
+`4f7c4aa1f715157e95cd753842b79d28f94b3356e318ef5c7c09e911456f8aac`
+and receipt is
+`de1a677ce8b77e5c1f16eb9f9601d93c1140feffdf8adc60922e8cf671b01979`.
+
+Read-side identity recovery and prompt-latch transport are therefore retired.
+The next distinct family binds a discrete slot code when exact-v5 RWKV state is
+written and requires the same code when it is read. Projected keys may locate
+the slot, but the full RWKV vector must remain the material value through a
+sparse outer FFN and early fusion. Code-swap, donor-state, paired donor-code,
+zero, layer-permutation, shuffle, random, disabled, immutability, and
+contraction controls must pass on a new pre-signed split before any training or
+native benchmark is authorized. See the
 [paper review](experiments/rethinking_rwkv_ms_gemma/FULL_BANDWIDTH_RWKV_REVIEW.md)
 for the transfer boundary and stopping gates.
 
@@ -712,6 +721,9 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [causal-predictor recurrent protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics_protocol_v1.json),
 [causal-predictor recurrent runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics.py),
 [signed causal-predictor identity failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics_v1/result.json),
+[PLAT prompt-latch protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_plat_prompt_latch_crossfit_protocol_v1.json),
+[PLAT prompt-latch runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_plat_prompt_latch_crossfit.py),
+[signed PLAT identity failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_plat_prompt_latch_crossfit_v1/result.json),
 [locked address-keyed native protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
 [signed address-keyed native failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [address-keyed native evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py),

@@ -520,16 +520,28 @@ generation, or protected evaluation occurred. Result SHA-256 is
 and receipt is
 `3489154f6bae3feadd3510ca2aeddce31dea3fb3d5e5f995c043bf466c544959`.
 
-That family is retired rather than tuned against held-out results. The next
-bounded family will transport a prompt-bound identity latch across causal
-answer predictors instead of independently recovering identity from every
-predictor hidden state. The latch will query an immutable exact-v5 RWKV state;
-the live RWKV read remains the material value and a sparse outer FFN renews its
-computation depth before early-layer fusion. A new pre-signed donor-disjoint
-screen must pass wrong-latch, wrong-state, paired-wrong, zero, layer-permuted,
-row-shuffled, norm-random, disabled, and eight-pass contraction controls before
-any live-gradient training or native benchmark is authorized. The full
-paper-to-RWKV review defines the transfer boundary.
+That family is retired rather than tuned against held-out results. Its
+pre-signed prompt-latched follow-up then excluded those 44 held-out rows and
+formed a new donor-component-disjoint `132/44` split from the former fit rows.
+It expanded the first causal predictor query byte-identically across each
+answer while leaving all recurrent features unchanged. Held-out donor row
+fraction was `0.954545`, mean gap was `0.054514`, and layer-permuted token and
+row fractions were `1.0`, but donor token fraction was only `0.919414` against
+the locked `0.95` gate. The status is
+`plat_prompt_latch_crossfit_failed_family_retired`; no model, weights, Stage 2,
+generation, or protected split were opened. Result SHA-256 is
+`4f7c4aa1f715157e95cd753842b79d28f94b3356e318ef5c7c09e911456f8aac`
+and receipt is
+`de1a677ce8b77e5c1f16eb9f9601d93c1140feffdf8adc60922e8cf671b01979`.
+
+The next bounded family moves identity to the write path: assign a discrete
+slot code when exact-v5 RWKV state is written and require the same code during
+read. Projected keys may locate a slot, but only the full RWKV vector supplies
+the material value to a sparse outer FFN and early fusion. A new pre-signed
+screen must pass code-swap, donor-state, paired donor-code/state, zero,
+layer-permuted, shuffled, random, disabled, immutability, and contraction
+controls before any live-gradient training or native benchmark is authorized.
+The full paper-to-RWKV review defines the transfer boundary.
 See [FULL_BANDWIDTH_RWKV_REVIEW.md](FULL_BANDWIDTH_RWKV_REVIEW.md) for
 equations, reported results, caveats, factorial controls, and stopping gates.
 
@@ -549,6 +561,9 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [causal-predictor recurrent protocol](natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics_protocol_v1.json),
 [causal-predictor recurrent runner](run_natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics.py),
 [signed causal-predictor identity failure](local_artifacts/natural_memory_native_rwkv_v5_shadow_predictor_recurrent_mechanics_v1/result.json),
+[PLAT prompt-latch protocol](natural_memory_native_rwkv_plat_prompt_latch_crossfit_protocol_v1.json),
+[PLAT prompt-latch runner](run_natural_memory_native_rwkv_plat_prompt_latch_crossfit.py),
+[signed PLAT identity failure](local_artifacts/natural_memory_native_rwkv_plat_prompt_latch_crossfit_v1/result.json),
 [locked address-keyed generation protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
 [signed address-keyed native failure](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [learned-write causal protocol](natural_memory_native_rwkv_address_keyed_learned_write_causal_train_protocol_v1.json),

@@ -528,14 +528,20 @@ teacher-forced answer positions, not as causal model use. The causal-predictor
 replication subsequently failed its token and mean-gap gates, so the detached
 per-token shadow family is retired and recurrent mechanics remain unexecuted.
 
-The next paper-inspired move is **identity transport rather than identity
-recovery**. Derive a latch once from the causal prompt boundary, shift it across
-answer predictors, and use that stable address to query immutable exact-v5
-RWKV state. RWKV remains the material online key/value store; a sparse outer
-FFN transforms the live read before early-layer fusion and shifted feedback
-renews its computation depth. This is distinct from the paper's token gate and
-must be established independently with wrong-latch, wrong-state, paired-wrong,
-zero, permutation, shuffle, random, disabled, immutability, and eight-pass
-contraction controls on a new pre-signed donor-disjoint split. The paper does
-not establish matched-state identity, so any eventual native benchmark claim
-remains separate from its single-state feedback evidence.
+Prompt-latched identity transport was tested once on a new nested `132/44`
+donor-component split that excluded the earlier held-out rows. It raised the
+held-out donor mean gap to `0.054514` and retained `0.954545` row separation,
+but token separation reached only `0.919414` against the precommitted `0.95`
+gate. The family is retired without model mechanics or training.
+
+The next move is **write-time slot-code binding** rather than another read-side
+classifier or latch. Assign one discrete identity code when exact-v5 RWKV state
+is written, bind that code to the stored value dynamics, and require the same
+code on read. Projected keys may locate the slot but cannot supply the output;
+the full live RWKV vector remains the material value through a sparse outer FFN
+and early fusion. A new pre-signed donor-component split must test code swap,
+donor state, paired donor code/state, zero, permutation, shuffle, random,
+disabled, immutability, and eight-pass contraction. Full-bandwidth feedback is
+eligible only after those identity controls pass. The paper does not establish
+multi-state or slot-code identity, so any eventual native benchmark claim
+remains separate from its evidence.
