@@ -534,14 +534,29 @@ generation, or protected split were opened. Result SHA-256 is
 and receipt is
 `de1a677ce8b77e5c1f16eb9f9601d93c1140feffdf8adc60922e8cf671b01979`.
 
-The next bounded family moves identity to the write path: assign a discrete
-slot code when exact-v5 RWKV state is written and require the same code during
-read. Projected keys may locate a slot, but only the full RWKV vector supplies
-the material value to a sparse outer FFN and early fusion. A new pre-signed
-screen must pass code-swap, donor-state, paired donor-code/state, zero,
-layer-permuted, shuffled, random, disabled, immutability, and contraction
-controls before any live-gradient training or native benchmark is authorized.
-The full paper-to-RWKV review defines the transfer boundary.
+The discrete PLMSC write/read alignment family has also been executed exactly
+once and retired. On its locked 34-row mechanics split, correct agreement was
+`0.433824` per anchor and `0.058824` per complete row against `0.95` gates.
+Matched-donor and cyclic layer-permuted anchor collisions were `0.132353` and
+`0.139706` against a maximum `0.03`; layer-10 query assignments collapsed to
+three codes with a `0.6471` maximum fraction. The signed status is
+`plmsc_code_alignment_failed_family_retired`, result SHA-256 is
+`b7dce00737c928abc13729b19e24ccfe803b9dce6dde62b9d9d944971a295544`,
+and receipt is
+`23c7cfdf0cdf0fb747010615cfe271ae7d7c0cddd7bd9a90401179033100fda7`.
+The untouched causal 34 remained unopened, un-tokenized, and un-forwarded; no
+model/code-map weights, generation, native benchmark, or SOTA claim were
+authorized.
+
+The next bounded family removes the discrete codebook. A continuous vector
+derived from the outer write address will condition the exact-v5 RWKV write
+key/update, while only the full RWKV state supplies the material value to the
+sparse outer FFN and early fusion. Its fresh pre-signed mechanics split must
+exclude every opened PLMSC mechanics row and pass matched-donor,
+address-permutation, donor-address/state, zero-address, layer-permutation,
+prompt-only, state-only, disabled, immutability, and contraction controls
+before any live-gradient training or native benchmark is authorized. The full
+paper-to-RWKV review defines the transfer boundary.
 See [FULL_BANDWIDTH_RWKV_REVIEW.md](FULL_BANDWIDTH_RWKV_REVIEW.md) for
 equations, reported results, caveats, factorial controls, and stopping gates.
 
@@ -564,6 +579,9 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [PLAT prompt-latch protocol](natural_memory_native_rwkv_plat_prompt_latch_crossfit_protocol_v1.json),
 [PLAT prompt-latch runner](run_natural_memory_native_rwkv_plat_prompt_latch_crossfit.py),
 [signed PLAT identity failure](local_artifacts/natural_memory_native_rwkv_plat_prompt_latch_crossfit_v1/result.json),
+[PLMSC v2 protocol](natural_memory_native_rwkv_plmsc_code_alignment_protocol_v2.json),
+[PLMSC v2 runner](run_natural_memory_native_rwkv_plmsc_code_alignment_v2.py),
+[signed PLMSC retirement](local_artifacts/natural_memory_native_rwkv_plmsc_code_alignment_v2/result.json),
 [locked address-keyed generation protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
 [signed address-keyed native failure](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [learned-write causal protocol](natural_memory_native_rwkv_address_keyed_learned_write_causal_train_protocol_v1.json),

@@ -640,14 +640,29 @@ were opened. Result SHA-256 is
 and receipt is
 `de1a677ce8b77e5c1f16eb9f9601d93c1140feffdf8adc60922e8cf671b01979`.
 
-Read-side identity recovery and prompt-latch transport are therefore retired.
-The next distinct family binds a discrete slot code when exact-v5 RWKV state is
-written and requires the same code when it is read. Projected keys may locate
-the slot, but the full RWKV vector must remain the material value through a
-sparse outer FFN and early fusion. Code-swap, donor-state, paired donor-code,
-zero, layer-permutation, shuffle, random, disabled, immutability, and
-contraction controls must pass on a new pre-signed split before any training or
-native benchmark is authorized. See the
+Read-side identity recovery, prompt-latch transport, and discrete PLMSC are
+therefore retired. PLMSC was executed exactly once on four A100s. On its locked
+34-row mechanics split, correct write/query code agreement was only `0.433824`
+per anchor and `0.058824` per complete row against locked `0.95` gates. Matched
+donor and cyclic layer-permuted anchor collisions were `0.132353` and
+`0.139706` against a maximum `0.03`; the layer-10 query collapsed to three
+codes with one code used by `64.71%` of rows. The signed status is
+`plmsc_code_alignment_failed_family_retired`, result SHA-256 is
+`b7dce00737c928abc13729b19e24ccfe803b9dce6dde62b9d9d944971a295544`,
+and receipt is
+`23c7cfdf0cdf0fb747010615cfe271ae7d7c0cddd7bd9a90401179033100fda7`.
+The untouched causal 34 remained unopened, un-tokenized, and un-forwarded; no
+model weights, code maps, generation, native benchmark, or SOTA claim were
+authorized.
+
+The next distinct family removes the discrete codebook. A continuous vector
+derived from the outer write address will condition the exact-v5 RWKV write
+key/update, while the full RWKV state remains the material value through the
+sparse outer FFN and early fusion. It must pass matched-donor,
+address-permutation, donor-address/state, zero-address, layer-permutation,
+prompt-only, state-only, disabled, immutability, and contraction controls on a
+fresh pre-signed mechanics split that excludes every opened PLMSC mechanics
+row before any training or native benchmark is authorized. See the
 [paper review](experiments/rethinking_rwkv_ms_gemma/FULL_BANDWIDTH_RWKV_REVIEW.md)
 for the transfer boundary and stopping gates.
 
@@ -724,6 +739,9 @@ Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural
 [PLAT prompt-latch protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_plat_prompt_latch_crossfit_protocol_v1.json),
 [PLAT prompt-latch runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_plat_prompt_latch_crossfit.py),
 [signed PLAT identity failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_plat_prompt_latch_crossfit_v1/result.json),
+[PLMSC v2 protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_plmsc_code_alignment_protocol_v2.json),
+[PLMSC v2 runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_plmsc_code_alignment_v2.py),
+[signed PLMSC retirement](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_plmsc_code_alignment_v2/result.json),
 [locked address-keyed native protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
 [signed address-keyed native failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [address-keyed native evaluator](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py),
