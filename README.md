@@ -676,8 +676,9 @@ The next distinct family removes the discrete codebook. A continuous vector
 derived from the outer write address will condition the exact-v5 RWKV write
 key/update, while the full RWKV state remains the material value through the
 sparse outer FFN and early fusion. The frozen bias-free address map is locked
-to reduced-rank ridge with rank `16` and ridge `1.0`, chosen only on disposable
-prior-open features. Its SHA-qualified FIT dataset must first be
+to reduced-rank ridge with rank `16` and ridge `1.0`, fixed as a disclosed
+precommitted design choice before the fresh retrieval gate. Its SHA-qualified
+FIT dataset must first be
 split by normalized-passage/32-character-shingle connected components into
 `64` fit, `32` retrieval, `32` mechanics, and `32` causal source rows. Exclude
 the full component closure touching all `98` sources in the bidirectional
@@ -704,6 +705,28 @@ Its manifest SHA-256 is
 and receipt is
 `99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2`;
 fit/retrieval are validated, while mechanics/causal remain sealed.
+
+The one-shot continuous alignment retrieval gate now passes. On exactly four
+A100s, it captured all `42` exact-v5 RWKV modules for the `64` FIT rows, froze
+the rank-`16` maps in memory, and only then opened and captured the `32`
+retrieval rows. Every addressed/global read-basis pair was byte-identical. The
+retrieval donor-positive row fraction is `1.000000` against `0.95`, the mean
+correct-minus-donor gap is `0.069070` against `0.05`, the layer-permuted
+positive row fraction is `1.000000`, and its mean gap is `0.868476`. Exact-zero
+addresses remain exact zero and every active mapped direction is finite and
+nonzero. The signed result SHA-256 is
+`5103a66475b7a596e53a58b8c7cb554e7e400f5825d42ca141bc342dfef8784b`
+with receipt
+`cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd`.
+This establishes source/donor-disjoint full64-to-causal32 identity geometry;
+capture ran in inherited exact-v5 mode, so it does not yet establish live
+continuous-write mechanics, causal donor specificity, generation, native
+benchmark gain, or SOTA. Mechanics and causal bytes remain unopened. The pass
+authorizes only a separately signed continuous-mode mechanics protocol.
+
+Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
+[continuous retrieval runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_retrieval.py),
+and [signed retrieval pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json).
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),

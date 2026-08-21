@@ -104,16 +104,20 @@ class ContinuousWriteConditioner(nn.Module):
         if not bool(torch.isfinite(address).all().item()):
             raise ValueError("Continuous-write address is nonfinite")
         active = address.square().sum(dim=-1, keepdim=True).gt(0.0)
-        mapped = F.linear(F.linear(address, self.down.float()), self.up.float())
+        normalized_address = rwkv_continuous_write_alignment._rms_normalize(address)
+        mapped = F.linear(
+            F.linear(normalized_address, self.down.float()),
+            self.up.float(),
+        )
         if not bool(torch.isfinite(mapped).all().item()):
             raise RuntimeError("Continuous-write active address mapped nonfinitely")
         square_mean = mapped.square().mean(dim=-1, keepdim=True)
         if bool((active & square_mean.le(0.0)).any().item()):
             raise RuntimeError("Continuous-write active address mapped to zero direction")
-        normalized = mapped / square_mean.clamp_min(1e-12).sqrt()
+        normalized = rwkv_continuous_write_alignment._rms_normalize(mapped)
         if not bool(torch.isfinite(normalized).all().item()):
             raise RuntimeError("Continuous-write normalized direction is nonfinite")
-        return torch.where(active, normalized, torch.zeros_like(normalized))
+        return normalized
 
     def forward(
         self,

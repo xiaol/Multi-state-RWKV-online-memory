@@ -576,8 +576,10 @@ exactly zero address must be an exact no-op. The direct identity score is
 axis that reads the recurrent matrix. This is smoother for unseen addresses
 and directly targets the `r`-to-write geometry that PLMSC tried to quantize.
 The precommitted map is bias-free reduced-rank ridge with rank `16` and ridge
-`1.0`; these values come from a disposable prior-open feature screen and must
-remain frozen through the fresh retrieval gate.
+`1.0`. No reusable prior-open diagnostic artifact exists in the worktree, so
+the signed protocol treats these values as a disclosed precommitted design
+choice rather than making a stronger provenance claim. They remain frozen
+through the fresh retrieval gate.
 
 This is distinct from the retired learned rank-2 `k/v/a/b` writer: it uses one
 shared query-aligned latent map, preserves `v`, must pass retrieval before any
@@ -699,6 +701,20 @@ diagonal-sign fallback also failed before mechanics: routed-code and
 encoded-state exactness were `0/64`, while each axis separated `0.976190` of
 donor pairs against the exact `1.0` gate.  Its receipt-valid result is
 `local_artifacts/natural_memory_native_rwkv_bidirectional_sign_development_gate_v2/result.json`.
+
+The continuous alignment's fresh retrieval stage subsequently passed. It fit
+all `42` rank-`16` full64-to-causal32 maps on `64` source/donor-component-safe
+FIT rows before opening the `32` retrieval rows. Donor-positive row fraction
+was `1.0`, mean correct-minus-donor gap was `0.069070`, and both
+layer-permuted row fraction and mean gap passed at `1.0` and `0.868476`.
+Receipt
+`cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd`
+binds the result. This proves causal-boundary identity geometry under the
+unchanged inherited exact-v5 write, not causal use by the continuous writer.
+The next eligible action is a separately signed mechanics gate that loads
+these frozen maps and turns on continuous `k/a/b` conditioning while keeping
+`v` unchanged.
+
 Full-Bandwidth read feedback becomes eligible only after state identity passes
 mechanics and causal controls. The paper does not establish multi-state
 identity, and no native benchmark or SOTA claim is currently authorized.

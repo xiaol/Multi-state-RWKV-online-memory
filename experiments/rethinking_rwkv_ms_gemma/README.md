@@ -567,8 +567,8 @@ The next bounded family removes the discrete codebook. A continuous vector
 derived from the outer write address will condition the exact-v5 RWKV write
 key/update, while only the full RWKV state supplies the material value to the
 sparse outer FFN and early fusion. Its frozen bias-free address map is locked
-to reduced-rank ridge with rank `16` and ridge `1.0`, selected on disposable
-prior-open features rather than the fresh gate. Before capture, its FIT dataset must be
+to reduced-rank ridge with rank `16` and ridge `1.0`, fixed as a disclosed
+precommitted design choice before the fresh gate. Before capture, its FIT dataset must be
 partitioned by normalized-passage/32-character-shingle connected components
 into `64` fit, `32` retrieval, `32` mechanics, and `32` causal source rows.
 Exclude the full component closure touching all `98` sources in the prior
@@ -596,6 +596,30 @@ Its manifest SHA-256 is
 with receipt
 `99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2`;
 default validation read fit/retrieval only and left mechanics/causal sealed.
+
+The signed retrieval stage now passes without a retry. Exactly four A100s
+captured all `42` exact-v5 modules on `64` FIT rows, froze the rank-`16` maps in
+memory, and only then opened the `32` retrieval rows. All addressed/global
+read-basis return bytes matched. Retrieval achieved donor-positive row
+fraction `1.000000`, correct-minus-donor mean gap `0.069070`, layer-permuted
+positive row fraction `1.000000`, and layer-permuted mean gap `0.868476`,
+against locked `0.95`, `0.05`, `0.95`, and `0.05` gates. Zero maps exactly to
+zero and all active directions are finite and nonzero. Result SHA-256 is
+`5103a66475b7a596e53a58b8c7cb554e7e400f5825d42ca141bc342dfef8784b`;
+receipt is
+`cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd`.
+
+This is a fit/retrieval identity result under inherited exact-v5 writes, not a
+live continuous-mode mechanics or causal result. Mechanics and causal bundle
+paths were not opened, hashed, listed, or statted. The pass authorizes only a
+new signed mechanics protocol that loads the frozen maps, enables continuous
+`k/a/b` conditioning with `v` unchanged, and applies the full donor/address,
+permutation, zero, inherited, and raw controls before any causal or benchmark
+claim.
+
+Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
+[continuous retrieval runner](run_natural_memory_native_rwkv_continuous_write_retrieval.py),
+and [signed continuous retrieval pass](local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json).
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),

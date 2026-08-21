@@ -1,0 +1,443 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_retrieval_protocol.v1",
+  "created_at": "2026-08-22T03:50:31+08:00",
+  "objective": "Run one precommitted four-A100 continuous-write identity retrieval gate: capture the immutable full 64-dimensional projected write address and causal 32-dimensional prompt-boundary RWKV receptance on the 64 FIT rows at all 42 exact-v5 memory modules, freeze deterministic rank-16 ridge maps before opening retrieval bytes, capture and evaluate exactly once on the 32 retrieval rows against matched-donor and cyclic layer-permuted controls, and keep mechanics and causal files sealed from byte and metadata access.",
+  "authorization_basis": {
+    "exact_v5_result": "local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json",
+    "exact_v5_result_sha256": "95376ed78da98cf36183146ce56a3623988e94645723c9b34aee0510e0457545",
+    "exact_v5_result_receipt": "7afee3fd1d88c7db91c86dd3f7febfd80656a35d54971fd824623a29883dba8e",
+    "exact_v5_status": "address_keyed_moe_deepembed_ffn_serialized_graphs_heldout_passed_generation_authorized",
+    "continuous_write_parent_commit": "d9713394fd725887eb6eec85472bdab37b4b7a58",
+    "continuous_write_manifest": "local_artifacts/natural_memory_native_rwkv_continuous_write_open_fit_v1/manifest.json",
+    "continuous_write_manifest_file_sha256": "c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468",
+    "continuous_write_manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+    "continuous_write_split_schema": "rwkv_ms_continuous_write_fit_split.v2",
+    "continuous_write_split_receipt": "d9ad640c208aae6983ce603f5d1918b06ab4ba9e93ed935d9cbfe1ac25f4801a",
+    "manifest_protected_splits_opened": [],
+    "split_protected_splits_opened": [],
+    "split_sealed_bundle_bytes_read": false
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "adapter_directory": "local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/adapter",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "required_source_root_environment": "RWKV_V5_EXACT_SOURCE_ROOT",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_v5_delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "adapter_loading": "strict saved HFDeltaMemConfig topology plus complete delta_mem_adapter.pt",
+    "config_overrides": [],
+    "initialize_missing_parameters": false,
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "memory_backend": "rwkv_ms",
+    "projected_kv_key_dim": 64,
+    "state_read_dim": 32,
+    "rwkv_memory_rank": 32,
+    "rwkv_num_states": 4,
+    "learned_write_installed": false,
+    "model_or_adapter_parameters_updated": false
+  },
+  "open_fit_materialization": {
+    "dataset_namespace": "novel-agent-sft-dataset:publisher-train-derived-fit",
+    "dataset_path": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "dataset_rows": 1443,
+    "selection_metadata_payload_sha256": "ba54f2c9d0acd8797930fb9cfa649d94fd7ff026103241d5f071e1d2a8f4466d",
+    "selection_metadata_fields": [
+      "source_index",
+      "row_sha256",
+      "gold_sha256",
+      "write_tokens",
+      "passage_signature_sha256s"
+    ],
+    "selection_metadata_only": true,
+    "capture_authorization": {
+      "capture_splits": [
+        "fit",
+        "retrieval"
+      ],
+      "captured_rows": 96,
+      "sealed_inventory_only_splits": [
+        "mechanics",
+        "causal"
+      ],
+      "sealed_rows": 64
+    },
+    "fit_bundle": {
+      "path": "fit.jsonl",
+      "rows": 64,
+      "bytes": 191203,
+      "sha256": "4984e7de044f7befc2c3fdba8a0d8c08f627dcc4b168abbd8090393cca49c2fc",
+      "payload_sha256": "41d9e117997e60b808895f4ae8ea63a6fa643ba97d44c6878be5b442eeb76318",
+      "source_indices_sha256": "0712052436346b194e2219147f511ec22e10ae6ab688553f773dbe53c9a94636",
+      "qualified_source_ids_sha256": "9446b172b0d28404bb25544d4c8ef8c7399f7996a5ddaa881195ba823742e424",
+      "qualified_mapping_pairs_sha256": "82109bd7fd84185154d0026cf0b20da52be94faf192b48565866bd6c716488db",
+      "row_sha256s_sha256": "92c0a55a92eae5d17c647a5adcdfcb3a736823b8c8592c0c42c544b70cca338b"
+    },
+    "retrieval_bundle": {
+      "path": "retrieval.jsonl",
+      "rows": 32,
+      "bytes": 105688,
+      "sha256": "2083394ac902745617827039c8b61f71ff76dee3f6ddd128d932fd92c400e7c7",
+      "payload_sha256": "02a21f010446131ee994992d662cf16d896d2f4dde5a47f8dadd024b758ae112",
+      "source_indices_sha256": "b36fb25f01e631f329535eab4a32b7f9654c1cd46252bd816ff108785154b834",
+      "qualified_source_ids_sha256": "9f4e0557b1f3ed32493ad49d25519d444d97ff45fff8b5316759a6a69a1e8474",
+      "qualified_mapping_pairs_sha256": "3f1c6c4d29f2f8c720fe570d186415ee705ebf37b7ca4ccd04d0f1ef86069d3e",
+      "row_sha256s_sha256": "6516f25db2a5b635956f98db47a19a8dee6f757a9069177562bf9ff5e34bb954"
+    },
+    "sealed_inventory_from_manifest_only": {
+      "mechanics": {
+        "path": "mechanics.jsonl",
+        "rows": 32,
+        "bytes": 104357,
+        "sha256": "7a5421df97d295328a95953590010318bfc1361db0402243809bd13c094badd9"
+      },
+      "causal": {
+        "path": "causal.jsonl",
+        "rows": 32,
+        "bytes": 86001,
+        "sha256": "5920ca8c688f4c26e8b55c5c48eefb7c067016bb931dd3b5c210edd1f4d3e925"
+      },
+      "mechanics_bytes_read": false,
+      "causal_bytes_read": false
+    }
+  },
+  "source_dependencies": [
+    {
+      "role": "bias_free_reduced_rank_ridge_and_metrics",
+      "basename": "rwkv_continuous_write_alignment.py",
+      "sha256": "f7c51bdcf518763ba6e9e63976d75a8cdcfc518b4d9ba593a4fcc4de62a404cb"
+    },
+    {
+      "role": "full_address_latch_and_runtime_conditioner",
+      "basename": "rwkv_continuous_write_integration.py",
+      "sha256": "446281bf1d762e7e9462e173192eefcaeafb79104e375a9a54bef2503c0e2291"
+    },
+    {
+      "role": "dataset_qualified_component_disjoint_split",
+      "basename": "rwkv_continuous_write_fit_split.py",
+      "sha256": "3676ec5ce332088ebc78c75ff65a0822fe3ed0037e7d49cd1c0c8228a45d92a6"
+    },
+    {
+      "role": "five_file_open_fit_materializer_and_firewall",
+      "basename": "materialize_natural_memory_native_rwkv_continuous_write_open_fit.py",
+      "sha256": "f1e5806bb467bfdd377e374845cdafb90ece1b67d6eba9744b6ef48de0c9bdd9"
+    },
+    {
+      "role": "model_and_tokenizer_loader",
+      "basename": "common.py",
+      "sha256": "8c2863eeea3701f557edf180391586fbc838ce357f3f4e53d8a2292fe4f853e0"
+    },
+    {
+      "role": "signed_exact_v5_delta_api",
+      "basename": "delta.py",
+      "sha256": "144023cf0ef24970f93d2ffaf80a7265dfb137a32c1326df84e43aee80898f0c"
+    },
+    {
+      "role": "signed_exact_v5_delta_implementation",
+      "basename": "delta_impl.py",
+      "sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788"
+    },
+    {
+      "role": "strict_exact_v5_loader_and_source_validator",
+      "basename": "run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+      "sha256": "0fd85e3e415a8705d3e37efd47d88f5ac6aa8feb25af039abdd1e4d704151ed6"
+    },
+    {
+      "role": "signed_distributed_runtime",
+      "basename": "natural_memory_distributed.py",
+      "sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d"
+    },
+    {
+      "role": "signed_native_row_encoder_and_write_read_runtime",
+      "basename": "run_natural_memory_native_evolution.py",
+      "sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7"
+    },
+    {
+      "role": "signed_ordered_module_and_read_disable_helpers",
+      "basename": "run_natural_memory_native_rwkv_addressed_value_causal_train.py",
+      "sha256": "3036e7c75c1dedd31ab7f3d8aa79126c849a5c64e5e37395bbe3e2c43822fbc7"
+    },
+    {
+      "role": "signed_four_a100_hardware_validator",
+      "basename": "run_natural_memory_native_rwkv_addressed_value_screen.py",
+      "sha256": "b42cb3455679b1799a72b262958df5fd5a85211bc5b37730c24c70309309d654"
+    },
+    {
+      "role": "signed_exact_v5_adapter_topology_validator",
+      "basename": "run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py",
+      "sha256": "78f605c2e6b389e30fd97a98391b60cad99661f7bdc8cf3a4397aac6b5560a16"
+    }
+  ],
+  "all_module_inventory": {
+    "count": 42,
+    "ordered_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41
+    ],
+    "ordered_module_names": [
+      "model.language_model.layers.0.self_attn",
+      "model.language_model.layers.1.self_attn",
+      "model.language_model.layers.2.self_attn",
+      "model.language_model.layers.3.self_attn",
+      "model.language_model.layers.4.self_attn",
+      "model.language_model.layers.5.self_attn",
+      "model.language_model.layers.6.self_attn",
+      "model.language_model.layers.7.self_attn",
+      "model.language_model.layers.8.self_attn",
+      "model.language_model.layers.9.self_attn",
+      "model.language_model.layers.10.self_attn",
+      "model.language_model.layers.11.self_attn",
+      "model.language_model.layers.12.self_attn",
+      "model.language_model.layers.13.self_attn",
+      "model.language_model.layers.14.self_attn",
+      "model.language_model.layers.15.self_attn",
+      "model.language_model.layers.16.self_attn",
+      "model.language_model.layers.17.self_attn",
+      "model.language_model.layers.18.self_attn",
+      "model.language_model.layers.19.self_attn",
+      "model.language_model.layers.20.self_attn",
+      "model.language_model.layers.21.self_attn",
+      "model.language_model.layers.22.self_attn",
+      "model.language_model.layers.23.self_attn",
+      "model.language_model.layers.24.self_attn",
+      "model.language_model.layers.25.self_attn",
+      "model.language_model.layers.26.self_attn",
+      "model.language_model.layers.27.self_attn",
+      "model.language_model.layers.28.self_attn",
+      "model.language_model.layers.29.self_attn",
+      "model.language_model.layers.30.self_attn",
+      "model.language_model.layers.31.self_attn",
+      "model.language_model.layers.32.self_attn",
+      "model.language_model.layers.33.self_attn",
+      "model.language_model.layers.34.self_attn",
+      "model.language_model.layers.35.self_attn",
+      "model.language_model.layers.36.self_attn",
+      "model.language_model.layers.37.self_attn",
+      "model.language_model.layers.38.self_attn",
+      "model.language_model.layers.39.self_attn",
+      "model.language_model.layers.40.self_attn",
+      "model.language_model.layers.41.self_attn"
+    ],
+    "ordered_module_names_sha256": "2364d5acf758dc89f8bd472add6ca5e1548a56cd0261edf82d1e596e5574c707",
+    "inventory_source": "strict-loaded exact-v5 adapter target_layers 0 through 41 and target_modules self_attn",
+    "outer_ffn_anchor_subset_not_used_as_map_inventory": [
+      10,
+      21,
+      31,
+      41
+    ]
+  },
+  "exact_v5_capture": {
+    "capture_rows": 96,
+    "capture_splits": [
+      "fit",
+      "retrieval"
+    ],
+    "hardware": "exactly four distinct NVIDIA A100 GPUs",
+    "sharding": "source_index modulo 4",
+    "model_gradients": false,
+    "model_output_changed_by_observers": false,
+    "model_or_adapter_parameters_updated": false,
+    "continuous_write_capture_mode": "inherited_exact_v5",
+    "write_count_per_row": 1,
+    "read_count_per_row": 1,
+    "write": "one native write with the binder disabled; latch once immediately after _write_projected_kv_slots and before control-mode dispatch; inherited_exact_v5 delegates the folded 32-dimensional address to the unchanged baseline conditioner and does not activate full64 candidate conditioning",
+    "read": "one binder-disabled native read with memory writes disabled",
+    "write_address": {
+      "source": "module.rwkv_continuous_write_latch.selected_keys",
+      "forbidden_source": "rwkv_query_state_identity.capture_write_addresses because it folds the address to 32 dimensions",
+      "shape_per_module": [
+        1,
+        1,
+        64
+      ],
+      "width": 64,
+      "dtype_for_saved_feature": "float32",
+      "lifecycle": "detached clone of the route-selected projected slot key captured once after the projected slot write; it is the audited candidate input for a later continuous mode, not the active conditioner input in this retrieval run",
+      "immutability": "the same full64 latched address tensor object is passed through the wrapper dispatch and exposed to its audit; its tensor version must remain unchanged, while inherited_exact_v5 conditions from the separately latched folded32 baseline address",
+      "finite_and_nonzero_required": true
+    },
+    "read_query": {
+      "source": "the live exact-v5 _rwkv_ms_token_state_read_basis r_seq return",
+      "position": "first_supervised_label_index - 1",
+      "causal_boundary_check": "the selected predictor position is unsupervised and is the first position whose shifted label is supervised",
+      "shape_per_module_per_call": [
+        1,
+        32
+      ],
+      "width": 32,
+      "read_basis_calls_per_module": 2,
+      "read_basis_call_roles": [
+        "addressed_recurrent_read",
+        "moe_global_recurrent_read"
+      ],
+      "canonical_call": "addressed_recurrent_read",
+      "addressed_global_selected_raw_bytes_identical": true,
+      "addressed_global_full_return_raw_bytes_identical": true,
+      "addressed_global_full_return_shapes_and_dtypes_identical": true,
+      "full_state_or_answer_position_features_captured": false,
+      "finite_and_nonzero_required": true
+    },
+    "mandated_frozen_continuous_write_conditioners_installed": 42,
+    "mandated_continuous_write_conditioners_trainable": false,
+    "no_binder_bridge_code_or_feedback_module_installed_during_capture_except_mandated_frozen_continuous_write_wrapper": true,
+    "online_write_scan_repeated": false,
+    "generation": false,
+    "mechanics_rows_captured": 0,
+    "causal_rows_captured": 0
+  },
+  "reduced_rank_fit": {
+    "fit_rows": 64,
+    "fit_split_only": true,
+    "retrieval_rows_used_for_fit_rank_ridge_thresholds_architecture_selection_or_stopping": false,
+    "map_inventory": "one independent map for each of the 42 ordered modules",
+    "map": "bias-free deterministic reduced-rank ridge from full64 write address to causal32 prompt-boundary receptance",
+    "address_normalization": "rowwise RMS normalization with an exact-zero input preserved as exact zero",
+    "receptance_normalization": "rowwise RMS normalization",
+    "solver": "CPU float64 ridge solve followed by deterministic truncated SVD; saved factors are float32",
+    "rank": 16,
+    "ridge": 1.0,
+    "parameterization": "down[16,64] followed by up[32,16], no bias, then rowwise RMS normalization",
+    "rank_selection_disclosure": "Rank 16 and ridge 1.0 were fixed before this one-shot retrieval evaluation. No standalone reusable prior-open diagnostic artifact exists in this worktree, so this protocol treats them as a disclosed precommitted design choice and makes no stronger provenance claim; retrieval rows are not opened for or used in that choice.",
+    "runtime_map_parity": "the frozen runtime conditioner must produce exactly the same mapped directions as the offline alignment implementation for active and exact-zero rows",
+    "active_address_zero_direction_forbidden": true,
+    "exact_zero_address_maps_to_exact_zero_direction": true,
+    "map_or_adapter_gradient_training": false,
+    "map_weights_saved_before_retrieval_gate": false,
+    "map_weights_saved_only_if_retrieval_passes": true
+  },
+  "retrieval_gate": {
+    "evaluation_rows": 32,
+    "single_locked_evaluation": true,
+    "rerun_after_observing_metrics": false,
+    "correct_score": "mean over the 42 modules of dot(RMS(causal32 receptance), RMS(rank16_map(full64 correct address))) / 32",
+    "matched_donor_score": "use the precommitted paired donor row's mapped full64 address at the same module with the target row's unchanged causal32 receptance",
+    "layer_permuted_score": "cyclically roll each target row's full64 address by one position across the ordered 42-module axis, then apply each destination module's own frozen map against the target row's unchanged causal32 receptance",
+    "donor_row_gap": "row mean across all 42 modules of correct score minus matched-donor score",
+    "layer_permuted_row_gap": "row mean across all 42 modules of correct score minus layer-permuted score",
+    "gates": {
+      "all_scores_and_directions_finite": true,
+      "all_active_mapped_directions_nonzero": true,
+      "exact_zero_address_maps_to_exact_zero": true,
+      "donor_positive_row_fraction_minimum": 0.95,
+      "donor_mean_gap_minimum": 0.05,
+      "layer_permuted_positive_row_fraction_minimum": 0.95,
+      "layer_permuted_mean_gap_minimum": 0.05
+    },
+    "pass_requires_all_gates": true,
+    "per_row_and_aggregate_metrics_recorded": true,
+    "no_threshold_or_hyperparameter_adjustment_after_evaluation": true
+  },
+  "execution": {
+    "world_size": 4,
+    "required_accelerators": "four distinct NVIDIA A100 GPUs",
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "timeout_seconds": 1800,
+    "rank0_only_map_fit_and_retrieval_analysis": true,
+    "fit_capture_and_map_freeze_complete_before_retrieval_bundle_open": true,
+    "other_ranks_verify_source_feature_and_result_bindings": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "fresh_output_required": true,
+    "assignment": "source_index modulo 4",
+    "feature_shards_signed": true,
+    "result_signed": true,
+    "model_loaded_from_pinned_revision": true
+  },
+  "sealed_firewall": {
+    "byte_read_files": [
+      "manifest.json",
+      "fit.jsonl",
+      "retrieval.jsonl"
+    ],
+    "inventory_only_files": [
+      "mechanics.jsonl",
+      "causal.jsonl"
+    ],
+    "staged_access": {
+      "fit_stage_byte_read_files": [
+        "manifest.json",
+        "fit.jsonl"
+      ],
+      "retrieval_stage_newly_opened_after_frozen_map_digest": [
+        "retrieval.jsonl"
+      ],
+      "sealed_paths_statted_listed_hashed_or_opened": false
+    },
+    "mechanics_bytes_read": false,
+    "causal_bytes_read": false,
+    "mechanics_rows_decoded_tokenized_model_forwarded_or_scored": 0,
+    "causal_rows_decoded_tokenized_model_forwarded_or_scored": 0,
+    "mechanics_or_causal_used_for_fit_rank_ridge_thresholds_architecture_selection_stopping_or_retry": false,
+    "publisher_validation_test_hard32_strength_holdout_opened": false,
+    "protected_splits_opened": []
+  },
+  "full_bandwidth_transformer_evidence_boundary": {
+    "adopted_now": "none in the live write path: this retrieval protocol runs inherited_exact_v5 and audits whether full64 can predict the causal32 identity direction before activating any new conditioner",
+    "candidate_after_retrieval": "If retrieval passes, a separately authorized continuous mode may condition RWKV write k/a/b from the full64 latched address while preserving v exactly; that is a project-specific candidate inspired by mandatory vector-carrier use, not a result established by Full-Bandwidth Transformer.",
+    "not_claimed": "Full-Bandwidth Transformer does not establish donor identity, multi-slot address selection, matched-donor rejection, or causal online-memory benchmark gain",
+    "feedback_passes_in_this_protocol": 0,
+    "read_feedback_authorized": false,
+    "write_scan_repetition_for_feedback_forbidden": true,
+    "later_use": "A separately signed FBT-style read-feedback study may be considered only after retrieval, mechanics, and causal identity gates pass; it must reuse a snapshot or read-only path and never repeat the online write scan."
+  },
+  "stopping_rule": {
+    "retrieval_pass": "Freeze and hash the 42 rank-16 maps and authorize drafting a separate mechanics protocol only; mechanics bytes, causal bytes, model training, generation, and native benchmark evaluation remain unauthorized.",
+    "retrieval_fail": "Retire this full64-to-causal32 rank-16 bias-free ridge alignment as the continuous-write identity map; do not open mechanics or causal bytes and do not retry or tune against the retrieval rows.",
+    "always": "Do not claim causal donor specificity, native benchmark improvement, or SOTA from this retrieval gate alone."
+  },
+  "mechanics_authorized": false,
+  "causal_authorized": false,
+  "model_or_adapter_training_authorized": false,
+  "generation_authorized": false,
+  "native_benchmark_authorized": false,
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "8f16350f5c665034d27fe4b22cdfbedc615d00b5afeaa5d453381b5018b22024"
+  }
+}

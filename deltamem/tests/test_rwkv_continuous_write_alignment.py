@@ -92,6 +92,39 @@ def test_fitted_weights_load_frozen_into_runtime_conditioner() -> None:
     assert conditioner.up.requires_grad is False
 
 
+def test_loaded_runtime_direction_matches_fitted_map_on_active_and_zero_rows() -> None:
+    generator = torch.Generator().manual_seed(53)
+    fit_addresses = torch.randn(48, alignment.ADDRESS_DIM, generator=generator)
+    fit_receptance = torch.randn(48, alignment.STATE_DIM, generator=generator)
+    weights = alignment.fit_reduced_rank_ridge(fit_addresses, fit_receptance)
+    conditioner = ContinuousWriteConditioner(
+        alignment.ADDRESS_DIM,
+        alignment.STATE_DIM,
+        rank=alignment.MAP_RANK,
+        seed=59,
+        k_gain=0.25,
+        a_gain=0.25,
+        b_gain=0.25,
+        trainable_map=False,
+    )
+    conditioner.load_frozen_map(weights.down, weights.up)
+    addresses = torch.stack(
+        (
+            torch.randn(alignment.ADDRESS_DIM, generator=generator),
+            torch.zeros(alignment.ADDRESS_DIM),
+            7.0 * torch.randn(alignment.ADDRESS_DIM, generator=generator),
+            torch.zeros(alignment.ADDRESS_DIM),
+        )
+    )
+
+    expected = alignment.mapped_direction(addresses, weights)
+    actual = conditioner.direction(addresses)
+
+    assert torch.equal(actual, expected)
+    assert torch.equal(actual[1], torch.zeros_like(actual[1]))
+    assert torch.equal(actual[3], torch.zeros_like(actual[3]))
+
+
 def test_runtime_default_rank_matches_precommitted_alignment_rank() -> None:
     default_rank = inspect.signature(integration.install).parameters["rank"].default
 

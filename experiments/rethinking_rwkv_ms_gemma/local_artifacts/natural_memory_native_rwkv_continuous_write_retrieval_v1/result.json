@@ -1,0 +1,820 @@
+{
+  "analysis": {
+    "aggregate": {
+      "all_active_mapped_directions_nonzero": true,
+      "correct_mean_score": 0.8982992768287659,
+      "donor_mean_gap": 0.0690704882144928,
+      "donor_positive_module_fraction": 0.8578869104385376,
+      "donor_positive_row_fraction": 1.0,
+      "exact_zero_address_maps_to_exact_zero": true,
+      "finite": true,
+      "layer_permuted_mean_gap": 0.8684760332107544,
+      "layer_permuted_mean_score": 0.029823211953043938,
+      "layer_permuted_positive_module_fraction": 0.9910714030265808,
+      "layer_permuted_positive_row_fraction": 1.0,
+      "matched_donor_mean_score": 0.8292286992073059
+    },
+    "checks": {
+      "all_active_mapped_directions_nonzero": true,
+      "all_scores_and_directions_finite": true,
+      "donor_mean_gap": true,
+      "donor_positive_row_fraction": true,
+      "exact_zero_address_maps_to_exact_zero": true,
+      "layer_permuted_mean_gap": true,
+      "layer_permuted_positive_row_fraction": true
+    },
+    "evaluation_calls": 1,
+    "passed": true,
+    "per_row": [
+      {
+        "correct_mean_score": 0.8459004759788513,
+        "correct_minus_donor_mean_gap": 0.10964411497116089,
+        "correct_minus_layer_permuted_mean_gap": 0.7999699711799622,
+        "donor_positive": true,
+        "donor_source_index": 395,
+        "layer_permuted_mean_score": 0.04593054577708244,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.7362563610076904,
+        "source_index": 79
+      },
+      {
+        "correct_mean_score": 0.9287177324295044,
+        "correct_minus_donor_mean_gap": 0.06491278111934662,
+        "correct_minus_layer_permuted_mean_gap": 0.8796237707138062,
+        "donor_positive": true,
+        "donor_source_index": 168,
+        "layer_permuted_mean_score": 0.04909398406744003,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8638049364089966,
+        "source_index": 129
+      },
+      {
+        "correct_mean_score": 0.9250564575195312,
+        "correct_minus_donor_mean_gap": 0.04150722920894623,
+        "correct_minus_layer_permuted_mean_gap": 0.8615750074386597,
+        "donor_positive": true,
+        "donor_source_index": 129,
+        "layer_permuted_mean_score": 0.06348153203725815,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8835492730140686,
+        "source_index": 168
+      },
+      {
+        "correct_mean_score": 0.9155772924423218,
+        "correct_minus_donor_mean_gap": 0.09812166541814804,
+        "correct_minus_layer_permuted_mean_gap": 0.8972322344779968,
+        "donor_positive": true,
+        "donor_source_index": 268,
+        "layer_permuted_mean_score": 0.018345128744840622,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8174556493759155,
+        "source_index": 185
+      },
+      {
+        "correct_mean_score": 0.9065611958503723,
+        "correct_minus_donor_mean_gap": 0.051416296511888504,
+        "correct_minus_layer_permuted_mean_gap": 0.8872559070587158,
+        "donor_positive": true,
+        "donor_source_index": 1414,
+        "layer_permuted_mean_score": 0.019305262714624405,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8551448583602905,
+        "source_index": 252
+      },
+      {
+        "correct_mean_score": 0.8976057171821594,
+        "correct_minus_donor_mean_gap": 0.06661830097436905,
+        "correct_minus_layer_permuted_mean_gap": 0.9064393043518066,
+        "donor_positive": true,
+        "donor_source_index": 1365,
+        "layer_permuted_mean_score": -0.008833524771034718,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8309874534606934,
+        "source_index": 263
+      },
+      {
+        "correct_mean_score": 0.888206958770752,
+        "correct_minus_donor_mean_gap": 0.05877956748008728,
+        "correct_minus_layer_permuted_mean_gap": 0.8265940546989441,
+        "donor_positive": true,
+        "donor_source_index": 185,
+        "layer_permuted_mean_score": 0.06161299720406532,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8294273614883423,
+        "source_index": 268
+      },
+      {
+        "correct_mean_score": 0.9084521532058716,
+        "correct_minus_donor_mean_gap": 0.14213624596595764,
+        "correct_minus_layer_permuted_mean_gap": 0.875979483127594,
+        "donor_positive": true,
+        "donor_source_index": 1324,
+        "layer_permuted_mean_score": 0.03247280791401863,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.7663159966468811,
+        "source_index": 318
+      },
+      {
+        "correct_mean_score": 0.9049359560012817,
+        "correct_minus_donor_mean_gap": 0.07409947365522385,
+        "correct_minus_layer_permuted_mean_gap": 0.8298899531364441,
+        "donor_positive": true,
+        "donor_source_index": 784,
+        "layer_permuted_mean_score": 0.07504595071077347,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8308365345001221,
+        "source_index": 386
+      },
+      {
+        "correct_mean_score": 0.8506016731262207,
+        "correct_minus_donor_mean_gap": 0.10536547750234604,
+        "correct_minus_layer_permuted_mean_gap": 0.807637095451355,
+        "donor_positive": true,
+        "donor_source_index": 79,
+        "layer_permuted_mean_score": 0.04296460002660751,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.7452361583709717,
+        "source_index": 395
+      },
+      {
+        "correct_mean_score": 0.9034066200256348,
+        "correct_minus_donor_mean_gap": 0.06320635974407196,
+        "correct_minus_layer_permuted_mean_gap": 0.9151186943054199,
+        "donor_positive": true,
+        "donor_source_index": 470,
+        "layer_permuted_mean_score": -0.011712253093719482,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8402001261711121,
+        "source_index": 401
+      },
+      {
+        "correct_mean_score": 0.8702477812767029,
+        "correct_minus_donor_mean_gap": 0.04251398891210556,
+        "correct_minus_layer_permuted_mean_gap": 0.8312088847160339,
+        "donor_positive": true,
+        "donor_source_index": 1155,
+        "layer_permuted_mean_score": 0.03903883695602417,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8277338147163391,
+        "source_index": 404
+      },
+      {
+        "correct_mean_score": 0.8930891156196594,
+        "correct_minus_donor_mean_gap": 0.09054551273584366,
+        "correct_minus_layer_permuted_mean_gap": 0.8465080261230469,
+        "donor_positive": true,
+        "donor_source_index": 1110,
+        "layer_permuted_mean_score": 0.046581119298934937,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8025436401367188,
+        "source_index": 405
+      },
+      {
+        "correct_mean_score": 0.922099232673645,
+        "correct_minus_donor_mean_gap": 0.06857169419527054,
+        "correct_minus_layer_permuted_mean_gap": 0.9188426733016968,
+        "donor_positive": true,
+        "donor_source_index": 1065,
+        "layer_permuted_mean_score": 0.003256492782384157,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8535275459289551,
+        "source_index": 439
+      },
+      {
+        "correct_mean_score": 0.8894254565238953,
+        "correct_minus_donor_mean_gap": 0.014933139085769653,
+        "correct_minus_layer_permuted_mean_gap": 0.8890973925590515,
+        "donor_positive": true,
+        "donor_source_index": 1258,
+        "layer_permuted_mean_score": 0.00032809944241307676,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8744922876358032,
+        "source_index": 444
+      },
+      {
+        "correct_mean_score": 0.8790201544761658,
+        "correct_minus_donor_mean_gap": 0.01832043193280697,
+        "correct_minus_layer_permuted_mean_gap": 0.874297559261322,
+        "donor_positive": true,
+        "donor_source_index": 401,
+        "layer_permuted_mean_score": 0.00472263153642416,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8606997132301331,
+        "source_index": 470
+      },
+      {
+        "correct_mean_score": 0.9094386100769043,
+        "correct_minus_donor_mean_gap": 0.06282880157232285,
+        "correct_minus_layer_permuted_mean_gap": 0.8790820837020874,
+        "donor_positive": true,
+        "donor_source_index": 1396,
+        "layer_permuted_mean_score": 0.03035663440823555,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8466099500656128,
+        "source_index": 567
+      },
+      {
+        "correct_mean_score": 0.9060594439506531,
+        "correct_minus_donor_mean_gap": 0.11792436987161636,
+        "correct_minus_layer_permuted_mean_gap": 0.8921868205070496,
+        "donor_positive": true,
+        "donor_source_index": 1190,
+        "layer_permuted_mean_score": 0.013872664421796799,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.7881351709365845,
+        "source_index": 753
+      },
+      {
+        "correct_mean_score": 0.9032303094863892,
+        "correct_minus_donor_mean_gap": 0.06834310293197632,
+        "correct_minus_layer_permuted_mean_gap": 0.8686279058456421,
+        "donor_positive": true,
+        "donor_source_index": 386,
+        "layer_permuted_mean_score": 0.03460241109132767,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8348872065544128,
+        "source_index": 784
+      },
+      {
+        "correct_mean_score": 0.9086118340492249,
+        "correct_minus_donor_mean_gap": 0.049431368708610535,
+        "correct_minus_layer_permuted_mean_gap": 0.8827357292175293,
+        "donor_positive": true,
+        "donor_source_index": 439,
+        "layer_permuted_mean_score": 0.025876006111502647,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8591804504394531,
+        "source_index": 1065
+      },
+      {
+        "correct_mean_score": 0.9156056642532349,
+        "correct_minus_donor_mean_gap": 0.06580174714326859,
+        "correct_minus_layer_permuted_mean_gap": 0.8869084715843201,
+        "donor_positive": true,
+        "donor_source_index": 1302,
+        "layer_permuted_mean_score": 0.02869718335568905,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8498039245605469,
+        "source_index": 1098
+      },
+      {
+        "correct_mean_score": 0.9077967405319214,
+        "correct_minus_donor_mean_gap": 0.08216004818677902,
+        "correct_minus_layer_permuted_mean_gap": 0.8735983967781067,
+        "donor_positive": true,
+        "donor_source_index": 405,
+        "layer_permuted_mean_score": 0.03419841080904007,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.825636625289917,
+        "source_index": 1110
+      },
+      {
+        "correct_mean_score": 0.8993662595748901,
+        "correct_minus_donor_mean_gap": 0.049303293228149414,
+        "correct_minus_layer_permuted_mean_gap": 0.8810383081436157,
+        "donor_positive": true,
+        "donor_source_index": 404,
+        "layer_permuted_mean_score": 0.018327981233596802,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8500630259513855,
+        "source_index": 1155
+      },
+      {
+        "correct_mean_score": 0.9041966199874878,
+        "correct_minus_donor_mean_gap": 0.10169092565774918,
+        "correct_minus_layer_permuted_mean_gap": 0.8501058220863342,
+        "donor_positive": true,
+        "donor_source_index": 753,
+        "layer_permuted_mean_score": 0.054090697318315506,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.802505612373352,
+        "source_index": 1190
+      },
+      {
+        "correct_mean_score": 0.8892232775688171,
+        "correct_minus_donor_mean_gap": 0.045179225504398346,
+        "correct_minus_layer_permuted_mean_gap": 0.8765449523925781,
+        "donor_positive": true,
+        "donor_source_index": 444,
+        "layer_permuted_mean_score": 0.012678258121013641,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8440440893173218,
+        "source_index": 1258
+      },
+      {
+        "correct_mean_score": 0.914594292640686,
+        "correct_minus_donor_mean_gap": 0.08906885236501694,
+        "correct_minus_layer_permuted_mean_gap": 0.8812815546989441,
+        "donor_positive": true,
+        "donor_source_index": 1433,
+        "layer_permuted_mean_score": 0.03331277519464493,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8255254626274109,
+        "source_index": 1271
+      },
+      {
+        "correct_mean_score": 0.8635746240615845,
+        "correct_minus_donor_mean_gap": 0.02086457423865795,
+        "correct_minus_layer_permuted_mean_gap": 0.8236885070800781,
+        "donor_positive": true,
+        "donor_source_index": 1098,
+        "layer_permuted_mean_score": 0.039886098355054855,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.842710018157959,
+        "source_index": 1302
+      },
+      {
+        "correct_mean_score": 0.8713619709014893,
+        "correct_minus_donor_mean_gap": 0.08668973296880722,
+        "correct_minus_layer_permuted_mean_gap": 0.8555306792259216,
+        "donor_positive": true,
+        "donor_source_index": 318,
+        "layer_permuted_mean_score": 0.0158312376588583,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.7846721410751343,
+        "source_index": 1324
+      },
+      {
+        "correct_mean_score": 0.9098158478736877,
+        "correct_minus_donor_mean_gap": 0.08385240286588669,
+        "correct_minus_layer_permuted_mean_gap": 0.9034678339958191,
+        "donor_positive": true,
+        "donor_source_index": 263,
+        "layer_permuted_mean_score": 0.006347908638417721,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8259634375572205,
+        "source_index": 1365
+      },
+      {
+        "correct_mean_score": 0.9309505224227905,
+        "correct_minus_donor_mean_gap": 0.08880533277988434,
+        "correct_minus_layer_permuted_mean_gap": 0.9097380042076111,
+        "donor_positive": true,
+        "donor_source_index": 567,
+        "layer_permuted_mean_score": 0.02121242694556713,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8421450853347778,
+        "source_index": 1396
+      },
+      {
+        "correct_mean_score": 0.9000192284584045,
+        "correct_minus_donor_mean_gap": 0.047565460205078125,
+        "correct_minus_layer_permuted_mean_gap": 0.8692020177841187,
+        "donor_positive": true,
+        "donor_source_index": 252,
+        "layer_permuted_mean_score": 0.030817309394478798,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.852453887462616,
+        "source_index": 1414
+      },
+      {
+        "correct_mean_score": 0.8828261494636536,
+        "correct_minus_donor_mean_gap": 0.040054015815258026,
+        "correct_minus_layer_permuted_mean_gap": 0.8102256059646606,
+        "donor_positive": true,
+        "donor_source_index": 1271,
+        "layer_permuted_mean_score": 0.07260052859783173,
+        "layer_permuted_positive": true,
+        "matched_donor_mean_score": 0.8427720665931702,
+        "source_index": 1433
+      }
+    ]
+  },
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "causal_authorized": false,
+  "code_bindings": {
+    "dependencies": [
+      {
+        "basename": "rwkv_continuous_write_alignment.py",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/rwkv_continuous_write_alignment.py",
+        "role": "bias_free_reduced_rank_ridge_and_metrics",
+        "sha256": "f7c51bdcf518763ba6e9e63976d75a8cdcfc518b4d9ba593a4fcc4de62a404cb"
+      },
+      {
+        "basename": "rwkv_continuous_write_integration.py",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/rwkv_continuous_write_integration.py",
+        "role": "full_address_latch_and_runtime_conditioner",
+        "sha256": "446281bf1d762e7e9462e173192eefcaeafb79104e375a9a54bef2503c0e2291"
+      },
+      {
+        "basename": "rwkv_continuous_write_fit_split.py",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/rwkv_continuous_write_fit_split.py",
+        "role": "dataset_qualified_component_disjoint_split",
+        "sha256": "3676ec5ce332088ebc78c75ff65a0822fe3ed0037e7d49cd1c0c8228a45d92a6"
+      },
+      {
+        "basename": "materialize_natural_memory_native_rwkv_continuous_write_open_fit.py",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/materialize_natural_memory_native_rwkv_continuous_write_open_fit.py",
+        "role": "five_file_open_fit_materializer_and_firewall",
+        "sha256": "f1e5806bb467bfdd377e374845cdafb90ece1b67d6eba9744b6ef48de0c9bdd9"
+      },
+      {
+        "basename": "common.py",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/common.py",
+        "role": "model_and_tokenizer_loader",
+        "sha256": "8c2863eeea3701f557edf180391586fbc838ce357f3f4e53d8a2292fe4f853e0"
+      },
+      {
+        "basename": "delta.py",
+        "path": "/root/X/signed-v5-source-cd7deb/deltamem/core/delta.py",
+        "role": "signed_exact_v5_delta_api",
+        "sha256": "144023cf0ef24970f93d2ffaf80a7265dfb137a32c1326df84e43aee80898f0c"
+      },
+      {
+        "basename": "delta_impl.py",
+        "path": "/root/X/signed-v5-source-cd7deb/deltamem/core/delta_impl.py",
+        "role": "signed_exact_v5_delta_implementation",
+        "sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+        "role": "strict_exact_v5_loader_and_source_validator",
+        "sha256": "0fd85e3e415a8705d3e37efd47d88f5ac6aa8feb25af039abdd1e4d704151ed6"
+      },
+      {
+        "basename": "natural_memory_distributed.py",
+        "path": "/root/X/signed-v5-source-cd7deb/experiments/rethinking_rwkv_ms_gemma/natural_memory_distributed.py",
+        "role": "signed_distributed_runtime",
+        "sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d"
+      },
+      {
+        "basename": "run_natural_memory_native_evolution.py",
+        "path": "/root/X/signed-v5-source-cd7deb/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_evolution.py",
+        "role": "signed_native_row_encoder_and_write_read_runtime",
+        "sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_addressed_value_causal_train.py",
+        "path": "/root/X/signed-v5-source-cd7deb/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_value_causal_train.py",
+        "role": "signed_ordered_module_and_read_disable_helpers",
+        "sha256": "3036e7c75c1dedd31ab7f3d8aa79126c849a5c64e5e37395bbe3e2c43822fbc7"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_addressed_value_screen.py",
+        "path": "/root/X/signed-v5-source-cd7deb/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_value_screen.py",
+        "role": "signed_four_a100_hardware_validator",
+        "sha256": "b42cb3455679b1799a72b262958df5fd5a85211bc5b37730c24c70309309d654"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py",
+        "path": "/root/X/signed-v5-source-cd7deb/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py",
+        "role": "signed_exact_v5_adapter_topology_validator",
+        "sha256": "78f605c2e6b389e30fd97a98391b60cad99661f7bdc8cf3a4397aac6b5560a16"
+      }
+    ],
+    "runner_sha256": "878569411cbd2424f10ccfbbfb5c7b8e4ed97a4d33453b5f04a6cc46f1c33ad6"
+  },
+  "execution": {
+    "adapter_parameters_updated": false,
+    "assignment": "source_index_modulo_4",
+    "fit_capture_and_map_freeze_completed_before_retrieval_bundle_open": true,
+    "generation": false,
+    "hf_endpoint": "https://hf-mirror.com",
+    "model_parameters_updated": false,
+    "other_ranks_verified_feature_and_result_bindings": true,
+    "rank0_only_map_fit_and_retrieval_analysis": true
+  },
+  "feature_provenance": {
+    "fit": [
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/fit-shard-0.json",
+        "receipt": "2d9e367f2348a4c75d7922baa1e7fb84a2e75f3fc69d1c9f409cd72938bb348c",
+        "rows": 19,
+        "sha256": "ce1415a2f998fac88e623ffb69b5d94a2fcfe114450c3f9c4023048160c124c2"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/fit-shard-1.json",
+        "receipt": "34022fafa1eac85679356cf3b634cbee447208adfc5a60001192767e045d4fa2",
+        "rows": 13,
+        "sha256": "a2bf520d985292799fd27bae8fd46ca828f958c339d79f547ce0e6d2079022d3"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/fit-shard-2.json",
+        "receipt": "1ec817427b93711bad1a0e3ab93527e81d01bee65862b9613afbf9e235874445",
+        "rows": 18,
+        "sha256": "d0f11dc7a99a39bfbbbc5de5fa3ddc1f00f69a56f5fb96246418e87a4ab4354c"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/fit-shard-3.json",
+        "receipt": "a91d33ec6829280680ed657affa96ec0549400fd22c6ae4f2f3c80177d9c623c",
+        "rows": 14,
+        "sha256": "00f13d0c2bb04d24940a74c7e69b2b324816673c1399bf0414bd696c726e845d"
+      }
+    ],
+    "retrieval": [
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/retrieval-shard-0.json",
+        "receipt": "8e566d49b7011507771f08b49c19e7287572c3e7baf9e3b9277134783042c298",
+        "rows": 8,
+        "sha256": "a876704c1e6d7149a08e03d8c3d6f6c1585c98420ef339f2340f1540422965c5"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/retrieval-shard-1.json",
+        "receipt": "bf762f4f1b9ec03a637a8eb80ad90faff343c967254a100da4bdf40b3683129f",
+        "rows": 8,
+        "sha256": "ead3ee1d64af7e6f7905326bdf668337d0802cea82a1731854378622dc4c7c64"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/retrieval-shard-2.json",
+        "receipt": "5912353c023eaa8e897a582f8d5605870ca55f6515edad1c7fabba2ed1ecc4db",
+        "rows": 9,
+        "sha256": "eedfabb423cc8a5561cebae682d4250644a40d539e76fb4d37f3204090448d02"
+      },
+      {
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/retrieval-shard-3.json",
+        "receipt": "12e24030554459c0a30875598bca60f6c6c43a2c4954adc33dd41e1bb6bc414a",
+        "rows": 7,
+        "sha256": "6921772a0a5b0474c0e6584646081cd10fa67a459a41d67e26ed37f29ba5978c"
+      }
+    ],
+    "retrieval_feature_digest": "c74ed63d6285980c5eb43c294402a5a32a063754181927be0c955521bbe237ba"
+  },
+  "firewall": {
+    "byte_read_files_in_order": [
+      "manifest.json",
+      "fit.jsonl",
+      "retrieval.jsonl"
+    ],
+    "causal_path_statted_listed_hashed_or_opened": false,
+    "causal_rows_decoded_tokenized_forwarded_or_scored": 0,
+    "fit_map_frozen_before_retrieval_bytes_read": true,
+    "mechanics_path_statted_listed_hashed_or_opened": false,
+    "mechanics_rows_decoded_tokenized_forwarded_or_scored": 0
+  },
+  "fit": {
+    "fit_feature_digest": "fe8b08b7f15868f2811f1420d25fe86b74535cb0b8a5f2b29e1047151c650cdc",
+    "fit_only": true,
+    "frozen_map_digest_before_retrieval_open": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+    "map_weights_saved_before_retrieval": false,
+    "rank": 16,
+    "ridge": 1.0
+  },
+  "generation_authorized": false,
+  "hardware": {
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 0,
+        "pid": 2541614,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 1,
+        "pid": 2541615,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 2,
+        "pid": 2541616,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 3,
+        "pid": 2541617,
+        "process_rank": 3
+      }
+    ],
+    "timeout_seconds": 1800,
+    "world_size": 4
+  },
+  "map_artifact": {
+    "frozen_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+    "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/continuous-write-maps.pt",
+    "saved": true,
+    "sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6"
+  },
+  "materialization_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_open_fit_v1",
+  "mechanics_authorized": false,
+  "mechanics_bytes_open_authorized": false,
+  "mechanics_protocol_drafting_authorized": true,
+  "model_audit": {
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "capture_mode": "inherited_exact_v5",
+    "continuous_write_install": {
+      "address_dim": 64,
+      "address_lifecycle": "single_post_projected_write_detached_full_address_latch",
+      "baseline_mode": "inherited_exact_v5",
+      "conditioned_features": [
+        "k",
+        "a",
+        "b"
+      ],
+      "default_mode": "continuous",
+      "feature_dim": 32,
+      "live_key_or_route_recomputation": false,
+      "map_trainable": false,
+      "module_names": [
+        "model.language_model.layers.0.self_attn",
+        "model.language_model.layers.1.self_attn",
+        "model.language_model.layers.2.self_attn",
+        "model.language_model.layers.3.self_attn",
+        "model.language_model.layers.4.self_attn",
+        "model.language_model.layers.5.self_attn",
+        "model.language_model.layers.6.self_attn",
+        "model.language_model.layers.7.self_attn",
+        "model.language_model.layers.8.self_attn",
+        "model.language_model.layers.9.self_attn",
+        "model.language_model.layers.10.self_attn",
+        "model.language_model.layers.11.self_attn",
+        "model.language_model.layers.12.self_attn",
+        "model.language_model.layers.13.self_attn",
+        "model.language_model.layers.14.self_attn",
+        "model.language_model.layers.15.self_attn",
+        "model.language_model.layers.16.self_attn",
+        "model.language_model.layers.17.self_attn",
+        "model.language_model.layers.18.self_attn",
+        "model.language_model.layers.19.self_attn",
+        "model.language_model.layers.20.self_attn",
+        "model.language_model.layers.21.self_attn",
+        "model.language_model.layers.22.self_attn",
+        "model.language_model.layers.23.self_attn",
+        "model.language_model.layers.24.self_attn",
+        "model.language_model.layers.25.self_attn",
+        "model.language_model.layers.26.self_attn",
+        "model.language_model.layers.27.self_attn",
+        "model.language_model.layers.28.self_attn",
+        "model.language_model.layers.29.self_attn",
+        "model.language_model.layers.30.self_attn",
+        "model.language_model.layers.31.self_attn",
+        "model.language_model.layers.32.self_attn",
+        "model.language_model.layers.33.self_attn",
+        "model.language_model.layers.34.self_attn",
+        "model.language_model.layers.35.self_attn",
+        "model.language_model.layers.36.self_attn",
+        "model.language_model.layers.37.self_attn",
+        "model.language_model.layers.38.self_attn",
+        "model.language_model.layers.39.self_attn",
+        "model.language_model.layers.40.self_attn",
+        "model.language_model.layers.41.self_attn"
+      ],
+      "modules": 42,
+      "parameter_elements": 64512,
+      "parameter_tensors": 84,
+      "rank": 16,
+      "raw_control_mode": "raw_unconditioned",
+      "value_identity": "same_object_and_bytes"
+    },
+    "deepembed_down_hooks": 42,
+    "deepembed_pre_hooks": 42,
+    "learned_write_modules": 0,
+    "loader": "strict_saved_config_and_complete_adapter",
+    "outer_ffn_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "parameter_versions_unchanged": true,
+    "parameters_trainable": false,
+    "read_observer": {
+      "forward_output_changed": false,
+      "module_names": [
+        "model.language_model.layers.0.self_attn",
+        "model.language_model.layers.1.self_attn",
+        "model.language_model.layers.2.self_attn",
+        "model.language_model.layers.3.self_attn",
+        "model.language_model.layers.4.self_attn",
+        "model.language_model.layers.5.self_attn",
+        "model.language_model.layers.6.self_attn",
+        "model.language_model.layers.7.self_attn",
+        "model.language_model.layers.8.self_attn",
+        "model.language_model.layers.9.self_attn",
+        "model.language_model.layers.10.self_attn",
+        "model.language_model.layers.11.self_attn",
+        "model.language_model.layers.12.self_attn",
+        "model.language_model.layers.13.self_attn",
+        "model.language_model.layers.14.self_attn",
+        "model.language_model.layers.15.self_attn",
+        "model.language_model.layers.16.self_attn",
+        "model.language_model.layers.17.self_attn",
+        "model.language_model.layers.18.self_attn",
+        "model.language_model.layers.19.self_attn",
+        "model.language_model.layers.20.self_attn",
+        "model.language_model.layers.21.self_attn",
+        "model.language_model.layers.22.self_attn",
+        "model.language_model.layers.23.self_attn",
+        "model.language_model.layers.24.self_attn",
+        "model.language_model.layers.25.self_attn",
+        "model.language_model.layers.26.self_attn",
+        "model.language_model.layers.27.self_attn",
+        "model.language_model.layers.28.self_attn",
+        "model.language_model.layers.29.self_attn",
+        "model.language_model.layers.30.self_attn",
+        "model.language_model.layers.31.self_attn",
+        "model.language_model.layers.32.self_attn",
+        "model.language_model.layers.33.self_attn",
+        "model.language_model.layers.34.self_attn",
+        "model.language_model.layers.35.self_attn",
+        "model.language_model.layers.36.self_attn",
+        "model.language_model.layers.37.self_attn",
+        "model.language_model.layers.38.self_attn",
+        "model.language_model.layers.39.self_attn",
+        "model.language_model.layers.40.self_attn",
+        "model.language_model.layers.41.self_attn"
+      ],
+      "modules": 42,
+      "observer": "all42_prompt_boundary_exact_v5_r_seq_double_call",
+      "persisted_full_sequence_or_state_features": false
+    },
+    "wrapped_layers": 42
+  },
+  "model_or_adapter_training_authorized": false,
+  "module_names": [
+    "model.language_model.layers.0.self_attn",
+    "model.language_model.layers.1.self_attn",
+    "model.language_model.layers.2.self_attn",
+    "model.language_model.layers.3.self_attn",
+    "model.language_model.layers.4.self_attn",
+    "model.language_model.layers.5.self_attn",
+    "model.language_model.layers.6.self_attn",
+    "model.language_model.layers.7.self_attn",
+    "model.language_model.layers.8.self_attn",
+    "model.language_model.layers.9.self_attn",
+    "model.language_model.layers.10.self_attn",
+    "model.language_model.layers.11.self_attn",
+    "model.language_model.layers.12.self_attn",
+    "model.language_model.layers.13.self_attn",
+    "model.language_model.layers.14.self_attn",
+    "model.language_model.layers.15.self_attn",
+    "model.language_model.layers.16.self_attn",
+    "model.language_model.layers.17.self_attn",
+    "model.language_model.layers.18.self_attn",
+    "model.language_model.layers.19.self_attn",
+    "model.language_model.layers.20.self_attn",
+    "model.language_model.layers.21.self_attn",
+    "model.language_model.layers.22.self_attn",
+    "model.language_model.layers.23.self_attn",
+    "model.language_model.layers.24.self_attn",
+    "model.language_model.layers.25.self_attn",
+    "model.language_model.layers.26.self_attn",
+    "model.language_model.layers.27.self_attn",
+    "model.language_model.layers.28.self_attn",
+    "model.language_model.layers.29.self_attn",
+    "model.language_model.layers.30.self_attn",
+    "model.language_model.layers.31.self_attn",
+    "model.language_model.layers.32.self_attn",
+    "model.language_model.layers.33.self_attn",
+    "model.language_model.layers.34.self_attn",
+    "model.language_model.layers.35.self_attn",
+    "model.language_model.layers.36.self_attn",
+    "model.language_model.layers.37.self_attn",
+    "model.language_model.layers.38.self_attn",
+    "model.language_model.layers.39.self_attn",
+    "model.language_model.layers.40.self_attn",
+    "model.language_model.layers.41.self_attn"
+  ],
+  "native_benchmark_authorized": false,
+  "passed": true,
+  "protected_splits_opened": [],
+  "protocol_file_sha256": "8b5c3a1920963652466a53615a4ebfd0910a052bdad1762427e88e17159a979f",
+  "protocol_objective": "Run one precommitted four-A100 continuous-write identity retrieval gate: capture the immutable full 64-dimensional projected write address and causal 32-dimensional prompt-boundary RWKV receptance on the 64 FIT rows at all 42 exact-v5 memory modules, freeze deterministic rank-16 ridge maps before opening retrieval bytes, capture and evaluate exactly once on the 32 retrieval rows against matched-donor and cyclic layer-permuted controls, and keep mechanics and causal files sealed from byte and metadata access.",
+  "protocol_payload_sha256": "8f16350f5c665034d27fe4b22cdfbedc615d00b5afeaa5d453381b5018b22024",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd"
+  },
+  "retrieval_evaluation_calls": 1,
+  "rows": {
+    "fit": 64,
+    "retrieval": 32
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_retrieval.v1",
+  "source_audit": {
+    "delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "imported_delta_impl": "/root/X/signed-v5-source-cd7deb/deltamem/core/delta_impl.py",
+    "signed_source_head": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_source_root": "/root/X/signed-v5-source-cd7deb",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631"
+  },
+  "status": "continuous_write_retrieval_passed_mechanics_protocol_draft_authorized",
+  "v5_provenance": {
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "result_receipt": "7afee3fd1d88c7db91c86dd3f7febfd80656a35d54971fd824623a29883dba8e",
+    "result_sha256": "95376ed78da98cf36183146ce56a3623988e94645723c9b34aee0510e0457545"
+  }
+}
