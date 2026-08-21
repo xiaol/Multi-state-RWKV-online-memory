@@ -711,10 +711,20 @@ Receipt
 `cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd`
 binds the result. This proves causal-boundary identity geometry under the
 unchanged inherited exact-v5 write, not causal use by the continuous writer.
-The next eligible action is a separately signed mechanics gate that loads
-these frozen maps and turns on continuous `k/a/b` conditioning while keeping
-`v` unchanged.
+The subsequent separately signed mechanics gate has now passed on all `32`
+mechanics rows using exactly four A100s. Correct continuous state differed
+materially from raw (`0.793498` mean normalized L2), matched-donor address only
+(`0.366313`), layer-rolled address only (`1.048170`), and target address on
+donor content (`0.351101`); every comparison had positive row fraction `1.0`.
+All exact lifecycle, override-byte, fixed-carrier, unchanged-`v`, zero/raw,
+projected-only, read-basis, finiteness, and no-update gates passed. Result
+receipt
+`2621b0d7773f7931fda80676774697fcc4c059abf49f8ebbad683f19f34c1a95`
+binds that mechanics pass.
 
 Full-Bandwidth read feedback becomes eligible only after state identity passes
-mechanics and causal controls. The paper does not establish multi-state
-identity, and no native benchmark or SOTA claim is currently authorized.
+mechanics and causal controls. Mechanics now passes, so the next eligible
+action is drafting and signing the continuous-write causal donor-identity
+endpoint while causal bytes remain sealed. The paper does not establish
+multi-state identity, and no causal, native benchmark, or SOTA claim is
+currently authorized.

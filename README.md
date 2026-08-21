@@ -719,14 +719,44 @@ nonzero. The signed result SHA-256 is
 with receipt
 `cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd`.
 This establishes source/donor-disjoint full64-to-causal32 identity geometry;
-capture ran in inherited exact-v5 mode, so it does not yet establish live
-continuous-write mechanics, causal donor specificity, generation, native
-benchmark gain, or SOTA. Mechanics and causal bytes remain unopened. The pass
-authorizes only a separately signed continuous-mode mechanics protocol.
+capture ran in inherited exact-v5 mode, so the retrieval result alone did not
+establish live continuous-write mechanics, causal donor specificity,
+generation, native benchmark gain, or SOTA. At that stage, mechanics and causal
+bytes remained unopened and the pass authorized only a separately signed
+continuous-mode mechanics protocol.
+
+The separately signed continuous-write mechanics gate has now passed on exactly
+four A100s. All `32` mechanics rows ran once, exactly `8/GPU`, across all `42`
+modules, `10` write conditions, and `17` read conditions. Mean normalized state
+L2 was `0.793498` for correct continuous versus raw, `0.366313` versus matched-
+donor address only, `1.048170` versus layer-rolled address only, and `0.351101`
+versus target address on donor content. Every comparison had positive row
+fraction `1.0`, passing the locked `0.05` mean and `0.95` row-fraction gates.
+The full-address override matched the requested float32 bytes, projected
+carriers and recurrent metadata stayed fixed, `v` stayed the same object and
+bytes, exact-zero address reproduced raw features/state/logits, zero recurrence
+reproduced projected-only logits, and projected-only made zero underlying RWKV
+read-basis calls. No parameters were updated.
+
+The signed status is
+`continuous_write_mechanics_passed_causal_protocol_draft_authorized`; result
+SHA-256 is
+`a7215ff987f06a369e19ea5b62e54ae2e99b018b9dbed15616f964806e811456`,
+and receipt is
+`2621b0d7773f7931fda80676774697fcc4c059abf49f8ebbad683f19f34c1a95`.
+This proves material, identity-sensitive continuous `k/a/b` write mechanics
+with `v` unchanged. It does **not** prove causal answer preference, generation
+quality, native benchmark gain, or SOTA. Causal bytes remain unopened. The pass
+authorizes only drafting a separately signed causal protocol; Full-Bandwidth
+read feedback remains deferred until that causal donor-identity gate passes.
 
 Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_retrieval.py),
-and [signed retrieval pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json).
+[signed retrieval pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
+[continuous mechanics protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_mechanics_protocol_v1.json),
+[exact launch binding](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_mechanics_launch_v1.json),
+[continuous mechanics runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_mechanics.py),
+and [signed mechanics pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/result.json).
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),

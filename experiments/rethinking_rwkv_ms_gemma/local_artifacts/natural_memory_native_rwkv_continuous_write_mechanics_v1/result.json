@@ -1,0 +1,701 @@
+{
+  "analysis": {
+    "aggregate": {
+      "correct_vs_layer_rolled_address_only": {
+        "maximum_row_normalized_l2": 1.0942471050879075,
+        "mean_normalized_l2": 1.0481698535392017,
+        "minimum_row_normalized_l2": 0.9721326581257883,
+        "positive_row_fraction": 1.0
+      },
+      "correct_vs_matched_donor_address_only": {
+        "maximum_row_normalized_l2": 0.47943941929510664,
+        "mean_normalized_l2": 0.3663126012238319,
+        "minimum_row_normalized_l2": 0.267901754938066,
+        "positive_row_fraction": 1.0
+      },
+      "correct_vs_raw_unconditioned": {
+        "maximum_row_normalized_l2": 0.8286369159108117,
+        "mean_normalized_l2": 0.7934976550972178,
+        "minimum_row_normalized_l2": 0.7402604612566176,
+        "positive_row_fraction": 1.0
+      },
+      "correct_vs_target_address_on_donor_content": {
+        "maximum_row_normalized_l2": 0.3996080004033588,
+        "mean_normalized_l2": 0.35110093481628046,
+        "minimum_row_normalized_l2": 0.32635277119420825,
+        "positive_row_fraction": 1.0
+      }
+    },
+    "checks": {
+      "correct_vs_layer_rolled_address_only_mean": true,
+      "correct_vs_layer_rolled_address_only_positive_row_fraction": true,
+      "correct_vs_matched_donor_address_only_mean": true,
+      "correct_vs_matched_donor_address_only_positive_row_fraction": true,
+      "correct_vs_raw_unconditioned_mean": true,
+      "correct_vs_raw_unconditioned_positive_row_fraction": true,
+      "correct_vs_target_address_on_donor_content_mean": true,
+      "correct_vs_target_address_on_donor_content_positive_row_fraction": true,
+      "integrity_all_reads_integrity_exact": true,
+      "integrity_all_target_raw_features_fixed": true,
+      "integrity_all_write_formulas_byte_exact": true,
+      "integrity_continuous_value_same_object_and_bytes": true,
+      "integrity_donor_projected_carrier_fixed_for_target_address": true,
+      "integrity_donor_raw_features_fixed_for_target_address": true,
+      "integrity_effective_address_objects_and_versions_exact": true,
+      "integrity_effective_override_values_byte_exact": true,
+      "integrity_natural_donor_replay_exact": true,
+      "integrity_natural_target_replay_exact": true,
+      "integrity_target_projected_carrier_fixed_across_address_controls": true,
+      "integrity_target_recurrent_metadata_fixed_across_address_controls": true,
+      "integrity_zero_address_each_path_returns_own_raw_feature_objects_unchanged_and_cross_replay_bytes_exact": true,
+      "integrity_zero_address_logits_exact_raw": true,
+      "integrity_zero_address_online_state_exact_raw": true,
+      "integrity_zero_recurrent_logits_exact_projected_only": true
+    },
+    "evaluation_calls": 1,
+    "integrity": {
+      "all_reads_integrity_exact": true,
+      "all_target_raw_features_fixed": true,
+      "all_write_formulas_byte_exact": true,
+      "continuous_value_same_object_and_bytes": true,
+      "donor_projected_carrier_fixed_for_target_address": true,
+      "donor_raw_features_fixed_for_target_address": true,
+      "effective_address_objects_and_versions_exact": true,
+      "effective_override_values_byte_exact": true,
+      "natural_donor_replay_exact": true,
+      "natural_target_replay_exact": true,
+      "target_projected_carrier_fixed_across_address_controls": true,
+      "target_recurrent_metadata_fixed_across_address_controls": true,
+      "zero_address_each_path_returns_own_raw_feature_objects_unchanged_and_cross_replay_bytes_exact": true,
+      "zero_address_logits_exact_raw": true,
+      "zero_address_online_state_exact_raw": true,
+      "zero_recurrent_logits_exact_projected_only": true
+    },
+    "passed": true,
+    "read_diagnostics": {
+      "continuous_layer_rolled_address_only": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.034160348312851335,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "continuous_matched_donor_address_only": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.007750135728979181,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "continuous_norm_random_address_only": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.05778345432116355,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "continuous_row_shuffled_address_only": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.004728875884418018,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "continuous_target_address_on_donor_content": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.0080411945199554,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "continuous_zero_address": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.10246886744299663,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "inherited_exact_v5": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.14398173969803438,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "layer_permuted_recurrent": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": 0.029293533295263963,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "natural_donor_continuous": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.008716973567765872,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "norm_random_recurrent": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": 0.023402954928286673,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "projected_only": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": 0.06592236024046699,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "prompt_only": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": 1.1612751520170277,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "raw_unconditioned": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.10246886744299663,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "row_shuffled_recurrent": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": -0.004877530242629581,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "state_only": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": 1.1612751520170277,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      },
+      "zero_recurrent": {
+        "ce_is_diagnostic_not_causal_preference": true,
+        "mean_answer_ce_minus_correct": 0.06592236024046699,
+        "mean_predictor_logit_changed_fraction": 1.0,
+        "rows_at_least_095_predictor_vectors_changed": 1.0
+      }
+    },
+    "rows": 32
+  },
+  "authorization_provenance": {
+    "authorized_code_commit": "982474ad23b1647a3407105fd461cdf938f70aae",
+    "frozen_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+    "frozen_map_file_sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6",
+    "launch_receipt": "d4081ecb6e6df4b167bf4efed88112041b3ab662c53ef2075df2cedea85c1f9f",
+    "manifest_file_sha256": "c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468",
+    "manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+    "mechanics_file_sha256": "7a5421df97d295328a95953590010318bfc1361db0402243809bd13c094badd9",
+    "retrieval_result_receipt": "cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd",
+    "retrieval_result_sha256": "5103a66475b7a596e53a58b8c7cb554e7e400f5825d42ca141bc342dfef8784b"
+  },
+  "causal_authorized": false,
+  "causal_bytes_open_authorized": false,
+  "causal_protocol_drafting_authorized": true,
+  "claim_boundary": {
+    "causal_preference_claimed": false,
+    "mechanics_only": true,
+    "native_benchmark_gain_claimed": false,
+    "read_feedback_or_repeated_write_scan_used": false,
+    "sota_claimed": false
+  },
+  "code_bindings": {
+    "dependencies": [
+      {
+        "basename": "run_natural_memory_native_rwkv_continuous_write_retrieval.py",
+        "role": "retrieval_result_validator_and_runtime_helpers",
+        "sha256": "878569411cbd2424f10ccfbbfb5c7b8e4ed97a4d33453b5f04a6cc46f1c33ad6"
+      },
+      {
+        "basename": "rwkv_continuous_write_alignment.py",
+        "role": "bias_free_reduced_rank_ridge_and_metrics",
+        "sha256": "f7c51bdcf518763ba6e9e63976d75a8cdcfc518b4d9ba593a4fcc4de62a404cb"
+      },
+      {
+        "basename": "rwkv_continuous_write_integration.py",
+        "role": "full_address_latch_runtime_conditioner_and_override",
+        "sha256": "a2e8f27e5d2247ed3682b2fffa0fc0eb129a202a90ceb2936b7a32b5e0391d25"
+      },
+      {
+        "basename": "test_rwkv_continuous_write_integration.py",
+        "role": "continuous_write_integration_regressions",
+        "sha256": "6ea072208886a71bb5a41a9215d6685bdad49d882488469fb57f3d72aaac50ff"
+      },
+      {
+        "basename": "test_natural_memory_native_rwkv_continuous_write_mechanics.py",
+        "role": "continuous_write_mechanics_regressions",
+        "sha256": "c691368bb677af8bf5d7b662970772135e2a06d6bf62d307de2510d81908d989"
+      },
+      {
+        "basename": "rwkv_continuous_write_fit_split.py",
+        "role": "dataset_qualified_component_disjoint_split",
+        "sha256": "3676ec5ce332088ebc78c75ff65a0822fe3ed0037e7d49cd1c0c8228a45d92a6"
+      },
+      {
+        "basename": "materialize_natural_memory_native_rwkv_continuous_write_open_fit.py",
+        "role": "five_file_open_fit_materializer_and_firewall",
+        "sha256": "f1e5806bb467bfdd377e374845cdafb90ece1b67d6eba9744b6ef48de0c9bdd9"
+      },
+      {
+        "basename": "common.py",
+        "role": "model_and_tokenizer_loader",
+        "sha256": "8c2863eeea3701f557edf180391586fbc838ce357f3f4e53d8a2292fe4f853e0"
+      },
+      {
+        "basename": "delta.py",
+        "role": "signed_exact_v5_delta_api",
+        "sha256": "144023cf0ef24970f93d2ffaf80a7265dfb137a32c1326df84e43aee80898f0c"
+      },
+      {
+        "basename": "delta_impl.py",
+        "role": "signed_exact_v5_delta_implementation",
+        "sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+        "role": "strict_exact_v5_loader_and_source_validator",
+        "sha256": "0fd85e3e415a8705d3e37efd47d88f5ac6aa8feb25af039abdd1e4d704151ed6"
+      },
+      {
+        "basename": "natural_memory_distributed.py",
+        "role": "signed_distributed_runtime",
+        "sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d"
+      },
+      {
+        "basename": "run_natural_memory_native_evolution.py",
+        "role": "signed_native_row_encoder_and_write_read_runtime",
+        "sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_addressed_value_causal_train.py",
+        "role": "signed_ordered_module_and_state_intervention_helpers",
+        "sha256": "3036e7c75c1dedd31ab7f3d8aa79126c849a5c64e5e37395bbe3e2c43822fbc7"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_addressed_value_screen.py",
+        "role": "signed_four_a100_hardware_validator",
+        "sha256": "b42cb3455679b1799a72b262958df5fd5a85211bc5b37730c24c70309309d654"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py",
+        "role": "signed_exact_v5_adapter_topology_validator",
+        "sha256": "78f605c2e6b389e30fd97a98391b60cad99661f7bdc8cf3a4397aac6b5560a16"
+      }
+    ],
+    "runner_sha256": "12a1857939f7eeb623b658d8ae037971192c2c8d0e0c5e213ca3f75b49a55204"
+  },
+  "execution": {
+    "adapter_parameters_updated": false,
+    "assignment": "sorted_mechanics_ordinal_round_robin",
+    "generation": false,
+    "hf_endpoint": "https://hf-mirror.com",
+    "maps_loaded_before_mechanics_bytes_opened": true,
+    "model_parameters_updated": false,
+    "parameter_versions_sha256": "31c85419d39f4622072f440edd0c491891e1df5fb3d5c7b259fbea89edb841d9",
+    "parameter_versions_unchanged": true,
+    "rows_per_rank": 8
+  },
+  "feature_provenance": {
+    "evaluated_rows_digest": "9b63cd90016e26bb4a34e63b51ec6c69b06c43215f0a474af18d828b397561ea",
+    "natural_cache_digest": "5b08bc4e31de0e15b20c2069e0a25abb7a3e6a9af5b34e942c65e09e839889d0",
+    "shard_binding": {
+      "dependency_bindings_sha256": "a2aa2aae15701597923a7a6495d765c72793108e1a103c32ccc49eb44d654451",
+      "launch_receipt": "d4081ecb6e6df4b167bf4efed88112041b3ab662c53ef2075df2cedea85c1f9f",
+      "manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+      "map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+      "mechanics_binding": "ef033727539947ad7c57d14279d5557671ed89045599e378b5c6a55eb0bb83b0",
+      "mechanics_file_sha256": "7a5421df97d295328a95953590010318bfc1361db0402243809bd13c094badd9",
+      "natural_cache_digest": "5b08bc4e31de0e15b20c2069e0a25abb7a3e6a9af5b34e942c65e09e839889d0",
+      "preflight_binding": "63ea222fb3f0c4b52dd3a1196ddf003dea54341c9a89a3598a876724154a0ec7",
+      "protocol_file_sha256": "4e29aef94dfc90cb13034e7c972d364ca20b4428c662981dfd62fbe400400e21",
+      "protocol_payload_sha256": "c482e6874e4e5f5b52be1567df70d2f51c76dd49a50e4554926d56aa63bb735b",
+      "runner_sha256": "12a1857939f7eeb623b658d8ae037971192c2c8d0e0c5e213ca3f75b49a55204"
+    },
+    "shards": [
+      {
+        "assigned_source_binding": "ad2e16df933474c9e68e33660ec33afc7a4802a1aca8e797ceda8bee6f1571f0",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/mechanics-shard-0.json",
+        "rank": 0,
+        "receipt": "396e0df009c822d856f6307fe8bc888dbc0c3e16f5e04fa84e8aa77284d09a4c",
+        "rows": 8,
+        "sha256": "aa04b67884e5ebdfbb1721706c59e551f55f730c1a3fe9df65fbc01d1b0fe534",
+        "source_indices": [
+          41,
+          393,
+          557,
+          677,
+          777,
+          1009,
+          1137,
+          1336
+        ]
+      },
+      {
+        "assigned_source_binding": "a15dc56daffbb0abf50a129884fb5f75baa189e1e690421bcbe406fb98c27d81",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/mechanics-shard-1.json",
+        "rank": 1,
+        "receipt": "f9b45a16b5f5c5944411643c7f2e2beed26f4d4d0a951f166b394f2897bdda50",
+        "rows": 8,
+        "sha256": "65754df161647077587d598399f92672078d699172b05c2d29988be19aeec11e",
+        "source_indices": [
+          44,
+          478,
+          579,
+          694,
+          860,
+          1039,
+          1265,
+          1349
+        ]
+      },
+      {
+        "assigned_source_binding": "d40c02663b5b34b88d55483ca67a518e6e76e65206617546cee08740021dbd8f",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/mechanics-shard-2.json",
+        "rank": 2,
+        "receipt": "ff4f0f7c4c424c3b1b5a63cf738cfc1e7e609cb8d1bc20100e1518acdf3855c0",
+        "rows": 8,
+        "sha256": "a0c589920584d603acb8974a89c2da34cd6d5c6b47ab05722bdb034f98f97e5a",
+        "source_indices": [
+          132,
+          512,
+          644,
+          728,
+          876,
+          1049,
+          1311,
+          1400
+        ]
+      },
+      {
+        "assigned_source_binding": "9292f049a4edb899a320e7e12aa9b9714b26899ab03a2bbfc35e4389fc9c92ec",
+        "path": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/mechanics-shard-3.json",
+        "rank": 3,
+        "receipt": "04e944e78e12755e8763fd3364fd5dac7bf99c96cc82e66a12be56dc66c4257b",
+        "rows": 8,
+        "sha256": "89c432f1feb8574085cc824a78853a5b659628c164877406f3ab56b4b7f150d0",
+        "source_indices": [
+          186,
+          544,
+          670,
+          743,
+          892,
+          1123,
+          1321,
+          1423
+        ]
+      }
+    ]
+  },
+  "firewall": {
+    "causal_path_statted_listed_hashed_or_opened_by_experiment_runner": false,
+    "causal_rows_decoded_tokenized_forwarded_or_scored": 0,
+    "manifest_opened_before_protected_access": true,
+    "mechanics_bytes_opened_after_signed_preflight": true,
+    "mechanics_rows_decoded_tokenized_forwarded_and_scored": 32,
+    "publisher_validation_test_hard32_strength_holdout_opened": false
+  },
+  "generation_authorized": false,
+  "hardware": {
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 0,
+        "pid": 2822634,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 1,
+        "pid": 2822635,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 2,
+        "pid": 2822636,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 3,
+        "pid": 2822637,
+        "process_rank": 3
+      }
+    ],
+    "timeout_seconds": 1800,
+    "world_size": 4
+  },
+  "materialization_bundles_opened": [
+    "mechanics"
+  ],
+  "mechanics_evaluation_calls": 1,
+  "model_audit": {
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "continuous_write_install": {
+      "address_dim": 64,
+      "address_lifecycle": "single_post_projected_write_detached_full_address_latch",
+      "baseline_mode": "inherited_exact_v5",
+      "conditioned_features": [
+        "k",
+        "a",
+        "b"
+      ],
+      "default_mode": "continuous",
+      "effective_full64_override": "one_shot_selected_key_only",
+      "feature_dim": 32,
+      "live_key_or_route_recomputation": false,
+      "map_trainable": false,
+      "module_names": [
+        "model.language_model.layers.0.self_attn",
+        "model.language_model.layers.1.self_attn",
+        "model.language_model.layers.2.self_attn",
+        "model.language_model.layers.3.self_attn",
+        "model.language_model.layers.4.self_attn",
+        "model.language_model.layers.5.self_attn",
+        "model.language_model.layers.6.self_attn",
+        "model.language_model.layers.7.self_attn",
+        "model.language_model.layers.8.self_attn",
+        "model.language_model.layers.9.self_attn",
+        "model.language_model.layers.10.self_attn",
+        "model.language_model.layers.11.self_attn",
+        "model.language_model.layers.12.self_attn",
+        "model.language_model.layers.13.self_attn",
+        "model.language_model.layers.14.self_attn",
+        "model.language_model.layers.15.self_attn",
+        "model.language_model.layers.16.self_attn",
+        "model.language_model.layers.17.self_attn",
+        "model.language_model.layers.18.self_attn",
+        "model.language_model.layers.19.self_attn",
+        "model.language_model.layers.20.self_attn",
+        "model.language_model.layers.21.self_attn",
+        "model.language_model.layers.22.self_attn",
+        "model.language_model.layers.23.self_attn",
+        "model.language_model.layers.24.self_attn",
+        "model.language_model.layers.25.self_attn",
+        "model.language_model.layers.26.self_attn",
+        "model.language_model.layers.27.self_attn",
+        "model.language_model.layers.28.self_attn",
+        "model.language_model.layers.29.self_attn",
+        "model.language_model.layers.30.self_attn",
+        "model.language_model.layers.31.self_attn",
+        "model.language_model.layers.32.self_attn",
+        "model.language_model.layers.33.self_attn",
+        "model.language_model.layers.34.self_attn",
+        "model.language_model.layers.35.self_attn",
+        "model.language_model.layers.36.self_attn",
+        "model.language_model.layers.37.self_attn",
+        "model.language_model.layers.38.self_attn",
+        "model.language_model.layers.39.self_attn",
+        "model.language_model.layers.40.self_attn",
+        "model.language_model.layers.41.self_attn"
+      ],
+      "modules": 42,
+      "parameter_elements": 64512,
+      "parameter_tensors": 84,
+      "pending_effective_full64_overrides": 0,
+      "rank": 16,
+      "raw_control_mode": "raw_unconditioned",
+      "value_identity": "same_object_and_bytes"
+    },
+    "deepembed_down_hooks": 42,
+    "deepembed_pre_hooks": 42,
+    "feature_observer": {
+      "module_names": [
+        "model.language_model.layers.0.self_attn",
+        "model.language_model.layers.1.self_attn",
+        "model.language_model.layers.2.self_attn",
+        "model.language_model.layers.3.self_attn",
+        "model.language_model.layers.4.self_attn",
+        "model.language_model.layers.5.self_attn",
+        "model.language_model.layers.6.self_attn",
+        "model.language_model.layers.7.self_attn",
+        "model.language_model.layers.8.self_attn",
+        "model.language_model.layers.9.self_attn",
+        "model.language_model.layers.10.self_attn",
+        "model.language_model.layers.11.self_attn",
+        "model.language_model.layers.12.self_attn",
+        "model.language_model.layers.13.self_attn",
+        "model.language_model.layers.14.self_attn",
+        "model.language_model.layers.15.self_attn",
+        "model.language_model.layers.16.self_attn",
+        "model.language_model.layers.17.self_attn",
+        "model.language_model.layers.18.self_attn",
+        "model.language_model.layers.19.self_attn",
+        "model.language_model.layers.20.self_attn",
+        "model.language_model.layers.21.self_attn",
+        "model.language_model.layers.22.self_attn",
+        "model.language_model.layers.23.self_attn",
+        "model.language_model.layers.24.self_attn",
+        "model.language_model.layers.25.self_attn",
+        "model.language_model.layers.26.self_attn",
+        "model.language_model.layers.27.self_attn",
+        "model.language_model.layers.28.self_attn",
+        "model.language_model.layers.29.self_attn",
+        "model.language_model.layers.30.self_attn",
+        "model.language_model.layers.31.self_attn",
+        "model.language_model.layers.32.self_attn",
+        "model.language_model.layers.33.self_attn",
+        "model.language_model.layers.34.self_attn",
+        "model.language_model.layers.35.self_attn",
+        "model.language_model.layers.36.self_attn",
+        "model.language_model.layers.37.self_attn",
+        "model.language_model.layers.38.self_attn",
+        "model.language_model.layers.39.self_attn",
+        "model.language_model.layers.40.self_attn",
+        "model.language_model.layers.41.self_attn"
+      ],
+      "modules": 42,
+      "observer": "no_output_change_raw_feature_and_formula_audit"
+    },
+    "learned_write_modules": 0,
+    "loader": "strict_saved_config_and_complete_adapter",
+    "map_runtime_parity": {
+      "active_directions_finite_nonzero": true,
+      "active_offline_runtime_byte_exact": true,
+      "modules": 42,
+      "passed": true,
+      "zero_offline_runtime_byte_exact_and_exact_zero": true
+    },
+    "outer_ffn_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "parameters_trainable": false,
+    "read_invocation_observer": {
+      "module_names": [
+        "model.language_model.layers.0.self_attn",
+        "model.language_model.layers.1.self_attn",
+        "model.language_model.layers.2.self_attn",
+        "model.language_model.layers.3.self_attn",
+        "model.language_model.layers.4.self_attn",
+        "model.language_model.layers.5.self_attn",
+        "model.language_model.layers.6.self_attn",
+        "model.language_model.layers.7.self_attn",
+        "model.language_model.layers.8.self_attn",
+        "model.language_model.layers.9.self_attn",
+        "model.language_model.layers.10.self_attn",
+        "model.language_model.layers.11.self_attn",
+        "model.language_model.layers.12.self_attn",
+        "model.language_model.layers.13.self_attn",
+        "model.language_model.layers.14.self_attn",
+        "model.language_model.layers.15.self_attn",
+        "model.language_model.layers.16.self_attn",
+        "model.language_model.layers.17.self_attn",
+        "model.language_model.layers.18.self_attn",
+        "model.language_model.layers.19.self_attn",
+        "model.language_model.layers.20.self_attn",
+        "model.language_model.layers.21.self_attn",
+        "model.language_model.layers.22.self_attn",
+        "model.language_model.layers.23.self_attn",
+        "model.language_model.layers.24.self_attn",
+        "model.language_model.layers.25.self_attn",
+        "model.language_model.layers.26.self_attn",
+        "model.language_model.layers.27.self_attn",
+        "model.language_model.layers.28.self_attn",
+        "model.language_model.layers.29.self_attn",
+        "model.language_model.layers.30.self_attn",
+        "model.language_model.layers.31.self_attn",
+        "model.language_model.layers.32.self_attn",
+        "model.language_model.layers.33.self_attn",
+        "model.language_model.layers.34.self_attn",
+        "model.language_model.layers.35.self_attn",
+        "model.language_model.layers.36.self_attn",
+        "model.language_model.layers.37.self_attn",
+        "model.language_model.layers.38.self_attn",
+        "model.language_model.layers.39.self_attn",
+        "model.language_model.layers.40.self_attn",
+        "model.language_model.layers.41.self_attn"
+      ],
+      "modules": 42,
+      "observer": "unconditional_rwkv_read_basis_invocation_counter"
+    },
+    "read_observer": {
+      "forward_output_changed": false,
+      "module_names": [
+        "model.language_model.layers.0.self_attn",
+        "model.language_model.layers.1.self_attn",
+        "model.language_model.layers.2.self_attn",
+        "model.language_model.layers.3.self_attn",
+        "model.language_model.layers.4.self_attn",
+        "model.language_model.layers.5.self_attn",
+        "model.language_model.layers.6.self_attn",
+        "model.language_model.layers.7.self_attn",
+        "model.language_model.layers.8.self_attn",
+        "model.language_model.layers.9.self_attn",
+        "model.language_model.layers.10.self_attn",
+        "model.language_model.layers.11.self_attn",
+        "model.language_model.layers.12.self_attn",
+        "model.language_model.layers.13.self_attn",
+        "model.language_model.layers.14.self_attn",
+        "model.language_model.layers.15.self_attn",
+        "model.language_model.layers.16.self_attn",
+        "model.language_model.layers.17.self_attn",
+        "model.language_model.layers.18.self_attn",
+        "model.language_model.layers.19.self_attn",
+        "model.language_model.layers.20.self_attn",
+        "model.language_model.layers.21.self_attn",
+        "model.language_model.layers.22.self_attn",
+        "model.language_model.layers.23.self_attn",
+        "model.language_model.layers.24.self_attn",
+        "model.language_model.layers.25.self_attn",
+        "model.language_model.layers.26.self_attn",
+        "model.language_model.layers.27.self_attn",
+        "model.language_model.layers.28.self_attn",
+        "model.language_model.layers.29.self_attn",
+        "model.language_model.layers.30.self_attn",
+        "model.language_model.layers.31.self_attn",
+        "model.language_model.layers.32.self_attn",
+        "model.language_model.layers.33.self_attn",
+        "model.language_model.layers.34.self_attn",
+        "model.language_model.layers.35.self_attn",
+        "model.language_model.layers.36.self_attn",
+        "model.language_model.layers.37.self_attn",
+        "model.language_model.layers.38.self_attn",
+        "model.language_model.layers.39.self_attn",
+        "model.language_model.layers.40.self_attn",
+        "model.language_model.layers.41.self_attn"
+      ],
+      "modules": 42,
+      "observer": "all42_prompt_boundary_exact_v5_r_seq_double_call",
+      "persisted_full_sequence_or_state_features": false
+    },
+    "wrapped_layers": 42
+  },
+  "model_or_adapter_training_authorized": false,
+  "modules": 42,
+  "native_benchmark_authorized": false,
+  "passed": true,
+  "protocol_file_sha256": "4e29aef94dfc90cb13034e7c972d364ca20b4428c662981dfd62fbe400400e21",
+  "protocol_objective": "Run one precommitted no-training mechanics experiment on exactly four distinct A100 GPUs over all 32 source-and-donor-disjoint mechanics rows: load the retrieval-passed frozen rank-16 full64-to-causal32 maps, activate continuous full64 conditioning of exact-v5 RWKV k/a/b while preserving v, apply address/content/recurrent/projected controls with immutable target carriers, require exact lifecycle and zero/raw invariants plus material state changes, report predictor-logit and CE effects only diagnostically, and keep causal, generation, and native benchmark data sealed.",
+  "protocol_payload_sha256": "c482e6874e4e5f5b52be1567df70d2f51c76dd49a50e4554926d56aa63bb735b",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "2621b0d7773f7931fda80676774697fcc4c059abf49f8ebbad683f19f34c1a95"
+  },
+  "rows": 32,
+  "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_mechanics.v1",
+  "source_audit": {
+    "delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "imported_delta_impl": "/root/X/signed-v5-source-cd7deb/deltamem/core/delta_impl.py",
+    "signed_source_head": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_source_root": "/root/X/signed-v5-source-cd7deb",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631"
+  },
+  "status": "continuous_write_mechanics_passed_causal_protocol_draft_authorized"
+}
