@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the signed four-A100 bidirectional-sign development gate once."""
+"""Run the signed four-A100 bidirectional-sign development retry once."""
 
 from __future__ import annotations
 
@@ -23,18 +23,18 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parents[1]
 PROTOCOL = (
     SCRIPT_DIR
-    / "natural_memory_native_rwkv_bidirectional_sign_development_gate_protocol_v1.json"
+    / "natural_memory_native_rwkv_bidirectional_sign_development_gate_protocol_v2.json"
 )
 CORE = SCRIPT_DIR / "rwkv_bidirectional_sign_development_gate_core.py"
-SCHEMA = "rwkv_ms_bidirectional_sign_development_gate.v1"
+SCHEMA = "rwkv_ms_bidirectional_sign_development_gate.v2"
 EXPECTED_PROTOCOL_FILE_SHA256 = (
-    "af4b21a4d523a5282b22b113d9c73761045de2e3e077a14a58844b4e500f250a"
+    "01a6b87e39b8ce4ec3e3a0443df21ede876d5748bdef75746f734b5f3ef22147"
 )
 EXPECTED_PROTOCOL_PAYLOAD_SHA256 = (
-    "7c9fb7fb1160ee54851d65d5bcc612a00f1da356a816f30cfd28976fb1ebbdfb"
+    "8805ea053bf111b0be2317bb15426eea0f25c6fd5727de58bfdfb7e2cab10530"
 )
 EXPECTED_CORE_SHA256 = (
-    "08e7695d2c96d1ac7119ff6a4524e321d381eced673d177a6cd7c8b5a72b89d5"
+    "1518efab7bc074b992cb5ae4f01b66d51494f9dd82bb5db9618d426fd166cde0"
 )
 
 

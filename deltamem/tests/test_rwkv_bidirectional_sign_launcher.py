@@ -35,7 +35,7 @@ def _file_sha256(path: Path) -> str:
 
 def _write_protocol(path: Path, *, files: list[dict[str, str]]) -> tuple[str, str]:
     unsigned = {
-        "schema": "rwkv_ms_bidirectional_sign_development_gate.v1",
+        "schema": "rwkv_ms_bidirectional_sign_development_gate.v2",
         "manifests": {"files": files},
     }
     canonical = json.dumps(

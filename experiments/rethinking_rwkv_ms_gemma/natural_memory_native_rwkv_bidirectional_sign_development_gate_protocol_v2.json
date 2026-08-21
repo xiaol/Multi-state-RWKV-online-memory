@@ -1,0 +1,790 @@
+{
+  "architecture": {
+    "address_dim": 64,
+    "frequency": 64.0,
+    "native_routing_changed": false,
+    "projection_seed": 131,
+    "projections_trainable": false,
+    "read_features": "right-coded native receptance then left decode",
+    "state_dim": 32,
+    "state_encoding": "S_bound=D_value(address)@S@D_key(address)",
+    "state_rebase_required": true,
+    "write_features": "v-left and k/a/b-right"
+  },
+  "authorization_basis": {
+    "plmsc_protocol_file_sha256": "15fd83f0cc9eb636f6264d5d2fb80a830e612ac144a123a4b4e7be5d483ed5ed",
+    "plmsc_protocol_payload_sha256": "a66d2b855491e0c814d0c524d9d66f70cd03164c9aac14b30da1fb47e769142e",
+    "plmsc_result_file_sha256": "b7dce00737c928abc13729b19e24ccfe803b9dce6dde62b9d9d944971a295544",
+    "plmsc_result_receipt": "23c7cfdf0cdf0fb747010615cfe271ae7d7c0cddd7bd9a90401179033100fda7",
+    "plmsc_status": "plmsc_code_alignment_failed_family_retired",
+    "retry_scope": "one operational retry after pre-mechanics capture-lifecycle failure",
+    "scope": "new independent identity mechanics family; development only",
+    "v1_core_sha256": "08e7695d2c96d1ac7119ff6a4524e321d381eced673d177a6cd7c8b5a72b89d5",
+    "v1_execution_commit": "2cf59d0e2345af893d636bcc28c0659d0d800eea",
+    "v1_operational_failure_file_sha256": "ce102f035fe3b4a52a0b1b70670e4478d12780baded62c1888501d41648082ca",
+    "v1_operational_failure_receipt": "ce165fe4033476c18b081012387602c2cda47fe0b170b5d65d6de32e79da5023",
+    "v1_protocol_file_sha256": "af4b21a4d523a5282b22b113d9c73761045de2e3e077a14a58844b4e500f250a",
+    "v1_protocol_payload_sha256": "7c9fb7fb1160ee54851d65d5bcc612a00f1da356a816f30cfd28976fb1ebbdfb"
+  },
+  "benchmark_authorized": false,
+  "created_at": "2026-08-22T01:29:00+08:00",
+  "execution": {
+    "attempt_number": 2,
+    "attempts": 1,
+    "cuda": "12.8",
+    "fit_or_training": false,
+    "fresh_output_required": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "python": "3.12.13",
+    "resume": false,
+    "torch": "2.6.0+cu128",
+    "world_size": 4
+  },
+  "firewall": {
+    "causal_bundle_opened": false,
+    "causal_rows_opened": 0,
+    "development_bundle": "development.jsonl",
+    "development_rows_opened": 64,
+    "manifest_metadata_opened": true,
+    "mechanics_bundle_opened": false,
+    "mechanics_rows_opened": 0
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "open_fit_manifest_receipt": "0b6c3cd1869a5c7c346351a173cd2c16b3fdf27eb5f174c354a35e8a2a34c109",
+    "open_fit_manifest_sha256": "fbad372ad50295e9588c10bdeb40807def69e10216fb365acbe38c931aed7773",
+    "open_fit_source_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "required_source_root_environment": "RWKV_V5_EXACT_SOURCE_ROOT",
+    "signed_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "v5_adapter": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/adapter"
+  },
+  "generation_authorized": false,
+  "manifests": {
+    "files": [
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/rwkv_bidirectional_sign_binding.py",
+        "role": "binding",
+        "scope": "project",
+        "sha256": "5d16225d43f6937caa53cae6079c66e23cd1d7741678a22951066df74a4903c1"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/rwkv_diagonal_sign_binding.py",
+        "role": "diagonal_sign_dependency",
+        "scope": "project",
+        "sha256": "079bbe2aef71d8020a791474621391bcd925cae2041df597dd45d0434c1f9070"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/rwkv_bidirectional_sign_integration.py",
+        "role": "integration",
+        "scope": "project",
+        "sha256": "cb1e4642cc5b1f8cd1a09f7df265f1f7229272bb7488853870f9fd21b83890ee"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/rwkv_bidirectional_sign_development_gate_core.py",
+        "role": "gate_core",
+        "scope": "project",
+        "sha256": "1518efab7bc074b992cb5ae4f01b66d51494f9dd82bb5db9618d426fd166cde0"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/materialize_natural_memory_native_rwkv_bidirectional_sign_open_fit.py",
+        "role": "open_fit_materializer",
+        "scope": "project",
+        "sha256": "d25b3567b86abe532092b94b3436253a0b02e7dd28de2fc346d010885577683f"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_bidirectional_sign_development_gate_v1/operational_failure.json",
+        "role": "v1_operational_failure",
+        "scope": "project",
+        "sha256": "ce102f035fe3b4a52a0b1b70670e4478d12780baded62c1888501d41648082ca"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_plmsc_code_alignment_v2.py",
+        "role": "plmsc_runner",
+        "scope": "project",
+        "sha256": "c1d7f7526a5742a798196baa3572b0b1d21a879f6fbaef34a60298797ea5167d"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+        "role": "exact_v5_loader",
+        "scope": "project",
+        "sha256": "0fd85e3e415a8705d3e37efd47d88f5ac6aa8feb25af039abdd1e4d704151ed6"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/common.py",
+        "role": "shadow_model_loader",
+        "scope": "project",
+        "sha256": "8c2863eeea3701f557edf180391586fbc838ce357f3f4e53d8a2292fe4f853e0"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_bidirectional_sign_open_fit_v1/manifest.json",
+        "role": "open_fit_manifest",
+        "scope": "project",
+        "sha256": "fbad372ad50295e9588c10bdeb40807def69e10216fb365acbe38c931aed7773"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_bidirectional_sign_open_fit_v1/development.jsonl",
+        "role": "open_fit_development_bundle",
+        "scope": "project",
+        "sha256": "32c43c8cf5b86cca403c89ed7eb39501ec7e043e4b94414b95273b84703640a9"
+      },
+      {
+        "path": "deltamem/core/delta.py",
+        "role": "signed_delta_api",
+        "scope": "signed_source",
+        "sha256": "144023cf0ef24970f93d2ffaf80a7265dfb137a32c1326df84e43aee80898f0c"
+      },
+      {
+        "path": "deltamem/core/delta_impl.py",
+        "role": "signed_delta_implementation",
+        "scope": "signed_source",
+        "sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788"
+      },
+      {
+        "path": "deltamem/chat_templates.py",
+        "role": "chat_template_runtime",
+        "scope": "signed_source",
+        "sha256": "b851792e11a65cecdac47a4250e5220a7bbcbd90c4728ec5205cd4a3b67c8398"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/common.py",
+        "role": "signed_model_loader",
+        "scope": "signed_source",
+        "sha256": "8c2863eeea3701f557edf180391586fbc838ce357f3f4e53d8a2292fe4f853e0"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/natural_memory_distributed.py",
+        "role": "distributed_runtime",
+        "scope": "signed_source",
+        "sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_evolution.py",
+        "role": "native_evolution_runtime",
+        "scope": "signed_source",
+        "sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_value_causal_train.py",
+        "role": "causal_state_runtime",
+        "scope": "signed_source",
+        "sha256": "3036e7c75c1dedd31ab7f3d8aa79126c849a5c64e5e37395bbe3e2c43822fbc7"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_projected_rwkv_hybrid_benchmark_eval.py",
+        "role": "dataset_endpoint_runtime",
+        "scope": "signed_source",
+        "sha256": "ddb2da83266967ab877c928d7d21662f9bcfbd225c84fdbdd619fcbc2c159756"
+      },
+      {
+        "path": "experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_addressed_value_screen.py",
+        "role": "hardware_runtime",
+        "scope": "signed_source",
+        "sha256": "b42cb3455679b1799a72b262958df5fd5a85211bc5b37730c24c70309309d654"
+      },
+      {
+        "path": "chat_template.jinja",
+        "role": "base_model_chat_template_jinja",
+        "scope": "base_model",
+        "sha256": "2f1b4d75d067bae3fe44e676721c7f077d243bc007156cb9c2f8b5836613d082"
+      },
+      {
+        "path": "config.json",
+        "role": "base_model_config_json",
+        "scope": "base_model",
+        "sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4"
+      },
+      {
+        "path": "generation_config.json",
+        "role": "base_model_generation_config_json",
+        "scope": "base_model",
+        "sha256": "d4226bbe3117d2d253ba4609720ba82c6c4ce4627a9a6ae05387c78983ac03de"
+      },
+      {
+        "path": "model.safetensors",
+        "role": "base_model_model_safetensors",
+        "scope": "base_model",
+        "sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503"
+      },
+      {
+        "path": "tokenizer.json",
+        "role": "base_model_tokenizer_json",
+        "scope": "base_model",
+        "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "role": "base_model_tokenizer_config_json",
+        "scope": "base_model",
+        "sha256": "90c3a3ba5bf53818383a58e1a776cbcacd2a038d4812eaa373e1522f2d06f3df"
+      },
+      {
+        "path": "delta_mem_adapter.pt",
+        "role": "v5_adapter_delta_mem_adapter_pt",
+        "scope": "v5_adapter",
+        "sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162"
+      },
+      {
+        "path": "delta_mem_config.json",
+        "role": "v5_adapter_delta_mem_config_json",
+        "scope": "v5_adapter",
+        "sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44"
+      }
+    ]
+  },
+  "mechanics_stage_authorized": false,
+  "model_or_adapter_training_authorized": false,
+  "objective": "Run one operational retry of the exact four-A100 development64 gate after the signed v1 harness failure, using only the signed publisher-TRAIN-derived open-fit development replay.",
+  "projection_sha256": {
+    "model.language_model.layers.0.self_attn": {
+      "left": "c52f25115b7d1d425bb67789368a3fbeea9c6fbe44ea11322b1889b16eac596a",
+      "right": "1e5a90303a027069df5f15c3a1eff2c6cc40e1a9a942f281c16dfebab45bbc8a"
+    },
+    "model.language_model.layers.1.self_attn": {
+      "left": "0b2b61e9387d21016fd5a4d5eb6ad7163848b0bdd08e282407678922b7faea10",
+      "right": "fc4a99f4902f558ecb1b26826d5d871538db5bc9399d868af979f6932bc97a56"
+    },
+    "model.language_model.layers.10.self_attn": {
+      "left": "42fa72b7f9baea94eb8b94e9174874c47b50b4ef559cea7c8a6cde929bae7dd0",
+      "right": "b5c61bc5a7a69e6834242bcf8c47266dd07572b83ca30f64ce026cf10078be28"
+    },
+    "model.language_model.layers.11.self_attn": {
+      "left": "30be8dac2e87c8686e1be906a7e8e4ce911aaf6045a3cb3788bd51c6e5d6cd17",
+      "right": "fc2b7f1c5db60794dc6cf55ff7a6ae91b7ed687c04699c240f554d769e894f49"
+    },
+    "model.language_model.layers.12.self_attn": {
+      "left": "9e80ce2462d1bb507623ec5edf4f55dabf218fd06490701cd0050e69f2c57071",
+      "right": "e611d2293c3ed98f0444bcf73a3d3a46f1fa8c14b1171b93e937f616b565c3d3"
+    },
+    "model.language_model.layers.13.self_attn": {
+      "left": "5a159f2766f76b1052d7c5f0e7e11f0e518208e4d23bbac15442d2e246edc5dd",
+      "right": "281c7d883b1c304c15440ac2d2ab4b7144ab3d260cac4a903cc889694e245bce"
+    },
+    "model.language_model.layers.14.self_attn": {
+      "left": "eba790639920c1dbf669379a4c52f6c380f41c29d1e908d680685b9e9fdf072e",
+      "right": "ab6ffc0c79934588c6c9750c0d4b56f92ed1e0a99af9d2610cbb358862683581"
+    },
+    "model.language_model.layers.15.self_attn": {
+      "left": "7f3bf63d55abca9eb7cb46495944619df4b5929baa69e2eb9ad161c9ff3c2aab",
+      "right": "6511de41b0e483fa2358b314e24b5397bfbe0a436afdc98620cadb5fae92915f"
+    },
+    "model.language_model.layers.16.self_attn": {
+      "left": "4b9a5d7fd36589b504b4b393dca0f3aa318b6c131be9bd155de492426a029efc",
+      "right": "4012de688cbebfc88fa63cfeaae379157b52db6a92ff0e5720cfd26f172358f2"
+    },
+    "model.language_model.layers.17.self_attn": {
+      "left": "113d4fe2cb3e8a16f409488a3d198f547762ec33af20f23219861c8db3c5024d",
+      "right": "957f19dd54470b39e156da967228ebd610bc0093baead6cad3893adf73204827"
+    },
+    "model.language_model.layers.18.self_attn": {
+      "left": "610e4ba607fa0d3c0c3aabaf1129ea74b4eba31bcb30a6e20b316c4bb478cf00",
+      "right": "11cf27210a8aa83e48ee573df650101f23ed62675e7bd716c69c442791d62f44"
+    },
+    "model.language_model.layers.19.self_attn": {
+      "left": "49c359141e9d82ffb996f025cb5cfb7acbf9f2550b5ba995c6bb9ff930e053d5",
+      "right": "f75d48e5a9457429df952b1ce4a186af50165ef23a6692ba6895cd9bce924911"
+    },
+    "model.language_model.layers.2.self_attn": {
+      "left": "e5f7c968e7528cc399e870c664f6f6e746912de1aff97827565b3f8e3bcad514",
+      "right": "2bf6a39377dc9af4b575dd4ce824dab40a40565556a487733d572556bfaee83d"
+    },
+    "model.language_model.layers.20.self_attn": {
+      "left": "c40ff44722133ed13048ddcef0a499762f7c2276b72ba5b239173f10bedb81b1",
+      "right": "5f1bc8e83264bced008bb6d5f1fb715323bca39942c78b603ae1e28712c7f0c7"
+    },
+    "model.language_model.layers.21.self_attn": {
+      "left": "ae117f9e6155c48dccde19ea3a74c9b4f68a542a58a24fce2fc0c02d49a613a9",
+      "right": "0a515ed81cf33351a3df98d21ea87a480c19493d75dfd9b35b100253618308b6"
+    },
+    "model.language_model.layers.22.self_attn": {
+      "left": "42ae6b72b652ca2340c7003d8d4e37bd081b4e79749f6a32f2a186aab7fe5a44",
+      "right": "8ce7d641f5824c04dc17459ff385bfc92677ee303bbf72696dab0073ba4f9b4a"
+    },
+    "model.language_model.layers.23.self_attn": {
+      "left": "ac4fc01306ceb13cea5528cd1152ee47bca6da705b9c66c646ac243785958886",
+      "right": "a0aa49c1a54936b71f7dc93c49ac34a2da488090218891432995e17fb6e237a7"
+    },
+    "model.language_model.layers.24.self_attn": {
+      "left": "935c1054404f4835c571c56998cc138e8b930949b26a367779741fa80e413e44",
+      "right": "8d00034e6bc4e240eb3b60e7f728adbd909bc0012115cba9c8a4ab9944a32795"
+    },
+    "model.language_model.layers.25.self_attn": {
+      "left": "2ffe8a72e2f59762ad19d3c41f85d5138487cb1096d0c6326d09225d2f3d4c62",
+      "right": "5f690162a74cf04a9693fb217864b29e1d58cf4beb3a7a9b99cc3c2cbf7cc0e6"
+    },
+    "model.language_model.layers.26.self_attn": {
+      "left": "52133c1be1b15cd1e40f08c0249a67b8791d5f96c18a5bffd9cde4aac371b35e",
+      "right": "c2facda183b5b83cff41429f54bb014b378fd58c408f75d03704fc2af0abcd1b"
+    },
+    "model.language_model.layers.27.self_attn": {
+      "left": "6f7df15534dd8fec2d5a07af105b397ff117b7eda3c2d2cb8130e1ddca14d76d",
+      "right": "bf1db6c1a461862ac77c5fd5901fc50838892f271c132251a95ea2388a5d1ed8"
+    },
+    "model.language_model.layers.28.self_attn": {
+      "left": "345274701faab105b8bae5088b4311e369d08bad7d09edba5bfa863a09b39cfb",
+      "right": "13ee84e7f3f7c961e5aa650b871a27936a19af76d22fe4043fdf7017b2ad8f13"
+    },
+    "model.language_model.layers.29.self_attn": {
+      "left": "51904b0c6f84199a7d11acf36726189f0e3bb3a9b8b2f15c3c08b593e644ce95",
+      "right": "0fb0548d95c75655e9a2baaa36c5d061ce6acb5ded7b01084a90464a9eb5a174"
+    },
+    "model.language_model.layers.3.self_attn": {
+      "left": "6edd2c70538d210ef397dc22dee256b02f1b3372eb7174631fe5a2be692ee0e8",
+      "right": "9bcb87c2f4e520de54c6c58c1821a3f0b45f1f03dc962a5050862fa6d0db40cc"
+    },
+    "model.language_model.layers.30.self_attn": {
+      "left": "450eea081f1248abe7cfe6fbc94f53be12ee731030a3074dfb25855b3e17c2d0",
+      "right": "cb033425031c26c3a68473f1b9a86811d81861b38b668f771713761c1fa92bc7"
+    },
+    "model.language_model.layers.31.self_attn": {
+      "left": "65a7396621f516fcd45adcd52ebf8d65b49d5cfc92207c8adde7a73947c0f583",
+      "right": "7cd064d69967d1e9b7ba69e5b5328b24d121b1ab7d7d7c42de994e95d27254d1"
+    },
+    "model.language_model.layers.32.self_attn": {
+      "left": "6b230c89adcc84112049ab65eceb56660b6a51b96985ad15237a99afc3389b50",
+      "right": "4176cc17ef7c00cb6386626d47c51d2cc60c5429714b3c7ee6e270efc1366fa0"
+    },
+    "model.language_model.layers.33.self_attn": {
+      "left": "f0c24332530c76473dbe7893d4ed948d73159b272dcbf54afb6db211b5885ded",
+      "right": "de65e5fcbdd0ec86592eef478fe0526501cebcd90fa788fde1444a3a61f0e0e4"
+    },
+    "model.language_model.layers.34.self_attn": {
+      "left": "de1c79706a9bcd7a130e6a62eacd02bab16b39fd635c135404f0048170cf213c",
+      "right": "b6837490d1650e5b6527983443319375de161402cc71ca415738338b68eff947"
+    },
+    "model.language_model.layers.35.self_attn": {
+      "left": "94872eea7770fb080f1455f846d05e278bbbc0e18293071fc69826dc4a045adb",
+      "right": "b4c0280fd9a4ea51cea4afc63d32708dfd06bea0da31e5cd42da461bfe0feef9"
+    },
+    "model.language_model.layers.36.self_attn": {
+      "left": "3ef1a5992c8a17ca5fd923663ce95cdd4bfe19a592a0ac130f43c6bd9ade2231",
+      "right": "f006d062ff0e9aa389eb3e20ca1093c0bca74e4e400df0d22db1860d9404206f"
+    },
+    "model.language_model.layers.37.self_attn": {
+      "left": "5b00f3476d9e005cdcd3ae3bc0a58b9af8ca552f809821c9afdaabbd7b4720c1",
+      "right": "9128a5699eb87ad58b69a9f13bb573c264f365981545d7a46d6b1005c50ed526"
+    },
+    "model.language_model.layers.38.self_attn": {
+      "left": "31d8371aa225217cf2fa9a20dbedeb1e8e231bc9c7e664a992a91931ced46826",
+      "right": "6d1b6046b0f13c5d4b74cdc831ea7c58e581a2cb0ad4b19e45ae57629e0c7b32"
+    },
+    "model.language_model.layers.39.self_attn": {
+      "left": "a14fe48d3f1cae166f481172cf6a6010596a3c4755a191418d50215e95b61336",
+      "right": "963716bf4666ea6536a9c6f072031ef52011308cc444a6abe264d75e3284c341"
+    },
+    "model.language_model.layers.4.self_attn": {
+      "left": "ecc1e944c45d06afe2489fc7377fe989ebc56756b02a9aa521ae1980d3b0d1d7",
+      "right": "96b36c7cd95810ea4d00cab5ae9992454e4a5d5c80383895cc8020405fe7ad6f"
+    },
+    "model.language_model.layers.40.self_attn": {
+      "left": "0606e55af2bbc603826e0a44a1954ea3c310f36ec634c6e83fe959f2a42fc6a7",
+      "right": "058f6b94c8f197e19b51d7076d5669bb6f96a4f022611fab43acae477a687d44"
+    },
+    "model.language_model.layers.41.self_attn": {
+      "left": "0e8927636832c484d8b02656ef162d5be5376dfd83c44c80c2530f7227424ffa",
+      "right": "c5c8efeeecebf00c8d36f08288edd2d3d226379f68ae5c626d17c66a7398d2bf"
+    },
+    "model.language_model.layers.5.self_attn": {
+      "left": "4b10970dc33f0e528ae21f267b19f8b22d4184cd012146533b615011829918bb",
+      "right": "7cc4d141e646b1690c23af560faa40ce095423de09059efd8278613b6644f53d"
+    },
+    "model.language_model.layers.6.self_attn": {
+      "left": "b8e9c669c1e4ce18a1f189e0c4d1dbd8cad94f2fa938c3a19c2327d9dd2f06a3",
+      "right": "479f570849c7ed5b654a0fec5eea79ad3553ebbf15b8ccfca6201869c087079e"
+    },
+    "model.language_model.layers.7.self_attn": {
+      "left": "52dd039dacceebaa599b80150be409abfa89a20fefccdca87e4405e8a0bd406b",
+      "right": "848661ead2c3cc4b0ffb3d90a851ca51163e380e80f454dfc70adbb4837149fa"
+    },
+    "model.language_model.layers.8.self_attn": {
+      "left": "3465d2b77382c1331765f1d7dcc260764dc7aa77ab1e2fab5e6e7d8d7eb3567a",
+      "right": "83daea6fee3eabfc41f1a0bbca55eaa8b6731d43a8ec281ef1ed43ba16296641"
+    },
+    "model.language_model.layers.9.self_attn": {
+      "left": "bc46ae0155a122d05affc41c29b2f4df2ee97676f1ff4f068243db76a58cb229",
+      "right": "dff421cfbd97ea71aef513f6e49f0e5b3dd9ae0db513d06c7bb025146e2bca12"
+    }
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "8805ea053bf111b0be2317bb15426eea0f25c6fd5727de58bfdfb7e2cab10530"
+  },
+  "schema": "rwkv_ms_bidirectional_sign_development_gate.v2",
+  "split": {
+    "causal_mapping_sha256": "63773af77d764df49d848c75ae9f8ba6a6866639289f186085d689d62f193e4d",
+    "causal_sha256": "8cf6ee83280c4696caef186d8c7749647d96f26979fe014d15d3dc75224d595b",
+    "causal_sources": [
+      36,
+      84,
+      145,
+      147,
+      176,
+      182,
+      311,
+      337,
+      398,
+      493,
+      636,
+      649,
+      687,
+      1012,
+      1097,
+      1240,
+      1330
+    ],
+    "development_mapping_pairs": [
+      [
+        7,
+        1003
+      ],
+      [
+        30,
+        391
+      ],
+      [
+        32,
+        1118
+      ],
+      [
+        65,
+        66
+      ],
+      [
+        66,
+        65
+      ],
+      [
+        69,
+        1375
+      ],
+      [
+        80,
+        394
+      ],
+      [
+        97,
+        177
+      ],
+      [
+        100,
+        1273
+      ],
+      [
+        106,
+        811
+      ],
+      [
+        108,
+        1112
+      ],
+      [
+        114,
+        1239
+      ],
+      [
+        117,
+        783
+      ],
+      [
+        149,
+        448
+      ],
+      [
+        177,
+        97
+      ],
+      [
+        192,
+        1084
+      ],
+      [
+        219,
+        341
+      ],
+      [
+        265,
+        1241
+      ],
+      [
+        306,
+        1093
+      ],
+      [
+        341,
+        219
+      ],
+      [
+        348,
+        1046
+      ],
+      [
+        352,
+        582
+      ],
+      [
+        391,
+        30
+      ],
+      [
+        394,
+        80
+      ],
+      [
+        406,
+        1245
+      ],
+      [
+        448,
+        149
+      ],
+      [
+        503,
+        609
+      ],
+      [
+        582,
+        352
+      ],
+      [
+        609,
+        503
+      ],
+      [
+        615,
+        984
+      ],
+      [
+        629,
+        795
+      ],
+      [
+        765,
+        923
+      ],
+      [
+        780,
+        1315
+      ],
+      [
+        783,
+        117
+      ],
+      [
+        795,
+        629
+      ],
+      [
+        811,
+        106
+      ],
+      [
+        836,
+        852
+      ],
+      [
+        852,
+        836
+      ],
+      [
+        856,
+        1224
+      ],
+      [
+        893,
+        1211
+      ],
+      [
+        905,
+        1104
+      ],
+      [
+        923,
+        765
+      ],
+      [
+        961,
+        1369
+      ],
+      [
+        984,
+        615
+      ],
+      [
+        1003,
+        7
+      ],
+      [
+        1041,
+        1397
+      ],
+      [
+        1046,
+        348
+      ],
+      [
+        1084,
+        192
+      ],
+      [
+        1093,
+        306
+      ],
+      [
+        1104,
+        905
+      ],
+      [
+        1112,
+        108
+      ],
+      [
+        1118,
+        32
+      ],
+      [
+        1140,
+        1274
+      ],
+      [
+        1211,
+        893
+      ],
+      [
+        1224,
+        856
+      ],
+      [
+        1239,
+        114
+      ],
+      [
+        1241,
+        265
+      ],
+      [
+        1245,
+        406
+      ],
+      [
+        1273,
+        100
+      ],
+      [
+        1274,
+        1140
+      ],
+      [
+        1315,
+        780
+      ],
+      [
+        1369,
+        961
+      ],
+      [
+        1375,
+        69
+      ],
+      [
+        1397,
+        1041
+      ]
+    ],
+    "development_mapping_sha256": "23413ca2955aa81073f8b9c400f96a11b7953263379b7e0f6a9553605d4a577e",
+    "development_sha256": "a6049d5956363bff48b881949a8fead4b8b755438b12680822a6dd7021c140a7",
+    "development_sources": [
+      7,
+      30,
+      32,
+      65,
+      66,
+      69,
+      80,
+      97,
+      100,
+      106,
+      108,
+      114,
+      117,
+      149,
+      177,
+      192,
+      219,
+      265,
+      306,
+      341,
+      348,
+      352,
+      391,
+      394,
+      406,
+      448,
+      503,
+      582,
+      609,
+      615,
+      629,
+      765,
+      780,
+      783,
+      795,
+      811,
+      836,
+      852,
+      856,
+      893,
+      905,
+      923,
+      961,
+      984,
+      1003,
+      1041,
+      1046,
+      1084,
+      1093,
+      1104,
+      1112,
+      1118,
+      1140,
+      1211,
+      1224,
+      1239,
+      1241,
+      1245,
+      1273,
+      1274,
+      1315,
+      1369,
+      1375,
+      1397
+    ],
+    "mapping_pairs_sha256": "8b7c4893101c470964766f44efa5b48d62a07aff4c410a37d58c89fb216b4745",
+    "materialization_schema": "rwkv_ms_natural_memory_native_rwkv_bidirectional_sign_open_fit.v1",
+    "mechanics_mapping_sha256": "5c0fbf7583b175b0ebe940ceb408f9f244630be4982cf53d6309e2449e99200d",
+    "mechanics_sha256": "ed24b7b7daf635248e7b3bae8b2c79acc1d62311b97fdff40f9f111eb4f81a47",
+    "mechanics_sources": [
+      96,
+      105,
+      140,
+      199,
+      315,
+      392,
+      414,
+      415,
+      729,
+      749,
+      779,
+      830,
+      1034,
+      1075,
+      1135,
+      1222,
+      1264
+    ],
+    "ordered_components_sha256": "c6459a19aa38fb491d19d7b5c6d18e6a83ddb3bdc7742559d3e1d2006c3f6a6a",
+    "source_namespace": "novel-agent-sft-dataset:publisher-train-derived-fit",
+    "source_set_sha256": "5b7204d39d54d55126303b8ef14a2498a27fa3f3408531c0f035eea6b300c6d5"
+  }
+}
