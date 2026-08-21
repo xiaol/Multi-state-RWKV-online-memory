@@ -655,6 +655,23 @@ The untouched causal 34 remained unopened, un-tokenized, and un-forwarded; no
 model weights, code maps, generation, native benchmark, or SOTA claim were
 authorized.
 
+An independent two-axis algebraic fallback then bound the complete RWKV matrix
+as `S_bound = D_value(A) S D_key(A)`, with `v` coded on the value axis and
+`k/a/b/r` coded on the key axis.  Its single authorized four-A100 development
+run completed all 64 open rows and preserved final logits bit-exactly on every
+row.  The family nevertheless failed before mechanics: routed write codes and
+the expected encoded state matched on `0/64` rows, while left and right donor
+code separation were each `0.976190` against an exact `1.0` gate.  Mechanics,
+causal, generation, and native benchmark data remained unopened.  The signed
+status is `bidirectional_sign_development_failed_family_retired`, result
+SHA-256 is `05a7797cece7ce32aa8407119900405d324eb6b9142516c7c08d5f1783f43144`,
+and receipt is
+`63a61d9814cd3327591808db6cab977bf883df8033863cb122fb64b181f7e97f`.
+The launcher returned nonzero only after writing this valid result because its
+final in-memory/persisted comparison treated a tuple and its JSON list as
+different; independent schema and receipt validation passes, so this is a
+recorded architecture failure rather than authorization for another retry.
+
 The next distinct family removes the discrete codebook. A continuous vector
 derived from the outer write address will condition the exact-v5 RWKV write
 key/update, while the full RWKV state remains the material value through the
@@ -662,7 +679,13 @@ sparse outer FFN and early fusion. It must pass matched-donor,
 address-permutation, donor-address/state, zero-address, layer-permutation,
 prompt-only, state-only, disabled, immutability, and contraction controls on a
 fresh pre-signed mechanics split that excludes every opened PLMSC mechanics
-row before any training or native benchmark is authorized. See the
+and bidirectional-development row before any training or native benchmark is
+authorized.  The implementation must snapshot the selected projected keys and
+routes once immediately after the projected-slot write, materialize one
+immutable address sequence, and pass that same tensor to both the `k/a/b`
+conditioner and its audit.  A synthetic old-key-to-new-key mutation regression
+must pass before capture or GPU execution; recomputing an address later from
+mutable slot state is prohibited. See the
 [paper review](experiments/rethinking_rwkv_ms_gemma/FULL_BANDWIDTH_RWKV_REVIEW.md)
 for the transfer boundary and stopping gates.
 

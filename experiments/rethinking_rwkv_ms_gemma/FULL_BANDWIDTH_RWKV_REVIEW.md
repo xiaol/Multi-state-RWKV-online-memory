@@ -52,7 +52,7 @@ of a 1B model.
 
 The causal decode recurrence is sequential across positions.  The paper
 approximates it during teacher forcing with Jacobi-style temporal parallelism
-(Section 3.3, Eqs. 8--10 and Figure 2):
+(Section 3.3, Eqs. 8--12 and Figure 2):
 
 ```text
 h^(1) = model(embed(tokens))
@@ -86,11 +86,12 @@ The remaining training details are:
 - apply the ordinary next-token loss to every pass and keep gradients through
   the passes rather than detaching the feedback state;
 - introduce recurrence late, with the reported `75%` one-pass, `22%` two-pass,
-  `3%` three-pass mixture; the small three-pass fraction is reported to turn
-  an unstable two-pass map into a contraction;
+  `3%` three-pass heuristic mixture; the small three-pass fraction is reported
+  to turn an unstable two-pass map into a contraction;
 - use a random prefix mixin so plain prompt inputs and fused generated inputs
   share a training distribution;
-- RMS-normalize the fused input, keep carried-state scale stationary, and add
+- RMS-normalize both the token embedding entering the gate projection and the
+  fused input entering the model, keep carried-state scale stationary, and add
   small state jitter (`Uniform[-0.02, 0.02]`) for local robustness.
 
 The random prefix mixin is important: each feedback pass samples a boundary,
@@ -131,8 +132,10 @@ Figure 4 reports front-loaded prefill gains: most improvement arrives with the
 first fused prefill, and two fused passes let the 100B feedback model reach the
 200B standard baseline and the 200B feedback model reach the 400B standard
 baseline on validation perplexity and averaged 5-shot LM Eval.  Appendix
-Table 2 gives an exact 0-shot subset for the 200B model: average PIQA/OBQA/
-ARC-E/ARC-C rises from `52.66` at zero feedback passes to `53.58` at one pass.
+Table 2 gives an exact 0-shot subset for the 200B model: the five-task average
+over WinoGrande/PIQA/OBQA/ARC-E/ARC-C rises from `52.66` at zero feedback
+passes to `53.58` at one pass.  The four-task average that excludes WinoGrande
+is `50.715 -> 51.3325`.
 
 The strongest causal evidence is same-weight decoding, because it separates
 the effect of using feedback from the effect of feedback training.  Figure 5
@@ -140,10 +143,12 @@ compares standard decoding, soft decoding (ordinary prefill plus recurrent
 generation), and fused decoding (one extra fused prefill plus recurrent
 generation).  At the 200B scale, the text reports MATH-500 approximately
 `0.27 -> 0.37` under soft decoding, HumanEval `0.31 -> 0.34` under fused
-decoding, and MBPP `0.38 -> 0.40` under fused decoding.  Soft decoding improves
-over standard decoding across all four reported generation tasks at both
-tested feedback-training scales; the 200B model approaches or exceeds standard
-baselines trained on `2x`--`5x` as many tokens on selected tasks.
+decoding, and MBPP `0.38 -> 0.40` under fused decoding.  Figure 5 plots 100B,
+200B, and 400B full-bandwidth series, while the nearby prose says "both
+scales"; across the plotted pretraining scales, the paper reports soft decoding
+above standard decoding on every shown generation task.  The 200B model
+approaches or exceeds standard baselines trained on `2x`--`5x` as many tokens
+on selected tasks.
 
 After 12B tokens of 8K-to-32K context extension and 6B tokens of instruction
 tuning, Table 1 reports these exact percentages:
@@ -159,6 +164,14 @@ tuning, Table 1 reports these exact percentages:
 | 400B HumanEval Pass@3 | 46.50 | 47.20 | **47.60** |
 | 400B MBPP Pass@3 | 40.50 | 40.60 | **41.70** |
 
+The paper's prose says both feedback modes improve all four post-tuning tasks,
+but the table contradicts that claim at 400B MATH-500: soft feedback is
+`45.40`, below the `46.00` standard result.  The coding temperatures are
+selected separately for each method, and HumanEval/MBPP Pass@3 is estimated
+from ten rollouts; Figure 5 provides no uncertainty bars.  Context extension
+and instruction tuning use three forward passes throughout rather than the
+pretraining `75/22/3` mixture.
+
 The base model also produces shorter MATH-500 traces at equal or better
 accuracy (Figures 6 and 8), but that effect disappears after instruction
 tuning; the authors attribute this to off-policy verbose target traces.
@@ -166,8 +179,10 @@ tuning; the authors attribute this to off-policy verbose target traces.
 Finally, Figure 7 probes accessibility rather than task output.  One recurrent
 prefill step raises the layer-0 linear-probe accuracy to `99.6%` for completion
 tracking and `100%` for delayed memory.  Multi-register experiments show that
-full recurrence helps most as overwrite interference increases.  The paper
-correctly cautions that linear accessibility does not prove causal use.
+full recurrence helps most as overwrite interference increases.  That probe's
+"full recurrent" prefill is fully sequential across prompt tokens, not the
+ordinary parallel multi-pass approximation.  The paper correctly cautions
+that linear accessibility does not prove causal use.
 
 ## Claim boundary and caveats
 
@@ -188,8 +203,9 @@ correctly cautions that linear accessibility does not prove causal use.
   compute.  That is inconsistent with the paper's own definition, under which
   three passes cost `3x`, so it should not be used to infer scaling efficiency.
 - Multi-pass prefill can double or further multiply prefill compute.  The
-  under-`1%` claim applies to the per-token two-projection decode fusion, not
-  to optional repeated prefilling.
+  under-`1%` claim is the authors' analytical FLOP estimate for the per-token
+  two-projection decode fusion, not a measured latency or throughput result;
+  it does not apply to optional repeated prefilling.
 - The stable fixed-point diagnostic is a proxy for decode-time behavior.  It
   is necessary evidence for self-composition but not a matched-state causal
   result.
@@ -369,6 +385,7 @@ trained.
 | retired | bilinear compatibility + output gate | cross-fit passed, causal donor gate failed | held-out score alignment | donor-neutral causal endpoint |
 | retired | exact-v5 per-token predictor shadow | row identity `0.954545`; token identity `0.878327`; mean gap `0.047801` | exact causal-position test with immutable live state | each predictor must rediscover prompt identity |
 | retired | rotary / diagonal-sign binding | rotary non-commutation; sign donor rows `0.750`--`0.769` | algebraic cancellation in limited controls | insufficient donor specificity |
+| retired | two-axis bidirectional diagonal-sign binding | 64-row development exactness `0/64`; donor code separation `0.976190` per axis | intended exact full-matrix basis cancellation | write/state basis mismatch before mechanics |
 | retired | PLMSC discrete write/query code | correct anchor agreement `0.433824`; complete-row agreement `0.058824`; donor collision `0.132353` | explicit write/read identity code | categorical collapse and no causal authorization |
 
 ### Historical directions after the CrossGLU failure
@@ -567,14 +584,21 @@ depends on generalizing the write-address/query relation that collapsed under
 PLMSC.
 
 Pre-sign a fresh donor-component-disjoint fit/mechanics split excluding all 34
-opened PLMSC mechanics rows. First require component-held-out target-versus-
-donor and layer-permuted retrieval gates without changing the state. Only a
-retrieval pass may authorize one four-A100 exact-update mechanics gate with
-target address/state, target address plus donor state, donor address/state with
-the target answer fixed, address permutation, zero address, state-only,
-prompt-only, row shuffle, norm-matched random, disabled, finite outputs, and
-byte-identical projected carriers. A mechanics pass authorizes only a
-separately locked causal endpoint; it does not authorize native generation.
+opened PLMSC mechanics rows and all 64 bidirectional-development rows.  Make
+the projected-address lifecycle explicit before fitting: immediately after
+`_write_projected_kv_slots`, snapshot the selected keys and routes, materialize
+one immutable write-address sequence, and pass that exact tensor to both the
+`k/a/b` conditioner and its audit.  Never recompute the address from mutable
+slot state after the scan.  A synthetic old-key-to-new-key mutation regression
+must prove that conditioning and audit both use the new latched key.  First
+require component-held-out target-versus-donor and layer-permuted retrieval
+gates without changing the state. Only a retrieval pass may authorize one
+four-A100 exact-update mechanics gate with target address/state, target address
+plus donor state, donor address/state with the target answer fixed, address
+permutation, zero address, state-only, prompt-only, row shuffle, norm-matched
+random, disabled, finite outputs, and byte-identical projected carriers. A
+mechanics pass authorizes only a separately locked causal endpoint; it does not
+authorize native generation.
 
 ### Priority 2: exact monomial binding fallback
 
@@ -652,8 +676,11 @@ gate. The family is retired without model mechanics or training.
 PLMSC then tested write-time slot codes exactly once and failed its signed
 mechanics gates with categorical collapse; no causal rows or model weights were
 opened. The best next move is **continuous query-aligned `k/a/b` write
-conditioning with `v` unchanged**, followed by exact projected-address
-monomial binding as an independent algebraic fallback/control. Full-Bandwidth
-read feedback becomes eligible only after state identity passes mechanics and
-causal controls. The paper does not establish multi-state identity, and no
-native benchmark or SOTA claim is currently authorized.
+conditioning with `v` unchanged**.  The subsequent full-matrix bidirectional
+diagonal-sign fallback also failed before mechanics: routed-code and
+encoded-state exactness were `0/64`, while each axis separated `0.976190` of
+donor pairs against the exact `1.0` gate.  Its receipt-valid result is
+`local_artifacts/natural_memory_native_rwkv_bidirectional_sign_development_gate_v2/result.json`.
+Full-Bandwidth read feedback becomes eligible only after state identity passes
+mechanics and causal controls. The paper does not establish multi-state
+identity, and no native benchmark or SOTA claim is currently authorized.

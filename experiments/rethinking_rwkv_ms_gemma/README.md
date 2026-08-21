@@ -548,15 +548,35 @@ The untouched causal 34 remained unopened, un-tokenized, and un-forwarded; no
 model/code-map weights, generation, native benchmark, or SOTA claim were
 authorized.
 
+The later two-axis diagonal-sign fallback used independent full-address codes
+on both RWKV matrix axes: `S_bound = D_value(A) S D_key(A)`, with `v` coded on
+the left and `k/a/b/r` on the right.  Its authorized four-A100 development run
+completed all 64 open rows, kept final logits bit-exact, and left mechanics and
+causal bundles unopened.  It still failed its locked gate: routed write-code
+and encoded-state exactness were `0/64`, and both left and right donor-code
+separation were `0.976190` rather than `1.0`.  The signed status is
+`bidirectional_sign_development_failed_family_retired`, result SHA-256 is
+`05a7797cece7ce32aa8407119900405d324eb6b9142516c7c08d5f1783f43144`,
+and receipt is
+`63a61d9814cd3327591808db6cab977bf883df8033863cb122fb64b181f7e97f`.
+The process exited during its final tuple-versus-JSON-list reread check after
+writing the receipt-valid result; that post-write audit defect does not change
+the failed decision or authorize a rerun.
+
 The next bounded family removes the discrete codebook. A continuous vector
 derived from the outer write address will condition the exact-v5 RWKV write
 key/update, while only the full RWKV state supplies the material value to the
 sparse outer FFN and early fusion. Its fresh pre-signed mechanics split must
-exclude every opened PLMSC mechanics row and pass matched-donor,
-address-permutation, donor-address/state, zero-address, layer-permutation,
-prompt-only, state-only, disabled, immutability, and contraction controls
-before any live-gradient training or native benchmark is authorized. The full
-paper-to-RWKV review defines the transfer boundary.
+exclude every opened PLMSC mechanics and bidirectional-development row and
+pass matched-donor, address-permutation, donor-address/state, zero-address,
+layer-permutation, prompt-only, state-only, disabled, immutability, and
+contraction controls before any live-gradient training or native benchmark is
+authorized.  Immediately after the projected-slot write, the runtime must
+snapshot selected keys and routes once, build one immutable address sequence,
+and use that exact tensor for both `k/a/b` conditioning and audit.  A synthetic
+old-key-to-new-key mutation regression must prove the post-write address is
+latched before any capture or GPU run.  The full paper-to-RWKV review defines
+the transfer boundary.
 See [FULL_BANDWIDTH_RWKV_REVIEW.md](FULL_BANDWIDTH_RWKV_REVIEW.md) for
 equations, reported results, caveats, factorial controls, and stopping gates.
 
@@ -582,6 +602,8 @@ Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_
 [PLMSC v2 protocol](natural_memory_native_rwkv_plmsc_code_alignment_protocol_v2.json),
 [PLMSC v2 runner](run_natural_memory_native_rwkv_plmsc_code_alignment_v2.py),
 [signed PLMSC retirement](local_artifacts/natural_memory_native_rwkv_plmsc_code_alignment_v2/result.json),
+[bidirectional-sign development protocol](natural_memory_native_rwkv_bidirectional_sign_development_gate_protocol_v2.json),
+[signed bidirectional-sign retirement](local_artifacts/natural_memory_native_rwkv_bidirectional_sign_development_gate_v2/result.json),
 [locked address-keyed generation protocol](natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_generation_protocol_v1.json),
 [signed address-keyed native failure](local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval_v1/result.json),
 [learned-write causal protocol](natural_memory_native_rwkv_address_keyed_learned_write_causal_train_protocol_v1.json),
