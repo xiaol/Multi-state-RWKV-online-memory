@@ -156,6 +156,92 @@ def test_zero_latched_address_is_exact_same_object_noop() -> None:
     assert all(_byte_equal(output, feature) for output, feature in zip(outputs, features))
 
 
+def test_mixed_batch_zero_address_row_is_byte_exact_noop() -> None:
+    conditioner = continuous.ContinuousWriteConditioner(
+        address_dim=4,
+        feature_dim=2,
+        rank=2,
+        seed=19,
+        k_gain=0.5,
+        a_gain=0.5,
+        b_gain=0.5,
+        trainable_map=False,
+    )
+    shape = (2, 3, 2)
+    features = tuple(torch.randn(shape, dtype=torch.bfloat16) for _ in range(4))
+    address = torch.randn(2, 3, 4)
+    address[0] = 0.0
+    token_mask = torch.ones(2, 3, dtype=torch.bool)
+
+    outputs = conditioner(*features, address, token_mask)
+
+    for output, feature in zip(outputs, features):
+        assert _byte_equal(output[0], feature[0])
+    assert outputs[1] is features[1]
+    assert not _byte_equal(outputs[0][1], features[0][1])
+
+
+def test_active_address_rejects_zero_or_nonfinite_direction() -> None:
+    conditioner = continuous.ContinuousWriteConditioner(
+        address_dim=4,
+        feature_dim=2,
+        rank=2,
+        seed=23,
+        k_gain=0.5,
+        a_gain=0.5,
+        b_gain=0.5,
+        trainable_map=False,
+    )
+    with torch.no_grad():
+        conditioner.down.zero_()
+    with pytest.raises(RuntimeError, match="zero direction"):
+        conditioner.direction(torch.ones(1, 4))
+
+    with pytest.raises(ValueError, match="address is nonfinite"):
+        conditioner.direction(torch.tensor([[float("nan"), 0.0, 0.0, 0.0]]))
+
+
+def test_disabled_mode_is_exact_inherited_v5_baseline() -> None:
+    module = _module()
+    continuous.install(module, rank=2, seed=29)
+    hidden = torch.randn(2, 3, module.hidden_size, dtype=torch.bfloat16)
+    token_mask = torch.tensor([[True, True, True], [True, True, False]])
+    module._write_projected_kv_slots(hidden, token_mask)
+    latch = module.rwkv_continuous_write_latch
+    assert latch is not None
+    live_folded = module.rwkv_continuous_write_original_address_sequence(
+        hidden,
+        token_mask,
+    )
+    assert _byte_equal(latch.folded_address_seq, live_folded)
+
+    shape = (2, 3, module.state_read_dim)
+    features = tuple(torch.randn(shape, dtype=torch.bfloat16) for _ in range(4))
+    expected = module.rwkv_continuous_write_original_conditioner(
+        *features,
+        live_folded,
+        token_mask,
+    )
+    continuous.set_enabled(module, False)
+    actual = module._rwkv_ms_address_conditioned_write_features(
+        *features,
+        latch.address_seq,
+        token_mask,
+    )
+
+    assert module.rwkv_continuous_write_mode == continuous.INHERITED_EXACT_V5_MODE
+    assert all(_byte_equal(left, right) for left, right in zip(actual, expected))
+    assert actual[1] is not features[1]
+
+    continuous.set_mode(module, continuous.RAW_UNCONDITIONED_MODE)
+    raw = module._rwkv_ms_address_conditioned_write_features(
+        *features,
+        latch.address_seq,
+        token_mask,
+    )
+    assert all(output is feature for output, feature in zip(raw, features))
+
+
 def test_latched_address_rejects_in_place_mutation() -> None:
     module = _module()
 

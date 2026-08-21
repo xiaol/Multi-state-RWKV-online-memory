@@ -675,19 +675,35 @@ recorded architecture failure rather than authorization for another retry.
 The next distinct family removes the discrete codebook. A continuous vector
 derived from the outer write address will condition the exact-v5 RWKV write
 key/update, while the full RWKV state remains the material value through the
-sparse outer FFN and early fusion. It must pass matched-donor,
-address-permutation, donor-address/state, zero-address, layer-permutation,
-prompt-only, state-only, disabled, immutability, and contraction controls on a
-fresh pre-signed mechanics split that excludes every opened PLMSC mechanics
-and bidirectional-development row before any training or native benchmark is
-authorized.  The implementation must snapshot the selected projected keys and
+sparse outer FFN and early fusion. The frozen bias-free address map is locked
+to reduced-rank ridge with rank `16` and ridge `1.0`, chosen only on disposable
+prior-open features. Its SHA-qualified FIT dataset must first be
+split by normalized-passage/32-character-shingle connected components into
+`64` fit, `32` retrieval, `32` mechanics, and `32` causal source rows. Exclude
+the full component closure touching all `98` sources in the bidirectional
+manifest; PLMSC numeric indices belong to another dataset namespace and must
+not be mixed into this split. Capture only fit and retrieval, and require their
+matched-donor and layer-permutation retrieval pass before opening mechanics.
+Mechanics must then pass address-permutation, donor-address/state, zero-address,
+layer-permutation, prompt-only, state-only, inherited exact-v5, raw-disabled,
+and immutability controls before any training or native benchmark is
+authorized. The implementation must snapshot the selected projected keys and
 routes once immediately after the projected-slot write, materialize one
 immutable address sequence, and pass that same tensor to both the `k/a/b`
 conditioner and its audit.  A synthetic old-key-to-new-key mutation regression
 must pass before capture or GPU execution; recomputing an address later from
-mutable slot state is prohibited. See the
+mutable slot state is prohibited. Contraction belongs only to a later
+Full-Bandwidth read-feedback stage after identity mechanics and causal gates,
+not to this one-pass write screen. See the
 [paper review](experiments/rethinking_rwkv_ms_gemma/FULL_BANDWIDTH_RWKV_REVIEW.md)
 for the transfer boundary and stopping gates.
+The component-safe v2 inventory is materialized under
+`experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_open_fit_v1`.
+Its manifest SHA-256 is
+`c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468`
+and receipt is
+`99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2`;
+fit/retrieval are validated, while mechanics/causal remain sealed.
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),

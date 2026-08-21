@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from deltamem.core.delta import iter_delta_mem_modules
+from experiments.rethinking_rwkv_ms_gemma import rwkv_continuous_write_alignment
 
 
 @dataclass(frozen=True)
@@ -20,7 +21,17 @@ class WriteAddressLatch:
     routes: torch.Tensor
     selected_keys: torch.Tensor
     address_seq: torch.Tensor
+    folded_address_seq: torch.Tensor
     address_version: int
+    folded_address_version: int
+
+
+CONTINUOUS_MODE = "continuous"
+INHERITED_EXACT_V5_MODE = "inherited_exact_v5"
+RAW_UNCONDITIONED_MODE = "raw_unconditioned"
+CONTROL_MODES = frozenset(
+    (CONTINUOUS_MODE, INHERITED_EXACT_V5_MODE, RAW_UNCONDITIONED_MODE)
+)
 
 
 class ContinuousWriteConditioner(nn.Module):
@@ -58,6 +69,31 @@ class ContinuousWriteConditioner(nn.Module):
         self.a_gain = float(a_gain)
         self.b_gain = float(b_gain)
 
+    def load_frozen_map(
+        self,
+        down: torch.Tensor,
+        up: torch.Tensor,
+    ) -> None:
+        if tuple(down.shape) != tuple(self.down.shape):
+            raise ValueError(
+                "Continuous-write down-map shape differs: "
+                f"expected={tuple(self.down.shape)} actual={tuple(down.shape)}"
+            )
+        if tuple(up.shape) != tuple(self.up.shape):
+            raise ValueError(
+                "Continuous-write up-map shape differs: "
+                f"expected={tuple(self.up.shape)} actual={tuple(up.shape)}"
+            )
+        if not bool(torch.isfinite(down).all().item()) or not bool(
+            torch.isfinite(up).all().item()
+        ):
+            raise ValueError("Continuous-write frozen map is nonfinite")
+        with torch.no_grad():
+            self.down.copy_(down.to(device=self.down.device, dtype=self.down.dtype))
+            self.up.copy_(up.to(device=self.up.device, dtype=self.up.dtype))
+        self.down.requires_grad_(False)
+        self.up.requires_grad_(False)
+
     def direction(self, address_seq: torch.Tensor) -> torch.Tensor:
         if address_seq.shape[-1] != self.address_dim:
             raise ValueError(
@@ -65,10 +101,18 @@ class ContinuousWriteConditioner(nn.Module):
                 f"expected={self.address_dim} actual={address_seq.shape[-1]}"
             )
         address = address_seq.to(device=self.down.device, dtype=torch.float32)
+        if not bool(torch.isfinite(address).all().item()):
+            raise ValueError("Continuous-write address is nonfinite")
+        active = address.square().sum(dim=-1, keepdim=True).gt(0.0)
         mapped = F.linear(F.linear(address, self.down.float()), self.up.float())
+        if not bool(torch.isfinite(mapped).all().item()):
+            raise RuntimeError("Continuous-write active address mapped nonfinitely")
         square_mean = mapped.square().mean(dim=-1, keepdim=True)
-        active = address.square().sum(dim=-1, keepdim=True).gt(0.0) & square_mean.gt(0.0)
+        if bool((active & square_mean.le(0.0)).any().item()):
+            raise RuntimeError("Continuous-write active address mapped to zero direction")
         normalized = mapped / square_mean.clamp_min(1e-12).sqrt()
+        if not bool(torch.isfinite(normalized).all().item()):
+            raise RuntimeError("Continuous-write normalized direction is nonfinite")
         return torch.where(active, normalized, torch.zeros_like(normalized))
 
     def forward(
@@ -128,6 +172,8 @@ class ContinuousWriteConditioner(nn.Module):
 def _assert_latch_intact(latch: WriteAddressLatch) -> None:
     if latch.address_seq._version != latch.address_version:
         raise RuntimeError("Continuous-write immutable address was mutated in place")
+    if latch.folded_address_seq._version != latch.folded_address_version:
+        raise RuntimeError("Continuous-write immutable folded address was mutated in place")
 
 
 def _materialize_latch(
@@ -186,12 +232,34 @@ def _materialize_latch(
             dtype=address_seq.dtype,
         ).unsqueeze(-1)
     address_seq = address_seq.detach().clone()
+    if module.projected_kv_key_dim % module.state_read_dim != 0:
+        raise ValueError("Continuous-write address cannot be folded to exact-v5 width")
+    fold = module.projected_kv_key_dim // module.state_read_dim
+    folded_selected = selected_keys.reshape(
+        batch_size,
+        1,
+        fold,
+        module.state_read_dim,
+    ).sum(dim=2) / math.sqrt(float(fold))
+    folded_address_seq = folded_selected.to(dtype=hidden_states.dtype).expand(
+        -1,
+        sequence_length,
+        -1,
+    )
+    if token_mask is not None:
+        folded_address_seq = folded_address_seq * token_mask.to(
+            device=folded_address_seq.device,
+            dtype=folded_address_seq.dtype,
+        ).unsqueeze(-1)
+    folded_address_seq = folded_address_seq.detach().clone()
     return WriteAddressLatch(
         keys=keys_snapshot,
         routes=routes_snapshot,
         selected_keys=selected_keys,
         address_seq=address_seq,
+        folded_address_seq=folded_address_seq,
         address_version=address_seq._version,
+        folded_address_version=folded_address_seq._version,
     )
 
 
@@ -254,9 +322,19 @@ def _conditioned_features(
     if address_seq is not latch.address_seq:
         raise RuntimeError("Continuous-write conditioner did not receive the latched tensor")
 
-    if not module.rwkv_continuous_write_enabled:
+    mode = module.rwkv_continuous_write_mode
+    if mode == RAW_UNCONDITIONED_MODE:
         outputs = (k, v, a, b)
-    else:
+    elif mode == INHERITED_EXACT_V5_MODE:
+        outputs = module.rwkv_continuous_write_original_conditioner(
+            k,
+            v,
+            a,
+            b,
+            latch.folded_address_seq,
+            token_mask,
+        )
+    elif mode == CONTINUOUS_MODE:
         outputs = module.rwkv_continuous_write_conditioner(
             k,
             v,
@@ -265,10 +343,14 @@ def _conditioned_features(
             address_seq,
             token_mask,
         )
-    if outputs[1] is not v:
+    else:
+        raise RuntimeError(f"Unknown continuous-write control mode: {mode}")
+    if mode != INHERITED_EXACT_V5_MODE and outputs[1] is not v:
         raise RuntimeError("Continuous-write conditioner changed the RWKV value object")
     if module.rwkv_continuous_write_capture_enabled:
         module.rwkv_continuous_write_audit = {
+            "mode": mode,
+            "latched_selected_keys": latch.selected_keys.detach().clone(),
             "conditioner_address": address_seq,
             "conditioner_address_value": address_seq.detach().clone(),
             "conditioner_address_object_id": id(address_seq),
@@ -283,7 +365,7 @@ def _conditioned_features(
 def install(
     model: nn.Module,
     *,
-    rank: int = 4,
+    rank: int = rwkv_continuous_write_alignment.MAP_RANK,
     seed: int = 149,
     k_gain: float = 0.25,
     a_gain: float = 0.25,
@@ -331,7 +413,7 @@ def install(
             module,
         )
         module.reset_state = MethodType(_reset_state, module)
-        module.rwkv_continuous_write_enabled = True
+        module.rwkv_continuous_write_mode = CONTINUOUS_MODE
         module.rwkv_continuous_write_capture_enabled = False
         module.rwkv_continuous_write_latch = None
         module.rwkv_continuous_write_audit = None
@@ -350,12 +432,21 @@ def install(
         "value_identity": "same_object_and_bytes",
         "address_lifecycle": "single_post_projected_write_detached_full_address_latch",
         "live_key_or_route_recomputation": False,
+        "default_mode": CONTINUOUS_MODE,
+        "baseline_mode": INHERITED_EXACT_V5_MODE,
+        "raw_control_mode": RAW_UNCONDITIONED_MODE,
     }
 
 
 def set_enabled(model: nn.Module, enabled: bool) -> None:
+    set_mode(model, CONTINUOUS_MODE if enabled else INHERITED_EXACT_V5_MODE)
+
+
+def set_mode(model: nn.Module, mode: str) -> None:
+    if mode not in CONTROL_MODES:
+        raise ValueError(f"Unknown continuous-write control mode: {mode}")
     for _, module in iter_delta_mem_modules(model):
-        module.rwkv_continuous_write_enabled = bool(enabled)
+        module.rwkv_continuous_write_mode = mode
 
 
 def set_capture(model: nn.Module, enabled: bool) -> None:

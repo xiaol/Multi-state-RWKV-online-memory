@@ -575,6 +575,9 @@ exactly zero address must be an exact no-op. The direct identity score is
 `r^T d(A)`, so a target query is tested against the write identity on the same
 axis that reads the recurrent matrix. This is smoother for unseen addresses
 and directly targets the `r`-to-write geometry that PLMSC tried to quantize.
+The precommitted map is bias-free reduced-rank ridge with rank `16` and ridge
+`1.0`; these values come from a disposable prior-open feature screen and must
+remain frozen through the fresh retrieval gate.
 
 This is distinct from the retired learned rank-2 `k/v/a/b` writer: it uses one
 shared query-aligned latent map, preserves `v`, must pass retrieval before any
@@ -583,9 +586,14 @@ remains high risk because it is adjacent to that failed family and still
 depends on generalizing the write-address/query relation that collapsed under
 PLMSC.
 
-Pre-sign a fresh donor-component-disjoint fit/mechanics split excluding all 34
-opened PLMSC mechanics rows and all 64 bidirectional-development rows.  Make
-the projected-address lifecycle explicit before fitting: immediately after
+Pre-sign four passage-component-disjoint FIT partitions before capture: `64`
+fit, `32` retrieval, `32` mechanics, and `32` causal source rows.  The FIT
+dataset has its own SHA-qualified namespace, so PLMSC numeric row indices must
+never be mixed into it. Exclude the complete normalized-passage/32-character-
+shingle component closure touching any of the `98` sources already selected by
+the bidirectional manifest, and keep every source/donor component in exactly
+one partition. Capture only fit and retrieval rows. Make the projected-address
+lifecycle explicit before fitting: immediately after
 `_write_projected_kv_slots`, snapshot the selected keys and routes, materialize
 one immutable write-address sequence, and pass that exact tensor to both the
 `k/a/b` conditioner and its audit.  Never recompute the address from mutable
@@ -599,6 +607,15 @@ permutation, zero address, state-only, prompt-only, row shuffle, norm-matched
 random, disabled, finite outputs, and byte-identical projected carriers. A
 mechanics pass authorizes only a separately locked causal endpoint; it does not
 authorize native generation.
+
+That reservation is now materialized as
+`local_artifacts/natural_memory_native_rwkv_continuous_write_open_fit_v1`.
+The manifest file SHA-256 is
+`c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468`
+and its canonical receipt is
+`99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2`.
+Default validation byte-read only `manifest.json`, `fit.jsonl`, and
+`retrieval.jsonl`; mechanics and causal remained inventory-only.
 
 ### Priority 2: exact monomial binding fallback
 
@@ -650,9 +667,10 @@ activations constrain per-GPU batch size.
 
 ## Bottom line
 
-Full-bandwidth transformer gives us two valuable design principles: identity
-information should gate a full-vector state value path, and a deep memory
-result should re-enter early enough to receive renewed computation depth.
+Full-bandwidth transformer gives us two valuable design principles: the
+current token/query should gate a full-vector carried-state value path, and a
+deep memory result should re-enter early enough to receive renewed computation
+depth. An identity-dependent pair gate is our extrapolation, not paper evidence.
 Repeated self-composition should be trained and measured for contraction.
 Plain and joint CrossGLU gates and the learned identity-bound DeepEmbed binder
 all failed matched-donor causal gates, so another one-pass gate shape is not

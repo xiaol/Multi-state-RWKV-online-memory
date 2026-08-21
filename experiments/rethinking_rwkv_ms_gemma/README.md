@@ -566,19 +566,36 @@ the failed decision or authorize a rerun.
 The next bounded family removes the discrete codebook. A continuous vector
 derived from the outer write address will condition the exact-v5 RWKV write
 key/update, while only the full RWKV state supplies the material value to the
-sparse outer FFN and early fusion. Its fresh pre-signed mechanics split must
-exclude every opened PLMSC mechanics and bidirectional-development row and
-pass matched-donor, address-permutation, donor-address/state, zero-address,
-layer-permutation, prompt-only, state-only, disabled, immutability, and
-contraction controls before any live-gradient training or native benchmark is
-authorized.  Immediately after the projected-slot write, the runtime must
+sparse outer FFN and early fusion. Its frozen bias-free address map is locked
+to reduced-rank ridge with rank `16` and ridge `1.0`, selected on disposable
+prior-open features rather than the fresh gate. Before capture, its FIT dataset must be
+partitioned by normalized-passage/32-character-shingle connected components
+into `64` fit, `32` retrieval, `32` mechanics, and `32` causal source rows.
+Exclude the full component closure touching all `98` sources in the prior
+bidirectional manifest; PLMSC indices belong to a different dataset namespace
+and must not be mixed numerically into this split. Capture only fit and
+retrieval. Retrieval must pass matched-donor and layer-permutation gates before
+mechanics may open. Mechanics then requires address-permutation,
+donor-address/state, zero-address, layer-permutation, prompt-only, state-only,
+inherited exact-v5, raw-disabled, and immutability controls before any
+live-gradient training or native benchmark is authorized. Immediately after
+the projected-slot write, the runtime must
 snapshot selected keys and routes once, build one immutable address sequence,
 and use that exact tensor for both `k/a/b` conditioning and audit.  A synthetic
 old-key-to-new-key mutation regression must prove the post-write address is
-latched before any capture or GPU run.  The full paper-to-RWKV review defines
-the transfer boundary.
+latched before any capture or GPU run. Contraction is reserved for a later
+Full-Bandwidth read-feedback experiment after identity mechanics and causal
+gates pass; it is not an initial one-pass write gate. The full paper-to-RWKV
+review defines the transfer boundary.
 See [FULL_BANDWIDTH_RWKV_REVIEW.md](FULL_BANDWIDTH_RWKV_REVIEW.md) for
 equations, reported results, caveats, factorial controls, and stopping gates.
+The component-safe v2 inventory is now materialized at
+`local_artifacts/natural_memory_native_rwkv_continuous_write_open_fit_v1`.
+Its manifest SHA-256 is
+`c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468`
+with receipt
+`99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2`;
+default validation read fit/retrieval only and left mechanics/causal sealed.
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
