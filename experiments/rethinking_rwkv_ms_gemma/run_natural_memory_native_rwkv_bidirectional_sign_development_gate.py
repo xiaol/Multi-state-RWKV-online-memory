@@ -27,9 +27,15 @@ PROTOCOL = (
 )
 CORE = SCRIPT_DIR / "rwkv_bidirectional_sign_development_gate_core.py"
 SCHEMA = "rwkv_ms_bidirectional_sign_development_gate.v1"
-EXPECTED_PROTOCOL_FILE_SHA256 = "0" * 64
-EXPECTED_PROTOCOL_PAYLOAD_SHA256 = "0" * 64
-EXPECTED_CORE_SHA256 = "0" * 64
+EXPECTED_PROTOCOL_FILE_SHA256 = (
+    "af4b21a4d523a5282b22b113d9c73761045de2e3e077a14a58844b4e500f250a"
+)
+EXPECTED_PROTOCOL_PAYLOAD_SHA256 = (
+    "7c9fb7fb1160ee54851d65d5bcc612a00f1da356a816f30cfd28976fb1ebbdfb"
+)
+EXPECTED_CORE_SHA256 = (
+    "08e7695d2c96d1ac7119ff6a4524e321d381eced673d177a6cd7c8b5a72b89d5"
+)
 
 
 def _canonical_sha256(value: Any) -> str:

@@ -67,7 +67,14 @@ def test_launcher_does_not_import_gate_core_before_preflight(
     assert source.index("validate_launcher_contract(PROTOCOL)") < source.index(
         "rwkv_bidirectional_sign_development_gate_core as gate"
     )
-    assert module.EXPECTED_PROTOCOL_FILE_SHA256 == "0" * 64
+    assert module.EXPECTED_PROTOCOL_FILE_SHA256 == _file_sha256(module.PROTOCOL)
+    assert module.EXPECTED_CORE_SHA256 == _file_sha256(module.CORE)
+    assert (
+        module.validate_launcher_contract(module.PROTOCOL)["receipt"][
+            "payload_sha256"
+        ]
+        == module.EXPECTED_PROTOCOL_PAYLOAD_SHA256
+    )
 
 
 def test_launcher_validates_receipt_and_core_before_import(
