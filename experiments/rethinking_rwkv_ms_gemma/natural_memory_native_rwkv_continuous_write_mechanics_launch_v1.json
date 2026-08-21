@@ -1,0 +1,23 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_mechanics_launch.v1",
+  "created_at": "2026-08-22T16:20:00+08:00",
+  "objective": "Authorize exactly one execution of the already-signed continuous-write mechanics protocol from the finalized and pushed code commit, before any mechanics bytes are opened.",
+  "authorized_code_commit": "982474ad23b1647a3407105fd461cdf938f70aae",
+  "code_parent_commit": "198e38e2ff70101670c13c818c5a032eb5027c4f",
+  "protocol_payload_sha256": "c482e6874e4e5f5b52be1567df70d2f51c76dd49a50e4554926d56aa63bb735b",
+  "protocol_file_sha256": "4e29aef94dfc90cb13034e7c972d364ca20b4428c662981dfd62fbe400400e21",
+  "protocol_receipt": "c482e6874e4e5f5b52be1567df70d2f51c76dd49a50e4554926d56aa63bb735b",
+  "runner_sha256": "12a1857939f7eeb623b658d8ae037971192c2c8d0e0c5e213ca3f75b49a55204",
+  "dependency_bindings_sha256": "a2aa2aae15701597923a7a6495d765c72793108e1a103c32ccc49eb44d654451",
+  "launch_commit_contract": "This file must be the only path changed by the immediate child commit of authorized_code_commit; the tracked worktree must be clean at launch.",
+  "mechanics_bytes_opened_before_this_binding": false,
+  "causal_path_statted_listed_hashed_or_opened_by_experiment_runner": false,
+  "model_or_adapter_training_authorized": false,
+  "generation_authorized": false,
+  "native_benchmark_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_launch_binding_without_receipt",
+    "payload_sha256": "d4081ecb6e6df4b167bf4efed88112041b3ab662c53ef2075df2cedea85c1f9f"
+  }
+}
