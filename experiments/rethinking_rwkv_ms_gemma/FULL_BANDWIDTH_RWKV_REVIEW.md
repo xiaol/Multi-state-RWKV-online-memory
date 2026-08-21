@@ -5,6 +5,11 @@ Source: [arXiv:2608.08888v1](https://arxiv.org/abs/2608.08888v1),
 uses the official arXiv source. The follow-on mechanics screen is recorded
 separately below; no protected split is opened by either document.
 
+The official v1 PDF and source were rechecked on 2026-08-21. Their SHA-256
+digests were `7ddb5869843aea15d72cc3fc94d69d15217a67c07effcd7a5e4631320cd52ee3`
+and `6ac4149a537a5427019c39def1fc4647dd6a92db360ef7e8d1676c7602219bf8`,
+respectively.
+
 ## Exact paper mechanism
 
 The paper separates horizontal access across positions from vertical access
@@ -364,18 +369,21 @@ trained.
 | retired | bilinear compatibility + output gate | cross-fit passed, causal donor gate failed | held-out score alignment | donor-neutral causal endpoint |
 | retired | exact-v5 per-token predictor shadow | row identity `0.954545`; token identity `0.878327`; mean gap `0.047801` | exact causal-position test with immutable live state | each predictor must rediscover prompt identity |
 | retired | rotary / diagonal-sign binding | rotary non-commutation; sign donor rows `0.750`--`0.769` | algebraic cancellation in limited controls | insufficient donor specificity |
+| retired | PLMSC discrete write/query code | correct anchor agreement `0.433824`; complete-row agreement `0.058824`; donor collision `0.132353` | explicit write/read identity code | categorical collapse and no causal authorization |
 
-### Next directions after the CrossGLU failure
+### Historical directions after the CrossGLU failure
 
-The paper's useful contribution is now a training recipe, not a drop-in
-identity module. The best next move is an exact-source detached shadow-replay
-mechanics screen on the causal-passing `address_keyed_moe_deepembed_ffn`
-branch. Earlier combined routes did not always replay the same learned writer
-and DeepEmbed feature generator, so the diagnostic must execute the learned
-writer once, snapshot both RWKV and projected state, and keep those snapshots
-immutable. Feed the previous pass's detached RWKV read back before query/read
-formation, rerun only the read path through the same sparse DeepEmbed anchors,
-and measure recurrence contraction (`delta_k`) through eight passes.
+At that checkpoint, the paper's useful contribution had become a training
+recipe rather than a drop-in identity module. An exact-source detached
+shadow-replay mechanics screen was proposed on the causal-passing
+`address_keyed_moe_deepembed_ffn` branch. The later exact-v5 shadow,
+causal-predictor, prompt-latch, and PLMSC results supersede that priority; the
+description is retained to document the sequence of decisions. The diagnostic
+would execute the learned writer once, snapshot both RWKV and projected state,
+and keep those snapshots immutable. It would feed the previous pass's detached
+RWKV read back before query/read formation, rerun only the read path through
+the same sparse DeepEmbed anchors, and measure recurrence contraction
+(`delta_k`) through eight passes.
 
 The required controls are target state plus target shadow, target state plus
 matched-donor shadow, donor state plus donor shadow while retaining the target
@@ -509,6 +517,113 @@ update online; blindly repeating the scan would double-write slots and is not
 an equivalent FBT pass.  A read-only second pass or a separately snapshotted
 state is required.
 
+## Post-PLMSC decision
+
+PLMSC tested the most direct discrete identity transfer between the exact-v5
+projected write address and the causal prompt-boundary RWKV-7 receptance. Its
+single locked four-A100 mechanics run failed before training: correct
+write/query code agreement was `0.433824` per anchor and `0.058824` per
+complete row against `0.95` gates. Matched-donor and cyclic layer-permuted
+anchor collisions were `0.132353` and `0.139706` against maximum `0.03` gates.
+The layer-10 query used only three codes, with one code covering `64.71%` of
+rows. The causal 34-row split remained unopened, un-tokenized, and
+un-forwarded. The signed result SHA-256 is
+`b7dce00737c928abc13729b19e24ccfe803b9dce6dde62b9d9d944971a295544` and
+the receipt is
+`23c7cfdf0cdf0fb747010615cfe271ae7d7c0cddd7bd9a90401179033100fda7`.
+
+This failure strengthens the boundary around Full-Bandwidth transfer. The
+paper's asymmetric GLU can force a full vector to be used, but it cannot make
+the write address and causal read query identify the same state. Adding its
+feedback loop now would give a donor-neutral state more depth and make the
+result harder to interpret. Identity mechanics must pass first.
+
+### Priority 1: continuous query-aligned write conditioning
+
+The next independent family should be continuous rather than categorical.
+Fit a regularized low-rank map on fresh fit-only rows between the projected
+write address `A` and the causal RWKV receptance `r`, freeze it, and map `A` to
+a direction `d(A)` in RWKV's native 32-dimensional key axis. Use that direction
+only in the right-axis write features:
+
+```text
+k^A = k + g_k * RMS(k) * d(A)
+a^A = a * (1 + g_a * tanh(d(A)))
+b^A = b * (1 + g_b * tanh(d(A)))
+v^A = v
+```
+
+The native `r` remains unchanged, `v` remains the material value, and an
+exactly zero address must be an exact no-op. The direct identity score is
+`r^T d(A)`, so a target query is tested against the write identity on the same
+axis that reads the recurrent matrix. This is smoother for unseen addresses
+and directly targets the `r`-to-write geometry that PLMSC tried to quantize.
+
+This is distinct from the retired learned rank-2 `k/v/a/b` writer: it uses one
+shared query-aligned latent map, preserves `v`, must pass retrieval before any
+model mechanics, and freezes the map before the causal path. It nevertheless
+remains high risk because it is adjacent to that failed family and still
+depends on generalizing the write-address/query relation that collapsed under
+PLMSC.
+
+Pre-sign a fresh donor-component-disjoint fit/mechanics split excluding all 34
+opened PLMSC mechanics rows. First require component-held-out target-versus-
+donor and layer-permuted retrieval gates without changing the state. Only a
+retrieval pass may authorize one four-A100 exact-update mechanics gate with
+target address/state, target address plus donor state, donor address/state with
+the target answer fixed, address permutation, zero address, state-only,
+prompt-only, row shuffle, norm-matched random, disabled, finite outputs, and
+byte-identical projected carriers. A mechanics pass authorizes only a
+separately locked causal endpoint; it does not authorize native generation.
+
+### Priority 2: exact monomial binding fallback
+
+The algebraic fallback is a projected-address-derived signed permutation, or
+monomial matrix, `M(A) = D(A) P(A)` on RWKV's value axis. For one state matrix
+`S`, encode `S^A = M(A) S` and make the exact recurrent update commute with
+that basis change:
+
+```text
+v^A     = M(A) v
+keep^A  = P(A) keep
+erase^A = P(A) erase
+write^A = P(A) write
+k^A, a^A, b^A, w^A = k, a, b, w
+read(A) = M(A)^T S^A r = S r
+```
+
+Unlike the retired dense rotary binding, a monomial transform preserves the
+diagonal left-axis coefficients by permutation. Unlike diagonal signs, it also
+reorders value coordinates, so a wrong decoder applies a full signed
+permutation rather than only sign flips. Correct cancellation is exact in real
+arithmetic and can be checked in BF16 before any model run.
+
+Its limitation determines the ranking. A paired donor state with its own donor
+decoder also cancels exactly and returns to the existing donor-content path;
+monomial binding therefore guarantees address mismatch sensitivity but does
+not itself solve the paired-donor neutrality that has blocked the causal gate.
+It is best used as an independent fallback and intervention-harness control if
+continuous right-axis identity fails. Any claim would still be
+"projected-address-bound RWKV value memory," not autonomous RWKV addressing.
+
+### Priority 3: Full-Bandwidth read feedback
+
+Only after one identity family passes both mechanics and its causal endpoint
+should the paper's mechanism be added. Feed the full decoded RWKV vector into
+an early layer as the mandatory value path, use the current token/query only as
+the vector gate, keep gradients live across two- and occasional three-pass
+training, randomize the plain-prefix/fused-suffix boundary, RMS-normalize the
+fusion, and add jitter only after the noiseless path passes. Snapshot memory
+and rerun the read path only; repeating the online scan would double-write the
+state and is not Full-Bandwidth recurrence.
+
+Measure both identity margins and long-horizon self-composition. The final
+three of eight read-feedback deltas must contract without CE divergence, and
+all wrong-address, paired-donor, zero, permutation, shuffle, random, and
+disabled controls must remain interpretable. Four GPUs improve data-parallel
+throughput, but the feedback passes remain sequential and their live-gradient
+activations constrain per-GPU batch size.
+
 ## Bottom line
 
 Full-bandwidth transformer gives us two valuable design principles: identity
@@ -534,14 +649,11 @@ held-out donor mean gap to `0.054514` and retained `0.954545` row separation,
 but token separation reached only `0.919414` against the precommitted `0.95`
 gate. The family is retired without model mechanics or training.
 
-The next move is **write-time slot-code binding** rather than another read-side
-classifier or latch. Assign one discrete identity code when exact-v5 RWKV state
-is written, bind that code to the stored value dynamics, and require the same
-code on read. Projected keys may locate the slot but cannot supply the output;
-the full live RWKV vector remains the material value through a sparse outer FFN
-and early fusion. A new pre-signed donor-component split must test code swap,
-donor state, paired donor code/state, zero, permutation, shuffle, random,
-disabled, immutability, and eight-pass contraction. Full-bandwidth feedback is
-eligible only after those identity controls pass. The paper does not establish
-multi-state or slot-code identity, so any eventual native benchmark claim
-remains separate from its evidence.
+PLMSC then tested write-time slot codes exactly once and failed its signed
+mechanics gates with categorical collapse; no causal rows or model weights were
+opened. The best next move is **continuous query-aligned `k/a/b` write
+conditioning with `v` unchanged**, followed by exact projected-address
+monomial binding as an independent algebraic fallback/control. Full-Bandwidth
+read feedback becomes eligible only after state identity passes mechanics and
+causal controls. The paper does not establish multi-state identity, and no
+native benchmark or SOTA claim is currently authorized.
