@@ -1,0 +1,394 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_mechanics_protocol.v1",
+  "created_at": "2026-08-22T14:10:00+08:00",
+  "objective": "Run one precommitted no-training mechanics experiment on exactly four distinct A100 GPUs over all 32 source-and-donor-disjoint mechanics rows: load the retrieval-passed frozen rank-16 full64-to-causal32 maps, activate continuous full64 conditioning of exact-v5 RWKV k/a/b while preserving v, apply address/content/recurrent/projected controls with immutable target carriers, require exact lifecycle and zero/raw invariants plus material state changes, report predictor-logit and CE effects only diagnostically, and keep causal, generation, and native benchmark data sealed.",
+  "authorization_basis": {
+    "mechanics_code_parent_commit": "198e38e2ff70101670c13c818c5a032eb5027c4f",
+    "retrieval_protocol_file_sha256": "8b5c3a1920963652466a53615a4ebfd0910a052bdad1762427e88e17159a979f",
+    "retrieval_protocol_payload_sha256": "8f16350f5c665034d27fe4b22cdfbedc615d00b5afeaa5d453381b5018b22024",
+    "retrieval_runner_sha256": "878569411cbd2424f10ccfbbfb5c7b8e4ed97a4d33453b5f04a6cc46f1c33ad6",
+    "retrieval_result": "local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json",
+    "retrieval_result_file_sha256": "5103a66475b7a596e53a58b8c7cb554e7e400f5825d42ca141bc342dfef8784b",
+    "retrieval_result_receipt": "cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd",
+    "retrieval_status": "continuous_write_retrieval_passed_mechanics_protocol_draft_authorized",
+    "retrieval_donor_positive_rows": 1.0,
+    "retrieval_donor_mean_gap": 0.0690704882144928,
+    "retrieval_layer_permuted_positive_rows": 1.0,
+    "retrieval_layer_permuted_mean_gap": 0.8684760332107544,
+    "frozen_map_file": "local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/continuous-write-maps.pt",
+    "frozen_map_file_sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6",
+    "frozen_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+    "continuous_write_manifest": "local_artifacts/natural_memory_native_rwkv_continuous_write_open_fit_v1/manifest.json",
+    "continuous_write_manifest_file_sha256": "c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468",
+    "continuous_write_manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+    "continuous_write_split_schema": "rwkv_ms_continuous_write_fit_split.v2",
+    "continuous_write_split_receipt": "d9ad640c208aae6983ce603f5d1918b06ab4ba9e93ed935d9cbfe1ac25f4801a",
+    "exact_v5_result_sha256": "95376ed78da98cf36183146ce56a3623988e94645723c9b34aee0510e0457545",
+    "exact_v5_result_receipt": "7afee3fd1d88c7db91c86dd3f7febfd80656a35d54971fd824623a29883dba8e"
+  },
+  "launch_binding": {
+    "path": "natural_memory_native_rwkv_continuous_write_mechanics_launch_v1.json",
+    "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_mechanics_launch.v1",
+    "construction": "Commit the finalized runner, protocol, integration, and tests as one code commit whose exact parent is mechanics_code_parent_commit; then create and sign one launch-binding file in an immediate child commit. The launch binds the code commit, runner SHA-256, protocol hashes, and canonical dependency bindings before mechanics bytes open.",
+    "runtime_requirements": "HEAD parent equals the authorized code commit, the authorized code commit parent equals mechanics_code_parent_commit, the launch file is byte-identical to its committed HEAD object, the runner is byte-identical to its authorized code-commit object, all dependency hashes match, and the tracked worktree is clean.",
+    "launch_binding_is_created_only_after_runner_finalization": true,
+    "launch_binding_validated_before_mechanics_bytes_open": true
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "adapter_directory": "local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/adapter",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "required_source_root_environment": "RWKV_V5_EXACT_SOURCE_ROOT",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_v5_delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "adapter_loading": "strict saved HFDeltaMemConfig topology plus complete delta_mem_adapter.pt",
+    "memory_backend": "rwkv_ms",
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "projected_kv_key_dim": 64,
+    "state_read_dim": 32,
+    "rwkv_memory_rank": 32,
+    "rwkv_num_states": 4,
+    "rank": 16,
+    "ridge": 1.0,
+    "k_gain": 0.25,
+    "a_gain": 0.25,
+    "b_gain": 0.25,
+    "map_bias": false,
+    "conditioned_features": [
+      "k",
+      "a",
+      "b"
+    ],
+    "value_feature_v": "same object and raw bytes under every continuous condition",
+    "map_or_model_training": false,
+    "feedback_or_repeated_write_scan": false
+  },
+  "open_fit_materialization": {
+    "dataset_namespace": "novel-agent-sft-dataset:publisher-train-derived-fit",
+    "dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "dataset_rows": 1443,
+    "mechanics_bundle": {
+      "path": "mechanics.jsonl",
+      "rows": 32,
+      "bytes": 104357,
+      "sha256": "7a5421df97d295328a95953590010318bfc1361db0402243809bd13c094badd9",
+      "payload_sha256": "42e8061772136bcd511a680d90a176ea7606c6007cb56894afbcd2f3fc97c2a6",
+      "source_indices_sha256": "bb752dc92e3fb70aebd5ada804d1ddde4bb112a9733bcf20e016a118190b4a09",
+      "qualified_source_ids_sha256": "552db6c3d74ffc62e866de4c94000b6ad9af237fa62e129dd74a6ad8b234e494",
+      "qualified_mapping_pairs_sha256": "b04b2d539d0b3c2e8f1fc70764845b9a14e9938131db777ccd1b3834ce9640a3",
+      "row_sha256s_sha256": "5f8f8c4d441551bfc451635674b2489372c9454424152bbdbef0b869d69fa6ec"
+    },
+    "causal_inventory_from_signed_manifest_only": {
+      "path": "causal.jsonl",
+      "rows": 32,
+      "bytes": 86001,
+      "sha256": "5920ca8c688f4c26e8b55c5c48eefb7c067016bb931dd3b5c210edd1f4d3e925",
+      "byte_read_authorized": false
+    }
+  },
+  "source_dependencies": [
+    {
+      "role": "retrieval_result_validator_and_runtime_helpers",
+      "basename": "run_natural_memory_native_rwkv_continuous_write_retrieval.py",
+      "sha256": "878569411cbd2424f10ccfbbfb5c7b8e4ed97a4d33453b5f04a6cc46f1c33ad6"
+    },
+    {
+      "role": "bias_free_reduced_rank_ridge_and_metrics",
+      "basename": "rwkv_continuous_write_alignment.py",
+      "sha256": "f7c51bdcf518763ba6e9e63976d75a8cdcfc518b4d9ba593a4fcc4de62a404cb"
+    },
+    {
+      "role": "full_address_latch_runtime_conditioner_and_override",
+      "basename": "rwkv_continuous_write_integration.py",
+      "sha256": "a2e8f27e5d2247ed3682b2fffa0fc0eb129a202a90ceb2936b7a32b5e0391d25"
+    },
+    {
+      "role": "continuous_write_integration_regressions",
+      "basename": "test_rwkv_continuous_write_integration.py",
+      "sha256": "6ea072208886a71bb5a41a9215d6685bdad49d882488469fb57f3d72aaac50ff"
+    },
+    {
+      "role": "continuous_write_mechanics_regressions",
+      "basename": "test_natural_memory_native_rwkv_continuous_write_mechanics.py",
+      "sha256": "c691368bb677af8bf5d7b662970772135e2a06d6bf62d307de2510d81908d989"
+    },
+    {
+      "role": "dataset_qualified_component_disjoint_split",
+      "basename": "rwkv_continuous_write_fit_split.py",
+      "sha256": "3676ec5ce332088ebc78c75ff65a0822fe3ed0037e7d49cd1c0c8228a45d92a6"
+    },
+    {
+      "role": "five_file_open_fit_materializer_and_firewall",
+      "basename": "materialize_natural_memory_native_rwkv_continuous_write_open_fit.py",
+      "sha256": "f1e5806bb467bfdd377e374845cdafb90ece1b67d6eba9744b6ef48de0c9bdd9"
+    },
+    {
+      "role": "model_and_tokenizer_loader",
+      "basename": "common.py",
+      "sha256": "8c2863eeea3701f557edf180391586fbc838ce357f3f4e53d8a2292fe4f853e0"
+    },
+    {
+      "role": "signed_exact_v5_delta_api",
+      "basename": "delta.py",
+      "sha256": "144023cf0ef24970f93d2ffaf80a7265dfb137a32c1326df84e43aee80898f0c"
+    },
+    {
+      "role": "signed_exact_v5_delta_implementation",
+      "basename": "delta_impl.py",
+      "sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788"
+    },
+    {
+      "role": "strict_exact_v5_loader_and_source_validator",
+      "basename": "run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+      "sha256": "0fd85e3e415a8705d3e37efd47d88f5ac6aa8feb25af039abdd1e4d704151ed6"
+    },
+    {
+      "role": "signed_distributed_runtime",
+      "basename": "natural_memory_distributed.py",
+      "sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d"
+    },
+    {
+      "role": "signed_native_row_encoder_and_write_read_runtime",
+      "basename": "run_natural_memory_native_evolution.py",
+      "sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7"
+    },
+    {
+      "role": "signed_ordered_module_and_state_intervention_helpers",
+      "basename": "run_natural_memory_native_rwkv_addressed_value_causal_train.py",
+      "sha256": "3036e7c75c1dedd31ab7f3d8aa79126c849a5c64e5e37395bbe3e2c43822fbc7"
+    },
+    {
+      "role": "signed_four_a100_hardware_validator",
+      "basename": "run_natural_memory_native_rwkv_addressed_value_screen.py",
+      "sha256": "b42cb3455679b1799a72b262958df5fd5a85211bc5b37730c24c70309309d654"
+    },
+    {
+      "role": "signed_exact_v5_adapter_topology_validator",
+      "basename": "run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py",
+      "sha256": "78f605c2e6b389e30fd97a98391b60cad99661f7bdc8cf3a4397aac6b5560a16"
+    }
+  ],
+  "all_module_inventory": {
+    "count": 42,
+    "ordered_module_names": [
+      "model.language_model.layers.0.self_attn",
+      "model.language_model.layers.1.self_attn",
+      "model.language_model.layers.2.self_attn",
+      "model.language_model.layers.3.self_attn",
+      "model.language_model.layers.4.self_attn",
+      "model.language_model.layers.5.self_attn",
+      "model.language_model.layers.6.self_attn",
+      "model.language_model.layers.7.self_attn",
+      "model.language_model.layers.8.self_attn",
+      "model.language_model.layers.9.self_attn",
+      "model.language_model.layers.10.self_attn",
+      "model.language_model.layers.11.self_attn",
+      "model.language_model.layers.12.self_attn",
+      "model.language_model.layers.13.self_attn",
+      "model.language_model.layers.14.self_attn",
+      "model.language_model.layers.15.self_attn",
+      "model.language_model.layers.16.self_attn",
+      "model.language_model.layers.17.self_attn",
+      "model.language_model.layers.18.self_attn",
+      "model.language_model.layers.19.self_attn",
+      "model.language_model.layers.20.self_attn",
+      "model.language_model.layers.21.self_attn",
+      "model.language_model.layers.22.self_attn",
+      "model.language_model.layers.23.self_attn",
+      "model.language_model.layers.24.self_attn",
+      "model.language_model.layers.25.self_attn",
+      "model.language_model.layers.26.self_attn",
+      "model.language_model.layers.27.self_attn",
+      "model.language_model.layers.28.self_attn",
+      "model.language_model.layers.29.self_attn",
+      "model.language_model.layers.30.self_attn",
+      "model.language_model.layers.31.self_attn",
+      "model.language_model.layers.32.self_attn",
+      "model.language_model.layers.33.self_attn",
+      "model.language_model.layers.34.self_attn",
+      "model.language_model.layers.35.self_attn",
+      "model.language_model.layers.36.self_attn",
+      "model.language_model.layers.37.self_attn",
+      "model.language_model.layers.38.self_attn",
+      "model.language_model.layers.39.self_attn",
+      "model.language_model.layers.40.self_attn",
+      "model.language_model.layers.41.self_attn"
+    ],
+    "ordered_module_names_sha256": "2364d5acf758dc89f8bd472add6ca5e1548a56cd0261edf82d1e596e5574c707",
+    "outer_ffn_anchor_subset_not_used_as_map_inventory": [
+      10,
+      21,
+      31,
+      41
+    ]
+  },
+  "mechanics_gate": {
+    "rows": 32,
+    "modules": 42,
+    "training_updates": 0,
+    "generation": false,
+    "write_conditions": [
+      "continuous_correct",
+      "continuous_matched_donor_address_only",
+      "continuous_target_address_on_donor_content",
+      "natural_donor_continuous",
+      "continuous_layer_rolled_address_only",
+      "continuous_row_shuffled_address_only",
+      "continuous_norm_random_address_only",
+      "continuous_zero_address",
+      "inherited_exact_v5",
+      "raw_unconditioned"
+    ],
+    "read_conditions": [
+      "continuous_correct",
+      "continuous_matched_donor_address_only",
+      "continuous_target_address_on_donor_content",
+      "natural_donor_continuous",
+      "continuous_layer_rolled_address_only",
+      "continuous_row_shuffled_address_only",
+      "continuous_norm_random_address_only",
+      "continuous_zero_address",
+      "inherited_exact_v5",
+      "raw_unconditioned",
+      "layer_permuted_recurrent",
+      "row_shuffled_recurrent",
+      "norm_random_recurrent",
+      "zero_recurrent",
+      "projected_only",
+      "state_only",
+      "prompt_only"
+    ],
+    "canonical_read_contract": "Every non-state-only/non-prompt-only read uses the target prompt and the exact same immutable target projected key/value/occupancy/surprise objects; only the recurrent tuple changes. State-only and prompt-only use an explicit all-zero projected carrier. Projected-only uses the established projected-only bypass with zero recurrent state.",
+    "address_interventions": {
+      "matched_donor": "destination module receives the paired donor row's natural full64 selected key, expanded and target-masked only inside the integration latch",
+      "layer_roll": "destination layer i receives target address from layer i-1 modulo 42",
+      "row_shuffle": "destination row receives the previous globally sorted mechanics row's natural address at the same layer",
+      "norm_random": "deterministic Gaussian direction independently norm-matched to each target layer address",
+      "zero": "exact float32 zeros at all 42 modules",
+      "one_shot_queue": true,
+      "natural_projected_keys_routes_and_slots_never_overwritten": true
+    },
+    "recurrent_interventions": {
+      "matched_donor": "paired donor natural continuous recurrent tuple with target projected carrier",
+      "layer_permuted": "destination layer i receives target recurrent tuple from layer i-1 modulo 42",
+      "row_shuffled": "destination row receives the previous globally sorted mechanics row's target recurrent tuple at the same layer",
+      "norm_random": "delta_state is deterministic Gaussian and norm-matched independently per module; positions and previous-source metadata remain target clones",
+      "zero": "delta_state exact zero; positions and previous-source metadata remain target clones"
+    },
+    "hard_exact_gates": {
+      "all_32_rows_and_42_modules_complete_unique_finite": true,
+      "frozen_map_file_digest_and_runtime_parity_exact": true,
+      "continuous_formula_matches_independent_recomputation_byte_exact": true,
+      "continuous_v_same_object_and_bytes": true,
+      "target_raw_k_v_a_b_byte_identical_across_target_write_controls": true,
+      "effective_override_is_exact_immutable_latch_object_and_requested_float32_bytes": true,
+      "projected_carrier_bytes_and_objects_fixed_across_address_and_recurrent_controls": true,
+      "continuous_zero_address_each_path_returns_own_raw_feature_objects_unchanged_and_cross_replay_bytes_exact": true,
+      "continuous_zero_address_online_state_byte_exact_raw": true,
+      "continuous_zero_address_logits_byte_exact_raw": true,
+      "inherited_exact_v5_formula_byte_exact_original_conditioner": true,
+      "preinstall_exact_v5_full_step_parity_bound_by_test": "test_inherited_mode_step_is_byte_exact_preinstall_exact_v5_step",
+      "zero_recurrent_logits_byte_exact_projected_only": true,
+      "recurrent_reads_make_exactly_two_byte_identical_addressed_and_global_basis_calls": true,
+      "projected_only_bypass_makes_exactly_zero_underlying_rwkv_read_basis_invocations": true,
+      "read_writes_disabled_and_state_references_bytes_versions_unchanged": true,
+      "no_parameters_updated": true
+    },
+    "material_state_gates": {
+      "comparisons": [
+        "correct_vs_raw_unconditioned",
+        "correct_vs_matched_donor_address_only",
+        "correct_vs_layer_rolled_address_only",
+        "correct_vs_target_address_on_donor_content"
+      ],
+      "metric": "per row mean over all 42 modules of ||candidate_delta_state-correct_delta_state||_2 / max(||correct_delta_state||_2,||candidate_delta_state||_2,1e-12)",
+      "normalized_l2_minimum": 0.05,
+      "positive_row_fraction_minimum": 0.95,
+      "global_mean_minimum": 0.05,
+      "all_comparisons_must_pass": true
+    },
+    "diagnostic_only": {
+      "additional_state_distances": [
+        "row_shuffled_address",
+        "norm_random_address",
+        "inherited_exact_v5",
+        "matched_donor_recurrent",
+        "layer_permuted_recurrent",
+        "row_shuffled_recurrent",
+        "norm_random_recurrent",
+        "zero_recurrent"
+      ],
+      "predictor_logit_changed_fraction": true,
+      "answer_ce_minus_correct": true,
+      "causal_preference_threshold": null,
+      "causal_quality_claim_authorized": false
+    }
+  },
+  "execution": {
+    "world_size": 4,
+    "rows_per_rank": 8,
+    "required_accelerators": "exactly four distinct NVIDIA A100 GPUs",
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "timeout_seconds": 1800,
+    "assignment": "sorted mechanics rows by ordinal, rows[rank::4]",
+    "batch_size_per_rank": 1,
+    "hf_endpoint": "https://hf-mirror.com",
+    "torch_context": "torch.no_grad, not torch.inference_mode, so tensor version auditing remains valid",
+    "natural_state_cache": "capture exactly 8 natural continuous target states per rank, all-gather detached CPU clones, and require a single global 32-row digest consensus",
+    "mechanics_analysis": "rank0 exactly once after all four signed shards validate their exact rows[rank::4] assignment and frozen protocol/preflight/mechanics/map/manifest/natural-cache/code bindings; all ranks reload and reach result-receipt consensus",
+    "fresh_output_required": true,
+    "runner_sha256_prebound_by_signed_launch_and_rehashed_before_and_after": true,
+    "source_dependencies_rehashed_before_result": true,
+    "parameter_versions_snapshot_after_frozen_map_load": true,
+    "parameter_version_digests_require_all_rank_consensus_before_and_after": true
+  },
+  "sealed_firewall": {
+    "preflight_byte_read_files": [
+      "continuous-write retrieval result.json",
+      "continuous-write-maps.pt",
+      "manifest.json",
+      "protocol and bound source dependencies",
+      "signed exact-two-commit launch binding"
+    ],
+    "mechanics_bytes_open_only_after": [
+      "protocol file and receipt validation",
+      "exact launch-binding, code-parent, committed-runner, dependency, and clean-tracked-worktree validation",
+      "retrieval result and map validation",
+      "exact-v5 source/model/adapter validation",
+      "four-A100 and HF mirror validation",
+      "frozen map load and runtime parity",
+      "all-rank preflight consensus"
+    ],
+    "mechanics_bundle_opened_by_experiment": true,
+    "causal_bundle_opened_by_experiment": false,
+    "causal_path_statted_listed_hashed_or_opened_by_experiment_runner": false,
+    "publisher_validation_test_hard32_strength_holdout_opened": false,
+    "development_access_disclosure": "Before this protocol was signed, one broad workspace file-inventory command emitted the already-manifested mechanics.jsonl and causal.jsonl filenames. It did not open, hash, decode, tokenize, or model-forward either protected file. This protocol does not claim that their filenames were globally unseen; it authorizes the first mechanics byte read and requires the experiment runner itself never to stat, list, hash, or open the causal path."
+  },
+  "full_bandwidth_transformer_boundary": {
+    "read_feedback_installed": false,
+    "online_write_scan_repeated": false,
+    "contraction_tested": false,
+    "reason": "Full-Bandwidth-style depth renewal remains blocked until live continuous mechanics and a separately signed causal donor-identity endpoint both pass."
+  },
+  "stopping_rule": {
+    "mechanics_pass": "Authorize drafting a separate causal protocol only. Causal bytes, training, generation, native benchmark evaluation, Full-Bandwidth feedback, and SOTA claims remain unauthorized.",
+    "mechanics_fail": "Retire this fixed rank-16 ridge-1.0 gain-0.25 continuous write family without mechanics-informed gain, rank, ridge, threshold, batch-size, duration, or condition tuning. Keep causal bytes sealed.",
+    "operational_failure_after_mechanics_open": "Do not silently rerun. Archive and report the failure; any retry requires a separately signed amendment that preserves the fixed architecture and gates.",
+    "always": "Publish pass or failure with signed shards and result. Mechanics CE and logit changes are diagnostic and cannot support a causal preference, native benchmark, or SOTA claim."
+  },
+  "mechanics_bundle_byte_read_authorized_by_this_protocol": true,
+  "causal_bundle_byte_read_authorized": false,
+  "model_or_adapter_training_authorized": false,
+  "generation_authorized": false,
+  "native_benchmark_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "c482e6874e4e5f5b52be1567df70d2f51c76dd49a50e4554926d56aa63bb735b"
+  }
+}

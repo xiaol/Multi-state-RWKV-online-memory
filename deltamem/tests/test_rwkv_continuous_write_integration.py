@@ -80,6 +80,9 @@ def test_post_write_latch_uses_new_key_and_never_recomputes_live_address() -> No
     assert torch.equal(latch.keys, new_keys)
     assert torch.equal(latch.routes, write_routes)
     assert torch.equal(latch.selected_keys, new_keys[:, :1])
+    assert latch.effective_selected_keys is latch.selected_keys
+    assert latch.address_override_applied is False
+    assert continuous.pending_effective_full64_address_override_names(module) == ()
     expected_address = new_keys[:, :1].expand(-1, 3, -1).clone()
     expected_address[:, 2] = 0.0
     assert torch.equal(latch.address_seq, expected_address)
@@ -122,6 +125,117 @@ def test_post_write_latch_uses_new_key_and_never_recomputes_live_address() -> No
     assert capture["latched_address_object_id"] == id(address)
     assert torch.equal(capture["conditioner_address_value"], expected_address)
     assert capture["value_object_id"] == capture["returned_value_object_id"]
+
+
+def test_one_shot_effective_override_preserves_natural_latch_and_exact_object() -> None:
+    module = _module()
+    natural_keys = torch.tensor(
+        [[[2.0, 3.0, 4.0, 5.0], [10.0, 11.0, 12.0, 13.0]]]
+    )
+    write_routes = torch.tensor([[[1.0, 0.0]]])
+
+    def overwrite(self, hidden_states, token_mask) -> None:
+        self.projected_kv_keys = natural_keys.clone()
+        self.last_write_routes = write_routes.clone()
+
+    module._write_projected_kv_slots = MethodType(overwrite, module)
+    audit = continuous.install(module, rank=2, seed=31)
+    continuous.set_capture(module, True)
+    name = audit["module_names"][0]
+    caller_override = torch.tensor([[[8.0, 7.0, 6.0, 5.0]]])
+    continuous.queue_effective_full64_address_overrides(
+        module, {name: caller_override}
+    )
+    caller_override.zero_()
+    hidden = torch.randn(1, 3, module.hidden_size)
+    token_mask = torch.tensor([[True, True, False]])
+
+    module._write_projected_kv_slots(hidden, token_mask)
+    latch = module.rwkv_continuous_write_latch
+    assert latch is not None
+    assert latch.address_override_applied is True
+    assert torch.equal(latch.selected_keys, natural_keys[:, :1])
+    assert torch.equal(
+        latch.effective_selected_keys,
+        torch.tensor([[[8.0, 7.0, 6.0, 5.0]]]),
+    )
+    expected_address = latch.effective_selected_keys.expand(-1, 3, -1).clone()
+    expected_address[:, 2] = 0.0
+    address = module._projected_rwkv_write_address_sequence(hidden, token_mask)
+    assert address is latch.address_seq
+    assert torch.equal(address, expected_address)
+    assert continuous.pending_effective_full64_address_override_names(module) == ()
+
+    shape = (1, 3, module.state_read_dim)
+    features = tuple(torch.randn(shape, dtype=torch.bfloat16) for _ in range(4))
+    module._rwkv_ms_address_conditioned_write_features(
+        *features, address, token_mask
+    )
+    capture = module.rwkv_continuous_write_audit
+    assert capture is not None
+    assert capture["address_override_applied"] is True
+    assert capture["effective_full64_consumed_by_mode"] is True
+    assert capture["conditioner_address"] is latch.address_seq
+    assert capture["conditioner_address_object_id"] == id(latch.address_seq)
+    assert capture["effective_selected_keys_object_id"] == id(
+        latch.effective_selected_keys
+    )
+
+    module._write_projected_kv_slots(hidden, token_mask)
+    second = module.rwkv_continuous_write_latch
+    assert second is not None
+    assert second.address_override_applied is False
+    assert second.effective_selected_keys is second.selected_keys
+
+
+def test_override_queue_rejects_invalid_inventory_shape_dtype_and_finiteness() -> None:
+    module = _module()
+    audit = continuous.install(module, rank=2, seed=37)
+    name = audit["module_names"][0]
+    valid = torch.ones(1, 1, module.projected_kv_key_dim, dtype=torch.float32)
+
+    with pytest.raises(ValueError, match="module inventory"):
+        continuous.queue_effective_full64_address_overrides(module, {})
+    with pytest.raises(ValueError, match="shape differs"):
+        continuous.queue_effective_full64_address_overrides(
+            module, {name: valid.squeeze(1)}
+        )
+    with pytest.raises(ValueError, match="must be float32"):
+        continuous.queue_effective_full64_address_overrides(
+            module, {name: valid.to(torch.bfloat16)}
+        )
+    invalid = valid.clone()
+    invalid[0, 0, 0] = float("nan")
+    with pytest.raises(ValueError, match="nonfinite"):
+        continuous.queue_effective_full64_address_overrides(
+            module, {name: invalid}
+        )
+    assert continuous.pending_effective_full64_address_override_names(module) == ()
+
+
+def test_reset_preserves_queued_override_until_the_next_projected_write() -> None:
+    module = _module()
+    audit = continuous.install(module, rank=2, seed=39)
+    name = audit["module_names"][0]
+    continuous.queue_effective_full64_address_overrides(
+        module,
+        {
+            name: torch.ones(
+                1, 1, module.projected_kv_key_dim, dtype=torch.float32
+            )
+        },
+    )
+
+    module.reset_state()
+
+    assert continuous.pending_effective_full64_address_override_names(module) == (
+        name,
+    )
+    hidden = torch.randn(1, 2, module.hidden_size)
+    token_mask = torch.ones(1, 2, dtype=torch.bool)
+    module._write_projected_kv_slots(hidden, token_mask)
+    assert continuous.pending_effective_full64_address_override_names(module) == ()
+    assert module.rwkv_continuous_write_latch.address_override_applied is True
 
 
 def test_zero_latched_address_is_exact_same_object_noop() -> None:
@@ -242,6 +356,46 @@ def test_disabled_mode_is_exact_inherited_v5_baseline() -> None:
     assert all(output is feature for output, feature in zip(raw, features))
 
 
+def test_nonzero_override_is_ignored_exactly_by_inherited_and_raw_modes() -> None:
+    module = _module()
+    audit = continuous.install(module, rank=2, seed=41)
+    continuous.set_capture(module, True)
+    name = audit["module_names"][0]
+    override = torch.full(
+        (1, 1, module.projected_kv_key_dim), 9.0, dtype=torch.float32
+    )
+    continuous.queue_effective_full64_address_overrides(module, {name: override})
+    hidden = torch.randn(1, 3, module.hidden_size, dtype=torch.bfloat16)
+    token_mask = torch.ones(1, 3, dtype=torch.bool)
+    module._write_projected_kv_slots(hidden, token_mask)
+    latch = module.rwkv_continuous_write_latch
+    assert latch is not None and latch.address_override_applied
+    shape = (1, 3, module.state_read_dim)
+    features = tuple(torch.randn(shape, dtype=torch.bfloat16) for _ in range(4))
+    expected = module.rwkv_continuous_write_original_conditioner(
+        *features, latch.folded_address_seq, token_mask
+    )
+
+    continuous.set_mode(module, continuous.INHERITED_EXACT_V5_MODE)
+    inherited = module._rwkv_ms_address_conditioned_write_features(
+        *features, latch.address_seq, token_mask
+    )
+    assert all(_byte_equal(left, right) for left, right in zip(inherited, expected))
+    assert module.rwkv_continuous_write_audit[
+        "effective_full64_consumed_by_mode"
+    ] is False
+
+    continuous.set_mode(module, continuous.RAW_UNCONDITIONED_MODE)
+    raw = module._rwkv_ms_address_conditioned_write_features(
+        *features, latch.address_seq, token_mask
+    )
+    assert all(output is feature for output, feature in zip(raw, features))
+    assert all(_byte_equal(output, feature) for output, feature in zip(raw, features))
+    assert module.rwkv_continuous_write_audit[
+        "effective_full64_consumed_by_mode"
+    ] is False
+
+
 def test_latched_address_rejects_in_place_mutation() -> None:
     module = _module()
 
@@ -261,6 +415,27 @@ def test_latched_address_rejects_in_place_mutation() -> None:
     module.rwkv_continuous_write_latch.address_seq.add_(1.0)
 
     with pytest.raises(RuntimeError, match="immutable address was mutated"):
+        module._projected_rwkv_write_address_sequence(hidden, token_mask)
+
+
+def test_effective_selected_override_rejects_in_place_mutation() -> None:
+    module = _module()
+    audit = continuous.install(module, rank=2, seed=43)
+    name = audit["module_names"][0]
+    continuous.queue_effective_full64_address_overrides(
+        module,
+        {
+            name: torch.ones(
+                1, 1, module.projected_kv_key_dim, dtype=torch.float32
+            )
+        },
+    )
+    hidden = torch.randn(1, 2, module.hidden_size)
+    token_mask = torch.ones(1, 2, dtype=torch.bool)
+    module._write_projected_kv_slots(hidden, token_mask)
+    module.rwkv_continuous_write_latch.effective_selected_keys.add_(1.0)
+
+    with pytest.raises(RuntimeError, match="immutable effective address"):
         module._projected_rwkv_write_address_sequence(hidden, token_mask)
 
 
@@ -300,3 +475,75 @@ def test_native_write_step_consumes_latched_full_address_and_reset_clears_it() -
     module.reset_state()
     assert module.rwkv_continuous_write_latch is None
     assert module.rwkv_continuous_write_audit is None
+
+
+def test_zero_override_continuous_step_is_byte_exact_raw_step() -> None:
+    continuous_module = _module()
+    raw_module = _module()
+    continuous_audit = continuous.install(continuous_module, rank=2, seed=47)
+    continuous.install(raw_module, rank=2, seed=47)
+    continuous.set_mode(raw_module, continuous.RAW_UNCONDITIONED_MODE)
+    continuous.queue_effective_full64_address_overrides(
+        continuous_module,
+        {
+            continuous_audit["module_names"][0]: torch.zeros(
+                2,
+                1,
+                continuous_module.projected_kv_key_dim,
+                dtype=torch.float32,
+            )
+        },
+    )
+    continuous_module.set_write_enabled(True)
+    raw_module.set_write_enabled(True)
+    hidden = torch.randn(2, 3, continuous_module.hidden_size)
+    token_mask = torch.tensor([[True, True, True], [True, True, False]])
+    state = torch.zeros(
+        2,
+        continuous_module.num_state_heads,
+        continuous_module.rwkv_ms_num_states,
+        continuous_module.rank,
+        continuous_module.rank,
+    )
+
+    continuous_result = continuous_module._projected_rwkv_hybrid_step(
+        state.clone(), hidden, token_mask
+    )
+    raw_result = raw_module._projected_rwkv_hybrid_step(
+        state.clone(), hidden, token_mask
+    )
+
+    assert all(
+        _byte_equal(left, right)
+        for left, right in zip(continuous_result, raw_result, strict=True)
+    )
+
+
+def test_inherited_mode_step_is_byte_exact_preinstall_exact_v5_step() -> None:
+    baseline_module = _module()
+    inherited_module = _module()
+    continuous.install(inherited_module, rank=2, seed=53)
+    continuous.set_mode(inherited_module, continuous.INHERITED_EXACT_V5_MODE)
+    baseline_module.set_write_enabled(True)
+    inherited_module.set_write_enabled(True)
+    hidden = torch.randn(2, 3, baseline_module.hidden_size)
+    token_mask = torch.tensor([[True, True, True], [True, True, False]])
+    state = torch.zeros(
+        2,
+        baseline_module.num_state_heads,
+        baseline_module.rwkv_ms_num_states,
+        baseline_module.rank,
+        baseline_module.rank,
+    )
+
+    baseline_result = baseline_module._projected_rwkv_hybrid_step(
+        state.clone(), hidden, token_mask
+    )
+    inherited_result = inherited_module._projected_rwkv_hybrid_step(
+        state.clone(), hidden, token_mask
+    )
+
+    assert all(
+        _byte_equal(left, right)
+        for left, right in zip(baseline_result, inherited_result, strict=True)
+    )

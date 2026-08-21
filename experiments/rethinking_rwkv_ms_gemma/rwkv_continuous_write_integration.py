@@ -20,10 +20,20 @@ class WriteAddressLatch:
     keys: torch.Tensor
     routes: torch.Tensor
     selected_keys: torch.Tensor
+    effective_selected_keys: torch.Tensor
     address_seq: torch.Tensor
     folded_address_seq: torch.Tensor
+    selected_keys_version: int
+    effective_selected_keys_version: int
     address_version: int
     folded_address_version: int
+    address_override_applied: bool
+
+
+@dataclass(frozen=True)
+class QueuedWriteAddressOverride:
+    selected_keys: torch.Tensor
+    selected_keys_version: int
 
 
 CONTINUOUS_MODE = "continuous"
@@ -174,6 +184,13 @@ class ContinuousWriteConditioner(nn.Module):
 
 
 def _assert_latch_intact(latch: WriteAddressLatch) -> None:
+    if latch.selected_keys._version != latch.selected_keys_version:
+        raise RuntimeError("Continuous-write immutable natural address was mutated in place")
+    if (
+        latch.effective_selected_keys._version
+        != latch.effective_selected_keys_version
+    ):
+        raise RuntimeError("Continuous-write immutable effective address was mutated in place")
     if latch.address_seq._version != latch.address_version:
         raise RuntimeError("Continuous-write immutable address was mutated in place")
     if latch.folded_address_seq._version != latch.folded_address_version:
@@ -223,7 +240,38 @@ def _materialize_latch(
         routes_snapshot,
         keys_snapshot,
     ).detach().clone()
-    address_seq = selected_keys.expand(-1, sequence_length, -1).clone()
+    queued_override = module.rwkv_continuous_write_address_override_queue
+    if queued_override is None:
+        effective_selected_keys = selected_keys
+        address_override_applied = False
+    else:
+        if not isinstance(queued_override, QueuedWriteAddressOverride):
+            raise RuntimeError("Continuous-write queued address override contract differs")
+        if (
+            queued_override.selected_keys._version
+            != queued_override.selected_keys_version
+        ):
+            raise RuntimeError("Continuous-write queued address override was mutated")
+        expected_selected = (
+            batch_size,
+            1,
+            module.projected_kv_key_dim,
+        )
+        if tuple(queued_override.selected_keys.shape) != expected_selected:
+            raise ValueError(
+                "Continuous-write queued address override shape differs: "
+                f"expected={expected_selected} "
+                f"actual={tuple(queued_override.selected_keys.shape)}"
+            )
+        if queued_override.selected_keys.dtype != torch.float32:
+            raise ValueError("Continuous-write queued address override must be float32")
+        if queued_override.selected_keys.device != selected_keys.device:
+            raise ValueError("Continuous-write queued address override device differs")
+        if not bool(torch.isfinite(queued_override.selected_keys).all().item()):
+            raise ValueError("Continuous-write queued address override is nonfinite")
+        effective_selected_keys = queued_override.selected_keys
+        address_override_applied = True
+    address_seq = effective_selected_keys.expand(-1, sequence_length, -1).clone()
     if token_mask is not None:
         expected_mask = (batch_size, sequence_length)
         if tuple(token_mask.shape) != expected_mask:
@@ -260,10 +308,14 @@ def _materialize_latch(
         keys=keys_snapshot,
         routes=routes_snapshot,
         selected_keys=selected_keys,
+        effective_selected_keys=effective_selected_keys,
         address_seq=address_seq,
         folded_address_seq=folded_address_seq,
+        selected_keys_version=selected_keys._version,
+        effective_selected_keys_version=effective_selected_keys._version,
         address_version=address_seq._version,
         folded_address_version=folded_address_seq._version,
+        address_override_applied=address_override_applied,
     )
 
 
@@ -275,11 +327,14 @@ def _projected_slot_write(
     module.rwkv_continuous_write_latch = None
     module.rwkv_continuous_write_audit = None
     module.rwkv_continuous_write_original_projected_slot_write(hidden_states, token_mask)
-    module.rwkv_continuous_write_latch = _materialize_latch(
+    latch = _materialize_latch(
         module,
         hidden_states,
         token_mask,
     )
+    module.rwkv_continuous_write_latch = latch
+    if latch.address_override_applied:
+        module.rwkv_continuous_write_address_override_queue = None
 
 
 def _reset_state(module: Any) -> None:
@@ -355,6 +410,11 @@ def _conditioned_features(
         module.rwkv_continuous_write_audit = {
             "mode": mode,
             "latched_selected_keys": latch.selected_keys.detach().clone(),
+            "effective_selected_keys": latch.effective_selected_keys.detach().clone(),
+            "natural_selected_keys_object_id": id(latch.selected_keys),
+            "effective_selected_keys_object_id": id(latch.effective_selected_keys),
+            "address_override_applied": latch.address_override_applied,
+            "effective_full64_consumed_by_mode": mode == CONTINUOUS_MODE,
             "conditioner_address": address_seq,
             "conditioner_address_value": address_seq.detach().clone(),
             "conditioner_address_object_id": id(address_seq),
@@ -421,6 +481,7 @@ def install(
         module.rwkv_continuous_write_capture_enabled = False
         module.rwkv_continuous_write_latch = None
         module.rwkv_continuous_write_audit = None
+        module.rwkv_continuous_write_address_override_queue = None
         installed.append(name)
         parameter_elements += sum(parameter.numel() for parameter in conditioner.parameters())
     return {
@@ -439,6 +500,8 @@ def install(
         "default_mode": CONTINUOUS_MODE,
         "baseline_mode": INHERITED_EXACT_V5_MODE,
         "raw_control_mode": RAW_UNCONDITIONED_MODE,
+        "effective_full64_override": "one_shot_selected_key_only",
+        "pending_effective_full64_overrides": 0,
     }
 
 
@@ -459,7 +522,71 @@ def set_capture(model: nn.Module, enabled: bool) -> None:
         module.rwkv_continuous_write_audit = None
 
 
+def queue_effective_full64_address_overrides(
+    model: nn.Module,
+    overrides: Mapping[str, torch.Tensor],
+) -> None:
+    modules = tuple(iter_delta_mem_modules(model))
+    expected_names = {name for name, _ in modules}
+    if set(overrides) != expected_names:
+        raise ValueError("Continuous-write address override module inventory differs")
+    prepared: list[tuple[Any, QueuedWriteAddressOverride]] = []
+    for name, module in modules:
+        if module.rwkv_continuous_write_address_override_queue is not None:
+            raise RuntimeError(
+                f"Continuous-write address override is already queued: {name}"
+            )
+        value = overrides[name]
+        if not isinstance(value, torch.Tensor):
+            raise TypeError("Continuous-write address override must be a tensor")
+        if (
+            value.ndim != 3
+            or value.shape[1] != 1
+            or value.shape[2] != module.projected_kv_key_dim
+        ):
+            raise ValueError(
+                "Continuous-write address override shape differs: "
+                f"expected=[batch,1,{module.projected_kv_key_dim}] "
+                f"actual={tuple(value.shape)}"
+            )
+        if value.dtype != torch.float32:
+            raise ValueError("Continuous-write address override must be float32")
+        if not bool(torch.isfinite(value).all().item()):
+            raise ValueError("Continuous-write address override is nonfinite")
+        selected_keys = value.detach().to(
+            device=module.memory_v_proj.device,
+            dtype=torch.float32,
+        ).contiguous().clone()
+        prepared.append(
+            (
+                module,
+                QueuedWriteAddressOverride(
+                    selected_keys=selected_keys,
+                    selected_keys_version=selected_keys._version,
+                ),
+            )
+        )
+    for module, queued in prepared:
+        module.rwkv_continuous_write_address_override_queue = queued
+
+
+def clear_effective_full64_address_overrides(model: nn.Module) -> None:
+    for _, module in iter_delta_mem_modules(model):
+        module.rwkv_continuous_write_address_override_queue = None
+
+
+def pending_effective_full64_address_override_names(
+    model: nn.Module,
+) -> tuple[str, ...]:
+    return tuple(
+        name
+        for name, module in iter_delta_mem_modules(model)
+        if module.rwkv_continuous_write_address_override_queue is not None
+    )
+
+
 def clear_transient(model: nn.Module) -> None:
     for _, module in iter_delta_mem_modules(model):
         module.rwkv_continuous_write_latch = None
         module.rwkv_continuous_write_audit = None
+        module.rwkv_continuous_write_address_override_queue = None
