@@ -22,7 +22,7 @@ from experiments.rethinking_rwkv_ms_gemma.rwkv_diagonal_sign_binding import (
 
 
 HF_ENDPOINT = "https://hf-mirror.com"
-SCHEMA = "rwkv_ms_bidirectional_sign_development_gate.v1"
+SCHEMA = "rwkv_ms_bidirectional_sign_development_gate.v2"
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parents[1]
 BASE_MODEL_ID = "google/gemma-4-E4B-it"
@@ -46,6 +46,27 @@ V5_ADAPTER = (
     "natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/"
     "adapter"
 )
+V1_OPERATIONAL_FAILURE_RELATIVE = (
+    "experiments/rethinking_rwkv_ms_gemma/local_artifacts/"
+    "natural_memory_native_rwkv_bidirectional_sign_development_gate_v1/"
+    "operational_failure.json"
+)
+V1_OPERATIONAL_FAILURE_FILE_SHA256 = (
+    "ce102f035fe3b4a52a0b1b70670e4478d12780baded62c1888501d41648082ca"
+)
+V1_OPERATIONAL_FAILURE_RECEIPT = (
+    "ce165fe4033476c18b081012387602c2cda47fe0b170b5d65d6de32e79da5023"
+)
+V1_PROTOCOL_FILE_SHA256 = (
+    "af4b21a4d523a5282b22b113d9c73761045de2e3e077a14a58844b4e500f250a"
+)
+V1_PROTOCOL_PAYLOAD_SHA256 = (
+    "7c9fb7fb1160ee54851d65d5bcc612a00f1da356a816f30cfd28976fb1ebbdfb"
+)
+V1_CORE_SHA256 = (
+    "08e7695d2c96d1ac7119ff6a4524e321d381eced673d177a6cd7c8b5a72b89d5"
+)
+V1_EXECUTION_COMMIT = "2cf59d0e2345af893d636bcc28c0659d0d800eea"
 
 
 def canonical_sha256(value: Any) -> str:
@@ -110,6 +131,7 @@ def _project_rows(open_fit_root: Path) -> list[dict[str, str]]:
         "integration": "experiments/rethinking_rwkv_ms_gemma/rwkv_bidirectional_sign_integration.py",
         "gate_core": "experiments/rethinking_rwkv_ms_gemma/rwkv_bidirectional_sign_development_gate_core.py",
         "open_fit_materializer": "experiments/rethinking_rwkv_ms_gemma/materialize_natural_memory_native_rwkv_bidirectional_sign_open_fit.py",
+        "v1_operational_failure": V1_OPERATIONAL_FAILURE_RELATIVE,
         "plmsc_runner": "experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_plmsc_code_alignment_v2.py",
         "exact_v5_loader": "experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
         "shadow_model_loader": "experiments/rethinking_rwkv_ms_gemma/common.py",
@@ -233,11 +255,11 @@ def build_protocol(
 
     protocol: dict[str, Any] = {
         "schema": SCHEMA,
-        "created_at": "2026-08-21T00:00:00+08:00",
+        "created_at": "2026-08-22T01:29:00+08:00",
         "objective": (
-            "Run one exact four-A100 development64 gate for full-key bidirectional "
-            "diagonal-sign RWKV state binding using only the signed publisher-TRAIN-"
-            "derived open-fit development replay."
+            "Run one operational retry of the exact four-A100 development64 gate "
+            "after the signed v1 harness failure, using only the signed publisher-"
+            "TRAIN-derived open-fit development replay."
         ),
         "authorization_basis": {
             "plmsc_protocol_file_sha256": PLMSC_PROTOCOL_FILE_SHA256,
@@ -245,6 +267,17 @@ def build_protocol(
             "plmsc_result_file_sha256": PLMSC_RESULT_FILE_SHA256,
             "plmsc_result_receipt": PLMSC_RESULT_RECEIPT,
             "plmsc_status": "plmsc_code_alignment_failed_family_retired",
+            "v1_protocol_file_sha256": V1_PROTOCOL_FILE_SHA256,
+            "v1_protocol_payload_sha256": V1_PROTOCOL_PAYLOAD_SHA256,
+            "v1_core_sha256": V1_CORE_SHA256,
+            "v1_execution_commit": V1_EXECUTION_COMMIT,
+            "v1_operational_failure_file_sha256": (
+                V1_OPERATIONAL_FAILURE_FILE_SHA256
+            ),
+            "v1_operational_failure_receipt": V1_OPERATIONAL_FAILURE_RECEIPT,
+            "retry_scope": (
+                "one operational retry after pre-mechanics capture-lifecycle failure"
+            ),
             "scope": "new independent identity mechanics family; development only",
         },
         "architecture": {
@@ -263,6 +296,7 @@ def build_protocol(
             "world_size": 4,
             "hf_endpoint": HF_ENDPOINT,
             "attempts": 1,
+            "attempt_number": 2,
             "resume": False,
             "fit_or_training": False,
             "fresh_output_required": True,

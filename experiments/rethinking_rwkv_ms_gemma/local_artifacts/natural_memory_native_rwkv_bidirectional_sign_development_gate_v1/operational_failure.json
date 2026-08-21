@@ -1,0 +1,97 @@
+{
+  "schema": "rwkv_ms_bidirectional_sign_development_operational_failure.v1",
+  "status": "bidirectional_sign_development_operational_failure_no_mechanics_result",
+  "passed": false,
+  "attempt": 1,
+  "execution_commit": "2cf59d0e2345af893d636bcc28c0659d0d800eea",
+  "failure_phase": "development-row-0",
+  "root_cause": {
+    "classification": "row_harness_capture_lifecycle_bug",
+    "error_type": "RuntimeError",
+    "error_message": "Bidirectional read capture has no write codes",
+    "traceback_sha256": "30e2f2c146a8f7af8f678cae536d38d87f807901768be6cedd36e1945f0107d0",
+    "mechanism": "the harness cleared write address and left/right write codes immediately before the paired read capture",
+    "architecture_implicated": false
+  },
+  "rank_consensus": [
+    {
+      "rank": 0,
+      "passed": false,
+      "error_type": "RuntimeError",
+      "error_message_sha256": "2639e1717f899874a706294da3cce1d34363966f26aa614491f7602553a40893",
+      "traceback_sha256": "30e2f2c146a8f7af8f678cae536d38d87f807901768be6cedd36e1945f0107d0"
+    },
+    {
+      "rank": 1,
+      "passed": false,
+      "error_type": "RuntimeError",
+      "error_message_sha256": "2639e1717f899874a706294da3cce1d34363966f26aa614491f7602553a40893",
+      "traceback_sha256": "30e2f2c146a8f7af8f678cae536d38d87f807901768be6cedd36e1945f0107d0"
+    },
+    {
+      "rank": 2,
+      "passed": false,
+      "error_type": "RuntimeError",
+      "error_message_sha256": "2639e1717f899874a706294da3cce1d34363966f26aa614491f7602553a40893",
+      "traceback_sha256": "30e2f2c146a8f7af8f678cae536d38d87f807901768be6cedd36e1945f0107d0"
+    },
+    {
+      "rank": 3,
+      "passed": false,
+      "error_type": "RuntimeError",
+      "error_message_sha256": "2639e1717f899874a706294da3cce1d34363966f26aa614491f7602553a40893",
+      "traceback_sha256": "30e2f2c146a8f7af8f678cae536d38d87f807901768be6cedd36e1945f0107d0"
+    }
+  ],
+  "protocol": {
+    "file_sha256": "af4b21a4d523a5282b22b113d9c73761045de2e3e077a14a58844b4e500f250a",
+    "payload_sha256": "7c9fb7fb1160ee54851d65d5bcc612a00f1da356a816f30cfd28976fb1ebbdfb",
+    "core_sha256": "08e7695d2c96d1ac7119ff6a4524e321d381eced673d177a6cd7c8b5a72b89d5"
+  },
+  "runtime": {
+    "world_size": 4,
+    "hardware": "four distinct NVIDIA A100-PCIE-40GB",
+    "hf_endpoint": "https://hf-mirror.com",
+    "model_loading_completed_on_all_ranks": true,
+    "development_rows_decoded": 64,
+    "development_rows_tokenized": 64,
+    "development_rows_completed": 0,
+    "partial_first_rows_started": 4,
+    "first_source_by_rank": {
+      "0": 7,
+      "1": 30,
+      "2": 32,
+      "3": 65
+    }
+  },
+  "firewall": {
+    "manifest_metadata_opened": true,
+    "development_bundle_opened": true,
+    "mechanics_bundle_opened": false,
+    "causal_bundle_opened": false,
+    "mechanics_rows_decoded": 0,
+    "mechanics_rows_tokenized": 0,
+    "mechanics_rows_forwarded": 0,
+    "causal_rows_decoded": 0,
+    "causal_rows_tokenized": 0,
+    "causal_rows_forwarded": 0,
+    "protected_splits_opened": []
+  },
+  "output_audit": {
+    "result_written": false,
+    "adapter_saved": false,
+    "weights_updated": false,
+    "generation_executed": false,
+    "benchmark_executed": false
+  },
+  "mechanics_protocol_authorized": false,
+  "causal_endpoint_authorized": false,
+  "generation_authorized": false,
+  "benchmark_authorized": false,
+  "retry_authorized_by_this_artifact": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_operational_failure_without_receipt",
+    "payload_sha256": "ce165fe4033476c18b081012387602c2cda47fe0b170b5d65d6de32e79da5023"
+  }
+}

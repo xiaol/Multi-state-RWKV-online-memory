@@ -44,11 +44,12 @@ from experiments.rethinking_rwkv_ms_gemma import (
 )
 
 
-SCHEMA = "rwkv_ms_bidirectional_sign_development_gate.v1"
-RESULT_SCHEMA = "rwkv_ms_bidirectional_sign_development_result.v1"
+SCHEMA = "rwkv_ms_bidirectional_sign_development_gate.v2"
+RESULT_SCHEMA = "rwkv_ms_bidirectional_sign_development_result.v2"
 PASS_STATUS = "bidirectional_sign_development_passed_mechanics_protocol_authorized"
 FAIL_STATUS = "bidirectional_sign_development_failed_family_retired"
 WORLD_SIZE = 4
+ATTEMPT_NUMBER = 2
 DEVELOPMENT_ROWS = 64
 MECHANICS_ROWS = 17
 CAUSAL_ROWS = 17
@@ -98,6 +99,28 @@ PLMSC_RESULT_FILE_SHA256 = (
 )
 PLMSC_RESULT_RECEIPT = (
     "23c7cfdf0cdf0fb747010615cfe271ae7d7c0cddd7bd9a90401179033100fda7"
+)
+V1_PROTOCOL_FILE_SHA256 = (
+    "af4b21a4d523a5282b22b113d9c73761045de2e3e077a14a58844b4e500f250a"
+)
+V1_PROTOCOL_PAYLOAD_SHA256 = (
+    "7c9fb7fb1160ee54851d65d5bcc612a00f1da356a816f30cfd28976fb1ebbdfb"
+)
+V1_CORE_SHA256 = (
+    "08e7695d2c96d1ac7119ff6a4524e321d381eced673d177a6cd7c8b5a72b89d5"
+)
+V1_EXECUTION_COMMIT = "2cf59d0e2345af893d636bcc28c0659d0d800eea"
+V1_OPERATIONAL_FAILURE = (
+    SCRIPT_DIR
+    / "local_artifacts/"
+    "natural_memory_native_rwkv_bidirectional_sign_development_gate_v1/"
+    "operational_failure.json"
+)
+V1_OPERATIONAL_FAILURE_FILE_SHA256 = (
+    "ce102f035fe3b4a52a0b1b70670e4478d12780baded62c1888501d41648082ca"
+)
+V1_OPERATIONAL_FAILURE_RECEIPT = (
+    "ce165fe4033476c18b081012387602c2cda47fe0b170b5d65d6de32e79da5023"
 )
 ROW_CHECK_KEYS = {
     "encoded_state_byte_equal",
@@ -227,6 +250,7 @@ def _validate_manifests(
         "open_fit_development_bundle": (
             open_fit_root / "development.jsonl"
         ).resolve(strict=True),
+        "v1_operational_failure": V1_OPERATIONAL_FAILURE.resolve(strict=True),
         "diagonal_sign_dependency": Path(
             sys.modules[sign.deterministic_projection.__module__].__file__
         ).resolve(),
@@ -445,6 +469,7 @@ def validate_protocol(
         or execution.get("world_size") != WORLD_SIZE
         or execution.get("hf_endpoint") != HF_ENDPOINT
         or execution.get("attempts") != 1
+        or execution.get("attempt_number") != ATTEMPT_NUMBER
         or execution.get("resume") is not False
         or execution.get("fit_or_training") is not False
         or execution.get("fresh_output_required") is not True
@@ -468,6 +493,17 @@ def validate_protocol(
         != plmsc.PROTOCOL_PAYLOAD_SHA256
         or parent.get("plmsc_result_file_sha256") != PLMSC_RESULT_FILE_SHA256
         or parent.get("plmsc_result_receipt") != PLMSC_RESULT_RECEIPT
+        or parent.get("v1_protocol_file_sha256") != V1_PROTOCOL_FILE_SHA256
+        or parent.get("v1_protocol_payload_sha256")
+        != V1_PROTOCOL_PAYLOAD_SHA256
+        or parent.get("v1_core_sha256") != V1_CORE_SHA256
+        or parent.get("v1_execution_commit") != V1_EXECUTION_COMMIT
+        or parent.get("v1_operational_failure_file_sha256")
+        != V1_OPERATIONAL_FAILURE_FILE_SHA256
+        or parent.get("v1_operational_failure_receipt")
+        != V1_OPERATIONAL_FAILURE_RECEIPT
+        or parent.get("retry_scope")
+        != "one operational retry after pre-mechanics capture-lifecycle failure"
         or protocol.get("frozen_inputs", {}).get("base_model") != BASE_MODEL_ID
         or protocol.get("frozen_inputs", {}).get("base_model_revision")
         != BASE_MODEL_REVISION
@@ -488,6 +524,48 @@ def validate_protocol(
         or plmsc_result.get("protected_splits_opened") != []
     ):
         raise ValueError("Signed PLMSC retirement result differs")
+    if sha256_file(V1_OPERATIONAL_FAILURE) != V1_OPERATIONAL_FAILURE_FILE_SHA256:
+        raise ValueError("Bidirectional v1 operational-failure file differs")
+    operational_failure = json.loads(
+        V1_OPERATIONAL_FAILURE.read_text(encoding="utf-8")
+    )
+    unsigned_failure = dict(operational_failure)
+    failure_receipt = unsigned_failure.pop("receipt", {})
+    if (
+        operational_failure.get("schema")
+        != "rwkv_ms_bidirectional_sign_development_operational_failure.v1"
+        or operational_failure.get("status")
+        != "bidirectional_sign_development_operational_failure_no_mechanics_result"
+        or operational_failure.get("passed") is not False
+        or operational_failure.get("attempt") != 1
+        or operational_failure.get("execution_commit") != V1_EXECUTION_COMMIT
+        or operational_failure.get("protocol", {}).get("file_sha256")
+        != V1_PROTOCOL_FILE_SHA256
+        or operational_failure.get("protocol", {}).get("payload_sha256")
+        != V1_PROTOCOL_PAYLOAD_SHA256
+        or operational_failure.get("protocol", {}).get("core_sha256")
+        != V1_CORE_SHA256
+        or operational_failure.get("runtime", {}).get("development_rows_completed")
+        != 0
+        or operational_failure.get("firewall", {}).get(
+            "mechanics_bundle_opened"
+        )
+        is not False
+        or operational_failure.get("firewall", {}).get("causal_bundle_opened")
+        is not False
+        or operational_failure.get("firewall", {}).get("protected_splits_opened")
+        != []
+        or operational_failure.get("retry_authorized_by_this_artifact") is not False
+        or set(failure_receipt)
+        != {"algorithm", "payload_scope", "payload_sha256"}
+        or failure_receipt.get("algorithm") != "sha256"
+        or failure_receipt.get("payload_scope")
+        != "canonical_operational_failure_without_receipt"
+        or failure_receipt.get("payload_sha256")
+        != V1_OPERATIONAL_FAILURE_RECEIPT
+        or canonical_sha256(unsigned_failure) != V1_OPERATIONAL_FAILURE_RECEIPT
+    ):
+        raise ValueError("Bidirectional v1 operational-failure receipt differs")
     plmsc.validate_protocol()
     groups, mapping, development_rows, open_fit_manifest = _validate_open_fit(
         protocol,
@@ -787,7 +865,7 @@ def _run_row(
         evolution._native_write(model, batch, dtype=torch.bfloat16)
         baseline_state = _snapshot_state(model)
         baseline_write = _snapshot_write(model)
-        sign.clear_transient(model)
+        sign.clear_read_capture(model)
         baseline_logits = evolution._native_read(model, batch, dtype=torch.bfloat16)
         baseline_reads = _snapshot_reads(model)
 
@@ -803,7 +881,7 @@ def _run_row(
             bound_write,
             write_mask,
         )
-        sign.clear_transient(model)
+        sign.clear_read_capture(model)
         bound_logits = evolution._native_read(model, batch, dtype=torch.bfloat16)
         bound_reads = _snapshot_reads(model)
         read_checks = _read_checks(baseline_reads, bound_reads)
@@ -1048,7 +1126,7 @@ def _recompute_result_checks(result: Mapping[str, Any]) -> Mapping[str, bool]:
         and runtime.get("backend") == "nccl"
         and runtime.get("control_backend") == "gloo"
         and runtime.get("hf_endpoint") == HF_ENDPOINT
-        and runtime.get("attempt") == 1
+        and runtime.get("attempt") == ATTEMPT_NUMBER
         and hardware.four_distinct_a100s(runtime.get("rank_devices", [])),
         "open_fit_receipts_exact": isinstance(open_fit_audit, Mapping)
         and open_fit_audit.get("inventory") == sorted(OPEN_FIT_INVENTORY)
@@ -1436,7 +1514,7 @@ def run(
                         "control_backend": context.control_backend,
                         "rank_devices": list(context.rank_devices),
                         "hf_endpoint": os.environ.get("HF_ENDPOINT"),
-                        "attempt": 1,
+                        "attempt": ATTEMPT_NUMBER,
                     },
                     "development_sources": list(groups["development"]),
                     "rank_shards": list(rank_shards),

@@ -4,10 +4,11 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Iterator
 
 import pytest
+import torch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -198,6 +199,142 @@ def test_result_receipt_tampering_is_rejected(gate_core: ModuleType) -> None:
 
     with pytest.raises(ValueError, match="Development result receipt differs"):
         gate_core.validate_result_payload(payload)
+
+
+def test_run_row_preserves_write_codes_until_paired_dual_read_capture(
+    gate_core: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = SimpleNamespace(
+        rwkv_bidirectional_sign_pending_rebase=None,
+        rwkv_bidirectional_sign_read_kind=None,
+        rwkv_bidirectional_sign_read_sequence=[],
+        rwkv_bidirectional_sign_query_address=None,
+        rwkv_bidirectional_sign_write_address=None,
+        rwkv_bidirectional_sign_write_left_code=None,
+        rwkv_bidirectional_sign_write_right_code=None,
+        rwkv_bidirectional_sign_captures={},
+        rwkv_bidirectional_sign_rebase_capture=None,
+        rwkv_rotary_write_address=None,
+        rwkv_rotary_read_captures={},
+        enabled=False,
+    )
+    batch = SimpleNamespace(write_attention_mask=torch.ones(1, 2, dtype=torch.bool))
+    expected_left = torch.tensor([[[1.0, -1.0], [-1.0, 1.0]]])
+    expected_right = -expected_left
+    observed_reads: list[tuple[torch.Tensor, torch.Tensor]] = []
+
+    monkeypatch.setattr(
+        gate_core.sign,
+        "iter_delta_mem_modules",
+        lambda native_model: (("module", native_model),),
+    )
+    monkeypatch.setattr(
+        gate_core.evolution,
+        "collate_native_examples",
+        lambda examples, pad_token_id, device: batch,
+    )
+
+    def reset_mode(native_model: SimpleNamespace, enabled: bool) -> None:
+        gate_core.sign.clear_transient(native_model)
+        native_model.enabled = enabled
+
+    def native_write(
+        native_model: SimpleNamespace,
+        native_batch: SimpleNamespace,
+        *,
+        dtype: torch.dtype,
+    ) -> None:
+        assert native_batch is batch
+        assert dtype is torch.bfloat16
+        native_model.rwkv_bidirectional_sign_write_address = torch.ones(1, 2, 2)
+        native_model.rwkv_bidirectional_sign_write_left_code = expected_left.clone()
+        native_model.rwkv_bidirectional_sign_write_right_code = expected_right.clone()
+
+    def snapshot_write(native_model: SimpleNamespace) -> dict[str, torch.Tensor]:
+        return {
+            "left": native_model.rwkv_bidirectional_sign_write_left_code.clone(),
+            "right": native_model.rwkv_bidirectional_sign_write_right_code.clone(),
+        }
+
+    def native_read(
+        native_model: SimpleNamespace,
+        native_batch: SimpleNamespace,
+        *,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        assert native_batch is batch
+        assert dtype is torch.bfloat16
+        assert native_model.rwkv_bidirectional_sign_captures == {}
+        left = native_model.rwkv_bidirectional_sign_write_left_code
+        right = native_model.rwkv_bidirectional_sign_write_right_code
+        assert left is not None and right is not None
+        observed_reads.append((left.clone(), right.clone()))
+        native_model.rwkv_bidirectional_sign_captures = {
+            kind: {
+                "write_codes": left.clone(),
+                "right_write_codes": right.clone(),
+            }
+            for kind in ("addressed", "global")
+        }
+        native_model.rwkv_bidirectional_sign_read_sequence = []
+        return torch.tensor([[1.0, 2.0]])
+
+    def snapshot_reads(native_model: SimpleNamespace) -> dict[str, dict[str, torch.Tensor]]:
+        assert set(native_model.rwkv_bidirectional_sign_captures) == {
+            "addressed",
+            "global",
+        }
+        assert native_model.rwkv_bidirectional_sign_read_sequence == []
+        return native_model.rwkv_bidirectional_sign_captures
+
+    monkeypatch.setattr(gate_core, "_reset_mode", reset_mode)
+    monkeypatch.setattr(gate_core.evolution, "_native_write", native_write)
+    monkeypatch.setattr(gate_core, "_snapshot_state", lambda native_model: {})
+    monkeypatch.setattr(gate_core, "_snapshot_write", snapshot_write)
+    monkeypatch.setattr(gate_core.evolution, "_native_read", native_read)
+    monkeypatch.setattr(gate_core, "_snapshot_reads", snapshot_reads)
+    monkeypatch.setattr(
+        gate_core,
+        "_write_state_checks",
+        lambda *args: (
+            {"write_lifecycle_valid": True},
+            {
+                "selected_codes": {"module": {"left": 1, "right": 2}},
+                "rebase_events": 0,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        gate_core,
+        "_read_checks",
+        lambda baseline, bound: {"read_lifecycle_valid": True},
+    )
+    monkeypatch.setattr(gate_core, "reset_delta_mem_states", lambda native_model: None)
+    monkeypatch.setattr(
+        gate_core.evolution,
+        "release_native_row_allocator_cache",
+        lambda device: None,
+    )
+
+    row = gate_core._run_row(
+        model,
+        SimpleNamespace(pad_token_id=0),
+        SimpleNamespace(source_ordinal=7),
+        device=torch.device("cpu"),
+    )
+
+    assert row["source_index"] == 7
+    assert row["checks"]["write_lifecycle_valid"] is True
+    assert row["checks"]["read_lifecycle_valid"] is True
+    assert len(observed_reads) == 2
+    for left, right in observed_reads:
+        assert torch.equal(left.view(torch.uint8), expected_left.view(torch.uint8))
+        assert torch.equal(right.view(torch.uint8), expected_right.view(torch.uint8))
+    assert model.rwkv_bidirectional_sign_write_left_code is None
+    assert model.rwkv_bidirectional_sign_write_right_code is None
+    assert model.rwkv_bidirectional_sign_captures == {}
+    assert model.rwkv_bidirectional_sign_read_sequence == []
 
 
 def test_output_nested_in_immutable_input_root_is_rejected(

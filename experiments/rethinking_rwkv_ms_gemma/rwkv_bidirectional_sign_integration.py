@@ -574,6 +574,17 @@ def set_capture(model: torch.nn.Module, enabled: bool) -> None:
         module.rwkv_rotary_read_captures = module.rwkv_bidirectional_sign_captures
 
 
+def clear_read_capture(model: torch.nn.Module) -> None:
+    for _, module in iter_delta_mem_modules(model):
+        if module.rwkv_bidirectional_sign_pending_rebase is not None:
+            raise RuntimeError("Cannot clear read capture with a pending slot-key rebase")
+        module.rwkv_bidirectional_sign_read_kind = None
+        module.rwkv_bidirectional_sign_read_sequence = []
+        module.rwkv_bidirectional_sign_query_address = None
+        module.rwkv_bidirectional_sign_captures = {}
+        module.rwkv_rotary_read_captures = module.rwkv_bidirectional_sign_captures
+
+
 def clear_transient(model: torch.nn.Module) -> None:
     for _, module in iter_delta_mem_modules(model):
         if module.rwkv_bidirectional_sign_pending_rebase is not None:

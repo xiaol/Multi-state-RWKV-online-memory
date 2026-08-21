@@ -223,6 +223,158 @@ def test_write_hook_records_full_address_and_independent_right_code() -> None:
     assert module.rwkv_rotary_write_address is module.rwkv_bidirectional_sign_write_address
 
 
+def test_clear_read_capture_preserves_write_codes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_address = torch.randn(1, 2, 4)
+    write_left = torch.ones(1, 2, 4)
+    write_right = -torch.ones(1, 2, 4)
+    module = SimpleNamespace(
+        rwkv_bidirectional_sign_pending_rebase=None,
+        rwkv_bidirectional_sign_read_kind="addressed",
+        rwkv_bidirectional_sign_read_sequence=["addressed"],
+        rwkv_bidirectional_sign_query_address=torch.randn(1, 2, 4),
+        rwkv_bidirectional_sign_write_address=write_address,
+        rwkv_bidirectional_sign_write_left_code=write_left,
+        rwkv_bidirectional_sign_write_right_code=write_right,
+        rwkv_bidirectional_sign_captures={"addressed": {"raw": torch.ones(1)}},
+        rwkv_rotary_read_captures={"addressed": {"raw": torch.ones(1)}},
+    )
+    monkeypatch.setattr(
+        integration,
+        "iter_delta_mem_modules",
+        lambda model: (("module", module),),
+    )
+
+    integration.clear_read_capture(SimpleNamespace())
+
+    assert module.rwkv_bidirectional_sign_read_kind is None
+    assert module.rwkv_bidirectional_sign_read_sequence == []
+    assert module.rwkv_bidirectional_sign_query_address is None
+    assert module.rwkv_bidirectional_sign_captures == {}
+    assert module.rwkv_rotary_read_captures is module.rwkv_bidirectional_sign_captures
+    assert module.rwkv_bidirectional_sign_write_address is write_address
+    assert module.rwkv_bidirectional_sign_write_left_code is write_left
+    assert module.rwkv_bidirectional_sign_write_right_code is write_right
+
+
+def test_write_codes_survive_the_complete_dual_read_capture_lifecycle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    keys = torch.tensor(
+        [[[1.0, 1.0, 1.0, 1.0], [-1.0, 1.0, -1.0, 1.0]]]
+    )
+    routes = torch.tensor([[[1.0, 0.0], [0.0, 1.0]]])
+    state = torch.arange(32, dtype=torch.float32).reshape(1, 1, 2, 4, 4)
+    memory_source = torch.randn(1, 2, 4)
+    native_receptance = torch.tensor(
+        [[[[1.0, -0.5, 0.25, 2.0]], [[-1.0, 1.5, 0.5, 0.75]]]]
+    )
+    raw_slots = torch.randn(1, 2, 1, 2, 4)
+    native_gate = torch.ones(1, 2, 4)
+    module = SimpleNamespace(
+        projected_kv_keys=keys,
+        projected_kv_key_dim=4,
+        last_write_routes=routes,
+        last_read_routes=routes,
+        rwkv_bidirectional_sign_binding=_binding(),
+        rwkv_bidirectional_sign_enabled=True,
+        rwkv_bidirectional_sign_capture_enabled=True,
+        rwkv_bidirectional_sign_read_kind=None,
+        rwkv_bidirectional_sign_read_sequence=[],
+        rwkv_bidirectional_sign_query_address=None,
+        rwkv_bidirectional_sign_write_address=None,
+        rwkv_bidirectional_sign_write_left_code=None,
+        rwkv_bidirectional_sign_write_right_code=None,
+        rwkv_bidirectional_sign_captures={},
+        rwkv_bidirectional_sign_pending_rebase=None,
+        rwkv_bidirectional_sign_rebase_capture=None,
+        rwkv_rotary_write_address=None,
+        rwkv_rotary_read_captures={},
+        rwkv_bidirectional_sign_original_write_features=(
+            lambda k, v, a, b, address_seq, token_mask: (k, v, a, b)
+        ),
+        rwkv_bidirectional_sign_original_read_basis=(
+            lambda native_state, native_memory, token_mask: (
+                native_receptance,
+                raw_slots,
+                native_gate,
+            )
+        ),
+    )
+
+    def native_addressed(
+        native_state: torch.Tensor,
+        native_memory: torch.Tensor,
+        native_routes: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        _, decoded, _ = integration._read_basis(
+            module,
+            native_state,
+            native_memory,
+            token_mask,
+        )
+        module.last_read_routes = native_routes
+        return decoded.sum(dim=3).reshape(1, 2, 4)
+
+    def native_global(
+        native_state: torch.Tensor,
+        native_memory: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        _, decoded, _ = integration._read_basis(
+            module,
+            native_state,
+            native_memory,
+            token_mask,
+        )
+        module.last_read_routes = routes
+        return decoded.sum(dim=3).reshape(1, 2, 4)
+
+    module.rwkv_bidirectional_sign_original_addressed_reads = native_addressed
+    module.rwkv_bidirectional_sign_original_global_reads = native_global
+    monkeypatch.setattr(
+        integration,
+        "iter_delta_mem_modules",
+        lambda model: (("layer", module),),
+    )
+
+    model = object()
+    integration.clear_transient(model)
+    features = tuple(torch.randn(1, 2, 4) for _ in range(4))
+    integration._write_features(
+        module,
+        *features,
+        torch.zeros(1, 2, 4),
+        None,
+    )
+    write_left = module.rwkv_bidirectional_sign_write_left_code.detach().clone()
+    write_right = module.rwkv_bidirectional_sign_write_right_code.detach().clone()
+    integration.clear_read_capture(model)
+
+    integration._addressed_reads(module, state, memory_source, routes, None)
+    integration._global_reads(module, state, memory_source, None)
+
+    assert set(module.rwkv_bidirectional_sign_captures) == {"addressed", "global"}
+    assert module.rwkv_bidirectional_sign_read_sequence == []
+    for kind in ("addressed", "global"):
+        _assert_byte_identical(
+            module.rwkv_bidirectional_sign_captures[kind]["write_codes"],
+            write_left,
+        )
+        _assert_byte_identical(
+            module.rwkv_bidirectional_sign_captures[kind]["right_write_codes"],
+            write_right,
+        )
+
+    integration.clear_transient(model)
+    assert module.rwkv_bidirectional_sign_write_left_code is None
+    assert module.rwkv_bidirectional_sign_write_right_code is None
+    assert module.rwkv_bidirectional_sign_captures == {}
+    assert module.rwkv_bidirectional_sign_read_sequence == []
+
+
 def test_slot_read_integration_cancels_right_code_with_expected_shapes() -> None:
     binding = _binding()
     keys = torch.tensor(
