@@ -1,0 +1,80 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_address_decoded_reconstruction_launch.v1",
+  "created_at": "2026-08-22T12:29:40+08:00",
+  "objective": "Execute the frozen AD-RTR stage-0 reconstruction screen on exactly four A100s, fitting and persisting the decoder before retrieval access and opening no mechanics, causal, generation, or native benchmark bytes.",
+  "authorized_code_commit": "1f3724d005fc9fe066bbe3d7614bd1f95619ee43",
+  "code_parent_commit": "7824a4e45b0029614290da30c9e494412692a585",
+  "protocol_payload_sha256": "e0b614c9fdcd59dfe814b18fe528888cb9f11604376ef6a08c388e0729d7e9d5",
+  "protocol_file_sha256": "cdb81d5b0f62ab03e1a5b058b664fd35b82d99c87328257fb735a9f585f45aaf",
+  "protocol_receipt": "e0b614c9fdcd59dfe814b18fe528888cb9f11604376ef6a08c388e0729d7e9d5",
+  "runner_sha256": "3cbbb8643f92567318b0fdfb4b16a05c74ba848edb4aab47a36a823102034217",
+  "dependency_bindings_sha256": "0b2837bc5660a0c75b203adc7e6bbaf4ec03767f1763a2a51c4a725d752a516c",
+  "dependency_bindings": [
+    {
+      "role": "address_decoded_reconstruction_math",
+      "basename": "rwkv_address_decoded_token_replacement.py",
+      "sha256": "a7d2b763614de9230df7e80e7dd51559ef25e1df59070dd38777a9073ece7a1b"
+    },
+    {
+      "role": "continuous_write_capture_and_map_loader",
+      "basename": "run_natural_memory_native_rwkv_continuous_write_mechanics.py",
+      "sha256": "12a1857939f7eeb623b658d8ae037971192c2c8d0e0c5e213ca3f75b49a55204"
+    },
+    {
+      "role": "continuous_write_open_row_encoder",
+      "basename": "run_natural_memory_native_rwkv_continuous_write_retrieval.py",
+      "sha256": "878569411cbd2424f10ccfbbfb5c7b8e4ed97a4d33453b5f04a6cc46f1c33ad6"
+    },
+    {
+      "role": "continuous_write_runtime",
+      "basename": "rwkv_continuous_write_integration.py",
+      "sha256": "a2e8f27e5d2247ed3682b2fffa0fc0eb129a202a90ceb2936b7a32b5e0391d25"
+    },
+    {
+      "role": "open_fit_materializer",
+      "basename": "materialize_natural_memory_native_rwkv_continuous_write_open_fit.py",
+      "sha256": "f1e5806bb467bfdd377e374845cdafb90ece1b67d6eba9744b6ef48de0c9bdd9"
+    },
+    {
+      "role": "signed_distributed_runtime",
+      "basename": "natural_memory_distributed.py",
+      "sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d"
+    },
+    {
+      "role": "signed_exact_v5_loader",
+      "basename": "run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+      "sha256": "0fd85e3e415a8705d3e37efd47d88f5ac6aa8feb25af039abdd1e4d704151ed6"
+    },
+    {
+      "role": "native_write_runtime",
+      "basename": "run_natural_memory_native_evolution.py",
+      "sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7"
+    }
+  ],
+  "continuous_causal_result_file_sha256": "71d738ab63ae893c79b42e2cb1a93e25fee5e64daa6bf0d9d3eceb7dff572a09",
+  "continuous_causal_result_receipt": "5660251fc35005ee6cc054587d83bdd3069f22c52b9d9d7b440912fdbf71c0d0",
+  "manifest_file_sha256": "c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468",
+  "manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+  "fit_file_sha256": "4984e7de044f7befc2c3fdba8a0d8c08f627dcc4b168abbd8090393cca49c2fc",
+  "retrieval_file_sha256": "2083394ac902745617827039c8b61f71ff76dee3f6ddd128d932fd92c400e7c7",
+  "frozen_address_map_file_sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6",
+  "frozen_address_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+  "base_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+  "exact_v5_adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+  "hardware": "exactly four distinct NVIDIA A100 GPUs",
+  "world_size": 4,
+  "hf_endpoint": "https://hf-mirror.com",
+  "already_open_bundles_only": [
+    "fit",
+    "retrieval"
+  ],
+  "mechanics_causal_or_native_bytes_opened_before_launch": false,
+  "output_must_be_fresh": "local_artifacts/natural_memory_native_rwkv_address_decoded_reconstruction_v1",
+  "command": "HF_ENDPOINT=https://hf-mirror.com RWKV_V5_EXACT_SOURCE_ROOT=/root/X/signed-v5-source-cd7deb torchrun --standalone --nproc_per_node=4 experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_decoded_reconstruction.py",
+  "claim_boundary": "A pass authorizes only fresh mechanics protocol drafting. Native benchmark, causal identity, Full-Bandwidth gain, and SOTA claims remain forbidden.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_launch_binding_without_receipt",
+    "payload_sha256": "7cec77fa2d4f0920a8a14257d4a767f58032f6c1e8396cda1f78c1d728ab69c5"
+  }
+}
