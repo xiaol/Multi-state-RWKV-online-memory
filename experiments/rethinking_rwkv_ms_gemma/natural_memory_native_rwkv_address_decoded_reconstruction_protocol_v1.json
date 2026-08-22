@@ -1,0 +1,134 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_address_decoded_reconstruction_protocol.v1",
+  "created_at": "2026-08-22T09:26:00+08:00",
+  "objective": "On already-open component-disjoint FIT and retrieval rows, test whether the same frozen address direction used by continuous RWKV writes can directly decode each immutable RWKV matrix into the projected slot value, while rejecting matched-donor state, wrong address, and layer-rolled state before any new protected split, LM readout, Full-Bandwidth feedback, or native benchmark access.",
+  "authorization_basis": {
+    "continuous_causal_result": "local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1/result.json",
+    "continuous_causal_result_file_sha256": "71d738ab63ae893c79b42e2cb1a93e25fee5e64daa6bf0d9d3eceb7dff572a09",
+    "continuous_causal_result_receipt": "5660251fc35005ee6cc054587d83bdd3069f22c52b9d9d7b440912fdbf71c0d0",
+    "continuous_causal_status": "continuous_write_causal_failed_readout_family_retired",
+    "code_parent_commit": "7824a4e45b0029614290da30c9e494412692a585",
+    "observed_failure": "Matched donor beat correct by 0.007690 token-weighted CE and 28 of 32 donor states still beat projected-only, so the failed path used generic nonzero recurrence rather than source identity.",
+    "architectural_response": "Decode the continuous write address on the RWKV matrix right axis before any value exposure: u_l = S_l d_l(A_l). Fit only a disposable bias-free decoder from u_l to the known projected slot value and reject the route unless held-out donor, wrong-address, and layer-roll controls separate.",
+    "full_bandwidth_boundary": "arXiv:2608.08888 renews processing depth but supplies no identity operation; feedback remains forbidden until address decoding passes a fresh causal gate."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "signed_exact_v5_source_head": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "exact_v5_protocol_receipt": "faa6d1125a13506820485148885904fc7a1b35eef14bf57c6190106acc2f70bf",
+    "exact_v5_result_file_sha256": "95376ed78da98cf36183146ce56a3623988e94645723c9b34aee0510e0457545",
+    "exact_v5_result_receipt": "7afee3fd1d88c7db91c86dd3f7febfd80656a35d54971fd824623a29883dba8e",
+    "exact_v5_adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "exact_v5_adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "open_materialization": "local_artifacts/natural_memory_native_rwkv_continuous_write_open_fit_v1",
+    "manifest_file_sha256": "c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468",
+    "manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+    "fit_bundle": {
+      "path": "fit.jsonl",
+      "rows": 64,
+      "sha256": "4984e7de044f7befc2c3fdba8a0d8c08f627dcc4b168abbd8090393cca49c2fc",
+      "payload_sha256": "41d9e117997e60b808895f4ae8ea63a6fa643ba97d44c6878be5b442eeb76318"
+    },
+    "retrieval_bundle": {
+      "path": "retrieval.jsonl",
+      "rows": 32,
+      "sha256": "2083394ac902745617827039c8b61f71ff76dee3f6ddd128d932fd92c400e7c7",
+      "payload_sha256": "02a21f010446131ee994992d662cf16d896d2f4dde5a47f8dadd024b758ae112"
+    },
+    "frozen_address_map": "local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/continuous-write-maps.pt",
+    "frozen_address_map_file_sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6",
+    "frozen_address_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559"
+  },
+  "architecture": {
+    "name": "address_decoded_rwkv_reconstruction",
+    "modules": 42,
+    "state_shape": [1, 1, 4, 32, 32],
+    "projected_key_shape": [1, 4, 64],
+    "projected_value_shape": [1, 4, 32],
+    "address_map_rank": 16,
+    "address_map_ridge": 1.0,
+    "address_direction": "d_l(A) = RMSNorm(U_l D_l RMSNorm(A))",
+    "address_decode": "u_lj = S_lj d_l(A_lj)",
+    "value_decoder": "bias-free full-rank ridge from raw u_lj to raw projected_value_lj; held-out quality is measured by cosine",
+    "value_decoder_ridge": 1.0,
+    "model_parameters_updated": false,
+    "rwkv_writer_updated": false,
+    "frozen_address_map_updated": false,
+    "lm_forward_during_metric_evaluation": false,
+    "full_bandwidth_feedback_installed": false
+  },
+  "data_lifecycle": {
+    "fit_rows": 64,
+    "retrieval_rows": 32,
+    "fit_assignment": "sorted source rows rank-strided, 16 rows per GPU",
+    "retrieval_assignment": "sorted source rows rank-strided, 8 rows per GPU",
+    "write_scans_per_source": 1,
+    "all_online_state_snapshots_immutable_after_capture": true,
+    "effective_write_address_must_equal_occupied_projected_key": true,
+    "continuous_write_formula_and_value_identity_must_hold": true,
+    "all_fit_and_retrieval_active_keys_values_states_and_contractions_nonzero": true,
+    "already_open_bundles_only": ["fit", "retrieval"],
+    "mechanics_bundle_opened": false,
+    "causal_bundle_opened": false,
+    "native_benchmark_bytes_opened": false
+  },
+  "heldout_controls": {
+    "correct": "Target continuous state contracted with its target address and decoded by the target layer decoder against the target projected value.",
+    "matched_donor_state": "Gather the matched donor's own unique occupied state matrix, scatter it into the target occupied slot, then contract with the target address while the target decoder and projected value stay fixed.",
+    "wrong_address": "Gather the matched donor's own unique occupied address, scatter it into the target occupied slot, then contract the target state while the target decoder and projected value stay fixed.",
+    "layer_rolled_state": "Gather the cyclic previous layer's own unique occupied state matrix, scatter it into the target layer's occupied slot, then contract with the target-layer address, decoder and projected value.",
+    "zero_state": "Byte-zero recurrent matrix with target address; bias-free address decode and decoder must return exact zero."
+  },
+  "required_gates": {
+    "all_rows_have_exactly_one_occupied_projected_slot_per_module": true,
+    "occupied_projected_slot_matches_only_nonzero_rwkv_slot_per_module": true,
+    "all_addresses_states_targets_decodes_finite": true,
+    "all_active_addresses_states_targets_decodes_nonzero": true,
+    "effective_write_address_matches_occupied_projected_key_all_rows_modules": true,
+    "continuous_write_formula_and_value_identity_hold_all_rows_modules": true,
+    "all_control_sources_gathered_from_own_occupied_slot_and_scattered_to_target_slot": true,
+    "zero_state_decodes_exact_zero": true,
+    "correct_mean_cosine_minimum": 0.9,
+    "correct_row_mean_cosine_minimum": 0.8,
+    "correct_row_fraction_at_or_above_minimum": 0.95,
+    "correct_minus_matched_donor_state_mean_cosine_gap_minimum": 0.05,
+    "correct_minus_matched_donor_state_positive_row_fraction_minimum": 0.95,
+    "correct_minus_wrong_address_mean_cosine_gap_minimum": 0.05,
+    "correct_minus_wrong_address_positive_row_fraction_minimum": 0.95,
+    "correct_minus_layer_rolled_state_mean_cosine_gap_minimum": 0.05,
+    "correct_minus_layer_rolled_state_positive_row_fraction_minimum": 0.95,
+    "module_correct_mean_cosine_minimum": 0.8,
+    "module_control_mean_cosine_gap_minimum": 0.05,
+    "module_control_positive_row_fraction_minimum": 0.95,
+    "module_identity_pass_fraction_minimum": 0.95
+  },
+  "execution": {
+    "hardware": "exactly four distinct NVIDIA A100 GPUs",
+    "world_size": 4,
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 163,
+    "backbone_dtype": "bfloat16",
+    "rwkv_state_dtype": "float32",
+    "output": "local_artifacts/natural_memory_native_rwkv_address_decoded_reconstruction_v1"
+  },
+  "stopping_rule": {
+    "pass": "Archive the frozen decoder and result, then reserve a fresh component-disjoint split for an address-decoded RWKV value-replacement mechanics gate. Do not install Full-Bandwidth feedback yet.",
+    "failure": "Archive and retire this exact bias-free linear address-decoder family without changing ridge, thresholds, batch size, or gains on these rows.",
+    "always": "Generation, mechanics/causal bundles, native benchmark access, FBT feedback, SOTA, and native-gain claims remain forbidden."
+  },
+  "claim_policy": {
+    "pass": "May claim only that continuous RWKV state supports held-out aggregate address-decoded reconstruction with donor, wrong-address, and layer specificity on already-open rows, with at least 95% of modules independently passing the precommitted module gate.",
+    "native_memory_gain": false,
+    "causal_identity": false,
+    "full_bandwidth_gain": false,
+    "sota": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "e0b614c9fdcd59dfe814b18fe528888cb9f11604376ef6a08c388e0729d7e9d5"
+  }
+}
