@@ -1,0 +1,525 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_causal_train_protocol.v1",
+  "created_at": "2026-08-22T17:05:00+08:00",
+  "objective": "Run one precommitted train-then-evaluate causal identity experiment: on exactly four distinct A100 GPUs, train only the exact 84-tensor RWKV output-readout whitelist for eight synchronized smooth-softplus contrastive updates over all 64 already-open FIT rows using immutable one-write continuous-RWKV snapshots; freeze and sign the trained artifact before protected access; then have rank zero open the sealed 32-row causal bundle exactly once, scatter four complete donor pairs to each rank, and require the frozen readout to prefer the correct recurrent identity over zero, matched-donor, and layer-rolled recurrent controls while the target projected carrier remains exact and immutable. No generation, native benchmark access, Full Bandwidth Transformer feedback, second RWKV scan, repeated write, or causal-driven tuning is authorized.",
+  "authorization_basis": {
+    "causal_code_parent_commit": "018c46dada65c263c74430b28b5530a717fca630",
+    "mechanics_result_commit": "018c46dada65c263c74430b28b5530a717fca630",
+    "mechanics_result": "local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/result.json",
+    "mechanics_result_file_sha256": "a7215ff987f06a369e19ea5b62e54ae2e99b018b9dbed15616f964806e811456",
+    "mechanics_result_receipt": "2621b0d7773f7931fda80676774697fcc4c059abf49f8ebbad683f19f34c1a95",
+    "mechanics_status": "continuous_write_mechanics_passed_causal_protocol_draft_authorized",
+    "mechanics_passed": true,
+    "mechanics_causal_protocol_drafting_authorized": true,
+    "mechanics_causal_bytes_open_authorized": false,
+    "mechanics_protocol_payload_sha256": "c482e6874e4e5f5b52be1567df70d2f51c76dd49a50e4554926d56aa63bb735b",
+    "mechanics_protocol_file_sha256": "4e29aef94dfc90cb13034e7c972d364ca20b4428c662981dfd62fbe400400e21",
+    "mechanics_launch_receipt": "d4081ecb6e6df4b167bf4efed88112041b3ab662c53ef2075df2cedea85c1f9f",
+    "mechanics_authorized_code_commit": "982474ad23b1647a3407105fd461cdf938f70aae",
+    "mechanics_runner_sha256": "12a1857939f7eeb623b658d8ae037971192c2c8d0e0c5e213ca3f75b49a55204",
+    "retrieval_result": "local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json",
+    "retrieval_result_file_sha256": "5103a66475b7a596e53a58b8c7cb554e7e400f5825d42ca141bc342dfef8784b",
+    "retrieval_result_receipt": "cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd",
+    "frozen_map_file": "local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/continuous-write-maps.pt",
+    "frozen_map_file_sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6",
+    "frozen_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+    "continuous_write_manifest": "local_artifacts/natural_memory_native_rwkv_continuous_write_open_fit_v1/manifest.json",
+    "continuous_write_manifest_file_sha256": "c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468",
+    "continuous_write_manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+    "continuous_write_split_schema": "rwkv_ms_continuous_write_fit_split.v2",
+    "continuous_write_split_receipt": "d9ad640c208aae6983ce603f5d1918b06ab4ba9e93ed935d9cbfe1ac25f4801a"
+  },
+  "launch_binding": {
+    "path": "natural_memory_native_rwkv_continuous_write_causal_train_launch_v1.json",
+    "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_causal_train_launch.v1",
+    "construction": "Commit the finalized dedicated runner, this protocol, and their tests as one code commit whose exact parent is causal_code_parent_commit; then create and sign one launch-binding file in an immediate child commit. The launch binds the authorized code commit, runner SHA-256, protocol file and payload hashes, canonical dependency closure, mechanics result, frozen map, manifest, FIT schedule, trainable whitelist, and causal assignment before any causal path is statted, listed, hashed, or opened.",
+    "runtime_requirements": "HEAD parent equals the authorized causal code commit, the authorized code commit parent equals causal_code_parent_commit, the launch commit changes only the launch-binding path, the launch file is byte-identical to its committed HEAD object, the runner and protocol are byte-identical to their authorized code-commit objects, every dependency binding matches, and the tracked worktree is clean.",
+    "code_and_launch_exact_two_commit_ancestry": true,
+    "launch_binding_created_only_after_runner_finalization": true,
+    "launch_binding_validated_before_fit_training": true,
+    "launch_binding_validated_before_causal_path_access": true,
+    "code_and_launch_commits_pushed_before_causal_path_access": true
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "initial_adapter_directory": "local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/adapter",
+    "initial_adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "initial_adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "required_source_root_environment": "RWKV_V5_EXACT_SOURCE_ROOT",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_v5_delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "memory_backend": "rwkv_ms",
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "projected_kv_key_dim": 64,
+    "state_read_dim": 32,
+    "rwkv_memory_rank": 32,
+    "rwkv_num_states": 4,
+    "continuous_map_rank": 16,
+    "continuous_map_ridge": 1.0,
+    "continuous_k_gain": 0.25,
+    "continuous_a_gain": 0.25,
+    "continuous_b_gain": 0.25,
+    "continuous_map_bias": false,
+    "continuous_conditioned_features": [
+      "k",
+      "a",
+      "b"
+    ],
+    "continuous_value_feature_v": "same object and raw bytes as the inherited exact-v5 value feature",
+    "continuous_maps_trainable": false,
+    "selected_projected_keys_trainable": false,
+    "projected_carrier_trainable": false,
+    "base_model_trainable": false,
+    "outer_ffn_trainable": false,
+    "moe_router_trainable": false,
+    "memory_fusion_trainable": false,
+    "full_bandwidth_transformer_installed": false
+  },
+  "open_fit_materialization": {
+    "dataset_namespace": "novel-agent-sft-dataset:publisher-train-derived-fit",
+    "dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "dataset_rows": 1443,
+    "manifest_only_preflight": true,
+    "generic_validate_materialization_forbidden": true,
+    "generic_inventory_iteration_or_stat_forbidden": true,
+    "fit_bundle": {
+      "path": "fit.jsonl",
+      "rows": 64,
+      "bytes": 191203,
+      "sha256": "4984e7de044f7befc2c3fdba8a0d8c08f627dcc4b168abbd8090393cca49c2fc",
+      "payload_sha256": "41d9e117997e60b808895f4ae8ea63a6fa643ba97d44c6878be5b442eeb76318",
+      "source_indices_sha256": "0712052436346b194e2219147f511ec22e10ae6ab688553f773dbe53c9a94636",
+      "qualified_source_ids_sha256": "9446b172b0d28404bb25544d4c8ef8c7399f7996a5ddaa881195ba823742e424",
+      "qualified_mapping_pairs_sha256": "82109bd7fd84185154d0026cf0b20da52be94faf192b48565866bd6c716488db",
+      "row_sha256s_sha256": "92c0a55a92eae5d17c647a5adcdfcb3a736823b8c8592c0c42c544b70cca338b",
+      "byte_read_authorized_before_training": true
+    },
+    "causal_bundle": {
+      "path": "causal.jsonl",
+      "rows": 32,
+      "bytes": 86001,
+      "sha256": "5920ca8c688f4c26e8b55c5c48eefb7c067016bb931dd3b5c210edd1f4d3e925",
+      "payload_sha256": "f2c4259366d9376bf52287d1f770880fdfaf44552e88ffb77481069c674cb067",
+      "source_indices_sha256": "fbc9e6314c3248c023458393293884277f8afff2a0bc738f1086fb6648e50024",
+      "qualified_source_ids_sha256": "3f9e8d90850409ff5eb444f0c259636640f26f71b1c730e49a0fb523830ab145",
+      "qualified_mapping_pairs_sha256": "3a039153383f03178de44a4a07808ea31acfc25c38f473df5603f60c58884ab4",
+      "row_sha256s_sha256": "d32deacc0165d8c6ab701c6d36cb4cf2a7af46a0ba228b9a187150d7c60eaf31",
+      "byte_read_authorized_only_after_signed_training_receipt": true,
+      "rank_zero_file_read_calls": 1,
+      "worker_file_read_calls": 0
+    },
+    "split_invariants": {
+      "fit_and_causal_source_disjoint": true,
+      "fit_and_causal_donor_component_disjoint": true,
+      "fit_and_causal_passage_component_disjoint": true,
+      "cross_split_normalized_32_character_shingle_overlap": 0,
+      "publisher_validation_test_hard32_strength_holdout_opened": false
+    }
+  },
+  "hardware_and_runtime": {
+    "world_size": 4,
+    "hardware": "exactly four distinct NVIDIA A100 GPUs",
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "hf_endpoint": "https://hf-mirror.com",
+    "timeout_seconds": 1800,
+    "model_activation_dtype": "bfloat16",
+    "trainable_parameter_dtype": "float32",
+    "all_rank_preflight_binding_consensus": true,
+    "all_rank_initial_parameter_digest_consensus": true,
+    "all_rank_post_step_parameter_digest_consensus": true,
+    "all_rank_training_receipt_consensus_before_causal_open": true,
+    "all_rank_final_result_receipt_consensus": true
+  },
+  "fit_training_schedule": {
+    "seed": 157,
+    "fit_rows": 64,
+    "undirected_donor_pairs": 32,
+    "optimizer_updates": 8,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "pairs_per_update": 4,
+    "pairs_per_rank_per_update": 1,
+    "construction": "Read the directed FIT mapping pairs from the signed manifest, require an irreflexive involution, canonicalize each pair as [min(source,donor),max(source,donor)], sort the 32 unique pairs lexicographically, apply Python random.Random(157).shuffle exactly once, and at update i assign shuffled pair 4*i+r to rank r for zero-based i in 0..7 and r in 0..3. Both rows of every assigned pair are used.",
+    "canonical_schedule_payload_scope": "The exact JSON array stored in canonical_schedule_payload, encoded with ensure_ascii=true, sort_keys=true, separators=[comma,colon], and no surrounding schema object.",
+    "canonical_schedule_payload": [
+      {
+        "policy": "one_complete_symmetric_pair_per_rank",
+        "rank_pairs": [
+          [546, 1220],
+          [608, 1058],
+          [588, 974],
+          [418, 1197]
+        ],
+        "step": 1
+      },
+      {
+        "policy": "one_complete_symmetric_pair_per_rank",
+        "rank_pairs": [
+          [497, 1289],
+          [215, 335],
+          [454, 1304],
+          [342, 994]
+        ],
+        "step": 2
+      },
+      {
+        "policy": "one_complete_symmetric_pair_per_rank",
+        "rank_pairs": [
+          [9, 68],
+          [193, 1108],
+          [688, 1390],
+          [820, 975]
+        ],
+        "step": 3
+      },
+      {
+        "policy": "one_complete_symmetric_pair_per_rank",
+        "rank_pairs": [
+          [637, 1178],
+          [400, 896],
+          [162, 870],
+          [319, 1254]
+        ],
+        "step": 4
+      },
+      {
+        "policy": "one_complete_symmetric_pair_per_rank",
+        "rank_pairs": [
+          [518, 754],
+          [873, 1055],
+          [77, 847],
+          [788, 1395]
+        ],
+        "step": 5
+      },
+      {
+        "policy": "one_complete_symmetric_pair_per_rank",
+        "rank_pairs": [
+          [928, 948],
+          [16, 574],
+          [138, 357],
+          [237, 1196]
+        ],
+        "step": 6
+      },
+      {
+        "policy": "one_complete_symmetric_pair_per_rank",
+        "rank_pairs": [
+          [1023, 1043],
+          [834, 917],
+          [259, 900],
+          [915, 1200]
+        ],
+        "step": 7
+      },
+      {
+        "policy": "one_complete_symmetric_pair_per_rank",
+        "rank_pairs": [
+          [0, 491],
+          [151, 1252],
+          [183, 377],
+          [1170, 1225]
+        ],
+        "step": 8
+      }
+    ],
+    "canonical_schedule_payload_sha256": "fad1722c07fae1e311c9a2a472e625fa0f73f0db5629ed89ff0330c6419e4d90",
+    "every_fit_source_used_exactly_once": true,
+    "every_fit_donor_pair_kept_on_one_rank": true,
+    "row_rejection_allowed": false,
+    "nonfinite_row_or_gradient_policy": "fail before causal access",
+    "causal_access_on_training_failure": false
+  },
+  "trainable_whitelist": {
+    "selection": "A parameter is trainable if and only if its exact name is model.language_model.layers.{layer}.self_attn.{suffix}, layer is an integer in 0..41, and suffix is one of the two declared suffixes.",
+    "layers": "0..41",
+    "suffixes": [
+      "hrm_rwkv7_core.output.weight",
+      "delta_o_proj"
+    ],
+    "parameter_tensors_per_suffix": 42,
+    "parameter_tensors": 84,
+    "sorted_parameter_names_sha256": "10dcad7f45bfc7240e66d8be62cd0eb8191a352c832d0db84962fc4ee1f2fac4",
+    "all_non_whitelisted_parameters_frozen": true,
+    "rwkv_output_readout_only": true,
+    "delta_o_proj_invoked_on_exact_zero_read_basis_during_snapshot_write": true,
+    "delta_o_proj_snapshot_write_input_exact_zero": true,
+    "delta_o_proj_snapshot_write_output_exact_zero": true,
+    "whitelisted_readout_has_exact_zero_influence_on_snapshot_write": true,
+    "continuous_map_parameter_tensors_trainable": 0,
+    "learned_write_parameter_tensors_trainable": 0,
+    "projected_router_parameter_tensors_trainable": 0,
+    "memory_fusion_parameter_tensors_trainable": 0,
+    "moe_or_outer_ffn_parameter_tensors_trainable": 0
+  },
+  "snapshot_contract": {
+    "fit_snapshot_writes_per_source": 1,
+    "causal_snapshot_writes_per_source": 1,
+    "snapshot_write_mode": "continuous full64 conditioned k/a/b with frozen rank-16 maps and gains 0.25/0.25/0.25",
+    "snapshot_tensors_detached": true,
+    "snapshot_tensors_immutable": true,
+    "snapshot_reused_for_all_read_controls": true,
+    "donor_snapshot_is_the_paired_source_snapshot": true,
+    "donor_rewrite_inside_target_evaluation": false,
+    "second_rwkv_scan_per_source": false,
+    "double_write_per_source": false,
+    "read_feedback_writes_online_state": false,
+    "repeated_write_scan": false,
+    "snapshot_write_observer_requires_exact_zero_readout_input_and_output": true
+  },
+  "optimizer_and_objective": {
+    "optimizer": "AdamW",
+    "optimizer_foreach": false,
+    "optimizer_fused": false,
+    "learning_rate": 0.00002,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "epsilon": 1e-08,
+    "weight_decay": 0.0,
+    "maximum_gradient_norm": 0.02,
+    "softplus_margin_by_control": {
+      "matched_donor_recurrent": 0.02,
+      "layer_rolled_recurrent": 0.05,
+      "zero_recurrent": 0.05
+    },
+    "softplus_weight_per_control": 0.25,
+    "smooth_hinge_temperature": 0.05,
+    "row_objective": "correct_mean_answer_ce + 0.25 * 0.05 * (softplus((0.02 + correct_mean_answer_ce - matched_donor_mean_answer_ce) / 0.05) + softplus((0.05 + correct_mean_answer_ce - layer_rolled_mean_answer_ce) / 0.05) + softplus((0.05 + correct_mean_answer_ce - zero_mean_answer_ce) / 0.05))",
+    "serialized_objective_execution": "Run all condition metrics under no_grad on the immutable snapshots, then recreate the correct graph and all three control graphs separately. For each wrong control use coefficient -0.25*sigmoid((margin+correct_ce-wrong_ce)/0.05), and use one plus the negated sum of the three wrong coefficients for the correct branch, making the accumulated gradient mathematically identical to the declared row objective.",
+    "maximum_simultaneous_autograd_graphs_per_rank": 1,
+    "control_graphs_serialized": true,
+    "gradient_aggregation": "Accumulate the two local rows, all-reduce every whitelisted gradient over four ranks, divide by the fixed global batch of eight rows, clip once, and execute one synchronized optimizer step.",
+    "optimizer_state_cpu_offload": false,
+    "optimizer_state_remains_with_the_dedicated_unfused_optimizer": true
+  },
+  "training_controls": {
+    "read_conditions": [
+      "continuous_correct",
+      "zero_recurrent",
+      "matched_donor_recurrent",
+      "layer_rolled_recurrent"
+    ],
+    "target_prompt_fixed_across_conditions": true,
+    "target_answer_labels_fixed_across_conditions": true,
+    "target_projected_key_value_occupancy_surprise_objects_fixed_across_conditions": true,
+    "correct_recurrent": "the target source's immutable continuous-write recurrent snapshot",
+    "zero_recurrent": "exact-zero recurrent delta state with target recurrent metadata and the exact target projected carrier",
+    "matched_donor_recurrent": "the paired donor source's immutable continuous-write recurrent tuple with the exact target projected carrier",
+    "layer_rolled_recurrent": "destination module i receives the target recurrent tuple from module i-1 modulo 42 while the exact target projected carrier remains fixed",
+    "projected_carrier_hash_and_tensor_versions_unchanged_after_every_read": true,
+    "snapshot_hash_and_tensor_versions_unchanged_after_every_read": true,
+    "answer_token_count_identical_across_conditions": true
+  },
+  "training_gates_before_causal_access": {
+    "four_distinct_a100_ranks": true,
+    "all_eight_optimizer_updates_complete": true,
+    "all_sixty_four_fit_rows_accepted_exactly_once": true,
+    "zero_rejected_rows": true,
+    "all_condition_logits_and_losses_finite": true,
+    "all_84_whitelisted_parameters_receive_finite_gradients": true,
+    "zero_global_inactive_whitelisted_parameter_tensors_over_eight_updates": true,
+    "all_non_whitelisted_parameter_versions_unchanged": true,
+    "continuous_map_digest_unchanged": true,
+    "snapshot_and_projected_carrier_integrity_exact": true,
+    "trainable_subset_changed": true,
+    "post_step_trainable_digest_equal_on_all_ranks": true,
+    "optimizer_configuration_matches_unfused_non_foreach_adamw": true,
+    "maximum_one_live_autograd_graph_per_rank": true,
+    "causal_path_statted_listed_hashed_or_opened": false
+  },
+  "train_freeze_receipt_boundary": {
+    "output_path": "local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1/training_receipt.json",
+    "artifact_path": "local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1/continuous_write_read_path.pt",
+    "training_receipt_payload_scope": "canonical_training_receipt_without_receipt",
+    "training_step_receipts": 8,
+    "atomic_writes": true,
+    "optimizer_destroyed_before_receipt": true,
+    "all_model_parameters_frozen_before_receipt": true,
+    "readout_checkpoint_saved_and_hashed_before_receipt": true,
+    "saved_readout_checkpoint_reloaded_and_byte_validated_on_all_ranks_before_causal_open": true,
+    "receipt_binds_fit_bundle_schedule_steps_initial_and_final_parameter_digests_checkpoint_file_and_code_launch": true,
+    "receipt_validated_on_all_four_ranks_before_causal_open": true,
+    "causal_open_authorized_if_and_only_if_all_training_gates_and_receipt_validation_pass": true
+  },
+  "single_causal_open": {
+    "causal_bundle_file_read_rank": 0,
+    "causal_bundle_file_read_calls": 1,
+    "causal_rows": 32,
+    "undirected_donor_pairs": 16,
+    "assignment": "From the signed manifest mapping, require an irreflexive involution, canonicalize and lexicographically sort the 16 unique causal pairs, and assign pairs r, r+4, r+8, and r+12 to rank r. Rank zero scatters only the four complete assigned pairs to each worker after the one authorized bundle read.",
+    "post_open_assignment_binding": "After the one authorized read, canonically hash the derived assignment together with every source/donor row binding and require its complete coverage to agree with the signed manifest causal qualified_mapping_pairs_sha256 3a039153383f03178de44a4a07808ea31acfc25c38f473df5603f60c58884ab4.",
+    "pairs_per_rank": 4,
+    "rows_per_rank": 8,
+    "all_sources_and_donors_local_to_assigned_rank": true,
+    "worker_causal_path_access": false,
+    "causal_evaluation_calls": 1,
+    "rerun_or_gain_tuning_after_open": false
+  },
+  "causal_endpoint": {
+    "rows": 32,
+    "modules": 42,
+    "read_conditions": [
+      "continuous_correct",
+      "zero_recurrent",
+      "projected_only",
+      "matched_donor_recurrent",
+      "layer_rolled_recurrent"
+    ],
+    "target_prompt_and_answer_fixed": true,
+    "target_projected_carrier_exact_same_objects_and_versions": true,
+    "continuous_correct": "the target source's one immutable post-training continuous-write snapshot",
+    "zero_recurrent": "exact-zero recurrent delta state with target metadata and target projected carrier",
+    "projected_only": "the established projected-only bypass with the same target projected carrier and zero underlying RWKV read-basis invocations",
+    "matched_donor_recurrent": "the paired donor source's one immutable post-training continuous-write recurrent snapshot with the target projected carrier",
+    "layer_rolled_recurrent": "destination module i receives the target recurrent tuple from module i-1 modulo 42 with the target projected carrier",
+    "ce_aggregation": {
+      "token_weighted_mean": true,
+      "unweighted_row_mean": true,
+      "positive_row_fraction": true
+    },
+    "hard_exact_gates": {
+      "all_32_rows_complete_exactly_once": true,
+      "all_condition_logits_finite": true,
+      "answer_token_counts_identical_across_conditions_each_row": true,
+      "projected_carrier_hash_objects_and_versions_unchanged_every_read": true,
+      "recurrent_snapshot_hash_objects_and_versions_unchanged_every_read": true,
+      "zero_recurrent_logits_byte_equal_projected_only_logits_every_row": true,
+      "recurrent_reads_make_no_online_state_write": true,
+      "each_causal_source_has_exactly_one_rwkv_snapshot_write": true,
+      "donor_controls_use_cached_snapshots_without_donor_rewrite": true,
+      "no_second_rwkv_scan_or_double_write": true,
+      "model_and_adapter_parameter_digest_unchanged_during_endpoint": true,
+      "causal_bundle_file_read_calls_equal_one": true
+    },
+    "causal_preference_gates": {
+      "comparisons": [
+        "zero_minus_correct",
+        "matched_donor_minus_correct",
+        "layer_rolled_minus_correct"
+      ],
+      "required_token_weighted_mean_ce_margins_inclusive": {
+        "matched_donor_minus_correct": 0.02,
+        "layer_rolled_minus_correct": 0.05,
+        "zero_minus_correct": 0.05
+      },
+      "unweighted_row_mean_ce_margins_reported_diagnostically": true,
+      "positive_row_fraction_minimum": 0.75,
+      "minimum_positive_rows_out_of_32": 24,
+      "positive_row_threshold_applies_to_each_comparison": true,
+      "all_three_comparisons_must_pass_independently": true
+    }
+  },
+  "result_and_failure_signing": {
+    "output_root": "local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1",
+    "per_step_signed_records": true,
+    "signed_training_receipt_before_causal_open": true,
+    "signed_causal_shards": 4,
+    "causal_rows_per_shard": 8,
+    "final_result_payload_scope": "canonical_result_without_receipt",
+    "atomic_json_writes": true,
+    "rank_zero_recomputes_analysis_from_validated_shards": true,
+    "all_ranks_validate_final_result_and_receipt": true,
+    "coordinated_failure_file_payload_scope": "canonical_failure_without_receipt",
+    "failure_record_excludes_raw_fit_or_causal_text": true,
+    "training_failure_records_causal_path_untouched": true,
+    "post_causal_open_failure_consumes_endpoint_and_forbids_unchanged_rerun": true,
+    "uncatchable_post_open_failure_policy": "Treat the endpoint as consumed, do not relaunch, and commit a manual signed incident record without reopening causal bytes."
+  },
+  "source_dependencies": [
+    {
+      "role": "mechanics_result_validator_and_snapshot_helpers",
+      "basename": "run_natural_memory_native_rwkv_continuous_write_mechanics.py",
+      "sha256": "12a1857939f7eeb623b658d8ae037971192c2c8d0e0c5e213ca3f75b49a55204"
+    },
+    {
+      "role": "retrieval_result_validator_and_runtime_helpers",
+      "basename": "run_natural_memory_native_rwkv_continuous_write_retrieval.py",
+      "sha256": "878569411cbd2424f10ccfbbfb5c7b8e4ed97a4d33453b5f04a6cc46f1c33ad6"
+    },
+    {
+      "role": "bias_free_reduced_rank_ridge_and_metrics",
+      "basename": "rwkv_continuous_write_alignment.py",
+      "sha256": "f7c51bdcf518763ba6e9e63976d75a8cdcfc518b4d9ba593a4fcc4de62a404cb"
+    },
+    {
+      "role": "full_address_latch_runtime_conditioner_and_override",
+      "basename": "rwkv_continuous_write_integration.py",
+      "sha256": "a2e8f27e5d2247ed3682b2fffa0fc0eb129a202a90ceb2936b7a32b5e0391d25"
+    },
+    {
+      "role": "dataset_qualified_component_disjoint_split",
+      "basename": "rwkv_continuous_write_fit_split.py",
+      "sha256": "3676ec5ce332088ebc78c75ff65a0822fe3ed0037e7d49cd1c0c8228a45d92a6"
+    },
+    {
+      "role": "five_file_open_fit_materializer_and_firewall",
+      "basename": "materialize_natural_memory_native_rwkv_continuous_write_open_fit.py",
+      "sha256": "f1e5806bb467bfdd377e374845cdafb90ece1b67d6eba9744b6ef48de0c9bdd9"
+    },
+    {
+      "role": "strict_exact_v5_loader_and_source_validator",
+      "basename": "run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+      "sha256": "0fd85e3e415a8705d3e37efd47d88f5ac6aa8feb25af039abdd1e4d704151ed6"
+    },
+    {
+      "role": "signed_distributed_runtime",
+      "basename": "natural_memory_distributed.py",
+      "sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d"
+    },
+    {
+      "role": "signed_native_row_encoder_and_write_read_runtime",
+      "basename": "run_natural_memory_native_evolution.py",
+      "sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7"
+    },
+    {
+      "role": "ordered_module_state_intervention_and_serialized_graph_helpers",
+      "basename": "run_natural_memory_native_rwkv_addressed_value_causal_train.py",
+      "sha256": "3036e7c75c1dedd31ab7f3d8aa79126c849a5c64e5e37395bbe3e2c43822fbc7"
+    },
+    {
+      "role": "four_a100_hardware_validator",
+      "basename": "run_natural_memory_native_rwkv_addressed_value_screen.py",
+      "sha256": "b42cb3455679b1799a72b262958df5fd5a85211bc5b37730c24c70309309d654"
+    },
+    {
+      "role": "exact_v5_adapter_topology_validator",
+      "basename": "run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py",
+      "sha256": "78f605c2e6b389e30fd97a98391b60cad99661f7bdc8cf3a4397aac6b5560a16"
+    }
+  ],
+  "stopping_rule": {
+    "training_failure": "Write a signed failure if possible, prove causal path access remained zero, block causal evaluation, and do not modify the eight-step contract for a silent retry.",
+    "causal_endpoint_pass": "Authorize only drafting a separately signed native benchmark protocol for this exact frozen base adapter plus readout checkpoint; do not open benchmark bytes in this run.",
+    "causal_endpoint_failure": "Retire this trained readout family on the consumed endpoint, block generation and native benchmark access, and do not tune learning rate, margin, duration, whitelist, controls, or gains on the causal result.",
+    "always": "Do not open publisher validation/test, Hard32, strength holdout, or any native benchmark split."
+  },
+  "full_bandwidth_transformer_boundary": {
+    "installed_or_trained_by_this_protocol": false,
+    "causal_feedback_used": false,
+    "second_rwkv_scan_or_feedback_write_used": false,
+    "deferred_reason": "Adding Full Bandwidth Transformer feedback would change the mechanics-tested architecture and would invalidate this exact launch binding.",
+    "future_contract": "Any FBT successor must be a separately locked family that consumes a frozen RWKV snapshot through query-conditioned read-only feedback, performs no state mutation or second RWKV scan, repeats mechanics under its own binding, and uses a fresh sealed causal endpoint rather than tuning on this one."
+  },
+  "authorization_outputs": {
+    "causal_bundle_byte_read_authorized_by_this_protocol": true,
+    "causal_bundle_byte_read_authorization_is_conditional_on_signed_training_receipt": true,
+    "causal_evaluation_authorized": true,
+    "generation_authorized": false,
+    "native_benchmark_byte_read_authorized": false,
+    "native_benchmark_protocol_drafting_authorized_only_on_pass": true,
+    "sota_claim_authorized": false,
+    "protected_splits_opened_by_this_protocol": [
+      "causal"
+    ]
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "562469900b0d4a70214918a4f58ac9b272352fe7b05c162a4c9a0bb0b94742b8"
+  }
+}
