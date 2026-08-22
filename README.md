@@ -746,9 +746,33 @@ and receipt is
 `2621b0d7773f7931fda80676774697fcc4c059abf49f8ebbad683f19f34c1a95`.
 This proves material, identity-sensitive continuous `k/a/b` write mechanics
 with `v` unchanged. It does **not** prove causal answer preference, generation
-quality, native benchmark gain, or SOTA. Causal bytes remain unopened. The pass
-authorizes only drafting a separately signed causal protocol; Full-Bandwidth
-read feedback remains deferred until that causal donor-identity gate passes.
+quality, native benchmark gain, or SOTA. The pass authorized only a separately
+signed causal protocol; Full-Bandwidth read feedback remained deferred until
+that causal donor-identity gate.
+
+The separately signed continuous-write causal endpoint has now completed. Its
+first launch stopped in preflight before causal access because the workspace
+`delta_impl` was imported before the signed exact-v5 source root; a regression-
+tested import-order repair was squashed into a replacement code commit and a
+fresh launch-only child before the one protected open. The corrected run used
+exactly four A100s, completed all eight FIT updates over all `32` symmetric
+source/donor pairs, froze the `84` selected read-path tensors, signed the
+checkpoint and training receipt, and then read the `32` causal rows exactly
+once. All logits were finite, projected carriers stayed fixed, and zero
+recurrence was byte-identical to projected-only on every row.
+
+The causal identity result failed. Zero-minus-correct passed at `+0.050419` CE
+with `0.875000` positive rows, but layer-roll-minus-correct reached only
+`+0.019981` with `0.718750` positive rows, and matched-donor-minus-correct was
+negative at `-0.007690` with only `0.406250` positive rows. The signed status is
+`continuous_write_causal_failed_readout_family_retired`; result SHA-256 is
+`71d738ab63ae893c79b42e2cb1a93e25fee5e64daa6bf0d9d3eceb7dff572a09`,
+and receipt is
+`5660251fc35005ee6cc054587d83bdd3069f22c52b9d9d7b440912fdbf71c0d0`.
+This exact readout family is retired without gain, batch-size, learning-rate,
+or duration tuning. Generation and the native benchmark remain unauthorized
+and unopened. Full-Bandwidth recurrence is still a depth-renewal candidate,
+not a repair for the failed matched-state identity gate.
 
 Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_retrieval.py),
@@ -756,7 +780,11 @@ Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/n
 [continuous mechanics protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_mechanics_protocol_v1.json),
 [exact launch binding](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_mechanics_launch_v1.json),
 [continuous mechanics runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_mechanics.py),
-and [signed mechanics pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/result.json).
+[signed mechanics pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/result.json),
+[continuous causal protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_causal_train_protocol_v1.json),
+[continuous causal launch](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_causal_train_launch_v1.json),
+[continuous causal runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_causal_train.py),
+and [signed continuous causal failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1/result.json).
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),

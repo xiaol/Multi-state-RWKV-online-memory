@@ -617,9 +617,37 @@ new signed mechanics protocol that loads the frozen maps, enables continuous
 permutation, zero, inherited, and raw controls before any causal or benchmark
 claim.
 
+The subsequent four-A100 continuous-mode mechanics run passed all `32` rows:
+correct-versus-raw, matched-donor-address, layer-roll-address, and target-
+address-on-donor-content normalized state distances were `0.793498`,
+`0.366313`, `1.048170`, and `0.351101`, with positive-row fraction `1.0` for
+each. The full-address lifecycle, unchanged `v`, projected carrier,
+zero-address/raw equivalence, zero-recurrent/projected-only equivalence, and
+single-write invariants all passed. Its result SHA-256 is
+`a7215ff987f06a369e19ea5b62e54ae2e99b018b9dbed15616f964806e811456`
+and receipt is
+`2621b0d7773f7931fda80676774697fcc4c059abf49f8ebbad683f19f34c1a95`.
+
+The separately locked causal endpoint then completed eight FIT updates, froze
+and signed the `84` read-path tensors, and opened the `32` causal rows once.
+Zero recurrence passed (`+0.050419` token-weighted CE, `0.875000` positive
+rows), but layer roll failed (`+0.019981`, `0.718750`) and the matched donor was
+better than correct (`-0.007690`, `0.406250`). The signed status is
+`continuous_write_causal_failed_readout_family_retired`; result SHA-256 is
+`71d738ab63ae893c79b42e2cb1a93e25fee5e64daa6bf0d9d3eceb7dff572a09`
+and receipt is
+`5660251fc35005ee6cc054587d83bdd3069f22c52b9d9d7b440912fdbf71c0d0`.
+No unchanged rerun or tuning is authorized. Generation/native benchmark bytes
+remain unopened, and Full-Bandwidth feedback remains deferred because it adds
+depth renewal rather than matched-state identity.
+
 Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](run_natural_memory_native_rwkv_continuous_write_retrieval.py),
-and [signed continuous retrieval pass](local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json).
+[signed continuous retrieval pass](local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
+[continuous mechanics protocol](natural_memory_native_rwkv_continuous_write_mechanics_protocol_v1.json),
+[signed continuous mechanics pass](local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/result.json),
+[continuous causal protocol](natural_memory_native_rwkv_continuous_write_causal_train_protocol_v1.json),
+and [signed continuous causal failure](local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1/result.json).
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),

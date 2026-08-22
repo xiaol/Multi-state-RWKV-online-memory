@@ -1,0 +1,388 @@
+{
+  "causal_analysis": {
+    "aggregate": {
+      "layer_rolled_recurrent": {
+        "mean_minimum": 0.05,
+        "positive_fraction_minimum": 0.75,
+        "positive_row_fraction": 0.71875,
+        "token_weighted_mean_ce_margin": 0.019981493552525986,
+        "unweighted_row_mean_ce_margin": 0.02352147362545616
+      },
+      "paired_donor_recurrent": {
+        "mean_minimum": 0.02,
+        "positive_fraction_minimum": 0.75,
+        "positive_row_fraction": 0.40625,
+        "token_weighted_mean_ce_margin": -0.007690166433651946,
+        "unweighted_row_mean_ce_margin": -0.007805860389872334
+      },
+      "zero_recurrent": {
+        "mean_minimum": 0.05,
+        "positive_fraction_minimum": 0.75,
+        "positive_row_fraction": 0.875,
+        "token_weighted_mean_ce_margin": 0.050419097145398606,
+        "unweighted_row_mean_ce_margin": 0.051903908243377525
+      }
+    },
+    "checks": {
+      "all_condition_ce_finite": true,
+      "answer_token_count_identical_every_row": true,
+      "layer_rolled_recurrent_positive_fraction": false,
+      "layer_rolled_recurrent_token_weighted_mean": false,
+      "paired_donor_recurrent_positive_fraction": false,
+      "paired_donor_recurrent_token_weighted_mean": false,
+      "projected_carrier_fixed_every_row": true,
+      "zero_recurrent_equals_projected_only_every_row": true,
+      "zero_recurrent_positive_fraction": true,
+      "zero_recurrent_token_weighted_mean": true
+    },
+    "passed": false,
+    "rows": 32
+  },
+  "causal_assignment_sha256": "e79f63d17b0563cf5d54c00c17a167cf952f46739f4a08e464a398b086aa637e",
+  "causal_bundle_opened": true,
+  "causal_evaluated_rows_sha256": "088037a01f5ed8e81f3ff245d36ec0aa7492ec087d1b65a06d81322351d0b13e",
+  "causal_file_read_calls": 1,
+  "causal_file_read_rank": 0,
+  "causal_rows_decoded_tokenized_forwarded_or_scored": 32,
+  "causal_shards": [
+    {
+      "file_sha256": "4625238d10e046b75d7e545542838d2203c6b2a707b785fc6cfdf0bba25684c7",
+      "path": "causal-shard-0.json",
+      "rank": 0,
+      "receipt": "f7f9ec7706e5758e7c6ec63401f5c9f4bfef6ab9676f412678048fda2d4ed4ea",
+      "rows": 8
+    },
+    {
+      "file_sha256": "4679ed6f836fffe177b59efea5715bd177bf7992888031d20a29eac7bcce2c07",
+      "path": "causal-shard-1.json",
+      "rank": 1,
+      "receipt": "2d05f902cdd06bed903824109b69baff2621426d54351fa83b413ccfc1b6be92",
+      "rows": 8
+    },
+    {
+      "file_sha256": "002b0898d476726e6efe1dede8f0cfeaa308361a8326201a4b2b84e0c5c29713",
+      "path": "causal-shard-2.json",
+      "rank": 2,
+      "receipt": "8283af98877389c4e602eb2e5ccf55bec24eaf486111242f6b0009c84b4655a9",
+      "rows": 8
+    },
+    {
+      "file_sha256": "59d5d0e1147e7bce3a2869f009641841a096989e59b32de4c3c2900f9197652c",
+      "path": "causal-shard-3.json",
+      "rank": 3,
+      "receipt": "41bb4173d20f30941e1bef661af948e8676d56545bf7402efea3ca1928fc1307",
+      "rows": 8
+    }
+  ],
+  "code_bindings": {
+    "dependencies": [
+      {
+        "basename": "run_natural_memory_native_rwkv_continuous_write_mechanics.py",
+        "role": "mechanics_result_validator_and_snapshot_helpers",
+        "sha256": "12a1857939f7eeb623b658d8ae037971192c2c8d0e0c5e213ca3f75b49a55204"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_continuous_write_retrieval.py",
+        "role": "retrieval_result_validator_and_runtime_helpers",
+        "sha256": "878569411cbd2424f10ccfbbfb5c7b8e4ed97a4d33453b5f04a6cc46f1c33ad6"
+      },
+      {
+        "basename": "rwkv_continuous_write_alignment.py",
+        "role": "bias_free_reduced_rank_ridge_and_metrics",
+        "sha256": "f7c51bdcf518763ba6e9e63976d75a8cdcfc518b4d9ba593a4fcc4de62a404cb"
+      },
+      {
+        "basename": "rwkv_continuous_write_integration.py",
+        "role": "full_address_latch_runtime_conditioner_and_override",
+        "sha256": "a2e8f27e5d2247ed3682b2fffa0fc0eb129a202a90ceb2936b7a32b5e0391d25"
+      },
+      {
+        "basename": "rwkv_continuous_write_fit_split.py",
+        "role": "dataset_qualified_component_disjoint_split",
+        "sha256": "3676ec5ce332088ebc78c75ff65a0822fe3ed0037e7d49cd1c0c8228a45d92a6"
+      },
+      {
+        "basename": "materialize_natural_memory_native_rwkv_continuous_write_open_fit.py",
+        "role": "five_file_open_fit_materializer_and_firewall",
+        "sha256": "f1e5806bb467bfdd377e374845cdafb90ece1b67d6eba9744b6ef48de0c9bdd9"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+        "role": "strict_exact_v5_loader_and_source_validator",
+        "sha256": "0fd85e3e415a8705d3e37efd47d88f5ac6aa8feb25af039abdd1e4d704151ed6"
+      },
+      {
+        "basename": "natural_memory_distributed.py",
+        "role": "signed_distributed_runtime",
+        "sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d"
+      },
+      {
+        "basename": "run_natural_memory_native_evolution.py",
+        "role": "signed_native_row_encoder_and_write_read_runtime",
+        "sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_addressed_value_causal_train.py",
+        "role": "ordered_module_state_intervention_and_serialized_graph_helpers",
+        "sha256": "3036e7c75c1dedd31ab7f3d8aa79126c849a5c64e5e37395bbe3e2c43822fbc7"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_addressed_value_screen.py",
+        "role": "four_a100_hardware_validator",
+        "sha256": "b42cb3455679b1799a72b262958df5fd5a85211bc5b37730c24c70309309d654"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_eval.py",
+        "role": "exact_v5_adapter_topology_validator",
+        "sha256": "78f605c2e6b389e30fd97a98391b60cad99661f7bdc8cf3a4397aac6b5560a16"
+      }
+    ],
+    "runner_sha256": "c80919b50168b2b7cf1ae2b3c270f10b1df20536da8c7d85d9710cf50eac41a6"
+  },
+  "fit_binding": "5672fc3282576893df7fe7caad4897d5b8e3486648ef748548921098caff4ef2",
+  "fit_schedule_sha256": "fad1722c07fae1e311c9a2a472e625fa0f73f0db5629ed89ff0330c6419e4d90",
+  "full_bandwidth_transformer_installed": false,
+  "generation_authorized": false,
+  "launch_receipt": "b705bc846d37ad997ed6e5049693855824e119c2527ea52980b81c7c64c0d302",
+  "mechanics_result_receipt": "2621b0d7773f7931fda80676774697fcc4c059abf49f8ebbad683f19f34c1a95",
+  "model_audit": {
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "deepembed_down_hooks": 42,
+    "deepembed_pre_hooks": 42,
+    "learned_write_modules": 0,
+    "loader": "strict_saved_config_and_complete_adapter",
+    "outer_ffn_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "wrapped_layers": 42
+  },
+  "native_benchmark_bytes_opened": false,
+  "native_benchmark_protocol_drafting_authorized": false,
+  "observer_audit": {
+    "read_invocation_observer": {
+      "module_names": [
+        "model.language_model.layers.0.self_attn",
+        "model.language_model.layers.1.self_attn",
+        "model.language_model.layers.2.self_attn",
+        "model.language_model.layers.3.self_attn",
+        "model.language_model.layers.4.self_attn",
+        "model.language_model.layers.5.self_attn",
+        "model.language_model.layers.6.self_attn",
+        "model.language_model.layers.7.self_attn",
+        "model.language_model.layers.8.self_attn",
+        "model.language_model.layers.9.self_attn",
+        "model.language_model.layers.10.self_attn",
+        "model.language_model.layers.11.self_attn",
+        "model.language_model.layers.12.self_attn",
+        "model.language_model.layers.13.self_attn",
+        "model.language_model.layers.14.self_attn",
+        "model.language_model.layers.15.self_attn",
+        "model.language_model.layers.16.self_attn",
+        "model.language_model.layers.17.self_attn",
+        "model.language_model.layers.18.self_attn",
+        "model.language_model.layers.19.self_attn",
+        "model.language_model.layers.20.self_attn",
+        "model.language_model.layers.21.self_attn",
+        "model.language_model.layers.22.self_attn",
+        "model.language_model.layers.23.self_attn",
+        "model.language_model.layers.24.self_attn",
+        "model.language_model.layers.25.self_attn",
+        "model.language_model.layers.26.self_attn",
+        "model.language_model.layers.27.self_attn",
+        "model.language_model.layers.28.self_attn",
+        "model.language_model.layers.29.self_attn",
+        "model.language_model.layers.30.self_attn",
+        "model.language_model.layers.31.self_attn",
+        "model.language_model.layers.32.self_attn",
+        "model.language_model.layers.33.self_attn",
+        "model.language_model.layers.34.self_attn",
+        "model.language_model.layers.35.self_attn",
+        "model.language_model.layers.36.self_attn",
+        "model.language_model.layers.37.self_attn",
+        "model.language_model.layers.38.self_attn",
+        "model.language_model.layers.39.self_attn",
+        "model.language_model.layers.40.self_attn",
+        "model.language_model.layers.41.self_attn"
+      ],
+      "modules": 42,
+      "observer": "unconditional_rwkv_read_basis_invocation_counter"
+    },
+    "read_observer": {
+      "forward_output_changed": false,
+      "module_names": [
+        "model.language_model.layers.0.self_attn",
+        "model.language_model.layers.1.self_attn",
+        "model.language_model.layers.2.self_attn",
+        "model.language_model.layers.3.self_attn",
+        "model.language_model.layers.4.self_attn",
+        "model.language_model.layers.5.self_attn",
+        "model.language_model.layers.6.self_attn",
+        "model.language_model.layers.7.self_attn",
+        "model.language_model.layers.8.self_attn",
+        "model.language_model.layers.9.self_attn",
+        "model.language_model.layers.10.self_attn",
+        "model.language_model.layers.11.self_attn",
+        "model.language_model.layers.12.self_attn",
+        "model.language_model.layers.13.self_attn",
+        "model.language_model.layers.14.self_attn",
+        "model.language_model.layers.15.self_attn",
+        "model.language_model.layers.16.self_attn",
+        "model.language_model.layers.17.self_attn",
+        "model.language_model.layers.18.self_attn",
+        "model.language_model.layers.19.self_attn",
+        "model.language_model.layers.20.self_attn",
+        "model.language_model.layers.21.self_attn",
+        "model.language_model.layers.22.self_attn",
+        "model.language_model.layers.23.self_attn",
+        "model.language_model.layers.24.self_attn",
+        "model.language_model.layers.25.self_attn",
+        "model.language_model.layers.26.self_attn",
+        "model.language_model.layers.27.self_attn",
+        "model.language_model.layers.28.self_attn",
+        "model.language_model.layers.29.self_attn",
+        "model.language_model.layers.30.self_attn",
+        "model.language_model.layers.31.self_attn",
+        "model.language_model.layers.32.self_attn",
+        "model.language_model.layers.33.self_attn",
+        "model.language_model.layers.34.self_attn",
+        "model.language_model.layers.35.self_attn",
+        "model.language_model.layers.36.self_attn",
+        "model.language_model.layers.37.self_attn",
+        "model.language_model.layers.38.self_attn",
+        "model.language_model.layers.39.self_attn",
+        "model.language_model.layers.40.self_attn",
+        "model.language_model.layers.41.self_attn"
+      ],
+      "modules": 42,
+      "observer": "all42_prompt_boundary_exact_v5_r_seq_double_call",
+      "persisted_full_sequence_or_state_features": false
+    }
+  },
+  "passed": false,
+  "preflight_binding": "8f3a6a5270036d39d83f5d1014a52d94e93aae54a83f5b2de2df08974f92c79f",
+  "protocol_file_sha256": "c98ba4c8417701a0c7bf2d65a8fb4ca7c80ecfbc9556010fe3366c53906de83d",
+  "protocol_payload_sha256": "562469900b0d4a70214918a4f58ac9b272352fe7b05c162a4c9a0bb0b94742b8",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "5660251fc35005ee6cc054587d83bdd3069f22c52b9d9d7b440912fdbf71c0d0"
+  },
+  "runtime_audit": {
+    "continuous_install": {
+      "address_dim": 64,
+      "address_lifecycle": "single_post_projected_write_detached_full_address_latch",
+      "baseline_mode": "inherited_exact_v5",
+      "conditioned_features": [
+        "k",
+        "a",
+        "b"
+      ],
+      "default_mode": "continuous",
+      "effective_full64_override": "one_shot_selected_key_only",
+      "feature_dim": 32,
+      "live_key_or_route_recomputation": false,
+      "map_trainable": false,
+      "module_names": [
+        "model.language_model.layers.0.self_attn",
+        "model.language_model.layers.1.self_attn",
+        "model.language_model.layers.2.self_attn",
+        "model.language_model.layers.3.self_attn",
+        "model.language_model.layers.4.self_attn",
+        "model.language_model.layers.5.self_attn",
+        "model.language_model.layers.6.self_attn",
+        "model.language_model.layers.7.self_attn",
+        "model.language_model.layers.8.self_attn",
+        "model.language_model.layers.9.self_attn",
+        "model.language_model.layers.10.self_attn",
+        "model.language_model.layers.11.self_attn",
+        "model.language_model.layers.12.self_attn",
+        "model.language_model.layers.13.self_attn",
+        "model.language_model.layers.14.self_attn",
+        "model.language_model.layers.15.self_attn",
+        "model.language_model.layers.16.self_attn",
+        "model.language_model.layers.17.self_attn",
+        "model.language_model.layers.18.self_attn",
+        "model.language_model.layers.19.self_attn",
+        "model.language_model.layers.20.self_attn",
+        "model.language_model.layers.21.self_attn",
+        "model.language_model.layers.22.self_attn",
+        "model.language_model.layers.23.self_attn",
+        "model.language_model.layers.24.self_attn",
+        "model.language_model.layers.25.self_attn",
+        "model.language_model.layers.26.self_attn",
+        "model.language_model.layers.27.self_attn",
+        "model.language_model.layers.28.self_attn",
+        "model.language_model.layers.29.self_attn",
+        "model.language_model.layers.30.self_attn",
+        "model.language_model.layers.31.self_attn",
+        "model.language_model.layers.32.self_attn",
+        "model.language_model.layers.33.self_attn",
+        "model.language_model.layers.34.self_attn",
+        "model.language_model.layers.35.self_attn",
+        "model.language_model.layers.36.self_attn",
+        "model.language_model.layers.37.self_attn",
+        "model.language_model.layers.38.self_attn",
+        "model.language_model.layers.39.self_attn",
+        "model.language_model.layers.40.self_attn",
+        "model.language_model.layers.41.self_attn"
+      ],
+      "modules": 42,
+      "parameter_elements": 64512,
+      "parameter_tensors": 84,
+      "pending_effective_full64_overrides": 0,
+      "rank": 16,
+      "raw_control_mode": "raw_unconditioned",
+      "value_identity": "same_object_and_bytes"
+    },
+    "trainable": {
+      "family_counts": {
+        ".delta_o_proj": 42,
+        ".hrm_rwkv7_core.output.weight": 42
+      },
+      "frozen_map_and_gains_frozen": true,
+      "parameter_names_sha256": "10dcad7f45bfc7240e66d8be62cd0eb8191a352c832d0db84962fc4ee1f2fac4",
+      "parameter_tensors": 84,
+      "passed": true,
+      "writer_and_receptance_frozen": true
+    }
+  },
+  "rwkv_snapshot_writes_per_causal_source": 1,
+  "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_causal_train.v1",
+  "second_rwkv_write_scan_used": false,
+  "sota_claimed": false,
+  "source_audit": {
+    "delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "imported_delta_impl": "/root/X/signed-v5-source-cd7deb/deltamem/core/delta_impl.py",
+    "signed_source_head": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_source_root": "/root/X/signed-v5-source-cd7deb",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631"
+  },
+  "status": "continuous_write_causal_failed_readout_family_retired",
+  "training": {
+    "causal_rows_decoded_tokenized_forwarded_or_scored": 0,
+    "final_trainable_sha256": "323dc0c28ea35bd96f72a6decfb0819e98502d8fcab7df0b329bb90cd42998dc",
+    "frozen_parameter_versions_unchanged": true,
+    "initial_trainable_sha256": "a08a12b8f0187b4aa37a43f0405b3451022b79a6a09f4d3676d40b7bfcdf67bd",
+    "manual_branch_all_reduce_calls": 32,
+    "post_update_trainable_sha256": [
+      "522619e0344546c23ca4e89a40ddc2f695df2620dac354fddfed40c47eaee356",
+      "671c83a978bacb20b7c92af57e3bd3f99a7ba2899404809f78ead2027d1d3e40",
+      "c2fd6b92215a5fff1419414cd3a331578558f16a6b4a6fdf4a5059ef790565aa",
+      "f0c8f92f0883df2388cfc5fac62018bd67c0feebb3fd9c6ad8ce8f1d491ea145",
+      "bcb4c41e34bb280d966132c2554700b3e5b9b6ec9460c327562d19d4a5dec747",
+      "05800be4d958ec1b6a50637841195a42d7ddf245112d1dc14f5bd1e144ce0593",
+      "1b276cbe1f697c424c552ed0cfa21646a39717afeff4e9e054d5fdac9a297fc1",
+      "323dc0c28ea35bd96f72a6decfb0819e98502d8fcab7df0b329bb90cd42998dc"
+    ],
+    "rows": 64,
+    "signed_training_step_receipts": 8,
+    "symmetric_pairs": 32,
+    "trainable_changed": true,
+    "updates": 8
+  },
+  "training_receipt": "faffb9e74b9af60aaf4d0329f9222025020409c8346d1d1b5d35f56ea48dd6f6"
+}

@@ -1,0 +1,39 @@
+{
+  "causal_bytes_open_authorized": true,
+  "causal_rows_opened": 0,
+  "checkpoint_file": "continuous_write_read_path.pt",
+  "checkpoint_file_sha256": "ced3390abbd37e541efe5cfab34b2dfec35e2696265007de4a6e53828ae4995e",
+  "fit_binding": "5672fc3282576893df7fe7caad4897d5b8e3486648ef748548921098caff4ef2",
+  "launch_receipt": "b705bc846d37ad997ed6e5049693855824e119c2527ea52980b81c7c64c0d302",
+  "parameters_frozen_before_causal_open": true,
+  "protocol_payload_sha256": "562469900b0d4a70214918a4f58ac9b272352fe7b05c162a4c9a0bb0b94742b8",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_training_receipt_without_receipt",
+    "payload_sha256": "faffb9e74b9af60aaf4d0329f9222025020409c8346d1d1b5d35f56ea48dd6f6"
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_training_receipt.v1",
+  "status": "continuous_write_fit_training_frozen_causal_open_authorized",
+  "training": {
+    "causal_rows_decoded_tokenized_forwarded_or_scored": 0,
+    "final_trainable_sha256": "323dc0c28ea35bd96f72a6decfb0819e98502d8fcab7df0b329bb90cd42998dc",
+    "frozen_parameter_versions_unchanged": true,
+    "initial_trainable_sha256": "a08a12b8f0187b4aa37a43f0405b3451022b79a6a09f4d3676d40b7bfcdf67bd",
+    "manual_branch_all_reduce_calls": 32,
+    "post_update_trainable_sha256": [
+      "522619e0344546c23ca4e89a40ddc2f695df2620dac354fddfed40c47eaee356",
+      "671c83a978bacb20b7c92af57e3bd3f99a7ba2899404809f78ead2027d1d3e40",
+      "c2fd6b92215a5fff1419414cd3a331578558f16a6b4a6fdf4a5059ef790565aa",
+      "f0c8f92f0883df2388cfc5fac62018bd67c0feebb3fd9c6ad8ce8f1d491ea145",
+      "bcb4c41e34bb280d966132c2554700b3e5b9b6ec9460c327562d19d4a5dec747",
+      "05800be4d958ec1b6a50637841195a42d7ddf245112d1dc14f5bd1e144ce0593",
+      "1b276cbe1f697c424c552ed0cfa21646a39717afeff4e9e054d5fdac9a297fc1",
+      "323dc0c28ea35bd96f72a6decfb0819e98502d8fcab7df0b329bb90cd42998dc"
+    ],
+    "rows": 64,
+    "signed_training_step_receipts": 8,
+    "symmetric_pairs": 32,
+    "trainable_changed": true,
+    "updates": 8
+  }
+}

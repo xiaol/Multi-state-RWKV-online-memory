@@ -619,6 +619,27 @@ and its canonical receipt is
 Default validation byte-read only `manifest.json`, `fit.jsonl`, and
 `retrieval.jsonl`; mechanics and causal remained inventory-only.
 
+### Continuous-write causal decision
+
+The retrieval and mechanics stages passed, but the separately signed causal
+endpoint rejected this family. Exactly four A100s completed eight FIT updates
+over all `32` symmetric pairs, froze the `84` selected read-path tensors, and
+opened the `32` causal rows once. Zero recurrence was worse than correct by
+`+0.050419` token-weighted CE with `0.875000` positive rows, passing both locked
+gates. Layer roll reached only `+0.019981` and `0.718750`; matched donor was
+better than correct by `0.007690` CE and only `0.406250` of rows preferred the
+correct state. The result receipt is
+`5660251fc35005ee6cc054587d83bdd3069f22c52b9d9d7b440912fdbf71c0d0`.
+
+This closes the unchanged-`v`, train-readout-only continuous-write family.
+Address-conditioned `k/a/b` created material and identity-sensitive state
+geometry, but that geometry did not become source-specific causal answer use.
+Do not add a plain FBT loop to this failed snapshot: renewing depth would
+amplify both correct and matched-donor states without supplying the missing
+identity operation. Any future Full-Bandwidth transfer must follow a new
+identity-bearing value path, consume one frozen RWKV snapshot, rerun only the
+read path, and start a fresh mechanics/causal sequence before native access.
+
 ### Priority 2: exact monomial binding fallback
 
 The algebraic fallback is a projected-address-derived signed permutation, or
