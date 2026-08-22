@@ -270,3 +270,96 @@ def test_decoder_artifact_is_reloaded_and_digest_checked(tmp_path) -> None:
     )
 
     assert validated == saved
+
+
+def _write_capture_shards(
+    output_dir, rows_by_split: dict[str, list[dict[str, object]]]
+) -> None:
+    feature_names = (
+        "write_formula_byte_exact_all_modules",
+        "write_value_same_object_and_bytes_all_modules",
+        "write_effective_address_object_and_versions_exact_all_modules",
+        "all_state_tensors_finite",
+        "effective_write_address_matches_occupied_projected_key",
+        "active_projected_keys_nonzero_all_modules",
+        "active_projected_values_nonzero_all_modules",
+        "active_rwkv_state_matrices_nonzero_all_modules",
+        "exactly_one_occupied_slot_all_modules",
+        "occupied_slots_match_nonzero_rwkv_slots",
+        "address_decodes_finite",
+        "active_address_decodes_nonzero",
+    )
+    for split, split_rows in rows_by_split.items():
+        for rank in range(reconstruction.WORLD_SIZE):
+            shard_rows = []
+            for row in split_rows[rank :: reconstruction.WORLD_SIZE]:
+                shard_rows.append(
+                    {
+                        **row,
+                        "write_audit": {
+                            "mode": reconstruction.integration.CONTINUOUS_MODE,
+                            "formula_byte_exact_all_modules": True,
+                            "continuous_value_same_object_and_bytes_all_modules": True,
+                            "all_state_tensors_finite": True,
+                        },
+                        "feature_audit": {name: True for name in feature_names},
+                    }
+                )
+            shard = {
+                "schema": reconstruction.SHARD_SCHEMA,
+                "split": split,
+                "rank": rank,
+                "world_size": reconstruction.WORLD_SIZE,
+                "assignment": "sorted_source_rank_strided",
+                "rows": shard_rows,
+            }
+            shard["receipt"] = {
+                "algorithm": "sha256",
+                "payload_scope": "canonical_capture_shard_without_receipt",
+                "payload_sha256": reconstruction.canonical_sha256(shard),
+            }
+            reconstruction._atomic_signed_json(
+                output_dir / f"{split}-shard-{rank}.json",
+                shard,
+            )
+
+
+def test_capture_shards_bind_exact_rank_strided_row_identity(tmp_path) -> None:
+    rows_by_split = {}
+    for split, count in (
+        ("fit", reconstruction.FIT_ROWS),
+        ("retrieval", reconstruction.RETRIEVAL_ROWS),
+    ):
+        rows = _rows(split, count)
+        for row in rows:
+            source = int(row["source_index"])
+            donor = int(row["donor_source_index"])
+            row["row_sha256"] = f"row-{source}"
+            row["donor_row_sha256"] = f"row-{donor}"
+        rows_by_split[split] = rows
+    _write_capture_shards(tmp_path, rows_by_split)
+
+    bindings = reconstruction._capture_shard_bindings(tmp_path, rows_by_split)
+    assert len(bindings) == 8
+
+    rows_by_split["fit"][0]["donor_source_index"] = 1
+    with pytest.raises(ValueError, match="capture shard contract differs"):
+        reconstruction._capture_shard_bindings(tmp_path, rows_by_split)
+
+
+def test_result_validator_source_enforces_signed_provenance() -> None:
+    source = inspect.getsource(reconstruction._validate_result)
+
+    for required in (
+        "protocol_payload_sha256",
+        "launch_receipt",
+        "continuous_causal_result_receipt",
+        "manifest_receipt",
+        "four_distinct_a100s",
+        "runner_sha256",
+        "dependency_bindings_sha256",
+        "write_scans_per_source",
+        "already_open_bundles_read",
+        "frozen_address_map_updated",
+    ):
+        assert required in source

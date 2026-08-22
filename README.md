@@ -774,6 +774,28 @@ or duration tuning. Generation and the native benchmark remain unauthorized
 and unopened. Full-Bandwidth recurrence is still a depth-renewal candidate,
 not a repair for the failed matched-state identity gate.
 
+The next locked stage tested address-decoded RWKV token replacement before any
+new protected split. A bias-free ridge decoder was fit on the `64` already-open
+FIT rows, frozen and persisted, and only then evaluated on the `32` already-open
+retrieval rows using exactly four A100s. Correct reconstruction reached
+`0.912683` mean cosine, but matched-donor and wrong-address separation reached
+only `0.008718`/`0.468750` and `0.009482`/`0.812500` for mean gap/positive-row
+fraction; `0/42` modules passed the locked identity gate. Layer roll separated
+strongly at `1.094052` with positive-row fraction `1.0`. The signed status is
+`address_decoded_reconstruction_failed_linear_decoder_family_retired`; result
+SHA-256 is `d6992d50ef60f70e2dc503b9b752c36c723f4ac3ed3ade45fa41583b6ee8e5bd`
+and receipt is `c7df99f673e55b749b88e7b9f8a71967ed2fd4da28aa99d21fa9daf9b563c93a`.
+
+This retires only the linear `S d(A) -> value` cosine decoder. Cosine is
+scale-invariant, so an approximately rank-one state can map a wrong address to
+a rescaled vector in the same payload direction and receive nearly identical
+score. The stronger next route separates the roles: an explicit address-derived
+virtual key carries identity, while an RMS-normalized RWKV state contraction
+supplies the virtual value inside Gemma attention. It must first pass key-logit,
+matched-donor, wrong-key, zero-carrier, and cache-immutability mechanics gates.
+Plain Full-Bandwidth feedback remains deferred until that causal identity path
+passes.
+
 Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed retrieval pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
@@ -784,7 +806,11 @@ Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/n
 [continuous causal protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_causal_train_protocol_v1.json),
 [continuous causal launch](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_causal_train_launch_v1.json),
 [continuous causal runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_causal_train.py),
-and [signed continuous causal failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1/result.json).
+[signed continuous causal failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1/result.json),
+[address-decoded protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_decoded_reconstruction_protocol_v1.json),
+[address-decoded launch](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_decoded_reconstruction_launch_v1.json),
+[address-decoded runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_decoded_reconstruction.py),
+and [signed address-decoded failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_decoded_reconstruction_v1/result.json).
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),

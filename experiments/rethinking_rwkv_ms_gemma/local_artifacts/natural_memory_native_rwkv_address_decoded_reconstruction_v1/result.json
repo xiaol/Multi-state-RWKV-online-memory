@@ -1,0 +1,2286 @@
+{
+  "already_open_bundles_read": [
+    "fit",
+    "retrieval"
+  ],
+  "analysis": {
+    "aggregate": {
+      "controls": {
+        "layer_roll": {
+          "correct_minus_control_mean_cosine_gap": 1.0940519571304321,
+          "correct_minus_control_positive_row_fraction": 1.0,
+          "maximum_row_gap": 1.2573926448822021,
+          "mean_cosine": -0.18136917054653168,
+          "minimum_row_gap": 0.9658204317092896
+        },
+        "matched_donor_state": {
+          "correct_minus_control_mean_cosine_gap": 0.008718015626072884,
+          "correct_minus_control_positive_row_fraction": 0.46875,
+          "maximum_row_gap": 0.04010993242263794,
+          "mean_cosine": 0.9039648175239563,
+          "minimum_row_gap": -0.0007031559944152832
+        },
+        "wrong_address": {
+          "correct_minus_control_mean_cosine_gap": 0.009481675922870636,
+          "correct_minus_control_positive_row_fraction": 0.8125,
+          "maximum_row_gap": 0.03982144594192505,
+          "mean_cosine": 0.9032012224197388,
+          "minimum_row_gap": -0.0005813837051391602
+        }
+      },
+      "correct_mean_cosine": 0.9126828908920288,
+      "correct_minimum_row_cosine": 0.8609094023704529,
+      "correct_row_fraction_at_or_above_minimum": 1.0
+    },
+    "checks": {
+      "all_active_addresses_states_targets_decodes_nonzero": true,
+      "all_addresses_states_targets_decodes_finite": true,
+      "all_control_sources_gathered_from_own_occupied_slot_and_scattered_to_target_slot": true,
+      "all_rows_have_exactly_one_occupied_projected_slot_per_module": true,
+      "continuous_write_formula_and_value_identity_hold_all_rows_modules": true,
+      "correct_mean_cosine": true,
+      "correct_minus_layer_rolled_state_mean_cosine_gap": true,
+      "correct_minus_layer_rolled_state_positive_row_fraction": true,
+      "correct_minus_matched_donor_state_mean_cosine_gap": false,
+      "correct_minus_matched_donor_state_positive_row_fraction": false,
+      "correct_minus_wrong_address_mean_cosine_gap": false,
+      "correct_minus_wrong_address_positive_row_fraction": false,
+      "correct_row_fraction_at_or_above_minimum": true,
+      "effective_write_address_matches_occupied_projected_key_all_rows_modules": true,
+      "module_identity_pass_fraction": false,
+      "occupied_projected_slot_matches_only_nonzero_rwkv_slot_per_module": true,
+      "zero_state_decodes_exact_zero": true
+    },
+    "module_gate": {
+      "checks": {
+        "model.language_model.layers.0.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.1.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.10.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.11.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.12.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.13.self_attn": {
+          "correct_mean_cosine": false,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": true,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": true,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.14.self_attn": {
+          "correct_mean_cosine": false,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": true,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.15.self_attn": {
+          "correct_mean_cosine": false,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.16.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.17.self_attn": {
+          "correct_mean_cosine": false,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": true,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": true,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.18.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.19.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.2.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.20.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.21.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.22.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.23.self_attn": {
+          "correct_mean_cosine": false,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": true,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.24.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.25.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.26.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.27.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.28.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.29.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.3.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": false,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.30.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.31.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.32.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.33.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.34.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.35.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.36.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.37.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.38.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.39.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.4.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.40.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.41.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.5.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.6.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.7.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": true,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.8.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": true,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        },
+        "model.language_model.layers.9.self_attn": {
+          "correct_mean_cosine": true,
+          "finite_and_zero_exact": true,
+          "layer_roll_mean_gap": false,
+          "layer_roll_positive_row_fraction": false,
+          "matched_donor_state_mean_gap": false,
+          "matched_donor_state_positive_row_fraction": false,
+          "passed": false,
+          "wrong_address_mean_gap": false,
+          "wrong_address_positive_row_fraction": false
+        }
+      },
+      "module_pass_fraction": 0.0,
+      "passed_modules": 0,
+      "required_fraction": 0.95
+    },
+    "modules": 42,
+    "passed": false,
+    "per_module": {
+      "model.language_model.layers.0.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 1.0,
+          "layer_roll": -1.0,
+          "matched_donor_state": 1.0,
+          "wrong_address": 1.0
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 2.0,
+          "matched_donor_state": 0.0,
+          "wrong_address": 0.0
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.40625,
+          "wrong_address": 0.0
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.40625,
+          "wrong_address": 0.0
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.1.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9926477074623108,
+          "layer_roll": -0.9928628206253052,
+          "matched_donor_state": 0.9926460385322571,
+          "wrong_address": 0.9926474094390869
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.9855104684829712,
+          "matched_donor_state": 1.6372650861740112e-06,
+          "wrong_address": 2.644956111907959e-07
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.71875,
+          "wrong_address": 0.6875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.71875,
+          "wrong_address": 0.6875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.10.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.911775529384613,
+          "layer_roll": -0.857677698135376,
+          "matched_donor_state": 0.9117550253868103,
+          "wrong_address": 0.9117523431777954
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.7694531679153442,
+          "matched_donor_state": 2.0489096641540527e-05,
+          "wrong_address": 2.31768935918808e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.71875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.71875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.11.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.8126959204673767,
+          "layer_roll": 0.005331739783287048,
+          "matched_donor_state": 0.8121739029884338,
+          "wrong_address": 0.812494695186615
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.8073642253875732,
+          "matched_donor_state": 0.0005220379680395126,
+          "wrong_address": 0.0002012047916650772
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.9375,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.65625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.9375,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.65625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.12.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.8842440843582153,
+          "layer_roll": 0.6187564730644226,
+          "matched_donor_state": 0.8841803669929504,
+          "wrong_address": 0.8841955065727234
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.2654876410961151,
+          "matched_donor_state": 6.376020610332489e-05,
+          "wrong_address": 4.856288433074951e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.625,
+          "matched_donor_state": 0.625,
+          "wrong_address": 0.5625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.625,
+          "matched_donor_state": 0.625,
+          "wrong_address": 0.5625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.13.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.7582308650016785,
+          "layer_roll": -0.2057567685842514,
+          "matched_donor_state": 0.5790480971336365,
+          "wrong_address": 0.5770890116691589
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.9639875888824463,
+          "matched_donor_state": 0.17918270826339722,
+          "wrong_address": 0.18114186823368073
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.84375,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.75
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.84375,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.75
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.14.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.667472243309021,
+          "layer_roll": 0.13473275303840637,
+          "matched_donor_state": 0.616470217704773,
+          "wrong_address": 0.6306208968162537
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.532739520072937,
+          "matched_donor_state": 0.05100207030773163,
+          "wrong_address": 0.036851342767477036
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.84375,
+          "matched_donor_state": 0.4375,
+          "wrong_address": 0.4375
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.84375,
+          "matched_donor_state": 0.4375,
+          "wrong_address": 0.4375
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.15.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.7692615985870361,
+          "layer_roll": 0.2424287497997284,
+          "matched_donor_state": 0.7695616483688354,
+          "wrong_address": 0.7661190032958984
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.5268328189849854,
+          "matched_donor_state": -0.0003000916913151741,
+          "wrong_address": 0.0031425440683960915
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.84375,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.78125
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.84375,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.78125
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.16.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.8087945580482483,
+          "layer_roll": -0.754159688949585,
+          "matched_donor_state": 0.8087158203125,
+          "wrong_address": 0.8087719082832336
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.5629544258117676,
+          "matched_donor_state": 7.86762684583664e-05,
+          "wrong_address": 2.2644177079200745e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.6875,
+          "wrong_address": 0.59375
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.6875,
+          "wrong_address": 0.59375
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.17.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.7834475040435791,
+          "layer_roll": 0.38004761934280396,
+          "matched_donor_state": 0.6884059309959412,
+          "wrong_address": 0.6815375685691833
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.40339988470077515,
+          "matched_donor_state": 0.09504157304763794,
+          "wrong_address": 0.10190991312265396
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.75,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.75,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.18.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.8530510663986206,
+          "layer_roll": -0.18619230389595032,
+          "matched_donor_state": 0.8530869483947754,
+          "wrong_address": 0.8529973030090332
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.0392433404922485,
+          "matched_donor_state": -3.587454557418823e-05,
+          "wrong_address": 5.3767114877700806e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.8125,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.6875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.8125,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.6875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.19.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.8705801963806152,
+          "layer_roll": 0.7919811010360718,
+          "matched_donor_state": 0.8705840110778809,
+          "wrong_address": 0.8705627918243408
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.07859917730093002,
+          "matched_donor_state": -3.7159770727157593e-06,
+          "wrong_address": 1.7484650015830994e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.65625,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.78125
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.65625,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.78125
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.2.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.98090660572052,
+          "layer_roll": -0.9804502725601196,
+          "matched_donor_state": 0.9808840751647949,
+          "wrong_address": 0.9809060096740723
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.9613568782806396,
+          "matched_donor_state": 2.2619962692260742e-05,
+          "wrong_address": 5.830079317092896e-07
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.46875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.46875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.20.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.8330365419387817,
+          "layer_roll": 0.667852520942688,
+          "matched_donor_state": 0.8330514430999756,
+          "wrong_address": 0.832956075668335
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.16518399119377136,
+          "matched_donor_state": -1.4934688806533813e-05,
+          "wrong_address": 8.041225373744965e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.59375,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.6875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.59375,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.6875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.21.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.8528872728347778,
+          "layer_roll": 0.04724963381886482,
+          "matched_donor_state": 0.8528934121131897,
+          "wrong_address": 0.852871298789978
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.8056375980377197,
+          "matched_donor_state": -6.1783939599990845e-06,
+          "wrong_address": 1.5955418348312378e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.875,
+          "matched_donor_state": 0.4375,
+          "wrong_address": 0.6875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.875,
+          "matched_donor_state": 0.4375,
+          "wrong_address": 0.6875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.22.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.8196206092834473,
+          "layer_roll": -0.7300461530685425,
+          "matched_donor_state": 0.8199572563171387,
+          "wrong_address": 0.8195573091506958
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.5496666431427002,
+          "matched_donor_state": -0.00033666007220745087,
+          "wrong_address": 6.331689655780792e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.9375,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.5625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.9375,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.5625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.23.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.7201522588729858,
+          "layer_roll": -0.1498277485370636,
+          "matched_donor_state": 0.6796146631240845,
+          "wrong_address": 0.6461279392242432
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.869979977607727,
+          "matched_donor_state": 0.040537603199481964,
+          "wrong_address": 0.0740242451429367
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.875,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.875,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.24.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9410957098007202,
+          "layer_roll": 0.184282585978508,
+          "matched_donor_state": 0.9410656690597534,
+          "wrong_address": 0.9411015510559082
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.7568131685256958,
+          "matched_donor_state": 3.007054328918457e-05,
+          "wrong_address": -5.804002285003662e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.78125,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.46875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.78125,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.46875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.25.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9350212812423706,
+          "layer_roll": -0.6412534117698669,
+          "matched_donor_state": 0.9349920153617859,
+          "wrong_address": 0.9350091814994812
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.5762747526168823,
+          "matched_donor_state": 2.9277056455612183e-05,
+          "wrong_address": 1.2142583727836609e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.65625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.65625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.26.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9512147307395935,
+          "layer_roll": 0.42410561442375183,
+          "matched_donor_state": 0.9512167572975159,
+          "wrong_address": 0.9512145519256592
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.5271092057228088,
+          "matched_donor_state": -1.9855797290802e-06,
+          "wrong_address": 1.955777406692505e-07
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.8125,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.46875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.8125,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.46875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.27.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9494056105613708,
+          "layer_roll": 0.5547640919685364,
+          "matched_donor_state": 0.9494047164916992,
+          "wrong_address": 0.949408769607544
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.3946414589881897,
+          "matched_donor_state": 8.605420589447021e-07,
+          "wrong_address": -3.17208468914032e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.875,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.3125
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.875,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.3125
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.28.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.952913761138916,
+          "layer_roll": -0.5776199102401733,
+          "matched_donor_state": 0.9529032707214355,
+          "wrong_address": 0.9529017210006714
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.5305336713790894,
+          "matched_donor_state": 1.0572373867034912e-05,
+          "wrong_address": 1.2081116437911987e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.96875,
+          "matched_donor_state": 0.625,
+          "wrong_address": 0.59375
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.96875,
+          "matched_donor_state": 0.625,
+          "wrong_address": 0.59375
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.29.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9675805568695068,
+          "layer_roll": -0.6686608791351318,
+          "matched_donor_state": 0.9675832986831665,
+          "wrong_address": 0.9675683975219727
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.6362414360046387,
+          "matched_donor_state": -2.7455389499664307e-06,
+          "wrong_address": 1.2120231986045837e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.9375,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.71875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.9375,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.71875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.3.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9849511981010437,
+          "layer_roll": 0.9847855567932129,
+          "matched_donor_state": 0.984950065612793,
+          "wrong_address": 0.9849473237991333
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.00016558915376663208,
+          "matched_donor_state": 1.1343508958816528e-06,
+          "wrong_address": 3.840774297714233e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.78125,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.6875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.78125,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.6875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.30.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9445220828056335,
+          "layer_roll": 0.7100438475608826,
+          "matched_donor_state": 0.9445220232009888,
+          "wrong_address": 0.9445191621780396
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.23447826504707336,
+          "matched_donor_state": 8.381903171539307e-08,
+          "wrong_address": 2.941116690635681e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.53125,
+          "matched_donor_state": 0.5,
+          "wrong_address": 0.5625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.53125,
+          "matched_donor_state": 0.5,
+          "wrong_address": 0.5625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.31.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9676214456558228,
+          "layer_roll": -0.9062106609344482,
+          "matched_donor_state": 0.9676093459129333,
+          "wrong_address": 0.9676195383071899
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.873832106590271,
+          "matched_donor_state": 1.2148171663284302e-05,
+          "wrong_address": 1.944601535797119e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.53125
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.53125
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.32.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9612141847610474,
+          "layer_roll": -0.9550946950912476,
+          "matched_donor_state": 0.9611970782279968,
+          "wrong_address": 0.9612151384353638
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.916308879852295,
+          "matched_donor_state": 1.7117708921432495e-05,
+          "wrong_address": -9.5367431640625e-07
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.5625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.5625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.33.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9690300822257996,
+          "layer_roll": -0.9688272476196289,
+          "matched_donor_state": 0.9690151214599609,
+          "wrong_address": 0.9690296649932861
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.9378573894500732,
+          "matched_donor_state": 1.4981254935264587e-05,
+          "wrong_address": 4.284083843231201e-07
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.53125
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.53125
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.34.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9620249271392822,
+          "layer_roll": -0.06002877652645111,
+          "matched_donor_state": 0.9620116353034973,
+          "wrong_address": 0.9620194435119629
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.0220537185668945,
+          "matched_donor_state": 1.3316050171852112e-05,
+          "wrong_address": 5.543231964111328e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.8125,
+          "matched_donor_state": 0.625,
+          "wrong_address": 0.625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.8125,
+          "matched_donor_state": 0.625,
+          "wrong_address": 0.625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.35.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9728839993476868,
+          "layer_roll": 0.5512921810150146,
+          "matched_donor_state": 0.9728578329086304,
+          "wrong_address": 0.9728814363479614
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.4215918779373169,
+          "matched_donor_state": 2.6209279894828796e-05,
+          "wrong_address": 2.5797635316848755e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.6875,
+          "matched_donor_state": 0.65625,
+          "wrong_address": 0.8125
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.6875,
+          "matched_donor_state": 0.65625,
+          "wrong_address": 0.8125
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.36.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9595494270324707,
+          "layer_roll": 0.9025410413742065,
+          "matched_donor_state": 0.9595187902450562,
+          "wrong_address": 0.9595432281494141
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.057008348405361176,
+          "matched_donor_state": 3.057718276977539e-05,
+          "wrong_address": 6.159767508506775e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.59375,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.5
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.59375,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.5
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.37.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9595354199409485,
+          "layer_roll": -0.9602637887001038,
+          "matched_donor_state": 0.9595076441764832,
+          "wrong_address": 0.9595326781272888
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.9197992086410522,
+          "matched_donor_state": 2.7842819690704346e-05,
+          "wrong_address": 2.7958303689956665e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.59375
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.59375
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.38.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9703567028045654,
+          "layer_roll": -0.8544057607650757,
+          "matched_donor_state": 0.9703534841537476,
+          "wrong_address": 0.9703553915023804
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.8247623443603516,
+          "matched_donor_state": 3.170222043991089e-06,
+          "wrong_address": 1.3280659914016724e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.5625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.5625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.39.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9534227848052979,
+          "layer_roll": 0.5366798043251038,
+          "matched_donor_state": 0.9534033536911011,
+          "wrong_address": 0.9534145593643188
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.4167429804801941,
+          "matched_donor_state": 1.9414350390434265e-05,
+          "wrong_address": 8.201226592063904e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.5,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.65625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.5,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.65625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.4.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9828549027442932,
+          "layer_roll": -0.9834238886833191,
+          "matched_donor_state": 0.9828493595123291,
+          "wrong_address": 0.9828488826751709
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.9662789106369019,
+          "matched_donor_state": 5.502253770828247e-06,
+          "wrong_address": 6.079673767089844e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.6875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.6875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.40.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9862841367721558,
+          "layer_roll": -0.0014748163521289825,
+          "matched_donor_state": 0.9862827658653259,
+          "wrong_address": 0.9862839579582214
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.9877589344978333,
+          "matched_donor_state": 1.339241862297058e-06,
+          "wrong_address": 1.695007085800171e-07
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.59375,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.65625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.59375,
+          "matched_donor_state": 0.5625,
+          "wrong_address": 0.65625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.41.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9905077219009399,
+          "layer_roll": -0.9904923439025879,
+          "matched_donor_state": 0.9905074238777161,
+          "wrong_address": 0.9905077219009399
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.9809999465942383,
+          "matched_donor_state": 3.0919909477233887e-07,
+          "wrong_address": -9.313225746154785e-09
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.3125
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.53125,
+          "wrong_address": 0.3125
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.5.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.8948874473571777,
+          "layer_roll": -0.6316651105880737,
+          "matched_donor_state": 0.8947588205337524,
+          "wrong_address": 0.894709587097168
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.526552438735962,
+          "matched_donor_state": 0.00012866966426372528,
+          "wrong_address": 0.00017792731523513794
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.875,
+          "matched_donor_state": 0.65625,
+          "wrong_address": 0.8125
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.875,
+          "matched_donor_state": 0.65625,
+          "wrong_address": 0.8125
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.6.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.993669867515564,
+          "layer_roll": 0.25086286664009094,
+          "matched_donor_state": 0.9936686754226685,
+          "wrong_address": 0.993669331073761
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.7428069710731506,
+          "matched_donor_state": 1.2386590242385864e-06,
+          "wrong_address": 5.420297384262085e-07
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.6875,
+          "matched_donor_state": 0.5,
+          "wrong_address": 0.59375
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.6875,
+          "matched_donor_state": 0.5,
+          "wrong_address": 0.59375
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.7.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9765398502349854,
+          "layer_roll": -0.9766584634780884,
+          "matched_donor_state": 0.97648686170578,
+          "wrong_address": 0.9765315055847168
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.9531981945037842,
+          "matched_donor_state": 5.2990391850471497e-05,
+          "wrong_address": 8.378177881240845e-06
+        },
+        "positive_row_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.65625
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 1.0,
+          "matched_donor_state": 0.59375,
+          "wrong_address": 0.65625
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.8.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9327106475830078,
+          "layer_roll": -0.5250598788261414,
+          "matched_donor_state": 0.9327679872512817,
+          "wrong_address": 0.9323726892471313
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 1.457770586013794,
+          "matched_donor_state": -5.7404860854148865e-05,
+          "wrong_address": 0.00033795833587646484
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.9375,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.71875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.9375,
+          "matched_donor_state": 0.46875,
+          "wrong_address": 0.71875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      },
+      "model.language_model.layers.9.self_attn": {
+        "active_rows": 32,
+        "active_slots": 32,
+        "cosine": {
+          "correct": 0.9540765285491943,
+          "layer_roll": 0.9528699517250061,
+          "matched_donor_state": 0.9540603160858154,
+          "wrong_address": 0.9540362358093262
+        },
+        "finite": true,
+        "mean_gaps": {
+          "layer_roll": 0.0012065321207046509,
+          "matched_donor_state": 1.6141682863235474e-05,
+          "wrong_address": 4.0300190448760986e-05
+        },
+        "positive_row_fractions": {
+          "layer_roll": 0.65625,
+          "matched_donor_state": 0.5,
+          "wrong_address": 0.71875
+        },
+        "positive_slot_fractions": {
+          "layer_roll": 0.65625,
+          "matched_donor_state": 0.5,
+          "wrong_address": 0.71875
+        },
+        "zero_audit": {
+          "zero_address_contraction_exact_zero": true,
+          "zero_address_decoded_exact_zero": true,
+          "zero_address_direction_exact_zero": true,
+          "zero_state_contraction_exact_zero": true,
+          "zero_state_decoded_exact_zero": true,
+          "zero_state_direction_finite": true
+        }
+      }
+    },
+    "rows": 32
+  },
+  "capture_shards": [
+    {
+      "path": "fit-shard-0.json",
+      "rank": 0,
+      "receipt": "645b2cda2de5702ba851fa53f7f54bc455d884e29ae7d400ebc6f14a9d7f7bad",
+      "rows": 16,
+      "sha256": "5f0430afe630868a1ecb2ce761ca9fbb6e8a73c665f702c7c4bb5cd4398d4791",
+      "split": "fit"
+    },
+    {
+      "path": "fit-shard-1.json",
+      "rank": 1,
+      "receipt": "ebb112c7d2a736d829f4d32b7e4816c09a724fe0d70c27c7edd11f547914492e",
+      "rows": 16,
+      "sha256": "2b1f96bd6f7c6d5a94d8c5f85a06abbfb0c9fb68b1ba141078826098d4f588f4",
+      "split": "fit"
+    },
+    {
+      "path": "fit-shard-2.json",
+      "rank": 2,
+      "receipt": "866c1312ecc7446f4d0d8b8eebb8918d9ddbe299e8e80f1914ea6f9b763539b1",
+      "rows": 16,
+      "sha256": "154429ffa976266b16f162ece2a9606c05cffe5aaf7c5cf60b27e577338dde9c",
+      "split": "fit"
+    },
+    {
+      "path": "fit-shard-3.json",
+      "rank": 3,
+      "receipt": "3baf322dd456b3caa1b2f199a0b5ecfce36a04d0582f69272620aeaa109bbb1f",
+      "rows": 16,
+      "sha256": "d68fa79be2c4865a6853178f45b38684184e8932c6f0cb481fd7e483f46dc15d",
+      "split": "fit"
+    },
+    {
+      "path": "retrieval-shard-0.json",
+      "rank": 0,
+      "receipt": "d228cf1ed315bb0613fd87bb3f2285c1bb2cb7369fc67b9765437c0f702a2e80",
+      "rows": 8,
+      "sha256": "ee8099a52a2334aef30e4f8813c38c4bbf1e14ae0864223f54e8d81f5910d52a",
+      "split": "retrieval"
+    },
+    {
+      "path": "retrieval-shard-1.json",
+      "rank": 1,
+      "receipt": "4181e1286bd5a70e25007bf7cec2e68acdfd3230fb47d93572a8e8513232fef7",
+      "rows": 8,
+      "sha256": "5d5b1f17f97326e717e13991ef0b1495d9fc2cdfd095968d2362547eead36271",
+      "split": "retrieval"
+    },
+    {
+      "path": "retrieval-shard-2.json",
+      "rank": 2,
+      "receipt": "10b86c66505df4c37ad63388295e7cdecfcd565b4cd8010fbb267af19c034970",
+      "rows": 8,
+      "sha256": "e3357cf3809d8dfb5ac41adcbbb26551a145ddb576523d471df844c371b678c5",
+      "split": "retrieval"
+    },
+    {
+      "path": "retrieval-shard-3.json",
+      "rank": 3,
+      "receipt": "93a69bd4406dfa11b6280d59bdb0d7edacff9fae261013c12046aa499c5e0d7b",
+      "rows": 8,
+      "sha256": "f7a821e4c35d7e7310121b7d91a7c7c9d6b8cf8249817b11bcd4f8236615eaee",
+      "split": "retrieval"
+    }
+  ],
+  "code_bindings": {
+    "dependencies": [
+      {
+        "basename": "rwkv_address_decoded_token_replacement.py",
+        "role": "address_decoded_reconstruction_math",
+        "sha256": "a7d2b763614de9230df7e80e7dd51559ef25e1df59070dd38777a9073ece7a1b"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_continuous_write_mechanics.py",
+        "role": "continuous_write_capture_and_map_loader",
+        "sha256": "12a1857939f7eeb623b658d8ae037971192c2c8d0e0c5e213ca3f75b49a55204"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_continuous_write_retrieval.py",
+        "role": "continuous_write_open_row_encoder",
+        "sha256": "878569411cbd2424f10ccfbbfb5c7b8e4ed97a4d33453b5f04a6cc46f1c33ad6"
+      },
+      {
+        "basename": "rwkv_continuous_write_integration.py",
+        "role": "continuous_write_runtime",
+        "sha256": "a2e8f27e5d2247ed3682b2fffa0fc0eb129a202a90ceb2936b7a32b5e0391d25"
+      },
+      {
+        "basename": "materialize_natural_memory_native_rwkv_continuous_write_open_fit.py",
+        "role": "open_fit_materializer",
+        "sha256": "f1e5806bb467bfdd377e374845cdafb90ece1b67d6eba9744b6ef48de0c9bdd9"
+      },
+      {
+        "basename": "natural_memory_distributed.py",
+        "role": "signed_distributed_runtime",
+        "sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d"
+      },
+      {
+        "basename": "run_natural_memory_native_rwkv_v5_shadow_crossfit.py",
+        "role": "signed_exact_v5_loader",
+        "sha256": "0fd85e3e415a8705d3e37efd47d88f5ac6aa8feb25af039abdd1e4d704151ed6"
+      },
+      {
+        "basename": "run_natural_memory_native_evolution.py",
+        "role": "native_write_runtime",
+        "sha256": "6abbe06f249ec8fba942f0f865ff9d92485a13fe95d8c9eab0f308e0c0e258e7"
+      }
+    ],
+    "runner_sha256": "3cbbb8643f92567318b0fdfb4b16a05c74ba848edb4aab47a36a823102034217"
+  },
+  "continuous_causal_result_receipt": "5660251fc35005ee6cc054587d83bdd3069f22c52b9d9d7b440912fdbf71c0d0",
+  "continuous_install": {
+    "address_dim": 64,
+    "address_lifecycle": "single_post_projected_write_detached_full_address_latch",
+    "baseline_mode": "inherited_exact_v5",
+    "conditioned_features": [
+      "k",
+      "a",
+      "b"
+    ],
+    "default_mode": "continuous",
+    "effective_full64_override": "one_shot_selected_key_only",
+    "feature_dim": 32,
+    "live_key_or_route_recomputation": false,
+    "map_trainable": false,
+    "module_names": [
+      "model.language_model.layers.0.self_attn",
+      "model.language_model.layers.1.self_attn",
+      "model.language_model.layers.2.self_attn",
+      "model.language_model.layers.3.self_attn",
+      "model.language_model.layers.4.self_attn",
+      "model.language_model.layers.5.self_attn",
+      "model.language_model.layers.6.self_attn",
+      "model.language_model.layers.7.self_attn",
+      "model.language_model.layers.8.self_attn",
+      "model.language_model.layers.9.self_attn",
+      "model.language_model.layers.10.self_attn",
+      "model.language_model.layers.11.self_attn",
+      "model.language_model.layers.12.self_attn",
+      "model.language_model.layers.13.self_attn",
+      "model.language_model.layers.14.self_attn",
+      "model.language_model.layers.15.self_attn",
+      "model.language_model.layers.16.self_attn",
+      "model.language_model.layers.17.self_attn",
+      "model.language_model.layers.18.self_attn",
+      "model.language_model.layers.19.self_attn",
+      "model.language_model.layers.20.self_attn",
+      "model.language_model.layers.21.self_attn",
+      "model.language_model.layers.22.self_attn",
+      "model.language_model.layers.23.self_attn",
+      "model.language_model.layers.24.self_attn",
+      "model.language_model.layers.25.self_attn",
+      "model.language_model.layers.26.self_attn",
+      "model.language_model.layers.27.self_attn",
+      "model.language_model.layers.28.self_attn",
+      "model.language_model.layers.29.self_attn",
+      "model.language_model.layers.30.self_attn",
+      "model.language_model.layers.31.self_attn",
+      "model.language_model.layers.32.self_attn",
+      "model.language_model.layers.33.self_attn",
+      "model.language_model.layers.34.self_attn",
+      "model.language_model.layers.35.self_attn",
+      "model.language_model.layers.36.self_attn",
+      "model.language_model.layers.37.self_attn",
+      "model.language_model.layers.38.self_attn",
+      "model.language_model.layers.39.self_attn",
+      "model.language_model.layers.40.self_attn",
+      "model.language_model.layers.41.self_attn"
+    ],
+    "modules": 42,
+    "parameter_elements": 64512,
+    "parameter_tensors": 84,
+    "pending_effective_full64_overrides": 0,
+    "rank": 16,
+    "raw_control_mode": "raw_unconditioned",
+    "value_identity": "same_object_and_bytes"
+  },
+  "decoder_artifact": {
+    "decoder_digest": "446c4a5d42e353dcce541fd903c657eb882e56720199d038a7f35f74a2553d3d",
+    "modules": 42,
+    "path": "address-decoded-value-decoders.pt",
+    "ridge": 1.0,
+    "sha256": "85bc4740255e252397406fcf22403e97950bbc7b251fb8fa1e8938db212568b8"
+  },
+  "decoder_frozen_and_persisted_before_retrieval_open": true,
+  "fit_rows": 64,
+  "fresh_split_protocol_drafting_authorized": false,
+  "frozen_address_map_updated": false,
+  "full_bandwidth_feedback_installed": false,
+  "hardware": {
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 0,
+        "pid": 2856445,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 1,
+        "pid": 2856446,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 2,
+        "pid": 2856447,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 3,
+        "pid": 2856448,
+        "process_rank": 3
+      }
+    ],
+    "world_size": 4
+  },
+  "launch_receipt": "7cec77fa2d4f0920a8a14257d4a767f58032f6c1e8396cda1f78c1d728ab69c5",
+  "manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+  "mechanics_causal_generation_or_native_bytes_opened": false,
+  "model_audit": {
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "deepembed_down_hooks": 42,
+    "deepembed_pre_hooks": 42,
+    "learned_write_modules": 0,
+    "loader": "strict_saved_config_and_complete_adapter",
+    "outer_ffn_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "wrapped_layers": 42
+  },
+  "model_parameters_updated": false,
+  "module_names": [
+    "model.language_model.layers.0.self_attn",
+    "model.language_model.layers.1.self_attn",
+    "model.language_model.layers.2.self_attn",
+    "model.language_model.layers.3.self_attn",
+    "model.language_model.layers.4.self_attn",
+    "model.language_model.layers.5.self_attn",
+    "model.language_model.layers.6.self_attn",
+    "model.language_model.layers.7.self_attn",
+    "model.language_model.layers.8.self_attn",
+    "model.language_model.layers.9.self_attn",
+    "model.language_model.layers.10.self_attn",
+    "model.language_model.layers.11.self_attn",
+    "model.language_model.layers.12.self_attn",
+    "model.language_model.layers.13.self_attn",
+    "model.language_model.layers.14.self_attn",
+    "model.language_model.layers.15.self_attn",
+    "model.language_model.layers.16.self_attn",
+    "model.language_model.layers.17.self_attn",
+    "model.language_model.layers.18.self_attn",
+    "model.language_model.layers.19.self_attn",
+    "model.language_model.layers.20.self_attn",
+    "model.language_model.layers.21.self_attn",
+    "model.language_model.layers.22.self_attn",
+    "model.language_model.layers.23.self_attn",
+    "model.language_model.layers.24.self_attn",
+    "model.language_model.layers.25.self_attn",
+    "model.language_model.layers.26.self_attn",
+    "model.language_model.layers.27.self_attn",
+    "model.language_model.layers.28.self_attn",
+    "model.language_model.layers.29.self_attn",
+    "model.language_model.layers.30.self_attn",
+    "model.language_model.layers.31.self_attn",
+    "model.language_model.layers.32.self_attn",
+    "model.language_model.layers.33.self_attn",
+    "model.language_model.layers.34.self_attn",
+    "model.language_model.layers.35.self_attn",
+    "model.language_model.layers.36.self_attn",
+    "model.language_model.layers.37.self_attn",
+    "model.language_model.layers.38.self_attn",
+    "model.language_model.layers.39.self_attn",
+    "model.language_model.layers.40.self_attn",
+    "model.language_model.layers.41.self_attn"
+  ],
+  "modules": 42,
+  "native_gain_claimed": false,
+  "passed": false,
+  "protocol_file_sha256": "cdb81d5b0f62ab03e1a5b058b664fd35b82d99c87328257fb735a9f585f45aaf",
+  "protocol_payload_sha256": "e0b614c9fdcd59dfe814b18fe528888cb9f11604376ef6a08c388e0729d7e9d5",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "c7df99f673e55b749b88e7b9f8a71967ed2fd4da28aa99d21fa9daf9b563c93a"
+  },
+  "retrieval_rows": 32,
+  "schema": "rwkv_ms_natural_memory_native_rwkv_address_decoded_reconstruction.v1",
+  "sota_claimed": false,
+  "source_audit": {
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "delta_impl_sha256": "88c495a417fcff62b295b70971f1c02991aac3962f35dae3afa5affb0a808788",
+    "exact_v5_protocol_receipt": "faa6d1125a13506820485148885904fc7a1b35eef14bf57c6190106acc2f70bf",
+    "exact_v5_result_receipt": "7afee3fd1d88c7db91c86dd3f7febfd80656a35d54971fd824623a29883dba8e",
+    "imported_delta_impl": "/root/X/signed-v5-source-cd7deb/deltamem/core/delta_impl.py",
+    "signed_source_head": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631",
+    "signed_source_root": "/root/X/signed-v5-source-cd7deb",
+    "signed_v5_source_commit": "cd7deb91a3dbbf15b7f82cf7bb445e3d7664d631"
+  },
+  "status": "address_decoded_reconstruction_failed_linear_decoder_family_retired",
+  "write_scans_per_source": 1
+}

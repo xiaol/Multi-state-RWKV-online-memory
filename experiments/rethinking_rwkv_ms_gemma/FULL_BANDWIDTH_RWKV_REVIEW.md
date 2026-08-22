@@ -743,9 +743,21 @@ receipt
 `2621b0d7773f7931fda80676774697fcc4c059abf49f8ebbad683f19f34c1a95`
 binds that mechanics pass.
 
-Full-Bandwidth read feedback becomes eligible only after state identity passes
-mechanics and causal controls. Mechanics now passes, so the next eligible
-action is drafting and signing the continuous-write causal donor-identity
-endpoint while causal bytes remain sealed. The paper does not establish
-multi-state identity, and no causal, native benchmark, or SOTA claim is
-currently authorized.
+The continuous-write causal endpoint subsequently failed matched-donor and
+layer-roll gates, retiring that readout family. A four-A100 address-decoded
+screen then tested `S d(A) -> projected value` on already-open FIT/retrieval
+rows. Correct reconstruction was high (`0.912683` mean cosine), but donor and
+wrong-address gaps were only `0.008718` and `0.009482`, and no module passed the
+locked identity gate. Its signed receipt is
+`c7df99f673e55b749b88e7b9f8a71967ed2fd4da28aa99d21fa9daf9b563c93a`.
+
+That failure does not eliminate explicit address-keyed virtual K/V. Cosine is
+blind to positive rescaling, so a rank-one-like state can contract a wrong
+address into the same value direction. The next bounded architecture should
+therefore use separate roles: an address-derived virtual key is tested by
+attention-logit identity margins, while an RMS-normalized RWKV contraction is
+the virtual value. Inject four ephemeral positions after cache retrieval and
+before the attention softmax at full-attention layers `5/11/17/23`; never cache
+them or mutate shared K/V. Exact-zero state must fall back to projected-only.
+Only a fresh mechanics and causal pass can make FBT feedback eligible. Native
+benchmark, Full-Bandwidth gain, and SOTA claims remain unauthorized.

@@ -1015,7 +1015,10 @@ def _validate_decoder_artifact(
     }
 
 
-def _capture_shard_bindings(output_dir: Path) -> list[Mapping[str, Any]]:
+def _capture_shard_bindings(
+    output_dir: Path,
+    rows_by_split: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+) -> list[Mapping[str, Any]]:
     bindings = []
     sources_by_split: dict[str, set[int]] = {"fit": set(), "retrieval": set()}
     required_feature_audits = (
@@ -1046,6 +1049,29 @@ def _capture_shard_bindings(output_dir: Path) -> list[Mapping[str, Any]]:
             )
             rows = shard.get("rows", [])
             row_sources = {int(row["source_index"]) for row in rows}
+            expected_assignment = None
+            if rows_by_split is not None:
+                split_rows = sorted(
+                    rows_by_split[split], key=lambda row: int(row["source_index"])
+                )
+                expected_assignment = [
+                    {
+                        "source_index": int(row["source_index"]),
+                        "donor_source_index": int(row["donor_source_index"]),
+                        "row_sha256": row["row_sha256"],
+                        "donor_row_sha256": row["donor_row_sha256"],
+                    }
+                    for row in split_rows[rank::WORLD_SIZE]
+                ]
+                actual_assignment = [
+                    {
+                        "source_index": int(row["source_index"]),
+                        "donor_source_index": int(row["donor_source_index"]),
+                        "row_sha256": row["row_sha256"],
+                        "donor_row_sha256": row["donor_row_sha256"],
+                    }
+                    for row in rows
+                ]
             if (
                 shard.get("schema") != SHARD_SCHEMA
                 or shard.get("split") != split
@@ -1054,6 +1080,10 @@ def _capture_shard_bindings(output_dir: Path) -> list[Mapping[str, Any]]:
                 or shard.get("assignment") != "sorted_source_rank_strided"
                 or len(rows) != expected_rows
                 or len(row_sources) != expected_rows
+                or (
+                    expected_assignment is not None
+                    and actual_assignment != expected_assignment
+                )
                 or any(
                     row.get("write_audit", {}).get("mode")
                     != integration.CONTINUOUS_MODE
@@ -1103,6 +1133,22 @@ def _validate_result(path: Path) -> Mapping[str, Any]:
         payload_scope="canonical_result_without_receipt",
         description="AD-RTR reconstruction result",
     )
+    if sha256_file(PROTOCOL) != PROTOCOL_FILE_SHA256:
+        raise ValueError("AD-RTR result protocol file differs")
+    protocol = json.loads(PROTOCOL.read_text(encoding="utf-8"))
+    _validate_receipt(
+        protocol,
+        payload_scope="canonical_protocol_without_receipt",
+        description="AD-RTR reconstruction protocol",
+    )
+    launch = json.loads(LAUNCH.read_text(encoding="utf-8"))
+    _validate_receipt(
+        launch,
+        payload_scope="canonical_launch_binding_without_receipt",
+        description="AD-RTR reconstruction launch",
+    )
+    prior = validate_continuous_failure()
+    manifest = _load_manifest_only(DEFAULT_MATERIALIZATION)
     passed = result.get("passed")
     expected_status = (
         "address_decoded_reconstruction_passed_fresh_split_authorized"
@@ -1112,6 +1158,8 @@ def _validate_result(path: Path) -> Mapping[str, Any]:
     module_names = tuple(result.get("module_names", ()))
     source_audit = result.get("source_audit", {})
     model_audit = result.get("model_audit", {})
+    hardware_audit = result.get("hardware", {})
+    code_bindings = result.get("code_bindings", {})
     analysis = result.get("analysis", {})
     analysis_checks = analysis.get("checks", {})
     module_gate = analysis.get("module_gate", {})
@@ -1126,6 +1174,28 @@ def _validate_result(path: Path) -> Mapping[str, Any]:
         or result.get("schema") != SCHEMA
         or result.get("status") != expected_status
         or result.get("analysis", {}).get("passed") is not passed
+        or result.get("protocol_payload_sha256") != PROTOCOL_PAYLOAD_SHA256
+        or result.get("protocol_file_sha256") != PROTOCOL_FILE_SHA256
+        or protocol.get("receipt", {}).get("payload_sha256")
+        != PROTOCOL_PAYLOAD_SHA256
+        or result.get("launch_receipt")
+        != launch.get("receipt", {}).get("payload_sha256")
+        or launch.get("schema")
+        != "rwkv_ms_natural_memory_native_rwkv_address_decoded_reconstruction_launch.v1"
+        or launch.get("protocol_payload_sha256") != PROTOCOL_PAYLOAD_SHA256
+        or launch.get("protocol_file_sha256") != PROTOCOL_FILE_SHA256
+        or launch.get("continuous_causal_result_receipt")
+        != CONTINUOUS_RESULT_RECEIPT
+        or launch.get("manifest_receipt") != MANIFEST_RECEIPT
+        or launch.get("world_size") != WORLD_SIZE
+        or launch.get("hf_endpoint") != HF_ENDPOINT
+        or launch.get("already_open_bundles_only") != ["fit", "retrieval"]
+        or launch.get("mechanics_causal_or_native_bytes_opened_before_launch")
+        is not False
+        or result.get("continuous_causal_result_receipt")
+        != prior.get("receipt", {}).get("payload_sha256")
+        or result.get("manifest_receipt")
+        != manifest.get("receipt", {}).get("payload_sha256")
         or result.get("fit_rows") != FIT_ROWS
         or result.get("retrieval_rows") != RETRIEVAL_ROWS
         or result.get("modules") != MODULES
@@ -1133,9 +1203,12 @@ def _validate_result(path: Path) -> Mapping[str, Any]:
         or len(set(module_names)) != MODULES
         or result.get("decoder_frozen_and_persisted_before_retrieval_open")
         is not True
+        or result.get("write_scans_per_source") != 1
+        or result.get("already_open_bundles_read") != ["fit", "retrieval"]
         or result.get("fresh_split_protocol_drafting_authorized") is not passed
         or result.get("mechanics_causal_generation_or_native_bytes_opened") is not False
         or result.get("model_parameters_updated") is not False
+        or result.get("frozen_address_map_updated") is not False
         or result.get("full_bandwidth_feedback_installed") is not False
         or result.get("native_gain_claimed") is not False
         or result.get("sota_claimed") is not False
@@ -1156,6 +1229,15 @@ def _validate_result(path: Path) -> Mapping[str, Any]:
         != exact_v5.V5_ADAPTER_WEIGHTS_SHA256
         or model_audit.get("adapter_config_sha256")
         != exact_v5.V5_ADAPTER_CONFIG_SHA256
+        or hardware_audit.get("world_size") != WORLD_SIZE
+        or hardware_audit.get("backend") != "nccl"
+        or hardware_audit.get("control_backend") != "gloo"
+        or not hardware.four_distinct_a100s(hardware_audit.get("rank_devices", ()))
+        or code_bindings.get("runner_sha256") != launch.get("runner_sha256")
+        or code_bindings.get("dependencies")
+        != launch.get("dependency_bindings")
+        or canonical_sha256(code_bindings.get("dependencies"))
+        != launch.get("dependency_bindings_sha256")
         or not analysis_checks
         or any(not isinstance(value, bool) for value in analysis_checks.values())
         or analysis.get("passed") is not all(analysis_checks.values())
@@ -1178,7 +1260,14 @@ def _validate_result(path: Path) -> Mapping[str, Any]:
     )
     if actual_decoder != decoder:
         raise ValueError("AD-RTR result decoder binding differs")
-    if result.get("capture_shards") != _capture_shard_bindings(path.parent):
+    rows_by_split = {
+        split: _load_rows(DEFAULT_MATERIALIZATION, manifest, split)
+        for split in ("fit", "retrieval")
+    }
+    if result.get("capture_shards") != _capture_shard_bindings(
+        path.parent,
+        rows_by_split,
+    ):
         raise ValueError("AD-RTR result capture shard bindings differ")
     return result
 
@@ -1365,7 +1454,10 @@ def run(
         capture_shards = mechanics._consensual_operation(
             context,
             phase="ad-rtr-capture-shard-validation",
-            operation=lambda: _capture_shard_bindings(output_dir),
+            operation=lambda: _capture_shard_bindings(
+                output_dir,
+                {"fit": fit_rows, "retrieval": retrieval_rows},
+            ),
         )
         distributed.require_consensus(
             context,

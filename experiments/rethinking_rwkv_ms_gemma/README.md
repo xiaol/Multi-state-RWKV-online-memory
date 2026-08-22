@@ -641,13 +641,34 @@ No unchanged rerun or tuning is authorized. Generation/native benchmark bytes
 remain unopened, and Full-Bandwidth feedback remains deferred because it adds
 depth renewal rather than matched-state identity.
 
+The follow-up address-decoded reconstruction screen fit a bias-free decoder on
+the `64` already-open FIT rows, froze it before retrieval access, and evaluated
+the `32` already-open retrieval rows on exactly four A100s. Correct mean cosine
+was `0.912683`, but matched-donor and wrong-address gaps were only `0.008718`
+and `0.009482`; their positive-row fractions were `0.468750` and `0.812500`,
+and `0/42` modules passed. Layer-roll separation passed at `1.094052`/`1.0`.
+Status is `address_decoded_reconstruction_failed_linear_decoder_family_retired`;
+result SHA-256 is
+`d6992d50ef60f70e2dc503b9b752c36c723f4ac3ed3ade45fa41583b6ee8e5bd`
+and receipt is
+`c7df99f673e55b749b88e7b9f8a71967ed2fd4da28aa99d21fa9daf9b563c93a`.
+This retires only linear `S d(A)` cosine decoding: cosine cannot distinguish a
+wrong address that merely rescales the same payload direction. The next bounded
+route must decouple an explicit address-derived virtual attention key from an
+RMS-normalized RWKV-derived value. No fresh mechanics, causal, generation, or
+native benchmark bytes are authorized yet.
+
 Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed continuous retrieval pass](local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
 [continuous mechanics protocol](natural_memory_native_rwkv_continuous_write_mechanics_protocol_v1.json),
 [signed continuous mechanics pass](local_artifacts/natural_memory_native_rwkv_continuous_write_mechanics_v1/result.json),
 [continuous causal protocol](natural_memory_native_rwkv_continuous_write_causal_train_protocol_v1.json),
-and [signed continuous causal failure](local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1/result.json).
+[signed continuous causal failure](local_artifacts/natural_memory_native_rwkv_continuous_write_causal_train_v1/result.json),
+[address-decoded protocol](natural_memory_native_rwkv_address_decoded_reconstruction_protocol_v1.json),
+[address-decoded launch](natural_memory_native_rwkv_address_decoded_reconstruction_launch_v1.json),
+[address-decoded runner](run_natural_memory_native_rwkv_address_decoded_reconstruction.py),
+and [signed address-decoded failure](local_artifacts/natural_memory_native_rwkv_address_decoded_reconstruction_v1/result.json).
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
