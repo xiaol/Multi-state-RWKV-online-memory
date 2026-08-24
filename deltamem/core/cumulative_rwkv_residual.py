@@ -49,6 +49,83 @@ class FrozenCompatibilityMap(nn.Module):
         return self.rms_normalize(mapped)
 
 
+class SourceBoundOuterFFN(nn.Module):
+    """Zero-preserving query-gated correction for one selected RWKV read."""
+
+    def __init__(
+        self,
+        *,
+        state_dim: int,
+        query_dim: int,
+        bottleneck_dim: int,
+    ) -> None:
+        super().__init__()
+        if int(state_dim) < 1 or int(query_dim) < 1 or int(bottleneck_dim) < 1:
+            raise ValueError("outer FFN dimensions must be positive")
+        self.state_dim = int(state_dim)
+        self.query_dim = int(query_dim)
+        self.bottleneck_dim = int(bottleneck_dim)
+        self.state_down = nn.Linear(
+            self.state_dim, self.bottleneck_dim, bias=False
+        )
+        self.query_gate = nn.Linear(
+            self.query_dim, self.bottleneck_dim, bias=False
+        )
+        self.output_up = nn.Linear(
+            self.bottleneck_dim, self.query_dim, bias=False
+        )
+        nn.init.kaiming_uniform_(self.state_down.weight, a=math.sqrt(5.0))
+        nn.init.zeros_(self.query_gate.weight)
+        nn.init.zeros_(self.output_up.weight)
+
+    @staticmethod
+    def rms_normalize(value: torch.Tensor) -> torch.Tensor:
+        value = value.float()
+        square_mean = value.square().mean(dim=-1, keepdim=True)
+        normalized = value / square_mean.clamp_min(1e-12).sqrt()
+        return torch.where(square_mean.gt(0.0), normalized, torch.zeros_like(value))
+
+    def forward(
+        self,
+        *,
+        native_read: torch.Tensor,
+        hidden_query: torch.Tensor,
+        base_hidden_read: torch.Tensor,
+    ) -> tuple[torch.Tensor, Mapping[str, torch.Tensor]]:
+        if native_read.ndim != 3 or native_read.size(-1) != self.state_dim:
+            raise ValueError("outer FFN native read geometry differs")
+        if hidden_query.ndim != 3 or hidden_query.size(-1) != self.query_dim:
+            raise ValueError("outer FFN hidden query geometry differs")
+        if tuple(hidden_query.shape) != tuple(base_hidden_read.shape):
+            raise ValueError("outer FFN hidden read/query geometry differs")
+        if tuple(native_read.shape[:2]) != tuple(hidden_query.shape[:2]):
+            raise ValueError("outer FFN state/query sequence geometry differs")
+
+        normalized_state = self.rms_normalize(native_read)
+        normalized_query = self.rms_normalize(hidden_query)
+        state_value = F.silu(self.state_down(normalized_state))
+        query_gate = 2.0 * torch.sigmoid(self.query_gate(normalized_query))
+        correction = self.output_up(state_value * query_gate)
+        combined = base_hidden_read.float() + correction.float()
+        state_active = native_read.float().square().sum(dim=-1, keepdim=True).gt(0.0)
+        combined = torch.where(state_active, combined, torch.zeros_like(combined))
+        square_mean = combined.square().mean(dim=-1, keepdim=True)
+        direction = torch.tanh(
+            combined / square_mean.clamp_min(1e-12).sqrt()
+        )
+        direction = torch.where(
+            state_active & square_mean.gt(0.0),
+            direction,
+            torch.zeros_like(direction),
+        )
+        return direction, {
+            "state_value": state_value,
+            "query_gate": query_gate,
+            "correction": correction,
+            "combined_hidden_read": combined,
+        }
+
+
 class SourceCumulativeResidualRouter(nn.Module):
     """Source-canonical cumulative routing into a bounded terminal RWKV residual."""
 
@@ -60,6 +137,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         compatibility_scale: float = 32.0,
         residual_gain: float = 1.0 / 32.0,
         required_receptance_calls: int = 2,
+        outer_ffn: SourceBoundOuterFFN | None = None,
     ) -> None:
         super().__init__()
         anchors = tuple(int(layer) for layer in anchor_layers)
@@ -104,6 +182,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         self.compatibility_scale = scale
         self.residual_gain = gain
         self.required_receptance_calls = int(required_receptance_calls)
+        self.outer_ffn = outer_ffn
         self.maps = nn.ModuleDict(frozen_maps)
         self._states: dict[int, torch.Tensor] | None = None
         self._addresses: dict[int, torch.Tensor] | None = None
@@ -338,13 +417,21 @@ class SourceCumulativeResidualRouter(nn.Module):
         hidden_read = projector(native_read, delta_o_proj, "o")
         if hidden_read is None:
             raise RuntimeError("cumulative residual provider requires an active O delta head")
-        square_mean = hidden_read.float().square().mean(dim=-1, keepdim=True)
-        direction = torch.tanh(
-            hidden_read.float() / square_mean.clamp_min(1e-12).sqrt()
-        )
-        direction = torch.where(
-            square_mean.gt(0.0), direction, torch.zeros_like(direction)
-        )
+        outer_diagnostics: Mapping[str, torch.Tensor] = {}
+        if self.outer_ffn is None:
+            square_mean = hidden_read.float().square().mean(dim=-1, keepdim=True)
+            direction = torch.tanh(
+                hidden_read.float() / square_mean.clamp_min(1e-12).sqrt()
+            )
+            direction = torch.where(
+                square_mean.gt(0.0), direction, torch.zeros_like(direction)
+            )
+        else:
+            direction, outer_diagnostics = self.outer_ffn(
+                native_read=native_read,
+                hidden_query=hidden_states,
+                base_hidden_read=hidden_read,
+            )
         residual = self.residual_gain * memory_mass * direction
         if token_mask is not None:
             residual = residual * token_mask.to(
@@ -363,6 +450,7 @@ class SourceCumulativeResidualRouter(nn.Module):
             "raw_read": raw_read,
             "native_read": native_read,
             "hidden_read": hidden_read,
+            **outer_diagnostics,
         }
 
     def _provide(

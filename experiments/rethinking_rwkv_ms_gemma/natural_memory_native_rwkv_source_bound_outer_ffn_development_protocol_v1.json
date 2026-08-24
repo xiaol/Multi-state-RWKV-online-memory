@@ -1,0 +1,69 @@
+{
+  "architecture": {
+    "anchor_layers": [
+      5,
+      11,
+      17
+    ],
+    "bottleneck_dim": 64,
+    "compatibility_scale": 1.0,
+    "exact_zero_state_path": true,
+    "hidden_dim": 2560,
+    "initialization": "zero correction over the frozen native residual",
+    "native_read_dim": 256,
+    "query_only_or_hidden_only_path": false,
+    "residual_gain": 0.03125,
+    "selected_native_rwkv_read_is_value": true,
+    "trainable_parameter_elements": 344064,
+    "trainable_parameter_tensors": 3
+  },
+  "heldout_gate": {
+    "correct_gain_vs_provider_off_mean_minimum": 0.0,
+    "donor_both_minus_target_mean_minimum": 0.02,
+    "donor_both_positive_row_fraction_minimum": 0.75,
+    "layer_both_positive_row_fraction_minimum": 0.75,
+    "mechanics_must_pass": true
+  },
+  "native_benchmark_authorized": false,
+  "objective": "Train only a source-bound outer FFN after frozen layer-17 scale-1 source selection, then require component-disjoint open-heldout donor causality before any protected access.",
+  "open_development_only": true,
+  "protected_causal_authorized": false,
+  "protected_mechanics_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "cacb54ae6594bef7966633221c13718eccfe0285bdce0714cfc3c9a71c7a63e5"
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v1.protocol",
+  "split": {
+    "heldout_rows": 32,
+    "pair_disjoint": true,
+    "payload_sha256": "75d31c6a5fe86aace7a1378b8f82fd671fb556a5d601a04cf14a59a195e35797",
+    "source_disjoint": true,
+    "train_rows": 32
+  },
+  "training": {
+    "contrast_temperature": 0.02,
+    "correct_ce_weight": 0.5,
+    "donor_contrast_weight": 1.0,
+    "donor_margin": 0.02,
+    "global_batch_rows": 4,
+    "gradient_clip": 1.0,
+    "heldout_pairs": 16,
+    "layer_contrast_weight": 0.5,
+    "layer_margin": 0.01,
+    "learning_rate": 0.001,
+    "local_batch_rows": 1,
+    "optimizer": "fused AdamW with rank-averaged gradients",
+    "single_ce_weight": 0.5,
+    "train_controls": [
+      "correct_four_way",
+      "single_target",
+      "matched_donor_address_and_state",
+      "layer_rolled_address_and_state"
+    ],
+    "train_pairs": 16,
+    "updates": 32,
+    "weight_decay": 0.0
+  }
+}

@@ -6,7 +6,10 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from deltamem.core.cumulative_rwkv_residual import SourceCumulativeResidualRouter
+from deltamem.core.cumulative_rwkv_residual import (
+    SourceBoundOuterFFN,
+    SourceCumulativeResidualRouter,
+)
 from deltamem.core.delta import DeltaMemAttention, HFDeltaMemConfig
 from deltamem.tests.test_delta_mem_regressions import make_qwen3_attention
 
@@ -60,6 +63,21 @@ def _router() -> SourceCumulativeResidualRouter:
     )
 
 
+def _outer_router() -> SourceCumulativeResidualRouter:
+    return SourceCumulativeResidualRouter(
+        maps={layer: (torch.eye(2), torch.eye(2)) for layer in ANCHORS},
+        anchor_layers=ANCHORS,
+        compatibility_scale=8.0,
+        residual_gain=1.0 / 32.0,
+        required_receptance_calls=2,
+        outer_ffn=SourceBoundOuterFFN(
+            state_dim=2,
+            query_dim=2,
+            bottleneck_dim=3,
+        ),
+    )
+
+
 def _banks():
     base_state = torch.tensor(
         [[[[[1.0, 0.0], [0.0, 1.0]], [[0.0, 2.0], [1.0, 0.0]], [[-1.0, 0.5], [0.25, 1.0]]]]]
@@ -88,15 +106,18 @@ def _run(
     *,
     dtype: torch.dtype = torch.float32,
 ):
+    routed_banks = tuple(
+        {layer: bank[layer] for layer in router.anchor_layers} for bank in banks
+    )
     router.begin_forward(
-        states=banks[0],
-        address_keys=banks[1],
-        occupied=banks[2],
-        source_ids=banks[3],
+        states=routed_banks[0],
+        address_keys=routed_banks[1],
+        occupied=routed_banks[2],
+        source_ids=routed_banks[3],
     )
     residual = None
     modules = {}
-    for layer in ANCHORS:
+    for layer in router.anchor_layers:
         module = _RouterModule(layer, receptances[layer], dtype=dtype)
         modules[layer] = module
         local = router.provider_for(layer)(
@@ -217,6 +238,114 @@ def test_terminal_raw_read_matches_selected_native_rwkv_state() -> None:
     torch.testing.assert_close(terminal["raw_read"][0, 0], expected)
     assert torch.equal(terminal["native_read"], terminal["raw_read"])
     assert torch.equal(terminal["hidden_read"], terminal["native_read"])
+
+
+def test_outer_ffn_zero_initialization_preserves_base_residual() -> None:
+    receptances = {layer: torch.tensor([1.0, 0.0]) for layer in ANCHORS}
+    baseline, _, _ = _run(_router(), _banks(), receptances)
+    outer, diagnostics, _ = _run(_outer_router(), _banks(), receptances)
+
+    assert torch.equal(outer, baseline)
+    terminal = diagnostics[-1]
+    assert torch.equal(
+        terminal["correction"], torch.zeros_like(terminal["correction"])
+    )
+    assert torch.equal(
+        terminal["query_gate"], torch.ones_like(terminal["query_gate"])
+    )
+
+
+def test_outer_ffn_exact_zero_state_and_trainable_joint_path() -> None:
+    outer_ffn = SourceBoundOuterFFN(
+        state_dim=2,
+        query_dim=4,
+        bottleneck_dim=3,
+    )
+    with torch.no_grad():
+        outer_ffn.output_up.weight.fill_(0.125)
+        outer_ffn.query_gate.weight.fill_(0.25)
+    zero_state = torch.zeros(2, 1, 2, requires_grad=True)
+    hidden_query = torch.randn(2, 1, 4, requires_grad=True)
+    base_hidden_read = torch.zeros(2, 1, 4)
+    direction, diagnostics = outer_ffn(
+        native_read=zero_state,
+        hidden_query=hidden_query,
+        base_hidden_read=base_hidden_read,
+    )
+
+    assert torch.equal(direction, torch.zeros_like(direction))
+    assert all(layer.bias is None for layer in (
+        outer_ffn.state_down,
+        outer_ffn.query_gate,
+        outer_ffn.output_up,
+    ))
+    assert torch.equal(
+        diagnostics["state_value"], torch.zeros_like(diagnostics["state_value"])
+    )
+
+    live_state = torch.tensor([[[1.0, -0.5]], [[-0.25, 1.0]]], requires_grad=True)
+    live_direction, _ = outer_ffn(
+        native_read=live_state,
+        hidden_query=hidden_query,
+        base_hidden_read=torch.randn(2, 1, 4),
+    )
+    live_direction.square().mean().backward()
+    assert outer_ffn.state_down.weight.grad is not None
+    assert outer_ffn.query_gate.weight.grad is not None
+    assert outer_ffn.output_up.weight.grad is not None
+    assert bool(outer_ffn.output_up.weight.grad.abs().max().gt(0.0).item())
+
+
+def test_outer_ffn_three_anchor_route_fires_at_layer_17_and_stays_canonical() -> None:
+    anchors = (5, 11, 17)
+
+    def router() -> SourceCumulativeResidualRouter:
+        return SourceCumulativeResidualRouter(
+            maps={layer: (torch.eye(2), torch.eye(2)) for layer in anchors},
+            anchor_layers=anchors,
+            compatibility_scale=1.0,
+            residual_gain=1.0 / 32.0,
+            required_receptance_calls=2,
+            outer_ffn=SourceBoundOuterFFN(
+                state_dim=2,
+                query_dim=2,
+                bottleneck_dim=3,
+            ),
+        )
+
+    receptances = {layer: torch.tensor([1.0, 0.0]) for layer in anchors}
+    baseline, diagnostics, _ = _run(router(), _banks(), receptances)
+    assert tuple(item["layer"] for item in diagnostics) == anchors
+    assert "residual" not in diagnostics[0]
+    assert "residual" not in diagnostics[1]
+    assert torch.equal(baseline, diagnostics[2]["residual"])
+
+    banks = list(_banks())
+    permutations = {
+        5: torch.tensor([2, 0, 1]),
+        11: torch.tensor([1, 2, 0]),
+        17: torch.tensor([0, 2, 1]),
+    }
+    for bank_index in range(4):
+        banks[bank_index] = dict(banks[bank_index])
+        for layer, permutation in permutations.items():
+            axis = 2 if bank_index == 0 else 1
+            banks[bank_index][layer] = banks[bank_index][layer].index_select(
+                axis, permutation
+            )
+    permuted, _, _ = _run(router(), tuple(banks), receptances)
+    assert torch.equal(permuted, baseline)
+
+    zero_banks = list(_banks())
+    zero_banks[0] = {
+        layer: torch.zeros_like(value)
+        for layer, value in zero_banks[0].items()
+    }
+    zero, zero_diagnostics, _ = _run(
+        router(), tuple(zero_banks), receptances
+    )
+    assert torch.equal(zero, torch.zeros_like(zero))
+    assert zero_diagnostics[-1]["selected_slot"].item() == -1
 
 
 @pytest.mark.parametrize("zero_bank", ("state", "address"))
