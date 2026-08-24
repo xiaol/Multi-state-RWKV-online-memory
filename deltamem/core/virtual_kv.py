@@ -24,6 +24,7 @@ class VirtualKVShape:
     seed: int = 211
     key_radius: float = 1.0
     value_radius: float = 1.0
+    co_rotate_keys: bool = False
 
     def __post_init__(self) -> None:
         for name in (
@@ -86,6 +87,35 @@ class ExplicitRWKVVirtualKV(nn.Module):
     @staticmethod
     def _rms_sphere(value: torch.Tensor, radius: float) -> torch.Tensor:
         return value / value.square().mean(dim=-1, keepdim=True).add(1e-12).sqrt() * radius
+
+    @staticmethod
+    def _rotate_half(value: torch.Tensor) -> torch.Tensor:
+        first, second = value.chunk(2, dim=-1)
+        return torch.cat((-second, first), dim=-1)
+
+    def _co_rotate_keys(
+        self,
+        keys: torch.Tensor,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor] | None,
+    ) -> torch.Tensor:
+        if not self.shape_spec.co_rotate_keys:
+            return keys
+        if position_embeddings is None or len(position_embeddings) != 2:
+            raise ValueError("co-rotated virtual keys require query position embeddings")
+        cos, sin = position_embeddings
+        expected = (keys.size(0), 1, self.shape_spec.head_dim)
+        if tuple(cos.shape) != expected or tuple(sin.shape) != expected:
+            raise ValueError(
+                "co-rotated virtual key position geometry differs: "
+                f"expected={expected} cos={tuple(cos.shape)} sin={tuple(sin.shape)}"
+            )
+        if not bool(torch.isfinite(cos.float()).all().item()) or not bool(
+            torch.isfinite(sin.float()).all().item()
+        ):
+            raise ValueError("co-rotated virtual key position embeddings must be finite")
+        cos = cos[:, None].to(device=keys.device, dtype=keys.dtype)
+        sin = sin[:, None].to(device=keys.device, dtype=keys.dtype)
+        return keys * cos + self._rotate_half(keys) * sin
 
     def _validate_inputs(
         self,
@@ -171,6 +201,7 @@ class ExplicitRWKVVirtualKV(nn.Module):
         real_keys: torch.Tensor,
         real_values: torch.Tensor,
         attention_mask: torch.Tensor | None,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor] | None = None,
         module: Any | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
         del module
@@ -224,6 +255,7 @@ class ExplicitRWKVVirtualKV(nn.Module):
         if bool(keys[active].square().sum(dim=(-1, -2)).eq(0.0).any().item()):
             raise RuntimeError("active virtual KV key collapsed to zero")
         keys = keys.permute(0, 2, 1, 3).contiguous()
+        keys = self._co_rotate_keys(keys, position_embeddings)
         mask, _ = self._extended_mask(
             attention_mask,
             batch_size=state.size(0),

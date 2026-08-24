@@ -202,3 +202,73 @@ def test_provider_rejects_flash_attention_two() -> None:
     module.base.config._attn_implementation = "flash_attention_2"
     with pytest.raises(ValueError, match="flash_attention_2"):
         module.set_virtual_kv_provider(lambda **kwargs: None)
+
+
+def test_co_rotated_virtual_key_has_prompt_shift_invariant_logit() -> None:
+    torch.manual_seed(13)
+    builder = ExplicitRWKVVirtualKV(
+        VirtualKVShape(
+            key_dim=6,
+            state_heads=1,
+            rank=4,
+            slots=1,
+            kv_heads=1,
+            head_dim=4,
+            probe_rank=3,
+            value_hidden=7,
+            co_rotate_keys=True,
+        )
+    )
+    state = torch.randn(1, 1, 1, 4, 4)
+    address = torch.randn(1, 1, 6)
+    occupied = torch.ones(1, 1, dtype=torch.bool)
+    pre_rope_query = torch.randn(1, 1, 1, 4)
+    real_keys = torch.randn(1, 1, 2, 4)
+    real_values = torch.randn(1, 1, 2, 4)
+
+    def rotated(angle: float) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        cos = torch.full((1, 1, 4), torch.cos(torch.tensor(angle)))
+        sin = torch.full((1, 1, 4), torch.sin(torch.tensor(angle)))
+        query = pre_rope_query * cos[:, None] + builder._rotate_half(
+            pre_rope_query
+        ) * sin[:, None]
+        keys, _, _ = builder(
+            state=state,
+            address_keys=address,
+            occupied=occupied,
+            query_states=query,
+            real_keys=real_keys,
+            real_values=real_values,
+            attention_mask=None,
+            position_embeddings=(cos, sin),
+        )
+        return query, keys, torch.einsum("bhqd,bhkd->bhqk", query, keys)
+
+    _, _, first_logit = rotated(0.2)
+    _, _, shifted_logit = rotated(1.1)
+    torch.testing.assert_close(first_logit, shifted_logit, atol=1e-5, rtol=1e-5)
+
+
+def test_co_rotated_virtual_key_requires_position_embeddings() -> None:
+    builder = ExplicitRWKVVirtualKV(
+        VirtualKVShape(
+            key_dim=6,
+            state_heads=1,
+            rank=4,
+            slots=1,
+            kv_heads=1,
+            head_dim=4,
+            probe_rank=4,
+            co_rotate_keys=True,
+        )
+    )
+    with pytest.raises(ValueError, match="require query position embeddings"):
+        builder(
+            state=torch.randn(1, 1, 1, 4, 4),
+            address_keys=torch.randn(1, 1, 6),
+            occupied=torch.ones(1, 1, dtype=torch.bool),
+            query_states=torch.randn(1, 1, 1, 4),
+            real_keys=torch.randn(1, 1, 1, 4),
+            real_values=torch.randn(1, 1, 1, 4),
+            attention_mask=None,
+        )
