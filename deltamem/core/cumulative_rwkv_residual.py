@@ -305,18 +305,10 @@ class SourceCumulativeResidualRouter(nn.Module):
         masked_scores = scaled_scores.masked_fill(
             ~active[:, None, :], torch.finfo(scaled_scores.dtype).min
         )
-        logits = torch.cat(
-            (masked_scores, scaled_scores.new_zeros(batch_size, seq_len, 1)),
-            dim=-1,
-        )
-        probabilities = torch.softmax(logits, dim=-1)
-        memory_mass = (1.0 - probabilities[..., -1:]).clamp(0.0, 1.0)
-        soft_source_routes = torch.where(
-            memory_mass.gt(0.0),
-            probabilities[..., :-1] / memory_mass.clamp_min(1e-12),
-            torch.zeros_like(probabilities[..., :-1]),
-        )
         selected = masked_scores.argmax(dim=-1)
+        selected_scores = masked_scores.gather(-1, selected.unsqueeze(-1))
+        memory_mass = torch.sigmoid(selected_scores)
+        soft_source_routes = torch.softmax(masked_scores, dim=-1)
         hard_source_routes = F.one_hot(
             selected, num_classes=masked_scores.size(-1)
         ).to(dtype=soft_source_routes.dtype)

@@ -167,6 +167,13 @@ def test_router_accumulates_scores_and_uses_hard_canonical_source_route() -> Non
     assert torch.equal(residual, terminal["residual"])
     assert float(residual.abs().max()) <= 1.0 / 32.0
     assert modules[23].hrm_rwkv7_core.calls == 1
+    selected_score = terminal["accumulated_scores"].gather(
+        -1, terminal["selected_slot"].unsqueeze(-1)
+    )
+    torch.testing.assert_close(
+        terminal["memory_mass"],
+        torch.sigmoid(8.0 * selected_score),
+    )
 
 
 def test_terminal_raw_read_matches_selected_native_rwkv_state() -> None:

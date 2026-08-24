@@ -33,6 +33,9 @@ from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
 
 MANIFEST_SCHEMA = "rwkv_ms_natural_memory_native_rwkv_source_cumulative_residual.v1"
 ROW_SCHEMA = "rwkv_ms_natural_memory_native_rwkv_source_cumulative_residual_row.v1"
+SEALED_MANIFEST_SHA256 = (
+    "5251cc6f4254718620bd6e1328ac41c6fcb9bf837f836d623f874eedf53e9515"
+)
 BUNDLE_NAMES = residual_split.SPLIT_NAMES
 BUNDLE_ROWS = {"mechanics": 32, "causal": 32}
 FILE_NAMES = ("manifest.json", "mechanics.jsonl", "causal.jsonl")
@@ -172,18 +175,65 @@ def _validate_split_contract(split_contract: Mapping[str, Any]) -> None:
     selected_components: list[set[str]] = []
     for name in BUNDLE_NAMES:
         payload = splits[name]
+        expected_pairs = residual_split.EXPECTED_PAIRS[name]
+        expected_sources = sorted(source for pair in expected_pairs for source in pair)
+        expected_mapping: dict[int, int] = {}
+        for left, right in expected_pairs:
+            expected_mapping[left] = right
+            expected_mapping[right] = left
+        expected_mapping_pairs = [
+            [source, expected_mapping[source]] for source in expected_sources
+        ]
+        qualified_sources = payload.get("qualified_source_ids")
+        qualified_mapping = payload.get("qualified_mapping_pairs")
+        component_ids = payload.get("passage_component_ids")
+        donor_component_pairs = payload.get("donor_component_pairs")
         if (
             not isinstance(payload, Mapping)
             or tuple(tuple(pair) for pair in payload.get("pairs", ()))
-            != residual_split.EXPECTED_PAIRS[name]
+            != expected_pairs
+            or payload.get("pair_count") != len(expected_pairs)
+            or payload.get("source_indices") != expected_sources
             or payload.get("source_indices_sha256")
             != residual_split.EXPECTED_SOURCE_INDICES_SHA256[name]
+            or payload.get("source_indices_sha256")
+            != canonical_sha256(expected_sources)
+            or payload.get("mapping_pairs") != expected_mapping_pairs
+            or payload.get("mapping_pairs_sha256")
+            != canonical_sha256(expected_mapping_pairs)
+            or not isinstance(qualified_sources, list)
+            or len(qualified_sources) != len(expected_sources)
+            or payload.get("qualified_source_ids_sha256")
+            != canonical_sha256(qualified_sources)
+            or not isinstance(qualified_mapping, list)
+            or len(qualified_mapping) != len(expected_sources)
+            or payload.get("qualified_mapping_pairs_sha256")
+            != canonical_sha256(qualified_mapping)
+            or not isinstance(component_ids, list)
+            or len(component_ids) != len(expected_sources)
+            or len(set(component_ids)) != len(component_ids)
             or payload.get("passage_component_ids_sha256")
             != residual_split.EXPECTED_COMPONENT_IDS_SHA256[name]
-            or len(payload.get("source_indices", ())) != BUNDLE_ROWS[name]
+            or payload.get("passage_component_ids_sha256")
+            != canonical_sha256(component_ids)
+            or not isinstance(donor_component_pairs, list)
+            or len(donor_component_pairs) != len(expected_pairs)
+            or payload.get("donor_component_pairs_sha256")
+            != canonical_sha256(donor_component_pairs)
+            or len(expected_sources) != BUNDLE_ROWS[name]
         ):
             raise ValueError(f"Fresh residual {name} split binding differs")
-        selected_components.append(set(payload["passage_component_ids"]))
+        qualified_by_source = dict(zip(expected_sources, qualified_sources))
+        component_by_source = dict(zip(expected_sources, component_ids))
+        if qualified_mapping != [
+            [qualified_by_source[source], qualified_by_source[expected_mapping[source]]]
+            for source in expected_sources
+        ] or donor_component_pairs != [
+            [component_by_source[left], component_by_source[right]]
+            for left, right in expected_pairs
+        ]:
+            raise ValueError(f"Fresh residual {name} qualified mapping differs")
+        selected_components.append(set(component_ids))
     if selected_components[0] & selected_components[1]:
         raise ValueError("Fresh residual split passage components overlap")
     if split_contract.get("capture_authorization") != {
@@ -193,6 +243,18 @@ def _validate_split_contract(split_contract: Mapping[str, Any]) -> None:
         "causal_open_requires_mechanics_pass_and_separate_signed_protocol": True,
     }:
         raise ValueError("Fresh residual capture authorization differs")
+    if split_contract.get("leakage_audit") != {
+        "source_rows": 1443,
+        "passage_component_count": 708,
+        "historical_excluded_components": 94,
+        "parent_selected_components": 160,
+        "total_excluded_components": 254,
+        "remaining_components_before_selection": 454,
+        "selected_source_rows": 64,
+        "selected_passage_components": 64,
+        "cross_split_passage_component_count": 0,
+    }:
+        raise ValueError("Fresh residual leakage audit differs")
 
 
 def materialize_prepared(
@@ -336,6 +398,8 @@ def load_manifest_only(manifest_path: Path) -> dict[str, Any]:
     if manifest_path.name != "manifest.json":
         raise ValueError("Fresh residual manifest loader accepts only manifest.json")
     payload = manifest_path.read_bytes()
+    if sha256_bytes(payload) != SEALED_MANIFEST_SHA256:
+        raise ValueError("Fresh residual manifest file hash differs")
     try:
         manifest = json.loads(payload.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -411,17 +475,25 @@ def read_authorized_bundle(
         raise ValueError(f"Invalid fresh residual bundle: {name}")
     if name == "mechanics" and not allow_mechanics:
         raise PermissionError("Fresh residual mechanics requires signed authorization")
-    if name == "causal" and not allow_causal:
-        raise PermissionError("Fresh residual causal requires a mechanics pass")
-    binding = manifest["file_inventory"]["bundles"][name]
-    payload = (root / binding["path"]).read_bytes()
+    if name == "causal":
+        del allow_causal
+        raise PermissionError(
+            "Fresh residual causal requires a dedicated post-mechanics signed loader"
+        )
+    on_disk_manifest = load_manifest_only(root / "manifest.json")
+    if dict(manifest) != on_disk_manifest:
+        raise ValueError("Fresh residual authorized manifest differs from sealed bytes")
+    binding = on_disk_manifest["file_inventory"]["bundles"][name]
+    if binding["path"] != f"{name}.jsonl":
+        raise ValueError(f"Fresh residual {name} bundle path differs")
+    payload = (root / f"{name}.jsonl").read_bytes()
     if sha256_bytes(payload) != binding["sha256"]:
         raise ValueError(f"Fresh residual {name} file hash differs")
     try:
         lines = payload.decode("utf-8").splitlines()
     except UnicodeDecodeError as error:
         raise ValueError(f"Fresh residual {name} bundle is not UTF-8") from error
-    split_payload = manifest["split_contract"]["splits"][name]
+    split_payload = on_disk_manifest["split_contract"]["splits"][name]
     mapping = {
         int(source): int(donor)
         for source, donor in split_payload["mapping_pairs"]

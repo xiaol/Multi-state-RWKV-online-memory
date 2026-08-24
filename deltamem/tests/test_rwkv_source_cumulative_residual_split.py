@@ -104,8 +104,12 @@ def test_manifest_only_validation_never_requires_bundle_files(tmp_path: Path) ->
     ("name", "kwargs", "message"),
     (
         ("mechanics", {}, "signed authorization"),
-        ("causal", {}, "mechanics pass"),
-        ("causal", {"allow_mechanics": True}, "mechanics pass"),
+        ("causal", {}, "dedicated post-mechanics signed loader"),
+        (
+            "causal",
+            {"allow_mechanics": True, "allow_causal": True},
+            "dedicated post-mechanics signed loader",
+        ),
     ),
 )
 def test_protected_bundle_read_fails_before_filesystem_access(
@@ -148,5 +152,69 @@ def test_fresh_manifest_receipt_tampering_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps(tampered))
 
-    with pytest.raises(ValueError, match="receipt differs"):
+    with pytest.raises(ValueError, match="manifest file hash differs"):
         materializer.load_manifest_only(path)
+
+
+def test_re_receipted_mapping_tampering_is_rejected() -> None:
+    manifest = json.loads(FRESH_MANIFEST.read_bytes())
+    contract = copy.deepcopy(manifest["split_contract"])
+    mechanics = contract["splits"]["mechanics"]
+    mechanics["mapping_pairs"][0][1] = mechanics["mapping_pairs"][0][0]
+    mechanics["mapping_pairs_sha256"] = materializer.canonical_sha256(
+        mechanics["mapping_pairs"]
+    )
+    unsigned = dict(contract)
+    unsigned.pop("receipt")
+    contract["receipt"] = materializer._receipt(
+        "canonical_split_without_receipt",
+        unsigned,
+    )
+
+    with pytest.raises(ValueError, match="mechanics split binding differs"):
+        materializer._validate_split_contract(contract)
+
+
+def test_authorized_bundle_rejects_manifest_path_redirection_before_access(
+    tmp_path: Path,
+) -> None:
+    manifest = materializer.load_manifest_only(FRESH_MANIFEST)
+    (tmp_path / "manifest.json").write_bytes(FRESH_MANIFEST.read_bytes())
+    redirected = copy.deepcopy(manifest)
+    redirected["file_inventory"]["bundles"]["mechanics"]["path"] = (
+        "redirected.jsonl"
+    )
+
+    with pytest.raises(ValueError, match="authorized manifest differs"):
+        materializer.read_authorized_bundle(
+            tmp_path,
+            redirected,
+            "mechanics",
+            allow_mechanics=True,
+        )
+    assert not (tmp_path / "redirected.jsonl").exists()
+
+
+def test_authorized_mechanics_reloads_exact_sealed_manifest_before_bundle_access(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = materializer.load_manifest_only(FRESH_MANIFEST)
+    reloads: list[Path] = []
+
+    def reload_manifest(path: Path) -> dict[str, object]:
+        reloads.append(path)
+        return copy.deepcopy(manifest)
+
+    monkeypatch.setattr(materializer, "load_manifest_only", reload_manifest)
+    different_manifest = copy.deepcopy(manifest)
+    different_manifest["protected_splits_opened"] = ["mechanics"]
+
+    with pytest.raises(ValueError, match="authorized manifest differs"):
+        materializer.read_authorized_bundle(
+            tmp_path,
+            different_manifest,
+            "mechanics",
+            allow_mechanics=True,
+        )
+    assert reloads == [tmp_path / "manifest.json"]
