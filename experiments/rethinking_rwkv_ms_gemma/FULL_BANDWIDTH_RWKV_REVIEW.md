@@ -819,3 +819,21 @@ attention. It also suggests a paper-compatible distinction: evidence can be
 accumulated causally while moving upward through depth before a selected state
 is renewed downward. A separately signed cumulative-depth router may test
 that architecture, but post-selecting only layers `5/23` is not claim-grade.
+
+The separately signed causal prefix-depth accumulator has now passed all four
+anchors without changing maps, candidates, thresholds, or anchor inventory.
+It averages compatibility evidence over `[5]`, `[5,11]`, `[5,11,17]`, and
+`[5,11,17,23]` as the forward pass moves upward. Strict four-way top-1 was
+`0.937500/0.875000/0.937500/1.000000`, mean strongest-wrong margins were
+`0.108299/0.095830/0.098911/0.134506`, and every layer-permutation row passed.
+The result SHA-256 is
+`0ea1627415f0319931b86d0ce5ba5a255c5e738f6f22b88aec73c742f9dad73b`
+with receipt
+`fdf41009269b2cb71ca14285bbe687e50bb30207e5acc699c555cd9122262d59`.
+
+This is the first identity result that changes the Full-Bandwidth ordering.
+The selector may now enter a live mechanics screen as an ephemeral running
+belief over source identity. Only after live wrong-state/wrong-address and
+causal output gates pass should its selected RWKV value be returned to a
+shallow layer through the paper's mandatory GLU. The current pass proves
+open-tensor routing geometry, not causal model use or benchmark improvement.

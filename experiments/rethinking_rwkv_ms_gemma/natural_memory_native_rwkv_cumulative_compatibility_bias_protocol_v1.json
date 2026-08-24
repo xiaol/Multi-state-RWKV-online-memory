@@ -1,0 +1,111 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_cumulative_compatibility_bias_protocol.v1",
+  "created_at": "2026-08-24T20:20:00+08:00",
+  "objective": "On exactly four distinct A100 GPUs with the Hugging Face mirror configured, test a structurally distinct causal-depth router on the same frozen already-open retrieval tensors: at each full-attention anchor, average the receptance/address compatibility scores from every full-attention anchor available up to that depth, then require the unchanged four-way source, layer, permutation, zero, and finite gates before any live attention or protected access.",
+  "authorization_basis": {
+    "full_bandwidth_paper": "arXiv:2608.08888v1",
+    "paper_translation": "Full-Bandwidth Transformer motivates renewing a deep selected state, while this screen first accumulates identity evidence causally while moving upward through depth.",
+    "local_bias_result_sha256": "bf33dba5091ed9e9fc75e6289c5bb3d0da67a6fd6421c4afbf260419097993b8",
+    "local_bias_result_receipt": "cf5a1869a8ea770ab57d85aa19d48905fb2d6244fa0ab574ca2a2f7a4d1fd5a2",
+    "local_bias_status": "compatibility_bias_failed_frozen_local_route_retired",
+    "local_bias_boundary": "The local route passed layers 5 and 23 but failed the locked 3/4 gate. This protocol does not post-select those layers or alter maps, candidates, thresholds, or anchor inventory; it changes the selector to a causal prefix-depth accumulator.",
+    "continuous_retrieval_result_sha256": "5103a66475b7a596e53a58b8c7cb554e7e400f5825d42ca141bc342dfef8784b",
+    "continuous_retrieval_result_receipt": "cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd"
+  },
+  "frozen_inputs": {
+    "root": "local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1",
+    "map_file": "continuous-write-maps.pt",
+    "map_file_sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6",
+    "frozen_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+    "alignment_source_sha256": "f7c51bdcf518763ba6e9e63976d75a8cdcfc518b4d9ba593a4fcc4de62a404cb",
+    "local_screen_source_sha256": "3bcd239298dcb6ab0ba07ab43f2b46adbfbb3b2aae9e1aeb781ffa029739e1a9",
+    "distributed_source_sha256": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d",
+    "retrieval_shards": [
+      {
+        "path": "retrieval-shard-0.json",
+        "sha256": "a876704c1e6d7149a08e03d8c3d6f6c1585c98420ef339f2340f1540422965c5",
+        "receipt": "8e566d49b7011507771f08b49c19e7287572c3e7baf9e3b9277134783042c298"
+      },
+      {
+        "path": "retrieval-shard-1.json",
+        "sha256": "ead3ee1d64af7e6f7905326bdf668337d0802cea82a1731854378622dc4c7c64",
+        "receipt": "bf762f4f1b9ec03a637a8eb80ad90faff343c967254a100da4bdf40b3683129f"
+      },
+      {
+        "path": "retrieval-shard-2.json",
+        "sha256": "eedfabb423cc8a5561cebae682d4250644a40d539e76fb4d37f3204090448d02",
+        "receipt": "5912353c023eaa8e897a582f8d5605870ca55f6515edad1c7fabba2ed1ecc4db"
+      },
+      {
+        "path": "retrieval-shard-3.json",
+        "sha256": "6921772a0a5b0474c0e6584646081cd10fa67a459a41d67e26ed37f29ba5978c",
+        "receipt": "12e24030554459c0a30875598bca60f6c6c43a2c4954adc33dd41e1bb6bc414a"
+      }
+    ],
+    "retrieval_rows": 32,
+    "fit_or_map_updates": false
+  },
+  "architecture": {
+    "name": "causal_prefix_depth_accumulated_routed_virtual_kv",
+    "anchor_layers": [5, 11, 17, 23],
+    "prefixes": {
+      "5": [5],
+      "11": [5, 11],
+      "17": [5, 11, 17],
+      "23": [5, 11, 17, 23]
+    },
+    "local_score": "mean(RMS(receptance32_l) * frozen_mapped_direction_l(address64_l))",
+    "accumulated_bias": "arithmetic mean of local scores over the complete declared anchor prefix",
+    "runtime_state": "ephemeral per-forward running score sum and count; no persistent cache mutation",
+    "deployment_scope": "add a positive scaled accumulated bias only to the ephemeral virtual-logit suffix after the current anchor contributes; real-key logits and mask bytes stay exact",
+    "native_gemma_query_used_for_identity": false,
+    "rwkv_state_value_path_changed": false,
+    "full_bandwidth_feedback_installed": false
+  },
+  "candidate_bank": {
+    "order": ["target", "matched_donor", "distractor_1", "distractor_2"],
+    "distractors": "Take the minimum source index from the first two lexicographically sorted retrieval donor pairs other than the target/donor pair.",
+    "permutation_probe": [2, 0, 3, 1],
+    "layer_permutation": "At every component of the anchor prefix, score the target query against the target address rolled forward by one over the complete ordered 42-module axis before applying that component's frozen map.",
+    "zero_probe": "Replace every address in the active anchor prefix with exact all-zero 64-vectors; every local score and the accumulated bias must be exact zero, and slot eligibility must be false."
+  },
+  "required_gates": {
+    "per_anchor": {
+      "strict_correct_top1_fraction": 0.75,
+      "correct_over_strongest_wrong_mean_margin": 0.05,
+      "correct_over_matched_donor_positive_fraction": 0.75,
+      "correct_over_layer_permuted_positive_fraction": 0.75,
+      "finite": true,
+      "candidate_permutation_exact": true,
+      "zero_address_raw_bias_exact_zero": true,
+      "zero_address_slot_eligible": false
+    },
+    "minimum_anchor_layers_passing": 3
+  },
+  "execution": {
+    "world_size": 4,
+    "required_gpu_substring": "A100",
+    "distinct_gpu_uuids": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "model_or_adapter_parameters_updated": false,
+    "retrieval_evaluation_calls": 1
+  },
+  "data_lifecycle": {
+    "already_open_retrieval_tensors_only": true,
+    "fit_shards_read": false,
+    "mechanics_bytes_opened": false,
+    "causal_bytes_opened": false,
+    "generation_bytes_opened": false,
+    "native_benchmark_bytes_opened": false
+  },
+  "stopping_rule": {
+    "pass": "Freeze the cumulative anchor prefixes and authorize a separately signed live eager-Q1 mechanics protocol with exact running-score lifecycle, real-logit, mask, cache, wrong-address, wrong-state, layer-permutation, zero, prompt-shift, cached/full, and value-path controls.",
+    "failure": "Retire the causal prefix-depth accumulator without opening protected bytes; do not tune thresholds, prefix membership, aggregation, maps, layers, or candidates on this result.",
+    "always": "No causal, native benchmark, Full-Bandwidth, benchmark-gain, or SOTA claim follows from this open-tensor screen."
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "943ced50b000c4b05339b2afe1037b4f41f799a78569258354bb972e686017bc"
+  }
+}

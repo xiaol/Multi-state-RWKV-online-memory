@@ -722,6 +722,26 @@ causal-depth accumulator may combine all compatibility evidence available up
 to each anchor; it must be signed and screened separately rather than choosing
 the two passing anchors after the result.
 
+The separately signed causal prefix-depth accumulator then kept every map,
+candidate, threshold, and anchor fixed while averaging the available anchor
+scores as depth advanced: `[5]`, `[5,11]`, `[5,11,17]`, and
+`[5,11,17,23]`. Its one four-A100 retrieval evaluation passed all `4/4`
+anchors. Strict four-way top-1 was `0.937500/0.875000/0.937500/1.000000`;
+mean strongest-wrong margins were
+`0.108299/0.095830/0.098911/0.134506`; matched-donor positive fractions were
+`0.968750/0.906250/0.968750/1.000000`; and layer-permuted positive fractions
+were `1.0` throughout. Candidate permutation and exact-zero controls also
+passed. Status is
+`cumulative_compatibility_bias_passed_live_mechanics_protocol_authorized`;
+result SHA-256 is
+`0ea1627415f0319931b86d0ce5ba5a255c5e738f6f22b88aec73c742f9dad73b`
+and receipt is
+`fdf41009269b2cb71ca14285bbe687e50bb30207e5acc699c555cd9122262d59`.
+This is the first four-way open-split identity pass for the explicit routed
+virtual-KV selector. It authorizes only a fresh live eager-Q1 mechanics
+protocol; it is not yet causal use, native benchmark gain, Full-Bandwidth
+gain, or SOTA evidence.
+
 Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed continuous retrieval pass](local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
@@ -738,7 +758,10 @@ Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_
 [signed co-rotated key failure](local_artifacts/natural_memory_native_rwkv_corotated_key_v1/result.json),
 [compatibility-bias protocol](natural_memory_native_rwkv_compatibility_bias_protocol_v1.json),
 [compatibility-bias screen](screen_natural_memory_native_rwkv_compatibility_bias.py),
-and [signed local compatibility-bias failure](local_artifacts/natural_memory_native_rwkv_compatibility_bias_v1/result.json).
+[signed local compatibility-bias failure](local_artifacts/natural_memory_native_rwkv_compatibility_bias_v1/result.json),
+[cumulative compatibility-bias protocol](natural_memory_native_rwkv_cumulative_compatibility_bias_protocol_v1.json),
+[cumulative compatibility-bias screen](screen_natural_memory_native_rwkv_cumulative_compatibility_bias.py),
+and [signed cumulative compatibility-bias pass](local_artifacts/natural_memory_native_rwkv_cumulative_compatibility_bias_v1/result.json).
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),

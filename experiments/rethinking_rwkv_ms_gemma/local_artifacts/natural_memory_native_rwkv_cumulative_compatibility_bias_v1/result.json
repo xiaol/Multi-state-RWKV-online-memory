@@ -1,0 +1,5405 @@
+{
+  "analysis": {
+    "passed": true,
+    "passed_layers": 4,
+    "per_anchor": {
+      "11": {
+        "checks": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_positive_fraction": true,
+          "correct_over_matched_donor_positive_fraction": true,
+          "correct_over_strongest_wrong_mean_margin": true,
+          "finite": true,
+          "strict_correct_top1_fraction": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": true
+        },
+        "correct_over_layer_permuted_mean_margin": 1.0140455439686775,
+        "correct_over_layer_permuted_positive_fraction": 1.0,
+        "correct_over_matched_donor_mean_margin": 0.17401984706521034,
+        "correct_over_matched_donor_positive_fraction": 0.90625,
+        "correct_over_strongest_wrong_mean_margin": 0.09583014249801636,
+        "correct_over_strongest_wrong_minimum_margin": -0.06310933828353882,
+        "passed": true,
+        "strict_correct_top1_fraction": 0.875
+      },
+      "17": {
+        "checks": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_positive_fraction": true,
+          "correct_over_matched_donor_positive_fraction": true,
+          "correct_over_strongest_wrong_mean_margin": true,
+          "finite": true,
+          "strict_correct_top1_fraction": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": true
+        },
+        "correct_over_layer_permuted_mean_margin": 0.9222606755793095,
+        "correct_over_layer_permuted_positive_fraction": 1.0,
+        "correct_over_matched_donor_mean_margin": 0.15757920872420073,
+        "correct_over_matched_donor_positive_fraction": 0.96875,
+        "correct_over_strongest_wrong_mean_margin": 0.09891095943748951,
+        "correct_over_strongest_wrong_minimum_margin": -0.07139921188354492,
+        "passed": true,
+        "strict_correct_top1_fraction": 0.9375
+      },
+      "23": {
+        "checks": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_positive_fraction": true,
+          "correct_over_matched_donor_positive_fraction": true,
+          "correct_over_strongest_wrong_mean_margin": true,
+          "finite": true,
+          "strict_correct_top1_fraction": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": true
+        },
+        "correct_over_layer_permuted_mean_margin": 0.8454543258994818,
+        "correct_over_layer_permuted_positive_fraction": 1.0,
+        "correct_over_matched_donor_mean_margin": 0.19596124906092882,
+        "correct_over_matched_donor_positive_fraction": 1.0,
+        "correct_over_strongest_wrong_mean_margin": 0.13450617529451847,
+        "correct_over_strongest_wrong_minimum_margin": 0.002245008945465088,
+        "passed": true,
+        "strict_correct_top1_fraction": 1.0
+      },
+      "5": {
+        "checks": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_positive_fraction": true,
+          "correct_over_matched_donor_positive_fraction": true,
+          "correct_over_strongest_wrong_mean_margin": true,
+          "finite": true,
+          "strict_correct_top1_fraction": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": true
+        },
+        "correct_over_layer_permuted_mean_margin": 1.1545943319797516,
+        "correct_over_layer_permuted_positive_fraction": 1.0,
+        "correct_over_matched_donor_mean_margin": 0.1689709648489952,
+        "correct_over_matched_donor_positive_fraction": 0.96875,
+        "correct_over_strongest_wrong_mean_margin": 0.10829893499612808,
+        "correct_over_strongest_wrong_minimum_margin": -0.04424738883972168,
+        "passed": true,
+        "strict_correct_top1_fraction": 0.9375
+      }
+    },
+    "required_passed_layers": 3
+  },
+  "architecture": {
+    "accumulated_bias": "arithmetic mean of local scores over the complete declared anchor prefix",
+    "anchor_layers": [
+      5,
+      11,
+      17,
+      23
+    ],
+    "deployment_scope": "add a positive scaled accumulated bias only to the ephemeral virtual-logit suffix after the current anchor contributes; real-key logits and mask bytes stay exact",
+    "full_bandwidth_feedback_installed": false,
+    "local_score": "mean(RMS(receptance32_l) * frozen_mapped_direction_l(address64_l))",
+    "name": "causal_prefix_depth_accumulated_routed_virtual_kv",
+    "native_gemma_query_used_for_identity": false,
+    "prefixes": {
+      "11": [
+        5,
+        11
+      ],
+      "17": [
+        5,
+        11,
+        17
+      ],
+      "23": [
+        5,
+        11,
+        17,
+        23
+      ],
+      "5": [
+        5
+      ]
+    },
+    "runtime_state": "ephemeral per-forward running score sum and count; no persistent cache mutation",
+    "rwkv_state_value_path_changed": false
+  },
+  "candidate_bank": {
+    "distractors": "Take the minimum source index from the first two lexicographically sorted retrieval donor pairs other than the target/donor pair.",
+    "layer_permutation": "At every component of the anchor prefix, score the target query against the target address rolled forward by one over the complete ordered 42-module axis before applying that component's frozen map.",
+    "order": [
+      "target",
+      "matched_donor",
+      "distractor_1",
+      "distractor_2"
+    ],
+    "permutation_probe": [
+      2,
+      0,
+      3,
+      1
+    ],
+    "zero_probe": "Replace every address in the active anchor prefix with exact all-zero 64-vectors; every local score and the accumulated bias must be exact zero, and slot eligibility must be false."
+  },
+  "fit_shards_read": false,
+  "frozen_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+  "full_bandwidth_feedback_installed": false,
+  "generation_or_native_benchmark_bytes_opened": false,
+  "hardware": {
+    "devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 0,
+        "pid": 2941902,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 1,
+        "pid": 2941903,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 2,
+        "pid": 2941904,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 3,
+        "pid": 2941905,
+        "process_rank": 3
+      }
+    ],
+    "four_distinct_a100s": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "world_size": 4
+  },
+  "input_records_digest": "c74ed63d6285980c5eb43c294402a5a32a063754181927be0c955521bbe237ba",
+  "input_root": "local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1",
+  "map_file_sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6",
+  "mechanics_or_causal_bytes_opened": false,
+  "model_or_adapter_parameters_updated": false,
+  "native_gain_claimed": false,
+  "parent_result_receipt": "cf5a1869a8ea770ab57d85aa19d48905fb2d6244fa0ab574ca2a2f7a4d1fd5a2",
+  "parent_result_sha256": "bf33dba5091ed9e9fc75e6289c5bb3d0da67a6fd6421c4afbf260419097993b8",
+  "passed": true,
+  "protocol_file_sha256": "a61eca43c472b5abc860173141a95575d640d61a2539ca7aabe2ee144fe71055",
+  "protocol_receipt": "943ced50b000c4b05339b2afe1037b4f41f799a78569258354bb972e686017bc",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "fdf41009269b2cb71ca14285bbe687e50bb30207e5acc699c555cd9122262d59"
+  },
+  "retrieval_evaluation_calls": 1,
+  "rows": [
+    {
+      "candidate_sources": [
+        79,
+        395,
+        129,
+        185
+      ],
+      "donor_source_index": 395,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.7567523717880249,
+          "correct_over_matched_donor_margin": 0.10978072881698608,
+          "correct_over_strongest_wrong_margin": 0.052517473697662354,
+          "finite": true,
+          "local_scores": [
+            [
+              0.6410504579544067,
+              0.3852500021457672,
+              0.48877713084220886,
+              0.49172306060791016
+            ],
+            [
+              0.653609573841095,
+              0.6898486018180847,
+              0.7008479833602905,
+              0.5581679344177246
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.6473300457000732,
+            0.5375493168830872,
+            0.5948125720024109,
+            0.5249454975128174
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.6956046223640442,
+          "correct_over_matched_donor_margin": 0.1724507212638855,
+          "correct_over_strongest_wrong_margin": 0.05361896753311157,
+          "finite": true,
+          "local_scores": [
+            [
+              0.6410504579544067,
+              0.3852500021457672,
+              0.48877713084220886,
+              0.49172306060791016
+            ],
+            [
+              0.653609573841095,
+              0.6898486018180847,
+              0.7008479833602905,
+              0.5581679344177246
+            ],
+            [
+              0.6514614820480347,
+              0.35367080569267273,
+              0.5956396460533142,
+              0.610098123550415
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.6487072110176086,
+            0.47625648975372314,
+            0.5950882434844971,
+            0.5533297061920166
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.5892111659049988,
+          "correct_over_matched_donor_margin": 0.10327145457267761,
+          "correct_over_strongest_wrong_margin": 0.10228946805000305,
+          "finite": true,
+          "local_scores": [
+            [
+              0.6410504579544067,
+              0.3852500021457672,
+              0.48877713084220886,
+              0.49172306060791016
+            ],
+            [
+              0.653609573841095,
+              0.6898486018180847,
+              0.7008479833602905,
+              0.5581679344177246
+            ],
+            [
+              0.6514614820480347,
+              0.35367080569267273,
+              0.5956396460533142,
+              0.610098123550415
+            ],
+            [
+              0.3104223608970642,
+              0.4146886169910431,
+              0.06212128698825836,
+              0.06555518507957458
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.5641359686851501,
+            0.46086451411247253,
+            0.4618465006351471,
+            0.4313860833644867
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8348269462585449,
+          "correct_over_matched_donor_margin": 0.2558004558086395,
+          "correct_over_strongest_wrong_margin": 0.14932739734649658,
+          "finite": true,
+          "local_scores": [
+            [
+              0.6410504579544067,
+              0.3852500021457672,
+              0.48877713084220886,
+              0.49172306060791016
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.6410504579544067,
+            0.3852500021457672,
+            0.48877713084220886,
+            0.49172306060791016
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 79
+    },
+    {
+      "candidate_sources": [
+        129,
+        168,
+        79,
+        185
+      ],
+      "donor_source_index": 168,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1716418266296387,
+          "correct_over_matched_donor_margin": 0.1468098759651184,
+          "correct_over_strongest_wrong_margin": 0.12953400611877441,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9037060737609863,
+              0.8507205247879028,
+              0.6521847248077393,
+              0.6807702779769897
+            ],
+            [
+              0.9389476776123047,
+              0.6983134746551514,
+              0.49351179599761963,
+              0.9028154015541077
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.9213268756866455,
+            0.7745169997215271,
+            0.5728482604026794,
+            0.7917928695678711
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9387197494506836,
+          "correct_over_matched_donor_margin": 0.12468975782394409,
+          "correct_over_strongest_wrong_margin": 0.08550876379013062,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9037060737609863,
+              0.8507205247879028,
+              0.6521847248077393,
+              0.6807702779769897
+            ],
+            [
+              0.9389476776123047,
+              0.6983134746551514,
+              0.49351179599761963,
+              0.9028154015541077
+            ],
+            [
+              0.7570071816444397,
+              0.6765576004981995,
+              0.5731675624847412,
+              0.7595489621162415
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8665536642074585,
+            0.7418639063835144,
+            0.5729547142982483,
+            0.7810449004173279
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8987649083137512,
+          "correct_over_matched_donor_margin": 0.22373783588409424,
+          "correct_over_strongest_wrong_margin": 0.04826110601425171,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9037060737609863,
+              0.8507205247879028,
+              0.6521847248077393,
+              0.6807702779769897
+            ],
+            [
+              0.9389476776123047,
+              0.6983134746551514,
+              0.49351179599761963,
+              0.9028154015541077
+            ],
+            [
+              0.7570071816444397,
+              0.6765576004981995,
+              0.5731675624847412,
+              0.7595489621162415
+            ],
+            [
+              0.7306356430053711,
+              0.20975349843502045,
+              0.5473345518112183,
+              0.7941174507141113
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.8325741291046143,
+            0.60883629322052,
+            0.5665496587753296,
+            0.7843130230903625
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.2030916213989258,
+          "correct_over_matched_donor_margin": 0.052985548973083496,
+          "correct_over_strongest_wrong_margin": 0.052985548973083496,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9037060737609863,
+              0.8507205247879028,
+              0.6521847248077393,
+              0.6807702779769897
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9037060737609863,
+            0.8507205247879028,
+            0.6521847248077393,
+            0.6807702779769897
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 129
+    },
+    {
+      "candidate_sources": [
+        168,
+        129,
+        79,
+        185
+      ],
+      "donor_source_index": 129,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9790575504302979,
+          "correct_over_matched_donor_margin": -0.06310933828353882,
+          "correct_over_strongest_wrong_margin": -0.06310933828353882,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9138456583023071,
+              0.8294388651847839,
+              0.699962854385376,
+              0.6197155714035034
+            ],
+            [
+              0.6325290203094482,
+              0.8431544899940491,
+              0.37021082639694214,
+              0.770463228225708
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.7731873393058777,
+            0.8362966775894165,
+            0.5350868701934814,
+            0.6950893998146057
+          ],
+          "strict_correct_top1": false,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8096717596054077,
+          "correct_over_matched_donor_margin": 0.05716961622238159,
+          "correct_over_strongest_wrong_margin": 0.05716961622238159,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9138456583023071,
+              0.8294388651847839,
+              0.699962854385376,
+              0.6197155714035034
+            ],
+            [
+              0.6325290203094482,
+              0.8431544899940491,
+              0.37021082639694214,
+              0.770463228225708
+            ],
+            [
+              0.8272891044616699,
+              0.5295616388320923,
+              0.39953750371932983,
+              0.7297333478927612
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7912213206291199,
+            0.7340517044067383,
+            0.4899037778377533,
+            0.7066373825073242
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8245633840560913,
+          "correct_over_matched_donor_margin": 0.259921133518219,
+          "correct_over_strongest_wrong_margin": 0.22137200832366943,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9138456583023071,
+              0.8294388651847839,
+              0.699962854385376,
+              0.6197155714035034
+            ],
+            [
+              0.6325290203094482,
+              0.8431544899940491,
+              0.37021082639694214,
+              0.770463228225708
+            ],
+            [
+              0.8272891044616699,
+              0.5295616388320923,
+              0.39953750371932983,
+              0.7297333478927612
+            ],
+            [
+              0.8031661510467529,
+              -0.06500948965549469,
+              -0.3060453534126282,
+              0.17142978310585022
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7942075133323669,
+            0.534286379814148,
+            0.2909165024757385,
+            0.5728355050086975
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.073976993560791,
+          "correct_over_matched_donor_margin": 0.0844067931175232,
+          "correct_over_strongest_wrong_margin": 0.0844067931175232,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9138456583023071,
+              0.8294388651847839,
+              0.699962854385376,
+              0.6197155714035034
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9138456583023071,
+            0.8294388651847839,
+            0.699962854385376,
+            0.6197155714035034
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 168
+    },
+    {
+      "candidate_sources": [
+        185,
+        268,
+        79,
+        129
+      ],
+      "donor_source_index": 268,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1052038669586182,
+          "correct_over_matched_donor_margin": 0.2886505126953125,
+          "correct_over_strongest_wrong_margin": 0.09847146272659302,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9185879826545715,
+              0.8252347111701965,
+              0.6362348198890686,
+              0.7375985383987427
+            ],
+            [
+              0.8664236068725586,
+              0.38247576355934143,
+              0.25737303495407104,
+              0.8504700660705566
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8925057649612427,
+            0.6038552522659302,
+            0.4468039274215698,
+            0.7940343022346497
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9870902895927429,
+          "correct_over_matched_donor_margin": 0.29893264174461365,
+          "correct_over_strongest_wrong_margin": 0.16873836517333984,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9185879826545715,
+              0.8252347111701965,
+              0.6362348198890686,
+              0.7375985383987427
+            ],
+            [
+              0.8664236068725586,
+              0.38247576355934143,
+              0.25737303495407104,
+              0.8504700660705566
+            ],
+            [
+              0.6066389083862305,
+              0.28714197874069214,
+              0.31880080699920654,
+              0.29736679792404175
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7972168326377869,
+            0.4982841908931732,
+            0.4041362404823303,
+            0.628478467464447
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9189547300338745,
+          "correct_over_matched_donor_margin": 0.40425074100494385,
+          "correct_over_strongest_wrong_margin": 0.13336962461471558,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9185879826545715,
+              0.8252347111701965,
+              0.6362348198890686,
+              0.7375985383987427
+            ],
+            [
+              0.8664236068725586,
+              0.38247576355934143,
+              0.25737303495407104,
+              0.8504700660705566
+            ],
+            [
+              0.6066389083862305,
+              0.28714197874069214,
+              0.31880080699920654,
+              0.29736679792404175
+            ],
+            [
+              0.8141629695892334,
+              0.09395790100097656,
+              0.4261739253997803,
+              0.7868995666503906
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.8014533519744873,
+            0.39720261096954346,
+            0.4096456468105316,
+            0.6680837273597717
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1264418363571167,
+          "correct_over_matched_donor_margin": 0.093353271484375,
+          "correct_over_strongest_wrong_margin": 0.093353271484375,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9185879826545715,
+              0.8252347111701965,
+              0.6362348198890686,
+              0.7375985383987427
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9185879826545715,
+            0.8252347111701965,
+            0.6362348198890686,
+            0.7375985383987427
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 185
+    },
+    {
+      "candidate_sources": [
+        252,
+        1414,
+        79,
+        129
+      ],
+      "donor_source_index": 1414,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8759719729423523,
+          "correct_over_matched_donor_margin": 0.18648678064346313,
+          "correct_over_strongest_wrong_margin": 0.13055729866027832,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8938857316970825,
+              0.7570476531982422,
+              0.5913079380989075,
+              0.774299144744873
+            ],
+            [
+              0.829841673374176,
+              0.5937062501907349,
+              0.6059468984603882,
+              0.6883137226104736
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8618637323379517,
+            0.6753769516944885,
+            0.5986274480819702,
+            0.7313064336776733
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8818017244338989,
+          "correct_over_matched_donor_margin": 0.13754534721374512,
+          "correct_over_strongest_wrong_margin": 0.13754534721374512,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8938857316970825,
+              0.7570476531982422,
+              0.5913079380989075,
+              0.774299144744873
+            ],
+            [
+              0.829841673374176,
+              0.5937062501907349,
+              0.6059468984603882,
+              0.6883137226104736
+            ],
+            [
+              0.7724807858467102,
+              0.7328182458877563,
+              0.44041022658348083,
+              0.4259439706802368
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8320693969726562,
+            0.6945240497589111,
+            0.5458884239196777,
+            0.629518985748291
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8615491390228271,
+          "correct_over_matched_donor_margin": 0.2782244086265564,
+          "correct_over_strongest_wrong_margin": 0.2782244086265564,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8938857316970825,
+              0.7570476531982422,
+              0.5913079380989075,
+              0.774299144744873
+            ],
+            [
+              0.829841673374176,
+              0.5937062501907349,
+              0.6059468984603882,
+              0.6883137226104736
+            ],
+            [
+              0.7724807858467102,
+              0.7328182458877563,
+              0.44041022658348083,
+              0.4259439706802368
+            ],
+            [
+              0.6892458200454712,
+              -0.01101578027009964,
+              -0.1716269552707672,
+              0.05818987637758255
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7963634729385376,
+            0.5181390643119812,
+            0.3665095567703247,
+            0.48668667674064636
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.2650279998779297,
+          "correct_over_matched_donor_margin": 0.13683807849884033,
+          "correct_over_strongest_wrong_margin": 0.11958658695220947,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8938857316970825,
+              0.7570476531982422,
+              0.5913079380989075,
+              0.774299144744873
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8938857316970825,
+            0.7570476531982422,
+            0.5913079380989075,
+            0.774299144744873
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 252
+    },
+    {
+      "candidate_sources": [
+        263,
+        1365,
+        79,
+        129
+      ],
+      "donor_source_index": 1365,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0194200277328491,
+          "correct_over_matched_donor_margin": 0.07667887210845947,
+          "correct_over_strongest_wrong_margin": 0.06760233640670776,
+          "finite": true,
+          "local_scores": [
+            [
+              0.896144688129425,
+              0.8124059438705444,
+              0.4701770544052124,
+              0.6664544343948364
+            ],
+            [
+              0.7569819092750549,
+              0.6873629093170166,
+              0.4877052903175354,
+              0.8514675498008728
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.82656329870224,
+            0.7498844265937805,
+            0.4789411723613739,
+            0.7589609622955322
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9400744438171387,
+          "correct_over_matched_donor_margin": 0.08897078037261963,
+          "correct_over_strongest_wrong_margin": 0.08897078037261963,
+          "finite": true,
+          "local_scores": [
+            [
+              0.896144688129425,
+              0.8124059438705444,
+              0.4701770544052124,
+              0.6664544343948364
+            ],
+            [
+              0.7569819092750549,
+              0.6873629093170166,
+              0.4877052903175354,
+              0.8514675498008728
+            ],
+            [
+              0.5359486937522888,
+              0.4223940670490265,
+              0.45929139852523804,
+              0.18833863735198975
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.729691743850708,
+            0.6407209634780884,
+            0.4723912477493286,
+            0.5687535405158997
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9028819799423218,
+          "correct_over_matched_donor_margin": 0.09258842468261719,
+          "correct_over_strongest_wrong_margin": 0.09258842468261719,
+          "finite": true,
+          "local_scores": [
+            [
+              0.896144688129425,
+              0.8124059438705444,
+              0.4701770544052124,
+              0.6664544343948364
+            ],
+            [
+              0.7569819092750549,
+              0.6873629093170166,
+              0.4877052903175354,
+              0.8514675498008728
+            ],
+            [
+              0.5359486937522888,
+              0.4223940670490265,
+              0.45929139852523804,
+              0.18833863735198975
+            ],
+            [
+              0.4531368613243103,
+              0.3496955633163452,
+              -0.02961723506450653,
+              0.21230661869049072
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.6605530381202698,
+            0.5679646134376526,
+            0.3468891382217407,
+            0.47964179515838623
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.344599723815918,
+          "correct_over_matched_donor_margin": 0.08373874425888062,
+          "correct_over_strongest_wrong_margin": 0.08373874425888062,
+          "finite": true,
+          "local_scores": [
+            [
+              0.896144688129425,
+              0.8124059438705444,
+              0.4701770544052124,
+              0.6664544343948364
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.896144688129425,
+            0.8124059438705444,
+            0.4701770544052124,
+            0.6664544343948364
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 263
+    },
+    {
+      "candidate_sources": [
+        268,
+        185,
+        79,
+        129
+      ],
+      "donor_source_index": 185,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0057913064956665,
+          "correct_over_matched_donor_margin": 0.31919586658477783,
+          "correct_over_strongest_wrong_margin": 0.21213483810424805,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9211207628250122,
+              0.7821379899978638,
+              0.6205514669418335,
+              0.617698609828949
+            ],
+            [
+              0.740431010723114,
+              0.2410220205783844,
+              0.6167305707931519,
+              0.35248851776123047
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8307758569717407,
+            0.5115799903869629,
+            0.6186410188674927,
+            0.4850935637950897
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8916311264038086,
+          "correct_over_matched_donor_margin": 0.1468324065208435,
+          "correct_over_strongest_wrong_margin": 0.1468324065208435,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9211207628250122,
+              0.7821379899978638,
+              0.6205514669418335,
+              0.617698609828949
+            ],
+            [
+              0.740431010723114,
+              0.2410220205783844,
+              0.6167305707931519,
+              0.35248851776123047
+            ],
+            [
+              0.5361199378967285,
+              0.7340145707130432,
+              0.4409111440181732,
+              0.4481280446052551
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7325572371482849,
+            0.5857248306274414,
+            0.5593977570533752,
+            0.4727717339992523
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.7318150997161865,
+          "correct_over_matched_donor_margin": 0.14352887868881226,
+          "correct_over_strongest_wrong_margin": 0.14352887868881226,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9211207628250122,
+              0.7821379899978638,
+              0.6205514669418335,
+              0.617698609828949
+            ],
+            [
+              0.740431010723114,
+              0.2410220205783844,
+              0.6167305707931519,
+              0.35248851776123047
+            ],
+            [
+              0.5361199378967285,
+              0.7340145707130432,
+              0.4409111440181732,
+              0.4481280446052551
+            ],
+            [
+              0.4426686465740204,
+              0.3090503513813019,
+              0.02977980673313141,
+              0.00033417344093322754
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.6600850820541382,
+            0.5165562033653259,
+            0.4269932508468628,
+            0.35466232895851135
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.3034543991088867,
+          "correct_over_matched_donor_margin": 0.13898277282714844,
+          "correct_over_strongest_wrong_margin": 0.13898277282714844,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9211207628250122,
+              0.7821379899978638,
+              0.6205514669418335,
+              0.617698609828949
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9211207628250122,
+            0.7821379899978638,
+            0.6205514669418335,
+            0.617698609828949
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 268
+    },
+    {
+      "candidate_sources": [
+        318,
+        1324,
+        79,
+        129
+      ],
+      "donor_source_index": 1324,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1632556915283203,
+          "correct_over_matched_donor_margin": 0.2551812529563904,
+          "correct_over_strongest_wrong_margin": 0.2551812529563904,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9101701974868774,
+              0.6536943912506104,
+              0.4933828115463257,
+              0.7026764154434204
+            ],
+            [
+              0.9263215661048889,
+              0.67243492603302,
+              0.47146135568618774,
+              0.6050604581832886
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.9182459115982056,
+            0.6630646586418152,
+            0.4824220836162567,
+            0.6538684368133545
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.2238160371780396,
+          "correct_over_matched_donor_margin": 0.35337650775909424,
+          "correct_over_strongest_wrong_margin": 0.35337650775909424,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9101701974868774,
+              0.6536943912506104,
+              0.4933828115463257,
+              0.7026764154434204
+            ],
+            [
+              0.9263215661048889,
+              0.67243492603302,
+              0.47146135568618774,
+              0.6050604581832886
+            ],
+            [
+              0.7631708383560181,
+              0.2134038805961609,
+              0.14655858278274536,
+              0.21176135540008545
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8665542602539062,
+            0.513177752494812,
+            0.3704676032066345,
+            0.5064994096755981
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.058244228363037,
+          "correct_over_matched_donor_margin": 0.340373158454895,
+          "correct_over_strongest_wrong_margin": 0.340373158454895,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9101701974868774,
+              0.6536943912506104,
+              0.4933828115463257,
+              0.7026764154434204
+            ],
+            [
+              0.9263215661048889,
+              0.67243492603302,
+              0.47146135568618774,
+              0.6050604581832886
+            ],
+            [
+              0.7631708383560181,
+              0.2134038805961609,
+              0.14655858278274536,
+              0.21176135540008545
+            ],
+            [
+              0.5189487934112549,
+              0.21758583188056946,
+              -0.19277799129486084,
+              0.07376901805400848
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7796528935432434,
+            0.4392797350883484,
+            0.2296561896800995,
+            0.39831680059432983
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1921401023864746,
+          "correct_over_matched_donor_margin": 0.2564758062362671,
+          "correct_over_strongest_wrong_margin": 0.20749378204345703,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9101701974868774,
+              0.6536943912506104,
+              0.4933828115463257,
+              0.7026764154434204
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9101701974868774,
+            0.6536943912506104,
+            0.4933828115463257,
+            0.7026764154434204
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 318
+    },
+    {
+      "candidate_sources": [
+        386,
+        784,
+        79,
+        129
+      ],
+      "donor_source_index": 784,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.7911412119865417,
+          "correct_over_matched_donor_margin": 0.2746146321296692,
+          "correct_over_strongest_wrong_margin": 0.2125566005706787,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8892408609390259,
+              0.6890239715576172,
+              0.4865841567516327,
+              0.5723546743392944
+            ],
+            [
+              0.7791249752044678,
+              0.4301126003265381,
+              0.6039658188819885,
+              0.6708979606628418
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8341829180717468,
+            0.5595682859420776,
+            0.5452749729156494,
+            0.6216263175010681
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.6427340507507324,
+          "correct_over_matched_donor_margin": 0.18663525581359863,
+          "correct_over_strongest_wrong_margin": 0.12658703327178955,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8892408609390259,
+              0.6890239715576172,
+              0.4865841567516327,
+              0.5723546743392944
+            ],
+            [
+              0.7791249752044678,
+              0.4301126003265381,
+              0.6039658188819885,
+              0.6708979606628418
+            ],
+            [
+              0.5856838822364807,
+              0.5750073790550232,
+              0.31437158584594727,
+              0.6310360431671143
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.751349925994873,
+            0.5647146701812744,
+            0.4683071970939636,
+            0.6247628927230835
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.5829765796661377,
+          "correct_over_matched_donor_margin": 0.2911231219768524,
+          "correct_over_strongest_wrong_margin": 0.24197539687156677,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8892408609390259,
+              0.6890239715576172,
+              0.4865841567516327,
+              0.5723546743392944
+            ],
+            [
+              0.7791249752044678,
+              0.4301126003265381,
+              0.6039658188819885,
+              0.6708979606628418
+            ],
+            [
+              0.5856838822364807,
+              0.5750073790550232,
+              0.31437158584594727,
+              0.6310360431671143
+            ],
+            [
+              0.6051339507102966,
+              0.0005472972989082336,
+              -0.303951621055603,
+              0.01699354499578476
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7147959470748901,
+            0.4236728250980377,
+            0.27524247765541077,
+            0.47282055020332336
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9042577743530273,
+          "correct_over_matched_donor_margin": 0.2002168893814087,
+          "correct_over_strongest_wrong_margin": 0.2002168893814087,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8892408609390259,
+              0.6890239715576172,
+              0.4865841567516327,
+              0.5723546743392944
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8892408609390259,
+            0.6890239715576172,
+            0.4865841567516327,
+            0.5723546743392944
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 386
+    },
+    {
+      "candidate_sources": [
+        395,
+        79,
+        129,
+        185
+      ],
+      "donor_source_index": 79,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0409079790115356,
+          "correct_over_matched_donor_margin": 0.2866864502429962,
+          "correct_over_strongest_wrong_margin": -0.032391369342803955,
+          "finite": true,
+          "local_scores": [
+            [
+              0.821004331111908,
+              0.6227859258651733,
+              0.7681810259819031,
+              0.7473377585411072
+            ],
+            [
+              0.7460282444953918,
+              0.37087374925613403,
+              0.8636342883110046,
+              0.8005192279815674
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.7835162878036499,
+            0.4968298375606537,
+            0.8159076571464539,
+            0.7739285230636597
+          ],
+          "strict_correct_top1": false,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.08282470703125,
+          "correct_over_matched_donor_margin": 0.3030795454978943,
+          "correct_over_strongest_wrong_margin": 0.057204246520996094,
+          "finite": true,
+          "local_scores": [
+            [
+              0.821004331111908,
+              0.6227859258651733,
+              0.7681810259819031,
+              0.7473377585411072
+            ],
+            [
+              0.7460282444953918,
+              0.37087374925613403,
+              0.8636342883110046,
+              0.8005192279815674
+            ],
+            [
+              0.7529932856559753,
+              0.41712772846221924,
+              0.5093189477920532,
+              0.6005561351776123
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7733420133590698,
+            0.47026246786117554,
+            0.7137114405632019,
+            0.7161377668380737
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8662770986557007,
+          "correct_over_matched_donor_margin": 0.30258485674858093,
+          "correct_over_strongest_wrong_margin": 0.10752862691879272,
+          "finite": true,
+          "local_scores": [
+            [
+              0.821004331111908,
+              0.6227859258651733,
+              0.7681810259819031,
+              0.7473377585411072
+            ],
+            [
+              0.7460282444953918,
+              0.37087374925613403,
+              0.8636342883110046,
+              0.8005192279815674
+            ],
+            [
+              0.7529932856559753,
+              0.41712772846221924,
+              0.5093189477920532,
+              0.6005561351776123
+            ],
+            [
+              0.31297847628593445,
+              0.011877626180648804,
+              0.010171972215175629,
+              0.05447661876678467
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.6582511067390442,
+            0.35566624999046326,
+            0.5378265380859375,
+            0.5507224798202515
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.2159382104873657,
+          "correct_over_matched_donor_margin": 0.19821840524673462,
+          "correct_over_strongest_wrong_margin": 0.05282330513000488,
+          "finite": true,
+          "local_scores": [
+            [
+              0.821004331111908,
+              0.6227859258651733,
+              0.7681810259819031,
+              0.7473377585411072
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.821004331111908,
+            0.6227859258651733,
+            0.7681810259819031,
+            0.7473377585411072
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 395
+    },
+    {
+      "candidate_sources": [
+        401,
+        470,
+        79,
+        129
+      ],
+      "donor_source_index": 470,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.3146482706069946,
+          "correct_over_matched_donor_margin": 0.03271448612213135,
+          "correct_over_strongest_wrong_margin": 0.03271448612213135,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9453787207603455,
+              0.9011062383651733,
+              0.6152716875076294,
+              0.750016450881958
+            ],
+            [
+              0.8917420506477356,
+              0.870585560798645,
+              0.24664294719696045,
+              0.8181936740875244
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.9185603857040405,
+            0.8858458995819092,
+            0.4309573173522949,
+            0.7841050624847412
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1642318964004517,
+          "correct_over_matched_donor_margin": 0.02264028787612915,
+          "correct_over_strongest_wrong_margin": 0.02264028787612915,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9453787207603455,
+              0.9011062383651733,
+              0.6152716875076294,
+              0.750016450881958
+            ],
+            [
+              0.8917420506477356,
+              0.870585560798645,
+              0.24664294719696045,
+              0.8181936740875244
+            ],
+            [
+              0.6355988383293152,
+              0.6331068873405457,
+              0.39000988006591797,
+              0.46460628509521484
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8242399096488953,
+            0.8015996217727661,
+            0.41730818152427673,
+            0.6776055097579956
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1068376302719116,
+          "correct_over_matched_donor_margin": 0.17980331182479858,
+          "correct_over_strongest_wrong_margin": 0.17980331182479858,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9453787207603455,
+              0.9011062383651733,
+              0.6152716875076294,
+              0.750016450881958
+            ],
+            [
+              0.8917420506477356,
+              0.870585560798645,
+              0.24664294719696045,
+              0.8181936740875244
+            ],
+            [
+              0.6355988383293152,
+              0.6331068873405457,
+              0.39000988006591797,
+              0.46460628509521484
+            ],
+            [
+              0.8379596471786499,
+              0.18666742742061615,
+              -0.30751705169677734,
+              0.16318240761756897
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.8276698589324951,
+            0.6478665471076965,
+            0.23610186576843262,
+            0.5489997267723083
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.3798285722732544,
+          "correct_over_matched_donor_margin": 0.04427248239517212,
+          "correct_over_strongest_wrong_margin": 0.04427248239517212,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9453787207603455,
+              0.9011062383651733,
+              0.6152716875076294,
+              0.750016450881958
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9453787207603455,
+            0.9011062383651733,
+            0.6152716875076294,
+            0.750016450881958
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 401
+    },
+    {
+      "candidate_sources": [
+        404,
+        1155,
+        79,
+        129
+      ],
+      "donor_source_index": 1155,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.777606189250946,
+          "correct_over_matched_donor_margin": 0.1075630784034729,
+          "correct_over_strongest_wrong_margin": 0.01628929376602173,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9230468273162842,
+              0.6243845224380493,
+              0.5445328950881958,
+              0.7872141599655151
+            ],
+            [
+              0.5750382542610168,
+              0.6585743427276611,
+              0.526131272315979,
+              0.6782922744750977
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.7490425109863281,
+            0.6414794325828552,
+            0.5353320837020874,
+            0.7327532172203064
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.6310620903968811,
+          "correct_over_matched_donor_margin": 0.010280489921569824,
+          "correct_over_strongest_wrong_margin": -0.07139921188354492,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9230468273162842,
+              0.6243845224380493,
+              0.5445328950881958,
+              0.7872141599655151
+            ],
+            [
+              0.5750382542610168,
+              0.6585743427276611,
+              0.526131272315979,
+              0.6782922744750977
+            ],
+            [
+              0.3931785225868225,
+              0.5774629712104797,
+              0.11459780484437943,
+              0.6399545669555664
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.6304211616516113,
+            0.6201406717300415,
+            0.395087331533432,
+            0.7018203735351562
+          ],
+          "strict_correct_top1": false,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.5051738023757935,
+          "correct_over_matched_donor_margin": 0.10646054148674011,
+          "correct_over_strongest_wrong_margin": 0.06855231523513794,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9230468273162842,
+              0.6243845224380493,
+              0.5445328950881958,
+              0.7872141599655151
+            ],
+            [
+              0.5750382542610168,
+              0.6585743427276611,
+              0.526131272315979,
+              0.6782922744750977
+            ],
+            [
+              0.3931785225868225,
+              0.5774629712104797,
+              0.11459780484437943,
+              0.6399545669555664
+            ],
+            [
+              0.49345219135284424,
+              0.09845149517059326,
+              -0.1245545893907547,
+              0.005045196041464806
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.5961788892745972,
+            0.48971834778785706,
+            0.26517683267593384,
+            0.5276265740394592
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0700730085372925,
+          "correct_over_matched_donor_margin": 0.29866230487823486,
+          "correct_over_strongest_wrong_margin": 0.13583266735076904,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9230468273162842,
+              0.6243845224380493,
+              0.5445328950881958,
+              0.7872141599655151
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9230468273162842,
+            0.6243845224380493,
+            0.5445328950881958,
+            0.7872141599655151
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 404
+    },
+    {
+      "candidate_sources": [
+        405,
+        1110,
+        79,
+        129
+      ],
+      "donor_source_index": 1110,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.7748485207557678,
+          "correct_over_matched_donor_margin": 0.22188138961791992,
+          "correct_over_strongest_wrong_margin": 0.1872164011001587,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8654546141624451,
+              0.6093481779098511,
+              0.6383504867553711,
+              0.4985600709915161
+            ],
+            [
+              0.6628730297088623,
+              0.4752167761325836,
+              0.3567974269390106,
+              0.6553348898887634
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.7641638517379761,
+            0.5422824621200562,
+            0.49757397174835205,
+            0.5769474506378174
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.6663556694984436,
+          "correct_over_matched_donor_margin": 0.22748368978500366,
+          "correct_over_strongest_wrong_margin": 0.14457166194915771,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8654546141624451,
+              0.6093481779098511,
+              0.6383504867553711,
+              0.4985600709915161
+            ],
+            [
+              0.6628730297088623,
+              0.4752167761325836,
+              0.3567974269390106,
+              0.6553348898887634
+            ],
+            [
+              0.7182049751281738,
+              0.47951674461364746,
+              0.26258862018585205,
+              0.6589229106903076
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7488442659378052,
+            0.5213605761528015,
+            0.41924554109573364,
+            0.6042726039886475
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.737856924533844,
+          "correct_over_matched_donor_margin": 0.2529600262641907,
+          "correct_over_strongest_wrong_margin": 0.24583575129508972,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8654546141624451,
+              0.6093481779098511,
+              0.6383504867553711,
+              0.4985600709915161
+            ],
+            [
+              0.6628730297088623,
+              0.4752167761325836,
+              0.3567974269390106,
+              0.6553348898887634
+            ],
+            [
+              0.7182049751281738,
+              0.47951674461364746,
+              0.26258862018585205,
+              0.6589229106903076
+            ],
+            [
+              0.6184431314468384,
+              0.28905409574508667,
+              0.27774327993392944,
+              0.06881512701511383
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7162439823150635,
+            0.4632839560508728,
+            0.3838699460029602,
+            0.47040823101997375
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8246886134147644,
+          "correct_over_matched_donor_margin": 0.256106436252594,
+          "correct_over_strongest_wrong_margin": 0.22710412740707397,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8654546141624451,
+              0.6093481779098511,
+              0.6383504867553711,
+              0.4985600709915161
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8654546141624451,
+            0.6093481779098511,
+            0.6383504867553711,
+            0.4985600709915161
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 405
+    },
+    {
+      "candidate_sources": [
+        439,
+        1065,
+        79,
+        129
+      ],
+      "donor_source_index": 1065,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9965858459472656,
+          "correct_over_matched_donor_margin": 0.281333863735199,
+          "correct_over_strongest_wrong_margin": 0.08987444639205933,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8037861585617065,
+              0.5035244226455688,
+              0.42186790704727173,
+              0.614546537399292
+            ],
+            [
+              0.8103173971176147,
+              0.5479114055633545,
+              0.2741478383541107,
+              0.8198081254959106
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8070517778396606,
+            0.5257179141044617,
+            0.34800785779953003,
+            0.7171773314476013
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0287307500839233,
+          "correct_over_matched_donor_margin": 0.26441359519958496,
+          "correct_over_strongest_wrong_margin": 0.16775548458099365,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8037861585617065,
+              0.5035244226455688,
+              0.42186790704727173,
+              0.614546537399292
+            ],
+            [
+              0.8103173971176147,
+              0.5479114055633545,
+              0.2741478383541107,
+              0.8198081254959106
+            ],
+            [
+              0.809772253036499,
+              0.5791992545127869,
+              0.46228986978530884,
+              0.4862545132637024
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8079586029052734,
+            0.5435450077056885,
+            0.3861019015312195,
+            0.6402031183242798
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0296483039855957,
+          "correct_over_matched_donor_margin": 0.334493488073349,
+          "correct_over_strongest_wrong_margin": 0.2531152367591858,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8037861585617065,
+              0.5035244226455688,
+              0.42186790704727173,
+              0.614546537399292
+            ],
+            [
+              0.8103173971176147,
+              0.5479114055633545,
+              0.2741478383541107,
+              0.8198081254959106
+            ],
+            [
+              0.809772253036499,
+              0.5791992545127869,
+              0.46228986978530884,
+              0.4862545132637024
+            ],
+            [
+              0.7915960550308228,
+              0.2468627393245697,
+              0.022102750837802887,
+              0.28240150213241577
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.8038679361343384,
+            0.4693744480609894,
+            0.2951020896434784,
+            0.5507526993751526
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.2285754680633545,
+          "correct_over_matched_donor_margin": 0.3002617359161377,
+          "correct_over_strongest_wrong_margin": 0.18923962116241455,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8037861585617065,
+              0.5035244226455688,
+              0.42186790704727173,
+              0.614546537399292
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8037861585617065,
+            0.5035244226455688,
+            0.42186790704727173,
+            0.614546537399292
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 439
+    },
+    {
+      "candidate_sources": [
+        444,
+        1258,
+        79,
+        129
+      ],
+      "donor_source_index": 1258,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.013925552368164,
+          "correct_over_matched_donor_margin": -0.0021132230758666992,
+          "correct_over_strongest_wrong_margin": -0.0021132230758666992,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8567153215408325,
+              0.8800697326660156,
+              0.4656088352203369,
+              0.6752394437789917
+            ],
+            [
+              0.8273242712020874,
+              0.8081962466239929,
+              0.45589619874954224,
+              0.78437739610672
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.84201979637146,
+            0.8441330194473267,
+            0.4607525169849396,
+            0.7298084497451782
+          ],
+          "strict_correct_top1": false,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1487195491790771,
+          "correct_over_matched_donor_margin": 0.06315279006958008,
+          "correct_over_strongest_wrong_margin": 0.06315279006958008,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8567153215408325,
+              0.8800697326660156,
+              0.4656088352203369,
+              0.6752394437789917
+            ],
+            [
+              0.8273242712020874,
+              0.8081962466239929,
+              0.45589619874954224,
+              0.78437739610672
+            ],
+            [
+              0.7716848850250244,
+              0.5780000686645508,
+              0.25550317764282227,
+              0.45113202929496765
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.818574845790863,
+            0.755422055721283,
+            0.39233607053756714,
+            0.6369163393974304
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.972387969493866,
+          "correct_over_matched_donor_margin": 0.002245008945465088,
+          "correct_over_strongest_wrong_margin": 0.002245008945465088,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8567153215408325,
+              0.8800697326660156,
+              0.4656088352203369,
+              0.6752394437789917
+            ],
+            [
+              0.8273242712020874,
+              0.8081962466239929,
+              0.45589619874954224,
+              0.78437739610672
+            ],
+            [
+              0.7716848850250244,
+              0.5780000686645508,
+              0.25550317764282227,
+              0.45113202929496765
+            ],
+            [
+              0.2587440609931946,
+              0.43922242522239685,
+              -0.24795003235340118,
+              0.07844129949808121
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.6786171197891235,
+            0.6763721108436584,
+            0.23226453363895416,
+            0.4972975552082062
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1110217571258545,
+          "correct_over_matched_donor_margin": -0.023354411125183105,
+          "correct_over_strongest_wrong_margin": -0.023354411125183105,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8567153215408325,
+              0.8800697326660156,
+              0.4656088352203369,
+              0.6752394437789917
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8567153215408325,
+            0.8800697326660156,
+            0.4656088352203369,
+            0.6752394437789917
+          ],
+          "strict_correct_top1": false,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 444
+    },
+    {
+      "candidate_sources": [
+        470,
+        401,
+        79,
+        129
+      ],
+      "donor_source_index": 401,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.131832480430603,
+          "correct_over_matched_donor_margin": -0.0014880895614624023,
+          "correct_over_strongest_wrong_margin": -0.0014880895614624023,
+          "finite": true,
+          "local_scores": [
+            [
+              0.832194447517395,
+              0.7716252207756042,
+              0.5290746092796326,
+              0.663486659526825
+            ],
+            [
+              0.8664976358413696,
+              0.93004310131073,
+              0.26214247941970825,
+              0.8119053840637207
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8493460416793823,
+            0.8508341312408447,
+            0.3956085443496704,
+            0.7376960515975952
+          ],
+          "strict_correct_top1": false,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0635974407196045,
+          "correct_over_matched_donor_margin": 0.021794617176055908,
+          "correct_over_strongest_wrong_margin": 0.021794617176055908,
+          "finite": true,
+          "local_scores": [
+            [
+              0.832194447517395,
+              0.7716252207756042,
+              0.5290746092796326,
+              0.663486659526825
+            ],
+            [
+              0.8664976358413696,
+              0.93004310131073,
+              0.26214247941970825,
+              0.8119053840637207
+            ],
+            [
+              0.6606905460357666,
+              0.5923304557800293,
+              0.48592251539230347,
+              0.4610832929611206
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7864608764648438,
+            0.7646662592887878,
+            0.4257132411003113,
+            0.6454918384552002
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9224107265472412,
+          "correct_over_matched_donor_margin": 0.013694941997528076,
+          "correct_over_strongest_wrong_margin": 0.013694941997528076,
+          "finite": true,
+          "local_scores": [
+            [
+              0.832194447517395,
+              0.7716252207756042,
+              0.5290746092796326,
+              0.663486659526825
+            ],
+            [
+              0.8664976358413696,
+              0.93004310131073,
+              0.26214247941970825,
+              0.8119053840637207
+            ],
+            [
+              0.6606905460357666,
+              0.5923304557800293,
+              0.48592251539230347,
+              0.4610832929611206
+            ],
+            [
+              0.5813658833503723,
+              0.5919698476791382,
+              0.12323679774999619,
+              0.46480119228363037
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7351871132850647,
+            0.7214921712875366,
+            0.35009410977363586,
+            0.6003191471099854
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1535284519195557,
+          "correct_over_matched_donor_margin": 0.06056922674179077,
+          "correct_over_strongest_wrong_margin": 0.06056922674179077,
+          "finite": true,
+          "local_scores": [
+            [
+              0.832194447517395,
+              0.7716252207756042,
+              0.5290746092796326,
+              0.663486659526825
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.832194447517395,
+            0.7716252207756042,
+            0.5290746092796326,
+            0.663486659526825
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 470
+    },
+    {
+      "candidate_sources": [
+        567,
+        1396,
+        79,
+        129
+      ],
+      "donor_source_index": 1396,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.949576199054718,
+          "correct_over_matched_donor_margin": 0.27652668952941895,
+          "correct_over_strongest_wrong_margin": 0.13973325490951538,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8624829053878784,
+              0.5600737929344177,
+              0.6177317500114441,
+              0.788943886756897
+            ],
+            [
+              0.8799943327903748,
+              0.6293500065803528,
+              0.5639061331748962,
+              0.6740667819976807
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8712385892868042,
+            0.5947118997573853,
+            0.5908189415931702,
+            0.7315053343772888
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8340038061141968,
+          "correct_over_matched_donor_margin": 0.21214866638183594,
+          "correct_over_strongest_wrong_margin": 0.08291071653366089,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8624829053878784,
+              0.5600737929344177,
+              0.6177317500114441,
+              0.788943886756897
+            ],
+            [
+              0.8799943327903748,
+              0.6293500065803528,
+              0.5639061331748962,
+              0.6740667819976807
+            ],
+            [
+              0.7679197788238525,
+              0.6845271587371826,
+              0.17495784163475037,
+              0.7986541390419006
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8367990255355835,
+            0.6246503591537476,
+            0.4521985948085785,
+            0.7538883090019226
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8015050292015076,
+          "correct_over_matched_donor_margin": 0.13417446613311768,
+          "correct_over_strongest_wrong_margin": 0.03117215633392334,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8624829053878784,
+              0.5600737929344177,
+              0.6177317500114441,
+              0.788943886756897
+            ],
+            [
+              0.8799943327903748,
+              0.6293500065803528,
+              0.5639061331748962,
+              0.6740667819976807
+            ],
+            [
+              0.7679197788238525,
+              0.6845271587371826,
+              0.17495784163475037,
+              0.7986541390419006
+            ],
+            [
+              0.7099289894104004,
+              0.8096771836280823,
+              0.5076682567596436,
+              0.8339724540710449
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.8050814867019653,
+            0.6709070205688477,
+            0.46606600284576416,
+            0.773909330368042
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.974560558795929,
+          "correct_over_matched_donor_margin": 0.3024091124534607,
+          "correct_over_strongest_wrong_margin": 0.07353901863098145,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8624829053878784,
+              0.5600737929344177,
+              0.6177317500114441,
+              0.788943886756897
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8624829053878784,
+            0.5600737929344177,
+            0.6177317500114441,
+            0.788943886756897
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 567
+    },
+    {
+      "candidate_sources": [
+        753,
+        1190,
+        79,
+        129
+      ],
+      "donor_source_index": 1190,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0755506753921509,
+          "correct_over_matched_donor_margin": 0.24231022596359253,
+          "correct_over_strongest_wrong_margin": 0.16501259803771973,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9112037420272827,
+              0.5194715261459351,
+              0.361410915851593,
+              0.606211245059967
+            ],
+            [
+              0.7787340879440308,
+              0.6858458518981934,
+              0.2101912498474121,
+              0.753701388835907
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8449689149856567,
+            0.6026586890220642,
+            0.28580108284950256,
+            0.679956316947937
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0366266965866089,
+          "correct_over_matched_donor_margin": 0.2916821241378784,
+          "correct_over_strongest_wrong_margin": 0.23606133460998535,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9112037420272827,
+              0.5194715261459351,
+              0.361410915851593,
+              0.606211245059967
+            ],
+            [
+              0.7787340879440308,
+              0.6858458518981934,
+              0.2101912498474121,
+              0.753701388835907
+            ],
+            [
+              0.7249757051467896,
+              0.33454984426498413,
+              0.2374277412891388,
+              0.3468169569969177
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8049712181091309,
+            0.5132890939712524,
+            0.26967665553092957,
+            0.5689098834991455
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8794196844100952,
+          "correct_over_matched_donor_margin": 0.3171781003475189,
+          "correct_over_strongest_wrong_margin": 0.21053552627563477,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9112037420272827,
+              0.5194715261459351,
+              0.361410915851593,
+              0.606211245059967
+            ],
+            [
+              0.7787340879440308,
+              0.6858458518981934,
+              0.2101912498474121,
+              0.753701388835907
+            ],
+            [
+              0.7249757051467896,
+              0.33454984426498413,
+              0.2374277412891388,
+              0.3468169569969177
+            ],
+            [
+              0.5761526823043823,
+              0.182486891746521,
+              0.1281200498342514,
+              0.4421946108341217
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7477666139602661,
+            0.4305885136127472,
+            0.23428750038146973,
+            0.5372310876846313
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0859240293502808,
+          "correct_over_matched_donor_margin": 0.39173221588134766,
+          "correct_over_strongest_wrong_margin": 0.3049924969673157,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9112037420272827,
+              0.5194715261459351,
+              0.361410915851593,
+              0.606211245059967
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9112037420272827,
+            0.5194715261459351,
+            0.361410915851593,
+            0.606211245059967
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 753
+    },
+    {
+      "candidate_sources": [
+        784,
+        386,
+        79,
+        129
+      ],
+      "donor_source_index": 386,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0203477144241333,
+          "correct_over_matched_donor_margin": 0.2535989284515381,
+          "correct_over_strongest_wrong_margin": 0.005219876766204834,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8775095343589783,
+              0.58962082862854,
+              0.7013510465621948,
+              0.9217569231987
+            ],
+            [
+              0.8650290369987488,
+              0.6457198858261108,
+              0.4757751524448395,
+              0.8103419542312622
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8712692856788635,
+            0.6176703572273254,
+            0.588563084602356,
+            0.8660494089126587
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0080177783966064,
+          "correct_over_matched_donor_margin": 0.20782947540283203,
+          "correct_over_strongest_wrong_margin": 0.047904133796691895,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8775095343589783,
+              0.58962082862854,
+              0.7013510465621948,
+              0.9217569231987
+            ],
+            [
+              0.8650290369987488,
+              0.6457198858261108,
+              0.4757751524448395,
+              0.8103419542312622
+            ],
+            [
+              0.7375079393386841,
+              0.6212173700332642,
+              0.2772318124771118,
+              0.6042352914810181
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8266822099685669,
+            0.6188527345657349,
+            0.4847860038280487,
+            0.778778076171875
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.7675625085830688,
+          "correct_over_matched_donor_margin": 0.22842192649841309,
+          "correct_over_strongest_wrong_margin": 0.049402475357055664,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8775095343589783,
+              0.58962082862854,
+              0.7013510465621948,
+              0.9217569231987
+            ],
+            [
+              0.8650290369987488,
+              0.6457198858261108,
+              0.4757751524448395,
+              0.8103419542312622
+            ],
+            [
+              0.7375079393386841,
+              0.6212173700332642,
+              0.2772318124771118,
+              0.6042352914810181
+            ],
+            [
+              0.35976269841194153,
+              0.06956340372562408,
+              0.45342522859573364,
+              0.30586495995521545
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7099522948265076,
+            0.4815303683280945,
+            0.47694581747055054,
+            0.6605498194694519
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1130023002624512,
+          "correct_over_matched_donor_margin": 0.28788870573043823,
+          "correct_over_strongest_wrong_margin": -0.04424738883972168,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8775095343589783,
+              0.58962082862854,
+              0.7013510465621948,
+              0.9217569231987
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8775095343589783,
+            0.58962082862854,
+            0.7013510465621948,
+            0.9217569231987
+          ],
+          "strict_correct_top1": false,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 784
+    },
+    {
+      "candidate_sources": [
+        1065,
+        439,
+        79,
+        129
+      ],
+      "donor_source_index": 439,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1503294706344604,
+          "correct_over_matched_donor_margin": 0.17121708393096924,
+          "correct_over_strongest_wrong_margin": 0.10405951738357544,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9044959545135498,
+              0.6465009450912476,
+              0.6644170880317688,
+              0.7766174077987671
+            ],
+            [
+              0.7948290705680847,
+              0.7103899717330933,
+              0.5468371510505676,
+              0.7145886421203613
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8496625423431396,
+            0.6784454584121704,
+            0.6056271195411682,
+            0.7456030249595642
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0246713161468506,
+          "correct_over_matched_donor_margin": 0.047638893127441406,
+          "correct_over_strongest_wrong_margin": 0.047638893127441406,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9044959545135498,
+              0.6465009450912476,
+              0.6644170880317688,
+              0.7766174077987671
+            ],
+            [
+              0.7948290705680847,
+              0.7103899717330933,
+              0.5468371510505676,
+              0.7145886421203613
+            ],
+            [
+              0.65671706199646,
+              0.8562344908714294,
+              0.5316319465637207,
+              0.5448458194732666
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7853474020957947,
+            0.7377085089683533,
+            0.580962061882019,
+            0.6786839365959167
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9341842532157898,
+          "correct_over_matched_donor_margin": 0.09821093082427979,
+          "correct_over_strongest_wrong_margin": 0.09821093082427979,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9044959545135498,
+              0.6465009450912476,
+              0.6644170880317688,
+              0.7766174077987671
+            ],
+            [
+              0.7948290705680847,
+              0.7103899717330933,
+              0.5468371510505676,
+              0.7145886421203613
+            ],
+            [
+              0.65671706199646,
+              0.8562344908714294,
+              0.5316319465637207,
+              0.5448458194732666
+            ],
+            [
+              0.5289679169654846,
+              0.2790408432483673,
+              0.0664982795715332,
+              0.44194215536117554
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7212525010108948,
+            0.623041570186615,
+            0.4523461163043976,
+            0.6194984912872314
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.2649784088134766,
+          "correct_over_matched_donor_margin": 0.25799500942230225,
+          "correct_over_strongest_wrong_margin": 0.12787854671478271,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9044959545135498,
+              0.6465009450912476,
+              0.6644170880317688,
+              0.7766174077987671
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9044959545135498,
+            0.6465009450912476,
+            0.6644170880317688,
+            0.7766174077987671
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1065
+    },
+    {
+      "candidate_sources": [
+        1098,
+        1302,
+        79,
+        129
+      ],
+      "donor_source_index": 1302,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0884337425231934,
+          "correct_over_matched_donor_margin": 0.19189822673797607,
+          "correct_over_strongest_wrong_margin": 0.15087038278579712,
+          "finite": true,
+          "local_scores": [
+            [
+              0.861387312412262,
+              0.739521861076355,
+              0.4440770149230957,
+              0.7020789980888367
+            ],
+            [
+              0.8236262798309326,
+              0.5616951584815979,
+              0.2805824875831604,
+              0.6811937689781189
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8425067663192749,
+            0.6506085395812988,
+            0.36232975125312805,
+            0.6916363835334778
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8823289275169373,
+          "correct_over_matched_donor_margin": 0.213675856590271,
+          "correct_over_strongest_wrong_margin": 0.160938560962677,
+          "finite": true,
+          "local_scores": [
+            [
+              0.861387312412262,
+              0.739521861076355,
+              0.4440770149230957,
+              0.7020789980888367
+            ],
+            [
+              0.8236262798309326,
+              0.5616951584815979,
+              0.2805824875831604,
+              0.6811937689781189
+            ],
+            [
+              0.6451179385185242,
+              0.38788679242134094,
+              0.2474352866411209,
+              0.4640430808067322
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7767105102539062,
+            0.5630346536636353,
+            0.3240315914154053,
+            0.6157719492912292
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.7536650896072388,
+          "correct_over_matched_donor_margin": 0.17729157209396362,
+          "correct_over_strongest_wrong_margin": 0.0900006890296936,
+          "finite": true,
+          "local_scores": [
+            [
+              0.861387312412262,
+              0.739521861076355,
+              0.4440770149230957,
+              0.7020789980888367
+            ],
+            [
+              0.8236262798309326,
+              0.5616951584815979,
+              0.2805824875831604,
+              0.6811937689781189
+            ],
+            [
+              0.6451179385185242,
+              0.38788679242134094,
+              0.2474352866411209,
+              0.4640430808067322
+            ],
+            [
+              0.6481357216835022,
+              0.5799970626831055,
+              0.187032550573349,
+              0.7709486484527588
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.744566798210144,
+            0.5672752261161804,
+            0.2897818386554718,
+            0.6545661091804504
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1883333921432495,
+          "correct_over_matched_donor_margin": 0.12186545133590698,
+          "correct_over_strongest_wrong_margin": 0.12186545133590698,
+          "finite": true,
+          "local_scores": [
+            [
+              0.861387312412262,
+              0.739521861076355,
+              0.4440770149230957,
+              0.7020789980888367
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.861387312412262,
+            0.739521861076355,
+            0.4440770149230957,
+            0.7020789980888367
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1098
+    },
+    {
+      "candidate_sources": [
+        1110,
+        405,
+        79,
+        129
+      ],
+      "donor_source_index": 405,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1242787837982178,
+          "correct_over_matched_donor_margin": 0.21381396055221558,
+          "correct_over_strongest_wrong_margin": 0.08342498540878296,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9216665029525757,
+              0.6993503570556641,
+              0.6114706993103027,
+              0.7135761976242065
+            ],
+            [
+              0.6961255073547363,
+              0.4908137321472168,
+              0.5190896987915039,
+              0.7373658418655396
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.808896005153656,
+            0.5950820446014404,
+            0.5652801990509033,
+            0.725471019744873
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0137473344802856,
+          "correct_over_matched_donor_margin": 0.16465377807617188,
+          "correct_over_strongest_wrong_margin": 0.017814457416534424,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9216665029525757,
+              0.6993503570556641,
+              0.6114706993103027,
+              0.7135761976242065
+            ],
+            [
+              0.6961255073547363,
+              0.4908137321472168,
+              0.5190896987915039,
+              0.7373658418655396
+            ],
+            [
+              0.4877825379371643,
+              0.4214491844177246,
+              0.25426989793777466,
+              0.601189136505127
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7018582224845886,
+            0.5372044444084167,
+            0.4616100788116455,
+            0.6840437650680542
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9352157115936279,
+          "correct_over_matched_donor_margin": 0.22221803665161133,
+          "correct_over_strongest_wrong_margin": 0.0553358793258667,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9216665029525757,
+              0.6993503570556641,
+              0.6114706993103027,
+              0.7135761976242065
+            ],
+            [
+              0.6961255073547363,
+              0.4908137321472168,
+              0.5190896987915039,
+              0.7373658418655396
+            ],
+            [
+              0.4877825379371643,
+              0.4214491844177246,
+              0.25426989793777466,
+              0.601189136505127
+            ],
+            [
+              0.6575665473937988,
+              0.26265570521354675,
+              0.5601428747177124,
+              0.4896663725376129
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.69078528881073,
+            0.46856725215911865,
+            0.48624327778816223,
+            0.6354494094848633
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.4177796840667725,
+          "correct_over_matched_donor_margin": 0.22231614589691162,
+          "correct_over_strongest_wrong_margin": 0.20809030532836914,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9216665029525757,
+              0.6993503570556641,
+              0.6114706993103027,
+              0.7135761976242065
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9216665029525757,
+            0.6993503570556641,
+            0.6114706993103027,
+            0.7135761976242065
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1110
+    },
+    {
+      "candidate_sources": [
+        1155,
+        404,
+        79,
+        129
+      ],
+      "donor_source_index": 404,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0867817401885986,
+          "correct_over_matched_donor_margin": 0.11931383609771729,
+          "correct_over_strongest_wrong_margin": 0.10548758506774902,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8390105962753296,
+              0.6801354885101318,
+              0.4632372260093689,
+              0.7071343660354614
+            ],
+            [
+              0.8795406818389893,
+              0.7997881174087524,
+              0.41486093401908875,
+              0.8004417419433594
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8592756390571594,
+            0.7399618029594421,
+            0.4390490651130676,
+            0.7537880539894104
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8913917541503906,
+          "correct_over_matched_donor_margin": 0.12358081340789795,
+          "correct_over_strongest_wrong_margin": 0.06137394905090332,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8390105962753296,
+              0.6801354885101318,
+              0.4632372260093689,
+              0.7071343660354614
+            ],
+            [
+              0.8795406818389893,
+              0.7997881174087524,
+              0.41486093401908875,
+              0.8004417419433594
+            ],
+            [
+              0.5346456170082092,
+              0.4025309085845947,
+              0.48281145095825195,
+              0.5614989399909973
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7510656714439392,
+            0.6274848580360413,
+            0.4536365270614624,
+            0.6896917223930359
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8273846507072449,
+          "correct_over_matched_donor_margin": 0.25272873044013977,
+          "correct_over_strongest_wrong_margin": 0.11526995897293091,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8390105962753296,
+              0.6801354885101318,
+              0.4632372260093689,
+              0.7071343660354614
+            ],
+            [
+              0.8795406818389893,
+              0.7997881174087524,
+              0.41486093401908875,
+              0.8004417419433594
+            ],
+            [
+              0.5346456170082092,
+              0.4025309085845947,
+              0.48281145095825195,
+              0.5614989399909973
+            ],
+            [
+              0.7389836311340332,
+              0.09881117939949036,
+              0.26817986369132996,
+              0.46202558279037476
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7480451464653015,
+            0.49531641602516174,
+            0.4072723686695099,
+            0.6327751874923706
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.222287654876709,
+          "correct_over_matched_donor_margin": 0.15887510776519775,
+          "correct_over_strongest_wrong_margin": 0.13187623023986816,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8390105962753296,
+              0.6801354885101318,
+              0.4632372260093689,
+              0.7071343660354614
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8390105962753296,
+            0.6801354885101318,
+            0.4632372260093689,
+            0.7071343660354614
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1155
+    },
+    {
+      "candidate_sources": [
+        1190,
+        753,
+        79,
+        129
+      ],
+      "donor_source_index": 753,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.6265047788619995,
+          "correct_over_matched_donor_margin": 0.30858126282691956,
+          "correct_over_strongest_wrong_margin": 0.03505420684814453,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8594739437103271,
+              0.49787238240242004,
+              0.6005429029464722,
+              0.7928727865219116
+            ],
+            [
+              0.46266797184944153,
+              0.20710696280002594,
+              0.5136814117431641,
+              0.45916062593460083
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.6610709428787231,
+            0.3524896800518036,
+            0.5571121573448181,
+            0.6260167360305786
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.6299939155578613,
+          "correct_over_matched_donor_margin": 0.25356441736221313,
+          "correct_over_strongest_wrong_margin": 0.021099448204040527,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8594739437103271,
+              0.49787238240242004,
+              0.6005429029464722,
+              0.7928727865219116
+            ],
+            [
+              0.46266797184944153,
+              0.20710696280002594,
+              0.5136814117431641,
+              0.45916062593460083
+            ],
+            [
+              0.6907879710197449,
+              0.5472573041915894,
+              0.48005735874176025,
+              0.6975979804992676
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.6709766387939453,
+            0.4174122214317322,
+            0.531427264213562,
+            0.6498771905899048
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.634755551815033,
+          "correct_over_matched_donor_margin": 0.26401081681251526,
+          "correct_over_strongest_wrong_margin": 0.07713574171066284,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8594739437103271,
+              0.49787238240242004,
+              0.6005429029464722,
+              0.7928727865219116
+            ],
+            [
+              0.46266797184944153,
+              0.20710696280002594,
+              0.5136814117431641,
+              0.45916062593460083
+            ],
+            [
+              0.6907879710197449,
+              0.5472573041915894,
+              0.48005735874176025,
+              0.6975979804992676
+            ],
+            [
+              0.5649145245552063,
+              0.26956450939178467,
+              0.23374460637569427,
+              0.3196699619293213
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.6444610953330994,
+            0.3804502785205841,
+            0.457006573677063,
+            0.5673253536224365
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1782441139221191,
+          "correct_over_matched_donor_margin": 0.3616015613079071,
+          "correct_over_strongest_wrong_margin": 0.06660115718841553,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8594739437103271,
+              0.49787238240242004,
+              0.6005429029464722,
+              0.7928727865219116
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8594739437103271,
+            0.49787238240242004,
+            0.6005429029464722,
+            0.7928727865219116
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1190
+    },
+    {
+      "candidate_sources": [
+        1258,
+        444,
+        79,
+        129
+      ],
+      "donor_source_index": 444,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.123228669166565,
+          "correct_over_matched_donor_margin": 0.04957997798919678,
+          "correct_over_strongest_wrong_margin": 0.04957997798919678,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9135522246360779,
+              0.9124486446380615,
+              0.5271070003509521,
+              0.7397991418838501
+            ],
+            [
+              0.8737797141075134,
+              0.7757233381271362,
+              0.2691541016101837,
+              0.8981426358222961
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8936659693717957,
+            0.8440859913825989,
+            0.39813053607940674,
+            0.8189709186553955
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0015628337860107,
+          "correct_over_matched_donor_margin": -0.03455096483230591,
+          "correct_over_strongest_wrong_margin": -0.03455096483230591,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9135522246360779,
+              0.9124486446380615,
+              0.5271070003509521,
+              0.7397991418838501
+            ],
+            [
+              0.8737797141075134,
+              0.7757233381271362,
+              0.2691541016101837,
+              0.8981426358222961
+            ],
+            [
+              0.5122544765472412,
+              0.7150672674179077,
+              0.33005309104919434,
+              0.3129761219024658
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7665287852287292,
+            0.8010797500610352,
+            0.37543806433677673,
+            0.650305986404419
+          ],
+          "strict_correct_top1": false,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9617393016815186,
+          "correct_over_matched_donor_margin": 0.09791499376296997,
+          "correct_over_strongest_wrong_margin": 0.09791499376296997,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9135522246360779,
+              0.9124486446380615,
+              0.5271070003509521,
+              0.7397991418838501
+            ],
+            [
+              0.8737797141075134,
+              0.7757233381271362,
+              0.2691541016101837,
+              0.8981426358222961
+            ],
+            [
+              0.5122544765472412,
+              0.7150672674179077,
+              0.33005309104919434,
+              0.3129761219024658
+            ],
+            [
+              0.7764189839363098,
+              0.28110602498054504,
+              0.29171669483184814,
+              0.29869216680526733
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.769001305103302,
+            0.671086311340332,
+            0.354507714509964,
+            0.5624025464057922
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1423791646957397,
+          "correct_over_matched_donor_margin": 0.0011035799980163574,
+          "correct_over_strongest_wrong_margin": 0.0011035799980163574,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9135522246360779,
+              0.9124486446380615,
+              0.5271070003509521,
+              0.7397991418838501
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9135522246360779,
+            0.9124486446380615,
+            0.5271070003509521,
+            0.7397991418838501
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1258
+    },
+    {
+      "candidate_sources": [
+        1271,
+        1433,
+        79,
+        129
+      ],
+      "donor_source_index": 1433,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0978951454162598,
+          "correct_over_matched_donor_margin": 0.16214269399642944,
+          "correct_over_strongest_wrong_margin": 0.15732413530349731,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9067485332489014,
+              0.8631270527839661,
+              0.5320082306861877,
+              0.7621365785598755
+            ],
+            [
+              0.908708930015564,
+              0.6280450820922852,
+              0.6505164504051208,
+              0.73867267370224
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.9077287316322327,
+            0.7455860376358032,
+            0.5912623405456543,
+            0.7504045963287354
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1764826774597168,
+          "correct_over_matched_donor_margin": 0.2653706669807434,
+          "correct_over_strongest_wrong_margin": 0.2653706669807434,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9067485332489014,
+              0.8631270527839661,
+              0.5320082306861877,
+              0.7621365785598755
+            ],
+            [
+              0.908708930015564,
+              0.6280450820922852,
+              0.6505164504051208,
+              0.73867267370224
+            ],
+            [
+              0.8837918043136597,
+              0.41196513175964355,
+              0.3145837187767029,
+              0.3990262448787689
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.899749755859375,
+            0.6343790888786316,
+            0.49903616309165955,
+            0.633278489112854
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0265270471572876,
+          "correct_over_matched_donor_margin": 0.2114543914794922,
+          "correct_over_strongest_wrong_margin": 0.2114543914794922,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9067485332489014,
+              0.8631270527839661,
+              0.5320082306861877,
+              0.7621365785598755
+            ],
+            [
+              0.908708930015564,
+              0.6280450820922852,
+              0.6505164504051208,
+              0.73867267370224
+            ],
+            [
+              0.8837918043136597,
+              0.41196513175964355,
+              0.3145837187767029,
+              0.3990262448787689
+            ],
+            [
+              0.43829068541526794,
+              0.3885849714279175,
+              0.19449418783187866,
+              0.3725507855415344
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7843849658966064,
+            0.5729305744171143,
+            0.4229006767272949,
+            0.5680965781211853
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.4382611513137817,
+          "correct_over_matched_donor_margin": 0.0436214804649353,
+          "correct_over_strongest_wrong_margin": 0.0436214804649353,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9067485332489014,
+              0.8631270527839661,
+              0.5320082306861877,
+              0.7621365785598755
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9067485332489014,
+            0.8631270527839661,
+            0.5320082306861877,
+            0.7621365785598755
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1271
+    },
+    {
+      "candidate_sources": [
+        1302,
+        1098,
+        79,
+        129
+      ],
+      "donor_source_index": 1098,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.7045443654060364,
+          "correct_over_matched_donor_margin": 0.11820012331008911,
+          "correct_over_strongest_wrong_margin": 0.11820012331008911,
+          "finite": true,
+          "local_scores": [
+            [
+              0.7587286233901978,
+              0.6718720197677612,
+              0.3650490641593933,
+              0.45633959770202637
+            ],
+            [
+              0.6883163452148438,
+              0.5387727618217468,
+              0.39697155356407166,
+              0.4048917889595032
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.7235224843025208,
+            0.6053223609924316,
+            0.3810102939605713,
+            0.43061569333076477
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.5717505812644958,
+          "correct_over_matched_donor_margin": 0.07643771171569824,
+          "correct_over_strongest_wrong_margin": 0.07643771171569824,
+          "finite": true,
+          "local_scores": [
+            [
+              0.7587286233901978,
+              0.6718720197677612,
+              0.3650490641593933,
+              0.45633959770202637
+            ],
+            [
+              0.6883163452148438,
+              0.5387727618217468,
+              0.39697155356407166,
+              0.4048917889595032
+            ],
+            [
+              0.40026557445526123,
+              0.4073528051376343,
+              0.4176654517650604,
+              0.42980727553367615
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.6157702207565308,
+            0.5393325090408325,
+            0.3932287096977234,
+            0.43034622073173523
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.6312294006347656,
+          "correct_over_matched_donor_margin": 0.06430935859680176,
+          "correct_over_strongest_wrong_margin": 0.06430935859680176,
+          "finite": true,
+          "local_scores": [
+            [
+              0.7587286233901978,
+              0.6718720197677612,
+              0.3650490641593933,
+              0.45633959770202637
+            ],
+            [
+              0.6883163452148438,
+              0.5387727618217468,
+              0.39697155356407166,
+              0.4048917889595032
+            ],
+            [
+              0.40026557445526123,
+              0.4073528051376343,
+              0.4176654517650604,
+              0.42980727553367615
+            ],
+            [
+              0.690416693687439,
+              0.6624923944473267,
+              0.29240304231643677,
+              0.7876764535903931
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.6344318389892578,
+            0.570122480392456,
+            0.36802226305007935,
+            0.5196787714958191
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8430553674697876,
+          "correct_over_matched_donor_margin": 0.08685660362243652,
+          "correct_over_strongest_wrong_margin": 0.08685660362243652,
+          "finite": true,
+          "local_scores": [
+            [
+              0.7587286233901978,
+              0.6718720197677612,
+              0.3650490641593933,
+              0.45633959770202637
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.7587286233901978,
+            0.6718720197677612,
+            0.3650490641593933,
+            0.45633959770202637
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1302
+    },
+    {
+      "candidate_sources": [
+        1324,
+        318,
+        79,
+        129
+      ],
+      "donor_source_index": 318,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0233668088912964,
+          "correct_over_matched_donor_margin": 0.22534263134002686,
+          "correct_over_strongest_wrong_margin": 0.048953473567962646,
+          "finite": true,
+          "local_scores": [
+            [
+              0.7894228100776672,
+              0.6841650009155273,
+              0.5635168552398682,
+              0.6684507131576538
+            ],
+            [
+              0.7620102167129517,
+              0.41658276319503784,
+              0.13872328400611877,
+              0.7850754261016846
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.7757165431976318,
+            0.550373911857605,
+            0.3511200547218323,
+            0.7267630696296692
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9750906825065613,
+          "correct_over_matched_donor_margin": 0.14701980352401733,
+          "correct_over_strongest_wrong_margin": 0.06451445817947388,
+          "finite": true,
+          "local_scores": [
+            [
+              0.7894228100776672,
+              0.6841650009155273,
+              0.5635168552398682,
+              0.6684507131576538
+            ],
+            [
+              0.7620102167129517,
+              0.41658276319503784,
+              0.13872328400611877,
+              0.7850754261016846
+            ],
+            [
+              0.5906184911727905,
+              0.6002445816993713,
+              0.5899471640586853,
+              0.4949822723865509
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7140172719955444,
+            0.5669974684715271,
+            0.43072909116744995,
+            0.6495028138160706
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.947523832321167,
+          "correct_over_matched_donor_margin": 0.2081274390220642,
+          "correct_over_strongest_wrong_margin": 0.18476343154907227,
+          "finite": true,
+          "local_scores": [
+            [
+              0.7894228100776672,
+              0.6841650009155273,
+              0.5635168552398682,
+              0.6684507131576538
+            ],
+            [
+              0.7620102167129517,
+              0.41658276319503784,
+              0.13872328400611877,
+              0.7850754261016846
+            ],
+            [
+              0.5906184911727905,
+              0.6002445816993713,
+              0.5899471640586853,
+              0.4949822723865509
+            ],
+            [
+              0.6955879926681519,
+              0.30413779616355896,
+              -0.20278269052505493,
+              0.15007779002189636
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7094099521636963,
+            0.5012825131416321,
+            0.27235114574432373,
+            0.524646520614624
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1487276554107666,
+          "correct_over_matched_donor_margin": 0.10525780916213989,
+          "correct_over_strongest_wrong_margin": 0.10525780916213989,
+          "finite": true,
+          "local_scores": [
+            [
+              0.7894228100776672,
+              0.6841650009155273,
+              0.5635168552398682,
+              0.6684507131576538
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.7894228100776672,
+            0.6841650009155273,
+            0.5635168552398682,
+            0.6684507131576538
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1324
+    },
+    {
+      "candidate_sources": [
+        1365,
+        263,
+        79,
+        129
+      ],
+      "donor_source_index": 263,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1978774070739746,
+          "correct_over_matched_donor_margin": 0.2499789595603943,
+          "correct_over_strongest_wrong_margin": 0.24913299083709717,
+          "finite": true,
+          "local_scores": [
+            [
+              0.868584394454956,
+              0.7503176927566528,
+              0.6015611886978149,
+              0.638235867023468
+            ],
+            [
+              0.8443539142608643,
+              0.4626626670360565,
+              0.4720449447631836,
+              0.5764365196228027
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8564691543579102,
+            0.6064901947975159,
+            0.5368030667304993,
+            0.607336163520813
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9173699617385864,
+          "correct_over_matched_donor_margin": 0.22801721096038818,
+          "correct_over_strongest_wrong_margin": 0.21471261978149414,
+          "finite": true,
+          "local_scores": [
+            [
+              0.868584394454956,
+              0.7503176927566528,
+              0.6015611886978149,
+              0.638235867023468
+            ],
+            [
+              0.8443539142608643,
+              0.4626626670360565,
+              0.4720449447631836,
+              0.5764365196228027
+            ],
+            [
+              0.6207419037818909,
+              0.4366481304168701,
+              0.34610265493392944,
+              0.47487008571624756
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7778934240341187,
+            0.5498762130737305,
+            0.4732362627983093,
+            0.5631808042526245
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9134277105331421,
+          "correct_over_matched_donor_margin": 0.25436773896217346,
+          "correct_over_strongest_wrong_margin": 0.25436773896217346,
+          "finite": true,
+          "local_scores": [
+            [
+              0.868584394454956,
+              0.7503176927566528,
+              0.6015611886978149,
+              0.638235867023468
+            ],
+            [
+              0.8443539142608643,
+              0.4626626670360565,
+              0.4720449447631836,
+              0.5764365196228027
+            ],
+            [
+              0.6207419037818909,
+              0.4366481304168701,
+              0.34610265493392944,
+              0.47487008571624756
+            ],
+            [
+              0.5380053520202637,
+              0.20458607375621796,
+              -0.32771560549736023,
+              0.16014620661735535
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7179213762283325,
+            0.46355363726615906,
+            0.27299827337265015,
+            0.4624221622943878
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1865265369415283,
+          "correct_over_matched_donor_margin": 0.11826670169830322,
+          "correct_over_strongest_wrong_margin": 0.11826670169830322,
+          "finite": true,
+          "local_scores": [
+            [
+              0.868584394454956,
+              0.7503176927566528,
+              0.6015611886978149,
+              0.638235867023468
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.868584394454956,
+            0.7503176927566528,
+            0.6015611886978149,
+            0.638235867023468
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1365
+    },
+    {
+      "candidate_sources": [
+        1396,
+        567,
+        79,
+        129
+      ],
+      "donor_source_index": 567,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1794317960739136,
+          "correct_over_matched_donor_margin": 0.19859135150909424,
+          "correct_over_strongest_wrong_margin": 0.10736799240112305,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8784948587417603,
+              0.6245129704475403,
+              0.4808040261268616,
+              0.695880651473999
+            ],
+            [
+              0.835243821144104,
+              0.6920429468154907,
+              0.29398220777511597,
+              0.8031220436096191
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8568693399429321,
+            0.6582779884338379,
+            0.38739311695098877,
+            0.7495013475418091
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.0794551372528076,
+          "correct_over_matched_donor_margin": 0.21316230297088623,
+          "correct_over_strongest_wrong_margin": 0.18797379732131958,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8784948587417603,
+              0.6245129704475403,
+              0.4808040261268616,
+              0.695880651473999
+            ],
+            [
+              0.835243821144104,
+              0.6920429468154907,
+              0.29398220777511597,
+              0.8031220436096191
+            ],
+            [
+              0.7444406747817993,
+              0.5021365880966187,
+              0.3368721604347229,
+              0.39525526762008667
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8193931579589844,
+            0.6062308549880981,
+            0.37055277824401855,
+            0.6314193606376648
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9832205772399902,
+          "correct_over_matched_donor_margin": 0.235998272895813,
+          "correct_over_strongest_wrong_margin": 0.149461030960083,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8784948587417603,
+              0.6245129704475403,
+              0.4808040261268616,
+              0.695880651473999
+            ],
+            [
+              0.835243821144104,
+              0.6920429468154907,
+              0.29398220777511597,
+              0.8031220436096191
+            ],
+            [
+              0.7444406747817993,
+              0.5021365880966187,
+              0.3368721604347229,
+              0.39525526762008667
+            ],
+            [
+              0.7561683654785156,
+              0.4516623020172119,
+              0.30764856934547424,
+              0.7222457528114319
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.8035869598388672,
+            0.5675886869430542,
+            0.3548267185688019,
+            0.6541259288787842
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1284372806549072,
+          "correct_over_matched_donor_margin": 0.25398188829421997,
+          "correct_over_strongest_wrong_margin": 0.18261420726776123,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8784948587417603,
+              0.6245129704475403,
+              0.4808040261268616,
+              0.695880651473999
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8784948587417603,
+            0.6245129704475403,
+            0.4808040261268616,
+            0.695880651473999
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1396
+    },
+    {
+      "candidate_sources": [
+        1414,
+        252,
+        79,
+        129
+      ],
+      "donor_source_index": 252,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.1387109756469727,
+          "correct_over_matched_donor_margin": 0.18343371152877808,
+          "correct_over_strongest_wrong_margin": 0.0783572793006897,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9148675203323364,
+              0.699288010597229,
+              0.5943344831466675,
+              0.8343820571899414
+            ],
+            [
+              0.8369962573051453,
+              0.6857082843780518,
+              0.2937546670436859,
+              0.7607671022415161
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8759318590164185,
+            0.6924981474876404,
+            0.4440445899963379,
+            0.7975745797157288
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.9476169347763062,
+          "correct_over_matched_donor_margin": 0.13074922561645508,
+          "correct_over_strongest_wrong_margin": 0.06877660751342773,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9148675203323364,
+              0.699288010597229,
+              0.5943344831466675,
+              0.8343820571899414
+            ],
+            [
+              0.8369962573051453,
+              0.6857082843780518,
+              0.2937546670436859,
+              0.7607671022415161
+            ],
+            [
+              0.7257897853851318,
+              0.7004094123840332,
+              0.574236273765564,
+              0.676174521446228
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.8258845210075378,
+            0.6951352953910828,
+            0.4874418377876282,
+            0.7571079134941101
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.8817094564437866,
+          "correct_over_matched_donor_margin": 0.14676344394683838,
+          "correct_over_strongest_wrong_margin": 0.11377722024917603,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9148675203323364,
+              0.699288010597229,
+              0.5943344831466675,
+              0.8343820571899414
+            ],
+            [
+              0.8369962573051453,
+              0.6857082843780518,
+              0.2937546670436859,
+              0.7607671022415161
+            ],
+            [
+              0.7257897853851318,
+              0.7004094123840332,
+              0.574236273765564,
+              0.676174521446228
+            ],
+            [
+              0.6383421421051025,
+              0.44353604316711426,
+              0.0023390203714370728,
+              0.3895629942417145
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.7789989113807678,
+            0.6322354674339294,
+            0.3661661148071289,
+            0.6652216911315918
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.094646692276001,
+          "correct_over_matched_donor_margin": 0.21557950973510742,
+          "correct_over_strongest_wrong_margin": 0.08048546314239502,
+          "finite": true,
+          "local_scores": [
+            [
+              0.9148675203323364,
+              0.699288010597229,
+              0.5943344831466675,
+              0.8343820571899414
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.9148675203323364,
+            0.699288010597229,
+            0.5943344831466675,
+            0.8343820571899414
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1414
+    },
+    {
+      "candidate_sources": [
+        1433,
+        1271,
+        79,
+        129
+      ],
+      "donor_source_index": 1271,
+      "per_anchor": {
+        "11": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.944008469581604,
+          "correct_over_matched_donor_margin": 0.08323830366134644,
+          "correct_over_strongest_wrong_margin": 0.08323830366134644,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8781952857971191,
+              0.8380098342895508,
+              0.5078181028366089,
+              0.6702730655670166
+            ],
+            [
+              0.821832537651062,
+              0.6955414414405823,
+              0.49861371517181396,
+              0.6356344223022461
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11
+          ],
+          "scores": [
+            0.8500139117240906,
+            0.7667756080627441,
+            0.5032159090042114,
+            0.6529537439346313
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "17": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.7255653738975525,
+          "correct_over_matched_donor_margin": 0.022106647491455078,
+          "correct_over_strongest_wrong_margin": 0.022106647491455078,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8781952857971191,
+              0.8380098342895508,
+              0.5078181028366089,
+              0.6702730655670166
+            ],
+            [
+              0.821832537651062,
+              0.6955414414405823,
+              0.49861371517181396,
+              0.6356344223022461
+            ],
+            [
+              0.5033118724822998,
+              0.6034683585166931,
+              0.3285633325576782,
+              0.6429938077926636
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17
+          ],
+          "scores": [
+            0.7344465255737305,
+            0.7123398780822754,
+            0.4449983835220337,
+            0.6496337652206421
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "23": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 0.6659149527549744,
+          "correct_over_matched_donor_margin": 0.028328418731689453,
+          "correct_over_strongest_wrong_margin": 0.028328418731689453,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8781952857971191,
+              0.8380098342895508,
+              0.5078181028366089,
+              0.6702730655670166
+            ],
+            [
+              0.821832537651062,
+              0.6955414414405823,
+              0.49861371517181396,
+              0.6356344223022461
+            ],
+            [
+              0.5033118724822998,
+              0.6034683585166931,
+              0.3285633325576782,
+              0.6429938077926636
+            ],
+            [
+              0.5331118106842041,
+              0.4861181378364563,
+              0.28361746668815613,
+              0.455872505903244
+            ]
+          ],
+          "prefix_layers": [
+            5,
+            11,
+            17,
+            23
+          ],
+          "scores": [
+            0.6841128468513489,
+            0.6557844281196594,
+            0.4046531617641449,
+            0.6011934280395508
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        },
+        "5": {
+          "candidate_permutation_exact": true,
+          "correct_over_layer_permuted_margin": 1.2884031534194946,
+          "correct_over_matched_donor_margin": 0.04018545150756836,
+          "correct_over_strongest_wrong_margin": 0.04018545150756836,
+          "finite": true,
+          "local_scores": [
+            [
+              0.8781952857971191,
+              0.8380098342895508,
+              0.5078181028366089,
+              0.6702730655670166
+            ]
+          ],
+          "prefix_layers": [
+            5
+          ],
+          "scores": [
+            0.8781952857971191,
+            0.8380098342895508,
+            0.5078181028366089,
+            0.6702730655670166
+          ],
+          "strict_correct_top1": true,
+          "zero_address_raw_bias_exact_zero": true,
+          "zero_address_slot_eligible": false
+        }
+      },
+      "source_index": 1433
+    }
+  ],
+  "runner_sha256": "8f843d5253a33839a13a6685ce20f479e34242af59d5fda6420685e1306ad346",
+  "schema": "rwkv_ms_natural_memory_native_rwkv_cumulative_compatibility_bias_screen.v1",
+  "sota_claimed": false,
+  "source_bindings": {
+    "alignment": "f7c51bdcf518763ba6e9e63976d75a8cdcfc518b4d9ba593a4fcc4de62a404cb",
+    "distributed": "09fd08b4750469c1364c28a935b443895f988f17ccc8102ede3ecce6bed6f44d",
+    "local_screen": "3bcd239298dcb6ab0ba07ab43f2b46adbfbb3b2aae9e1aeb781ffa029739e1a9"
+  },
+  "status": "cumulative_compatibility_bias_passed_live_mechanics_protocol_authorized"
+}
