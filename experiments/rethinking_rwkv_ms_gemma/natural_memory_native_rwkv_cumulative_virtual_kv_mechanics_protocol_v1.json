@@ -1,0 +1,219 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_cumulative_virtual_kv_mechanics_protocol.v1",
+  "created_at": "2026-08-24T23:10:00+08:00",
+  "objective": "Run one no-training live mechanics gate on exactly four distinct A100 GPUs over all 32 source-and-donor-disjoint mechanics rows. Keep the native target RWKV/projected carrier fixed; accumulate frozen receptance/address identity evidence causally across full-attention layers 5, 11, 17, and 23; route four ephemeral exact-zero-key virtual positions only during a cached Q=1 predictor call; and require source identity, state/address separation, permutation, zero, cache, state, and predictor-materiality controls before any causal, generation, native benchmark, or Full-Bandwidth feedback access.",
+  "authorization_basis": {
+    "runtime_parent_commit": "969a320a44149eab1a801a1413b10f5cd2db1618",
+    "runtime_parent_delta_impl_sha256": "34921ecf14adb6ce6fb42bdb2513259ea66f194af118aed084cc66bcd4c05b7f",
+    "runtime_parent_virtual_kv_sha256": "3f2a2049addfddc397c46c9c02deae59861d0a6a0a62b6dd304e7a5ccd52c889",
+    "cumulative_protocol_file_sha256": "a61eca43c472b5abc860173141a95575d640d61a2539ca7aabe2ee144fe71055",
+    "cumulative_protocol_receipt": "943ced50b000c4b05339b2afe1037b4f41f799a78569258354bb972e686017bc",
+    "cumulative_result_file_sha256": "0ea1627415f0319931b86d0ce5ba5a255c5e738f6f22b88aec73c742f9dad73b",
+    "cumulative_result_receipt": "fdf41009269b2cb71ca14285bbe687e50bb30207e5acc699c555cd9122262d59",
+    "cumulative_result_status": "cumulative_compatibility_bias_passed_live_mechanics_protocol_authorized",
+    "cumulative_anchors_passed": 4,
+    "continuous_retrieval_result_file_sha256": "5103a66475b7a596e53a58b8c7cb554e7e400f5825d42ca141bc342dfef8784b",
+    "continuous_retrieval_result_receipt": "cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd",
+    "continuous_write_manifest_file_sha256": "c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468",
+    "continuous_write_manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+    "continuous_write_split_schema": "rwkv_ms_continuous_write_fit_split.v2",
+    "continuous_write_split_receipt": "d9ad640c208aae6983ce603f5d1918b06ab4ba9e93ed935d9cbfe1ac25f4801a"
+  },
+  "launch_binding": {
+    "path": "natural_memory_native_rwkv_cumulative_virtual_kv_mechanics_launch_v1.json",
+    "schema": "rwkv_ms_natural_memory_native_rwkv_cumulative_virtual_kv_mechanics_launch.v1",
+    "two_commit_firewall": "Commit the finalized runner, protocol, and tests in one code commit whose exact parent is runtime_parent_commit. Then create and sign only the launch file in its immediate child commit. Before mechanics bytes open, require HEAD parent to equal the authorized code commit, the code parent to equal runtime_parent_commit, the launch commit diff to contain only the launch path, runner/protocol/launch bytes to equal their bound git objects, all dependency hashes to match, and the tracked worktree to be clean.",
+    "validated_before_protected_access": true
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "adapter_directory": "local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/adapter",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "memory_backend": "rwkv_ms",
+    "hybrid_mode": "address_keyed_moe_deepembed_ffn",
+    "state_read_dim": 32,
+    "rwkv_memory_rank": 32,
+    "rwkv_num_states": 4,
+    "projected_kv_key_dim": 64,
+    "frozen_map_file": "local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/continuous-write-maps.pt",
+    "frozen_map_file_sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6",
+    "frozen_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559",
+    "map_rank": 16,
+    "map_ridge": 1.0,
+    "conditioning_seed": 151,
+    "conditioning_k_gain": 0.25,
+    "conditioning_a_gain": 0.25,
+    "conditioning_b_gain": 0.25,
+    "conditioning_trainable_map": false,
+    "conditioning_features": ["k", "a", "b"],
+    "conditioning_value_feature_unchanged": true,
+    "model_or_map_training": false
+  },
+  "open_fit_materialization": {
+    "dataset_namespace": "novel-agent-sft-dataset:publisher-train-derived-fit",
+    "dataset_sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57",
+    "dataset_rows": 1443,
+    "mechanics_bundle": {
+      "path": "mechanics.jsonl",
+      "rows": 32,
+      "bytes": 104357,
+      "sha256": "7a5421df97d295328a95953590010318bfc1361db0402243809bd13c094badd9",
+      "payload_sha256": "42e8061772136bcd511a680d90a176ea7606c6007cb56894afbcd2f3fc97c2a6",
+      "source_indices_sha256": "bb752dc92e3fb70aebd5ada804d1ddde4bb112a9733bcf20e016a118190b4a09",
+      "qualified_source_ids_sha256": "552db6c3d74ffc62e866de4c94000b6ad9af237fa62e129dd74a6ad8b234e494",
+      "qualified_mapping_pairs_sha256": "b04b2d539d0b3c2e8f1fc70764845b9a14e9938131db777ccd1b3834ce9640a3",
+      "row_sha256s_sha256": "5f8f8c4d441551bfc451635674b2489372c9454424152bbdbef0b869d69fa6ec"
+    },
+    "causal_inventory_from_signed_manifest_only": {
+      "path": "causal.jsonl",
+      "rows": 32,
+      "bytes": 86001,
+      "sha256": "5920ca8c688f4c26e8b55c5c48eefb7c067016bb931dd3b5c210edd1f4d3e925",
+      "byte_read_authorized": false
+    }
+  },
+  "architecture": {
+    "name": "causal_prefix_depth_accumulated_routed_virtual_kv_live_q1",
+    "anchor_layers": [5, 11, 17, 23],
+    "anchor_types": ["full_attention", "full_attention", "full_attention", "full_attention"],
+    "prefixes": {
+      "5": [5],
+      "11": [5, 11],
+      "17": [5, 11, 17],
+      "23": [5, 11, 17, 23]
+    },
+    "local_score": "mean(RMS(live_current_rwkv_receptance32) * RMS(up_l(down_l(RMS(shadow_address64_l)))))",
+    "accumulated_bias": "32.0 times the arithmetic mean of complete causal-prefix local scores",
+    "compatibility_scale": 32.0,
+    "compatibility_clamp_or_temperature": false,
+    "virtual_slots": 4,
+    "virtual_keys": "exact all-zero tensors; identity enters only through the additive virtual-mask suffix",
+    "virtual_values": "deterministic frozen state-only probe/MLP of the shadow RWKV matrix",
+    "attention_implementation": "eager",
+    "query_length": 1,
+    "provider_attached_during_prefill": false,
+    "provider_attachment": "after an independent provider-detached cached prefill and only for the final prompt predictor token",
+    "native_target_state_or_projected_carrier_replaced_by_controls": false,
+    "cache_mutation": "real positions only; virtual slots are appended after cache publication and never persisted",
+    "full_bandwidth_feedback_installed": false
+  },
+  "value_builder": {
+    "status": "frozen deterministic mechanics wiring only; no semantic-value or quality claim",
+    "state_rank": 32,
+    "state_heads": 1,
+    "probe_rank": 8,
+    "hidden_width": 128,
+    "kv_heads": 2,
+    "head_dim": 512,
+    "key_radius": 1.0,
+    "value_radius": 1.0,
+    "seed_by_layer": {
+      "5": 216,
+      "11": 222,
+      "17": 228,
+      "23": 234
+    },
+    "frozen_tensor_digests": {
+      "aggregate_sha256": "bdfe4a966e0503ddbef5bac654738c6435776d3849d2ab7df2f6b4c0c54d8fc4",
+      "per_layer_sha256": {
+        "5": "8f199d7fad8929bf428e90c7b27d92b10e48d5ba30e5ae2ea2e712e3b65c7667",
+        "11": "62944126333a5786c3c9ebd6b203d9bb2f9af0dcfcda11ebca30dc77317e2f42",
+        "17": "0db631280dc2f9fe201e5db8436cdb48d63f0fdd10bdce66e6142f457eda6e67",
+        "23": "291bdbc82f51255bf159cf1b62e4ee753d24d6fd794fe26ff3c9ad209ce54427"
+      }
+    }
+  },
+  "candidate_and_control_bank": {
+    "candidate_order": ["target", "matched_donor", "distractor_1", "distractor_2"],
+    "distractors": "minimum source from the first two sorted donor components other than the target/donor component",
+    "four_slot_conditions": ["correct_four_way", "joint_slot_permutation"],
+    "joint_slot_permutation": [2, 0, 3, 1],
+    "single_active_slot_conditions": [
+      "single_target",
+      "matched_donor_state_only",
+      "matched_donor_address_only",
+      "matched_donor_address_and_state",
+      "layer_rolled_state_only",
+      "layer_rolled_address_only",
+      "layer_rolled_address_and_state",
+      "zero_state",
+      "zero_address",
+      "zero_state_and_address"
+    ],
+    "layer_roll": "use the same source's state and/or address from module (anchor_layer - 1) modulo the full ordered 42-module inventory",
+    "provider_disabled": "two independent provider-detached cached prefill and Q1 executions for the same repeated target batch",
+    "full_null_reference": "diagnostic-only independent monolithic provider-disabled forward through predictor position with the same explicit positions; exact-v5 hybrid full-prefix and cached execution are not assumed chunk-equivalent"
+  },
+  "required_gates": {
+    "identity_per_anchor": {
+      "strict_target_top1_fraction": 0.75,
+      "mean_target_over_strongest_wrong_margin": 0.05,
+      "matched_donor_positive_fraction": 0.75,
+      "live_layer_roll_positive_fraction": 0.75,
+      "nonzero_virtual_mass_fraction": 0.95
+    },
+    "minimum_anchor_layers_passing": 3,
+    "material_predictor_change_fraction": 0.95,
+    "material_predictor_max_absolute_logit_delta": 0.001,
+    "cached_null_replay_max_absolute_logit_tolerance": 0.0,
+    "full_vs_cached_null_diagnostic_tolerance": 0.0001,
+    "full_vs_cached_null_is_diagnostic_only": true,
+    "joint_slot_permutation_final_logit_tolerance": 0.00001,
+    "hard_invariants": [
+      "all 32 unique rows and eight rank-stride rows per GPU",
+      "strict router begin then 5 to 11 to 17 to 23 then end lifecycle",
+      "exactly two byte-identical live RWKV receptance reads per anchor",
+      "independent recomputation from frozen map tensors, shadow addresses, and live receptance of local scores, causal-prefix accumulation, active mask, and scale-32 suffix bias",
+      "virtual keys exact zero and real input-mask prefix exact",
+      "address-only control leaves virtual values exact and changes bias",
+      "state-only control changes virtual values and leaves layer-5 bias exact",
+      "joint slot permutation permutes bias and values and preserves final logits within tolerance",
+      "zero state and zero address make slots inactive; zero-address and zero-both raw bias exact zero",
+      "zero controls are byte-exact to the same-batch provider-disabled predictor logits",
+      "each anchor cache grows by one real position, keeps its prefix bytes exact, and never stores four virtual slots",
+      "live RWKV state, projected keys, projected carrier values, occupancy, and model parameter versions remain unchanged",
+      "two independent same-batch cached provider-disabled prefill and Q1 executions are byte-exact",
+      "all tensors finite and no write, training, generation, adapter save, or feedback path runs"
+    ],
+    "quality_metric_policy": "Target-token logits and CE may be reported diagnostically, but no direction or quality threshold is permitted in this mechanics gate."
+  },
+  "execution": {
+    "world_size": 4,
+    "rows_per_rank": 8,
+    "assignment": "sorted mechanics rows rank stride 4",
+    "required_gpu_substring": "A100",
+    "distinct_gpu_uuids": true,
+    "model_replication": "one complete unsharded model replica per rank/GPU",
+    "device_map_sharding": false,
+    "hf_endpoint": "https://hf-mirror.com",
+    "model_or_adapter_parameter_updates": 0,
+    "mechanics_evaluations": 1,
+    "protected_bundle_byte_opens": 1,
+    "rerun_or_threshold_tuning_after_result": false
+  },
+  "mechanics_bundle_byte_read_authorized_by_this_protocol": true,
+  "causal_bundle_byte_read_authorized": false,
+  "data_lifecycle": {
+    "mechanics_bundle_byte_read_authorized_by_this_protocol": true,
+    "causal_bundle_byte_read_authorized": false,
+    "generation_or_native_benchmark_authorized": false,
+    "protected_access_order": "signed protocol and launch preflight, model/map/builder validation, immediate all-rank source and state revalidation, then one primary-rank mechanics bundle byte open followed by control-group broadcast",
+    "causal_path_statted_listed_hashed_or_opened_by_runner": false,
+    "full_bandwidth_feedback_authorized": false
+  },
+  "stopping_rule": {
+    "preflight_failure": "Open no mechanics bytes; repair only operational/source-binding errors under a newly signed protocol or launch.",
+    "mechanics_gate_failure": "Retire this exact cumulative scale/maps/value-builder/control family. Do not tune on mechanics outcomes, rerun, or open causal, generation, native benchmark, or Full-Bandwidth data.",
+    "operational_failure_after_open": "Archive the partial signed artifacts and require a separately signed amendment that preserves the architecture and gates.",
+    "pass": "Authorize only drafting a fresh causal endpoint protocol. Native benchmark, generation, Full-Bandwidth feedback, benchmark gain, and SOTA remain unauthorized."
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "0198413e8c7bfe6e1555eef0a45b93703af5b15defc71f23f39f354d550bc3f0"
+  }
+}
