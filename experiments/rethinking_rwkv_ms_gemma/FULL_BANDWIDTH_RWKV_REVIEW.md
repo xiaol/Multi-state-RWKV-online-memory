@@ -804,3 +804,18 @@ Full-Bandwidth-style mandatory deep-to-shallow GLU becomes the next depth
 renewal experiment, with the paper's `75/22/3` pass mixture, prefix mixin, and
 contraction diagnostics. Until then, feedback would only give an
 identity-ambiguous state more computation.
+
+The first explicit local compatibility-bias screen then ran once on exactly
+four A100s and failed its precommitted `3/4`-anchor gate with `2/4` passing.
+Layer `5` reached `0.937500` strict four-way top-1 and `0.108299` mean margin;
+layer `23` reached `0.750000` and `0.191626`. Layers `11/17` reached only
+`0.656250/0.593750` strict top-1. All layer-permutation, candidate-permutation,
+zero-address, and finite controls passed. Result SHA-256 is
+`bf33dba5091ed9e9fc75e6289c5bb3d0da67a6fd6421c4afbf260419097993b8`
+and receipt is
+`cf5a1869a8ea770ab57d85aa19d48905fb2d6244fa0ab574ca2a2f7a4d1fd5a2`.
+This closes same-layer frozen compatibility bias without authorizing live
+attention. It also suggests a paper-compatible distinction: evidence can be
+accumulated causally while moving upward through depth before a selected state
+is renewed downward. A separately signed cumulative-depth router may test
+that architecture, but post-selecting only layers `5/23` is not claim-grade.

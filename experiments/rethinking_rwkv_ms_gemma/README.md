@@ -704,6 +704,24 @@ that selector passes identity and causal gates should the Full-Bandwidth
 Transformer idea be used to renew the selected state's depth budget through a
 deep-to-shallow mandatory GLU and Jacobi-style feedback training.
 
+The first explicit compatibility-bias screen used the frozen continuous maps
+without training and ran once on exactly four A100s. Layers `5` and `23`
+passed the complete four-way gate: strict correct top-1 was `0.937500` and
+`0.750000`, with mean strongest-wrong margins `0.108299` and `0.191626`.
+Layers `11` and `17` reached only `0.656250` and `0.593750` strict top-1, so
+the precommitted requirement of three passing anchors failed at `2/4`.
+Candidate-permutation, zero-address, finiteness, and layer-permutation controls
+all passed. Status is `compatibility_bias_failed_frozen_local_route_retired`;
+result SHA-256 is
+`bf33dba5091ed9e9fc75e6289c5bb3d0da67a6fd6421c4afbf260419097993b8`
+and receipt is
+`cf5a1869a8ea770ab57d85aa19d48905fb2d6244fa0ab574ca2a2f7a4d1fd5a2`.
+No live attention or protected split was opened. This retires a local
+same-layer compatibility bias, not explicit routing generally. A distinct
+causal-depth accumulator may combine all compatibility evidence available up
+to each anchor; it must be signed and screened separately rather than choosing
+the two passing anchors after the result.
+
 Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed continuous retrieval pass](local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
@@ -717,7 +735,10 @@ Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_
 [signed address-decoded failure](local_artifacts/natural_memory_native_rwkv_address_decoded_reconstruction_v1/result.json),
 [co-rotated key protocol](natural_memory_native_rwkv_corotated_key_protocol_v1.json),
 [co-rotated key screen](screen_natural_memory_native_rwkv_corotated_key.py),
-and [signed co-rotated key failure](local_artifacts/natural_memory_native_rwkv_corotated_key_v1/result.json).
+[signed co-rotated key failure](local_artifacts/natural_memory_native_rwkv_corotated_key_v1/result.json),
+[compatibility-bias protocol](natural_memory_native_rwkv_compatibility_bias_protocol_v1.json),
+[compatibility-bias screen](screen_natural_memory_native_rwkv_compatibility_bias.py),
+and [signed local compatibility-bias failure](local_artifacts/natural_memory_native_rwkv_compatibility_bias_v1/result.json).
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),
