@@ -1233,6 +1233,12 @@ class DeltaMemAttention(nn.Module):
         self._virtual_kv_provider: Callable[..., tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None] | None = None
         self.rwkv_virtual_router_receptance: torch.Tensor | None = None
         self.rwkv_virtual_router_receptance_calls = 0
+        self._source_cumulative_residual_provider: Callable[..., torch.Tensor | None] | None = None
+        self.rwkv_residual_router_receptance: torch.Tensor | None = None
+        self.rwkv_residual_router_gate: torch.Tensor | None = None
+        self.rwkv_residual_router_receptance_calls = 0
+        self._pending_source_cumulative_residual: torch.Tensor | None = None
+        self._source_cumulative_residual_hook_handle = None
         self._pending_post_attention_delta: tuple[
             torch.Tensor | None,
             torch.Tensor | None,
@@ -1267,6 +1273,10 @@ class DeltaMemAttention(nn.Module):
         provider: Callable[..., tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None]
         | None,
     ) -> None:
+        if provider is not None and self._source_cumulative_residual_provider is not None:
+            raise ValueError(
+                "Virtual-KV and source-cumulative residual providers are mutually exclusive"
+            )
         if provider is not None and self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS:
             raise ValueError("Virtual-KV providers require normal attention-output placement")
         if provider is not None and self.is_kv_shared_layer:
@@ -1284,6 +1294,70 @@ class DeltaMemAttention(nn.Module):
         self._virtual_kv_provider = None
         self.rwkv_virtual_router_receptance = None
         self.rwkv_virtual_router_receptance_calls = 0
+
+    def set_source_cumulative_residual_provider(
+        self,
+        provider: Callable[..., torch.Tensor | None] | None,
+    ) -> None:
+        if provider is not None and self._virtual_kv_provider is not None:
+            raise ValueError(
+                "Source-cumulative residual and Virtual-KV providers are mutually exclusive"
+            )
+        if provider is not None and (
+            self.memory_backend != "rwkv_ms"
+            or self.memory_readout_mode != "projected_kv_rwkv_hybrid"
+        ):
+            raise ValueError(
+                "Source-cumulative residual providers require projected-KV/RWKV hybrid memory"
+            )
+        if self._pending_source_cumulative_residual is not None:
+            raise RuntimeError(
+                "Cannot replace a source-cumulative residual provider with a pending payload"
+            )
+        self._source_cumulative_residual_provider = provider
+        self.rwkv_residual_router_receptance = None
+        self.rwkv_residual_router_gate = None
+        self.rwkv_residual_router_receptance_calls = 0
+
+    def clear_source_cumulative_residual_provider(self) -> None:
+        self._source_cumulative_residual_provider = None
+        self.rwkv_residual_router_receptance = None
+        self.rwkv_residual_router_gate = None
+        self.rwkv_residual_router_receptance_calls = 0
+        self._pending_source_cumulative_residual = None
+
+    def _prepare_source_cumulative_residual(
+        self,
+        hidden_states: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> None:
+        provider = self._source_cumulative_residual_provider
+        if provider is None:
+            return
+        if self._pending_source_cumulative_residual is not None:
+            raise RuntimeError(
+                "Previous source-cumulative residual was not consumed before the next "
+                f"attention forward in layer {self.layer_idx}"
+            )
+        residual = provider(
+            hidden_states=hidden_states,
+            token_mask=token_mask,
+            module=self,
+        )
+        if residual is None:
+            return
+        if self._source_cumulative_residual_hook_handle is None:
+            raise RuntimeError(
+                "A terminal source-cumulative residual requires a post-feedforward hook"
+            )
+        if tuple(residual.shape) != tuple(hidden_states.shape):
+            raise ValueError(
+                "Source-cumulative residual shape differs from hidden states: "
+                f"residual={tuple(residual.shape)} hidden={tuple(hidden_states.shape)}"
+            )
+        if not bool(torch.isfinite(residual.float()).all().item()):
+            raise ValueError("Source-cumulative residual contains nonfinite values")
+        self._pending_source_cumulative_residual = residual
 
     def _append_rwkv_virtual_kv(
         self,
@@ -1655,6 +1729,7 @@ class DeltaMemAttention(nn.Module):
         self.last_memory_residual_gain = None
         self._pending_post_attention_delta = None
         self._pending_outer_ffn_delta = None
+        self._pending_source_cumulative_residual = None
         self.rwkv_joint_pair_crossglu_query = None
         self.rwkv_joint_pair_crossglu_shadow_state = None
         self.rwkv_joint_pair_crossglu_gate_override = None
@@ -1665,6 +1740,9 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_joint_pair_crossglu_last_identity_state = None
         self.rwkv_virtual_router_receptance = None
         self.rwkv_virtual_router_receptance_calls = 0
+        self.rwkv_residual_router_receptance = None
+        self.rwkv_residual_router_gate = None
+        self.rwkv_residual_router_receptance_calls = 0
         self.write_message_ids = None
         self.write_sentence_ids = None
         self.projected_kv_write_key_mask = None
@@ -3868,6 +3946,19 @@ class DeltaMemAttention(nn.Module):
                     "Virtual-KV provider observed inconsistent RWKV receptance reads"
                 )
             self.rwkv_virtual_router_receptance_calls += 1
+        if self._source_cumulative_residual_provider is not None:
+            if self.rwkv_residual_router_receptance is None:
+                self.rwkv_residual_router_receptance = r_seq
+                self.rwkv_residual_router_gate = features.g
+            elif not torch.equal(
+                self.rwkv_residual_router_receptance.detach(), r_seq.detach()
+            ) or not torch.equal(
+                self.rwkv_residual_router_gate.detach(), features.g.detach()
+            ):
+                raise RuntimeError(
+                    "Source-cumulative provider observed inconsistent RWKV read captures"
+                )
+            self.rwkv_residual_router_receptance_calls += 1
         slot_reads = torch.einsum(
             "bhsij,bthj->bthsi",
             state.float(),
@@ -5824,6 +5915,48 @@ class DeltaMemAttention(nn.Module):
         if handle is not None:
             handle.remove()
 
+    def _post_feedforward_source_cumulative_residual_hook(
+        self,
+        module: nn.Module,
+        inputs: tuple[torch.Tensor, ...],
+        output: torch.Tensor,
+    ) -> torch.Tensor:
+        del module, inputs
+        residual = self._pending_source_cumulative_residual
+        if residual is None:
+            if self._source_cumulative_residual_provider is not None:
+                raise RuntimeError(
+                    "Gemma post_feedforward_layernorm ran without a pending "
+                    f"source-cumulative residual for layer {self.layer_idx}"
+                )
+            return output
+        self._pending_source_cumulative_residual = None
+        if tuple(residual.shape) != tuple(output.shape):
+            raise RuntimeError(
+                "Source-cumulative residual shape does not match Gemma's feed-forward "
+                f"output: residual={tuple(residual.shape)} output={tuple(output.shape)}"
+            )
+        residual = residual.to(device=output.device, dtype=output.dtype)
+        if not bool(residual.detach().ne(0).any().item()):
+            return output
+        return output + residual
+
+    def bind_source_cumulative_residual_layernorm(self, layernorm: nn.Module) -> None:
+        if self._source_cumulative_residual_hook_handle is not None:
+            raise RuntimeError(
+                f"Layer {self.layer_idx} already has a source-cumulative residual hook"
+            )
+        self._source_cumulative_residual_hook_handle = layernorm.register_forward_hook(
+            self._post_feedforward_source_cumulative_residual_hook
+        )
+
+    def remove_source_cumulative_residual_layernorm_hook(self) -> None:
+        handle = self._source_cumulative_residual_hook_handle
+        self._source_cumulative_residual_hook_handle = None
+        self._pending_source_cumulative_residual = None
+        if handle is not None:
+            handle.remove()
+
     def _post_feedforward_norm_outer_ffn_hook(
         self,
         module: nn.Module,
@@ -6024,9 +6157,17 @@ class DeltaMemAttention(nn.Module):
                     "Previous outer FFN payload was not consumed before the next "
                     f"attention forward in layer {self.layer_idx}"
                 )
+        if self._pending_source_cumulative_residual is not None:
+            raise RuntimeError(
+                "Previous source-cumulative residual was not consumed before the next "
+                f"attention forward in layer {self.layer_idx}"
+            )
         batch_size, seq_len, _ = hidden_states.shape
         self.rwkv_virtual_router_receptance = None
         self.rwkv_virtual_router_receptance_calls = 0
+        self.rwkv_residual_router_receptance = None
+        self.rwkv_residual_router_gate = None
+        self.rwkv_residual_router_receptance_calls = 0
         state = self._ensure_state(batch_size, hidden_states.device, hidden_states.dtype)
         token_mask = self._token_validity_mask(
             attention_mask,
@@ -6176,6 +6317,7 @@ class DeltaMemAttention(nn.Module):
                     read_route_seq,
                     token_mask,
                 )
+        self._prepare_source_cumulative_residual(hidden_states, token_mask)
         if read_mask is not None:
             reads = reads * read_mask.unsqueeze(-1).to(dtype=reads.dtype)
             if (
