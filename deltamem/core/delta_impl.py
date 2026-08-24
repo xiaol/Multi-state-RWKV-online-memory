@@ -1230,6 +1230,7 @@ class DeltaMemAttention(nn.Module):
         self.last_memory_residual_ratio: torch.Tensor | None = None
         self.last_memory_residual_gain: torch.Tensor | None = None
         self._eval_memory_delta_controller: Callable[..., torch.Tensor] | None = None
+        self._virtual_kv_provider: Callable[..., tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None] | None = None
         self._pending_post_attention_delta: tuple[
             torch.Tensor | None,
             torch.Tensor | None,
@@ -1258,6 +1259,132 @@ class DeltaMemAttention(nn.Module):
         self.projected_kv_write_slot_indices: torch.Tensor | None = None
         self.projected_kv_read_query_mask: torch.Tensor | None = None
         self.scan_impl = os.environ.get("DELTA_MEM_SCAN_IMPL", "auto")
+
+    def set_virtual_kv_provider(
+        self,
+        provider: Callable[..., tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None]
+        | None,
+    ) -> None:
+        if provider is not None and self.memory_fusion_placement in MEMORY_FUSION_NORM_HOOK_PLACEMENTS:
+            raise ValueError("Virtual-KV providers require normal attention-output placement")
+        if provider is not None and self.is_kv_shared_layer:
+            raise ValueError("Virtual-KV providers cannot target shared-KV attention")
+        if provider is not None and self.base.config._attn_implementation == "flash_attention_2":
+            raise ValueError(
+                "Virtual-KV providers require eager attention; flash_attention_2 cannot be used "
+                "with the audited extended causal mask"
+            )
+        self._virtual_kv_provider = provider
+
+    def clear_virtual_kv_provider(self) -> None:
+        self._virtual_kv_provider = None
+
+    def _append_rwkv_virtual_kv(
+        self,
+        query_states: torch.Tensor,
+        key_states: torch.Tensor,
+        value_states: torch.Tensor,
+        attention_mask: torch.Tensor | None,
+        *,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+        provider = self._virtual_kv_provider
+        if provider is None:
+            return key_states, value_states, attention_mask
+        if query_states.ndim != 4 or query_states.size(2) != 1:
+            raise ValueError("Virtual-KV providers require query length 1")
+        if key_states.ndim != 4 or value_states.ndim != 4:
+            raise ValueError("Real attention K/V must be rank 4")
+        if tuple(key_states.shape) != tuple(value_states.shape):
+            raise ValueError("Real attention K/V shapes differ")
+        if attention_mask is not None:
+            if attention_mask.ndim != 4:
+                raise ValueError("Virtual-KV attention masks must be rank 4")
+            if attention_mask.shape[0] != query_states.shape[0]:
+                raise ValueError("Virtual-KV attention mask batch differs from query")
+            if attention_mask.shape[-2] != query_states.size(2):
+                raise ValueError("Virtual-KV attention mask query length differs")
+            if attention_mask.shape[-1] != key_states.size(2):
+                raise ValueError("Virtual-KV attention mask real width differs")
+            if attention_mask.dtype != torch.bool and not attention_mask.dtype.is_floating_point:
+                raise ValueError("Virtual-KV attention mask must be bool or floating point")
+        real_keys_before = key_states.detach().clone()
+        real_values_before = value_states.detach().clone()
+        state_before = (
+            self.delta_state.detach().clone() if self.delta_state is not None else None
+        )
+        provided = provider(
+            query_states=query_states,
+            key_states=key_states,
+            value_states=value_states,
+            attention_mask=attention_mask,
+            hidden_states=None,
+            state=self.delta_state,
+            position_embeddings=position_embeddings,
+            module=self,
+        )
+        if not torch.equal(key_states.detach(), real_keys_before) or not torch.equal(
+            value_states.detach(), real_values_before
+        ):
+            raise RuntimeError("Virtual-KV provider mutated real cached K/V")
+        if state_before is not None and not torch.equal(self.delta_state.detach(), state_before):
+            raise RuntimeError("Virtual-KV provider mutated RWKV state")
+        if provided is None:
+            return key_states, value_states, attention_mask
+        if not isinstance(provided, tuple) or len(provided) != 3:
+            raise ValueError("Virtual-KV provider must return (keys, values, mask)")
+        provided_keys, provided_values, provided_mask = provided
+        if provided_keys.ndim != 4 or provided_values.ndim != 4:
+            raise ValueError("Virtual-KV provider tensors must be rank 4")
+        if tuple(provided_keys.shape[:2]) != tuple(key_states.shape[:2]) or tuple(
+            provided_values.shape[:2]
+        ) != tuple(value_states.shape[:2]):
+            raise ValueError("Virtual-KV provider head dimensions differ from real cache")
+        if (
+            provided_keys.shape[2] < 1
+            or tuple(provided_keys.shape[2:]) != tuple(provided_values.shape[2:])
+            or provided_keys.shape[3] != key_states.shape[3]
+        ):
+            raise ValueError("Virtual-KV provider geometry differs from real cache")
+        if provided_mask is None or provided_mask.ndim != 4:
+            raise ValueError("Virtual-KV provider must return a full extended mask")
+        if (
+            provided_mask.shape[0] != query_states.shape[0]
+            or provided_mask.shape[-2] != query_states.size(2)
+            or provided_mask.shape[-1] != key_states.size(2) + provided_keys.size(2)
+            or provided_mask.device != query_states.device
+        ):
+            raise ValueError("Virtual-KV provider mask geometry/device differs")
+        if provided_mask.dtype != torch.bool and not provided_mask.dtype.is_floating_point:
+            raise ValueError("Virtual-KV provider mask must be bool or floating point")
+        if provided_mask.dtype.is_floating_point and not bool(torch.isfinite(provided_mask).all().item()):
+            raise ValueError("Virtual-KV provider mask is nonfinite")
+        if not bool(torch.isfinite(provided_keys).all().item()) or not bool(
+            torch.isfinite(provided_values).all().item()
+        ):
+            raise ValueError("Virtual-KV provider returned nonfinite K/V")
+        if attention_mask is not None:
+            real_mask = provided_mask[..., : key_states.size(2)]
+            if real_mask.dtype != attention_mask.dtype or not torch.equal(
+                real_mask, attention_mask
+            ):
+                raise RuntimeError("Virtual-KV provider changed the real attention mask")
+        if self.base.config._attn_implementation == "eager" and provided_mask.dtype == torch.bool:
+            provided_mask = torch.where(
+                provided_mask,
+                torch.zeros((), device=provided_mask.device, dtype=query_states.dtype),
+                torch.full(
+                    (),
+                    torch.finfo(query_states.dtype).min,
+                    device=provided_mask.device,
+                    dtype=query_states.dtype,
+                ),
+            )
+        return (
+            torch.cat((key_states, provided_keys.to(device=key_states.device, dtype=key_states.dtype)), dim=2),
+            torch.cat((value_states, provided_values.to(device=value_states.device, dtype=value_states.dtype)), dim=2),
+            provided_mask,
+        )
 
     def _normalize_query_states(self, states: torch.Tensor) -> torch.Tensor:
         q_norm = getattr(self.base, "q_norm", None)
@@ -1814,6 +1941,8 @@ class DeltaMemAttention(nn.Module):
         )
 
         key_states, value_states = shared_kv_states[self.layer_type]
+        if self._virtual_kv_provider is not None:
+            raise ValueError("Virtual-KV providers cannot target shared-KV attention")
         key_states = key_states.to(query_states.device)
         value_states = value_states.to(query_states.device)
 
@@ -6043,6 +6172,14 @@ class DeltaMemAttention(nn.Module):
             if shared_kv_states is None:
                 shared_kv_states = {}
             shared_kv_states[self.layer_type] = key_states, value_states
+
+        key_states, value_states, attention_mask = self._append_rwkv_virtual_kv(
+            query_states,
+            key_states,
+            value_states,
+            attention_mask,
+            position_embeddings=position_embeddings,
+        )
 
         attention_interface = self.eager_attention_forward
         if self.base.config._attn_implementation != "eager":
