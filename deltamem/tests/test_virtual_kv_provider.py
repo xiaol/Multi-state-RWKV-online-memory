@@ -35,6 +35,33 @@ def test_explicit_virtual_kv_zero_state_is_exactly_disabled() -> None:
     assert builder(**kwargs) is None
 
 
+def test_explicit_virtual_kv_zero_address_is_exactly_disabled() -> None:
+    builder = ExplicitRWKVVirtualKV(
+        VirtualKVShape(
+            key_dim=6,
+            state_heads=1,
+            rank=4,
+            slots=1,
+            kv_heads=1,
+            head_dim=4,
+            probe_rank=3,
+            value_hidden=7,
+        )
+    )
+    assert (
+        builder(
+            state=torch.randn(1, 1, 1, 4, 4),
+            address_keys=torch.zeros(1, 1, 6),
+            occupied=torch.ones(1, 1, dtype=torch.bool),
+            query_states=torch.randn(1, 2, 1, 4),
+            real_keys=torch.randn(1, 1, 2, 4),
+            real_values=torch.randn(1, 1, 2, 4),
+            attention_mask=None,
+        )
+        is None
+    )
+
+
 def test_explicit_virtual_kv_has_active_equal_norm_payload_and_mask() -> None:
     torch.manual_seed(3)
     builder = ExplicitRWKVVirtualKV(
@@ -99,6 +126,87 @@ def test_explicit_virtual_kv_preserves_bool_mask_semantics() -> None:
     assert mask.dtype == torch.bool
     assert torch.equal(mask[..., :2], real_mask)
     assert torch.equal(mask[..., 2:], torch.tensor([[[[True, False, True]]]]))
+
+
+def test_explicit_virtual_kv_bias_uses_zero_keys_and_only_changes_suffix() -> None:
+    builder = ExplicitRWKVVirtualKV(
+        VirtualKVShape(
+            key_dim=6,
+            state_heads=1,
+            rank=4,
+            slots=3,
+            kv_heads=1,
+            head_dim=4,
+            probe_rank=3,
+            value_hidden=7,
+        )
+    )
+    real_mask = torch.tensor([[[[0.0, -7.0]]]])
+    keys, values, mask = builder(
+        state=torch.randn(1, 1, 3, 4, 4),
+        address_keys=torch.randn(1, 3, 6),
+        occupied=torch.tensor([[True, False, True]]),
+        query_states=torch.randn(1, 2, 1, 4),
+        real_keys=torch.randn(1, 1, 2, 4),
+        real_values=torch.randn(1, 1, 2, 4),
+        attention_mask=real_mask,
+        attention_bias=torch.tensor([[1.25, 99.0, -0.75]]),
+    )
+    assert torch.equal(keys, torch.zeros_like(keys))
+    assert values[:, :, 0].square().sum().item() > 0.0
+    assert values[:, :, 1].square().sum().item() == 0.0
+    assert values[:, :, 2].square().sum().item() > 0.0
+    assert torch.equal(mask[..., :2], real_mask)
+    assert mask[0, 0, 0, 2].item() == 1.25
+    assert mask[0, 0, 0, 3].item() == torch.finfo(mask.dtype).min
+    assert mask[0, 0, 0, 4].item() == -0.75
+
+
+def test_explicit_virtual_kv_bias_rejects_bool_mask() -> None:
+    builder = ExplicitRWKVVirtualKV(
+        VirtualKVShape(
+            key_dim=6,
+            state_heads=1,
+            rank=4,
+            slots=1,
+            kv_heads=1,
+            head_dim=4,
+            probe_rank=3,
+            value_hidden=7,
+        )
+    )
+    with pytest.raises(ValueError, match="additive floating mask"):
+        builder(
+            state=torch.randn(1, 1, 1, 4, 4),
+            address_keys=torch.randn(1, 1, 6),
+            occupied=torch.ones(1, 1, dtype=torch.bool),
+            query_states=torch.randn(1, 2, 1, 4),
+            real_keys=torch.randn(1, 1, 2, 4),
+            real_values=torch.randn(1, 1, 2, 4),
+            attention_mask=torch.ones(1, 1, 1, 2, dtype=torch.bool),
+            attention_bias=torch.ones(1, 1),
+        )
+
+
+def test_rwkv_read_basis_publishes_receptance_only_for_provider_lifecycle() -> None:
+    module = make_delta_module(
+        output_init="zero",
+        rank=4,
+        num_state_heads=1,
+        memory_backend="rwkv_ms",
+        rwkv_ms_num_states=3,
+    )
+    state = module._ensure_state(1, torch.device("cpu"), torch.float32)
+    source = torch.randn(1, 2, module.state_read_dim)
+    without_provider, _, _ = module._rwkv_ms_token_state_read_basis(state, source, None)
+    assert module.rwkv_virtual_router_receptance is None
+    module.set_virtual_kv_provider(lambda **kwargs: None)
+    receptance, _, _ = module._rwkv_ms_token_state_read_basis(state, source, None)
+    assert module.rwkv_virtual_router_receptance is receptance
+    assert tuple(receptance.shape) == (1, 2, 1, 4)
+    torch.testing.assert_close(receptance, without_provider)
+    module.clear_virtual_kv_provider()
+    assert module.rwkv_virtual_router_receptance is None
 
 
 def test_explicit_virtual_kv_normalizes_each_kv_head_independently() -> None:
@@ -200,8 +308,47 @@ def test_provider_rejects_non_single_query() -> None:
 def test_provider_rejects_flash_attention_two() -> None:
     module = make_delta_module(output_init="zero", rank=2)
     module.base.config._attn_implementation = "flash_attention_2"
-    with pytest.raises(ValueError, match="flash_attention_2"):
+    with pytest.raises(ValueError, match="require eager attention"):
         module.set_virtual_kv_provider(lambda **kwargs: None)
+
+
+@pytest.mark.parametrize(
+    ("attribute", "initial", "message"),
+    (
+        ("delta_state", torch.ones(1, 1, 1, 2, 2), "mutated RWKV state"),
+        ("projected_kv_keys", torch.ones(1, 1, 2), "mutated projected address keys"),
+        (
+            "projected_kv_occupied",
+            torch.ones(1, 1, dtype=torch.bool),
+            "mutated projected occupancy",
+        ),
+    ),
+)
+def test_provider_rejects_removing_audited_memory_sidecar(
+    attribute: str,
+    initial: torch.Tensor,
+    message: str,
+) -> None:
+    module = make_delta_module(output_init="zero", rank=2)
+    setattr(module, attribute, initial)
+
+    def provider(**kwargs):
+        setattr(kwargs["module"], attribute, None)
+        return None
+
+    module.set_virtual_kv_provider(provider)
+    module.rwkv_virtual_router_receptance = torch.ones(1, 1, 1, 2)
+    module.rwkv_virtual_router_receptance_calls = 2
+    with pytest.raises(RuntimeError, match=message):
+        module._append_rwkv_virtual_kv(
+            torch.ones(1, 1, 1, 2),
+            torch.ones(1, 1, 1, 2),
+            torch.ones(1, 1, 1, 2),
+            None,
+            position_embeddings=(torch.ones(1, 1, 2), torch.zeros(1, 1, 2)),
+        )
+    assert module.rwkv_virtual_router_receptance is None
+    assert module.rwkv_virtual_router_receptance_calls == 0
 
 
 def test_co_rotated_virtual_key_has_prompt_shift_invariant_logit() -> None:

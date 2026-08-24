@@ -1231,6 +1231,8 @@ class DeltaMemAttention(nn.Module):
         self.last_memory_residual_gain: torch.Tensor | None = None
         self._eval_memory_delta_controller: Callable[..., torch.Tensor] | None = None
         self._virtual_kv_provider: Callable[..., tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None] | None = None
+        self.rwkv_virtual_router_receptance: torch.Tensor | None = None
+        self.rwkv_virtual_router_receptance_calls = 0
         self._pending_post_attention_delta: tuple[
             torch.Tensor | None,
             torch.Tensor | None,
@@ -1269,15 +1271,19 @@ class DeltaMemAttention(nn.Module):
             raise ValueError("Virtual-KV providers require normal attention-output placement")
         if provider is not None and self.is_kv_shared_layer:
             raise ValueError("Virtual-KV providers cannot target shared-KV attention")
-        if provider is not None and self.base.config._attn_implementation == "flash_attention_2":
+        if provider is not None and self.base.config._attn_implementation != "eager":
             raise ValueError(
-                "Virtual-KV providers require eager attention; flash_attention_2 cannot be used "
-                "with the audited extended causal mask"
+                "Virtual-KV providers require eager attention with the audited extended "
+                "causal mask"
             )
         self._virtual_kv_provider = provider
+        self.rwkv_virtual_router_receptance = None
+        self.rwkv_virtual_router_receptance_calls = 0
 
     def clear_virtual_kv_provider(self) -> None:
         self._virtual_kv_provider = None
+        self.rwkv_virtual_router_receptance = None
+        self.rwkv_virtual_router_receptance_calls = 0
 
     def _append_rwkv_virtual_kv(
         self,
@@ -1292,6 +1298,8 @@ class DeltaMemAttention(nn.Module):
         if provider is None:
             return key_states, value_states, attention_mask
         if query_states.ndim != 4 or query_states.size(2) != 1:
+            self.rwkv_virtual_router_receptance = None
+            self.rwkv_virtual_router_receptance_calls = 0
             raise ValueError("Virtual-KV providers require query length 1")
         if key_states.ndim != 4 or value_states.ndim != 4:
             raise ValueError("Real attention K/V must be rank 4")
@@ -1310,25 +1318,81 @@ class DeltaMemAttention(nn.Module):
                 raise ValueError("Virtual-KV attention mask must be bool or floating point")
         real_keys_before = key_states.detach().clone()
         real_values_before = value_states.detach().clone()
+        query_before = query_states.detach().clone()
+        mask_before = (
+            attention_mask.detach().clone() if attention_mask is not None else None
+        )
         state_before = (
             self.delta_state.detach().clone() if self.delta_state is not None else None
         )
-        provided = provider(
-            query_states=query_states,
-            key_states=key_states,
-            value_states=value_states,
-            attention_mask=attention_mask,
-            hidden_states=None,
-            state=self.delta_state,
-            position_embeddings=position_embeddings,
-            module=self,
+        projected_keys_before = (
+            self.projected_kv_keys.detach().clone()
+            if self.projected_kv_keys is not None
+            else None
         )
+        projected_occupied_before = (
+            self.projected_kv_occupied.detach().clone()
+            if self.projected_kv_occupied is not None
+            else None
+        )
+        try:
+            provided = provider(
+                query_states=query_states,
+                key_states=key_states,
+                value_states=value_states,
+                attention_mask=attention_mask,
+                hidden_states=None,
+                state=self.delta_state,
+                position_embeddings=position_embeddings,
+                module=self,
+            )
+        finally:
+            self.rwkv_virtual_router_receptance = None
+            self.rwkv_virtual_router_receptance_calls = 0
+        if not torch.equal(query_states.detach(), query_before):
+            raise RuntimeError("Virtual-KV provider mutated real attention queries")
         if not torch.equal(key_states.detach(), real_keys_before) or not torch.equal(
             value_states.detach(), real_values_before
         ):
             raise RuntimeError("Virtual-KV provider mutated real cached K/V")
-        if state_before is not None and not torch.equal(self.delta_state.detach(), state_before):
+        if mask_before is not None and not torch.equal(attention_mask, mask_before):
+            raise RuntimeError("Virtual-KV provider mutated the input attention mask")
+        state_changed = (state_before is None) != (self.delta_state is None)
+        if (
+            not state_changed
+            and state_before is not None
+            and self.delta_state is not None
+            and not torch.equal(self.delta_state.detach(), state_before)
+        ):
+            state_changed = True
+        if state_changed:
             raise RuntimeError("Virtual-KV provider mutated RWKV state")
+        projected_keys_changed = (projected_keys_before is None) != (
+            self.projected_kv_keys is None
+        )
+        if (
+            not projected_keys_changed
+            and projected_keys_before is not None
+            and self.projected_kv_keys is not None
+            and not torch.equal(self.projected_kv_keys.detach(), projected_keys_before)
+        ):
+            projected_keys_changed = True
+        if projected_keys_changed:
+            raise RuntimeError("Virtual-KV provider mutated projected address keys")
+        projected_occupied_changed = (projected_occupied_before is None) != (
+            self.projected_kv_occupied is None
+        )
+        if (
+            not projected_occupied_changed
+            and projected_occupied_before is not None
+            and self.projected_kv_occupied is not None
+            and not torch.equal(
+                self.projected_kv_occupied.detach(), projected_occupied_before
+            )
+        ):
+            projected_occupied_changed = True
+        if projected_occupied_changed:
+            raise RuntimeError("Virtual-KV provider mutated projected occupancy")
         if provided is None:
             return key_states, value_states, attention_mask
         if not isinstance(provided, tuple) or len(provided) != 3:
@@ -1365,10 +1429,20 @@ class DeltaMemAttention(nn.Module):
             raise ValueError("Virtual-KV provider returned nonfinite K/V")
         if attention_mask is not None:
             real_mask = provided_mask[..., : key_states.size(2)]
-            if real_mask.dtype != attention_mask.dtype or not torch.equal(
-                real_mask, attention_mask
+            if real_mask.dtype != mask_before.dtype or not torch.equal(
+                real_mask, mask_before
             ):
                 raise RuntimeError("Virtual-KV provider changed the real attention mask")
+        else:
+            real_mask = provided_mask[..., : key_states.size(2)]
+            if real_mask.dtype == torch.bool:
+                real_prefix_unchanged = bool(real_mask.all().item())
+            else:
+                real_prefix_unchanged = bool(real_mask.eq(0.0).all().item())
+            if not real_prefix_unchanged:
+                raise RuntimeError(
+                    "Virtual-KV provider changed the implicit real attention mask"
+                )
         if self.base.config._attn_implementation == "eager" and provided_mask.dtype == torch.bool:
             provided_mask = torch.where(
                 provided_mask,
@@ -1570,6 +1644,8 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_joint_pair_crossglu_last_value = None
         self.rwkv_joint_pair_crossglu_last_correction = None
         self.rwkv_joint_pair_crossglu_last_identity_state = None
+        self.rwkv_virtual_router_receptance = None
+        self.rwkv_virtual_router_receptance_calls = 0
         self.write_message_ids = None
         self.write_sentence_ids = None
         self.projected_kv_write_key_mask = None
@@ -3763,6 +3839,16 @@ class DeltaMemAttention(nn.Module):
             advance_within_sequence=False,
         )
         r_seq = self._rwkv_ms_project_heads(features.r).float()
+        if self._virtual_kv_provider is not None:
+            if self.rwkv_virtual_router_receptance is None:
+                self.rwkv_virtual_router_receptance = r_seq
+            elif not torch.equal(
+                self.rwkv_virtual_router_receptance.detach(), r_seq.detach()
+            ):
+                raise RuntimeError(
+                    "Virtual-KV provider observed inconsistent RWKV receptance reads"
+                )
+            self.rwkv_virtual_router_receptance_calls += 1
         slot_reads = torch.einsum(
             "bhsij,bthj->bthsi",
             state.float(),
@@ -5920,6 +6006,8 @@ class DeltaMemAttention(nn.Module):
                     f"attention forward in layer {self.layer_idx}"
                 )
         batch_size, seq_len, _ = hidden_states.shape
+        self.rwkv_virtual_router_receptance = None
+        self.rwkv_virtual_router_receptance_calls = 0
         state = self._ensure_state(batch_size, hidden_states.device, hidden_states.dtype)
         token_mask = self._token_validity_mask(
             attention_mask,
