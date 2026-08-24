@@ -658,6 +658,26 @@ route must decouple an explicit address-derived virtual attention key from an
 RMS-normalized RWKV-derived value. No fresh mechanics, causal, generation, or
 native benchmark bytes are authorized yet.
 
+The next explicit virtual-KV screen implemented the separation suggested by
+that failure: address-only virtual keys, nonlinear RWKV-only virtual values,
+four ephemeral positions, and eager single-query attention at full-attention
+layers `5/11/17/23`. It captured only the already-open `64` FIT and `32`
+retrieval rows on exactly four A100s through the HF mirror. The frozen
+bias-free ridge address-to-key map failed the first held-out identity gate at
+all four anchors. Correct-over-strongest-wrong fractions were `0.531250`,
+`0.562500`, `0.375000`, and `0.718750`; mean attention-mass margins were
+`+0.167902`, `+0.020564`, `-0.081906`, and `+0.224652`. Exact-zero RWKV state
+disabled virtual K/V on every row. Because the key gate failed, cached/full,
+prompt-shift, value-identity, causal, and native benchmark stages were not
+opened. The signed result receipt is
+`75209e6996b5e17035435757a0f9e3a0a6a3299faa2198e52ce7288b064c737a`.
+This retires only a fixed post-RoPE/no-position linear key map. The strongest
+next route is a co-rotated key: learn the address key in the unrotated query
+basis, then apply the current query position's RoPE to the virtual key so its
+relative phase is zero and prompt shifts cannot change the match. A nonlinear
+contrastive map should be screened on the same already-captured open tensors
+before any protected split or Full-Bandwidth feedback is considered.
+
 Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed continuous retrieval pass](local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),

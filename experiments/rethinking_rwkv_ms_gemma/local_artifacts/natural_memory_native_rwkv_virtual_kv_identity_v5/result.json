@@ -1,0 +1,170 @@
+{
+  "already_open_bundles_read": [
+    "fit",
+    "retrieval"
+  ],
+  "anchor_checks": {
+    "11": false,
+    "17": false,
+    "23": false,
+    "5": false
+  },
+  "anchor_layers": [
+    5,
+    11,
+    17,
+    23
+  ],
+  "candidate_bank_size": 4,
+  "fit_adapter": "bias-free per-anchor ridge address-to-query-key map, frozen before retrieval capture",
+  "fit_and_retrieval_shards": [
+    {
+      "path": "fit-shard-0.pt",
+      "sha256": "005e3ef891f496098b841f5b7eb5193a008fae312d49c29d57b05e1c7700cb59"
+    },
+    {
+      "path": "fit-shard-1.pt",
+      "sha256": "b4073ee22fec3b84e7dbc29d3386fcc50fdbbcee3eb9fa9db2877e4132faabb1"
+    },
+    {
+      "path": "fit-shard-2.pt",
+      "sha256": "1f3ae974df41cd37edb6c70e0de750ad9ef82da248d94ae49fb0dd43d775113e"
+    },
+    {
+      "path": "fit-shard-3.pt",
+      "sha256": "fd5650b8e565238fb4d12697aa185c69e8223650978d178a93ccff5dc50defea"
+    },
+    {
+      "path": "retrieval-shard-0.pt",
+      "sha256": "60c9489a90508079c89c661d791da24d976994c4dacca8b220ff9193bfe16d8a"
+    },
+    {
+      "path": "retrieval-shard-1.pt",
+      "sha256": "8be2ec88dd26c8139d0931904de5e6983cde7392a6c13764da361bfd67a9b7d0"
+    },
+    {
+      "path": "retrieval-shard-2.pt",
+      "sha256": "490b87f748e23e10cf25db0ecfe801123f3a9baf1a623d68811dbe43eb4076de"
+    },
+    {
+      "path": "retrieval-shard-3.pt",
+      "sha256": "62074f4fd0eda89828968463d527b515b4cc47e7ce35a062c1d8d3a90e9c1b6d"
+    }
+  ],
+  "fit_rows": 64,
+  "full_bandwidth_feedback_installed": false,
+  "hardware": {
+    "backend": "nccl",
+    "control_backend": "gloo",
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 0,
+        "pid": 2928677,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 1,
+        "pid": 2928678,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 2,
+        "pid": 2928679,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 3,
+        "pid": 2928680,
+        "process_rank": 3
+      }
+    ],
+    "world_size": 4
+  },
+  "mechanics_causal_generation_or_native_bytes_opened": false,
+  "model_audit": {
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "deepembed_down_hooks": 42,
+    "deepembed_pre_hooks": 42,
+    "learned_write_modules": 0,
+    "loader": "strict_saved_config_and_complete_adapter",
+    "outer_ffn_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "wrapped_layers": 42
+  },
+  "model_parameters_updated": false,
+  "native_gain_claimed": false,
+  "passed": false,
+  "per_anchor": {
+    "11": {
+      "correct_mass_exceeds_wrong_fraction": 0.5625,
+      "mean_margin": 0.020564496517181396,
+      "positive_margin_row_fraction": 0.5625,
+      "virtual_mass_mean": 1.000000238418579,
+      "virtual_mass_nonzero_fraction": 1.0,
+      "within_bank_top1": 0.5625,
+      "zero_state_disabled_fraction": 1.0
+    },
+    "17": {
+      "correct_mass_exceeds_wrong_fraction": 0.375,
+      "mean_margin": -0.0819060355424881,
+      "positive_margin_row_fraction": 0.375,
+      "virtual_mass_mean": 0.9956855773925781,
+      "virtual_mass_nonzero_fraction": 1.0,
+      "within_bank_top1": 0.375,
+      "zero_state_disabled_fraction": 1.0
+    },
+    "23": {
+      "correct_mass_exceeds_wrong_fraction": 0.71875,
+      "mean_margin": 0.22465211153030396,
+      "positive_margin_row_fraction": 0.71875,
+      "virtual_mass_mean": 1.000000238418579,
+      "virtual_mass_nonzero_fraction": 1.0,
+      "within_bank_top1": 0.71875,
+      "zero_state_disabled_fraction": 1.0
+    },
+    "5": {
+      "correct_mass_exceeds_wrong_fraction": 0.53125,
+      "mean_margin": 0.1679016649723053,
+      "positive_margin_row_fraction": 0.53125,
+      "virtual_mass_mean": 1.0000001192092896,
+      "virtual_mass_nonzero_fraction": 1.0,
+      "within_bank_top1": 0.53125,
+      "zero_state_disabled_fraction": 1.0
+    }
+  },
+  "protocol_receipt": "1044c76215d7156aadc13cc45430a6dc4516ffb38cd12e8f8a4bbe9ab922f072",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "75209e6996b5e17035435757a0f9e3a0a6a3299faa2198e52ce7288b064c737a"
+  },
+  "retrieval_rows": 32,
+  "schema": "rwkv_ms_natural_memory_native_rwkv_virtual_kv_identity.v1",
+  "sota_claimed": false,
+  "status": "virtual_kv_identity_failed_open_split"
+}

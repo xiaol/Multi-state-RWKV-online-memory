@@ -761,3 +761,18 @@ before the attention softmax at full-attention layers `5/11/17/23`; never cache
 them or mutate shared K/V. Exact-zero state must fall back to projected-only.
 Only a fresh mechanics and causal pass can make FBT feedback eligible. Native
 benchmark, Full-Bandwidth gain, and SOTA claims remain unauthorized.
+
+The first explicit virtual-KV identity screen has now completed on the
+already-open FIT/retrieval rows. A fixed post-RoPE/no-position bias-free ridge
+map from the continuous address to Gemma K-space failed all four anchors.
+Layer `23` was close but below the locked row gate: correct beat the strongest
+wrong candidate on `0.718750` of rows with `+0.224652` mean attention-mass
+margin. Layers `5/11/17` reached `0.531250/0.562500/0.375000`. Zero RWKV state
+disabled the virtual path exactly on every row. This result does not reject
+virtual K/V generally; it rejects the assumption that one position-agnostic
+linear map can predict a post-RoPE attention key across varying prompt
+positions. The next bounded key family should map address to an unrotated key
+and co-rotate it at the current query position. Co-rotation makes the virtual
+key/query relative phase zero, gives an explicit prompt-shift invariance, and
+can be paired with a nonlinear contrastive FIT objective without mixing the
+RWKV value payload into the selector.
