@@ -515,6 +515,26 @@ def test_zero_terminal_hook_returns_same_tensor_and_consumes_once() -> None:
     module.remove_source_cumulative_residual_layernorm_hook()
 
 
+def test_trainable_zero_terminal_hook_preserves_gradient_path() -> None:
+    module = _attention_module()
+    layernorm = torch.nn.Identity()
+    module.bind_source_cumulative_residual_layernorm(layernorm)
+    module.set_source_cumulative_residual_provider(lambda **kwargs: None)
+    output = torch.randn(1, 1, module.hidden_size)
+    trainable_zero = torch.zeros_like(output, requires_grad=True)
+    module._pending_source_cumulative_residual = trainable_zero
+
+    actual = layernorm(output)
+
+    assert actual is not output
+    assert torch.equal(actual, output)
+    actual.square().mean().backward()
+    assert trainable_zero.grad is not None
+    assert bool(trainable_zero.grad.abs().max().gt(0.0).item())
+    module.clear_source_cumulative_residual_provider()
+    module.remove_source_cumulative_residual_layernorm_hook()
+
+
 def test_virtual_and_no_suffix_residual_providers_are_mutually_exclusive() -> None:
     module = _attention_module()
     module.set_source_cumulative_residual_provider(lambda **kwargs: None)

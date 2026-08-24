@@ -5937,7 +5937,10 @@ class DeltaMemAttention(nn.Module):
                 f"output: residual={tuple(residual.shape)} output={tuple(output.shape)}"
             )
         residual = residual.to(device=output.device, dtype=output.dtype)
-        if not bool(residual.detach().ne(0).any().item()):
+        if (
+            not residual.requires_grad
+            and not bool(residual.detach().ne(0).any().item())
+        ):
             return output
         return output + residual
 
