@@ -173,7 +173,7 @@ def test_provider_appends_ephemeral_kv_without_changing_default_path() -> None:
     module.set_virtual_kv_provider(None)
     module.reset_state()
     restored, _ = module(x, position_embeddings, None)
-    torch.testing.assert_close(restored, baseline)
+    assert torch.equal(restored, baseline)
 
 
 def test_provider_rejects_non_single_query() -> None:

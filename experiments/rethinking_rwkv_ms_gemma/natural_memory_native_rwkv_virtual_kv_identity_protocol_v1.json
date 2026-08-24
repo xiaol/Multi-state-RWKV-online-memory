@@ -1,0 +1,122 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_virtual_kv_identity_protocol.v1",
+  "created_at": "2026-08-24T11:00:00+08:00",
+  "objective": "Screen explicit address-keyed virtual K/V on already-open FIT and retrieval rows. The virtual key must select the source identity while the virtual value is a nonlinear RMS-normalized contraction of the RWKV state; no model weights, protected mechanics/causal bytes, generation, Full-Bandwidth feedback, or native benchmark bytes may be opened.",
+  "paper_binding": {
+    "arxiv": "2608.08888v1",
+    "title": "Full-bandwidth transformer",
+    "pdf_sha256": "7ddb5869843aea15d72cc3fc94d69d15217a67c07effcd7a5e4631320cd52ee3",
+    "source_sha256": "6ac4149a537a5427019c39def1fc4647dd6a92db360ef7e8d1676c7602219bf8",
+    "transfer_boundary": "Full-bandwidth latent feedback renews depth for one adjacent state but does not provide multi-slot identity or donor-specific addressing; feedback is deferred until this virtual-KV identity screen and a fresh causal gate pass.",
+    "mechanism_used_here": "Address-derived virtual attention keys provide selection; RWKV state-derived virtual values provide payload; virtual positions are appended after real cache retrieval and are never cached or published to shared KV."
+  },
+  "authorization_basis": {
+    "virtual_kv_code_commit": "7de023e",
+    "continuous_retrieval_result_sha256": "5103a66475b7a596e53a58b8c7cb554e7e400f5825d42ca141bc342dfef8784b",
+    "continuous_retrieval_result_receipt": "cf001ac0f06afeb58b96084d656e5a22521a7d2229d68436b09572e231e0a6dd",
+    "address_reconstruction_failure_sha256": "d6992d50ef60f70e2dc503b9b752c36c723f4ac3ed3ade45fa41583b6ee8e5bd",
+    "address_reconstruction_failure_receipt": "c7df99f673e55b749b88e7b9f8a71967ed2fd4da28aa99d21fa9daf9b563c93a",
+    "reason_for_new_family": "Linear state-times-address cosine reconstruction was donor-neutral; separate attention-logit key identity from RWKV value payload to remove cosine scale blindness."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "manifest_sha256": "c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468",
+    "manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+    "fit_bundle": {
+      "path": "fit.jsonl",
+      "rows": 64,
+      "sha256": "4984e7de044f7befc2c3fdba8a0d8c08f627dcc4b168abbd8090393cca49c2fc",
+      "payload_sha256": "41d9e117997e60b808895f4ae8ea63a6fa643ba97d44c6878be5b442eeb76318"
+    },
+    "retrieval_bundle": {
+      "path": "retrieval.jsonl",
+      "rows": 32,
+      "sha256": "2083394ac902745617827039c8b61f71ff76dee3f6ddd128d932fd92c400e7c7",
+      "payload_sha256": "02a21f010446131ee994992d662cf16d896d2f4dde5a47f8dadd024b758ae112"
+    },
+    "address_map_sha256": "d41857ee834670db359c0e3ddb644e3ce04f4f01d6320da4b2550370cbf5d3d6",
+    "address_map_digest": "c4fd930a9efe609c76e3c5a4e3b34581a5848787e3de9bd0c5ac5fb899c0e559"
+  },
+  "architecture": {
+    "anchor_layers": [5, 11, 17, 23],
+    "excluded_layers": "all shared-KV layers and all sliding-attention layers",
+    "virtual_slots": 4,
+    "state_shape": [1, 1, 4, 32, 32],
+    "address_key_shape": [1, 4, 64],
+    "value_path": "bias-free SiLU MLP over fixed-probe RWKV state sketch, per-head RMS-sphere normalized",
+    "key_path": "address-only projection with per-KV-head RMS-sphere normalization",
+    "position_convention": "virtual keys are post-RoPE/no-position tensors; cached/full equivalence and prompt-position shift are mandatory controls",
+    "runtime": "ephemeral append after real cache update, before attention softmax; no cache/shared-KV mutation",
+    "query_length": 1,
+    "attention_implementation": "eager only",
+    "model_parameters_updated": false,
+    "full_bandwidth_feedback_installed": false
+  },
+  "controls": [
+    "correct-target-state-and-address",
+    "matched-donor-state-with-target-address",
+    "wrong-donor-address-with-target-state",
+    "two-component-disjoint-distractor-states-and-addresses",
+    "address-slot-permutation",
+    "zero-state-disabled",
+    "zero-key-disabled",
+    "zero-value-disabled",
+    "virtual-attention-mass-versus-all-real-causal-keys",
+    "cached-versus-full-equivalence",
+    "prompt-position-shift"
+  ],
+  "required_gates": {
+    "fit_rows": 64,
+    "retrieval_rows": 32,
+    "candidate_bank_size": 4,
+    "minimum_anchor_layers_passing": 3,
+    "within_bank_top1_minimum": 0.75,
+    "correct_minus_wrong_logit_margin_minimum": 0.05,
+    "positive_margin_row_fraction_minimum": 0.75,
+    "address_permutation_equivariance": true,
+    "zero_state_exact_projected_only": true,
+    "virtual_mass_nonzero_fraction_minimum": 0.95,
+    "correct_virtual_mass_exceeds_each_wrong_candidate_fraction_minimum": 0.75,
+    "cached_full_max_abs_difference": 0.00001,
+    "prompt_shift_max_abs_difference": 0.00001
+  },
+  "data_lifecycle": {
+    "already_open_bundles_only": ["fit", "retrieval"],
+    "fit_capture_before_retrieval_open": true,
+    "fit_adapter_frozen_before_retrieval_open": true,
+    "mechanics_bundle_opened_by_this_protocol": false,
+    "causal_bundle_opened_by_this_protocol": false,
+    "generation_bytes_opened": false,
+    "native_benchmark_bytes_opened": false,
+    "protected_bytes_tokenized_or_forwarded": false
+  },
+  "execution": {
+    "hardware": "exactly four distinct NVIDIA A100 GPUs",
+    "world_size": 4,
+    "hf_endpoint": "https://hf-mirror.com",
+    "backbone_dtype": "bfloat16",
+    "rwkv_state_dtype": "float32",
+    "seed": 211,
+    "output": "local_artifacts/natural_memory_native_rwkv_virtual_kv_identity_v1"
+  },
+  "stopping_rule": {
+    "pass": "Archive key/value adapters and identity receipts, then authorize a new mechanics protocol; do not install Full-Bandwidth recurrence yet.",
+    "failure": "Retire this exact virtual-key/value family without tuning batch size, thresholds, gains, or protected-split access; choose the next independently specified hybrid.",
+    "always": "No causal endpoint, generation, native benchmark, Full-Bandwidth gain, or SOTA claim follows from this screen."
+  },
+  "claim_policy": {
+    "allowed": "Only held-out open-split virtual-KV identity/mass behavior under the listed controls.",
+    "native_memory_gain": false,
+    "causal_identity": false,
+    "full_bandwidth_gain": false,
+    "sota": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "1044c76215d7156aadc13cc45430a6dc4516ffb38cd12e8f8a4bbe9ab922f072"
+  }
+}
