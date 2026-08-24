@@ -863,3 +863,58 @@ feed the router-enriched top hidden state through the mandatory top-to-bottom
 GLU, snapshot RWKV memory so feedback never double-writes, use the `75/22/3`
 pass mixture plus prefix mixin, and require contraction before native
 benchmark access. The present failure authorizes none of those later stages.
+
+## Source-residual depth-renewal development screen
+
+The source-canonical residual route was screened on a new explicitly open
+64-row development reservation before any fresh protected mechanics access.
+The reservation excludes all 94 historical components, all 160 parent-selected
+components, and all 64 components in the sealed fresh mechanics/causal
+reservation. Its manifest SHA-256 is
+`59b9926fa1023fa39f5616bdfa3f0bf4d1d4549d2f7e948dd628536a1bdb9f38`;
+the protected mechanics and causal bundles remained unopened.
+
+The first four-A100 screen held the selected-score gate at scale `32` and
+compared residual injection after layers `5`, `11`, `17`, and `23`. This is a
+bounded test of the paper's useful depth-renewal idea, not Full-Bandwidth
+feedback: no state was returned across generated positions and no extra model
+pass ran. Target-source top-1 was `0.875000` after layers `5/11` and `0.953125`
+after layers `17/23`. Layer `23` had the largest mean strongest-wrong score
+margin (`0.134644` versus `0.101257` at layer `17`), while layer `17` preserved
+six more downstream transformer layers. Scale `32` saturated the selected-score
+sigmoid: donor-address-only interventions were material on at most `0.046875`
+of rows, so this setting was not eligible for mechanics.
+
+The corrected scale screen therefore fixed injection after layer `17`, swept
+`0.5/1/2/4/8/16`, and retained one layer-23 scale-4 comparison. Scales
+`0.5/1/2/4/8` passed the open mechanics checks after applying the predeclared
+half-BF16-step mass tolerance (`1/512`); the maximum observed selected-mass
+equation error was `0.001941`. Scale `1` was the best diagnostic setting: every
+declared intervention was materially visible, correct memory improved mean
+target CE over provider-off by `0.012150`, and matched donor state+address was
+worse than the target by `0.017373` mean CE. But donor-positive row fraction
+was only `0.609375`, below the locked `0.75` gate. Scale `16` increased the
+mean donor margin to `0.027597` but reduced donor-positive rows to `0.562500`
+and donor-address materiality to `0.328125`. The layer-23 scale-4 control was
+worse still: donor mean margin was `-0.012367` and address materiality was
+`0.906250`.
+
+The signed raw result SHA-256 is
+`5eba745db6b245d5df5e8a2f16d058f41a162b2f551f958041e412ab1cd1abf9`
+with receipt
+`768c88849c97017469d72af928eaef1dc01b934ec0004b69f89a983a9992e831`.
+The BF16-corrected analysis SHA-256 is
+`02e02590556adebdcd1c9ea89acb1aab7f3bb2b71efadb322f42ddd4e81ee9b0`
+with receipt
+`1aebad03bb9610e86533fd16683a319d64f30cf2b01cbba03a4d322465b69029`.
+
+This closes pure depth placement and scalar-gate calibration. The router has
+strong source selection, and Full-Bandwidth-style earlier renewal makes the
+selected state materially influential, but neither makes the untrained native
+RWKV read consistently helpful for the target answer. The next bounded route
+should freeze the layer-17, scale-1 selector and train only a small state-valued
+outer FFN with correct-versus-donor, layer-roll, and zero-state contrast on open
+development data. It must retain an exact-zero state path and may reach the
+fresh mechanics gate only if held-out donor-positive rows pass `0.75`. Exact
+top-to-bottom Full-Bandwidth feedback and its multi-pass schedule remain later
+experiments, after source-specific causal use exists.

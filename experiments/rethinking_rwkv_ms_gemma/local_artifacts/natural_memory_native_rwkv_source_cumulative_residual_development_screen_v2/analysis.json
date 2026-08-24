@@ -1,0 +1,617 @@
+{
+  "analysis": {
+    "renew_at_17_scale_0_5": {
+      "anchor_passes": {
+        "11": true,
+        "17": true,
+        "5": true
+      },
+      "development_pass": false,
+      "donor_causal_pass": false,
+      "invariants": {
+        "all_anchor_path_checks": true,
+        "all_logits_finite": true,
+        "all_state_and_cache_invariants": true,
+        "cached_null_replay_exact": true,
+        "independent_slot_permutation_diagnostics_exact": true,
+        "independent_slot_permutation_logits_exact": true,
+        "residual_finite_and_bounded": true,
+        "selected_gate_equation_bf16_close": true,
+        "zero_controls_exact_provider_off": true
+      },
+      "material_predictor_change_fraction": {
+        "correct_vs_provider_off": 1.0,
+        "donor_address_only_vs_single_target": 0.984375,
+        "donor_both_vs_single_target": 1.0,
+        "donor_state_only_vs_single_target": 1.0,
+        "layer_address_only_vs_single_target": 1.0,
+        "layer_both_vs_single_target": 1.0,
+        "layer_state_only_vs_single_target": 1.0
+      },
+      "mechanics_pass": true,
+      "per_anchor": {
+        "11": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.921875,
+          "mean_target_over_strongest_wrong_margin": 0.077301025390625,
+          "strict_target_top1_fraction": 0.875
+        },
+        "17": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.984375,
+          "mean_target_over_strongest_wrong_margin": 0.10125732421875,
+          "strict_target_top1_fraction": 0.953125
+        },
+        "5": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.96875,
+          "mean_target_over_strongest_wrong_margin": 0.0780487060546875,
+          "strict_target_top1_fraction": 0.875
+        }
+      },
+      "target_ce_margins": {
+        "donor_address_minus_target": {
+          "mean": -0.0004356950521469116,
+          "positive_fraction": 0.484375
+        },
+        "donor_both_minus_target": {
+          "mean": -0.010282501578330994,
+          "positive_fraction": 0.390625
+        },
+        "donor_state_minus_target": {
+          "mean": -0.012242376804351807,
+          "positive_fraction": 0.484375
+        },
+        "gain_vs_provider_off": {
+          "mean": -0.018289387226104736,
+          "positive_fraction": 0.390625
+        },
+        "layer_address_minus_target": {
+          "mean": -0.01699778437614441,
+          "positive_fraction": 0.375
+        },
+        "layer_both_minus_target": {
+          "mean": -0.01030103862285614,
+          "positive_fraction": 0.4375
+        },
+        "layer_state_minus_target": {
+          "mean": -0.02607482671737671,
+          "positive_fraction": 0.40625
+        }
+      },
+      "terminal_target_selected_fraction": 0.953125
+    },
+    "renew_at_17_scale_1": {
+      "anchor_passes": {
+        "11": true,
+        "17": true,
+        "5": true
+      },
+      "development_pass": false,
+      "donor_causal_pass": false,
+      "invariants": {
+        "all_anchor_path_checks": true,
+        "all_logits_finite": true,
+        "all_state_and_cache_invariants": true,
+        "cached_null_replay_exact": true,
+        "independent_slot_permutation_diagnostics_exact": true,
+        "independent_slot_permutation_logits_exact": true,
+        "residual_finite_and_bounded": true,
+        "selected_gate_equation_bf16_close": true,
+        "zero_controls_exact_provider_off": true
+      },
+      "material_predictor_change_fraction": {
+        "correct_vs_provider_off": 1.0,
+        "donor_address_only_vs_single_target": 1.0,
+        "donor_both_vs_single_target": 1.0,
+        "donor_state_only_vs_single_target": 1.0,
+        "layer_address_only_vs_single_target": 1.0,
+        "layer_both_vs_single_target": 1.0,
+        "layer_state_only_vs_single_target": 1.0
+      },
+      "mechanics_pass": true,
+      "per_anchor": {
+        "11": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.921875,
+          "mean_target_over_strongest_wrong_margin": 0.077301025390625,
+          "strict_target_top1_fraction": 0.875
+        },
+        "17": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.984375,
+          "mean_target_over_strongest_wrong_margin": 0.10125732421875,
+          "strict_target_top1_fraction": 0.953125
+        },
+        "5": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.96875,
+          "mean_target_over_strongest_wrong_margin": 0.0780487060546875,
+          "strict_target_top1_fraction": 0.875
+        }
+      },
+      "target_ce_margins": {
+        "donor_address_minus_target": {
+          "mean": 0.040234506130218506,
+          "positive_fraction": 0.578125
+        },
+        "donor_both_minus_target": {
+          "mean": 0.017373159527778625,
+          "positive_fraction": 0.609375
+        },
+        "donor_state_minus_target": {
+          "mean": 0.02958977222442627,
+          "positive_fraction": 0.625
+        },
+        "gain_vs_provider_off": {
+          "mean": 0.012149795889854431,
+          "positive_fraction": 0.5
+        },
+        "layer_address_minus_target": {
+          "mean": 0.025709882378578186,
+          "positive_fraction": 0.65625
+        },
+        "layer_both_minus_target": {
+          "mean": 0.015298783779144287,
+          "positive_fraction": 0.53125
+        },
+        "layer_state_minus_target": {
+          "mean": 0.011223778128623962,
+          "positive_fraction": 0.5625
+        }
+      },
+      "terminal_target_selected_fraction": 0.953125
+    },
+    "renew_at_17_scale_16": {
+      "anchor_passes": {
+        "11": true,
+        "17": true,
+        "5": true
+      },
+      "development_pass": false,
+      "donor_causal_pass": false,
+      "invariants": {
+        "all_anchor_path_checks": true,
+        "all_logits_finite": true,
+        "all_state_and_cache_invariants": true,
+        "cached_null_replay_exact": true,
+        "independent_slot_permutation_diagnostics_exact": true,
+        "independent_slot_permutation_logits_exact": true,
+        "residual_finite_and_bounded": true,
+        "selected_gate_equation_bf16_close": true,
+        "zero_controls_exact_provider_off": true
+      },
+      "material_predictor_change_fraction": {
+        "correct_vs_provider_off": 1.0,
+        "donor_address_only_vs_single_target": 0.328125,
+        "donor_both_vs_single_target": 1.0,
+        "donor_state_only_vs_single_target": 1.0,
+        "layer_address_only_vs_single_target": 1.0,
+        "layer_both_vs_single_target": 1.0,
+        "layer_state_only_vs_single_target": 1.0
+      },
+      "mechanics_pass": false,
+      "per_anchor": {
+        "11": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.921875,
+          "mean_target_over_strongest_wrong_margin": 0.077301025390625,
+          "strict_target_top1_fraction": 0.875
+        },
+        "17": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.984375,
+          "mean_target_over_strongest_wrong_margin": 0.10125732421875,
+          "strict_target_top1_fraction": 0.953125
+        },
+        "5": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.96875,
+          "mean_target_over_strongest_wrong_margin": 0.0780487060546875,
+          "strict_target_top1_fraction": 0.875
+        }
+      },
+      "target_ce_margins": {
+        "donor_address_minus_target": {
+          "mean": -0.002408325672149658,
+          "positive_fraction": 0.140625
+        },
+        "donor_both_minus_target": {
+          "mean": 0.02759675681591034,
+          "positive_fraction": 0.5625
+        },
+        "donor_state_minus_target": {
+          "mean": 0.037473052740097046,
+          "positive_fraction": 0.59375
+        },
+        "gain_vs_provider_off": {
+          "mean": -0.0012302249670028687,
+          "positive_fraction": 0.4375
+        },
+        "layer_address_minus_target": {
+          "mean": 0.0017406642436981201,
+          "positive_fraction": 0.515625
+        },
+        "layer_both_minus_target": {
+          "mean": 0.012348666787147522,
+          "positive_fraction": 0.5625
+        },
+        "layer_state_minus_target": {
+          "mean": 0.005262792110443115,
+          "positive_fraction": 0.484375
+        }
+      },
+      "terminal_target_selected_fraction": 0.953125
+    },
+    "renew_at_17_scale_2": {
+      "anchor_passes": {
+        "11": true,
+        "17": true,
+        "5": true
+      },
+      "development_pass": false,
+      "donor_causal_pass": false,
+      "invariants": {
+        "all_anchor_path_checks": true,
+        "all_logits_finite": true,
+        "all_state_and_cache_invariants": true,
+        "cached_null_replay_exact": true,
+        "independent_slot_permutation_diagnostics_exact": true,
+        "independent_slot_permutation_logits_exact": true,
+        "residual_finite_and_bounded": true,
+        "selected_gate_equation_bf16_close": true,
+        "zero_controls_exact_provider_off": true
+      },
+      "material_predictor_change_fraction": {
+        "correct_vs_provider_off": 1.0,
+        "donor_address_only_vs_single_target": 1.0,
+        "donor_both_vs_single_target": 1.0,
+        "donor_state_only_vs_single_target": 1.0,
+        "layer_address_only_vs_single_target": 1.0,
+        "layer_both_vs_single_target": 1.0,
+        "layer_state_only_vs_single_target": 1.0
+      },
+      "mechanics_pass": true,
+      "per_anchor": {
+        "11": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.921875,
+          "mean_target_over_strongest_wrong_margin": 0.077301025390625,
+          "strict_target_top1_fraction": 0.875
+        },
+        "17": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.984375,
+          "mean_target_over_strongest_wrong_margin": 0.10125732421875,
+          "strict_target_top1_fraction": 0.953125
+        },
+        "5": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.96875,
+          "mean_target_over_strongest_wrong_margin": 0.0780487060546875,
+          "strict_target_top1_fraction": 0.875
+        }
+      },
+      "target_ce_margins": {
+        "donor_address_minus_target": {
+          "mean": -0.00509662926197052,
+          "positive_fraction": 0.40625
+        },
+        "donor_both_minus_target": {
+          "mean": 0.013281747698783875,
+          "positive_fraction": 0.5625
+        },
+        "donor_state_minus_target": {
+          "mean": 0.002933993935585022,
+          "positive_fraction": 0.546875
+        },
+        "gain_vs_provider_off": {
+          "mean": -0.01800745725631714,
+          "positive_fraction": 0.375
+        },
+        "layer_address_minus_target": {
+          "mean": -0.011117026209831238,
+          "positive_fraction": 0.375
+        },
+        "layer_both_minus_target": {
+          "mean": -0.014208376407623291,
+          "positive_fraction": 0.390625
+        },
+        "layer_state_minus_target": {
+          "mean": -0.007739841938018799,
+          "positive_fraction": 0.4375
+        }
+      },
+      "terminal_target_selected_fraction": 0.953125
+    },
+    "renew_at_17_scale_4": {
+      "anchor_passes": {
+        "11": true,
+        "17": true,
+        "5": true
+      },
+      "development_pass": false,
+      "donor_causal_pass": false,
+      "invariants": {
+        "all_anchor_path_checks": true,
+        "all_logits_finite": true,
+        "all_state_and_cache_invariants": true,
+        "cached_null_replay_exact": true,
+        "independent_slot_permutation_diagnostics_exact": true,
+        "independent_slot_permutation_logits_exact": true,
+        "residual_finite_and_bounded": true,
+        "selected_gate_equation_bf16_close": true,
+        "zero_controls_exact_provider_off": true
+      },
+      "material_predictor_change_fraction": {
+        "correct_vs_provider_off": 1.0,
+        "donor_address_only_vs_single_target": 1.0,
+        "donor_both_vs_single_target": 1.0,
+        "donor_state_only_vs_single_target": 1.0,
+        "layer_address_only_vs_single_target": 1.0,
+        "layer_both_vs_single_target": 1.0,
+        "layer_state_only_vs_single_target": 1.0
+      },
+      "mechanics_pass": true,
+      "per_anchor": {
+        "11": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.921875,
+          "mean_target_over_strongest_wrong_margin": 0.077301025390625,
+          "strict_target_top1_fraction": 0.875
+        },
+        "17": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.984375,
+          "mean_target_over_strongest_wrong_margin": 0.10125732421875,
+          "strict_target_top1_fraction": 0.953125
+        },
+        "5": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.96875,
+          "mean_target_over_strongest_wrong_margin": 0.0780487060546875,
+          "strict_target_top1_fraction": 0.875
+        }
+      },
+      "target_ce_margins": {
+        "donor_address_minus_target": {
+          "mean": -0.011007159948348999,
+          "positive_fraction": 0.5
+        },
+        "donor_both_minus_target": {
+          "mean": 0.003996983170509338,
+          "positive_fraction": 0.421875
+        },
+        "donor_state_minus_target": {
+          "mean": -0.01134692132472992,
+          "positive_fraction": 0.40625
+        },
+        "gain_vs_provider_off": {
+          "mean": -0.020747065544128418,
+          "positive_fraction": 0.359375
+        },
+        "layer_address_minus_target": {
+          "mean": -0.0006928145885467529,
+          "positive_fraction": 0.515625
+        },
+        "layer_both_minus_target": {
+          "mean": -0.007902652025222778,
+          "positive_fraction": 0.421875
+        },
+        "layer_state_minus_target": {
+          "mean": 0.0030814558267593384,
+          "positive_fraction": 0.46875
+        }
+      },
+      "terminal_target_selected_fraction": 0.953125
+    },
+    "renew_at_17_scale_8": {
+      "anchor_passes": {
+        "11": true,
+        "17": true,
+        "5": true
+      },
+      "development_pass": false,
+      "donor_causal_pass": false,
+      "invariants": {
+        "all_anchor_path_checks": true,
+        "all_logits_finite": true,
+        "all_state_and_cache_invariants": true,
+        "cached_null_replay_exact": true,
+        "independent_slot_permutation_diagnostics_exact": true,
+        "independent_slot_permutation_logits_exact": true,
+        "residual_finite_and_bounded": true,
+        "selected_gate_equation_bf16_close": true,
+        "zero_controls_exact_provider_off": true
+      },
+      "material_predictor_change_fraction": {
+        "correct_vs_provider_off": 1.0,
+        "donor_address_only_vs_single_target": 0.96875,
+        "donor_both_vs_single_target": 1.0,
+        "donor_state_only_vs_single_target": 1.0,
+        "layer_address_only_vs_single_target": 1.0,
+        "layer_both_vs_single_target": 1.0,
+        "layer_state_only_vs_single_target": 1.0
+      },
+      "mechanics_pass": true,
+      "per_anchor": {
+        "11": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.921875,
+          "mean_target_over_strongest_wrong_margin": 0.077301025390625,
+          "strict_target_top1_fraction": 0.875
+        },
+        "17": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.984375,
+          "mean_target_over_strongest_wrong_margin": 0.10125732421875,
+          "strict_target_top1_fraction": 0.953125
+        },
+        "5": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.96875,
+          "mean_target_over_strongest_wrong_margin": 0.0780487060546875,
+          "strict_target_top1_fraction": 0.875
+        }
+      },
+      "target_ce_margins": {
+        "donor_address_minus_target": {
+          "mean": -0.008786410093307495,
+          "positive_fraction": 0.453125
+        },
+        "donor_both_minus_target": {
+          "mean": -0.009301066398620605,
+          "positive_fraction": 0.421875
+        },
+        "donor_state_minus_target": {
+          "mean": -0.0018551945686340332,
+          "positive_fraction": 0.53125
+        },
+        "gain_vs_provider_off": {
+          "mean": -0.01582600176334381,
+          "positive_fraction": 0.4375
+        },
+        "layer_address_minus_target": {
+          "mean": -0.012210607528686523,
+          "positive_fraction": 0.359375
+        },
+        "layer_both_minus_target": {
+          "mean": -0.01076345145702362,
+          "positive_fraction": 0.4375
+        },
+        "layer_state_minus_target": {
+          "mean": -0.02473670244216919,
+          "positive_fraction": 0.4375
+        }
+      },
+      "terminal_target_selected_fraction": 0.953125
+    },
+    "renew_at_23_scale_4": {
+      "anchor_passes": {
+        "11": true,
+        "17": true,
+        "23": true,
+        "5": true
+      },
+      "development_pass": false,
+      "donor_causal_pass": false,
+      "invariants": {
+        "all_anchor_path_checks": true,
+        "all_logits_finite": true,
+        "all_state_and_cache_invariants": true,
+        "cached_null_replay_exact": true,
+        "independent_slot_permutation_diagnostics_exact": true,
+        "independent_slot_permutation_logits_exact": true,
+        "residual_finite_and_bounded": true,
+        "selected_gate_equation_bf16_close": true,
+        "zero_controls_exact_provider_off": true
+      },
+      "material_predictor_change_fraction": {
+        "correct_vs_provider_off": 0.984375,
+        "donor_address_only_vs_single_target": 0.90625,
+        "donor_both_vs_single_target": 1.0,
+        "donor_state_only_vs_single_target": 1.0,
+        "layer_address_only_vs_single_target": 0.984375,
+        "layer_both_vs_single_target": 1.0,
+        "layer_state_only_vs_single_target": 1.0
+      },
+      "mechanics_pass": false,
+      "per_anchor": {
+        "11": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.921875,
+          "mean_target_over_strongest_wrong_margin": 0.077301025390625,
+          "strict_target_top1_fraction": 0.875
+        },
+        "17": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.984375,
+          "mean_target_over_strongest_wrong_margin": 0.10125732421875,
+          "strict_target_top1_fraction": 0.953125
+        },
+        "23": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.96875,
+          "mean_target_over_strongest_wrong_margin": 0.1346435546875,
+          "strict_target_top1_fraction": 0.953125
+        },
+        "5": {
+          "live_layer_roll_positive_fraction": 1.0,
+          "matched_donor_positive_fraction": 0.96875,
+          "mean_target_over_strongest_wrong_margin": 0.0780487060546875,
+          "strict_target_top1_fraction": 0.875
+        }
+      },
+      "target_ce_margins": {
+        "donor_address_minus_target": {
+          "mean": 0.009046778082847595,
+          "positive_fraction": 0.46875
+        },
+        "donor_both_minus_target": {
+          "mean": -0.012367278337478638,
+          "positive_fraction": 0.453125
+        },
+        "donor_state_minus_target": {
+          "mean": 0.0007985234260559082,
+          "positive_fraction": 0.4375
+        },
+        "gain_vs_provider_off": {
+          "mean": -0.0023610740900039673,
+          "positive_fraction": 0.5
+        },
+        "layer_address_minus_target": {
+          "mean": 0.002779245376586914,
+          "positive_fraction": 0.515625
+        },
+        "layer_both_minus_target": {
+          "mean": 0.014867708086967468,
+          "positive_fraction": 0.59375
+        },
+        "layer_state_minus_target": {
+          "mean": 0.0056762248277664185,
+          "positive_fraction": 0.546875
+        }
+      },
+      "terminal_target_selected_fraction": 0.953125
+    }
+  },
+  "audit_correction": {
+    "all_rows_all_variants_within_tolerance": true,
+    "corrected_tolerance": 0.001953125,
+    "field": "selected memory mass equation",
+    "maximum_observed_error": 0.0019413232803344727,
+    "original_check": "float32 byte equality after BF16 model execution"
+  },
+  "best_diagnostic_variant": "renew_at_17_scale_1",
+  "decision": {
+    "next_architecture": "freeze the scale-1 layer-17 source router and train a small state-valued outer FFN on open development data with correct, matched-donor, layer-roll, and zero-state contrast",
+    "promote_to_protected_mechanics": false,
+    "reason": "No variant reached the predeclared 0.75 matched-donor-positive row fraction despite passing source selection and mechanics at unsaturated scales."
+  },
+  "native_benchmark_opened": false,
+  "passed": false,
+  "protected_causal_rows_opened": 0,
+  "protected_mechanics_rows_opened": 0,
+  "ranking": [
+    "renew_at_17_scale_1",
+    "renew_at_17_scale_16",
+    "renew_at_17_scale_2",
+    "renew_at_23_scale_4",
+    "renew_at_17_scale_4",
+    "renew_at_17_scale_8",
+    "renew_at_17_scale_0_5"
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_analysis_without_receipt",
+    "payload_sha256": "1aebad03bb9610e86533fd16683a319d64f30cf2b01cbba03a4d322465b69029"
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_source_cumulative_residual_development_analysis.v1",
+  "selected_variant": null,
+  "source_result": {
+    "path": "local_artifacts/natural_memory_native_rwkv_source_cumulative_residual_development_screen_v2/result.json",
+    "receipt": "768c88849c97017469d72af928eaef1dc01b934ec0004b69f89a983a9992e831",
+    "sha256": "5eba745db6b245d5df5e8a2f16d058f41a162b2f551f958041e412ab1cd1abf9"
+  },
+  "status": "development_failed_donor_causality_family_not_promoted"
+}
