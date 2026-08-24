@@ -176,6 +176,33 @@ def test_router_accumulates_scores_and_uses_hard_canonical_source_route() -> Non
     )
 
 
+def test_selected_source_gate_is_invariant_to_lower_scoring_slot_count() -> None:
+    receptances = {layer: torch.tensor([1.0, 0.0]) for layer in ANCHORS}
+    full_banks = _banks()
+    _, full_diagnostics, _ = _run(_router(), full_banks, receptances)
+    selected_source = full_diagnostics[-1]["source_ids"].gather(
+        1, full_diagnostics[-1]["selected_slot"]
+    )
+
+    single_banks = list(_banks())
+    single_banks[2] = {
+        layer: source_ids.eq(selected_source)
+        for layer, source_ids in single_banks[3].items()
+    }
+    _, single_diagnostics, _ = _run(
+        _router(), tuple(single_banks), receptances
+    )
+
+    assert torch.equal(
+        full_diagnostics[-1]["selected_slot"],
+        single_diagnostics[-1]["selected_slot"],
+    )
+    assert torch.equal(
+        full_diagnostics[-1]["memory_mass"],
+        single_diagnostics[-1]["memory_mass"],
+    )
+
+
 def test_terminal_raw_read_matches_selected_native_rwkv_state() -> None:
     receptances = {layer: torch.tensor([1.0, 0.0]) for layer in ANCHORS}
     _, diagnostics, _ = _run(_router(), _banks(), receptances)
