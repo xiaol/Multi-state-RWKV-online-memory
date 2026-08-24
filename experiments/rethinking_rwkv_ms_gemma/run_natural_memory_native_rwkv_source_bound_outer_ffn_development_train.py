@@ -43,20 +43,25 @@ from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
 )
 
 
-SCHEMA = "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v1"
+SCHEMA = "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v2"
 STEP_SCHEMA = f"{SCHEMA}.step"
 INPUT_SCHEMA = f"{SCHEMA}.input"
-PROTOCOL_SCHEMA = f"{SCHEMA}.protocol"
-PROTOCOL = SCRIPT_DIR / (
-    "natural_memory_native_rwkv_source_bound_outer_ffn_development_protocol_v1.json"
+SPLIT_SCHEMA = (
+    "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v1.split"
 )
-PROTOCOL_FILE_SHA256 = "91d167425861dea482efdd18582b355a111847c45a879cfc3b8bae173ae1a74f"
-PROTOCOL_PAYLOAD_SHA256 = "cacb54ae6594bef7966633221c13718eccfe0285bdce0714cfc3c9a71c7a63e5"
+PROTOCOL_SCHEMA = (
+    "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v2.protocol"
+)
+PROTOCOL = SCRIPT_DIR / (
+    "natural_memory_native_rwkv_source_bound_outer_ffn_development_protocol_v2.json"
+)
+PROTOCOL_FILE_SHA256 = "11aa36958495bc856278216ea9494616eeb237e0c8190ad02c86917cb4ca96d6"
+PROTOCOL_PAYLOAD_SHA256 = "882f1c70782ccef50f017143c97993c9bec33033b97e4266e5d9014372f79a65"
 DEFAULT_BASE_MODEL = screen.DEFAULT_BASE_MODEL
 DEFAULT_MATERIALIZATION = screen.DEFAULT_DEVELOPMENT_MATERIALIZATION
 DEFAULT_OUTPUT = SCRIPT_DIR / (
     "local_artifacts/"
-    "natural_memory_native_rwkv_source_bound_outer_ffn_development_train_v1"
+    "natural_memory_native_rwkv_source_bound_outer_ffn_development_train_v2"
 )
 
 WORLD_SIZE = 4
@@ -66,9 +71,9 @@ ANCHORS = (5, 11, 17)
 TERMINAL_ANCHOR = ANCHORS[-1]
 COMPATIBILITY_SCALE = 1.0
 RESIDUAL_GAIN = 1.0 / 32.0
-NATIVE_READ_DIM = 256
+NATIVE_READ_DIM = 32
 HIDDEN_DIM = 2560
-BOTTLENECK_DIM = 64
+BOTTLENECK_DIM = 32
 SEED = 20260825
 SPLIT_SALT = "rwkv-source-bound-outer-ffn-open-pair-split-v1:"
 TRAIN_PAIRS = 16
@@ -185,17 +190,33 @@ def validate_protocol() -> Mapping[str, Any]:
         "trainable_parameter_tensors": TRAINABLE_TENSORS,
     }:
         raise ValueError("Source-bound development architecture contract differs")
-    if (
-        training.get("updates") != UPDATES
-        or training.get("global_batch_rows") != GLOBAL_BATCH_ROWS
-        or training.get("local_batch_rows") != LOCAL_BATCH_ROWS
-        or training.get("learning_rate") != LEARNING_RATE
-        or training.get("weight_decay") != WEIGHT_DECAY
-        or training.get("gradient_clip") != GRADIENT_CLIP
-        or training.get("train_pairs") != TRAIN_PAIRS
-        or training.get("heldout_pairs") != HELDOUT_PAIRS
-        or training.get("train_controls") != list(TRAIN_CONTROLS)
-    ):
+    if training != {
+        "contrast_temperature": CONTRAST_TEMPERATURE,
+        "correct_ce_weight": CORRECT_CE_WEIGHT,
+        "donor_contrast_weight": DONOR_CONTRAST_WEIGHT,
+        "donor_margin": DONOR_MARGIN,
+        "first_update_gradient_contract": {
+            "outer_ffn.output_up.weight": True,
+            "outer_ffn.query_gate.weight": False,
+            "outer_ffn.state_down.weight": False,
+        },
+        "global_batch_rows": GLOBAL_BATCH_ROWS,
+        "gradient_clip": GRADIENT_CLIP,
+        "heldout_pairs": HELDOUT_PAIRS,
+        "layer_contrast_weight": LAYER_CONTRAST_WEIGHT,
+        "layer_margin": LAYER_MARGIN,
+        "learning_rate": LEARNING_RATE,
+        "local_batch_rows": LOCAL_BATCH_ROWS,
+        "optimizer": "fused AdamW with rank-averaged gradients",
+        "single_ce_weight": SINGLE_CE_WEIGHT,
+        "subsequent_update_gradient_contract": (
+            "all three trainable tensors active"
+        ),
+        "train_controls": list(TRAIN_CONTROLS),
+        "train_pairs": TRAIN_PAIRS,
+        "updates": UPDATES,
+        "weight_decay": WEIGHT_DECAY,
+    }:
         raise ValueError("Source-bound development training contract differs")
     if gate != {
         "correct_gain_vs_provider_off_mean_minimum": HELDOUT_CORRECT_GAIN_MINIMUM,
@@ -264,7 +285,7 @@ def split_open_rows(
     ):
         raise RuntimeError("Source-bound train/heldout row partition differs")
     payload = {
-        "schema": f"{SCHEMA}.split",
+        "schema": SPLIT_SCHEMA,
         "salt": SPLIT_SALT,
         "split_unit": "reciprocal donor pair with globally component-disjoint rows",
         "train_pairs": [list(pair) for pair in ranked_pairs[:TRAIN_PAIRS]],
@@ -459,25 +480,39 @@ def training_loss(
 
 
 def synchronize_gradients(
-    named: Sequence[tuple[str, torch.nn.Parameter]], *, world_size: int
+    named: Sequence[tuple[str, torch.nn.Parameter]],
+    *,
+    world_size: int,
+    update: int,
 ) -> Mapping[str, Any]:
     finite = True
-    active = True
     maximum = 0.0
-    for _, parameter in named:
+    activity = {}
+    for name, parameter in named:
         if parameter.grad is None:
             raise RuntimeError("Source-bound trainable parameter has no gradient")
         dist.all_reduce(parameter.grad, op=dist.ReduceOp.SUM)
         parameter.grad.div_(float(world_size))
         finite = finite and bool(torch.isfinite(parameter.grad).all().item())
         local_maximum = float(parameter.grad.abs().max().item())
-        active = active and local_maximum > 0.0
+        activity[name] = local_maximum > 0.0
         maximum = max(maximum, local_maximum)
-    if not finite or not active:
+    if update == 0:
+        expected_activity = {
+            "outer_ffn.state_down.weight": False,
+            "outer_ffn.query_gate.weight": False,
+            "outer_ffn.output_up.weight": True,
+        }
+    else:
+        expected_activity = {name: True for name, _ in named}
+    gradient_contract_passed = activity == expected_activity
+    if not finite or not gradient_contract_passed:
         raise RuntimeError("Source-bound synchronized gradients are invalid")
     return {
         "all_trainable_gradients_finite": finite,
-        "all_trainable_tensors_active": active,
+        "tensor_activity": activity,
+        "expected_tensor_activity": expected_activity,
+        "gradient_contract_passed": gradient_contract_passed,
         "maximum_absolute_gradient": maximum,
     }
 
@@ -548,7 +583,9 @@ def train_outer_ffn(
         )
         loss, metrics = training_loss(logits, target_token)
         loss.backward()
-        gradient_audit = synchronize_gradients(named, world_size=WORLD_SIZE)
+        gradient_audit = synchronize_gradients(
+            named, world_size=WORLD_SIZE, update=update
+        )
         gradient_norm = float(
             torch.nn.utils.clip_grad_norm_(
                 [parameter for _, parameter in named], GRADIENT_CLIP
@@ -595,8 +632,8 @@ def train_outer_ffn(
                 item["gradient_audit"]["all_trainable_gradients_finite"]
                 for item in rank_records
             ),
-            "all_trainable_tensors_active": all(
-                item["gradient_audit"]["all_trainable_tensors_active"]
+            "gradient_contract_passed": all(
+                item["gradient_audit"]["gradient_contract_passed"]
                 for item in rank_records
             ),
             "rank_rows": list(rank_records),
@@ -632,9 +669,9 @@ def train_outer_ffn(
         "initial_parameter_sha256": initial_digest,
         "final_parameter_sha256": final_digest,
         "trainable_subset_changed": final_digest != initial_digest,
-        "all_steps_finite_and_active": all(
+        "all_step_gradient_contracts_passed": all(
             step["all_trainable_gradients_finite"]
-            and step["all_trainable_tensors_active"]
+            and step["gradient_contract_passed"]
             for step in records
         ),
         "first_step": records[0],
@@ -896,6 +933,15 @@ def run(
         compatibility_maps = {
             layer: maps[names_by_layer[layer]] for layer in ANCHORS
         }
+        terminal_module = modules_by_layer[TERMINAL_ANCHOR]
+        delta_o_proj = getattr(terminal_module, "delta_o_proj", None)
+        if (
+            int(compatibility_maps[TERMINAL_ANCHOR].up.size(0))
+            != NATIVE_READ_DIM
+            or not isinstance(delta_o_proj, torch.Tensor)
+            or tuple(delta_o_proj.shape) != (HIDDEN_DIM, NATIVE_READ_DIM)
+        ):
+            raise RuntimeError("Source-bound terminal read geometry differs")
         for parameter in model.parameters():
             parameter.requires_grad_(False)
         model_versions_before = screen.parameter_versions(model)
@@ -1041,7 +1087,7 @@ def run(
                 passed = bool(
                     training["updates"] == UPDATES
                     and training["trainable_subset_changed"]
-                    and training["all_steps_finite_and_active"]
+                    and training["all_step_gradient_contracts_passed"]
                     and heldout["passed"]
                 )
                 result = {

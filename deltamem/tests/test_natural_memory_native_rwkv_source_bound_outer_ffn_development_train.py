@@ -78,3 +78,48 @@ def test_checkpoint_dimensions_match_protocol() -> None:
     assert sum(parameter.numel() for parameter in outer_ffn.parameters()) == (
         runner.TRAINABLE_ELEMENTS
     )
+    assert runner.NATIVE_READ_DIM == runner.screen.STATE_DIM
+
+
+def test_zero_correction_initialization_has_staged_gradient_contract() -> None:
+    outer_ffn = runner.SourceBoundOuterFFN(
+        state_dim=2,
+        query_dim=4,
+        bottleneck_dim=3,
+    )
+    native_read = torch.tensor([[[1.0, -0.5]]])
+    hidden_query = torch.tensor([[[0.5, -1.0, 0.25, 2.0]]])
+    base_hidden_read = torch.tensor([[[1.0, -0.5, 0.25, -1.5]]])
+
+    direction, _ = outer_ffn(
+        native_read=native_read,
+        hidden_query=hidden_query,
+        base_hidden_read=base_hidden_read,
+    )
+    direction.square().mean().backward()
+    assert torch.equal(
+        outer_ffn.state_down.weight.grad,
+        torch.zeros_like(outer_ffn.state_down.weight.grad),
+    )
+    assert torch.equal(
+        outer_ffn.query_gate.weight.grad,
+        torch.zeros_like(outer_ffn.query_gate.weight.grad),
+    )
+    assert bool(outer_ffn.output_up.weight.grad.abs().max().gt(0.0).item())
+
+    with torch.no_grad():
+        outer_ffn.output_up.weight.add_(
+            0.01 * outer_ffn.output_up.weight.grad
+        )
+    outer_ffn.zero_grad(set_to_none=True)
+    direction, _ = outer_ffn(
+        native_read=native_read,
+        hidden_query=hidden_query,
+        base_hidden_read=base_hidden_read,
+    )
+    direction.square().mean().backward()
+    assert all(
+        parameter.grad is not None
+        and bool(parameter.grad.abs().max().gt(0.0).item())
+        for parameter in outer_ffn.parameters()
+    )
