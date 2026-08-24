@@ -678,6 +678,32 @@ relative phase is zero and prompt shifts cannot change the match. A nonlinear
 contrastive map should be screened on the same already-captured open tensors
 before any protected split or Full-Bandwidth feedback is considered.
 
+That nonlinear co-rotated screen has now completed on the same frozen open
+tensors. All three seeds fit every anchor perfectly, but no anchor passed the
+held-out gate. Retrieval strict top-1 ranged from `0.125000` to `0.250000` at
+layer `5`, `0.625000` to `0.718750` at layer `11`, `0.625000` to `0.750000` at
+layer `17`, and `0.375000` to `0.500000` at layer `23`; only layers `11/17`
+kept positive mean margins. Status is
+`corotated_nonlinear_key_failed_family_retired`; result SHA-256 is
+`30b4ba8c3be1b96da919acdb8f4980e96d98fe82677f65f844ef988656710d3a`
+and receipt is
+`d2e4460f55b80b4c92ef76caacf84cfe9f8d2bae8cfaf82383fb949ad4d7a466`.
+Co-rotation therefore removes RoPE phase as the blocker, but a larger
+address-only key map cannot make the frozen Gemma query reliably expose the
+memory address.
+
+The next bounded route is an explicit routed virtual-KV selector. Reuse the
+already-passed continuous-write compatibility geometry between the causal
+RWKV receptance and the projected write address, and add its score only to the
+four ephemeral virtual-key logits. Real-key logits, real K/V, cache bytes, and
+the ordinary attention mask must remain exact. The RWKV contraction remains
+the value path, an exactly zero address/state disables the virtual suffix, and
+wrong-address, matched-donor, and layer-permuted controls remain mandatory.
+This is an explicit router rather than native attention addressing. Only after
+that selector passes identity and causal gates should the Full-Bandwidth
+Transformer idea be used to renew the selected state's depth budget through a
+deep-to-shallow mandatory GLU and Jacobi-style feedback training.
+
 Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed continuous retrieval pass](local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
@@ -688,7 +714,10 @@ Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_
 [address-decoded protocol](natural_memory_native_rwkv_address_decoded_reconstruction_protocol_v1.json),
 [address-decoded launch](natural_memory_native_rwkv_address_decoded_reconstruction_launch_v1.json),
 [address-decoded runner](run_natural_memory_native_rwkv_address_decoded_reconstruction.py),
-and [signed address-decoded failure](local_artifacts/natural_memory_native_rwkv_address_decoded_reconstruction_v1/result.json).
+[signed address-decoded failure](local_artifacts/natural_memory_native_rwkv_address_decoded_reconstruction_v1/result.json),
+[co-rotated key protocol](natural_memory_native_rwkv_corotated_key_protocol_v1.json),
+[co-rotated key screen](screen_natural_memory_native_rwkv_corotated_key.py),
+and [signed co-rotated key failure](local_artifacts/natural_memory_native_rwkv_corotated_key_v1/result.json).
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),

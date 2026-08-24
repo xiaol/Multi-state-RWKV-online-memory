@@ -776,3 +776,31 @@ and co-rotate it at the current query position. Co-rotation makes the virtual
 key/query relative phase zero, gives an explicit prompt-shift invariance, and
 can be paired with a nonlinear contrastive FIT objective without mixing the
 RWKV value payload into the selector.
+
+The nonlinear co-rotated follow-up has now failed on frozen open-split
+captures. Every seed reached `1.0` FIT top-1 at every anchor, but held-out
+strict top-1 was only `0.125000`--`0.250000` at layer `5`,
+`0.625000`--`0.718750` at layer `11`, `0.625000`--`0.750000` at layer `17`,
+and `0.375000`--`0.500000` at layer `23`. No anchor passed the locked
+all-seed gate. The result SHA-256 is
+`30b4ba8c3be1b96da919acdb8f4980e96d98fe82677f65f844ef988656710d3a`
+and its receipt is
+`d2e4460f55b80b4c92ef76caacf84cfe9f8d2bae8cfaf82383fb949ad4d7a466`.
+RoPE phase was therefore not the remaining bottleneck: the frozen native
+attention query does not consistently encode the online-memory address, and
+increasing address-only key-map capacity is retired.
+
+This result sharpens where Full-Bandwidth feedback belongs. The paper's GLU
+can force a selected state vector to become the next shallow input, and its
+multi-pass objective can teach that vector to survive repeated
+self-composition. Neither operation selects among source identities. The next
+selector should instead reuse the already-passed continuous-write
+receptance/address compatibility as an explicit additive bias only on the
+ephemeral virtual-logit suffix. Real attention logits and cache state remain
+unchanged; the RWKV contraction remains the virtual value. Call this an
+explicit routed virtual KV, not native attention addressing. If its
+wrong-address, matched-donor, permutation, zero, and causal gates pass, then a
+Full-Bandwidth-style mandatory deep-to-shallow GLU becomes the next depth
+renewal experiment, with the paper's `75/22/3` pass mixture, prefix mixin, and
+contraction diagnostics. Until then, feedback would only give an
+identity-ambiguous state more computation.

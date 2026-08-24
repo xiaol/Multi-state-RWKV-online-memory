@@ -1,0 +1,66 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_corotated_key_protocol.v1",
+  "created_at": "2026-08-24T16:30:00+08:00",
+  "objective": "On frozen already-open FIT/retrieval captures only, test whether a bias-free nonlinear address map learned in the unrotated Gemma query basis and co-rotated at deployment passes four-way source identity at at least three of four full-attention anchors.",
+  "authorization_basis": {
+    "linear_virtual_key_result_file_sha256": "b2228971566691d5ed7def6094ded78224c1b34d8511329f9757b45c3af344da",
+    "linear_virtual_key_result_receipt": "75209e6996b5e17035435757a0f9e3a0a6a3299faa2198e52ce7288b064c737a",
+    "linear_failure": "All four position-agnostic linear key anchors failed; layer 23 reached 0.71875 correct-over-wrong rows with positive mean margin, supporting one bounded nonlinear co-rotated key test.",
+    "co_rotated_runtime_commit": "a51d337"
+  },
+  "frozen_inputs": {
+    "capture_root": "local_artifacts/natural_memory_native_rwkv_virtual_kv_identity_v5",
+    "fit_rows": 64,
+    "retrieval_rows": 32,
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "base_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503"
+  },
+  "architecture": {
+    "anchor_layers": [5, 11, 17, 23],
+    "address_dim": 64,
+    "hidden_dim": 256,
+    "map": "bias-free Linear(64,256)-SiLU-Linear(256,KV_heads*head_dim)",
+    "key_normalization": "per-KV-head RMS sphere",
+    "query_target": "inverse-RoPE causal prompt-boundary query averaged within each GQA KV group",
+    "deployment": "apply the current query position's RoPE to the mapped key, making relative phase zero",
+    "rwkv_state_or_value_enters_key": false,
+    "model_parameters_updated": false,
+    "full_bandwidth_feedback_installed": false
+  },
+  "training": {
+    "fit_only": true,
+    "candidate_bank_size": 4,
+    "objective": "four-way candidate cross entropy",
+    "steps": 800,
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "temperature": 8.0,
+    "seeds": [223, 227, 229]
+  },
+  "required_gates": {
+    "minimum_seed_strict_top1": 0.75,
+    "minimum_seed_mean_margin": 0.05,
+    "minimum_anchor_layers_passing": 3,
+    "co_rotation_prompt_shift_invariant_by_construction": true
+  },
+  "data_lifecycle": {
+    "already_captured_open_tensors_only": true,
+    "mechanics_bundle_opened": false,
+    "causal_bundle_opened": false,
+    "generation_bytes_opened": false,
+    "native_benchmark_bytes_opened": false
+  },
+  "stopping_rule": {
+    "pass": "Freeze all seed artifacts and authorize a fresh live-attention mechanics protocol with wrong-state, wrong-address, permutation, cached/full, prompt-shift, and value controls.",
+    "failure": "Retire nonlinear co-rotated address-only keys and move to a jointly supervised query-address key encoder without opening protected bytes.",
+    "always": "No causal, native benchmark, Full-Bandwidth, or SOTA claim follows from this screen."
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "0c695f4b95251a23fd1f9ce3f741f7ac203df8fd3dbdc233815066eb948c4c76"
+  }
+}
