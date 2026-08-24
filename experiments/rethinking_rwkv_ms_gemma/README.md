@@ -742,6 +742,44 @@ virtual-KV selector. It authorizes only a fresh live eager-Q1 mechanics
 protocol; it is not yet causal use, native benchmark gain, Full-Bandwidth
 gain, or SOTA evidence.
 
+The authorized live eager-Q1 mechanics run then used one primary-rank open of
+the `32` protected mechanics rows, broadcast them to four distinct A100s, and
+kept the native target RWKV/projected carrier byte-stable. The cumulative
+identity signal transferred cleanly: all `4/4` anchors passed, with strict
+target top-1 `0.906250/0.875000/0.968750/0.937500` and mean strongest-wrong
+margins `0.104667/0.107133/0.102291/0.127664` at layers `5/11/17/23`.
+Every state/address intervention changed predictor logits on all `32/32` rows,
+and cached provider-off replay, cache growth, cache-prefix bytes, RWKV state,
+and projected-carrier invariants all passed.
+
+The full mechanics gate nevertheless failed. Inactive zero-state/address
+rows were not exact provider-off on `11/32` rows when they shared a batch with
+active virtual suffixes. Joint slot permutation changed final logits on `5/32`
+rows, with maximum absolute delta `0.828125`; six later-anchor bias-permutation
+checks also failed. This shows that appending masked virtual positions can
+change the BF16 attention reduction path, and small non-equivariance can
+amplify through later layers even when the score identity itself is strong.
+Status is `cumulative_virtual_kv_mechanics_failed_family_retired`; result
+SHA-256 is
+`23ce8601a84c388b8b1ea0a2bee527c9eb677dd67cf5b80a5f49f44e9deb7d58`
+and receipt is
+`6dff6c59c7ee03d2a2ae775bc88ebd94877e8c80e06c9808f0b59e7eeb302a27`.
+The exact virtual-suffix family is retired without rerun or threshold tuning;
+causal, generation, native benchmark, and Full-Bandwidth feedback remain
+closed.
+
+The next distinct mechanics route should preserve the passed cumulative
+identity geometry but remove virtual attention positions entirely. Canonically
+sort candidates by source identity, route a raw RWKV matrix read into one
+bounded residual carrier, and make the all-inactive branch an exact zero
+residual. Canonical ordering makes slot permutation algebraically invariant;
+not changing attention width makes provider-off equality attainable. Only a
+fresh mechanics pass and donor-specific causal pass could authorize the
+paper-faithful Full-Bandwidth step: feed the router-enriched top hidden state
+through the mandatory deep-to-shallow GLU, train with the paper's `75/22/3`
+one/two/three-pass mixture and prefix mixin, and require contraction before
+the native benchmark.
+
 Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed continuous retrieval pass](local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
@@ -761,7 +799,11 @@ Evidence: [continuous retrieval protocol](natural_memory_native_rwkv_continuous_
 [signed local compatibility-bias failure](local_artifacts/natural_memory_native_rwkv_compatibility_bias_v1/result.json),
 [cumulative compatibility-bias protocol](natural_memory_native_rwkv_cumulative_compatibility_bias_protocol_v1.json),
 [cumulative compatibility-bias screen](screen_natural_memory_native_rwkv_cumulative_compatibility_bias.py),
-and [signed cumulative compatibility-bias pass](local_artifacts/natural_memory_native_rwkv_cumulative_compatibility_bias_v1/result.json).
+[signed cumulative compatibility-bias pass](local_artifacts/natural_memory_native_rwkv_cumulative_compatibility_bias_v1/result.json),
+[live cumulative mechanics protocol](natural_memory_native_rwkv_cumulative_virtual_kv_mechanics_protocol_v1.json),
+[live cumulative mechanics launch](natural_memory_native_rwkv_cumulative_virtual_kv_mechanics_launch_v1.json),
+[live cumulative mechanics runner](run_natural_memory_native_rwkv_cumulative_virtual_kv_mechanics.py),
+and [signed live cumulative mechanics failure](local_artifacts/natural_memory_native_rwkv_cumulative_virtual_kv_mechanics_v1/result.json).
 
 Evidence: [initial DeepEmbed protocol](natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_protocol_v1.json),
 [initial signed result](local_artifacts/natural_memory_native_rwkv_addressed_moe_deepembed_ffn_screen_v1/result.json),

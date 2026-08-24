@@ -837,3 +837,29 @@ belief over source identity. Only after live wrong-state/wrong-address and
 causal output gates pass should its selected RWKV value be returned to a
 shallow layer through the paper's mandatory GLU. The current pass proves
 open-tensor routing geometry, not causal model use or benchmark improvement.
+
+## Post-live-mechanics decision
+
+The authorized live eager-Q1 run preserved the selector's identity result but
+failed the virtual-carrier invariants. All four anchors passed identity and
+every declared state/address intervention materially changed predictor logits.
+However, `11/32` inactive zero controls differed from provider-off when active
+and inactive rows shared one virtual-suffix batch, and joint slot permutation
+changed final logits on `5/32` rows (maximum absolute delta `0.828125`). Six
+later-anchor bias-permutation checks also failed. Cached-Q1 replay, cache bytes,
+native RWKV state, and the projected carrier stayed exact. The signed result
+SHA-256 is
+`23ce8601a84c388b8b1ea0a2bee527c9eb677dd67cf5b80a5f49f44e9deb7d58`
+with receipt
+`6dff6c59c7ee03d2a2ae775bc88ebd94877e8c80e06c9808f0b59e7eeb302a27`.
+
+This retires the exact virtual-suffix carrier, not the cumulative identity
+signal. The next distinct route should keep the identity computation outside
+Gemma attention, canonically order candidates by source identity, combine the
+selected raw RWKV read into a bounded zero-exact residual, and leave attention
+width unchanged. If that route later passes both mechanics and a donor-specific
+causal endpoint, the paper-faithful Full-Bandwidth experiment remains the same:
+feed the router-enriched top hidden state through the mandatory top-to-bottom
+GLU, snapshot RWKV memory so feedback never double-writes, use the `75/22/3`
+pass mixture plus prefix mixin, and require contraction before native
+benchmark access. The present failure authorizes none of those later stages.
