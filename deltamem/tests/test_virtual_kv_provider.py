@@ -318,6 +318,11 @@ def test_provider_rejects_flash_attention_two() -> None:
         ("delta_state", torch.ones(1, 1, 1, 2, 2), "mutated RWKV state"),
         ("projected_kv_keys", torch.ones(1, 1, 2), "mutated projected address keys"),
         (
+            "projected_kv_values",
+            torch.ones(1, 1, 2),
+            "mutated projected carrier values",
+        ),
+        (
             "projected_kv_occupied",
             torch.ones(1, 1, dtype=torch.bool),
             "mutated projected occupancy",

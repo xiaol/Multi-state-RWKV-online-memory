@@ -1330,6 +1330,11 @@ class DeltaMemAttention(nn.Module):
             if self.projected_kv_keys is not None
             else None
         )
+        projected_values_before = (
+            self.projected_kv_values.detach().clone()
+            if self.projected_kv_values is not None
+            else None
+        )
         projected_occupied_before = (
             self.projected_kv_occupied.detach().clone()
             if self.projected_kv_occupied is not None
@@ -1379,6 +1384,20 @@ class DeltaMemAttention(nn.Module):
             projected_keys_changed = True
         if projected_keys_changed:
             raise RuntimeError("Virtual-KV provider mutated projected address keys")
+        projected_values_changed = (projected_values_before is None) != (
+            self.projected_kv_values is None
+        )
+        if (
+            not projected_values_changed
+            and projected_values_before is not None
+            and self.projected_kv_values is not None
+            and not torch.equal(
+                self.projected_kv_values.detach(), projected_values_before
+            )
+        ):
+            projected_values_changed = True
+        if projected_values_changed:
+            raise RuntimeError("Virtual-KV provider mutated projected carrier values")
         projected_occupied_changed = (projected_occupied_before is None) != (
             self.projected_kv_occupied is None
         )
