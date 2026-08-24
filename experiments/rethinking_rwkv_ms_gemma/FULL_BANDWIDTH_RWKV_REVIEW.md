@@ -918,3 +918,36 @@ development data. It must retain an exact-zero state path and may reach the
 fresh mechanics gate only if held-out donor-positive rows pass `0.75`. Exact
 top-to-bottom Full-Bandwidth feedback and its multi-pass schedule remain later
 experiments, after source-specific causal use exists.
+
+## Source-bound outer-FFN open-heldout result
+
+The first outer-FFN experiment split the 32 explicitly open reciprocal donor
+pairs into source- and pair-disjoint `16/16` train/heldout halves. It froze the
+backbone, adapter, RWKV writer, compatibility maps, projected carrier, hard
+selector, and scalar memory mass. Only a bias-free `32 -> 32 -> 2560`
+state-valued correction was trained. The correction used the selected native
+RWKV read as its mandatory value and the layer-17 hidden query as a vector gate;
+zero state remained an exact zero residual. Exactly four A100s averaged one
+training row per rank for 32 optimizer updates. The signed result SHA-256 is
+`7ead31468793225f71110215ab59425a5ada977adede3d83d4da94683ee5e592`;
+the checkpoint SHA-256 is
+`c8fa785788b3eb1922b56d704a3bdc17e62c4593b25a8b7c77a211d6ea48d37c`.
+No protected mechanics, protected causal, or native benchmark row was opened.
+
+The heldout mechanics evidence improved substantially. All mechanics and
+exact-zero checks passed, every declared intervention was material, target
+selection was `0.9375`, correct memory improved mean target CE over provider-off
+by `0.230696`, matched donor state+address was worse by `0.045821` mean CE, and
+layer-rolled state+address was worse by `0.191366`. But matched-donor-positive
+rows were only `0.59375`, below the locked `0.75` gate, so the family was not
+promoted.
+
+The training trace exposed a more specific limitation than outer-FFN capacity:
+every update optimized token ID `105`, the common opening token of the serialized
+JSON answer. In reciprocal pairs, the first target/donor answer difference
+usually occurs six to eight supervised tokens later at `[]` versus `[` or at a
+boundary-number token. The next bounded run must retain the same split and
+architecture but place correct/donor/layer contrast at each pair's first
+divergent supervised answer token. It must still pass the original first-token
+heldout gate as well as a separately reported divergent-token gate before any
+protected access.

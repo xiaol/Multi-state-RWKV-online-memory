@@ -1,0 +1,290 @@
+{
+  "base_model": "/root/X/.cache/hf/gemma-4-E4B-it-a4c2d58",
+  "development_manifest_receipt": "d73d6692a36235b97c0119a4a413da850d9d82c3b0237fd33c6b0073f4957cee",
+  "development_manifest_sha256": "59b9926fa1023fa39f5616bdfa3f0bf4d1d4549d2f7e948dd628536a1bdb9f38",
+  "development_split_receipt": "076804524d6b4759fe33af34cc3883d7e0888d9430b485d1da63dfa2dab56259",
+  "hardware": {
+    "devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "0a9e2cfd-e62f-8b15-27bd-c61cfd699ad0",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 0,
+        "pid": 3028002,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "45b43b4f-3ba3-3187-24c8-93d6bdb750f6",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 1,
+        "pid": 3028003,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "c5332f10-2e41-3d43-76f2-b92fbd3d2a51",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 2,
+        "pid": 3028004,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "2f77f496-9937-1777-0a8a-5a36c914f72d",
+        "hostname": "ubuntu-arm-gpu",
+        "local_rank": 3,
+        "pid": 3028005,
+        "process_rank": 3
+      }
+    ],
+    "four_distinct_a100s": true,
+    "hf_endpoint": "https://hf-mirror.com",
+    "world_size": 4
+  },
+  "initial_parameter_sha256": "62baa58affcf8d78338a26234450566d89d74d9a10d74f5c9408b8d3584e8e1f",
+  "materialization_root": "/root/X/natural-proof-r1/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_source_cumulative_residual_development_v1",
+  "model_audit": {
+    "adapter_config_sha256": "69d18784bb400fb51f38d8e073ed6acb83be54428bfd18644d9e4b833933be44",
+    "adapter_weights_sha256": "87e7e2d0ee1db91ef59fb283c176e1a2838ebd74ddb7255f9fb41c05d5d42162",
+    "deepembed_down_hooks": 42,
+    "deepembed_pre_hooks": 42,
+    "learned_write_modules": 0,
+    "loader": "strict_saved_config_and_complete_adapter",
+    "outer_ffn_layers": [
+      10,
+      21,
+      31,
+      41
+    ],
+    "wrapped_layers": 42
+  },
+  "protected_splits_opened": [],
+  "protocol_payload_sha256": "882f1c70782ccef50f017143c97993c9bec33033b97e4266e5d9014372f79a65",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_input_without_receipt",
+    "payload_sha256": "8a466d2fed970a37fd0224049bbd5eb7c59f1608cf7c0191b2a4d86ec03a1675"
+  },
+  "runner_sha256": "99fb3375ed704309001a87c59d09526dcbd5d0945f350dde33e4f6a2180ac702",
+  "schema": "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v2.input",
+  "split": {
+    "component_disjoint_from_parent_reservation": true,
+    "heldout_pairs": [
+      [
+        632,
+        863
+      ],
+      [
+        413,
+        669
+      ],
+      [
+        169,
+        619
+      ],
+      [
+        118,
+        1038
+      ],
+      [
+        630,
+        1360
+      ],
+      [
+        297,
+        1061
+      ],
+      [
+        326,
+        1066
+      ],
+      [
+        648,
+        880
+      ],
+      [
+        397,
+        741
+      ],
+      [
+        1031,
+        1296
+      ],
+      [
+        281,
+        1171
+      ],
+      [
+        656,
+        1226
+      ],
+      [
+        547,
+        616
+      ],
+      [
+        279,
+        972
+      ],
+      [
+        307,
+        475
+      ],
+      [
+        157,
+        844
+      ]
+    ],
+    "heldout_rows": 32,
+    "heldout_sources": [
+      118,
+      157,
+      169,
+      279,
+      281,
+      297,
+      307,
+      326,
+      397,
+      413,
+      475,
+      547,
+      616,
+      619,
+      630,
+      632,
+      648,
+      656,
+      669,
+      741,
+      844,
+      863,
+      880,
+      972,
+      1031,
+      1038,
+      1061,
+      1066,
+      1171,
+      1226,
+      1296,
+      1360
+    ],
+    "pair_disjoint": true,
+    "salt": "rwkv-source-bound-outer-ffn-open-pair-split-v1:",
+    "schema": "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v1.split",
+    "source_disjoint": true,
+    "split_unit": "reciprocal donor pair with globally component-disjoint rows",
+    "train_pairs": [
+      [
+        212,
+        951
+      ],
+      [
+        808,
+        1382
+      ],
+      [
+        651,
+        1406
+      ],
+      [
+        303,
+        692
+      ],
+      [
+        1229,
+        1339
+      ],
+      [
+        56,
+        653
+      ],
+      [
+        796,
+        828
+      ],
+      [
+        208,
+        702
+      ],
+      [
+        376,
+        565
+      ],
+      [
+        676,
+        1081
+      ],
+      [
+        173,
+        1159
+      ],
+      [
+        134,
+        222
+      ],
+      [
+        770,
+        1354
+      ],
+      [
+        375,
+        782
+      ],
+      [
+        388,
+        1401
+      ],
+      [
+        581,
+        977
+      ]
+    ],
+    "train_rows": 32,
+    "train_sources": [
+      56,
+      134,
+      173,
+      208,
+      212,
+      222,
+      303,
+      375,
+      376,
+      388,
+      565,
+      581,
+      651,
+      653,
+      676,
+      692,
+      702,
+      770,
+      782,
+      796,
+      808,
+      828,
+      951,
+      977,
+      1081,
+      1159,
+      1229,
+      1339,
+      1354,
+      1382,
+      1401,
+      1406
+    ]
+  },
+  "split_payload_sha256": "75d31c6a5fe86aace7a1378b8f82fd671fb556a5d601a04cf14a59a195e35797"
+}
