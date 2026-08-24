@@ -43,25 +43,25 @@ from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
 )
 
 
-SCHEMA = "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v2"
+SCHEMA = "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v3"
 STEP_SCHEMA = f"{SCHEMA}.step"
 INPUT_SCHEMA = f"{SCHEMA}.input"
 SPLIT_SCHEMA = (
     "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v1.split"
 )
 PROTOCOL_SCHEMA = (
-    "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v2.protocol"
+    "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v3.protocol"
 )
 PROTOCOL = SCRIPT_DIR / (
-    "natural_memory_native_rwkv_source_bound_outer_ffn_development_protocol_v2.json"
+    "natural_memory_native_rwkv_source_bound_outer_ffn_development_protocol_v3.json"
 )
-PROTOCOL_FILE_SHA256 = "11aa36958495bc856278216ea9494616eeb237e0c8190ad02c86917cb4ca96d6"
-PROTOCOL_PAYLOAD_SHA256 = "882f1c70782ccef50f017143c97993c9bec33033b97e4266e5d9014372f79a65"
+PROTOCOL_FILE_SHA256 = "7680e8fca730889343936378468db36fb0df023b3d2852828f4d838a48a8d4ae"
+PROTOCOL_PAYLOAD_SHA256 = "33b37d02558e4a4384cf1bf227e93d24d359523191d89c97d0f400060ce4ade8"
 DEFAULT_BASE_MODEL = screen.DEFAULT_BASE_MODEL
 DEFAULT_MATERIALIZATION = screen.DEFAULT_DEVELOPMENT_MATERIALIZATION
 DEFAULT_OUTPUT = SCRIPT_DIR / (
     "local_artifacts/"
-    "natural_memory_native_rwkv_source_bound_outer_ffn_development_train_v2"
+    "natural_memory_native_rwkv_source_bound_outer_ffn_development_train_v3"
 )
 
 WORLD_SIZE = 4
@@ -112,6 +112,20 @@ TRAINABLE_ELEMENTS = (
     + HIDDEN_DIM * BOTTLENECK_DIM
     + BOTTLENECK_DIM * HIDDEN_DIM
 )
+TRAINING_TARGET_MODE = "first_target_donor_divergent_supervised_token"
+DISCRIMINATIVE_TARGET_PAYLOAD_SHA256 = (
+    "f5589ee6a37d9fa044d0e4629dd2c0499dda73554c5e291aad845a72ad645076"
+)
+DISCRIMINATIVE_CONTROLS = (
+    "correct_four_way",
+    "single_target",
+    "matched_donor_address_and_state",
+    "layer_rolled_address_and_state",
+    "zero_state",
+)
+DISCRIMINATIVE_CONTROL_INDEX = {
+    name: index for index, name in enumerate(DISCRIMINATIVE_CONTROLS)
+}
 
 
 def canonical_sha256(value: Any) -> str:
@@ -212,6 +226,8 @@ def validate_protocol() -> Mapping[str, Any]:
         "subsequent_update_gradient_contract": (
             "all three trainable tensors active"
         ),
+        "target_mode": TRAINING_TARGET_MODE,
+        "target_payload_sha256": DISCRIMINATIVE_TARGET_PAYLOAD_SHA256,
         "train_controls": list(TRAIN_CONTROLS),
         "train_pairs": TRAIN_PAIRS,
         "updates": UPDATES,
@@ -226,6 +242,9 @@ def validate_protocol() -> Mapping[str, Any]:
         "mechanics_must_pass": True,
     }:
         raise ValueError("Source-bound development heldout gate differs")
+    discriminative_gate = protocol.get("discriminative_heldout_gate", {})
+    if discriminative_gate != gate:
+        raise ValueError("Source-bound discriminative heldout gate differs")
     return protocol
 
 
@@ -299,6 +318,66 @@ def split_open_rows(
         "component_disjoint_from_parent_reservation": True,
     }
     return train_rows, heldout_rows, payload
+
+
+def build_discriminative_targets(
+    rows: Sequence[Mapping[str, Any]], examples: Mapping[int, Any]
+) -> tuple[dict[int, Mapping[str, int]], Mapping[str, Any]]:
+    rows_by_source = {int(row["source_index"]): row for row in rows}
+    if len(rows_by_source) != TRAIN_ROWS + HELDOUT_ROWS:
+        raise ValueError("Discriminative target row coverage differs")
+    targets = {}
+    payload_rows = []
+    for source in sorted(rows_by_source):
+        donor = int(rows_by_source[source]["donor_source_index"])
+        target_labels = tuple(int(value) for value in examples[source].labels)
+        donor_labels = tuple(int(value) for value in examples[donor].labels)
+        target_positions = tuple(
+            index for index, value in enumerate(target_labels) if value != -100
+        )
+        donor_positions = tuple(
+            index for index, value in enumerate(donor_labels) if value != -100
+        )
+        target_tokens = tuple(target_labels[index] for index in target_positions)
+        donor_tokens = tuple(donor_labels[index] for index in donor_positions)
+        divergence = next(
+            (
+                index
+                for index, (target_token, donor_token) in enumerate(
+                    zip(target_tokens, donor_tokens)
+                )
+                if target_token != donor_token
+            ),
+            None,
+        )
+        if divergence is None:
+            raise ValueError("Reciprocal donor answers have no aligned divergent token")
+        label_index = target_positions[divergence]
+        predictor = label_index - 1
+        if predictor < 1 or target_labels[label_index] == donor_tokens[divergence]:
+            raise RuntimeError("Discriminative target geometry differs")
+        target = {
+            "source_index": source,
+            "donor_source_index": donor,
+            "answer_offset": divergence,
+            "predictor_index": predictor,
+            "label_index": label_index,
+            "target_token_id": target_labels[label_index],
+            "donor_token_id": donor_tokens[divergence],
+        }
+        targets[source] = target
+        payload_rows.append(target)
+    payload = {
+        "schema": f"{SCHEMA}.discriminative_targets",
+        "mode": TRAINING_TARGET_MODE,
+        "rows": payload_rows,
+        "row_count": len(payload_rows),
+        "all_target_tokens_differ_from_donor": all(
+            row["target_token_id"] != row["donor_token_id"]
+            for row in payload_rows
+        ),
+    }
+    return targets, payload
 
 
 def make_router(maps: Mapping[int, Any], device: torch.device) -> SourceCumulativeResidualRouter:
@@ -379,8 +458,8 @@ def routed_predictor_logits(
     *,
     router: SourceCumulativeResidualRouter,
     banks: tuple[Mapping[int, torch.Tensor], ...],
+    predictor: int,
 ) -> tuple[torch.Tensor, tuple[Mapping[str, Any], ...]]:
-    _, predictor = screen.retrieval.first_prompt_boundary(batch.labels)
     if predictor < 1:
         raise ValueError("Source-bound predictor requires a nonempty prefill")
     batch_size = int(next(iter(banks[0].values())).size(0))
@@ -437,6 +516,51 @@ def routed_predictor_logits(
         screen.clear_providers(modules_by_layer)
         if router.active or router.completed:
             router.abort_forward()
+
+
+def provider_off_predictor_logits(
+    model: torch.nn.Module,
+    batch: Any,
+    modules: Sequence[tuple[str, Any]],
+    modules_by_layer: Mapping[int, Any],
+    target_state: Mapping[str, Mapping[str, torch.Tensor]],
+    *,
+    batch_size: int,
+    predictor: int,
+) -> torch.Tensor:
+    if predictor < 1:
+        raise ValueError("Source-bound provider-off predictor requires a nonempty prefill")
+    screen.parent_runner.install_target_state(model, modules, target_state, batch_size)
+    input_ids = batch.read_input_ids.repeat(batch_size, 1)
+    attention_mask = batch.read_attention_mask.repeat(batch_size, 1)
+    prefix_positions = torch.arange(
+        predictor, device=input_ids.device, dtype=torch.long
+    ).unsqueeze(0).expand(batch_size, -1)
+    query_positions = torch.full(
+        (batch_size, 1), predictor, device=input_ids.device, dtype=torch.long
+    )
+    screen.clear_providers(modules_by_layer)
+    with screen.mechanics.evolution.runtime._autocast_context(
+        input_ids.device, torch.bfloat16
+    ):
+        prefill = model(
+            input_ids=input_ids[:, :predictor],
+            attention_mask=attention_mask[:, :predictor],
+            position_ids=prefix_positions,
+            use_cache=True,
+            return_dict=True,
+            logits_to_keep=1,
+        )
+        output = model(
+            input_ids=input_ids[:, predictor : predictor + 1],
+            attention_mask=attention_mask[:, : predictor + 1],
+            position_ids=query_positions,
+            past_key_values=prefill.past_key_values,
+            use_cache=True,
+            return_dict=True,
+            logits_to_keep=1,
+        )
+    return output.logits[:, -1].float()
 
 
 def training_loss(
@@ -529,6 +653,7 @@ def train_outer_ffn(
     examples: Mapping[int, Any],
     natural_cache: Mapping[int, Any],
     candidates: Mapping[int, Sequence[int]],
+    discriminative_targets: Mapping[int, Mapping[str, int]],
     modules: Sequence[tuple[str, Any]],
     modules_by_layer: Mapping[int, Any],
     names_by_layer: Mapping[int, str],
@@ -569,8 +694,9 @@ def train_outer_ffn(
             context.device,
         )
         banks = select_controls(full_banks, TRAIN_CONTROLS)
-        _, predictor = screen.retrieval.first_prompt_boundary(batch.labels)
-        target_token = int(batch.labels[0, predictor + 1].item())
+        target_binding = discriminative_targets[source]
+        predictor = int(target_binding["predictor_index"])
+        target_token = int(target_binding["target_token_id"])
         optimizer.zero_grad(set_to_none=True)
         logits, diagnostics = routed_predictor_logits(
             model,
@@ -580,6 +706,7 @@ def train_outer_ffn(
             natural_cache[source]["state"],
             router=router,
             banks=banks,
+            predictor=predictor,
         )
         loss, metrics = training_loss(logits, target_token)
         loss.backward()
@@ -599,6 +726,8 @@ def train_outer_ffn(
             "rank": context.process_rank,
             "source_index": source,
             "target_token_id": target_token,
+            "answer_offset": int(target_binding["answer_offset"]),
+            "predictor_index": predictor,
             "loss": float(loss.detach().float().item()),
             "metrics": _float_metrics(metrics),
             "selected_sources": [
@@ -817,6 +946,209 @@ def evaluate_heldout(
     }
 
 
+@torch.no_grad()
+def evaluate_discriminative_heldout(
+    model: torch.nn.Module,
+    router: SourceCumulativeResidualRouter,
+    heldout_rows: Sequence[Mapping[str, Any]],
+    examples: Mapping[int, Any],
+    natural_cache: Mapping[int, Any],
+    candidates: Mapping[int, Sequence[int]],
+    discriminative_targets: Mapping[int, Mapping[str, int]],
+    modules: Sequence[tuple[str, Any]],
+    modules_by_layer: Mapping[int, Any],
+    names_by_layer: Mapping[int, str],
+    ordered_names: Sequence[str],
+    *,
+    context: Any,
+    pad_token_id: int,
+) -> Mapping[str, Any]:
+    model.eval()
+    router.eval()
+    assigned = heldout_rows[context.process_rank :: WORLD_SIZE]
+    if len(assigned) != HELDOUT_ROWS // WORLD_SIZE:
+        raise RuntimeError("Discriminative heldout rank assignment differs")
+    screen.clear_terminal_hooks(modules)
+    screen.bind_terminal_hook(model, modules, terminal_layer=TERMINAL_ANCHOR)
+    local_rows = []
+    try:
+        for ordinal, row in enumerate(assigned, start=1):
+            source = int(row["source_index"])
+            target_binding = discriminative_targets[source]
+            predictor = int(target_binding["predictor_index"])
+            target_token = int(target_binding["target_token_id"])
+            batch = screen.mechanics.evolution.collate_native_examples(
+                [examples[source]],
+                pad_token_id=pad_token_id,
+                device=context.device,
+            )
+            full_banks = screen.control_banks(
+                natural_cache,
+                candidates[source],
+                names_by_layer,
+                ordered_names,
+                context.device,
+            )
+            banks = select_controls(full_banks, DISCRIMINATIVE_CONTROLS)
+            baseline = provider_off_predictor_logits(
+                model,
+                batch,
+                modules,
+                modules_by_layer,
+                natural_cache[source]["state"],
+                batch_size=len(DISCRIMINATIVE_CONTROLS),
+                predictor=predictor,
+            )
+            routed, diagnostics = routed_predictor_logits(
+                model,
+                batch,
+                modules,
+                modules_by_layer,
+                natural_cache[source]["state"],
+                router=router,
+                banks=banks,
+                predictor=predictor,
+            )
+            labels = torch.full(
+                (len(DISCRIMINATIVE_CONTROLS),),
+                target_token,
+                dtype=torch.long,
+                device=routed.device,
+            )
+            routed_ce = F.cross_entropy(routed, labels, reduction="none")
+            baseline_ce = F.cross_entropy(baseline, labels, reduction="none")
+            correct_index = DISCRIMINATIVE_CONTROL_INDEX["correct_four_way"]
+            single_index = DISCRIMINATIVE_CONTROL_INDEX["single_target"]
+            donor_index = DISCRIMINATIVE_CONTROL_INDEX[
+                "matched_donor_address_and_state"
+            ]
+            layer_index = DISCRIMINATIVE_CONTROL_INDEX[
+                "layer_rolled_address_and_state"
+            ]
+            zero_index = DISCRIMINATIVE_CONTROL_INDEX["zero_state"]
+            terminal = diagnostics[-1]
+            selected_slot = int(
+                terminal["selected_slot"][correct_index, 0].item()
+            )
+            selected_source = (
+                int(
+                    terminal["source_ids"][correct_index, selected_slot].item()
+                )
+                if selected_slot >= 0
+                else -1
+            )
+            local_rows.append(
+                {
+                    **dict(target_binding),
+                    "selected_source_index": selected_source,
+                    "target_ce": {
+                        "provider_off": float(baseline_ce[correct_index].item()),
+                        "correct_four_way": float(routed_ce[correct_index].item()),
+                        "single_target": float(routed_ce[single_index].item()),
+                        "matched_donor_address_and_state": float(
+                            routed_ce[donor_index].item()
+                        ),
+                        "layer_rolled_address_and_state": float(
+                            routed_ce[layer_index].item()
+                        ),
+                    },
+                    "target_ce_margins": {
+                        "gain_vs_provider_off": float(
+                            baseline_ce[correct_index].item()
+                            - routed_ce[correct_index].item()
+                        ),
+                        "donor_both_minus_target": float(
+                            routed_ce[donor_index].item()
+                            - routed_ce[single_index].item()
+                        ),
+                        "layer_both_minus_target": float(
+                            routed_ce[layer_index].item()
+                            - routed_ce[single_index].item()
+                        ),
+                    },
+                    "zero_logits_byte_exact_provider_off": bool(
+                        torch.equal(routed[zero_index], baseline[zero_index])
+                    ),
+                    "all_logits_finite": bool(
+                        torch.isfinite(routed).all()
+                        and torch.isfinite(baseline).all()
+                    ),
+                    "residual_finite_and_bounded": bool(
+                        torch.isfinite(terminal["residual"]).all()
+                        and terminal["residual"].abs().max().item()
+                        <= RESIDUAL_GAIN
+                    ),
+                }
+            )
+            reset_delta_mem_states(model)
+            screen.mechanics.evolution.release_native_row_allocator_cache(
+                context.device
+            )
+            print(
+                f"SOURCE_BOUND_OUTER_FFN_DIVERGENT rank={context.process_rank} "
+                f"row={source} ordinal={ordinal}/{len(assigned)}",
+                flush=True,
+            )
+    finally:
+        screen.clear_terminal_hooks(modules)
+    gathered = distributed.gather_objects(context, local_rows)
+    rows = sorted(
+        [row for rank_rows in gathered for row in rank_rows],
+        key=lambda row: int(row["source_index"]),
+    )
+    if len(rows) != HELDOUT_ROWS:
+        raise RuntimeError("Discriminative heldout result coverage differs")
+    margin_names = tuple(rows[0]["target_ce_margins"])
+    margins = {
+        name: {
+            "mean": sum(row["target_ce_margins"][name] for row in rows)
+            / len(rows),
+            "positive_fraction": sum(
+                row["target_ce_margins"][name] > 0.0 for row in rows
+            )
+            / len(rows),
+        }
+        for name in margin_names
+    }
+    selected_fraction = sum(
+        row["selected_source_index"] == row["source_index"] for row in rows
+    ) / len(rows)
+    checks = {
+        "heldout_rows_complete": len(rows) == HELDOUT_ROWS,
+        "target_selected_fraction": selected_fraction >= 0.75,
+        "correct_gain_vs_provider_off_mean": (
+            margins["gain_vs_provider_off"]["mean"]
+            > HELDOUT_CORRECT_GAIN_MINIMUM
+        ),
+        "donor_both_mean_margin": (
+            margins["donor_both_minus_target"]["mean"]
+            >= HELDOUT_DONOR_MEAN_MINIMUM
+        ),
+        "donor_both_positive_row_fraction": (
+            margins["donor_both_minus_target"]["positive_fraction"]
+            >= HELDOUT_DONOR_POSITIVE_MINIMUM
+        ),
+        "layer_both_positive_row_fraction": (
+            margins["layer_both_minus_target"]["positive_fraction"]
+            >= HELDOUT_LAYER_POSITIVE_MINIMUM
+        ),
+        "zero_controls_exact_provider_off": all(
+            row["zero_logits_byte_exact_provider_off"] for row in rows
+        ),
+        "all_logits_and_residuals_valid": all(
+            row["all_logits_finite"] and row["residual_finite_and_bounded"]
+            for row in rows
+        ),
+    }
+    return {
+        "rows": rows,
+        "target_ce_margins": margins,
+        "target_selected_fraction": selected_fraction,
+        "checks": checks,
+        "passed": all(checks.values()),
+    }
+
+
 def save_checkpoint(
     named: Sequence[tuple[str, torch.nn.Parameter]], path: Path
 ) -> Mapping[str, Any]:
@@ -948,6 +1280,20 @@ def run(
         router = make_router(compatibility_maps, context.device)
         named = named_trainable(router)
         initial_parameter_sha256 = parameter_digest(named)
+        examples = screen.retrieval._encode_rows(tokenizer, rows)
+        discriminative_targets, discriminative_target_payload = (
+            build_discriminative_targets(rows, examples)
+        )
+        discriminative_target_sha256 = canonical_sha256(
+            discriminative_target_payload
+        )
+        if discriminative_target_sha256 != DISCRIMINATIVE_TARGET_PAYLOAD_SHA256:
+            raise RuntimeError("Source-bound discriminative target payload differs")
+        distributed.require_consensus(
+            context,
+            discriminative_target_sha256,
+            description="source-bound discriminative targets",
+        )
         preflight = {
             "schema": f"{SCHEMA}.preflight",
             "passed": True,
@@ -962,6 +1308,10 @@ def run(
             "trainable_tensors": len(named),
             "trainable_elements": sum(parameter.numel() for _, parameter in named),
             "initial_parameter_sha256": initial_parameter_sha256,
+            "training_target_mode": TRAINING_TARGET_MODE,
+            "discriminative_target_payload_sha256": (
+                discriminative_target_sha256
+            ),
             "hardware": {
                 "world_size": context.world_size,
                 "devices": list(context.rank_devices),
@@ -996,6 +1346,11 @@ def run(
             "hardware": preflight["hardware"],
             "runner_sha256": sha256_file(Path(__file__)),
             "initial_parameter_sha256": initial_parameter_sha256,
+            "training_target_mode": TRAINING_TARGET_MODE,
+            "discriminative_target_payload": discriminative_target_payload,
+            "discriminative_target_payload_sha256": (
+                discriminative_target_sha256
+            ),
             "protected_splits_opened": [],
         }
         input_binding["receipt"] = {
@@ -1007,7 +1362,6 @@ def run(
             signed_json(output_dir / "input_binding.json", input_binding)
         dist.barrier(group=context.control_group)
 
-        examples = screen.retrieval._encode_rows(tokenizer, rows)
         assigned_rows = rows[context.process_rank :: WORLD_SIZE]
         if len(assigned_rows) != 16:
             raise RuntimeError("Source-bound natural-cache rank assignment differs")
@@ -1053,6 +1407,7 @@ def run(
             examples,
             natural_cache,
             candidates,
+            discriminative_targets,
             modules,
             modules_by_layer,
             names_by_layer,
@@ -1077,6 +1432,21 @@ def run(
             context=context,
             pad_token_id=int(tokenizer.pad_token_id),
         )
+        discriminative_heldout = evaluate_discriminative_heldout(
+            model,
+            router,
+            heldout_rows,
+            examples,
+            natural_cache,
+            candidates,
+            discriminative_targets,
+            modules,
+            modules_by_layer,
+            names_by_layer,
+            ordered_names,
+            context=context,
+            pad_token_id=int(tokenizer.pad_token_id),
+        )
         if screen.parameter_versions(model) != model_versions_before:
             raise RuntimeError("Frozen model parameters changed during source-bound training")
         result: dict[str, Any] = {}
@@ -1089,6 +1459,7 @@ def run(
                     and training["trainable_subset_changed"]
                     and training["all_step_gradient_contracts_passed"]
                     and heldout["passed"]
+                    and discriminative_heldout["passed"]
                 )
                 result = {
                     "schema": SCHEMA,
@@ -1106,6 +1477,7 @@ def run(
                     "architecture": protocol["architecture"],
                     "training": training,
                     "heldout": heldout,
+                    "discriminative_heldout": discriminative_heldout,
                     "checkpoint": checkpoint,
                     "development_rows_opened": 64,
                     "protected_mechanics_rows_opened": 0,
@@ -1123,7 +1495,9 @@ def run(
         distributed.phase_consensus(
             context, phase="source-bound-result", error=save_error
         )
-        passed_values = distributed.gather_objects(context, heldout["passed"])
+        passed_values = distributed.gather_objects(
+            context, heldout["passed"] and discriminative_heldout["passed"]
+        )
         worker_passed = all(bool(value) for value in passed_values)
         del model, examples, natural_cache
         gc.collect()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
 
@@ -123,3 +124,31 @@ def test_zero_correction_initialization_has_staged_gradient_contract() -> None:
         and bool(parameter.grad.abs().max().gt(0.0).item())
         for parameter in outer_ffn.parameters()
     )
+
+
+def test_discriminative_target_uses_first_donor_divergence(monkeypatch) -> None:
+    monkeypatch.setattr(runner, "TRAIN_ROWS", 1)
+    monkeypatch.setattr(runner, "HELDOUT_ROWS", 1)
+    rows = [
+        {"source_index": 10, "donor_source_index": 20},
+        {"source_index": 20, "donor_source_index": 10},
+    ]
+    examples = {
+        10: SimpleNamespace(labels=(-100, -100, 105, 4368, 870, 111)),
+        20: SimpleNamespace(labels=(-100, -100, 105, 4368, 2977, 222)),
+    }
+
+    targets, payload = runner.build_discriminative_targets(rows, examples)
+
+    assert targets[10] == {
+        "source_index": 10,
+        "donor_source_index": 20,
+        "answer_offset": 2,
+        "predictor_index": 3,
+        "label_index": 4,
+        "target_token_id": 870,
+        "donor_token_id": 2977,
+    }
+    assert targets[20]["target_token_id"] == 2977
+    assert targets[20]["donor_token_id"] == 870
+    assert payload["all_target_tokens_differ_from_donor"] is True

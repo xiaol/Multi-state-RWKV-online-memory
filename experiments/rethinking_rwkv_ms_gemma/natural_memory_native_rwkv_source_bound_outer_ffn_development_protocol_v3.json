@@ -1,0 +1,84 @@
+{
+  "architecture": {
+    "anchor_layers": [
+      5,
+      11,
+      17
+    ],
+    "bottleneck_dim": 32,
+    "compatibility_scale": 1.0,
+    "exact_zero_state_path": true,
+    "hidden_dim": 2560,
+    "initialization": "zero correction over the frozen native residual",
+    "native_read_dim": 32,
+    "query_only_or_hidden_only_path": false,
+    "residual_gain": 0.03125,
+    "selected_native_rwkv_read_is_value": true,
+    "trainable_parameter_elements": 164864,
+    "trainable_parameter_tensors": 3
+  },
+  "discriminative_heldout_gate": {
+    "correct_gain_vs_provider_off_mean_minimum": 0.0,
+    "donor_both_minus_target_mean_minimum": 0.02,
+    "donor_both_positive_row_fraction_minimum": 0.75,
+    "layer_both_positive_row_fraction_minimum": 0.75,
+    "mechanics_must_pass": true
+  },
+  "heldout_gate": {
+    "correct_gain_vs_provider_off_mean_minimum": 0.0,
+    "donor_both_minus_target_mean_minimum": 0.02,
+    "donor_both_positive_row_fraction_minimum": 0.75,
+    "layer_both_positive_row_fraction_minimum": 0.75,
+    "mechanics_must_pass": true
+  },
+  "native_benchmark_authorized": false,
+  "objective": "Train only a source-bound outer FFN at each reciprocal pair's first target-donor divergent answer token, then require both the original first-token and divergent-token open-heldout gates before protected access.",
+  "open_development_only": true,
+  "protected_causal_authorized": false,
+  "protected_mechanics_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "33b37d02558e4a4384cf1bf227e93d24d359523191d89c97d0f400060ce4ade8"
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v3.protocol",
+  "split": {
+    "heldout_rows": 32,
+    "pair_disjoint": true,
+    "payload_sha256": "75d31c6a5fe86aace7a1378b8f82fd671fb556a5d601a04cf14a59a195e35797",
+    "source_disjoint": true,
+    "train_rows": 32
+  },
+  "training": {
+    "contrast_temperature": 0.02,
+    "correct_ce_weight": 0.5,
+    "donor_contrast_weight": 1.0,
+    "donor_margin": 0.02,
+    "first_update_gradient_contract": {
+      "outer_ffn.output_up.weight": true,
+      "outer_ffn.query_gate.weight": false,
+      "outer_ffn.state_down.weight": false
+    },
+    "global_batch_rows": 4,
+    "gradient_clip": 1.0,
+    "heldout_pairs": 16,
+    "layer_contrast_weight": 0.5,
+    "layer_margin": 0.01,
+    "learning_rate": 0.001,
+    "local_batch_rows": 1,
+    "optimizer": "fused AdamW with rank-averaged gradients",
+    "single_ce_weight": 0.5,
+    "subsequent_update_gradient_contract": "all three trainable tensors active",
+    "target_mode": "first_target_donor_divergent_supervised_token",
+    "target_payload_sha256": "f5589ee6a37d9fa044d0e4629dd2c0499dda73554c5e291aad845a72ad645076",
+    "train_controls": [
+      "correct_four_way",
+      "single_target",
+      "matched_donor_address_and_state",
+      "layer_rolled_address_and_state"
+    ],
+    "train_pairs": 16,
+    "updates": 32,
+    "weight_decay": 0.0
+  }
+}
