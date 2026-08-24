@@ -5,7 +5,7 @@ Source: [arXiv:2608.08888v1](https://arxiv.org/abs/2608.08888v1),
 uses the official arXiv source. The follow-on mechanics screen is recorded
 separately below; no protected split is opened by either document.
 
-The official v1 PDF and source were rechecked on 2026-08-21. Their SHA-256
+The official v1 PDF and source were rechecked on 2026-08-25. Their SHA-256
 digests were `7ddb5869843aea15d72cc3fc94d69d15217a67c07effcd7a5e4631320cd52ee3`
 and `6ac4149a537a5427019c39def1fc4647dd6a92db360ef7e8d1676c7602219bf8`,
 respectively.
@@ -951,3 +951,56 @@ architecture but place correct/donor/layer contrast at each pair's first
 divergent supervised answer token. It must still pass the original first-token
 heldout gate as well as a separately reported divergent-token gate before any
 protected access.
+
+That divergent-token run completed all 32 four-A100 updates with the same
+frozen architecture and exact-zero residual contract. Every declared trainable
+tensor received finite gradients under the step-1/step-2 contract. The signed
+result SHA-256 is
+`ecd0d14d0b1ea2f295777a349862b885d435fec02545ec7edc04edeec37f86ab`;
+its receipt is
+`e367f7560044ed8f3a53e19d218690de0389d73f63024c2953a58a398df8dd5d`,
+and the checkpoint SHA-256 is
+`bedfb5a92bcf0e4482f73d7e582e69038c4f1bbf457a110a05f7b88790eae563`.
+No protected mechanics, protected causal, generation, or native benchmark row
+was opened.
+
+Moving the objective to the first divergent token helped that token but did not
+solve identity. On the divergent-token heldout view, correct memory improved CE
+over provider-off by `0.028627`, but matched donor was worse by only `0.010514`
+mean CE with `0.59375` positive rows, and layer roll was worse by `0.029577`
+with `0.625` positive rows. More importantly, the live selector chose the target
+source on only `0.40625` of rows. On the original first-token view, target
+selection remained `0.9375`, but correct memory regressed below provider-off by
+`-0.017853`; donor margin was `0.016081` with `0.625` positive rows and layer
+margin was `0.005397` with `0.46875` positive rows. Both heldout views therefore
+failed the locked gates and the route was not promoted.
+
+This localizes the next problem to answer-phase identity transport. The source
+selector is accurate at the prompt/answer boundary, but recomputing it several
+teacher-forced answer tokens later loses the selected source. Full-Bandwidth
+Transformer suggests carrying a deep result across autoregressive steps, but a
+generic previous-top-state GLU would carry an already donor-neutral mixture and
+would not identify which memory was selected. The next distinct architecture
+should instead latch the prompt-boundary selected address and native RWKV read,
+then make their answer-token use depend jointly on the current causal query:
+
+```text
+a_star, m_star = latch_prompt_boundary_selection(addresses, rwkv_reads)
+q_t            = map_query(answer_hidden_t)
+joint_t        = concat(q_t * a_star, abs(q_t - a_star))
+gate_t         = sigmoid(G_joint(joint_t))
+residual_t     = W_out(U_state(m_star) * gate_t)
+```
+
+The latched RWKV read remains the only material value path; all state-side maps
+remain bias-free so zero state gives an exact-zero correction. Correct latch,
+matched-donor latch, address-only swap, state-only swap, layer roll, shuffled
+latch, zero state, and provider-off must be evaluated while the projected
+carrier stays fixed. A fresh component-disjoint open split must require target
+selection, donor-positive rows, and layer-positive rows of at least `0.75`, plus
+mean donor margin of at least `0.02`, before protected access. This is a
+paper-guided persistent identity carrier, not yet Full-Bandwidth feedback: it
+does not feed the model's top hidden state to layer 0, run extra transformer
+passes, or claim the paper's depth-renewal result. Exact temporal feedback and
+the `75/22/3` schedule remain gated on first establishing donor-specific causal
+use of the latched carrier.
