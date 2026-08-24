@@ -1,0 +1,106 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_prompt_latched_joint_identity_development.v1.protocol",
+  "created_at": "2026-08-26T00:00:00+08:00",
+  "objective": "On the already-open source-cumulative development reservation, preserve the prompt-boundary selected source across the answer prefix and train only a bias-free joint address/receptance gate whose sole material value is the selected native RWKV read.",
+  "authorization_basis": {
+    "prior_result": "local_artifacts/natural_memory_native_rwkv_source_bound_outer_ffn_development_train_v3/result.json",
+    "prior_result_receipt": "e367f7560044ed8f3a53e19d218690de0389d73f63024c2953a58a398df8dd5d",
+    "prior_result_sha256": "ecd0d14d0b1ea2f295777a349862b885d435fec02545ec7edc04edeec37f86ab",
+    "prior_status": "open_heldout_failed_not_promoted"
+  },
+  "open_development_only": true,
+  "protected_mechanics_authorized": false,
+  "protected_causal_authorized": false,
+  "native_benchmark_authorized": false,
+  "hardware": {
+    "world_size": 4,
+    "accelerators": "exactly four distinct NVIDIA A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com"
+  },
+  "split": {
+    "schema": "rwkv_ms_natural_memory_native_rwkv_source_bound_outer_ffn_development.v1.split",
+    "payload_sha256": "75d31c6a5fe86aace7a1378b8f82fd671fb556a5d601a04cf14a59a195e35797",
+    "reuse_policy": "The split is already open and may diagnose this distinct architecture, but a pass is not promotable until replicated on a fresh component-disjoint open split."
+  },
+  "architecture": {
+    "anchor_layers": [5, 11, 17],
+    "bottleneck_dim": 32,
+    "compatibility_scale": 1.0,
+    "exact_zero_state_path": true,
+    "hidden_dim": 2560,
+    "identity_feature_dim": 192,
+    "identity_features": "per-anchor concat(normalized_receptance * mapped_address, abs(normalized_receptance - mapped_address))",
+    "native_read_dim": 32,
+    "prompt_boundary_source_latched": true,
+    "query_only_hidden_only_or_native_hidden_read_bypass": false,
+    "residual_gain": 0.03125,
+    "selected_native_rwkv_read_is_only_value": true,
+    "trainable_parameter_elements": 89088,
+    "trainable_parameter_tensors": 3
+  },
+  "training": {
+    "contrast_temperature": 0.02,
+    "correct_ce_weight": 0.5,
+    "donor_contrast_weight": 1.0,
+    "donor_margin": 0.02,
+    "first_update_gradient_contract": {
+      "outer_ffn.output_up.weight": true,
+      "outer_ffn.query_gate.weight": false,
+      "outer_ffn.state_down.weight": false
+    },
+    "global_batch_rows": 4,
+    "gradient_clip": 1.0,
+    "heldout_pairs": 16,
+    "layer_contrast_weight": 0.5,
+    "layer_margin": 0.01,
+    "learning_rate": 0.001,
+    "local_batch_rows_per_rank": 1,
+    "optimizer": "fused AdamW with rank-averaged gradients",
+    "single_ce_weight": 0.5,
+    "subsequent_update_gradient_contract": "all three trainable tensors active",
+    "target_mode": "first_target_donor_divergent_supervised_token",
+    "target_payload_sha256": "a6c1a04f43a1726d2d2d2fee0f1297000f9b559933d286bc4fa0fc6027cebcb5",
+    "train_controls": [
+      "correct_four_way",
+      "single_target",
+      "matched_donor_address_and_state",
+      "layer_rolled_address_and_state"
+    ],
+    "train_pairs": 16,
+    "updates": 32,
+    "weight_decay": 0.0
+  },
+  "heldout_gate": {
+    "correct_gain_vs_provider_off_mean_minimum": 0.0,
+    "donor_both_minus_target_mean_minimum": 0.02,
+    "donor_both_positive_row_fraction_minimum": 0.75,
+    "layer_both_positive_row_fraction_minimum": 0.75,
+    "mechanics_must_pass": true,
+    "prompt_latched_target_source_fraction_minimum": 0.75
+  },
+  "discriminative_heldout_gate": {
+    "correct_gain_vs_provider_off_mean_minimum": 0.0,
+    "donor_both_minus_target_mean_minimum": 0.02,
+    "donor_both_positive_row_fraction_minimum": 0.75,
+    "layer_both_positive_row_fraction_minimum": 0.75,
+    "mechanics_must_pass": true,
+    "prompt_latched_target_source_fraction_minimum": 0.75
+  },
+  "controls": [
+    "correct four-way prompt latch",
+    "isolated target address and state",
+    "matched-donor address and state",
+    "layer-rolled address and state",
+    "zero state",
+    "provider off",
+    "original first-token heldout view",
+    "divergent-token heldout view"
+  ],
+  "stopping_rule": "If either heldout view fails, do not tune gain, duration, batch size, or thresholds. Record the result and move to a new family. A pass authorizes only a fresh open replication protocol, never protected or native benchmark access.",
+  "claim_boundary": "This is a prompt-latched joint identity development experiment, not Full-Bandwidth temporal feedback, native benchmark evidence, or SOTA evidence.",
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "769be278338ecd1059ff2a4023300e45fdef6ade27fe6b99220d8f758e70eb94"
+  }
+}

@@ -126,6 +126,90 @@ class SourceBoundOuterFFN(nn.Module):
         }
 
 
+class SourceBoundJointIdentityFFN(nn.Module):
+    """Zero-preserving RWKV value gated by address/receptance identity features."""
+
+    def __init__(
+        self,
+        *,
+        state_dim: int,
+        hidden_dim: int,
+        anchor_count: int,
+        bottleneck_dim: int,
+    ) -> None:
+        super().__init__()
+        dimensions = (state_dim, hidden_dim, anchor_count, bottleneck_dim)
+        if any(int(value) < 1 for value in dimensions):
+            raise ValueError("joint identity FFN dimensions must be positive")
+        self.state_dim = int(state_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.anchor_count = int(anchor_count)
+        self.bottleneck_dim = int(bottleneck_dim)
+        self.identity_dim = 2 * self.anchor_count * self.state_dim
+        self.state_down = nn.Linear(
+            self.state_dim, self.bottleneck_dim, bias=False
+        )
+        self.query_gate = nn.Linear(
+            self.identity_dim, self.bottleneck_dim, bias=False
+        )
+        self.output_up = nn.Linear(
+            self.bottleneck_dim, self.hidden_dim, bias=False
+        )
+        nn.init.kaiming_uniform_(self.state_down.weight, a=math.sqrt(5.0))
+        nn.init.zeros_(self.query_gate.weight)
+        nn.init.zeros_(self.output_up.weight)
+
+    @staticmethod
+    def rms_normalize(value: torch.Tensor) -> torch.Tensor:
+        value = value.float()
+        square_mean = value.square().mean(dim=-1, keepdim=True)
+        normalized = value / square_mean.clamp_min(1e-12).sqrt()
+        return torch.where(square_mean.gt(0.0), normalized, torch.zeros_like(value))
+
+    def forward(
+        self,
+        *,
+        native_read: torch.Tensor,
+        identity_features: torch.Tensor,
+        base_hidden_read: torch.Tensor,
+    ) -> tuple[torch.Tensor, Mapping[str, torch.Tensor]]:
+        if native_read.ndim != 3 or native_read.size(-1) != self.state_dim:
+            raise ValueError("joint identity native read geometry differs")
+        if (
+            identity_features.ndim != 3
+            or identity_features.size(-1) != self.identity_dim
+        ):
+            raise ValueError("joint identity feature geometry differs")
+        if tuple(native_read.shape[:2]) != tuple(identity_features.shape[:2]):
+            raise ValueError("joint identity state/feature sequence geometry differs")
+        if (
+            base_hidden_read.ndim != 3
+            or base_hidden_read.size(-1) != self.hidden_dim
+            or tuple(base_hidden_read.shape[:2]) != tuple(native_read.shape[:2])
+        ):
+            raise ValueError("joint identity hidden read geometry differs")
+
+        normalized_state = self.rms_normalize(native_read)
+        state_value = F.silu(self.state_down(normalized_state))
+        identity_gate = 2.0 * torch.sigmoid(
+            self.query_gate(identity_features.float())
+        )
+        correction = self.output_up(state_value * identity_gate)
+        state_active = native_read.float().square().sum(dim=-1, keepdim=True).gt(0.0)
+        direction = torch.tanh(correction.float())
+        direction = torch.where(
+            state_active,
+            direction,
+            torch.zeros_like(direction),
+        )
+        return direction, {
+            "state_value": state_value,
+            "query_gate": identity_gate,
+            "correction": correction,
+            "combined_hidden_read": correction,
+        }
+
+
 class SourceCumulativeResidualRouter(nn.Module):
     """Source-canonical cumulative routing into a bounded terminal RWKV residual."""
 
@@ -137,7 +221,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         compatibility_scale: float = 32.0,
         residual_gain: float = 1.0 / 32.0,
         required_receptance_calls: int = 2,
-        outer_ffn: SourceBoundOuterFFN | None = None,
+        outer_ffn: SourceBoundOuterFFN | SourceBoundJointIdentityFFN | None = None,
     ) -> None:
         super().__init__()
         anchors = tuple(int(layer) for layer in anchor_layers)
@@ -190,6 +274,8 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._source_ids: torch.Tensor | None = None
         self._running_score_sum: torch.Tensor | None = None
         self._running_active: torch.Tensor | None = None
+        self._normalized_receptance: dict[int, torch.Tensor] = {}
+        self._mapped_addresses: dict[int, torch.Tensor] = {}
         self._next_anchor_index = 0
         self._completed = False
         self._diagnostics: list[dict[str, Any]] = []
@@ -213,6 +299,8 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._source_ids = None
         self._running_score_sum = None
         self._running_active = None
+        self._normalized_receptance.clear()
+        self._mapped_addresses.clear()
         self._next_anchor_index = 0
         if not keep_completion:
             self._completed = False
@@ -321,6 +409,8 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._source_ids = canonical_sources
         self._running_active = canonical_occupied[self.anchor_layers[0]].clone()
         self._running_score_sum = None
+        self._normalized_receptance.clear()
+        self._mapped_addresses.clear()
         self._next_anchor_index = 0
         self._completed = False
         self._diagnostics.clear()
@@ -426,6 +516,35 @@ class SourceCumulativeResidualRouter(nn.Module):
             direction = torch.where(
                 square_mean.gt(0.0), direction, torch.zeros_like(direction)
             )
+        elif isinstance(self.outer_ffn, SourceBoundJointIdentityFFN):
+            identity_parts = []
+            for layer in self.anchor_layers:
+                normalized_receptance = self._normalized_receptance.get(layer)
+                mapped_addresses = self._mapped_addresses.get(layer)
+                if normalized_receptance is None or mapped_addresses is None:
+                    raise RuntimeError("joint identity feature lifecycle is incomplete")
+                selected_address = mapped_addresses.gather(
+                    1,
+                    selected.unsqueeze(-1).expand(
+                        -1, -1, mapped_addresses.size(-1)
+                    ),
+                )
+                identity_parts.extend(
+                    (
+                        normalized_receptance * selected_address,
+                        (normalized_receptance - selected_address).abs(),
+                    )
+                )
+            identity_features = torch.cat(identity_parts, dim=-1)
+            direction, outer_diagnostics = self.outer_ffn(
+                native_read=native_read,
+                identity_features=identity_features,
+                base_hidden_read=hidden_read,
+            )
+            outer_diagnostics = {
+                **outer_diagnostics,
+                "identity_features": identity_features,
+            }
         else:
             direction, outer_diagnostics = self.outer_ffn(
                 native_read=native_read,
@@ -505,6 +624,8 @@ class SourceCumulativeResidualRouter(nn.Module):
                 flattened_receptance
             )
             mapped_addresses = compatibility_map(addresses)
+            self._normalized_receptance[layer] = normalized_receptance
+            self._mapped_addresses[layer] = mapped_addresses
             local_scores = torch.einsum(
                 "btd,bsd->bts", normalized_receptance, mapped_addresses
             ) / float(compatibility_map.state_dim)
