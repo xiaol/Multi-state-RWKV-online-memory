@@ -1,0 +1,1177 @@
+{
+  "file_inventory": {
+    "bundles": {
+      "causal": {
+        "bytes": 97078,
+        "path": "causal.jsonl",
+        "payload_sha256": "17a24ca9c630fde2ed4be741066043b7dc8276c438b491c149a6a2fc76203bdb",
+        "qualified_mapping_pairs_sha256": "ef6cf0596fc473a4edfdbb2221fa6de6dbfd9a43ac5d9ff4462ae9fa0577c268",
+        "qualified_source_ids_sha256": "3ba969e0e2bead1fa18ac0d6c33e0232e48eb68befd384622a0d90b30db5dbe9",
+        "row_sha256s_sha256": "144b9e7a446e10476e580effe0266e4d47b8d3e0edfeaf14065dc06f4e7fae6b",
+        "rows": 32,
+        "sha256": "785846a8a30ddd81c34d7f8672beb517f494ad87382edbb8d9aed66d6e3df456",
+        "source_indices_sha256": "1a2ac2ed2c762838803d820ddb8b9b4f0b2fb3f452fdba4ad694a1d97b264d8f"
+      },
+      "mechanics": {
+        "bytes": 90981,
+        "path": "mechanics.jsonl",
+        "payload_sha256": "06b2220c7309b240e196f1238836590f24319fd3910acd51966ce82d4eeb2464",
+        "qualified_mapping_pairs_sha256": "23d51f9189381ca46036cb76de89941672440602db6816a2ca22103138aca0ae",
+        "qualified_source_ids_sha256": "eec5bafb9aa38735d31dbab79baac2e255e221fc45157133110b0f0e97f6ffbf",
+        "row_sha256s_sha256": "e8da428bdeac525e6fffb899327076e48d2572a3a1193fae0e1fbfccb72b1523",
+        "rows": 32,
+        "sha256": "38f6794adc1f07c728df48a9f49a6ed8cd3e9ab0df11f2feb500ea7cb5438397",
+        "source_indices_sha256": "03689eb7e9c7d95e953b76dca0ffcf7fedafed8fd4be9dee8db616a4e1a67513"
+      }
+    },
+    "exact_names": [
+      "manifest.json",
+      "mechanics.jsonl",
+      "causal.jsonl"
+    ]
+  },
+  "first_gate_access": {
+    "causal_open_requires_mechanics_pass_and_separate_signed_protocol": true,
+    "default_open_splits": [],
+    "inventory_only_files": [
+      "mechanics.jsonl",
+      "causal.jsonl"
+    ],
+    "mechanics_open_requires_signed_protocol": true,
+    "permitted_files": [
+      "manifest.json"
+    ]
+  },
+  "metadata": {
+    "fields": [
+      "source_index",
+      "row_sha256",
+      "gold_sha256",
+      "write_tokens",
+      "passage_signature_sha256s"
+    ],
+    "payload_sha256": "ba54f2c9d0acd8797930fb9cfa649d94fd7ff026103241d5f071e1d2a8f4466d",
+    "rows": 1443,
+    "selection_only": true
+  },
+  "protected_splits_opened": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_manifest_without_receipt",
+    "payload_sha256": "0ef2fb6de7e696dac9881ee223988d3f0e6df531b4957d7830c88599fe60457b"
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_source_cumulative_residual.v1",
+  "source": {
+    "namespace": "novel-agent-sft-dataset:publisher-train-derived-fit",
+    "path": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "recorded_path": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "rows": 1443,
+    "sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57"
+  },
+  "split_contract": {
+    "capture_authorization": {
+      "causal_open_requires_mechanics_pass_and_separate_signed_protocol": true,
+      "default_open_splits": [],
+      "mechanics_open_requires_signed_protocol": true,
+      "sealed_inventory_only_splits": [
+        "mechanics",
+        "causal"
+      ]
+    },
+    "consumed_mechanics": {
+      "causal_rows_opened": 0,
+      "mechanics_rows_opened": 32,
+      "result_bytes_read": true,
+      "result_receipt": "6dff6c59c7ee03d2a2ae775bc88ebd94877e8c80e06c9808f0b59e7eeb302a27",
+      "result_schema": "rwkv_ms_natural_memory_native_rwkv_cumulative_virtual_kv_mechanics.v1",
+      "result_sha256": "23ce8601a84c388b8b1ea0a2bee527c9eb677dd67cf5b80a5f49f44e9deb7d58",
+      "result_status": "cumulative_virtual_kv_mechanics_failed_family_retired"
+    },
+    "donor_component_disjoint": true,
+    "leakage_audit": {
+      "cross_split_passage_component_count": 0,
+      "historical_excluded_components": 94,
+      "parent_selected_components": 160,
+      "passage_component_count": 708,
+      "remaining_components_before_selection": 454,
+      "selected_passage_components": 64,
+      "selected_source_rows": 64,
+      "source_rows": 1443,
+      "total_excluded_components": 254
+    },
+    "parent_reservation": {
+      "all_parent_splits_excluded": [
+        "fit",
+        "retrieval",
+        "mechanics",
+        "causal"
+      ],
+      "historical_excluded_components": 94,
+      "manifest_receipt": "99a878493c3848c96624e2ad658842c99e69769b4a1721b5854ad25af8d0bee2",
+      "manifest_schema": "rwkv_ms_natural_memory_native_rwkv_continuous_write_open_fit.v2",
+      "manifest_sha256": "c437a7d1f2b850a730fe5b28a08ae32ba02678561bb1265a4eef55bda7f4d468",
+      "parent_bundle_bytes_read": false,
+      "parent_selected_components": 160,
+      "split_receipt": "d9ad640c208aae6983ce603f5d1918b06ab4ba9e93ed935d9cbfe1ac25f4801a"
+    },
+    "passage_component_disjoint": true,
+    "protected_splits_opened": [],
+    "receipt": {
+      "algorithm": "sha256",
+      "payload_scope": "canonical_split_without_receipt",
+      "payload_sha256": "6b22c808c6dc0cf722b74cf45981b3fad93a0a3ccdc3a5b023989487b1d637c6"
+    },
+    "schema": "rwkv_ms_source_cumulative_residual_split.v1",
+    "sealed_bundle_bytes_read": false,
+    "selection": {
+      "inputs": "dataset-qualified source_index, row_sha256, gold_sha256, write_tokens, and normalized passage signature hashes only",
+      "pair_count": 32,
+      "salt": "rwkv-cumulative-virtual-kv-fresh-reservation-v1:",
+      "split_assignment": {
+        "causal": "ranked pairs 16:32",
+        "mechanics": "ranked pairs 0:16"
+      },
+      "split_unit": "normalized_passage_32_character_shingle_connected_component"
+    },
+    "source": {
+      "namespace": "novel-agent-sft-dataset:publisher-train-derived-fit",
+      "path": "experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl",
+      "rows": 1443,
+      "sha256": "8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57"
+    },
+    "splits": {
+      "causal": {
+        "donor_component_pairs": [
+          [
+            "passage_component:a4bf814fc7258f7b019ff9f4fdd5fc851bb049f664ad370dca1979b6ee7656fe",
+            "passage_component:e6dd9ed65e615b90b664b1ab1db1b873fc062c57e41edd91f9605f9e5986adde"
+          ],
+          [
+            "passage_component:9fa70d9403b58bf001c371f82f21973631a716741b5fbf05019d193744c238c6",
+            "passage_component:aa8a7438d09e8494fb31040fefb881dcb8be8a23f1952974efcef52a516663a9"
+          ],
+          [
+            "passage_component:c0d40c22c41fabdf9b91ade272049e814eb6038d1773b4e7e7bf314d3e159277",
+            "passage_component:9687060ec0c0956453c119abdfd68fe6eef86c8f93eabf016f281342eeb6f2f2"
+          ],
+          [
+            "passage_component:70ad18ebb4cadb2c37fb0a3493cee9c59339aafc9e171fdc37809cbff472178e",
+            "passage_component:b47d35060956a706e0bdd6f75e43a358e5963257a3760f33a3c4d250ed7dc01a"
+          ],
+          [
+            "passage_component:cf5b2d023b7c0336b19cc54277a2fddaddd11bc4fff11a20cab4b2de3a991d87",
+            "passage_component:0f7a006e7c5582c0ec0dcc983b9aac52c0d857122edc54ce6f2b132918c4bea7"
+          ],
+          [
+            "passage_component:c00fb3592bb90a517719335159b23d08a6ebb992ea8615c3a53f9ca6e64e0c99",
+            "passage_component:ebe524507c8574ce1e46ef3711239abd4f79684cf57008b863c6417971736b86"
+          ],
+          [
+            "passage_component:6b519f7b79b5f40eb85821cf3959d92eae5afb224a41f041d2ecddbaea9944d5",
+            "passage_component:7474cca7a3c23120eec0f6b0fcf8817864655a327a2825d96916d690873fb517"
+          ],
+          [
+            "passage_component:70641094ef9a337f7d310439acebb2e9c3887ed8e7abdf0b0b99d33cb43f159a",
+            "passage_component:927e1a08ad44727836286ae292c2bd7bbd512b6246d9a0624740a785e9420852"
+          ],
+          [
+            "passage_component:0bd38db15db874d2052518b1bfdd6b20b251685640e3ae1ef7f08daed10cb39d",
+            "passage_component:a0190d07e0de32611d7857c24f3b1d0ba6b12e81cc3de5f78c2584c58c9ceecf"
+          ],
+          [
+            "passage_component:62f318a794850cb9ed4f77bbd8790024e1ef5547da311d19810d0d40eaf42176",
+            "passage_component:92eea5f4e3e5a93f0804d512386ebdb18f1fbbdd7f7c64efbad8365fc96045ae"
+          ],
+          [
+            "passage_component:b77a32374efa3149697c3fa375a1b64a1f48256a18c8325f006802abdd127f6a",
+            "passage_component:07a5c6cdfa61d34604028e9bfe423add3cbecd217a05b572b6f0907189dc04d4"
+          ],
+          [
+            "passage_component:c9ab0d1cf8c7d9cd576a20c1385e9d3cc9f24861c812f98649b5a6fbd007f729",
+            "passage_component:36747e5aab5d9d954397ac0b6fca2b98d1408691649466f9cd93204f04f1ecf2"
+          ],
+          [
+            "passage_component:8f7758e1a4899658fd79a4d140ff063bb1447620d5d2d7eb36aa7032b639e3e3",
+            "passage_component:90ab70977c67c37f99c5c1131f19d083ec8db7bb1ad5fe75222ac73b68fc9230"
+          ],
+          [
+            "passage_component:1330ce279da437b996e27564ed30585190531089e70d408e4b2393a484853090",
+            "passage_component:b699e2ed133351638232044917375898f99e7bae996a0d5d59a986edaa0673b0"
+          ],
+          [
+            "passage_component:dcd06291ca6fd0c9d02e6403597847f2d3745f763e0304897d2de1a620e92930",
+            "passage_component:a6eaa0bb279f17e50b0b990141cda94a05d61aae686b5ba06da13dd29ced930c"
+          ],
+          [
+            "passage_component:fe9b2576eaf545aedb7dd355daf4dca7450561909a95f8efe8b62c208d7ca169",
+            "passage_component:126bf97f3d703e284ca494b8080ce93a4bdac167e3975436920dc73d4faecacc"
+          ]
+        ],
+        "donor_component_pairs_sha256": "e68e0a1358ce89b754caf54ee102e3d230d83205014b1961855d24eb7007eebb",
+        "mapping_pairs": [
+          [
+            6,
+            817
+          ],
+          [
+            27,
+            864
+          ],
+          [
+            202,
+            304
+          ],
+          [
+            248,
+            331
+          ],
+          [
+            264,
+            492
+          ],
+          [
+            272,
+            618
+          ],
+          [
+            304,
+            202
+          ],
+          [
+            331,
+            248
+          ],
+          [
+            374,
+            959
+          ],
+          [
+            396,
+            465
+          ],
+          [
+            465,
+            396
+          ],
+          [
+            492,
+            264
+          ],
+          [
+            538,
+            679
+          ],
+          [
+            541,
+            802
+          ],
+          [
+            599,
+            640
+          ],
+          [
+            618,
+            272
+          ],
+          [
+            622,
+            979
+          ],
+          [
+            640,
+            599
+          ],
+          [
+            679,
+            538
+          ],
+          [
+            724,
+            1018
+          ],
+          [
+            802,
+            541
+          ],
+          [
+            817,
+            6
+          ],
+          [
+            845,
+            1088
+          ],
+          [
+            864,
+            27
+          ],
+          [
+            959,
+            374
+          ],
+          [
+            973,
+            1154
+          ],
+          [
+            979,
+            622
+          ],
+          [
+            1018,
+            724
+          ],
+          [
+            1047,
+            1086
+          ],
+          [
+            1086,
+            1047
+          ],
+          [
+            1088,
+            845
+          ],
+          [
+            1154,
+            973
+          ]
+        ],
+        "mapping_pairs_sha256": "38b151f8b727e8c141a198200f273bbc48538d722a9e0eab112e7a90fe1717ec",
+        "pair_count": 16,
+        "pairs": [
+          [
+            272,
+            618
+          ],
+          [
+            264,
+            492
+          ],
+          [
+            973,
+            1154
+          ],
+          [
+            845,
+            1088
+          ],
+          [
+            374,
+            959
+          ],
+          [
+            622,
+            979
+          ],
+          [
+            541,
+            802
+          ],
+          [
+            1047,
+            1086
+          ],
+          [
+            6,
+            817
+          ],
+          [
+            248,
+            331
+          ],
+          [
+            27,
+            864
+          ],
+          [
+            599,
+            640
+          ],
+          [
+            724,
+            1018
+          ],
+          [
+            202,
+            304
+          ],
+          [
+            396,
+            465
+          ],
+          [
+            538,
+            679
+          ]
+        ],
+        "passage_component_ids": [
+          "passage_component:0bd38db15db874d2052518b1bfdd6b20b251685640e3ae1ef7f08daed10cb39d",
+          "passage_component:b77a32374efa3149697c3fa375a1b64a1f48256a18c8325f006802abdd127f6a",
+          "passage_component:1330ce279da437b996e27564ed30585190531089e70d408e4b2393a484853090",
+          "passage_component:62f318a794850cb9ed4f77bbd8790024e1ef5547da311d19810d0d40eaf42176",
+          "passage_component:9fa70d9403b58bf001c371f82f21973631a716741b5fbf05019d193744c238c6",
+          "passage_component:a4bf814fc7258f7b019ff9f4fdd5fc851bb049f664ad370dca1979b6ee7656fe",
+          "passage_component:b699e2ed133351638232044917375898f99e7bae996a0d5d59a986edaa0673b0",
+          "passage_component:92eea5f4e3e5a93f0804d512386ebdb18f1fbbdd7f7c64efbad8365fc96045ae",
+          "passage_component:cf5b2d023b7c0336b19cc54277a2fddaddd11bc4fff11a20cab4b2de3a991d87",
+          "passage_component:dcd06291ca6fd0c9d02e6403597847f2d3745f763e0304897d2de1a620e92930",
+          "passage_component:a6eaa0bb279f17e50b0b990141cda94a05d61aae686b5ba06da13dd29ced930c",
+          "passage_component:aa8a7438d09e8494fb31040fefb881dcb8be8a23f1952974efcef52a516663a9",
+          "passage_component:fe9b2576eaf545aedb7dd355daf4dca7450561909a95f8efe8b62c208d7ca169",
+          "passage_component:6b519f7b79b5f40eb85821cf3959d92eae5afb224a41f041d2ecddbaea9944d5",
+          "passage_component:c9ab0d1cf8c7d9cd576a20c1385e9d3cc9f24861c812f98649b5a6fbd007f729",
+          "passage_component:e6dd9ed65e615b90b664b1ab1db1b873fc062c57e41edd91f9605f9e5986adde",
+          "passage_component:c00fb3592bb90a517719335159b23d08a6ebb992ea8615c3a53f9ca6e64e0c99",
+          "passage_component:36747e5aab5d9d954397ac0b6fca2b98d1408691649466f9cd93204f04f1ecf2",
+          "passage_component:126bf97f3d703e284ca494b8080ce93a4bdac167e3975436920dc73d4faecacc",
+          "passage_component:8f7758e1a4899658fd79a4d140ff063bb1447620d5d2d7eb36aa7032b639e3e3",
+          "passage_component:7474cca7a3c23120eec0f6b0fcf8817864655a327a2825d96916d690873fb517",
+          "passage_component:a0190d07e0de32611d7857c24f3b1d0ba6b12e81cc3de5f78c2584c58c9ceecf",
+          "passage_component:70ad18ebb4cadb2c37fb0a3493cee9c59339aafc9e171fdc37809cbff472178e",
+          "passage_component:07a5c6cdfa61d34604028e9bfe423add3cbecd217a05b572b6f0907189dc04d4",
+          "passage_component:0f7a006e7c5582c0ec0dcc983b9aac52c0d857122edc54ce6f2b132918c4bea7",
+          "passage_component:c0d40c22c41fabdf9b91ade272049e814eb6038d1773b4e7e7bf314d3e159277",
+          "passage_component:ebe524507c8574ce1e46ef3711239abd4f79684cf57008b863c6417971736b86",
+          "passage_component:90ab70977c67c37f99c5c1131f19d083ec8db7bb1ad5fe75222ac73b68fc9230",
+          "passage_component:70641094ef9a337f7d310439acebb2e9c3887ed8e7abdf0b0b99d33cb43f159a",
+          "passage_component:927e1a08ad44727836286ae292c2bd7bbd512b6246d9a0624740a785e9420852",
+          "passage_component:b47d35060956a706e0bdd6f75e43a358e5963257a3760f33a3c4d250ed7dc01a",
+          "passage_component:9687060ec0c0956453c119abdfd68fe6eef86c8f93eabf016f281342eeb6f2f2"
+        ],
+        "passage_component_ids_sha256": "7c01149606185485ddfa97c7683bdbed3295ac6c9db83a44d94d80fb984c29a3",
+        "qualified_mapping_pairs": [
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:6|row_sha256:25b50682e2c060e4324c533b60353d0a5e8bf201ca3f50fcfe008dc3233caf75",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:817|row_sha256:1b478490884bf7dd565eb15fe42fcfacc7ab776a8faf363a33cda283ee91743b"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:27|row_sha256:fa79fcdebd92e1ade5d16cd36abc46ec6e9f0e6e2e82f18cda490088147275bf",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:864|row_sha256:9f739f8664b226b81fcc6c7853d064d57c263a648376a4f1aba9dc011ce59e2a"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:202|row_sha256:0e9ca2edba7e152001a572814d7fbe36f404676714ef8ae7bd88c6e223c95e4b",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:304|row_sha256:d448f411ba34a0f891cceee39a02eefe6d8b1bc4cf8338353bbc0f5667833b99"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:248|row_sha256:dd9530e5f01e534e40524fb43afd93d4e038986752617fcf1f385c32670e302f",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:331|row_sha256:9d537ded7bcc3ef19be052b5ae28b1e5bc7f40f4321c781ff416a100e0e86a8f"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:264|row_sha256:ebc8bae219ca8b0913c1114cd26ebdc6764ca56135341894ddcacc7ddb3d3e48",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:492|row_sha256:a584a940198bd76440c1c2f3b78b4ff45f6951fdf4273707018b113026741586"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:272|row_sha256:be5180b31daebfe72242cd5d1c3123821f3e23839dbcbab4a5b3c40c7bb45ebd",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:618|row_sha256:9407e5e7de2f376265ceae06ab6f79e870d07c2ba09e4d285a369a3c647e3f6c"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:304|row_sha256:d448f411ba34a0f891cceee39a02eefe6d8b1bc4cf8338353bbc0f5667833b99",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:202|row_sha256:0e9ca2edba7e152001a572814d7fbe36f404676714ef8ae7bd88c6e223c95e4b"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:331|row_sha256:9d537ded7bcc3ef19be052b5ae28b1e5bc7f40f4321c781ff416a100e0e86a8f",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:248|row_sha256:dd9530e5f01e534e40524fb43afd93d4e038986752617fcf1f385c32670e302f"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:374|row_sha256:73cbe7b5dbb52e46eb2a8ae7cce99833c85d1e0c3d417306df0459959fe1fe2c",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:959|row_sha256:c5ad5531b9e0b641848feea67c469cb56d395a904221a69c0973de0ddfb39487"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:396|row_sha256:5e8b939dde6ee73b466781c9527d7ea4734bcf5040ec33a118425601a898a498",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:465|row_sha256:44a8781a5d7195dbf193a31a533b314520f4b542f95d59e3bc9ada487275b816"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:465|row_sha256:44a8781a5d7195dbf193a31a533b314520f4b542f95d59e3bc9ada487275b816",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:396|row_sha256:5e8b939dde6ee73b466781c9527d7ea4734bcf5040ec33a118425601a898a498"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:492|row_sha256:a584a940198bd76440c1c2f3b78b4ff45f6951fdf4273707018b113026741586",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:264|row_sha256:ebc8bae219ca8b0913c1114cd26ebdc6764ca56135341894ddcacc7ddb3d3e48"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:538|row_sha256:1b919224e9a453b91a045bd87b89c07c1d7b11f63b23166d41c08eb6a0b3ac6a",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:679|row_sha256:7f67e7de4c8e8d42f16f7d55299b33b8c3884f8114019707a236f57257c49113"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:541|row_sha256:a6a55a2dac7833278164e091bad174a393a0f8504379212eed6c2bda8a31a2dc",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:802|row_sha256:68ef37a386c80e90f6b1e77a11494e4da306c7f83cdc7e0f5d378c344d2f0ec4"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:599|row_sha256:41b1088449f95e28f0a8338da3be32e40e2025adcaabae1c9f330007f99d7f96",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:640|row_sha256:d0ac01e1bfe820b65ebdd494b0747d1e1120350355035125a815f00545b876f3"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:618|row_sha256:9407e5e7de2f376265ceae06ab6f79e870d07c2ba09e4d285a369a3c647e3f6c",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:272|row_sha256:be5180b31daebfe72242cd5d1c3123821f3e23839dbcbab4a5b3c40c7bb45ebd"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:622|row_sha256:10c1351426edeb22cc5127c6d0adfe8897949e9cc87036cda5593a341e8eb46f",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:979|row_sha256:383199b44bfcf4076b32270da6c917451cd4b1f71ab439728d4c1c5b08565b4e"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:640|row_sha256:d0ac01e1bfe820b65ebdd494b0747d1e1120350355035125a815f00545b876f3",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:599|row_sha256:41b1088449f95e28f0a8338da3be32e40e2025adcaabae1c9f330007f99d7f96"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:679|row_sha256:7f67e7de4c8e8d42f16f7d55299b33b8c3884f8114019707a236f57257c49113",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:538|row_sha256:1b919224e9a453b91a045bd87b89c07c1d7b11f63b23166d41c08eb6a0b3ac6a"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:724|row_sha256:be93805fd30e7cafc8d5d18aa3d734559051d6fe7a4d963200a9f8bfbe446990",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1018|row_sha256:4b64b7e9d6f7009aa40e80279f1c8b93a5c80b5a128c1330457368abb402e838"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:802|row_sha256:68ef37a386c80e90f6b1e77a11494e4da306c7f83cdc7e0f5d378c344d2f0ec4",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:541|row_sha256:a6a55a2dac7833278164e091bad174a393a0f8504379212eed6c2bda8a31a2dc"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:817|row_sha256:1b478490884bf7dd565eb15fe42fcfacc7ab776a8faf363a33cda283ee91743b",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:6|row_sha256:25b50682e2c060e4324c533b60353d0a5e8bf201ca3f50fcfe008dc3233caf75"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:845|row_sha256:9be681c18d4e3c8387db35ea8dd5d372b192de964ae13874c2140c6d84b511c0",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1088|row_sha256:185a69cf4db2bca3743f54ef13f913bedeb408211434390764bdd15bac9a3d2d"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:864|row_sha256:9f739f8664b226b81fcc6c7853d064d57c263a648376a4f1aba9dc011ce59e2a",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:27|row_sha256:fa79fcdebd92e1ade5d16cd36abc46ec6e9f0e6e2e82f18cda490088147275bf"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:959|row_sha256:c5ad5531b9e0b641848feea67c469cb56d395a904221a69c0973de0ddfb39487",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:374|row_sha256:73cbe7b5dbb52e46eb2a8ae7cce99833c85d1e0c3d417306df0459959fe1fe2c"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:973|row_sha256:cb6fde0f3ede17336989553d5aedd8a9a9dee502d0a4ba45c613707d0c32be19",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1154|row_sha256:ee56d88b1de4f21b8786e669fe6e13479008c3ff5d2fa9e45a7c0868449d4fbe"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:979|row_sha256:383199b44bfcf4076b32270da6c917451cd4b1f71ab439728d4c1c5b08565b4e",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:622|row_sha256:10c1351426edeb22cc5127c6d0adfe8897949e9cc87036cda5593a341e8eb46f"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1018|row_sha256:4b64b7e9d6f7009aa40e80279f1c8b93a5c80b5a128c1330457368abb402e838",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:724|row_sha256:be93805fd30e7cafc8d5d18aa3d734559051d6fe7a4d963200a9f8bfbe446990"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1047|row_sha256:c53db7aa747e730c0bf64b06ca88df618c249106680a4db5c96fb7f6676f6038",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1086|row_sha256:bc8c71d7745f5b7743b520e99cc642347bf6ad3a3f3d4903b5f7df0febf0fec8"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1086|row_sha256:bc8c71d7745f5b7743b520e99cc642347bf6ad3a3f3d4903b5f7df0febf0fec8",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1047|row_sha256:c53db7aa747e730c0bf64b06ca88df618c249106680a4db5c96fb7f6676f6038"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1088|row_sha256:185a69cf4db2bca3743f54ef13f913bedeb408211434390764bdd15bac9a3d2d",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:845|row_sha256:9be681c18d4e3c8387db35ea8dd5d372b192de964ae13874c2140c6d84b511c0"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1154|row_sha256:ee56d88b1de4f21b8786e669fe6e13479008c3ff5d2fa9e45a7c0868449d4fbe",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:973|row_sha256:cb6fde0f3ede17336989553d5aedd8a9a9dee502d0a4ba45c613707d0c32be19"
+          ]
+        ],
+        "qualified_mapping_pairs_sha256": "ef6cf0596fc473a4edfdbb2221fa6de6dbfd9a43ac5d9ff4462ae9fa0577c268",
+        "qualified_source_ids": [
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:6|row_sha256:25b50682e2c060e4324c533b60353d0a5e8bf201ca3f50fcfe008dc3233caf75",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:27|row_sha256:fa79fcdebd92e1ade5d16cd36abc46ec6e9f0e6e2e82f18cda490088147275bf",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:202|row_sha256:0e9ca2edba7e152001a572814d7fbe36f404676714ef8ae7bd88c6e223c95e4b",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:248|row_sha256:dd9530e5f01e534e40524fb43afd93d4e038986752617fcf1f385c32670e302f",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:264|row_sha256:ebc8bae219ca8b0913c1114cd26ebdc6764ca56135341894ddcacc7ddb3d3e48",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:272|row_sha256:be5180b31daebfe72242cd5d1c3123821f3e23839dbcbab4a5b3c40c7bb45ebd",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:304|row_sha256:d448f411ba34a0f891cceee39a02eefe6d8b1bc4cf8338353bbc0f5667833b99",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:331|row_sha256:9d537ded7bcc3ef19be052b5ae28b1e5bc7f40f4321c781ff416a100e0e86a8f",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:374|row_sha256:73cbe7b5dbb52e46eb2a8ae7cce99833c85d1e0c3d417306df0459959fe1fe2c",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:396|row_sha256:5e8b939dde6ee73b466781c9527d7ea4734bcf5040ec33a118425601a898a498",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:465|row_sha256:44a8781a5d7195dbf193a31a533b314520f4b542f95d59e3bc9ada487275b816",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:492|row_sha256:a584a940198bd76440c1c2f3b78b4ff45f6951fdf4273707018b113026741586",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:538|row_sha256:1b919224e9a453b91a045bd87b89c07c1d7b11f63b23166d41c08eb6a0b3ac6a",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:541|row_sha256:a6a55a2dac7833278164e091bad174a393a0f8504379212eed6c2bda8a31a2dc",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:599|row_sha256:41b1088449f95e28f0a8338da3be32e40e2025adcaabae1c9f330007f99d7f96",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:618|row_sha256:9407e5e7de2f376265ceae06ab6f79e870d07c2ba09e4d285a369a3c647e3f6c",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:622|row_sha256:10c1351426edeb22cc5127c6d0adfe8897949e9cc87036cda5593a341e8eb46f",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:640|row_sha256:d0ac01e1bfe820b65ebdd494b0747d1e1120350355035125a815f00545b876f3",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:679|row_sha256:7f67e7de4c8e8d42f16f7d55299b33b8c3884f8114019707a236f57257c49113",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:724|row_sha256:be93805fd30e7cafc8d5d18aa3d734559051d6fe7a4d963200a9f8bfbe446990",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:802|row_sha256:68ef37a386c80e90f6b1e77a11494e4da306c7f83cdc7e0f5d378c344d2f0ec4",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:817|row_sha256:1b478490884bf7dd565eb15fe42fcfacc7ab776a8faf363a33cda283ee91743b",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:845|row_sha256:9be681c18d4e3c8387db35ea8dd5d372b192de964ae13874c2140c6d84b511c0",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:864|row_sha256:9f739f8664b226b81fcc6c7853d064d57c263a648376a4f1aba9dc011ce59e2a",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:959|row_sha256:c5ad5531b9e0b641848feea67c469cb56d395a904221a69c0973de0ddfb39487",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:973|row_sha256:cb6fde0f3ede17336989553d5aedd8a9a9dee502d0a4ba45c613707d0c32be19",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:979|row_sha256:383199b44bfcf4076b32270da6c917451cd4b1f71ab439728d4c1c5b08565b4e",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1018|row_sha256:4b64b7e9d6f7009aa40e80279f1c8b93a5c80b5a128c1330457368abb402e838",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1047|row_sha256:c53db7aa747e730c0bf64b06ca88df618c249106680a4db5c96fb7f6676f6038",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1086|row_sha256:bc8c71d7745f5b7743b520e99cc642347bf6ad3a3f3d4903b5f7df0febf0fec8",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1088|row_sha256:185a69cf4db2bca3743f54ef13f913bedeb408211434390764bdd15bac9a3d2d",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1154|row_sha256:ee56d88b1de4f21b8786e669fe6e13479008c3ff5d2fa9e45a7c0868449d4fbe"
+        ],
+        "qualified_source_ids_sha256": "3ba969e0e2bead1fa18ac0d6c33e0232e48eb68befd384622a0d90b30db5dbe9",
+        "source_indices": [
+          6,
+          27,
+          202,
+          248,
+          264,
+          272,
+          304,
+          331,
+          374,
+          396,
+          465,
+          492,
+          538,
+          541,
+          599,
+          618,
+          622,
+          640,
+          679,
+          724,
+          802,
+          817,
+          845,
+          864,
+          959,
+          973,
+          979,
+          1018,
+          1047,
+          1086,
+          1088,
+          1154
+        ],
+        "source_indices_sha256": "1a2ac2ed2c762838803d820ddb8b9b4f0b2fb3f452fdba4ad694a1d97b264d8f"
+      },
+      "mechanics": {
+        "donor_component_pairs": [
+          [
+            "passage_component:5386b257d7ebe692b4c439af1780b8bd4dc4775f4705f0248b73bd601b0d9257",
+            "passage_component:6432829e6ca2fee6c7f5d61fbf354ba67792dbda0c753d8e2416bf234c694730"
+          ],
+          [
+            "passage_component:ff0a0e7ab9f902e62e9d22921c2ddedafd0ea4890c09cd0463acf2b16122099f",
+            "passage_component:28aba891d7c79144f7f509b97c0e86d622a4abe80368ba5664a190d2374fcd7c"
+          ],
+          [
+            "passage_component:03932d1caf9f62dfc9331de26806859419b062c93bd0092d0ee2133352b43bfb",
+            "passage_component:e4d3ec60af67b99e4e41b469d6323c3ba8d20107f8d0df2366a160a3bd488ade"
+          ],
+          [
+            "passage_component:db495ad4cc9f0919e04f05529fe568cf1d2e914207566c0650b5fd82ea50aa8d",
+            "passage_component:e2858425f706c1048c38b6a77f828a60bbb47e9fc2215bc5fa1238302fb55a6e"
+          ],
+          [
+            "passage_component:34e6460d26cded2cca1ed957b8c678e17ee7de459ccbf85cefcd1aa037dd7b1e",
+            "passage_component:abc2a769f6e030c61b81b00248128a3869d00c2b2d485bc2deed2401193b7d2f"
+          ],
+          [
+            "passage_component:af4da31b99f4932b549a3c4eccd2b832937dacd4cedc5922a0d926f199b756d7",
+            "passage_component:9b40975dcaa4ff0d149c811cd04a7132a904e0643c87a2976f7587a3fb55f808"
+          ],
+          [
+            "passage_component:7c8dd55251b4df51e27ce2ad8a75d28cc84a377b38c131a5853fb46625b79523",
+            "passage_component:3c4cb64a09239c2930e98390dc12e07137e1edf68de22270d7804851d41cfe72"
+          ],
+          [
+            "passage_component:1485ef3ee48d03f319ab1d2fc9f827adf7541ab27f00771f25a39f240a49e6f1",
+            "passage_component:30b6b71942a264ebdf0051d95ae6b938913adec18057d468fc25a83a4695923e"
+          ],
+          [
+            "passage_component:e9a04e8228e271bdc7be4a6414dd8c9b6ee7c71d2a3374322a163e6b4d7dc7a5",
+            "passage_component:212193ea00efb21fe95fc63db4687d0a0ff2867398bbea4e627f1628c9c5511d"
+          ],
+          [
+            "passage_component:89a8db0d59bdfb5cf65cf074b1095d1e51cdd13a890c82713790249575615685",
+            "passage_component:56b3a768eeedc8e187fee69bd5b1fa56d9c2130d9556540751b28b56b725e15e"
+          ],
+          [
+            "passage_component:25a933fcaf00b05e50666d4a6f407dee7dd33db09207935258201256a259ac21",
+            "passage_component:05f7b9bebf2f2739ff59765a745c36d3bc7dfb713639228bbbadf17a311125b1"
+          ],
+          [
+            "passage_component:dab83f8616124c00a570a449f012b8bc52029f985ad3177c6f3810255b9879db",
+            "passage_component:eac222a8f254b2471fb4d0287e0ca7cede7c19de3ab7f0658965904cdef0d437"
+          ],
+          [
+            "passage_component:34493b79446e54300de1b2291897ec62a0b346d161ce2e585e34820d51e3028a",
+            "passage_component:dcb4e1fdceb99c8551f96f09592f085b7d16f0b664fe529e39f4240cfa5572e6"
+          ],
+          [
+            "passage_component:c6b1d1868db0f9e68dfcb6944b185ae2ea056b355f24e4f5bc00c4385a672646",
+            "passage_component:8f0d0e16cad8749f13aed959de09829e0c8d0b2d5523920b8838e3a4e15e1f4e"
+          ],
+          [
+            "passage_component:7fe2c938af17a1e58c19a120952b89133514145f665b5f0d5f8d8d8a67b35dce",
+            "passage_component:f38089f15b90daadaf5bdfde757aa71d355b29beb4778c658545799e3b6447fd"
+          ],
+          [
+            "passage_component:03841d3cff60dbf9f3f63b1d1fa39eb534babf2d4c34676a0d3547663ed2b1e6",
+            "passage_component:31e2dfad359cbf763e529cb23f0df7053fa20838b8c68f9681cf8117bc859351"
+          ]
+        ],
+        "donor_component_pairs_sha256": "562fd6ff66b1b3408cbe58f7631f1608058d57eb39af04eade33e3cc44944eb3",
+        "mapping_pairs": [
+          [
+            58,
+            846
+          ],
+          [
+            78,
+            1331
+          ],
+          [
+            152,
+            1193
+          ],
+          [
+            163,
+            1422
+          ],
+          [
+            179,
+            922
+          ],
+          [
+            190,
+            421
+          ],
+          [
+            201,
+            1165
+          ],
+          [
+            249,
+            1099
+          ],
+          [
+            267,
+            1216
+          ],
+          [
+            350,
+            1313
+          ],
+          [
+            354,
+            1005
+          ],
+          [
+            421,
+            190
+          ],
+          [
+            519,
+            592
+          ],
+          [
+            585,
+            698
+          ],
+          [
+            592,
+            519
+          ],
+          [
+            666,
+            1307
+          ],
+          [
+            684,
+            930
+          ],
+          [
+            698,
+            585
+          ],
+          [
+            798,
+            1124
+          ],
+          [
+            846,
+            58
+          ],
+          [
+            922,
+            179
+          ],
+          [
+            930,
+            684
+          ],
+          [
+            1005,
+            354
+          ],
+          [
+            1099,
+            249
+          ],
+          [
+            1124,
+            798
+          ],
+          [
+            1165,
+            201
+          ],
+          [
+            1193,
+            152
+          ],
+          [
+            1216,
+            267
+          ],
+          [
+            1307,
+            666
+          ],
+          [
+            1313,
+            350
+          ],
+          [
+            1331,
+            78
+          ],
+          [
+            1422,
+            163
+          ]
+        ],
+        "mapping_pairs_sha256": "a73b8aa20baa0581acaa78109747198dcc179dedcce00ee4b48a4975b66f298c",
+        "pair_count": 16,
+        "pairs": [
+          [
+            201,
+            1165
+          ],
+          [
+            666,
+            1307
+          ],
+          [
+            78,
+            1331
+          ],
+          [
+            58,
+            846
+          ],
+          [
+            179,
+            922
+          ],
+          [
+            163,
+            1422
+          ],
+          [
+            519,
+            592
+          ],
+          [
+            249,
+            1099
+          ],
+          [
+            684,
+            930
+          ],
+          [
+            350,
+            1313
+          ],
+          [
+            267,
+            1216
+          ],
+          [
+            152,
+            1193
+          ],
+          [
+            798,
+            1124
+          ],
+          [
+            354,
+            1005
+          ],
+          [
+            190,
+            421
+          ],
+          [
+            585,
+            698
+          ]
+        ],
+        "passage_component_ids": [
+          "passage_component:db495ad4cc9f0919e04f05529fe568cf1d2e914207566c0650b5fd82ea50aa8d",
+          "passage_component:03932d1caf9f62dfc9331de26806859419b062c93bd0092d0ee2133352b43bfb",
+          "passage_component:dab83f8616124c00a570a449f012b8bc52029f985ad3177c6f3810255b9879db",
+          "passage_component:af4da31b99f4932b549a3c4eccd2b832937dacd4cedc5922a0d926f199b756d7",
+          "passage_component:34e6460d26cded2cca1ed957b8c678e17ee7de459ccbf85cefcd1aa037dd7b1e",
+          "passage_component:7fe2c938af17a1e58c19a120952b89133514145f665b5f0d5f8d8d8a67b35dce",
+          "passage_component:5386b257d7ebe692b4c439af1780b8bd4dc4775f4705f0248b73bd601b0d9257",
+          "passage_component:1485ef3ee48d03f319ab1d2fc9f827adf7541ab27f00771f25a39f240a49e6f1",
+          "passage_component:25a933fcaf00b05e50666d4a6f407dee7dd33db09207935258201256a259ac21",
+          "passage_component:89a8db0d59bdfb5cf65cf074b1095d1e51cdd13a890c82713790249575615685",
+          "passage_component:c6b1d1868db0f9e68dfcb6944b185ae2ea056b355f24e4f5bc00c4385a672646",
+          "passage_component:f38089f15b90daadaf5bdfde757aa71d355b29beb4778c658545799e3b6447fd",
+          "passage_component:7c8dd55251b4df51e27ce2ad8a75d28cc84a377b38c131a5853fb46625b79523",
+          "passage_component:03841d3cff60dbf9f3f63b1d1fa39eb534babf2d4c34676a0d3547663ed2b1e6",
+          "passage_component:3c4cb64a09239c2930e98390dc12e07137e1edf68de22270d7804851d41cfe72",
+          "passage_component:ff0a0e7ab9f902e62e9d22921c2ddedafd0ea4890c09cd0463acf2b16122099f",
+          "passage_component:e9a04e8228e271bdc7be4a6414dd8c9b6ee7c71d2a3374322a163e6b4d7dc7a5",
+          "passage_component:31e2dfad359cbf763e529cb23f0df7053fa20838b8c68f9681cf8117bc859351",
+          "passage_component:34493b79446e54300de1b2291897ec62a0b346d161ce2e585e34820d51e3028a",
+          "passage_component:e2858425f706c1048c38b6a77f828a60bbb47e9fc2215bc5fa1238302fb55a6e",
+          "passage_component:abc2a769f6e030c61b81b00248128a3869d00c2b2d485bc2deed2401193b7d2f",
+          "passage_component:212193ea00efb21fe95fc63db4687d0a0ff2867398bbea4e627f1628c9c5511d",
+          "passage_component:8f0d0e16cad8749f13aed959de09829e0c8d0b2d5523920b8838e3a4e15e1f4e",
+          "passage_component:30b6b71942a264ebdf0051d95ae6b938913adec18057d468fc25a83a4695923e",
+          "passage_component:dcb4e1fdceb99c8551f96f09592f085b7d16f0b664fe529e39f4240cfa5572e6",
+          "passage_component:6432829e6ca2fee6c7f5d61fbf354ba67792dbda0c753d8e2416bf234c694730",
+          "passage_component:eac222a8f254b2471fb4d0287e0ca7cede7c19de3ab7f0658965904cdef0d437",
+          "passage_component:05f7b9bebf2f2739ff59765a745c36d3bc7dfb713639228bbbadf17a311125b1",
+          "passage_component:28aba891d7c79144f7f509b97c0e86d622a4abe80368ba5664a190d2374fcd7c",
+          "passage_component:56b3a768eeedc8e187fee69bd5b1fa56d9c2130d9556540751b28b56b725e15e",
+          "passage_component:e4d3ec60af67b99e4e41b469d6323c3ba8d20107f8d0df2366a160a3bd488ade",
+          "passage_component:9b40975dcaa4ff0d149c811cd04a7132a904e0643c87a2976f7587a3fb55f808"
+        ],
+        "passage_component_ids_sha256": "4382ed18086184f9c458f92ad98b757d5974e0390030a507cb3145e097cea4aa",
+        "qualified_mapping_pairs": [
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:58|row_sha256:e66e4f451fc8bda58399db02357a0de8db73116c4bda1d6e6146c0dc6a47f2be",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:846|row_sha256:f3885153a36629f9c5f4ccce352c62772d27d54d85e14de5ad6b99145e2d4c8f"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:78|row_sha256:5151be6a206eea3898cf0449f1d649e08919ba18596cc9a2f73ad2032ba9d60b",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1331|row_sha256:d84e3c21666931714cb87f6f833052e74974f8056e11a30b3617d0204907ad7f"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:152|row_sha256:1cbc65d5fc91bb035c5cb063918a61aac2f47bf4ff0ca4b385c44d5dea010e5e",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1193|row_sha256:3ee722bbf38fde12e19875e52d316d25495a21be960b639daed5350c53283688"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:163|row_sha256:21c74fbe7c82d5c38d9879cb87ee44d9e011e49a39e0fc9d994784fcff6e4fd0",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1422|row_sha256:a6ec29742fc468510110d4ae407d62509816923cfe631e6ff2dc49d6a8c6d34d"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:179|row_sha256:bfd98a25ec17c5fda9533d05b8d85af990beeeef96267bd62bcc706083b5a7d2",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:922|row_sha256:eda78eb7da246e06f69a4313b00955633f8311bfd02e098a5636b7bde4b3360c"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:190|row_sha256:ca8327306c1d2c885699445adc335bba3ee1af1fc31ed0813f4b9b595727af61",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:421|row_sha256:2cbfa98d75ccda478d0a26792229d31cde5e6481dd9fbc5d27f897894953b527"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:201|row_sha256:faf336e729858ffb7081baa00b90a10958b4a811a15494a175ff62573c8f6857",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1165|row_sha256:e5d278f8cff9f03370d59ccdddbb7de420b6e8c07f29f7d228bb65feff22d781"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:249|row_sha256:8fb6a161805d23571ef2ebb9f10c52d59224e6cbc7d0ec037ae12b83667c5a5f",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1099|row_sha256:e6c9664e5637d1552fd3d4cdd2ba5df7e3626be8bd403264e9df619dc7dc35b8"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:267|row_sha256:23882dc61ec56b20f564d5c22277cd28d24875f239d99d4426b0dcb812349f97",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1216|row_sha256:efda18dec6f6b0f998bf6ffe492fda7138832fd5787426c8a4c725d7dcf7510d"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:350|row_sha256:d083cce0a52ecf51b5bac533189bfc045b4c994a75915bd800bd90e301b9f6c0",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1313|row_sha256:e60ec8574c7e46a36608ed8fb10ff8f610e16f40c2f011f7f9078fa593633c0f"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:354|row_sha256:9b55d59e3c5ac2e7e07ce95acddcd11e62ef5e2f38076b1c1e014d2999718eb3",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1005|row_sha256:e8b7d61c808a25871217ea97d4a71324fcda4ba51b4d41c728b12bc03b1baad6"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:421|row_sha256:2cbfa98d75ccda478d0a26792229d31cde5e6481dd9fbc5d27f897894953b527",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:190|row_sha256:ca8327306c1d2c885699445adc335bba3ee1af1fc31ed0813f4b9b595727af61"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:519|row_sha256:71c0fa395a3ee9b358bbc0454982fb5a3d7682b99c60a70acd9804979ff0b21e",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:592|row_sha256:77ccfa952bb1b569d69a37ef7924926e751e38f03ed84eb7c5579330ba4ea6c3"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:585|row_sha256:a4a996abc010a89c58790ddff6130a25c7acef212d3d498ed71ad588227f8621",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:698|row_sha256:081894ef73a923a770a3bdf2d1d2382616c9f090854522e607c3f2be75efa4ed"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:592|row_sha256:77ccfa952bb1b569d69a37ef7924926e751e38f03ed84eb7c5579330ba4ea6c3",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:519|row_sha256:71c0fa395a3ee9b358bbc0454982fb5a3d7682b99c60a70acd9804979ff0b21e"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:666|row_sha256:7adb48cbf18bfaf7285050881a1ddc27dd7426394117a8f9db1170320cf6d9cd",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1307|row_sha256:dfd011e8f7ae443e9fc7ec6cc2a59f8f67a954d1a3b310ffbaf7f71ee3c8df9b"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:684|row_sha256:05f1b94ce9bbb89352455dff9a92302c70789e828bf3f2bf0c41156858818899",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:930|row_sha256:2057d1e1f71128b4767052224d1b3541016a1e093d3d40375ace699d0c4dbb50"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:698|row_sha256:081894ef73a923a770a3bdf2d1d2382616c9f090854522e607c3f2be75efa4ed",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:585|row_sha256:a4a996abc010a89c58790ddff6130a25c7acef212d3d498ed71ad588227f8621"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:798|row_sha256:c72ff6a8a0d9f30e343d79f903df4fa038c4795e4296c64291a53dc926ee808b",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1124|row_sha256:2f27aa794a1433ae38517562b06cf48dcc27082b8158d0c4eb68406df63b0786"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:846|row_sha256:f3885153a36629f9c5f4ccce352c62772d27d54d85e14de5ad6b99145e2d4c8f",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:58|row_sha256:e66e4f451fc8bda58399db02357a0de8db73116c4bda1d6e6146c0dc6a47f2be"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:922|row_sha256:eda78eb7da246e06f69a4313b00955633f8311bfd02e098a5636b7bde4b3360c",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:179|row_sha256:bfd98a25ec17c5fda9533d05b8d85af990beeeef96267bd62bcc706083b5a7d2"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:930|row_sha256:2057d1e1f71128b4767052224d1b3541016a1e093d3d40375ace699d0c4dbb50",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:684|row_sha256:05f1b94ce9bbb89352455dff9a92302c70789e828bf3f2bf0c41156858818899"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1005|row_sha256:e8b7d61c808a25871217ea97d4a71324fcda4ba51b4d41c728b12bc03b1baad6",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:354|row_sha256:9b55d59e3c5ac2e7e07ce95acddcd11e62ef5e2f38076b1c1e014d2999718eb3"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1099|row_sha256:e6c9664e5637d1552fd3d4cdd2ba5df7e3626be8bd403264e9df619dc7dc35b8",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:249|row_sha256:8fb6a161805d23571ef2ebb9f10c52d59224e6cbc7d0ec037ae12b83667c5a5f"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1124|row_sha256:2f27aa794a1433ae38517562b06cf48dcc27082b8158d0c4eb68406df63b0786",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:798|row_sha256:c72ff6a8a0d9f30e343d79f903df4fa038c4795e4296c64291a53dc926ee808b"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1165|row_sha256:e5d278f8cff9f03370d59ccdddbb7de420b6e8c07f29f7d228bb65feff22d781",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:201|row_sha256:faf336e729858ffb7081baa00b90a10958b4a811a15494a175ff62573c8f6857"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1193|row_sha256:3ee722bbf38fde12e19875e52d316d25495a21be960b639daed5350c53283688",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:152|row_sha256:1cbc65d5fc91bb035c5cb063918a61aac2f47bf4ff0ca4b385c44d5dea010e5e"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1216|row_sha256:efda18dec6f6b0f998bf6ffe492fda7138832fd5787426c8a4c725d7dcf7510d",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:267|row_sha256:23882dc61ec56b20f564d5c22277cd28d24875f239d99d4426b0dcb812349f97"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1307|row_sha256:dfd011e8f7ae443e9fc7ec6cc2a59f8f67a954d1a3b310ffbaf7f71ee3c8df9b",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:666|row_sha256:7adb48cbf18bfaf7285050881a1ddc27dd7426394117a8f9db1170320cf6d9cd"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1313|row_sha256:e60ec8574c7e46a36608ed8fb10ff8f610e16f40c2f011f7f9078fa593633c0f",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:350|row_sha256:d083cce0a52ecf51b5bac533189bfc045b4c994a75915bd800bd90e301b9f6c0"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1331|row_sha256:d84e3c21666931714cb87f6f833052e74974f8056e11a30b3617d0204907ad7f",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:78|row_sha256:5151be6a206eea3898cf0449f1d649e08919ba18596cc9a2f73ad2032ba9d60b"
+          ],
+          [
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1422|row_sha256:a6ec29742fc468510110d4ae407d62509816923cfe631e6ff2dc49d6a8c6d34d",
+            "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:163|row_sha256:21c74fbe7c82d5c38d9879cb87ee44d9e011e49a39e0fc9d994784fcff6e4fd0"
+          ]
+        ],
+        "qualified_mapping_pairs_sha256": "23d51f9189381ca46036cb76de89941672440602db6816a2ca22103138aca0ae",
+        "qualified_source_ids": [
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:58|row_sha256:e66e4f451fc8bda58399db02357a0de8db73116c4bda1d6e6146c0dc6a47f2be",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:78|row_sha256:5151be6a206eea3898cf0449f1d649e08919ba18596cc9a2f73ad2032ba9d60b",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:152|row_sha256:1cbc65d5fc91bb035c5cb063918a61aac2f47bf4ff0ca4b385c44d5dea010e5e",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:163|row_sha256:21c74fbe7c82d5c38d9879cb87ee44d9e011e49a39e0fc9d994784fcff6e4fd0",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:179|row_sha256:bfd98a25ec17c5fda9533d05b8d85af990beeeef96267bd62bcc706083b5a7d2",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:190|row_sha256:ca8327306c1d2c885699445adc335bba3ee1af1fc31ed0813f4b9b595727af61",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:201|row_sha256:faf336e729858ffb7081baa00b90a10958b4a811a15494a175ff62573c8f6857",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:249|row_sha256:8fb6a161805d23571ef2ebb9f10c52d59224e6cbc7d0ec037ae12b83667c5a5f",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:267|row_sha256:23882dc61ec56b20f564d5c22277cd28d24875f239d99d4426b0dcb812349f97",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:350|row_sha256:d083cce0a52ecf51b5bac533189bfc045b4c994a75915bd800bd90e301b9f6c0",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:354|row_sha256:9b55d59e3c5ac2e7e07ce95acddcd11e62ef5e2f38076b1c1e014d2999718eb3",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:421|row_sha256:2cbfa98d75ccda478d0a26792229d31cde5e6481dd9fbc5d27f897894953b527",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:519|row_sha256:71c0fa395a3ee9b358bbc0454982fb5a3d7682b99c60a70acd9804979ff0b21e",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:585|row_sha256:a4a996abc010a89c58790ddff6130a25c7acef212d3d498ed71ad588227f8621",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:592|row_sha256:77ccfa952bb1b569d69a37ef7924926e751e38f03ed84eb7c5579330ba4ea6c3",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:666|row_sha256:7adb48cbf18bfaf7285050881a1ddc27dd7426394117a8f9db1170320cf6d9cd",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:684|row_sha256:05f1b94ce9bbb89352455dff9a92302c70789e828bf3f2bf0c41156858818899",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:698|row_sha256:081894ef73a923a770a3bdf2d1d2382616c9f090854522e607c3f2be75efa4ed",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:798|row_sha256:c72ff6a8a0d9f30e343d79f903df4fa038c4795e4296c64291a53dc926ee808b",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:846|row_sha256:f3885153a36629f9c5f4ccce352c62772d27d54d85e14de5ad6b99145e2d4c8f",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:922|row_sha256:eda78eb7da246e06f69a4313b00955633f8311bfd02e098a5636b7bde4b3360c",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:930|row_sha256:2057d1e1f71128b4767052224d1b3541016a1e093d3d40375ace699d0c4dbb50",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1005|row_sha256:e8b7d61c808a25871217ea97d4a71324fcda4ba51b4d41c728b12bc03b1baad6",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1099|row_sha256:e6c9664e5637d1552fd3d4cdd2ba5df7e3626be8bd403264e9df619dc7dc35b8",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1124|row_sha256:2f27aa794a1433ae38517562b06cf48dcc27082b8158d0c4eb68406df63b0786",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1165|row_sha256:e5d278f8cff9f03370d59ccdddbb7de420b6e8c07f29f7d228bb65feff22d781",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1193|row_sha256:3ee722bbf38fde12e19875e52d316d25495a21be960b639daed5350c53283688",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1216|row_sha256:efda18dec6f6b0f998bf6ffe492fda7138832fd5787426c8a4c725d7dcf7510d",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1307|row_sha256:dfd011e8f7ae443e9fc7ec6cc2a59f8f67a954d1a3b310ffbaf7f71ee3c8df9b",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1313|row_sha256:e60ec8574c7e46a36608ed8fb10ff8f610e16f40c2f011f7f9078fa593633c0f",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1331|row_sha256:d84e3c21666931714cb87f6f833052e74974f8056e11a30b3617d0204907ad7f",
+          "novel-agent-sft-dataset:publisher-train-derived-fit|dataset_sha256:8b0552cf1ddd39230896ce1ed6a3842aef94212e70bbc9e76ee8f13c546e6e57|source_index:1422|row_sha256:a6ec29742fc468510110d4ae407d62509816923cfe631e6ff2dc49d6a8c6d34d"
+        ],
+        "qualified_source_ids_sha256": "eec5bafb9aa38735d31dbab79baac2e255e221fc45157133110b0f0e97f6ffbf",
+        "source_indices": [
+          58,
+          78,
+          152,
+          163,
+          179,
+          190,
+          201,
+          249,
+          267,
+          350,
+          354,
+          421,
+          519,
+          585,
+          592,
+          666,
+          684,
+          698,
+          798,
+          846,
+          922,
+          930,
+          1005,
+          1099,
+          1124,
+          1165,
+          1193,
+          1216,
+          1307,
+          1313,
+          1331,
+          1422
+        ],
+        "source_indices_sha256": "03689eb7e9c7d95e953b76dca0ffcf7fedafed8fd4be9dee8db616a4e1a67513"
+      }
+    }
+  },
+  "tokenizer": {
+    "files": [
+      {
+        "bytes": 5145,
+        "relative_path": "config.json",
+        "sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4"
+      },
+      {
+        "bytes": 32169626,
+        "relative_path": "tokenizer.json",
+        "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+      },
+      {
+        "bytes": 2095,
+        "relative_path": "tokenizer_config.json",
+        "sha256": "90c3a3ba5bf53818383a58e1a776cbcacd2a038d4812eaa373e1522f2d06f3df"
+      },
+      {
+        "bytes": 17336,
+        "relative_path": "chat_template.jinja",
+        "sha256": "2f1b4d75d067bae3fe44e676721c7f077d243bc007156cb9c2f8b5836613d082"
+      }
+    ],
+    "model_id": "google/gemma-4-E4B-it",
+    "revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f"
+  }
+}
