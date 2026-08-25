@@ -796,6 +796,27 @@ matched-donor, wrong-key, zero-carrier, and cache-immutability mechanics gates.
 Plain Full-Bandwidth feedback remains deferred until that causal identity path
 passes.
 
+A separate Full-Bandwidth-inspired source-residual line has now reached the
+same boundary more directly. A layer-17 cumulative router selected the target
+source on `93.75%` of open heldout rows, and a prompt latch preserved that rate
+at the first target/donor-divergent answer token. The final joint-identity
+candidate used per-anchor address/receptance product-and-distance features but
+kept the selected 32-dimensional native RWKV read as its only material value.
+Exactly four A100s, configured through `HF_ENDPOINT=https://hf-mirror.com`,
+completed all 32 signed updates. Mechanics, finiteness, staged gradients, and
+exact-zero/provider-off controls passed, but causal identity did not. On the
+original heldout view, donor-minus-target CE was `-0.020373` with `0.375000`
+positive rows; on the divergent-token view it was `-0.000756` with `0.468750`
+positive rows. Correct memory was also worse than provider-off on both views.
+The signed result SHA-256 is
+`819cb586acbbc4f391256048cf1bd38a774237d46ae3398fbd9c204983cb5746`
+with receipt
+`25fc989427c5acb56f3c78f681b3ee508dc3d2f24268c7f8b464648915548563`.
+No protected or native benchmark data was opened, and no benchmark gain or
+SOTA claim is made. The paper's depth-renewal loop remains a later candidate;
+the next open-only test widens the RWKV value path to a prompt-latched
+multi-anchor read bundle before adding temporal feedback.
+
 Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed retrieval pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
@@ -810,7 +831,10 @@ Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/n
 [address-decoded protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_decoded_reconstruction_protocol_v1.json),
 [address-decoded launch](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_address_decoded_reconstruction_launch_v1.json),
 [address-decoded runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_address_decoded_reconstruction.py),
-and [signed address-decoded failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_decoded_reconstruction_v1/result.json).
+[signed address-decoded failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_address_decoded_reconstruction_v1/result.json),
+[prompt-latched joint-identity protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_prompt_latched_joint_identity_development_protocol_v1.json),
+[prompt-latched joint-identity runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_prompt_latched_joint_identity_development.py),
+and [signed prompt-latched joint-identity failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_prompt_latched_joint_identity_development_v2/result.json).
 
 Evidence: [recurrent-only protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_rwkv_protocol_v1.json),
 [signed recurrent-only failure](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_recurrent_rwkv_bf16_calibration_v1/result.json),

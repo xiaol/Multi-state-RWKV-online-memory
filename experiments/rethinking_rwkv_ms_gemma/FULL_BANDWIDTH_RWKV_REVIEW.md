@@ -1004,3 +1004,54 @@ does not feed the model's top hidden state to layer 0, run extra transformer
 passes, or claim the paper's depth-renewal result. Exact temporal feedback and
 the `75/22/3` schedule remain gated on first establishing donor-specific causal
 use of the latched carrier.
+
+## Prompt-latched joint-identity open-heldout result
+
+The proposed prompt latch and joint gate were then tested on the already-open
+64-row development reservation. The route latched the prompt-boundary source,
+masked every other source during answer-token use, and trained only three
+bias-free tensors. Per-anchor identity features were
+`concat(qhat * ahat, abs(qhat - ahat))` at layers `5/11/17`; the selected
+32-dimensional native RWKV read remained the only material value. The first
+launch exposed a runtime defect rather than an architectural result: the
+post-FFN hook returned the base tensor when a trainable residual was
+numerically zero, severing the zero-initialized correction graph before update
+1. Commit `55fd3f2` makes the hook bypass only graphless zero residuals and
+adds a regression test; inference-time exact-zero behavior is unchanged.
+
+The fresh `v2` launch used exactly four distinct A100s through
+`HF_ENDPOINT=https://hf-mirror.com`, completed all 32 updates, and passed every
+staged-gradient, finiteness, bounded-residual, cache/state, mechanics, and
+exact-zero control. The result SHA-256 is
+`819cb586acbbc4f391256048cf1bd38a774237d46ae3398fbd9c204983cb5746`,
+its receipt is
+`25fc989427c5acb56f3c78f681b3ee508dc3d2f24268c7f8b464648915548563`,
+and the 89,088-parameter checkpoint SHA-256 is
+`a8f4012020c355b751872865c72ea34d441c7dbd624fa0fa30bd56497e9b6e24`.
+No protected mechanics, protected causal, generation, or native benchmark row
+was opened.
+
+Prompt latching repaired answer-phase source transport but not causal value
+identity. Target selection was `0.937500` on both heldout views. On the
+original first-token view, however, correct memory was worse than provider-off
+by `0.053084` mean CE; matched donor was better than the target by `0.020373`
+with only `0.375000` target-positive rows, and layer roll was better by
+`0.021550` with `0.437500` target-positive rows. On the divergent-token view,
+correct memory was worse than provider-off by `0.004891`; matched donor was
+better than the target by `0.000756` with `0.468750` target-positive rows, and
+layer roll was better by `0.005354` with `0.593750` target-positive rows. Both
+locked gates failed, so this terminal-read joint-identity family is retired
+without gain, duration, batch-size, threshold, or learning-rate tuning.
+
+This result sharpens the Full-Bandwidth transfer boundary. Carrying a selected
+source across answer tokens solves the observed selector drift, while a joint
+address/receptance gate over one terminal native read still does not supply a
+donor-specific answer value. A paper-faithful top-hidden feedback loop would
+renew depth for that unreliable value and cannot be justified as an identity
+repair. The next open-only family should first test whether RWKV value
+bandwidth is the bottleneck: latch the prompt-selected source, collect its
+native reads from all three anchors, make the concatenated multi-anchor bundle
+the mandatory state side of a bounded GLU, and inject it at the earliest
+audited residual point. It must retain exact-zero/provider-off identity and
+pass both heldout views before any temporal feedback, fresh protected split,
+or native benchmark access.
