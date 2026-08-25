@@ -829,6 +829,19 @@ below the donor and correct-gain gates. No protected or native benchmark bytes
 were opened. See the [weighted renewal result](experiments/rethinking_rwkv_ms_gemma/WEIGHTED_RENEWAL_RESULT.md)
 and its [signed weighted result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_weighted_renewal_bundle_development_train_v1/result.json).
 
+The fresh multi-anchor value-bundle repair is also retired. It used three
+native RWKV reads `(5, 11, 17)` as the sole residual value under a mandatory
+hidden-query gate, with 48 train and 32 held-out rows on four A100s. The
+first-answer-token view reached target selection `0.90625`, but donor-positive
+rows were only `0.4375` and layer-roll-positive rows `0.4375`; the divergent
+view reached donor-positive `0.4375` and layer-roll-positive `0.53125`. The
+status is `open_heldout_failed_not_promoted`; zero/provider-off and gradient
+contracts passed, but causal promotion failed. See the [multi-anchor bundle
+result](experiments/rethinking_rwkv_ms_gemma/SOURCE_MULTI_ANCHOR_BUNDLE_REPAIR_RESULT.md)
+and [signed result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_source_multi_anchor_bundle_repair_development_train_v1/result.json).
+This closes the separable Full-Bandwidth-inspired value/query gate family;
+temporal feedback remains deferred until source identity passes.
+
 Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed retrieval pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
