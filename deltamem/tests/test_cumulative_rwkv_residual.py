@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from deltamem.core.cumulative_rwkv_residual import (
+    SourceBoundMultiAnchorBundleFFN,
     SourceBoundOuterFFN,
     SourceCumulativeResidualRouter,
 )
@@ -78,6 +79,27 @@ def _outer_router() -> SourceCumulativeResidualRouter:
     )
 
 
+def _bundle_router() -> SourceCumulativeResidualRouter:
+    anchors = (5, 11, 17)
+    outer_ffn = SourceBoundMultiAnchorBundleFFN(
+        state_dim=2,
+        hidden_dim=2,
+        anchor_count=len(anchors),
+        bottleneck_dim=3,
+    )
+    with torch.no_grad():
+        outer_ffn.output_up.weight.fill_(0.125)
+        outer_ffn.query_gate.weight.fill_(0.25)
+    return SourceCumulativeResidualRouter(
+        maps={layer: (torch.eye(2), torch.eye(2)) for layer in anchors},
+        anchor_layers=anchors,
+        compatibility_scale=8.0,
+        residual_gain=1.0 / 32.0,
+        required_receptance_calls=2,
+        outer_ffn=outer_ffn,
+    )
+
+
 def _banks():
     base_state = torch.tensor(
         [[[[[1.0, 0.0], [0.0, 1.0]], [[0.0, 2.0], [1.0, 0.0]], [[-1.0, 0.5], [0.25, 1.0]]]]]
@@ -105,6 +127,7 @@ def _run(
     receptances: dict[int, torch.Tensor],
     *,
     dtype: torch.dtype = torch.float32,
+    memory_mass_override: torch.Tensor | None = None,
 ):
     routed_banks = tuple(
         {layer: bank[layer] for layer in router.anchor_layers} for bank in banks
@@ -114,6 +137,7 @@ def _run(
         address_keys=routed_banks[1],
         occupied=routed_banks[2],
         source_ids=routed_banks[3],
+        memory_mass_override=memory_mass_override,
     )
     residual = None
     modules = {}
@@ -294,6 +318,189 @@ def test_outer_ffn_exact_zero_state_and_trainable_joint_path() -> None:
     assert outer_ffn.query_gate.weight.grad is not None
     assert outer_ffn.output_up.weight.grad is not None
     assert bool(outer_ffn.output_up.weight.grad.abs().max().gt(0.0).item())
+
+
+def test_multi_anchor_bundle_ffn_staged_gradients_and_zero_value_contract() -> None:
+    outer_ffn = SourceBoundMultiAnchorBundleFFN(
+        state_dim=2,
+        hidden_dim=4,
+        anchor_count=3,
+        bottleneck_dim=3,
+    )
+    native_reads = torch.tensor(
+        [[[[1.0, -0.5], [0.25, 0.75], [-0.5, 1.0]]]]
+    )
+    hidden_query = torch.randn(1, 1, 4)
+    direction, diagnostics = outer_ffn(
+        native_reads=native_reads,
+        hidden_query=hidden_query,
+    )
+    assert torch.equal(direction, torch.zeros_like(direction))
+    assert diagnostics["native_read_bundle"].shape == (1, 1, 6)
+    direction.sub(0.25).square().mean().backward()
+    assert torch.equal(
+        outer_ffn.state_down.weight.grad,
+        torch.zeros_like(outer_ffn.state_down.weight.grad),
+    )
+    assert torch.equal(
+        outer_ffn.query_gate.weight.grad,
+        torch.zeros_like(outer_ffn.query_gate.weight.grad),
+    )
+    assert bool(outer_ffn.output_up.weight.grad.abs().max().gt(0.0).item())
+
+    with torch.no_grad():
+        outer_ffn.output_up.weight.add_(0.01 * outer_ffn.output_up.weight.grad)
+    outer_ffn.zero_grad(set_to_none=True)
+    direction, _ = outer_ffn(
+        native_reads=native_reads,
+        hidden_query=hidden_query,
+    )
+    direction.sub(0.25).square().mean().backward()
+    assert all(
+        parameter.grad is not None
+        and bool(parameter.grad.abs().max().gt(0.0).item())
+        for parameter in outer_ffn.parameters()
+    )
+
+    with torch.no_grad():
+        outer_ffn.output_up.weight.fill_(1.0)
+        outer_ffn.query_gate.weight.fill_(1.0)
+    zero_direction, zero_diagnostics = outer_ffn(
+        native_reads=torch.zeros_like(native_reads),
+        hidden_query=torch.full_like(hidden_query, 100.0),
+    )
+    assert torch.equal(zero_direction, torch.zeros_like(zero_direction))
+    assert torch.equal(
+        zero_diagnostics["state_value"],
+        torch.zeros_like(zero_diagnostics["state_value"]),
+    )
+
+
+def test_multi_anchor_bundle_uses_one_source_and_every_native_readout() -> None:
+    receptances = {
+        5: torch.tensor([1.0, 0.0]),
+        11: torch.tensor([0.5, 1.0]),
+        17: torch.tensor([-0.5, 1.0]),
+    }
+    residual, diagnostics, modules = _run(
+        _bundle_router(), _banks(), receptances
+    )
+    terminal = diagnostics[-1]
+    selected_slot = int(terminal["selected_slot"].item())
+    expected_reads = []
+    for layer in (5, 11, 17):
+        canonical_order = torch.argsort(_banks()[3][layer], dim=1, stable=True)
+        canonical_state = SourceCumulativeResidualRouter._canonical_gather(
+            _banks()[0][layer], canonical_order, 2
+        )
+        expected_reads.append(
+            canonical_state[0, 0, selected_slot] @ receptances[layer]
+        )
+        assert modules[layer].hrm_rwkv7_core.calls == 1
+    torch.testing.assert_close(
+        terminal["anchor_native_reads"][0, 0],
+        torch.stack(expected_reads),
+    )
+    assert torch.equal(residual, terminal["residual"])
+    assert float(residual.abs().max()) <= 1.0 / 32.0
+
+
+def test_multi_anchor_bundle_is_byte_exact_under_independent_slot_permutations() -> None:
+    receptances = {
+        5: torch.tensor([1.0, 0.0]),
+        11: torch.tensor([0.5, 1.0]),
+        17: torch.tensor([-0.5, 1.0]),
+    }
+    router = _bundle_router()
+    baseline_residual, baseline_diagnostics, _ = _run(
+        router, _banks(), receptances
+    )
+    banks = list(_banks())
+    permutations = {
+        5: torch.tensor([2, 0, 1]),
+        11: torch.tensor([1, 2, 0]),
+        17: torch.tensor([0, 2, 1]),
+    }
+    for bank_index in range(4):
+        banks[bank_index] = dict(banks[bank_index])
+        for layer, permutation in permutations.items():
+            axis = 2 if bank_index == 0 else 1
+            banks[bank_index][layer] = banks[bank_index][layer].index_select(
+                axis, permutation
+            )
+    residual, diagnostics, _ = _run(router, tuple(banks), receptances)
+
+    assert torch.equal(residual, baseline_residual)
+    for actual, expected in zip(diagnostics, baseline_diagnostics):
+        for name in (
+            "source_ids",
+            "local_scores",
+            "accumulated_scores",
+            "active",
+        ):
+            assert torch.equal(actual[name], expected[name])
+    for name in (
+        "source_routes",
+        "anchor_raw_reads",
+        "anchor_native_reads",
+        "native_read_bundle",
+        "residual",
+    ):
+        assert torch.equal(diagnostics[-1][name], baseline_diagnostics[-1][name])
+
+
+def test_multi_anchor_bundle_mass_override_and_lifecycle_are_exact() -> None:
+    receptances = {
+        5: torch.tensor([1.0, 0.0]),
+        11: torch.tensor([0.5, 1.0]),
+        17: torch.tensor([-0.5, 1.0]),
+    }
+    override = torch.tensor([[[0.25]]])
+    _, diagnostics, _ = _run(
+        _bundle_router(),
+        _banks(),
+        receptances,
+        memory_mass_override=override,
+    )
+    terminal = diagnostics[-1]
+    assert torch.equal(terminal["memory_mass"], override)
+    assert not torch.equal(terminal["computed_memory_mass"], override)
+
+    router = _bundle_router()
+    banks = _banks()
+    router.begin_forward(
+        states={layer: banks[0][layer] for layer in router.anchor_layers},
+        address_keys={layer: banks[1][layer] for layer in router.anchor_layers},
+        occupied={layer: banks[2][layer] for layer in router.anchor_layers},
+        source_ids={layer: banks[3][layer] for layer in router.anchor_layers},
+        memory_mass_override=override,
+    )
+    router.provider_for(5)(
+        hidden_states=torch.zeros(1, 1, 2),
+        token_mask=torch.ones(1, 1, dtype=torch.bool),
+        module=_RouterModule(5, receptances[5]),
+    )
+    assert set(router._slot_reads) == {5}
+    router.abort_forward()
+    assert router._slot_reads == {}
+    assert router._readout_gates == {}
+    assert router._readout_cores == {}
+    assert router._memory_mass_override is None
+
+    for invalid in (
+        torch.ones(1, 1),
+        torch.tensor([[[-0.1]]]),
+        torch.tensor([[[1.1]]]),
+        torch.tensor([[[float("nan")]]]),
+    ):
+        with pytest.raises(ValueError, match="memory_mass_override"):
+            _bundle_router().begin_forward(
+                states={layer: banks[0][layer] for layer in (5, 11, 17)},
+                address_keys={layer: banks[1][layer] for layer in (5, 11, 17)},
+                occupied={layer: banks[2][layer] for layer in (5, 11, 17)},
+                source_ids={layer: banks[3][layer] for layer in (5, 11, 17)},
+                memory_mass_override=invalid,
+            )
 
 
 def test_outer_ffn_three_anchor_route_fires_at_layer_17_and_stays_canonical() -> None:

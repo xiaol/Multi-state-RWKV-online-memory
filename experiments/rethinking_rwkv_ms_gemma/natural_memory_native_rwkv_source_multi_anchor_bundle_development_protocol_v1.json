@@ -1,0 +1,117 @@
+{
+  "architecture": {
+    "anchor_layers": [
+      5,
+      11,
+      17
+    ],
+    "anchor_native_reads_are_blockwise_rms_normalized": true,
+    "bottleneck_dim": 32,
+    "bundle_dim": 96,
+    "compatibility_scale": 1.0,
+    "exact_zero_bundle_path": true,
+    "hidden_dim": 2560,
+    "hidden_query_is_gate_only": true,
+    "native_read_dim_per_anchor": 32,
+    "one_canonical_source_route_shared_by_all_anchors": true,
+    "prompt_boundary_confidence_latched_across_interventions": true,
+    "prompt_boundary_source_latched_across_interventions": true,
+    "query_only_hidden_only_or_projected_value_bypass": false,
+    "residual_gain": 0.03125,
+    "state_value_times_hidden_gate": true,
+    "trainable_parameter_elements": 166912,
+    "trainable_parameter_tensors": 3
+  },
+  "authorization_basis": {
+    "prior_result": "local_artifacts/natural_memory_native_rwkv_prompt_latched_joint_identity_development_v2/result.json",
+    "prior_result_receipt": "25fc989427c5acb56f3c78f681b3ee508dc3d2f24268c7f8b464648915548563",
+    "prior_result_sha256": "819cb586acbbc4f391256048cf1bd38a774237d46ae3398fbd9c204983cb5746",
+    "prior_status": "open_heldout_failed_not_promoted"
+  },
+  "discriminative_heldout_gate": {
+    "correct_gain_vs_provider_off_mean_minimum": 0.0,
+    "correct_gain_vs_provider_off_positive_row_fraction_minimum": 0.625,
+    "donor_both_minus_target_mean_minimum": 0.02,
+    "donor_both_positive_row_fraction_minimum": 0.75,
+    "layer_both_minus_target_mean_minimum": 0.01,
+    "layer_both_positive_row_fraction_minimum": 0.75,
+    "mechanics_must_pass": true,
+    "prompt_source_and_confidence_fixed_across_interventions": true,
+    "target_selected_fraction_minimum": 0.875,
+    "zero_controls_exact_provider_off": true
+  },
+  "heldout_gate": {
+    "correct_gain_vs_provider_off_mean_minimum": 0.0,
+    "correct_gain_vs_provider_off_positive_row_fraction_minimum": 0.625,
+    "donor_both_minus_target_mean_minimum": 0.02,
+    "donor_both_positive_row_fraction_minimum": 0.75,
+    "layer_both_minus_target_mean_minimum": 0.01,
+    "layer_both_positive_row_fraction_minimum": 0.75,
+    "mechanics_must_pass": true,
+    "prompt_source_and_confidence_fixed_across_interventions": true,
+    "target_selected_fraction_minimum": 0.875,
+    "zero_controls_exact_provider_off": true
+  },
+  "native_benchmark_authorized": false,
+  "open_development_only": true,
+  "paper_basis": {
+    "arxiv_id": "2608.08888v1",
+    "not_claimed": [
+      "The paper solves multi-source state identity",
+      "The paper validates matched-donor causal memory",
+      "This experiment reproduces the paper architecture or training scale"
+    ],
+    "review_sha256": "14ad0b37c5dfc4b3ae003a830cedfb8245f9338e5b6e79238d70bc5f7cf5085a",
+    "transferred_hypotheses": [
+      "A memory state is the mandatory value path",
+      "The current hidden state controls a multiplicative gate only",
+      "Memory value is renewed at multiple model depths"
+    ]
+  },
+  "protected_causal_authorized": false,
+  "protected_mechanics_authorized": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "6aae9d443dc7199438371a291c1cc615165bef863d3c9c8a1a57a6881e0c8a94"
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_source_multi_anchor_bundle_development.v1.protocol",
+  "split": {
+    "heldout_pairs": 16,
+    "manifest_sha256": "dae77094047eed13492e258698569e119136d49d6796ad941ffb25052994fd5f",
+    "payload_sha256": "08c7c51e8d30ff3d62ca38635a3ad978b3c328ef92570792f5badc578af7b673",
+    "train_pairs": 24
+  },
+  "training": {
+    "contrast_temperature": 0.02,
+    "correct_ce_weight": 0.5,
+    "donor_contrast_weight": 1.0,
+    "donor_margin": 0.02,
+    "first_update_gradient_contract": {
+      "outer_ffn.output_up.weight": true,
+      "outer_ffn.query_gate.weight": false,
+      "outer_ffn.state_down.weight": false
+    },
+    "global_batch_rows": 4,
+    "gradient_clip": 1.0,
+    "heldout_pairs": 16,
+    "layer_contrast_weight": 0.5,
+    "layer_margin": 0.01,
+    "learning_rate": 0.001,
+    "local_batch_rows_per_rank": 1,
+    "optimizer": "fused AdamW with rank-averaged gradients",
+    "single_ce_weight": 0.5,
+    "subsequent_update_gradient_contract": "all three trainable tensors active",
+    "target_mode": "first_target_donor_divergent_supervised_token",
+    "target_payload_sha256": "cd199224f374f6e0eb71c5b5fc14f36d68d546e064e85e5f30458be729b7330f",
+    "train_controls": [
+      "correct_four_way",
+      "single_target",
+      "matched_donor_address_and_state",
+      "layer_rolled_address_and_state"
+    ],
+    "train_pairs": 24,
+    "updates": 48,
+    "weight_decay": 0.0
+  }
+}

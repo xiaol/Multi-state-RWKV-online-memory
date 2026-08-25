@@ -459,6 +459,7 @@ def routed_predictor_logits(
     router: SourceCumulativeResidualRouter,
     banks: tuple[Mapping[int, torch.Tensor], ...],
     predictor: int,
+    memory_mass_override: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, tuple[Mapping[str, Any], ...]]:
     if predictor < 1:
         raise ValueError("Source-bound predictor requires a nonempty prefill")
@@ -491,6 +492,7 @@ def routed_predictor_logits(
             address_keys={layer: banks[1][layer] for layer in ANCHORS},
             occupied={layer: banks[2][layer] for layer in ANCHORS},
             source_ids={layer: banks[3][layer] for layer in ANCHORS},
+            memory_mass_override=memory_mass_override,
         )
         for layer in ANCHORS:
             modules_by_layer[layer].set_source_cumulative_residual_provider(
@@ -1363,7 +1365,7 @@ def run(
         dist.barrier(group=context.control_group)
 
         assigned_rows = rows[context.process_rank :: WORLD_SIZE]
-        if len(assigned_rows) != 16:
+        if len(assigned_rows) != len(rows) // WORLD_SIZE:
             raise RuntimeError("Source-bound natural-cache rank assignment differs")
         local_cache = {}
         for ordinal, row in enumerate(assigned_rows, start=1):
@@ -1390,11 +1392,11 @@ def run(
             local_cache[source] = {"state": state, "address": address}
             print(
                 f"SOURCE_BOUND_OUTER_FFN_WRITE rank={context.process_rank} "
-                f"row={source} ordinal={ordinal}/16",
+                f"row={source} ordinal={ordinal}/{len(assigned_rows)}",
                 flush=True,
             )
         natural_cache = screen.gather_development_natural_cache(
-            context, local_cache, expected_rows=64
+            context, local_cache, expected_rows=len(rows)
         )
         candidates = screen.parent_runner.candidate_sources(rows)
         screen.clear_terminal_hooks(modules)
@@ -1479,7 +1481,7 @@ def run(
                     "heldout": heldout,
                     "discriminative_heldout": discriminative_heldout,
                     "checkpoint": checkpoint,
-                    "development_rows_opened": 64,
+                    "development_rows_opened": len(rows),
                     "protected_mechanics_rows_opened": 0,
                     "protected_causal_rows_opened": 0,
                     "native_benchmark_opened": False,

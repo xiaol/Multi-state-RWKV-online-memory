@@ -791,6 +791,7 @@ def predictor_pass(
     router: SourceCumulativeResidualRouter | None,
     banks: tuple[Mapping[int, torch.Tensor], ...] | None,
     compatibility_maps: Mapping[int, Any] | None = None,
+    memory_mass_override: torch.Tensor | None = None,
 ) -> Mapping[str, Any]:
     first_label, predictor = retrieval.first_prompt_boundary(batch.labels)
     if predictor < 1:
@@ -847,6 +848,7 @@ def predictor_pass(
                 address_keys={layer: banks[1][layer] for layer in anchor_layers},
                 occupied={layer: banks[2][layer] for layer in anchor_layers},
                 source_ids={layer: banks[3][layer] for layer in anchor_layers},
+                memory_mass_override=memory_mass_override,
             )
             for layer in anchor_layers:
                 modules_by_layer[layer].set_source_cumulative_residual_provider(

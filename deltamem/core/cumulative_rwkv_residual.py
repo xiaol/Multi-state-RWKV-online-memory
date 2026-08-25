@@ -210,6 +210,89 @@ class SourceBoundJointIdentityFFN(nn.Module):
         }
 
 
+class SourceBoundMultiAnchorBundleFFN(nn.Module):
+    """Zero-preserving CrossGLU over one source's native reads at every anchor."""
+
+    def __init__(
+        self,
+        *,
+        state_dim: int,
+        hidden_dim: int,
+        anchor_count: int,
+        bottleneck_dim: int,
+    ) -> None:
+        super().__init__()
+        dimensions = (state_dim, hidden_dim, anchor_count, bottleneck_dim)
+        if any(int(value) < 1 for value in dimensions):
+            raise ValueError("multi-anchor bundle FFN dimensions must be positive")
+        self.state_dim = int(state_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.anchor_count = int(anchor_count)
+        self.bottleneck_dim = int(bottleneck_dim)
+        self.bundle_dim = self.anchor_count * self.state_dim
+        self.state_down = nn.Linear(
+            self.bundle_dim, self.bottleneck_dim, bias=False
+        )
+        self.query_gate = nn.Linear(
+            self.hidden_dim, self.bottleneck_dim, bias=False
+        )
+        self.output_up = nn.Linear(
+            self.bottleneck_dim, self.hidden_dim, bias=False
+        )
+        nn.init.kaiming_uniform_(self.state_down.weight, a=math.sqrt(5.0))
+        nn.init.zeros_(self.query_gate.weight)
+        nn.init.zeros_(self.output_up.weight)
+
+    @staticmethod
+    def rms_normalize(value: torch.Tensor) -> torch.Tensor:
+        value = value.float()
+        square_mean = value.square().mean(dim=-1, keepdim=True)
+        normalized = value / square_mean.clamp_min(1e-12).sqrt()
+        return torch.where(square_mean.gt(0.0), normalized, torch.zeros_like(value))
+
+    def forward(
+        self,
+        *,
+        native_reads: torch.Tensor,
+        hidden_query: torch.Tensor,
+    ) -> tuple[torch.Tensor, Mapping[str, torch.Tensor]]:
+        if (
+            native_reads.ndim != 4
+            or native_reads.size(-2) != self.anchor_count
+            or native_reads.size(-1) != self.state_dim
+        ):
+            raise ValueError("multi-anchor native read geometry differs")
+        if hidden_query.ndim != 3 or hidden_query.size(-1) != self.hidden_dim:
+            raise ValueError("multi-anchor hidden query geometry differs")
+        if tuple(native_reads.shape[:2]) != tuple(hidden_query.shape[:2]):
+            raise ValueError("multi-anchor state/query sequence geometry differs")
+
+        normalized_reads = self.rms_normalize(native_reads)
+        bundle = normalized_reads.flatten(start_dim=-2)
+        state_value = F.silu(self.state_down(bundle))
+        normalized_query = self.rms_normalize(hidden_query)
+        query_gate = 2.0 * torch.sigmoid(self.query_gate(normalized_query))
+        correction = self.output_up(state_value * query_gate)
+        bundle_active = native_reads.float().square().sum(
+            dim=(-1, -2), keepdim=False
+        ).unsqueeze(-1).gt(0.0)
+        direction = torch.tanh(correction.float())
+        direction = torch.where(
+            bundle_active,
+            direction,
+            torch.zeros_like(direction),
+        )
+        return direction, {
+            "anchor_native_reads": native_reads,
+            "normalized_anchor_reads": normalized_reads,
+            "native_read_bundle": bundle,
+            "state_value": state_value,
+            "query_gate": query_gate,
+            "correction": correction,
+            "combined_hidden_read": correction,
+        }
+
+
 class SourceCumulativeResidualRouter(nn.Module):
     """Source-canonical cumulative routing into a bounded terminal RWKV residual."""
 
@@ -221,7 +304,10 @@ class SourceCumulativeResidualRouter(nn.Module):
         compatibility_scale: float = 32.0,
         residual_gain: float = 1.0 / 32.0,
         required_receptance_calls: int = 2,
-        outer_ffn: SourceBoundOuterFFN | SourceBoundJointIdentityFFN | None = None,
+        outer_ffn: SourceBoundOuterFFN
+        | SourceBoundJointIdentityFFN
+        | SourceBoundMultiAnchorBundleFFN
+        | None = None,
     ) -> None:
         super().__init__()
         anchors = tuple(int(layer) for layer in anchor_layers)
@@ -276,6 +362,10 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._running_active: torch.Tensor | None = None
         self._normalized_receptance: dict[int, torch.Tensor] = {}
         self._mapped_addresses: dict[int, torch.Tensor] = {}
+        self._slot_reads: dict[int, torch.Tensor] = {}
+        self._readout_gates: dict[int, torch.Tensor] = {}
+        self._readout_cores: dict[int, Any] = {}
+        self._memory_mass_override: torch.Tensor | None = None
         self._next_anchor_index = 0
         self._completed = False
         self._diagnostics: list[dict[str, Any]] = []
@@ -301,6 +391,10 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._running_active = None
         self._normalized_receptance.clear()
         self._mapped_addresses.clear()
+        self._slot_reads.clear()
+        self._readout_gates.clear()
+        self._readout_cores.clear()
+        self._memory_mass_override = None
         self._next_anchor_index = 0
         if not keep_completion:
             self._completed = False
@@ -332,6 +426,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         address_keys: Mapping[int, torch.Tensor],
         occupied: Mapping[int, torch.Tensor],
         source_ids: Mapping[int, torch.Tensor],
+        memory_mass_override: torch.Tensor | None = None,
     ) -> None:
         if self.active or self.completed:
             self.abort_forward()
@@ -403,6 +498,18 @@ class SourceCumulativeResidualRouter(nn.Module):
             ).clone()
 
         assert canonical_sources is not None
+        if memory_mass_override is not None:
+            if (
+                memory_mass_override.ndim != 3
+                or tuple(memory_mass_override.shape)
+                != (canonical_sources.size(0), 1, 1)
+                or not bool(torch.isfinite(memory_mass_override.float()).all().item())
+                or bool(memory_mass_override.lt(0.0).any().item())
+                or bool(memory_mass_override.gt(1.0).any().item())
+            ):
+                raise ValueError(
+                    "memory_mass_override must be finite [batch,1,1] values in [0,1]"
+                )
         self._states = canonical_states
         self._addresses = canonical_addresses
         self._occupied = canonical_occupied
@@ -411,6 +518,14 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._running_score_sum = None
         self._normalized_receptance.clear()
         self._mapped_addresses.clear()
+        self._slot_reads.clear()
+        self._readout_gates.clear()
+        self._readout_cores.clear()
+        self._memory_mass_override = (
+            memory_mass_override.detach().clone()
+            if memory_mass_override is not None
+            else None
+        )
         self._next_anchor_index = 0
         self._completed = False
         self._diagnostics.clear()
@@ -476,7 +591,19 @@ class SourceCumulativeResidualRouter(nn.Module):
         )
         selected = masked_scores.argmax(dim=-1)
         selected_scores = masked_scores.gather(-1, selected.unsqueeze(-1))
-        memory_mass = torch.sigmoid(selected_scores)
+        computed_memory_mass = torch.sigmoid(selected_scores)
+        if self._memory_mass_override is None:
+            memory_mass = computed_memory_mass
+        else:
+            if tuple(self._memory_mass_override.shape) != (
+                batch_size,
+                1,
+                1,
+            ):
+                raise RuntimeError("memory mass override lifecycle geometry differs")
+            memory_mass = self._memory_mass_override.to(
+                device=scores.device, dtype=computed_memory_mass.dtype
+            ).expand(batch_size, seq_len, 1)
         soft_source_routes = torch.softmax(masked_scores, dim=-1)
         hard_source_routes = F.one_hot(
             selected, num_classes=masked_scores.size(-1)
@@ -490,24 +617,65 @@ class SourceCumulativeResidualRouter(nn.Module):
             - soft_source_routes.detach()
         )
 
-        slot_reads = torch.einsum(
-            "bhsij,bthj->bthsi", state.float(), receptance.float()
-        )
-        raw_read = torch.einsum(
-            "bts,bthsi->bthi", source_routes, slot_reads
-        ).reshape(batch_size, seq_len, -1)
-        core = getattr(module, "hrm_rwkv7_core", None)
-        if core is None:
-            raise RuntimeError("cumulative residual provider requires an RWKV readout core")
-        native_read = core.readout(raw_read.to(dtype=readout_gate.dtype), readout_gate)
-        projector = getattr(module, "_project_delta_head", None)
-        delta_o_proj = getattr(module, "delta_o_proj", None)
-        if projector is None or delta_o_proj is None:
-            raise RuntimeError("cumulative residual provider requires the native delta-O head")
-        hidden_read = projector(native_read, delta_o_proj, "o")
-        if hidden_read is None:
-            raise RuntimeError("cumulative residual provider requires an active O delta head")
         outer_diagnostics: Mapping[str, torch.Tensor] = {}
+        if isinstance(self.outer_ffn, SourceBoundMultiAnchorBundleFFN):
+            if (
+                set(self._slot_reads) != set(self.anchor_layers)
+                or set(self._readout_gates) != set(self.anchor_layers)
+                or set(self._readout_cores) != set(self.anchor_layers)
+            ):
+                raise RuntimeError("multi-anchor native read lifecycle is incomplete")
+            raw_reads = []
+            native_reads = []
+            for anchor in self.anchor_layers:
+                anchor_raw_read = torch.einsum(
+                    "bts,bthsi->bthi", source_routes, self._slot_reads[anchor]
+                ).reshape(batch_size, seq_len, -1)
+                anchor_gate = self._readout_gates[anchor]
+                anchor_native_read = self._readout_cores[anchor].readout(
+                    anchor_raw_read.to(dtype=anchor_gate.dtype), anchor_gate
+                )
+                raw_reads.append(anchor_raw_read)
+                native_reads.append(anchor_native_read)
+            anchor_raw_reads = torch.stack(raw_reads, dim=2)
+            anchor_native_reads = torch.stack(native_reads, dim=2)
+            raw_read = anchor_raw_reads[:, :, -1]
+            native_read = anchor_native_reads[:, :, -1]
+            hidden_read = hidden_states.new_zeros(hidden_states.shape).float()
+            direction, outer_diagnostics = self.outer_ffn(
+                native_reads=anchor_native_reads,
+                hidden_query=hidden_states,
+            )
+            outer_diagnostics = {
+                **outer_diagnostics,
+                "anchor_raw_reads": anchor_raw_reads,
+            }
+        else:
+            slot_reads = torch.einsum(
+                "bhsij,bthj->bthsi", state.float(), receptance.float()
+            )
+            raw_read = torch.einsum(
+                "bts,bthsi->bthi", source_routes, slot_reads
+            ).reshape(batch_size, seq_len, -1)
+            core = getattr(module, "hrm_rwkv7_core", None)
+            if core is None:
+                raise RuntimeError(
+                    "cumulative residual provider requires an RWKV readout core"
+                )
+            native_read = core.readout(
+                raw_read.to(dtype=readout_gate.dtype), readout_gate
+            )
+            projector = getattr(module, "_project_delta_head", None)
+            delta_o_proj = getattr(module, "delta_o_proj", None)
+            if projector is None or delta_o_proj is None:
+                raise RuntimeError(
+                    "cumulative residual provider requires the native delta-O head"
+                )
+            hidden_read = projector(native_read, delta_o_proj, "o")
+            if hidden_read is None:
+                raise RuntimeError(
+                    "cumulative residual provider requires an active O delta head"
+                )
         if self.outer_ffn is None:
             square_mean = hidden_read.float().square().mean(dim=-1, keepdim=True)
             direction = torch.tanh(
@@ -545,7 +713,7 @@ class SourceCumulativeResidualRouter(nn.Module):
                 **outer_diagnostics,
                 "identity_features": identity_features,
             }
-        else:
+        elif isinstance(self.outer_ffn, SourceBoundOuterFFN):
             direction, outer_diagnostics = self.outer_ffn(
                 native_read=native_read,
                 hidden_query=hidden_states,
@@ -562,6 +730,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         return residual, {
             "soft_source_routes": soft_source_routes,
             "source_routes": hard_source_routes,
+            "computed_memory_mass": computed_memory_mass,
             "memory_mass": memory_mass,
             "selected_slot": torch.where(
                 any_active[:, None], selected, torch.full_like(selected, -1)
@@ -634,6 +803,17 @@ class SourceCumulativeResidualRouter(nn.Module):
                 & state.float().square().sum(dim=(-1, -2)).sum(dim=1).gt(0.0)
                 & addresses.float().square().sum(dim=-1).gt(0.0)
             )
+            if isinstance(self.outer_ffn, SourceBoundMultiAnchorBundleFFN):
+                core = getattr(module, "hrm_rwkv7_core", None)
+                if core is None:
+                    raise RuntimeError(
+                        "multi-anchor bundle requires an RWKV readout core at every anchor"
+                    )
+                self._slot_reads[layer] = torch.einsum(
+                    "bhsij,bthj->bthsi", state.float(), receptance.float()
+                )
+                self._readout_gates[layer] = readout_gate
+                self._readout_cores[layer] = core
             if self._running_score_sum is None:
                 self._running_score_sum = torch.zeros_like(local_scores)
             elif tuple(self._running_score_sum.shape) != tuple(local_scores.shape):
