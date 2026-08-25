@@ -48,3 +48,13 @@ fractions at least `0.75`, and donor mean margin at least `0.02` before any
 protected mechanics, causal, or native benchmark access. A pass would be an
 open causal route result only; it would not justify a Full-Bandwidth or SOTA
 claim.
+
+## Data reservation boundary
+
+The currently sealed source has `708` passage components. The low-rank route's
+manifest records `622` components already excluded and `80` newly selected,
+leaving only `6` component slots. That is not enough for another paired
+32-row/64-component screen. The next executable goal therefore needs a fresh
+HF-mirror source/manifest (or an explicitly approved reservation policy) before
+training this cell. Reusing the failed low-rank bundle would invalidate the
+identity claim.
