@@ -821,6 +821,15 @@ that minimal bandwidth test fails, the stronger fallback learns low-rank
 queries inside the selected RWKV matrices. Top-hidden temporal feedback comes
 only after donor-specific causal value passes.
 
+The subsequent weighted-renewal ablation is also complete. It reserved a fresh
+component-disjoint open split (462 excluded components), then compared weighted
+source-score renewal `(0.25, 0.25, 0.5)` with an equal-weight control on the
+same four-A100 schedule. Both runs preserved mechanics and prompt latching, but
+both failed causal promotion; equal weighting was less negative but remained
+below the donor and correct-gain gates. No protected or native benchmark bytes
+were opened. See the [weighted renewal result](experiments/rethinking_rwkv_ms_gemma/WEIGHTED_RENEWAL_RESULT.md)
+and its [signed weighted result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_weighted_renewal_bundle_development_train_v1/result.json).
+
 Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_retrieval.py),
 [signed retrieval pass](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_continuous_write_retrieval_v1/result.json),
