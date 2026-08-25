@@ -73,7 +73,7 @@
   "receipt": {
     "algorithm": "sha256",
     "payload_scope": "canonical_protocol_without_receipt",
-    "payload_sha256": "6aae9d443dc7199438371a291c1cc615165bef863d3c9c8a1a57a6881e0c8a94"
+    "payload_sha256": "bf26158baafb16955851e56a04264f6f0d863bebbce9a39ab6d5d1de7ee87c5d"
   },
   "schema": "rwkv_ms_natural_memory_native_rwkv_source_multi_anchor_bundle_development.v1.protocol",
   "split": {
@@ -100,6 +100,9 @@
     "learning_rate": 0.001,
     "local_batch_rows_per_rank": 1,
     "optimizer": "fused AdamW with rank-averaged gradients",
+    "four_way_and_contrast_condition": "only when the correct prompt route selects the target source",
+    "isolated_target_always_latched_to_target": true,
+    "isolated_target_uses_correct_prompt_confidence": true,
     "single_ce_weight": 0.5,
     "subsequent_update_gradient_contract": "all three trainable tensors active",
     "target_mode": "first_target_donor_divergent_supervised_token",

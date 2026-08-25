@@ -724,6 +724,14 @@ def train_outer_ffn(
             raise RuntimeError("Source-bound gradient norm is nonfinite")
         optimizer.step()
         terminal = diagnostics[-1]
+        selected_slots = terminal["selected_slot"]
+        safe_selected_slots = selected_slots.clamp_min(0)
+        selected_sources = terminal["source_ids"].gather(1, safe_selected_slots)
+        selected_sources = torch.where(
+            selected_slots.ge(0),
+            selected_sources,
+            torch.full_like(selected_sources, -1),
+        )
         local_record = {
             "rank": context.process_rank,
             "source_index": source,
@@ -734,11 +742,7 @@ def train_outer_ffn(
             "metrics": _float_metrics(metrics),
             "selected_sources": [
                 int(value)
-                for value in terminal["source_ids"]
-                .gather(1, terminal["selected_slot"])
-                .detach()
-                .cpu()
-                .flatten()
+                for value in selected_sources.detach().cpu().flatten()
             ],
             "gradient_audit": gradient_audit,
             "gradient_norm_before_clip": gradient_norm,

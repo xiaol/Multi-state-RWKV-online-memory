@@ -194,3 +194,29 @@ def test_stronger_gate_requires_selection_positive_gain_and_layer_margin() -> No
 
     assert passed["passed"] is True
     assert failed["passed"] is False
+
+
+def test_wrong_prompt_route_trains_only_isolated_target(monkeypatch) -> None:
+    metrics = {
+        "correct_ce": torch.tensor(8.0),
+        "single_ce": torch.tensor(2.0),
+        "donor_ce": torch.tensor(7.0),
+        "layer_ce": torch.tensor(6.0),
+        "donor_minus_single": torch.tensor(5.0),
+        "layer_minus_single": torch.tensor(4.0),
+        "donor_contrast": torch.tensor(3.0),
+        "layer_contrast": torch.tensor(2.0),
+    }
+    monkeypatch.setattr(
+        runner,
+        "_ORIGINAL_TRAINING_LOSS",
+        lambda logits, target: (torch.tensor(99.0), metrics),
+    )
+    monkeypatch.setattr(
+        runner, "_LAST_TRAIN_CORRECT_ROUTE_SELECTED_TARGET", False
+    )
+
+    loss, returned = runner.conditional_training_loss(torch.zeros(4, 3), 0)
+
+    assert loss == runner.base.SINGLE_CE_WEIGHT * metrics["single_ce"]
+    assert returned is metrics

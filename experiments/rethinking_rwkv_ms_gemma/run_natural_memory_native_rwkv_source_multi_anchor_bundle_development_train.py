@@ -38,10 +38,10 @@ PROTOCOL = SCRIPT_DIR / (
     "natural_memory_native_rwkv_source_multi_anchor_bundle_development_protocol_v1.json"
 )
 PROTOCOL_FILE_SHA256 = (
-    "c8473441dc9ddb8a52dc202df034e0f48522ddc8ae62d64705878155386bc9e0"
+    "93b272a4f2826bb7338d7f386a04f833582bad8a989402611a8dc1971ed2c403"
 )
 PROTOCOL_PAYLOAD_SHA256 = (
-    "6aae9d443dc7199438371a291c1cc615165bef863d3c9c8a1a57a6881e0c8a94"
+    "bf26158baafb16955851e56a04264f6f0d863bebbce9a39ab6d5d1de7ee87c5d"
 )
 DEFAULT_MATERIALIZATION = SCRIPT_DIR / (
     "local_artifacts/"
@@ -91,11 +91,15 @@ CORRECT_POSITIVE_FRACTION_MINIMUM = 0.625
 LAYER_MEAN_MINIMUM = 0.01
 
 _ORIGINAL_ROUTED_PREDICTOR_LOGITS = base.routed_predictor_logits
+_ORIGINAL_TRAIN_OUTER_FFN = base.train_outer_ffn
+_ORIGINAL_TRAINING_LOSS = base.training_loss
 _ORIGINAL_EVALUATE_HELDOUT = base.evaluate_heldout
 _ORIGINAL_EVALUATE_DISCRIMINATIVE_HELDOUT = base.evaluate_discriminative_heldout
 _ORIGINAL_SCREEN_PREDICTOR_PASS = base.screen.predictor_pass
 _PROMPT_LATCH_AUDITS: list[Mapping[str, Any]] = []
 _FIRST_TOKEN_PROMPT_LATCH_AUDITS: list[Mapping[str, Any]] = []
+_TRAINING_PHASE = False
+_LAST_TRAIN_CORRECT_ROUTE_SELECTED_TARGET = True
 
 
 def validate_protocol() -> Mapping[str, Any]:
@@ -183,6 +187,11 @@ def validate_protocol() -> Mapping[str, Any]:
         "learning_rate": base.LEARNING_RATE,
         "local_batch_rows_per_rank": base.LOCAL_BATCH_ROWS,
         "optimizer": "fused AdamW with rank-averaged gradients",
+        "four_way_and_contrast_condition": (
+            "only when the correct prompt route selects the target source"
+        ),
+        "isolated_target_always_latched_to_target": True,
+        "isolated_target_uses_correct_prompt_confidence": True,
         "single_ce_weight": base.SINGLE_CE_WEIGHT,
         "subsequent_update_gradient_contract": "all three trainable tensors active",
         "target_mode": base.TRAINING_TARGET_MODE,
@@ -285,6 +294,7 @@ def prompt_latched_routed_predictor_logits(
     predictor: int,
     memory_mass_override: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, tuple[Mapping[str, Any], ...]]:
+    global _LAST_TRAIN_CORRECT_ROUTE_SELECTED_TARGET
     _, prompt_predictor = base.screen.retrieval.first_prompt_boundary(batch.labels)
     if predictor <= prompt_predictor:
         return _ORIGINAL_ROUTED_PREDICTOR_LOGITS(
@@ -320,6 +330,21 @@ def prompt_latched_routed_predictor_logits(
     )
     batch_size = int(next(iter(banks[0].values())).size(0))
     latched_source_ids = reference_source.reshape(1).expand(batch_size).clone()
+    target_source = reference_source
+    if _TRAINING_PHASE:
+        single_index = base.TRAIN_CONTROL_INDEX["single_target"]
+        terminal_layer = base.ANCHORS[-1]
+        single_occupied = banks[2][terminal_layer][single_index]
+        target_positions = single_occupied.nonzero(as_tuple=False).flatten()
+        if target_positions.numel() != 1:
+            raise RuntimeError("Isolated target training source geometry differs")
+        target_source = banks[3][terminal_layer][
+            single_index, int(target_positions.item())
+        ]
+        latched_source_ids[single_index] = target_source
+        _LAST_TRAIN_CORRECT_ROUTE_SELECTED_TARGET = bool(
+            reference_source.eq(target_source).item()
+        )
     prompt_mass = (
         prompt_terminal["memory_mass"][0:1].detach().clone().expand(batch_size, -1, -1)
     )
@@ -352,6 +377,24 @@ def prompt_latched_routed_predictor_logits(
         }
     )
     return logits, tuple(enriched)
+
+
+def conditional_training_loss(
+    logits: torch.Tensor, target_token: int
+) -> tuple[torch.Tensor, Mapping[str, torch.Tensor]]:
+    loss, metrics = _ORIGINAL_TRAINING_LOSS(logits, target_token)
+    if _LAST_TRAIN_CORRECT_ROUTE_SELECTED_TARGET:
+        return loss, metrics
+    return base.SINGLE_CE_WEIGHT * metrics["single_ce"], metrics
+
+
+def train_outer_ffn(*args: Any, **kwargs: Any) -> Mapping[str, Any]:
+    global _TRAINING_PHASE
+    _TRAINING_PHASE = True
+    try:
+        return _ORIGINAL_TRAIN_OUTER_FFN(*args, **kwargs)
+    finally:
+        _TRAINING_PHASE = False
 
 
 def prompt_fixed_mechanics_predictor_pass(
@@ -569,6 +612,8 @@ def configure() -> None:
     base.validate_protocol = validate_protocol
     base.make_router = make_router
     base.routed_predictor_logits = prompt_latched_routed_predictor_logits
+    base.training_loss = conditional_training_loss
+    base.train_outer_ffn = train_outer_ffn
     base.evaluate_heldout = evaluate_heldout
     base.evaluate_discriminative_heldout = evaluate_discriminative_heldout
     base.__file__ = str(Path(__file__).resolve())
