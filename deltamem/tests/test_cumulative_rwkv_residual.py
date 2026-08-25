@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from deltamem.core.cumulative_rwkv_residual import (
+    SourceBoundAddressKeyedFeedbackFFN,
     SourceBoundLowRankQueryMultiAnchorFFN,
     SourceBoundMultiAnchorBundleFFN,
     SourceBoundOuterFFN,
@@ -133,6 +134,28 @@ def _low_rank_router() -> SourceCumulativeResidualRouter:
     with torch.no_grad():
         outer_ffn.pair_up.fill_(0.5)
         outer_ffn.output_up.weight.fill_(0.125)
+        outer_ffn.query_gate.weight.fill_(0.25)
+    return SourceCumulativeResidualRouter(
+        maps={layer: (torch.eye(2), torch.eye(2)) for layer in anchors},
+        anchor_layers=anchors,
+        compatibility_scale=8.0,
+        residual_gain=1.0 / 32.0,
+        required_receptance_calls=2,
+        outer_ffn=outer_ffn,
+    )
+
+
+def _address_keyed_feedback_router() -> SourceCumulativeResidualRouter:
+    anchors = (5, 11, 17)
+    outer_ffn = SourceBoundAddressKeyedFeedbackFFN(
+        state_dim=2,
+        hidden_dim=2,
+        anchor_count=len(anchors),
+        bottleneck_dim=3,
+    )
+    with torch.no_grad():
+        outer_ffn.output_up.weight.fill_(0.125)
+        outer_ffn.hidden_gate.weight.fill_(0.25)
         outer_ffn.query_gate.weight.fill_(0.25)
     return SourceCumulativeResidualRouter(
         maps={layer: (torch.eye(2), torch.eye(2)) for layer in anchors},
@@ -495,6 +518,66 @@ def test_multi_anchor_bundle_uses_one_source_and_every_native_readout() -> None:
     )
     assert torch.equal(residual, terminal["residual"])
     assert float(residual.abs().max()) <= 1.0 / 32.0
+
+
+def test_address_keyed_feedback_is_state_mandatory_and_scans_tokens() -> None:
+    outer_ffn = SourceBoundAddressKeyedFeedbackFFN(
+        state_dim=2,
+        hidden_dim=2,
+        anchor_count=2,
+        bottleneck_dim=3,
+    )
+    with torch.no_grad():
+        outer_ffn.output_up.weight.fill_(0.2)
+        outer_ffn.hidden_gate.weight.fill_(0.1)
+        outer_ffn.query_gate.weight.fill_(0.1)
+    reads = torch.tensor(
+        [[[[1.0, -0.5], [0.25, 0.75]], [[-0.25, 1.0], [0.5, 0.25]]]]
+    )
+    addresses = torch.tensor(
+        [[[[1.0, 0.0], [0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]]]
+    )
+    query = torch.randn(1, 2, 2)
+    direction, diagnostics = outer_ffn(
+        native_reads=reads,
+        selected_addresses=addresses,
+        hidden_query=query,
+    )
+    assert direction.shape == (1, 2, 2)
+    assert diagnostics["feedback_state"].shape == (1, 2, 3)
+    assert not torch.equal(
+        diagnostics["feedback_state"][:, 0], diagnostics["feedback_state"][:, 1]
+    )
+    zero_direction, zero_diagnostics = outer_ffn(
+        native_reads=torch.zeros_like(reads),
+        selected_addresses=addresses,
+        hidden_query=query,
+    )
+    assert torch.equal(zero_direction, torch.zeros_like(zero_direction))
+    assert torch.equal(
+        zero_diagnostics["feedback_state"],
+        torch.zeros_like(zero_diagnostics["feedback_state"]),
+    )
+
+
+def test_address_keyed_feedback_route_uses_selected_addresses_and_all_readouts() -> None:
+    receptances = {
+        5: torch.tensor([1.0, 0.0]),
+        11: torch.tensor([0.5, 1.0]),
+        17: torch.tensor([-0.5, 1.0]),
+    }
+    residual, diagnostics, modules = _run(
+        _address_keyed_feedback_router(),
+        _banks(),
+        receptances,
+        hidden_states=torch.tensor([[[0.5, -0.25]]]),
+    )
+    terminal = diagnostics[-1]
+    assert residual.shape == (1, 1, 2)
+    assert terminal["selected_addresses"].shape == (1, 1, 3, 2)
+    assert terminal["feedback_state"].shape == (1, 1, 3)
+    for module in modules.values():
+        assert module.hrm_rwkv7_core.calls == 1
 
 
 def test_multi_anchor_bundle_is_byte_exact_under_independent_slot_permutations() -> None:

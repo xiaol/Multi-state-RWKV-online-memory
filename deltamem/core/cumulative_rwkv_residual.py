@@ -450,6 +450,124 @@ class SourceBoundLowRankQueryMultiAnchorFFN(nn.Module):
         }
 
 
+class SourceBoundAddressKeyedFeedbackFFN(nn.Module):
+    """Persistent address/query-gated RWKV value feedback over answer tokens."""
+
+    def __init__(
+        self,
+        *,
+        state_dim: int,
+        hidden_dim: int,
+        anchor_count: int,
+        bottleneck_dim: int,
+        initial_decay: float = 0.5,
+    ) -> None:
+        dimensions = (state_dim, hidden_dim, anchor_count, bottleneck_dim)
+        if any(int(value) < 1 for value in dimensions):
+            raise ValueError("address-keyed feedback dimensions must be positive")
+        decay = float(initial_decay)
+        if not math.isfinite(decay) or not 0.0 < decay < 1.0:
+            raise ValueError("initial_decay must be finite and strictly between 0 and 1")
+        super().__init__()
+        self.state_dim = int(state_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.anchor_count = int(anchor_count)
+        self.bottleneck_dim = int(bottleneck_dim)
+        self.bundle_dim = self.anchor_count * self.state_dim
+        self.state_down = nn.Linear(self.bundle_dim, self.bottleneck_dim, bias=False)
+        self.address_down = nn.Linear(self.bundle_dim, self.bottleneck_dim, bias=False)
+        self.query_gate = nn.Linear(self.hidden_dim, self.bottleneck_dim, bias=False)
+        self.hidden_gate = nn.Linear(self.hidden_dim, self.bottleneck_dim, bias=False)
+        self.output_up = nn.Linear(self.bottleneck_dim, self.hidden_dim, bias=False)
+        decay_logit = math.log(decay / (1.0 - decay))
+        self.decay_logit = nn.Parameter(
+            torch.full((self.bottleneck_dim,), decay_logit)
+        )
+        nn.init.kaiming_uniform_(self.state_down.weight, a=math.sqrt(5.0))
+        nn.init.kaiming_uniform_(self.address_down.weight, a=math.sqrt(5.0))
+        nn.init.zeros_(self.query_gate.weight)
+        nn.init.zeros_(self.hidden_gate.weight)
+        nn.init.zeros_(self.output_up.weight)
+
+    @staticmethod
+    def rms_normalize(value: torch.Tensor) -> torch.Tensor:
+        value = value.float()
+        square_mean = value.square().mean(dim=-1, keepdim=True)
+        normalized = value / square_mean.clamp_min(1e-12).sqrt()
+        return torch.where(square_mean.gt(0.0), normalized, torch.zeros_like(value))
+
+    def forward(
+        self,
+        *,
+        native_reads: torch.Tensor,
+        selected_addresses: torch.Tensor,
+        hidden_query: torch.Tensor,
+    ) -> tuple[torch.Tensor, Mapping[str, torch.Tensor]]:
+        if (
+            native_reads.ndim != 4
+            or native_reads.size(-2) != self.anchor_count
+            or native_reads.size(-1) != self.state_dim
+        ):
+            raise ValueError("address-keyed feedback native read geometry differs")
+        if (
+            selected_addresses.ndim != 4
+            or selected_addresses.size(-2) != self.anchor_count
+            or selected_addresses.size(-1) != self.state_dim
+        ):
+            raise ValueError("address-keyed feedback address geometry differs")
+        if hidden_query.ndim != 3 or hidden_query.size(-1) != self.hidden_dim:
+            raise ValueError("address-keyed feedback hidden query geometry differs")
+        if tuple(native_reads.shape[:2]) != tuple(selected_addresses.shape[:2]) or (
+            tuple(hidden_query.shape[:2]) != tuple(native_reads.shape[:2])
+        ):
+            raise ValueError("address-keyed feedback sequence geometry differs")
+
+        normalized_reads = self.rms_normalize(native_reads)
+        normalized_addresses = self.rms_normalize(selected_addresses)
+        state_bundle = normalized_reads.flatten(start_dim=-2)
+        address_bundle = normalized_addresses.flatten(start_dim=-2)
+        state_value = torch.tanh(self.state_down(state_bundle))
+        address_value = self.address_down(address_bundle)
+        normalized_query = self.rms_normalize(hidden_query)
+        query_value = self.query_gate(normalized_query)
+        hidden_gate = 2.0 * torch.sigmoid(self.hidden_gate(normalized_query))
+        decay = torch.sigmoid(self.decay_logit).to(dtype=state_value.dtype)
+        state_active = native_reads.float().square().sum(dim=(-1, -2)).unsqueeze(-1).gt(0.0)
+        address_active = (
+            selected_addresses.float().square().sum(dim=(-1, -2)).unsqueeze(-1).gt(0.0)
+        )
+        active = state_active & address_active
+        feedback_steps: list[torch.Tensor] = []
+        proposal_steps: list[torch.Tensor] = []
+        state = state_value.new_zeros(state_value.size(0), self.bottleneck_dim)
+        for token_index in range(state_value.size(1)):
+            proposal = state_value[:, token_index] * torch.sigmoid(
+                address_value[:, token_index] + query_value[:, token_index]
+            )
+            next_state = decay * state + (1.0 - decay) * proposal
+            token_active = active[:, token_index]
+            state = torch.where(token_active, next_state, torch.zeros_like(next_state))
+            feedback_steps.append(state)
+            proposal_steps.append(proposal)
+        feedback_state = torch.stack(feedback_steps, dim=1)
+        proposal = torch.stack(proposal_steps, dim=1)
+        direction = self.output_up(F.silu(feedback_state) * hidden_gate)
+        direction = torch.tanh(direction.float())
+        direction = torch.where(active, direction, torch.zeros_like(direction))
+        return direction, {
+            "normalized_anchor_reads": normalized_reads,
+            "normalized_selected_addresses": normalized_addresses,
+            "state_value": state_value,
+            "address_value": address_value,
+            "query_value": query_value,
+            "hidden_gate": hidden_gate,
+            "feedback_decay": decay,
+            "feedback_proposal": proposal,
+            "feedback_state": feedback_state,
+            "combined_hidden_read": direction,
+        }
+
+
 class SourceCumulativeResidualRouter(nn.Module):
     """Source-canonical cumulative routing into a bounded terminal RWKV residual."""
 
@@ -466,6 +584,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         | SourceBoundJointIdentityFFN
         | SourceBoundMultiAnchorBundleFFN
         | SourceBoundLowRankQueryMultiAnchorFFN
+        | SourceBoundAddressKeyedFeedbackFFN
         | None = None,
     ) -> None:
         super().__init__()
@@ -885,11 +1004,15 @@ class SourceCumulativeResidualRouter(nn.Module):
                 "anchor_selected_addresses": anchor_selected_addresses,
                 "anchor_selected_states": anchor_selected_states,
             }
-        elif isinstance(self.outer_ffn, SourceBoundMultiAnchorBundleFFN):
+        elif isinstance(
+            self.outer_ffn,
+            (SourceBoundMultiAnchorBundleFFN, SourceBoundAddressKeyedFeedbackFFN),
+        ):
             if (
                 set(self._slot_reads) != set(self.anchor_layers)
                 or set(self._readout_gates) != set(self.anchor_layers)
                 or set(self._readout_cores) != set(self.anchor_layers)
+                or set(self._mapped_addresses) != set(self.anchor_layers)
             ):
                 raise RuntimeError("multi-anchor native read lifecycle is incomplete")
             raw_reads = []
@@ -909,10 +1032,33 @@ class SourceCumulativeResidualRouter(nn.Module):
             raw_read = anchor_raw_reads[:, :, -1]
             native_read = anchor_native_reads[:, :, -1]
             hidden_read = hidden_states.new_zeros(hidden_states.shape).float()
-            direction, outer_diagnostics = self.outer_ffn(
-                native_reads=anchor_native_reads,
-                hidden_query=hidden_states,
-            )
+            if isinstance(self.outer_ffn, SourceBoundAddressKeyedFeedbackFFN):
+                selected_addresses = []
+                for anchor in self.anchor_layers:
+                    mapped_addresses = self._mapped_addresses[anchor]
+                    selected_addresses.append(
+                        mapped_addresses.gather(
+                            1,
+                            selected.unsqueeze(-1).expand(
+                                -1, -1, mapped_addresses.size(-1)
+                            ),
+                        )
+                    )
+                selected_addresses_tensor = torch.stack(selected_addresses, dim=2)
+                direction, outer_diagnostics = self.outer_ffn(
+                    native_reads=anchor_native_reads,
+                    selected_addresses=selected_addresses_tensor,
+                    hidden_query=hidden_states,
+                )
+                outer_diagnostics = {
+                    **outer_diagnostics,
+                    "selected_addresses": selected_addresses_tensor,
+                }
+            else:
+                direction, outer_diagnostics = self.outer_ffn(
+                    native_reads=anchor_native_reads,
+                    hidden_query=hidden_states,
+                )
             outer_diagnostics = {
                 **outer_diagnostics,
                 "anchor_raw_reads": anchor_raw_reads,
@@ -1072,14 +1218,21 @@ class SourceCumulativeResidualRouter(nn.Module):
             )
             if isinstance(
                 self.outer_ffn,
-                (SourceBoundMultiAnchorBundleFFN, SourceBoundLowRankQueryMultiAnchorFFN),
+                (
+                    SourceBoundMultiAnchorBundleFFN,
+                    SourceBoundLowRankQueryMultiAnchorFFN,
+                    SourceBoundAddressKeyedFeedbackFFN,
+                ),
             ):
                 core = getattr(module, "hrm_rwkv7_core", None)
                 if core is None:
                     raise RuntimeError(
                         "multi-anchor bundle requires an RWKV readout core at every anchor"
                     )
-                if isinstance(self.outer_ffn, SourceBoundMultiAnchorBundleFFN):
+                if isinstance(
+                    self.outer_ffn,
+                    (SourceBoundMultiAnchorBundleFFN, SourceBoundAddressKeyedFeedbackFFN),
+                ):
                     self._slot_reads[layer] = torch.einsum(
                         "bhsij,bthj->bthsi", state.float(), receptance.float()
                     )
