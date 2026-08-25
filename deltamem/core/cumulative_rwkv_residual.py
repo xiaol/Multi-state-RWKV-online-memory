@@ -304,6 +304,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         compatibility_scale: float = 32.0,
         residual_gain: float = 1.0 / 32.0,
         required_receptance_calls: int = 2,
+        route_weights: Sequence[float] | None = None,
         outer_ffn: SourceBoundOuterFFN
         | SourceBoundJointIdentityFFN
         | SourceBoundMultiAnchorBundleFFN
@@ -323,6 +324,22 @@ class SourceCumulativeResidualRouter(nn.Module):
             raise ValueError("compatibility_scale must be finite and > 0")
         if not math.isfinite(gain) or not (0.0 < gain <= 1.0):
             raise ValueError("residual_gain must be finite and satisfy 0 < gain <= 1")
+        weighted_routing = route_weights is not None
+        if route_weights is None:
+            normalized_route_weights = tuple(1.0 / len(anchors) for _ in anchors)
+        else:
+            if len(route_weights) != len(anchors):
+                raise ValueError("route_weights must cover every anchor")
+            raw_route_weights = tuple(float(weight) for weight in route_weights)
+            if (
+                not all(math.isfinite(weight) and weight >= 0.0 for weight in raw_route_weights)
+                or not any(weight > 0.0 for weight in raw_route_weights)
+            ):
+                raise ValueError("route_weights must be finite, nonnegative, and nonzero")
+            total_route_weight = sum(raw_route_weights)
+            normalized_route_weights = tuple(
+                weight / total_route_weight for weight in raw_route_weights
+            )
 
         frozen_maps: dict[str, FrozenCompatibilityMap] = {}
         state_dim = None
@@ -352,6 +369,8 @@ class SourceCumulativeResidualRouter(nn.Module):
         self.compatibility_scale = scale
         self.residual_gain = gain
         self.required_receptance_calls = int(required_receptance_calls)
+        self.route_weights = normalized_route_weights
+        self.weighted_routing = weighted_routing
         self.outer_ffn = outer_ffn
         self.maps = nn.ModuleDict(frozen_maps)
         self._states: dict[int, torch.Tensor] | None = None
@@ -359,6 +378,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._occupied: dict[int, torch.Tensor] | None = None
         self._source_ids: torch.Tensor | None = None
         self._running_score_sum: torch.Tensor | None = None
+        self._local_scores: dict[int, torch.Tensor] = {}
         self._running_active: torch.Tensor | None = None
         self._normalized_receptance: dict[int, torch.Tensor] = {}
         self._mapped_addresses: dict[int, torch.Tensor] = {}
@@ -388,6 +408,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._occupied = None
         self._source_ids = None
         self._running_score_sum = None
+        self._local_scores.clear()
         self._running_active = None
         self._normalized_receptance.clear()
         self._mapped_addresses.clear()
@@ -516,6 +537,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._source_ids = canonical_sources
         self._running_active = canonical_occupied[self.anchor_layers[0]].clone()
         self._running_score_sum = None
+        self._local_scores.clear()
         self._normalized_receptance.clear()
         self._mapped_addresses.clear()
         self._slot_reads.clear()
@@ -821,7 +843,14 @@ class SourceCumulativeResidualRouter(nn.Module):
             self._running_score_sum = self._running_score_sum + local_scores
             self._running_active = self._running_active.to(local_active.device) & local_active
             count = self._next_anchor_index + 1
-            accumulated_scores = self._running_score_sum / float(count)
+            self._local_scores[layer] = local_scores
+            if layer == self.anchor_layers[-1] and self.weighted_routing:
+                accumulated_scores = sum(
+                    self._local_scores[anchor] * weight
+                    for anchor, weight in zip(self.anchor_layers, self.route_weights)
+                )
+            else:
+                accumulated_scores = self._running_score_sum / float(count)
             residual = None
             terminal: Mapping[str, torch.Tensor] = {}
             if layer == self.anchor_layers[-1]:
@@ -842,6 +871,7 @@ class SourceCumulativeResidualRouter(nn.Module):
                     "source_ids": self._source_ids.detach().clone(),
                     "local_scores": local_scores.detach().clone(),
                     "accumulated_scores": accumulated_scores.detach().clone(),
+                    "route_weights": self.route_weights,
                     "active": self._running_active.detach().clone(),
                     **{name: value.detach().clone() for name, value in terminal.items()},
                     **(

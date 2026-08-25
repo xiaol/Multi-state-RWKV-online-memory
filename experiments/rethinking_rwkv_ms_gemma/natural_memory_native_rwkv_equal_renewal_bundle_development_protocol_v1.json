@@ -1,0 +1,52 @@
+{
+  "architecture": {
+    "anchor_layers": [5, 11, 17],
+    "anchor_native_reads_are_blockwise_rms_normalized": true,
+    "bottleneck_dim": 32,
+    "bundle_dim": 96,
+    "compatibility_scale": 1.0,
+    "exact_zero_bundle_path": true,
+    "hidden_dim": 2560,
+    "hidden_query_is_gate_only": true,
+    "native_read_dim_per_anchor": 32,
+    "one_canonical_source_route_shared_by_all_anchors": true,
+    "prompt_boundary_confidence_latched_across_interventions": true,
+    "prompt_boundary_source_latched_across_interventions": true,
+    "query_only_hidden_only_or_projected_value_bypass": false,
+    "residual_gain": 0.03125,
+    "state_value_times_hidden_gate": true,
+    "trainable_parameter_elements": 166912,
+    "trainable_parameter_tensors": 3
+  },
+  "native_benchmark_authorized": false,
+  "open_development_only": true,
+  "protected_causal_authorized": false,
+  "protected_mechanics_authorized": false,
+  "route_aggregation": {
+    "equal_weight_control_required": true,
+    "mode": "equal_cumulative_source_scores",
+    "normalization": "sum_to_one",
+    "weights": [0.3333333333333333, 0.3333333333333333, 0.3333333333333333]
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_equal_renewal_bundle_development.v1.protocol",
+  "split": {
+    "heldout_pairs": 16,
+    "manifest_sha256": "a01c96bc49251e952f4e96a42fb2367ee7b06d75ad463a95224de5ca04637366",
+    "payload_sha256": "ac742277d66f3f199b54c8a7a6a5db071f09789d5941275f03c42a9f3c2e6c09",
+    "train_pairs": 24
+  },
+  "training": {
+    "global_batch_rows": 4,
+    "heldout_pairs": 16,
+    "learning_rate": 0.001,
+    "target_payload_sha256": "e0fca0d7b85ae27d4c161d5f60c464e00690c6184511d978bf320593b95fc573",
+    "train_pairs": 24,
+    "updates": 48,
+    "weight_decay": 0.0
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "39523b5736b1a1416214af3252ba1209fa5b7e9bdda8394551e17f67d9e8c3e2"
+  }
+}

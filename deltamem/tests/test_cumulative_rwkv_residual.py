@@ -100,6 +100,23 @@ def _bundle_router() -> SourceCumulativeResidualRouter:
     )
 
 
+def _weighted_router(
+    weights: tuple[float, ...],
+) -> SourceCumulativeResidualRouter:
+    return SourceCumulativeResidualRouter(
+        maps={layer: (torch.eye(2), torch.eye(2)) for layer in (5, 11, 17)},
+        anchor_layers=(5, 11, 17),
+        compatibility_scale=8.0,
+        residual_gain=1.0 / 32.0,
+        required_receptance_calls=2,
+        route_weights=weights,
+        outer_ffn=SourceBoundMultiAnchorBundleFFN(
+            state_dim=2,
+            hidden_dim=2,
+            anchor_count=3,
+            bottleneck_dim=3,
+        ),
+    )
 def _banks():
     base_state = torch.tensor(
         [[[[[1.0, 0.0], [0.0, 1.0]], [[0.0, 2.0], [1.0, 0.0]], [[-1.0, 0.5], [0.25, 1.0]]]]]
@@ -219,6 +236,31 @@ def test_router_accumulates_scores_and_uses_hard_canonical_source_route() -> Non
         terminal["memory_mass"],
         torch.sigmoid(8.0 * selected_score),
     )
+
+
+def test_weighted_route_aggregation_uses_normalized_anchor_weights() -> None:
+    anchors = (5, 11, 17)
+    receptances = {
+        5: torch.tensor([1.0, 0.0]),
+        11: torch.tensor([0.0, 1.0]),
+        17: torch.tensor([1.0, 1.0]),
+    }
+    router = _weighted_router((1.0, 1.0, 2.0))
+    _, diagnostics, _ = _run(router, _banks(), receptances)
+    terminal = diagnostics[-1]
+    expected = sum(
+        diagnostic["local_scores"] * weight
+        for diagnostic, weight in zip(diagnostics, (0.25, 0.25, 0.5))
+    )
+    torch.testing.assert_close(terminal["accumulated_scores"], expected)
+    assert terminal["route_weights"] == (0.25, 0.25, 0.5)
+    assert router.route_weights == (0.25, 0.25, 0.5)
+
+
+def test_default_route_weights_retain_equal_weight_legacy_accumulation() -> None:
+    receptances = {layer: torch.tensor([1.0, 0.0]) for layer in ANCHORS}
+    _, diagnostics, _ = _run(_router(), _banks(), receptances)
+    assert diagnostics[-1]["route_weights"] == (0.25, 0.25, 0.25, 0.25)
 
 
 def test_selected_source_gate_is_invariant_to_lower_scoring_slot_count() -> None:
