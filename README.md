@@ -814,12 +814,11 @@ with receipt
 `25fc989427c5acb56f3c78f681b3ee508dc3d2f24268c7f8b464648915548563`.
 No protected or native benchmark data was opened, and no benchmark gain or
 SOTA claim is made. The paper's depth-renewal loop remains a later candidate.
-The next open-only test latches both prompt source and confidence, bundles the
-three native RWKV reads from layers `5/11/17`, and makes that bundle the
-mandatory value side of a hidden-gated CrossGLU with no hidden-only bypass. If
-that minimal bandwidth test fails, the stronger fallback learns low-rank
-queries inside the selected RWKV matrices. Top-hidden temporal feedback comes
-only after donor-specific causal value passes.
+That open-only test latched both prompt source and confidence, bundled the three
+native RWKV reads from layers `5/11/17`, and made that bundle the mandatory
+value side of a hidden-gated CrossGLU with no hidden-only bypass. It failed the
+causal held-out gate, so the stronger fallback and top-hidden temporal feedback
+remain unauthorized until donor-specific causal value passes.
 
 The subsequent weighted-renewal ablation is also complete. It reserved a fresh
 component-disjoint open split (462 excluded components), then compared weighted
