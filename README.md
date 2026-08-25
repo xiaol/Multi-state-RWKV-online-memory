@@ -813,12 +813,13 @@ The signed result SHA-256 is
 with receipt
 `25fc989427c5acb56f3c78f681b3ee508dc3d2f24268c7f8b464648915548563`.
 No protected or native benchmark data was opened, and no benchmark gain or
-SOTA claim is made. The paper's depth-renewal loop remains a later candidate;
-the next open-only test learns low-rank queries inside the prompt-latched RWKV
-matrices at layers `5/11/17` and lifts their three-read bundle without a
-hidden-only bypass. A frozen-query multi-anchor bundle is the bandwidth
-ablation; top-hidden temporal feedback comes only after donor-specific causal
-value passes.
+SOTA claim is made. The paper's depth-renewal loop remains a later candidate.
+The next open-only test latches both prompt source and confidence, bundles the
+three native RWKV reads from layers `5/11/17`, and makes that bundle the
+mandatory value side of a hidden-gated CrossGLU with no hidden-only bypass. If
+that minimal bandwidth test fails, the stronger fallback learns low-rank
+queries inside the selected RWKV matrices. Top-hidden temporal feedback comes
+only after donor-specific causal value passes.
 
 Evidence: [continuous retrieval protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_continuous_write_retrieval_protocol_v1.json),
 [continuous retrieval runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_continuous_write_retrieval.py),

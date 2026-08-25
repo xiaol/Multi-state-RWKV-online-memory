@@ -1048,14 +1048,17 @@ source across answer tokens solves the observed selector drift, while a joint
 address/receptance gate over one terminal native read still does not supply a
 donor-specific answer value. A paper-faithful top-hidden feedback loop would
 renew depth for that unreliable value and cannot be justified as an identity
-repair. The next open-only family should move the learned operation inside the
-associative read rather than add another gate after a bad terminal read. Latch
-the prompt-selected full RWKV matrices at layers `5/11/17`; at each anchor use
-a low-rank hidden-to-32 delta to form a learned native query, contract that
-query with the selected matrix, concatenate the three block-normalized reads,
-and make that 96-dimensional bundle the mandatory value side of a bias-free
-bounded lift. Hidden state may form the query but must have no output bypass,
-so exactly zero matrices still give exact provider-off behavior. A frozen-query
-multi-anchor bundle is the required bandwidth ablation, not the primary route.
-Both heldout views must pass before temporal feedback, a fresh protected split,
-or native benchmark access.
+repair. The next open-only family should isolate RWKV value bandwidth with the
+paper's asymmetric interaction before changing the associative query. Latch
+both the prompt-selected source and its confidence mass. At layers `5/11/17`,
+read that one source with each layer's own native RWKV receptance, matrix, and
+readout gate; concatenate the three block-normalized 32-dimensional reads; use
+that 96-dimensional bundle as the mandatory value side of a bias-free
+`96 -> 32 -> 2560` lift; and use the layer-17 hidden state only as its
+32-dimensional GLU gate. There is no hidden-only or base-read bypass, so an
+all-zero RWKV bundle gives exact provider-off behavior. This is the smallest
+test that combines the successful prompt latch, the earlier useful hidden-query
+gate, and the paper's full-vector state-value pattern. If it fails, the next
+materially distinct route is a learned low-rank query applied inside each
+selected RWKV matrix before bundling. Both heldout views must pass before
+temporal feedback, a fresh protected split, or native benchmark access.
