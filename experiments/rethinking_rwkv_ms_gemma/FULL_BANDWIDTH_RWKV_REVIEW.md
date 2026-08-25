@@ -1048,10 +1048,14 @@ source across answer tokens solves the observed selector drift, while a joint
 address/receptance gate over one terminal native read still does not supply a
 donor-specific answer value. A paper-faithful top-hidden feedback loop would
 renew depth for that unreliable value and cannot be justified as an identity
-repair. The next open-only family should first test whether RWKV value
-bandwidth is the bottleneck: latch the prompt-selected source, collect its
-native reads from all three anchors, make the concatenated multi-anchor bundle
-the mandatory state side of a bounded GLU, and inject it at the earliest
-audited residual point. It must retain exact-zero/provider-off identity and
-pass both heldout views before any temporal feedback, fresh protected split,
+repair. The next open-only family should move the learned operation inside the
+associative read rather than add another gate after a bad terminal read. Latch
+the prompt-selected full RWKV matrices at layers `5/11/17`; at each anchor use
+a low-rank hidden-to-32 delta to form a learned native query, contract that
+query with the selected matrix, concatenate the three block-normalized reads,
+and make that 96-dimensional bundle the mandatory value side of a bias-free
+bounded lift. Hidden state may form the query but must have no output bypass,
+so exactly zero matrices still give exact provider-off behavior. A frozen-query
+multi-anchor bundle is the required bandwidth ablation, not the primary route.
+Both heldout views must pass before temporal feedback, a fresh protected split,
 or native benchmark access.
