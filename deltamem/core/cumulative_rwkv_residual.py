@@ -293,6 +293,163 @@ class SourceBoundMultiAnchorBundleFFN(nn.Module):
         }
 
 
+class SourceBoundLowRankQueryMultiAnchorFFN(nn.Module):
+    """Condition each selected RWKV read with a per-anchor low-rank pair."""
+
+    def __init__(
+        self,
+        *,
+        state_dim: int,
+        hidden_dim: int,
+        anchor_count: int,
+        bottleneck_dim: int,
+        rank: int = 4,
+        query_scale: float = 1.0 / 8.0,
+    ) -> None:
+        super().__init__()
+        dimensions = (state_dim, hidden_dim, anchor_count, bottleneck_dim, rank)
+        if any(int(value) < 1 for value in dimensions):
+            raise ValueError("low-rank query multi-anchor dimensions must be positive")
+        scale = float(query_scale)
+        if not math.isfinite(scale) or scale != 1.0 / 8.0:
+            raise ValueError("query_scale is fixed at 1/8")
+        self.state_dim = int(state_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.anchor_count = int(anchor_count)
+        self.bottleneck_dim = int(bottleneck_dim)
+        self.rank = int(rank)
+        self.query_scale = scale
+        self.bundle_dim = self.anchor_count * self.state_dim
+        self.address_down = nn.Parameter(
+            torch.empty(self.anchor_count, self.rank, self.state_dim)
+        )
+        self.query_down = nn.Parameter(
+            torch.empty(self.anchor_count, self.rank, self.hidden_dim)
+        )
+        self.pair_up = nn.Parameter(
+            torch.zeros(self.anchor_count, self.state_dim, self.rank)
+        )
+        self.state_down = nn.Linear(self.bundle_dim, self.bottleneck_dim, bias=False)
+        self.query_gate = nn.Linear(self.hidden_dim, self.bottleneck_dim, bias=False)
+        self.output_up = nn.Linear(self.bottleneck_dim, self.hidden_dim, bias=False)
+        nn.init.kaiming_uniform_(self.address_down, a=math.sqrt(5.0))
+        nn.init.kaiming_uniform_(self.query_down, a=math.sqrt(5.0))
+        nn.init.kaiming_uniform_(self.state_down.weight, a=math.sqrt(5.0))
+        nn.init.zeros_(self.query_gate.weight)
+        nn.init.zeros_(self.output_up.weight)
+
+    @staticmethod
+    def rms_normalize(value: torch.Tensor) -> torch.Tensor:
+        value = value.float()
+        square_mean = value.square().mean(dim=-1, keepdim=True)
+        normalized = value / square_mean.clamp_min(1e-12).sqrt()
+        return torch.where(square_mean.gt(0.0), normalized, torch.zeros_like(value))
+
+    def condition_receptance(
+        self,
+        *,
+        anchor_index: int,
+        receptance: torch.Tensor,
+        mapped_address: torch.Tensor,
+        hidden_query: torch.Tensor,
+        state_active: torch.Tensor,
+    ) -> tuple[torch.Tensor, Mapping[str, torch.Tensor]]:
+        anchor_index = int(anchor_index)
+        if not 0 <= anchor_index < self.anchor_count:
+            raise ValueError("low-rank anchor_index is outside anchor_count")
+        if receptance.ndim != 4:
+            raise ValueError("low-rank receptance must be [batch, sequence, heads, head_dim]")
+        if mapped_address.ndim != 3 or mapped_address.size(-1) != self.state_dim:
+            raise ValueError("low-rank mapped address geometry differs")
+        if hidden_query.ndim != 3 or hidden_query.size(-1) != self.hidden_dim:
+            raise ValueError("low-rank hidden query geometry differs")
+        if tuple(mapped_address.shape[:2]) != tuple(receptance.shape[:2]) or (
+            tuple(hidden_query.shape[:2]) != tuple(receptance.shape[:2])
+        ):
+            raise ValueError("low-rank query/address sequence geometry differs")
+        if receptance.size(2) * receptance.size(3) != self.state_dim:
+            raise ValueError("low-rank receptance width differs from state_dim")
+        if state_active.ndim < 2 or tuple(state_active.shape[:2]) != tuple(
+            receptance.shape[:2]
+        ):
+            raise ValueError("low-rank state activity geometry differs")
+        state_active = state_active.reshape(receptance.size(0), receptance.size(1), -1)
+        if state_active.size(-1) != 1:
+            raise ValueError("low-rank state activity geometry differs")
+        state_active = state_active.to(device=receptance.device, dtype=torch.bool)
+
+        normalized_address = self.rms_normalize(mapped_address)
+        normalized_query = self.rms_normalize(hidden_query)
+        address_latent = torch.tanh(
+            F.linear(normalized_address, self.address_down[anchor_index])
+        )
+        query_latent = torch.sigmoid(
+            F.linear(normalized_query, self.query_down[anchor_index])
+        )
+        pair_feature = address_latent * query_latent
+        pair_delta = torch.tanh(
+            F.linear(pair_feature, self.pair_up[anchor_index])
+        )
+        receptance_rms = self.rms_normalize(
+            receptance.float().reshape(receptance.size(0), receptance.size(1), -1)
+        ).reshape_as(receptance)
+        modulation = pair_delta.reshape(
+            receptance.size(0), receptance.size(1), receptance.size(2), receptance.size(3)
+        )
+        conditioned = receptance.float() + self.query_scale * receptance_rms * modulation.float()
+        conditioned = torch.where(
+            state_active.unsqueeze(-1), conditioned, torch.zeros_like(conditioned)
+        )
+        return conditioned.to(dtype=receptance.dtype), {
+            "normalized_address": normalized_address,
+            "normalized_query": normalized_query,
+            "address_latent": address_latent,
+            "query_latent": query_latent,
+            "pair_feature": pair_feature,
+            "pair_delta": pair_delta,
+            "receptance_rms": receptance_rms,
+            "receptance_modulation": modulation,
+            "conditioned_receptance": conditioned,
+        }
+
+    def forward(
+        self,
+        *,
+        native_reads: torch.Tensor,
+        hidden_query: torch.Tensor,
+    ) -> tuple[torch.Tensor, Mapping[str, torch.Tensor]]:
+        if (
+            native_reads.ndim != 4
+            or native_reads.size(-2) != self.anchor_count
+            or native_reads.size(-1) != self.state_dim
+        ):
+            raise ValueError("low-rank native read bundle geometry differs")
+        if hidden_query.ndim != 3 or hidden_query.size(-1) != self.hidden_dim:
+            raise ValueError("low-rank hidden query geometry differs")
+        if tuple(native_reads.shape[:2]) != tuple(hidden_query.shape[:2]):
+            raise ValueError("low-rank native read/query sequence geometry differs")
+        normalized_reads = self.rms_normalize(native_reads)
+        bundle = normalized_reads.flatten(start_dim=-2)
+        state_value = F.silu(self.state_down(bundle))
+        normalized_query = self.rms_normalize(hidden_query)
+        query_gate = 2.0 * torch.sigmoid(self.query_gate(normalized_query))
+        correction = self.output_up(state_value * query_gate)
+        bundle_active = native_reads.float().square().sum(
+            dim=(-1, -2), keepdim=False
+        ).unsqueeze(-1).gt(0.0)
+        direction = torch.tanh(correction.float())
+        direction = torch.where(bundle_active, direction, torch.zeros_like(direction))
+        return direction, {
+            "anchor_native_reads": native_reads,
+            "normalized_anchor_reads": normalized_reads,
+            "native_read_bundle": bundle,
+            "state_value": state_value,
+            "query_gate": query_gate,
+            "correction": correction,
+            "combined_hidden_read": correction,
+        }
+
+
 class SourceCumulativeResidualRouter(nn.Module):
     """Source-canonical cumulative routing into a bounded terminal RWKV residual."""
 
@@ -308,6 +465,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         outer_ffn: SourceBoundOuterFFN
         | SourceBoundJointIdentityFFN
         | SourceBoundMultiAnchorBundleFFN
+        | SourceBoundLowRankQueryMultiAnchorFFN
         | None = None,
     ) -> None:
         super().__init__()
@@ -383,6 +541,8 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._normalized_receptance: dict[int, torch.Tensor] = {}
         self._mapped_addresses: dict[int, torch.Tensor] = {}
         self._slot_reads: dict[int, torch.Tensor] = {}
+        self._receptances: dict[int, torch.Tensor] = {}
+        self._hidden_queries: dict[int, torch.Tensor] = {}
         self._readout_gates: dict[int, torch.Tensor] = {}
         self._readout_cores: dict[int, Any] = {}
         self._memory_mass_override: torch.Tensor | None = None
@@ -413,6 +573,8 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._normalized_receptance.clear()
         self._mapped_addresses.clear()
         self._slot_reads.clear()
+        self._receptances.clear()
+        self._hidden_queries.clear()
         self._readout_gates.clear()
         self._readout_cores.clear()
         self._memory_mass_override = None
@@ -541,6 +703,8 @@ class SourceCumulativeResidualRouter(nn.Module):
         self._normalized_receptance.clear()
         self._mapped_addresses.clear()
         self._slot_reads.clear()
+        self._receptances.clear()
+        self._hidden_queries.clear()
         self._readout_gates.clear()
         self._readout_cores.clear()
         self._memory_mass_override = (
@@ -640,7 +804,88 @@ class SourceCumulativeResidualRouter(nn.Module):
         )
 
         outer_diagnostics: Mapping[str, torch.Tensor] = {}
-        if isinstance(self.outer_ffn, SourceBoundMultiAnchorBundleFFN):
+        if isinstance(self.outer_ffn, SourceBoundLowRankQueryMultiAnchorFFN):
+            if (
+                set(self._receptances) != set(self.anchor_layers)
+                or set(self._hidden_queries) != set(self.anchor_layers)
+                or set(self._mapped_addresses) != set(self.anchor_layers)
+                or set(self._readout_gates) != set(self.anchor_layers)
+                or set(self._readout_cores) != set(self.anchor_layers)
+                or self._states is None
+            ):
+                raise RuntimeError("low-rank query native read lifecycle is incomplete")
+            raw_reads = []
+            native_reads = []
+            conditioned_receptances = []
+            selected_addresses = []
+            selected_states = []
+            condition_diagnostics: dict[str, torch.Tensor] = {}
+            for anchor_index, anchor in enumerate(self.anchor_layers):
+                anchor_state = self._states[anchor].to(device=scores.device)
+                selected_state = torch.einsum(
+                    "bts,bhsij->bthij",
+                    source_routes,
+                    anchor_state.float(),
+                )
+                state_active = selected_state.square().sum(
+                    dim=(-1, -2, -3), keepdim=True
+                ).gt(0)
+                mapped_addresses = self._mapped_addresses[anchor]
+                selected_address = mapped_addresses.gather(
+                    1,
+                    selected.unsqueeze(-1).expand(
+                        -1, -1, mapped_addresses.size(-1)
+                    ),
+                )
+                conditioned_receptance, condition_diagnostics_for_anchor = (
+                    self.outer_ffn.condition_receptance(
+                        anchor_index=anchor_index,
+                        receptance=self._receptances[anchor],
+                        mapped_address=selected_address,
+                        hidden_query=self._hidden_queries[anchor],
+                        state_active=state_active,
+                    )
+                )
+                anchor_gate = self._readout_gates[anchor]
+                anchor_raw_read = torch.einsum(
+                    "bthij,bthj->bthi",
+                    selected_state,
+                    conditioned_receptance.float(),
+                ).reshape(batch_size, seq_len, -1)
+                anchor_native_read = self._readout_cores[anchor].readout(
+                    anchor_raw_read.to(dtype=anchor_gate.dtype), anchor_gate
+                )
+                raw_reads.append(anchor_raw_read)
+                native_reads.append(anchor_native_read)
+                conditioned_receptances.append(conditioned_receptance)
+                selected_addresses.append(selected_address)
+                selected_states.append(selected_state)
+                for name, value in condition_diagnostics_for_anchor.items():
+                    condition_diagnostics[f"anchor_{name}_{anchor}"] = value
+            anchor_raw_reads = torch.stack(raw_reads, dim=2)
+            anchor_native_reads = torch.stack(native_reads, dim=2)
+            anchor_conditioned_receptances = torch.stack(
+                conditioned_receptances, dim=2
+            )
+            anchor_selected_addresses = torch.stack(selected_addresses, dim=2)
+            anchor_selected_states = torch.stack(selected_states, dim=2)
+            raw_read = anchor_raw_reads[:, :, -1]
+            native_read = anchor_native_reads[:, :, -1]
+            hidden_read = hidden_states.new_zeros(hidden_states.shape).float()
+            direction, outer_diagnostics = self.outer_ffn(
+                native_reads=anchor_native_reads,
+                hidden_query=hidden_states,
+            )
+            outer_diagnostics = {
+                **outer_diagnostics,
+                **condition_diagnostics,
+                "anchor_raw_reads": anchor_raw_reads,
+                "anchor_native_reads": anchor_native_reads,
+                "anchor_conditioned_receptances": anchor_conditioned_receptances,
+                "anchor_selected_addresses": anchor_selected_addresses,
+                "anchor_selected_states": anchor_selected_states,
+            }
+        elif isinstance(self.outer_ffn, SourceBoundMultiAnchorBundleFFN):
             if (
                 set(self._slot_reads) != set(self.anchor_layers)
                 or set(self._readout_gates) != set(self.anchor_layers)
@@ -825,15 +1070,22 @@ class SourceCumulativeResidualRouter(nn.Module):
                 & state.float().square().sum(dim=(-1, -2)).sum(dim=1).gt(0.0)
                 & addresses.float().square().sum(dim=-1).gt(0.0)
             )
-            if isinstance(self.outer_ffn, SourceBoundMultiAnchorBundleFFN):
+            if isinstance(
+                self.outer_ffn,
+                (SourceBoundMultiAnchorBundleFFN, SourceBoundLowRankQueryMultiAnchorFFN),
+            ):
                 core = getattr(module, "hrm_rwkv7_core", None)
                 if core is None:
                     raise RuntimeError(
                         "multi-anchor bundle requires an RWKV readout core at every anchor"
                     )
-                self._slot_reads[layer] = torch.einsum(
-                    "bhsij,bthj->bthsi", state.float(), receptance.float()
-                )
+                if isinstance(self.outer_ffn, SourceBoundMultiAnchorBundleFFN):
+                    self._slot_reads[layer] = torch.einsum(
+                        "bhsij,bthj->bthsi", state.float(), receptance.float()
+                    )
+                else:
+                    self._receptances[layer] = receptance
+                    self._hidden_queries[layer] = hidden_states
                 self._readout_gates[layer] = readout_gate
                 self._readout_cores[layer] = core
             if self._running_score_sum is None:

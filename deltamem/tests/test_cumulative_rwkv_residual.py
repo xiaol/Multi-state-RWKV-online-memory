@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from deltamem.core.cumulative_rwkv_residual import (
+    SourceBoundLowRankQueryMultiAnchorFFN,
     SourceBoundMultiAnchorBundleFFN,
     SourceBoundOuterFFN,
     SourceCumulativeResidualRouter,
@@ -54,6 +55,26 @@ class _RouterModule:
         return F.linear(reads, weight)
 
 
+class _NoProjectionRouterModule(_RouterModule):
+    def __init__(
+        self,
+        layer: int,
+        receptance: torch.Tensor,
+        *,
+        dtype: torch.dtype = torch.float32,
+    ) -> None:
+        super().__init__(layer, receptance, dtype=dtype)
+        self.delta_o_proj = None
+
+    @staticmethod
+    def _project_delta_head(
+        reads: torch.Tensor,
+        weight: torch.Tensor,
+        head_name: str,
+    ) -> torch.Tensor | None:
+        raise AssertionError("low-rank query route must not use projected hidden reads")
+
+
 def _router() -> SourceCumulativeResidualRouter:
     return SourceCumulativeResidualRouter(
         maps={layer: (torch.eye(2), torch.eye(2)) for layer in ANCHORS},
@@ -88,6 +109,29 @@ def _bundle_router() -> SourceCumulativeResidualRouter:
         bottleneck_dim=3,
     )
     with torch.no_grad():
+        outer_ffn.output_up.weight.fill_(0.125)
+        outer_ffn.query_gate.weight.fill_(0.25)
+    return SourceCumulativeResidualRouter(
+        maps={layer: (torch.eye(2), torch.eye(2)) for layer in anchors},
+        anchor_layers=anchors,
+        compatibility_scale=8.0,
+        residual_gain=1.0 / 32.0,
+        required_receptance_calls=2,
+        outer_ffn=outer_ffn,
+    )
+
+
+def _low_rank_router() -> SourceCumulativeResidualRouter:
+    anchors = (5, 11, 17)
+    outer_ffn = SourceBoundLowRankQueryMultiAnchorFFN(
+        state_dim=2,
+        hidden_dim=2,
+        anchor_count=len(anchors),
+        bottleneck_dim=3,
+        rank=2,
+    )
+    with torch.no_grad():
+        outer_ffn.pair_up.fill_(0.5)
         outer_ffn.output_up.weight.fill_(0.125)
         outer_ffn.query_gate.weight.fill_(0.25)
     return SourceCumulativeResidualRouter(
@@ -145,6 +189,8 @@ def _run(
     *,
     dtype: torch.dtype = torch.float32,
     memory_mass_override: torch.Tensor | None = None,
+    hidden_states: torch.Tensor | None = None,
+    module_cls: type[_RouterModule] = _RouterModule,
 ):
     routed_banks = tuple(
         {layer: bank[layer] for layer in router.anchor_layers} for bank in banks
@@ -159,10 +205,14 @@ def _run(
     residual = None
     modules = {}
     for layer in router.anchor_layers:
-        module = _RouterModule(layer, receptances[layer], dtype=dtype)
+        module = module_cls(layer, receptances[layer], dtype=dtype)
         modules[layer] = module
         local = router.provider_for(layer)(
-            hidden_states=torch.zeros(1, 1, 2, dtype=dtype),
+            hidden_states=(
+                torch.zeros(1, 1, 2, dtype=dtype)
+                if hidden_states is None
+                else hidden_states.to(dtype=dtype)
+            ),
             token_mask=torch.ones(1, 1, dtype=torch.bool),
             module=module,
         )
@@ -543,6 +593,222 @@ def test_multi_anchor_bundle_mass_override_and_lifecycle_are_exact() -> None:
                 source_ids={layer: banks[3][layer] for layer in (5, 11, 17)},
                 memory_mass_override=invalid,
             )
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    (
+        ("state_dim", 0),
+        ("hidden_dim", 0),
+        ("anchor_count", 0),
+        ("bottleneck_dim", 0),
+        ("rank", 0),
+    ),
+)
+def test_low_rank_query_ffn_rejects_invalid_dimensions(name: str, value: int) -> None:
+    kwargs = {
+        "state_dim": 2,
+        "hidden_dim": 2,
+        "anchor_count": 3,
+        "bottleneck_dim": 3,
+        "rank": 2,
+    }
+    kwargs[name] = value
+    with pytest.raises(ValueError, match="low-rank query multi-anchor"):
+        SourceBoundLowRankQueryMultiAnchorFFN(**kwargs)
+    valid_kwargs = {
+        "state_dim": 2,
+        "hidden_dim": 2,
+        "anchor_count": 3,
+        "bottleneck_dim": 3,
+        "rank": 2,
+    }
+    for scale in (0.0, -0.1, float("nan"), float("inf"), 0.25):
+        with pytest.raises(ValueError, match="query_scale"):
+            SourceBoundLowRankQueryMultiAnchorFFN(**valid_kwargs, query_scale=scale)
+
+
+def test_low_rank_query_ffn_is_bias_free_and_zero_pair_is_baseline() -> None:
+    outer_ffn = SourceBoundLowRankQueryMultiAnchorFFN(
+        state_dim=4,
+        hidden_dim=5,
+        anchor_count=2,
+        bottleneck_dim=3,
+        rank=2,
+    )
+    assert all(
+        layer.bias is None
+        for layer in (outer_ffn.state_down, outer_ffn.query_gate, outer_ffn.output_up)
+    )
+    receptance = torch.randn(2, 1, 2, 2)
+    mapped_address = torch.randn(2, 1, 4)
+    hidden_query = torch.randn(2, 1, 5)
+    conditioned, diagnostics = outer_ffn.condition_receptance(
+        anchor_index=0,
+        receptance=receptance,
+        mapped_address=mapped_address,
+        hidden_query=hidden_query,
+        state_active=torch.ones(2, 1, 1, 1, 1, dtype=torch.bool),
+    )
+    assert torch.equal(conditioned, receptance)
+    assert torch.equal(diagnostics["pair_delta"], torch.zeros_like(diagnostics["pair_delta"]))
+
+
+def test_low_rank_query_ffn_conditioning_and_exact_zero_state_contract() -> None:
+    outer_ffn = SourceBoundLowRankQueryMultiAnchorFFN(
+        state_dim=4,
+        hidden_dim=5,
+        anchor_count=2,
+        bottleneck_dim=3,
+        rank=2,
+    )
+    receptance = torch.randn(2, 1, 2, 2)
+    mapped_address = torch.randn(2, 1, 4)
+    hidden_query = torch.randn(2, 1, 5)
+    with torch.no_grad():
+        outer_ffn.pair_up.fill_(0.75)
+    conditioned, _ = outer_ffn.condition_receptance(
+        anchor_index=1,
+        receptance=receptance,
+        mapped_address=mapped_address,
+        hidden_query=hidden_query,
+        state_active=torch.ones(2, 1, 1),
+    )
+    assert bool((conditioned - receptance).abs().max().gt(1e-6).item())
+    zero_conditioned, _ = outer_ffn.condition_receptance(
+        anchor_index=1,
+        receptance=receptance,
+        mapped_address=mapped_address,
+        hidden_query=hidden_query,
+        state_active=torch.zeros(2, 1, 1),
+    )
+    assert torch.equal(zero_conditioned, torch.zeros_like(zero_conditioned))
+
+
+def test_low_rank_query_ffn_staged_gradients_reach_pair_and_output() -> None:
+    outer_ffn = SourceBoundLowRankQueryMultiAnchorFFN(
+        state_dim=4,
+        hidden_dim=5,
+        anchor_count=2,
+        bottleneck_dim=3,
+        rank=2,
+    )
+    receptance = torch.randn(2, 1, 2, 2)
+    mapped_address = torch.randn(2, 1, 4)
+    hidden_query = torch.randn(2, 1, 5)
+    conditioned, _ = outer_ffn.condition_receptance(
+        anchor_index=0,
+        receptance=receptance,
+        mapped_address=mapped_address,
+        hidden_query=hidden_query,
+        state_active=torch.ones(2, 1, 1),
+    )
+    conditioned.square().mean().backward()
+    assert outer_ffn.pair_up.grad is not None
+    assert bool(outer_ffn.pair_up.grad.abs().max().gt(0.0).item())
+    outer_ffn.zero_grad(set_to_none=True)
+    native_reads = torch.randn(2, 1, 2, 4)
+    direction, _ = outer_ffn(native_reads=native_reads, hidden_query=hidden_query)
+    direction.sub(0.25).square().mean().backward()
+    assert outer_ffn.output_up.weight.grad is not None
+    assert bool(outer_ffn.output_up.weight.grad.abs().max().gt(0.0).item())
+
+
+def test_low_rank_query_router_conditions_each_native_read_without_hidden_bypass() -> None:
+    anchors = (5, 11, 17)
+    receptances = {
+        5: torch.tensor([1.0, 0.0]),
+        11: torch.tensor([0.5, 1.0]),
+        17: torch.tensor([-0.5, 1.0]),
+    }
+    hidden_query = torch.tensor([[[0.75, -1.25]]])
+    residual, diagnostics, modules = _run(
+        _low_rank_router(), _banks(), receptances, hidden_states=hidden_query
+    )
+    terminal = diagnostics[-1]
+    selected_slot = int(terminal["selected_slot"].item())
+    assert all(modules[layer].hrm_rwkv7_core.calls == 1 for layer in anchors)
+    assert torch.equal(terminal["hidden_read"], torch.zeros_like(terminal["hidden_read"]))
+    for anchor_index, layer in enumerate(anchors):
+        canonical_order = torch.argsort(_banks()[3][layer], dim=1, stable=True)
+        canonical_state = SourceCumulativeResidualRouter._canonical_gather(
+            _banks()[0][layer], canonical_order, 2
+        )
+        expected_state = canonical_state[:, :, selected_slot]
+        conditioned_receptance = terminal["anchor_conditioned_receptances"][:, :, anchor_index]
+        expected_raw = torch.einsum(
+            "bhij,bthj->bthi", expected_state, conditioned_receptance
+        ).reshape(1, 1, -1)
+        torch.testing.assert_close(
+            terminal["anchor_raw_reads"][:, :, anchor_index], expected_raw
+        )
+        torch.testing.assert_close(
+            terminal["anchor_native_reads"][:, :, anchor_index],
+            terminal["anchor_raw_reads"][:, :, anchor_index],
+        )
+    assert torch.equal(residual, terminal["residual"])
+    assert float(residual.abs().max()) <= 1.0 / 32.0
+
+
+def test_low_rank_query_router_needs_no_projected_head_and_zero_state_is_exact_zero() -> None:
+    receptances = {layer: torch.tensor([1.0, 0.25]) for layer in (5, 11, 17)}
+    hidden_query = torch.tensor([[[0.75, -1.25]]])
+    residual, diagnostics, _ = _run(
+        _low_rank_router(),
+        _banks(),
+        receptances,
+        hidden_states=hidden_query,
+        module_cls=_NoProjectionRouterModule,
+    )
+    assert torch.isfinite(residual).all()
+    assert torch.equal(diagnostics[-1]["hidden_read"], torch.zeros_like(residual))
+    banks = list(_banks())
+    banks[0] = {layer: torch.zeros_like(value) for layer, value in banks[0].items()}
+    zero_residual, zero_diagnostics, _ = _run(
+        _low_rank_router(),
+        tuple(banks),
+        receptances,
+        hidden_states=hidden_query,
+        module_cls=_NoProjectionRouterModule,
+    )
+    assert torch.equal(zero_residual, torch.zeros_like(zero_residual))
+    assert zero_diagnostics[-1]["selected_slot"].item() == -1
+
+
+def test_low_rank_query_router_is_byte_exact_under_independent_slot_permutations() -> None:
+    receptances = {layer: torch.tensor([1.0, 0.25]) for layer in (5, 11, 17)}
+    hidden_query = torch.tensor([[[0.75, -1.25]]])
+    baseline_router = _low_rank_router()
+    baseline_residual, baseline_diagnostics, _ = _run(
+        baseline_router, _banks(), receptances, hidden_states=hidden_query
+    )
+    banks = list(_banks())
+    permutations = {
+        5: torch.tensor([2, 0, 1]),
+        11: torch.tensor([1, 2, 0]),
+        17: torch.tensor([0, 2, 1]),
+    }
+    for bank_index in range(4):
+        banks[bank_index] = dict(banks[bank_index])
+        for layer, permutation in permutations.items():
+            axis = 2 if bank_index == 0 else 1
+            banks[bank_index][layer] = banks[bank_index][layer].index_select(
+                axis, permutation
+            )
+    permuted_router = _low_rank_router()
+    permuted_router.load_state_dict(baseline_router.state_dict())
+    residual, diagnostics, _ = _run(
+        permuted_router, tuple(banks), receptances, hidden_states=hidden_query
+    )
+    assert torch.equal(residual, baseline_residual)
+    for name in (
+        "source_routes",
+        "anchor_raw_reads",
+        "anchor_native_reads",
+        "anchor_conditioned_receptances",
+        "residual",
+    ):
+        assert torch.equal(diagnostics[-1][name], baseline_diagnostics[-1][name])
 
 
 def test_outer_ffn_three_anchor_route_fires_at_layer_17_and_stays_canonical() -> None:
