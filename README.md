@@ -87,11 +87,12 @@ Gemma PLE.
 
 The clean next architecture is an isolated RWKV-augmented PLE branch. Keep the
 native PLE signal unchanged, project each addressed RWKV read into Gemma's
-per-layer PLE width, and add that memory term with a zero-initialized gate at the
-existing PLE residual site. Train only this memory-to-PLE adapter first, with
-projected carriers held fixed and the same zero/donor/layer-permutation causal
-controls. DeepEmbed remains a separate MLP-channel ablation rather than a PLE
-implementation.
+per-layer PLE width, and add that memory term at the existing PLE residual site.
+The low-rank adapter is zero-effect at initialization by subtracting its fixed
+identity baseline; an identity binder can gate that delta separately. Train
+only this memory-to-PLE adapter first, with projected carriers held fixed and
+the same zero/donor/layer-permutation causal controls. DeepEmbed remains a
+separate MLP-channel ablation rather than a PLE implementation.
 
 Reproducibility evidence:
 
