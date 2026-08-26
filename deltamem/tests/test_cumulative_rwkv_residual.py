@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from deltamem.core.cumulative_rwkv_residual import (
+    SourceBoundAddressModulatedFeedbackFFN,
     SourceBoundAddressKeyedFeedbackFFN,
     SourceBoundLowRankQueryMultiAnchorFFN,
     SourceBoundMultiAnchorBundleFFN,
@@ -578,6 +579,39 @@ def test_address_keyed_feedback_route_uses_selected_addresses_and_all_readouts()
     assert terminal["feedback_state"].shape == (1, 1, 3)
     for module in modules.values():
         assert module.hrm_rwkv7_core.calls == 1
+
+
+def test_address_modulated_feedback_changes_the_value_path_with_address() -> None:
+    outer_ffn = SourceBoundAddressModulatedFeedbackFFN(
+        state_dim=2,
+        hidden_dim=2,
+        anchor_count=2,
+        bottleneck_dim=3,
+    )
+    with torch.no_grad():
+        outer_ffn.state_down.weight.fill_(0.2)
+        outer_ffn.address_down.weight.fill_(0.3)
+        outer_ffn.output_up.weight.fill_(0.2)
+        outer_ffn.hidden_gate.weight.fill_(0.1)
+    reads = torch.ones(1, 1, 2, 2)
+    query = torch.ones(1, 1, 2)
+    first_addresses = torch.ones_like(reads)
+    second_addresses = -first_addresses
+    first, first_diagnostics = outer_ffn(
+        native_reads=reads,
+        selected_addresses=first_addresses,
+        hidden_query=query,
+    )
+    second, second_diagnostics = outer_ffn(
+        native_reads=reads,
+        selected_addresses=second_addresses,
+        hidden_query=query,
+    )
+    assert not torch.equal(first, second)
+    assert not torch.equal(
+        first_diagnostics["address_value_gate"],
+        second_diagnostics["address_value_gate"],
+    )
 
 
 def test_multi_anchor_bundle_is_byte_exact_under_independent_slot_permutations() -> None:

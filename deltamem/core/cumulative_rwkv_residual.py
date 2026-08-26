@@ -568,6 +568,87 @@ class SourceBoundAddressKeyedFeedbackFFN(nn.Module):
         }
 
 
+class SourceBoundAddressModulatedFeedbackFFN(SourceBoundAddressKeyedFeedbackFFN):
+    """Address-modulated RWKV value feedback with a direct value-path tag."""
+
+    def forward(
+        self,
+        *,
+        native_reads: torch.Tensor,
+        selected_addresses: torch.Tensor,
+        hidden_query: torch.Tensor,
+    ) -> tuple[torch.Tensor, Mapping[str, torch.Tensor]]:
+        if (
+            native_reads.ndim != 4
+            or native_reads.size(-2) != self.anchor_count
+            or native_reads.size(-1) != self.state_dim
+        ):
+            raise ValueError("address-modulated feedback native read geometry differs")
+        if (
+            selected_addresses.ndim != 4
+            or selected_addresses.size(-2) != self.anchor_count
+            or selected_addresses.size(-1) != self.state_dim
+        ):
+            raise ValueError("address-modulated feedback address geometry differs")
+        if hidden_query.ndim != 3 or hidden_query.size(-1) != self.hidden_dim:
+            raise ValueError("address-modulated feedback hidden query geometry differs")
+        if tuple(native_reads.shape[:2]) != tuple(selected_addresses.shape[:2]) or (
+            tuple(hidden_query.shape[:2]) != tuple(native_reads.shape[:2])
+        ):
+            raise ValueError("address-modulated feedback sequence geometry differs")
+
+        normalized_reads = self.rms_normalize(native_reads)
+        normalized_addresses = self.rms_normalize(selected_addresses)
+        state_bundle = normalized_reads.flatten(start_dim=-2)
+        address_bundle = normalized_addresses.flatten(start_dim=-2)
+        state_value = torch.tanh(self.state_down(state_bundle))
+        address_value = self.address_down(address_bundle)
+        normalized_query = self.rms_normalize(hidden_query)
+        query_value = self.query_gate(normalized_query)
+        hidden_gate = 2.0 * torch.sigmoid(self.hidden_gate(normalized_query))
+        address_value_gate = 1.0 + torch.tanh(address_value)
+        query_value_gate = torch.sigmoid(query_value)
+        decay = torch.sigmoid(self.decay_logit).to(dtype=state_value.dtype)
+        state_active = native_reads.float().square().sum(dim=(-1, -2)).unsqueeze(-1).gt(0.0)
+        address_active = (
+            selected_addresses.float().square().sum(dim=(-1, -2)).unsqueeze(-1).gt(0.0)
+        )
+        active = state_active & address_active
+        feedback_steps: list[torch.Tensor] = []
+        proposal_steps: list[torch.Tensor] = []
+        state = state_value.new_zeros(state_value.size(0), self.bottleneck_dim)
+        for token_index in range(state_value.size(1)):
+            proposal = (
+                state_value[:, token_index]
+                * address_value_gate[:, token_index]
+                * query_value_gate[:, token_index]
+            )
+            next_state = decay * state + (1.0 - decay) * proposal
+            token_active = active[:, token_index]
+            state = torch.where(token_active, next_state, torch.zeros_like(next_state))
+            feedback_steps.append(state)
+            proposal_steps.append(proposal)
+        feedback_state = torch.stack(feedback_steps, dim=1)
+        proposal = torch.stack(proposal_steps, dim=1)
+        direction = self.output_up(F.silu(feedback_state) * hidden_gate)
+        direction = torch.tanh(direction.float())
+        direction = torch.where(active, direction, torch.zeros_like(direction))
+        return direction, {
+            "normalized_anchor_reads": normalized_reads,
+            "normalized_selected_addresses": normalized_addresses,
+            "state_value": state_value,
+            "address_value": address_value,
+            "query_value": query_value,
+            "address_value_gate": address_value_gate,
+            "query_value_gate": query_value_gate,
+            "hidden_gate": hidden_gate,
+            "feedback_decay": decay,
+            "feedback_proposal": proposal,
+            "feedback_state": feedback_state,
+            "combined_hidden_read": direction,
+        }
+
+
 class SourceCumulativeResidualRouter(nn.Module):
     """Source-canonical cumulative routing into a bounded terminal RWKV residual."""
 
@@ -585,6 +666,7 @@ class SourceCumulativeResidualRouter(nn.Module):
         | SourceBoundMultiAnchorBundleFFN
         | SourceBoundLowRankQueryMultiAnchorFFN
         | SourceBoundAddressKeyedFeedbackFFN
+        | SourceBoundAddressModulatedFeedbackFFN
         | None = None,
     ) -> None:
         super().__init__()
@@ -1006,7 +1088,11 @@ class SourceCumulativeResidualRouter(nn.Module):
             }
         elif isinstance(
             self.outer_ffn,
-            (SourceBoundMultiAnchorBundleFFN, SourceBoundAddressKeyedFeedbackFFN),
+            (
+                SourceBoundMultiAnchorBundleFFN,
+                SourceBoundAddressKeyedFeedbackFFN,
+                SourceBoundAddressModulatedFeedbackFFN,
+            ),
         ):
             if (
                 set(self._slot_reads) != set(self.anchor_layers)
@@ -1032,7 +1118,13 @@ class SourceCumulativeResidualRouter(nn.Module):
             raw_read = anchor_raw_reads[:, :, -1]
             native_read = anchor_native_reads[:, :, -1]
             hidden_read = hidden_states.new_zeros(hidden_states.shape).float()
-            if isinstance(self.outer_ffn, SourceBoundAddressKeyedFeedbackFFN):
+            if isinstance(
+                self.outer_ffn,
+                (
+                    SourceBoundAddressKeyedFeedbackFFN,
+                    SourceBoundAddressModulatedFeedbackFFN,
+                ),
+            ):
                 selected_addresses = []
                 for anchor in self.anchor_layers:
                     mapped_addresses = self._mapped_addresses[anchor]
@@ -1222,6 +1314,7 @@ class SourceCumulativeResidualRouter(nn.Module):
                     SourceBoundMultiAnchorBundleFFN,
                     SourceBoundLowRankQueryMultiAnchorFFN,
                     SourceBoundAddressKeyedFeedbackFFN,
+                    SourceBoundAddressModulatedFeedbackFFN,
                 ),
             ):
                 core = getattr(module, "hrm_rwkv7_core", None)
@@ -1231,7 +1324,11 @@ class SourceCumulativeResidualRouter(nn.Module):
                     )
                 if isinstance(
                     self.outer_ffn,
-                    (SourceBoundMultiAnchorBundleFFN, SourceBoundAddressKeyedFeedbackFFN),
+                    (
+                        SourceBoundMultiAnchorBundleFFN,
+                        SourceBoundAddressKeyedFeedbackFFN,
+                        SourceBoundAddressModulatedFeedbackFFN,
+                    ),
                 ):
                     self._slot_reads[layer] = torch.einsum(
                         "bhsij,bthj->bthsi", state.float(), receptance.float()
