@@ -70,6 +70,29 @@ metrics, validation split discipline, or accepted system-level result. The
 CPU RWKV-7 studies, recurrent tau2 experiments, and recurrent GGUF runtime
 documented later are separate paths and are not reinterpreted by this note.
 
+### Gemma4 PLE versus DeepEmbed
+
+Gemma4 already has a native **Per-Layer Embeddings (PLE)** path. It builds one
+small vector per decoder layer from a packed token-identity embedding and a
+context projection, combines those vectors, and injects layer `i`'s vector as a
+residual after the native feed-forward block. This path is present in the frozen
+base model and is not the same operation as the experimental DeepEmbed hook.
+
+The current DeepEmbed branch is therefore only **PLE-inspired**: at sparse
+anchors `(10, 21, 31, 41)`, an RWKV control produces a bounded multiplicative
+scale on Gemma's intermediate MLP channels before `down_proj`. It does not use
+Gemma's `embed_tokens_per_layer`, `per_layer_model_projection`, or native
+per-layer residual injection, so it must not be described as implementing
+Gemma PLE.
+
+The clean next architecture is an isolated RWKV-augmented PLE branch. Keep the
+native PLE signal unchanged, project each addressed RWKV read into Gemma's
+per-layer PLE width, and add that memory term with a zero-initialized gate at the
+existing PLE residual site. Train only this memory-to-PLE adapter first, with
+projected carriers held fixed and the same zero/donor/layer-permutation causal
+controls. DeepEmbed remains a separate MLP-channel ablation rather than a PLE
+implementation.
+
 Reproducibility evidence:
 
 - [Locked publisher-validation protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_publisher_validation_protocol_v1.json)

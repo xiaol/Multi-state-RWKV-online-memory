@@ -4,6 +4,12 @@ import copy
 
 import pytest
 import torch
+from transformers.models.gemma4.configuration_gemma4 import Gemma4TextConfig
+from transformers.models.gemma4.modeling_gemma4 import (
+    Gemma4TextAttention,
+    Gemma4TextDecoderLayer,
+    Gemma4TextModel,
+)
 
 from deltamem.core.delta import (
     DeltaMemAttention,
@@ -20,6 +26,8 @@ def _module(
     hybrid_gain: float = 0.125,
     outer_ffn_gain: float = 0.03125,
     outer_ffn_layers: tuple[int, ...] = (),
+    value_adapter: bool = False,
+    write_address_gain: float = 0.0,
 ) -> DeltaMemAttention:
     torch.manual_seed(0)
     return DeltaMemAttention(
@@ -41,8 +49,51 @@ def _module(
             rwkv_ms_hybrid_gain=hybrid_gain,
             rwkv_ms_outer_ffn_gain=outer_ffn_gain,
             rwkv_ms_outer_ffn_layers=outer_ffn_layers,
+            rwkv_ms_write_address_gain=write_address_gain,
+            rwkv_ms_write_address_value_adapter=value_adapter,
+            rwkv_ms_write_address_value_adapter_rank=2,
         ),
     )
+
+
+def _ple_module() -> tuple[DeltaMemAttention, Gemma4TextDecoderLayer]:
+    torch.manual_seed(11)
+    backbone_config = Gemma4TextConfig(
+        hidden_size=16,
+        intermediate_size=32,
+        num_hidden_layers=1,
+        num_attention_heads=4,
+        num_key_value_heads=4,
+        head_dim=4,
+        hidden_size_per_layer_input=4,
+        vocab_size=64,
+        vocab_size_per_layer_input=64,
+        layer_types=["full_attention"],
+    )
+    attention = Gemma4TextAttention(backbone_config, layer_idx=0)
+    module = DeltaMemAttention(
+        attention,
+        HFDeltaMemConfig(
+            rank=2,
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            memory_readout_mode="projected_kv_rwkv_hybrid",
+            projected_kv_key_dim=2,
+            projected_kv_temperature=4.0,
+            projected_kv_update_cosine_threshold=1.0,
+            memory_write_granularity="token",
+            output_init="base_slice_fixed",
+            base_slice_ref_width=2,
+            rwkv_ms_output_init_scale=0.02,
+            rwkv_ms_hybrid_mode="address_keyed_moe_ple",
+            rwkv_ms_hybrid_gain=0.125,
+            rwkv_ms_ple_rank=2,
+            rwkv_ms_ple_gain=0.125,
+            delta_heads="none",
+        ),
+    )
+    return module, Gemma4TextDecoderLayer(backbone_config, layer_idx=0)
 
 
 class _TinyDeepEmbedMLP(torch.nn.Module):
@@ -530,6 +581,101 @@ def test_deepembed_ffn_mode_keeps_bf16_gradients_finite() -> None:
         assert parameter.grad.dtype == torch.float32
         assert torch.isfinite(parameter.grad).all()
     module.remove_deepembed_ffn_hooks()
+
+
+def test_rwkv_ple_projection_is_exactly_zero_at_identity_initialization() -> None:
+    module, _ = _ple_module()
+    control = torch.randn(2, 3, module.state_read_dim)
+
+    delta = module._rwkv_ple_memory_delta(control)
+    zero_delta = module._rwkv_ple_memory_delta(torch.zeros_like(control))
+
+    assert delta.shape == (2, 3, module.rwkv_ple_dim)
+    assert torch.equal(delta, torch.zeros_like(delta))
+    assert torch.equal(zero_delta, torch.zeros_like(zero_delta))
+
+
+def test_rwkv_ple_projection_has_live_low_rank_gradients() -> None:
+    module, _ = _ple_module()
+    control = torch.randn(2, 3, module.state_read_dim)
+
+    delta = module._rwkv_ple_memory_delta(control)
+    delta.sum().backward()
+
+    for parameter in (module.rwkv_ple_down_weight, module.rwkv_ple_up_weight):
+        assert parameter.grad is not None
+        assert torch.isfinite(parameter.grad).all()
+        assert parameter.grad.abs().gt(0).any()
+
+
+def test_rwkv_ple_hook_injects_before_native_per_layer_projection() -> None:
+    module, layer = _ple_module()
+    module.bind_ple_input(layer.per_layer_projection)
+    native = torch.randn(2, 3, module.rwkv_ple_dim)
+    control = torch.randn(2, 3, module.state_read_dim)
+    with torch.no_grad():
+        module.rwkv_ple_up_weight.add_(0.05)
+    delta = module._rwkv_ple_memory_delta(control)
+    module.remove_ple_input_hook()
+    expected = layer.per_layer_projection(native + delta)
+
+    module.bind_ple_input(layer.per_layer_projection)
+    module._pending_ple_memory = control
+    actual = layer.per_layer_projection(native)
+
+    torch.testing.assert_close(actual, expected)
+    assert module._pending_ple_memory is None
+    module.remove_ple_input_hook()
+
+
+def test_rwkv_ple_attach_preserves_frozen_gemma_output_at_initialization() -> None:
+    torch.manual_seed(12)
+    backbone_config = Gemma4TextConfig(
+        hidden_size=16,
+        intermediate_size=32,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=4,
+        head_dim=4,
+        hidden_size_per_layer_input=4,
+        vocab_size=64,
+        vocab_size_per_layer_input=64,
+        layer_types=["full_attention", "full_attention"],
+    )
+    baseline = Gemma4TextModel(backbone_config)
+    candidate = Gemma4TextModel(backbone_config)
+    candidate.load_state_dict(baseline.state_dict())
+    from deltamem.core.delta import attach_delta_mem
+
+    attach_delta_mem(
+        candidate,
+        HFDeltaMemConfig(
+            rank=2,
+            memory_backend="rwkv_ms",
+            rwkv_ms_num_states=2,
+            rwkv_ms_chunk_size=2,
+            memory_readout_mode="projected_kv_rwkv_hybrid",
+            projected_kv_key_dim=2,
+            projected_kv_temperature=4.0,
+            projected_kv_update_cosine_threshold=1.0,
+            memory_write_granularity="token",
+            output_init="base_slice_fixed",
+            base_slice_ref_width=2,
+            rwkv_ms_output_init_scale=0.02,
+            rwkv_ms_hybrid_mode="address_keyed_moe_ple",
+            rwkv_ms_hybrid_gain=0.125,
+            rwkv_ms_ple_rank=2,
+            rwkv_ms_ple_gain=0.125,
+            delta_heads="none",
+            target_modules=("self_attn",),
+            target_layers=(0, 1),
+        ),
+    )
+    input_ids = torch.tensor([[2, 7, 11]])
+    expected = baseline(input_ids=input_ids).last_hidden_state
+    actual = candidate(input_ids=input_ids).last_hidden_state
+
+    assert torch.equal(actual, expected)
 
 
 def test_addressed_route_agreement_step_abstains_at_chance_overlap(
@@ -1070,3 +1216,101 @@ def test_hybrid_configuration_rejects_unsafe_values() -> None:
             memory_readout_mode="projected_kv_rwkv_hybrid",
             memory_write_granularity="message_mean",
         )
+    with pytest.raises(ValueError, match="address_keyed_moe_ple requires recurrent"):
+        HFDeltaMemConfig(
+            rank=2,
+            memory_backend="rwkv_ms",
+            memory_readout_mode="projected_kv_rwkv_hybrid",
+            projected_kv_key_dim=2,
+            rwkv_ms_hybrid_mode="address_keyed_moe_ple",
+            rwkv_ms_write_mode="last_token_overwrite",
+        )
+
+
+def test_address_value_adapter_is_zero_effect_at_initialization() -> None:
+    torch.manual_seed(19)
+    legacy = _module(
+        hybrid_mode="address_keyed_moe_deepembed_ffn",
+        write_address_gain=0.25,
+    )
+    adapted = _module(
+        hybrid_mode="address_keyed_moe_deepembed_ffn",
+        value_adapter=True,
+        write_address_gain=0.25,
+    )
+    features = tuple(torch.randn(1, 3, adapted.state_read_dim) for _ in range(4))
+    address = torch.randn(1, 3, adapted.state_read_dim)
+    mask = torch.ones(1, 3, dtype=torch.bool)
+    legacy_result = legacy._rwkv_ms_address_conditioned_write_features(
+        *features, address, mask
+    )
+    adapted_result = adapted._rwkv_ms_address_conditioned_write_features(
+        *features, address, mask
+    )
+    for expected, actual in zip(legacy_result, adapted_result):
+        assert torch.equal(expected, actual)
+
+
+def test_address_value_adapter_only_changes_value_direction() -> None:
+    module = _module(
+        hybrid_mode="address_keyed_moe_deepembed_ffn",
+        value_adapter=True,
+        write_address_gain=0.25,
+    )
+    with torch.no_grad():
+        module.rwkv_ms_write_address_value_up.fill_(0.25)
+    features = tuple(torch.randn(1, 2, module.state_read_dim) for _ in range(4))
+    address = torch.randn(1, 2, module.state_read_dim)
+    mask = torch.ones(1, 2, dtype=torch.bool)
+    result = module._rwkv_ms_address_conditioned_write_features(
+        *features, address, mask
+    )
+    legacy = _module(
+        hybrid_mode="address_keyed_moe_deepembed_ffn",
+        write_address_gain=0.25,
+    )
+    legacy_result = legacy._rwkv_ms_address_conditioned_write_features(
+        *features, address, mask
+    )
+    assert torch.equal(result[0], legacy_result[0])
+    assert not torch.equal(result[1], legacy_result[1])
+    assert torch.equal(result[2], legacy_result[2])
+    assert torch.equal(result[3], legacy_result[3])
+
+
+def test_address_value_adapter_zero_address_preserves_all_features() -> None:
+    module = _module(
+        hybrid_mode="address_keyed_moe_deepembed_ffn",
+        value_adapter=True,
+        write_address_gain=0.25,
+    )
+    features = tuple(torch.randn(1, 2, module.state_read_dim) for _ in range(4))
+    address = torch.zeros(1, 2, module.state_read_dim)
+    mask = torch.ones(1, 2, dtype=torch.bool)
+    result = module._rwkv_ms_address_conditioned_write_features(
+        *features, address, mask
+    )
+    for expected, actual in zip(features, result):
+        assert torch.equal(expected, actual)
+
+
+def test_address_value_adapter_has_finite_value_gradients() -> None:
+    module = _module(
+        hybrid_mode="address_keyed_moe_deepembed_ffn",
+        value_adapter=True,
+        write_address_gain=0.25,
+    )
+    features = tuple(torch.randn(1, 2, module.state_read_dim) for _ in range(4))
+    address = torch.randn(1, 2, module.state_read_dim)
+    mask = torch.ones(1, 2, dtype=torch.bool)
+    result = module._rwkv_ms_address_conditioned_write_features(
+        *features, address, mask
+    )
+    result[1].sum().backward()
+    for name in (
+        "rwkv_ms_write_address_value_down",
+        "rwkv_ms_write_address_value_up",
+    ):
+        gradient = getattr(module, name).grad
+        assert gradient is not None
+        assert torch.isfinite(gradient).all()

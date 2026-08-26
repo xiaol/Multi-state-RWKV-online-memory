@@ -50,9 +50,8 @@ class StateIdentityBinder(nn.Module):
             self.query_map.weight.copy_(torch.eye(self.state_dim))
             self.state_map.weight.copy_(torch.eye(self.state_dim))
             self.pair_down.weight.zero_()
-            self.pair_down.weight[:, : self.hidden_dim].copy_(
-                torch.eye(self.hidden_dim)
-            )
+            width = min(self.hidden_dim, 2 * self.state_dim)
+            self.pair_down.weight[:width, :width].copy_(torch.eye(width))
             self.pair_up.weight.fill_(0.01)
 
     def score(self, projected_value: torch.Tensor, recurrent_read: torch.Tensor) -> torch.Tensor:
@@ -71,6 +70,17 @@ class StateIdentityBinder(nn.Module):
         return torch.sigmoid(
             self.temperature * (score - self.threshold) + self.bias
         )
+
+    def gate_deepembed_scale(
+        self,
+        native_scale: torch.Tensor,
+        score: torch.Tensor,
+    ) -> torch.Tensor:
+        """Bind a native DeepEmbed channel scale to the identity score."""
+        if native_scale.ndim < 1 or score.shape != native_scale.shape[:-1]:
+            raise ValueError("DeepEmbed scale and identity score shapes differ")
+        gate = self.gate(score).unsqueeze(-1)
+        return 1.0 + gate.to(dtype=native_scale.dtype) * (native_scale - 1.0)
 
     def correction(
         self,
@@ -91,7 +101,14 @@ def _module_key(module_name: str) -> str:
     return module_name.replace(".", "__")
 
 
-def install(model: torch.nn.Module, *, device: torch.device | None = None) -> dict[str, Any]:
+def install(
+    model: torch.nn.Module,
+    *,
+    device: torch.device | None = None,
+    mode: str = "residual_correction",
+) -> dict[str, Any]:
+    if mode not in {"residual_correction", "deepembed_gate", "ple_gate"}:
+        raise ValueError(f"unsupported identity binder mode: {mode}")
     modules = tuple(iter_delta_mem_modules(model))
     if not modules:
         raise ValueError("identity-bound DeepEmbed requires Delta-Mem modules")
@@ -108,6 +125,7 @@ def install(model: torch.nn.Module, *, device: torch.device | None = None) -> di
         module.rwkv_identity_last_score = None
         module.rwkv_identity_last_gate = None
         module.rwkv_identity_last_correction = None
+        module.rwkv_identity_binder_mode = mode
         names.append(module_name)
     model.rwkv_identity_binder_bank = binders
     for module_name, module in modules:
@@ -143,21 +161,71 @@ def install(model: torch.nn.Module, *, device: torch.device | None = None) -> di
                 current_module.rwkv_identity_last_gate = None
                 current_module.rwkv_identity_last_correction = None
                 return fused
-            correction, score, gate = current_module.rwkv_identity_binder.correction(
+            binder = current_module.rwkv_identity_binder
+            score = binder.score(query_value, recurrent_reads)
+            gate = binder.gate(score).unsqueeze(-1)
+            current_module.rwkv_identity_last_score = score
+            current_module.rwkv_identity_last_gate = gate
+            if current_module.rwkv_identity_binder_mode in {"deepembed_gate", "ple_gate"}:
+                current_module.rwkv_identity_last_correction = None
+                return fused
+            correction = binder.correction(
                 projected_reads,
                 recurrent_reads,
                 query_value,
-            )
-            current_module.rwkv_identity_last_score = score
-            current_module.rwkv_identity_last_gate = gate
+            )[0]
             current_module.rwkv_identity_last_correction = correction
             return fused + correction
 
         module._fuse_projected_rwkv_reads = MethodType(bound_fuse, module)
+        if mode == "deepembed_gate":
+            original_scale = module._deepembed_ffn_scale
+
+            def bound_scale(
+                current_module: Any,
+                hidden_states: torch.Tensor,
+                recurrent_control: torch.Tensor,
+                up_proj_weight: torch.Tensor,
+                *,
+                _original_scale: Any = original_scale,
+            ) -> torch.Tensor:
+                native_scale = _original_scale(
+                    hidden_states,
+                    recurrent_control,
+                    up_proj_weight,
+                )
+                score = current_module.rwkv_identity_last_score
+                if score is None or tuple(score.shape) != tuple(native_scale.shape[:-1]):
+                    return native_scale
+                return current_module.rwkv_identity_binder.gate_deepembed_scale(
+                    native_scale,
+                    score,
+                )
+
+            module._deepembed_ffn_scale = MethodType(bound_scale, module)
+        elif mode == "ple_gate":
+            original_ple_delta = module._rwkv_ple_memory_delta
+
+            def bound_ple_delta(
+                current_module: Any,
+                recurrent_control: torch.Tensor,
+                *,
+                _original_delta: Any = original_ple_delta,
+            ) -> torch.Tensor:
+                native_delta = _original_delta(recurrent_control)
+                score = current_module.rwkv_identity_last_score
+                if score is None or tuple(score.shape) != tuple(native_delta.shape[:-1]):
+                    return native_delta
+                gate = current_module.rwkv_identity_binder.gate(score).unsqueeze(-1)
+                current_module.rwkv_identity_last_gate = gate
+                return native_delta * gate.to(dtype=native_delta.dtype)
+
+            module._rwkv_ple_memory_delta = MethodType(bound_ple_delta, module)
     return {
         "modules": len(names),
         "module_names": tuple(names),
         "forward_output_changed": True,
+        "mode": mode,
         "zero_state_exact_projected_only": True,
         "identity_target": "detached_projected_slot_value",
         "binder_parameters": sum(parameter.numel() for parameter in binders.parameters()),

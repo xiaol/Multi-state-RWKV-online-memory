@@ -18,6 +18,7 @@ from deltamem.core.delta_impl import (
     VALID_MEMORY_PARTITION_BASIS,
     VALID_MEMORY_PARTITION_ROUTING,
     RWKV_MS_DEEPEMBED_FFN_MODES,
+    RWKV_MS_PLE_MODES,
     VALID_RWKV_MS_HYBRID_MODES,
     VALID_RWKV_MS_WRITE_MODES,
     VALID_STATE_UPDATE_MODES,
@@ -182,6 +183,11 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
                 and config.rwkv_ms_hybrid_mode in RWKV_MS_DEEPEMBED_FFN_MODES
             ):
                 wrapped.bind_deepembed_ffn(outer_ffn_layernorm)
+            elif (
+                outer_ffn_layernorm is not None
+                and config.rwkv_ms_hybrid_mode in RWKV_MS_PLE_MODES
+            ):
+                wrapped.bind_ple_input(outer_ffn_layernorm)
             elif outer_ffn_layernorm is not None:
                 wrapped.bind_post_feedforward_layernorm(outer_ffn_layernorm)
     except Exception:
@@ -189,6 +195,7 @@ def attach_delta_mem(model, config: HFDeltaMemConfig) -> list[str]:
             wrapped.remove_post_attention_layernorm_hook()
             wrapped.remove_post_feedforward_layernorm_hook()
             wrapped.remove_deepembed_ffn_hooks()
+            wrapped.remove_ple_input_hook()
             setattr(parent, attr, original)
         raise
     return [name for name, *_ in candidates]
