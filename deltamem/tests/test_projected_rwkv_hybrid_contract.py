@@ -628,6 +628,27 @@ def test_rwkv_ple_hook_injects_before_native_per_layer_projection() -> None:
     module.remove_ple_input_hook()
 
 
+def test_rwkv_ple_multiplicative_fusion_matches_deepembed_shape() -> None:
+    module, layer = _ple_module()
+    module.rwkv_ms_ple_fusion = "multiplicative"
+    module.bind_ple_input(layer.per_layer_projection)
+    native = torch.randn(2, 3, module.rwkv_ple_dim)
+    control = torch.randn(2, 3, module.state_read_dim)
+    with torch.no_grad():
+        module.rwkv_ple_up_weight.add_(0.05)
+    delta = module._rwkv_ple_memory_delta(control)
+    module.remove_ple_input_hook()
+    expected = layer.per_layer_projection(native * (1.0 + delta))
+
+    module.bind_ple_input(layer.per_layer_projection)
+    module._pending_ple_memory = control
+    actual = layer.per_layer_projection(native)
+
+    torch.testing.assert_close(actual, expected)
+    assert module._pending_ple_memory is None
+    module.remove_ple_input_hook()
+
+
 def test_rwkv_ple_attach_preserves_frozen_gemma_output_at_initialization() -> None:
     torch.manual_seed(12)
     backbone_config = Gemma4TextConfig(

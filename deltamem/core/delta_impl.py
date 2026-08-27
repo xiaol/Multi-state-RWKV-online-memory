@@ -91,6 +91,7 @@ RWKV_MS_DEEPEMBED_FFN_MODES = frozenset(
     {"addressed_moe_deepembed_ffn", "address_keyed_moe_deepembed_ffn"}
 )
 RWKV_MS_PLE_MODES = frozenset({"address_keyed_moe_ple"})
+VALID_RWKV_MS_PLE_FUSIONS = ("additive", "multiplicative")
 RWKV_MS_OUTER_FFN_MODES = RWKV_MS_DEEPEMBED_FFN_MODES | {
     "addressed_moe_outer_ffn"
 }
@@ -269,6 +270,16 @@ def normalize_rwkv_ms_hybrid_mode(mode: str) -> str:
         raise ValueError(
             "Unsupported RWKV-MS hybrid mode: "
             f"{mode}; expected one of {VALID_RWKV_MS_HYBRID_MODES}"
+        )
+    return normalized
+
+
+def normalize_rwkv_ms_ple_fusion(mode: str) -> str:
+    normalized = str(mode).strip().lower().replace("-", "_")
+    if normalized not in VALID_RWKV_MS_PLE_FUSIONS:
+        raise ValueError(
+            "Unsupported RWKV PLE fusion mode: "
+            f"{mode}; expected one of {VALID_RWKV_MS_PLE_FUSIONS}"
         )
     return normalized
 
@@ -457,6 +468,7 @@ class HFDeltaMemConfig:
     rwkv_ms_outer_ffn_layers: tuple[int, ...] = ()
     rwkv_ms_ple_rank: int = 4
     rwkv_ms_ple_gain: float = 0.125
+    rwkv_ms_ple_fusion: str = "additive"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "delta_heads", normalize_delta_heads(self.delta_heads))
@@ -528,6 +540,7 @@ class HFDeltaMemConfig:
             raise ValueError(
                 "rwkv_ms_ple_gain must be finite and satisfy 0 <= gain <= 1"
             )
+        ple_fusion = normalize_rwkv_ms_ple_fusion(self.rwkv_ms_ple_fusion)
         object.__setattr__(
             self,
             "rwkv_ms_hybrid_mode",
@@ -540,6 +553,7 @@ class HFDeltaMemConfig:
         object.__setattr__(self, "rwkv_ms_outer_ffn_gain", outer_ffn_gain)
         object.__setattr__(self, "rwkv_ms_ple_rank", ple_rank)
         object.__setattr__(self, "rwkv_ms_ple_gain", ple_gain)
+        object.__setattr__(self, "rwkv_ms_ple_fusion", ple_fusion)
         if (
             write_address_gain != 0.0
             and self.rwkv_ms_hybrid_mode
@@ -1078,6 +1092,7 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_outer_ffn_layers = config.rwkv_ms_outer_ffn_layers
         self.rwkv_ms_ple_rank = config.rwkv_ms_ple_rank
         self.rwkv_ms_ple_gain = config.rwkv_ms_ple_gain
+        self.rwkv_ms_ple_fusion = config.rwkv_ms_ple_fusion
         self.rwkv_ms_ple_enabled = self.rwkv_ms_hybrid_mode in RWKV_MS_PLE_MODES
         self.rwkv_ms_outer_ffn_enabled = (
             self.rwkv_ms_hybrid_mode in RWKV_MS_OUTER_FFN_MODES
@@ -6269,7 +6284,12 @@ class DeltaMemAttention(nn.Module):
                 "RWKV PLE projection width differs from Gemma's per-layer width: "
                 f"delta={delta.shape[-1]} native={native_ple.shape[-1]}"
             )
-        return (native_ple + delta.to(device=native_ple.device, dtype=native_ple.dtype), *inputs[1:])
+        delta = delta.to(device=native_ple.device, dtype=native_ple.dtype)
+        if self.rwkv_ms_ple_fusion == "multiplicative":
+            updated_ple = native_ple * (1.0 + delta)
+        else:
+            updated_ple = native_ple + delta
+        return (updated_ple, *inputs[1:])
 
     def bind_ple_input(self, per_layer_projection: nn.Module) -> None:
         if self.rwkv_ms_hybrid_mode not in RWKV_MS_PLE_MODES:
