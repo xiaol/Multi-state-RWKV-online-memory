@@ -1,0 +1,100 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_ple_causal_train.v1",
+  "created_at": "2026-08-31T10:00:00+08:00",
+  "objective": "Train a DeepEmbed-shaped identity-bound RWKV controller through Gemma's native PLE projection path, retaining recurrent address-keyed reads while keeping the native projected carrier fixed.",
+  "authorization_basis": {
+    "warm_start_result_file": "local_artifacts/natural_memory_native_rwkv_address_keyed_moe_deepembed_ffn_causal_train_v5_r1/result.json",
+    "warm_start_result_file_sha256": "95376ed78da98cf36183146ce56a3623988e94645723c9b34aee0510e0457545",
+    "warm_start_result_receipt": "7afee3fd1d88c7db91c86dd3f7febfd80656a35d54971fd824623a29883dba8e",
+    "warm_start_status": "address_keyed_moe_deepembed_ffn_serialized_graphs_heldout_passed_generation_authorized",
+    "method_change": "Reuse the authorized address-keyed RWKV controller and common adapter tensors, replace DeepEmbed MLP-channel modulation with a zero-effect low-rank RWKV delta at Gemma's native per-layer projection input, and gate only that PLE delta by the learned projected-value/RWKV identity score."
+  },
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "native_dataset_file": "v4-scene-boundary-detection/train_derived_fit.jsonl",
+    "seed": 20260831,
+    "heldout_endpoint_reused_from_open_identity_protocol": true,
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "address_keyed_moe_ple",
+    "deepembed_analogy": "same recurrent control, address-keyed reads, low-rank bounded modulation, and identity gate; different native insertion point",
+    "native_target": "per_layer_projection_input",
+    "identity_binding": "ple_delta_gate_with_projected_value_rwkv_pair_score",
+    "identity_score": "cosine(projected_slot_value,addressed_rwkv_read) plus learned pair residual",
+    "identity_gate": "native_ple_delta = sigmoid(identity_score) times bounded low_rank_delta",
+    "identity_negative": "matched donor RWKV state with the target projected carrier fixed",
+    "forward_output_changed": true,
+    "zero_effect_initialization": true,
+    "projected_carrier_fixed": true,
+    "projected_carrier_audit": "exact_tensor_content_equality",
+    "route_and_controller_frozen_during_gate_fit": true,
+    "deepembed_hooks": 0,
+    "ple_hooks": 42,
+    "ple_rank": 4,
+    "ple_gain": 0.125,
+    "ple_parameters": "low_rank_state_to_native_projection_delta",
+    "ple_identity_initialization": "subtract fixed identity-shaped baseline, yielding exact zero delta"
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "optimizer": "fused AdamW with CPU optimizer-state offload",
+    "optimizer_updates": 8,
+    "distributed_timeout_seconds": 1200,
+    "global_batch_rows": 4,
+    "local_rows_per_rank": 1,
+    "identity_margin": 0.2,
+    "identity_weight": 1.0,
+    "joint_trainable_parameter_tensors": 252,
+    "ple_trainable_parameter_tensors": 84,
+    "identity_binder_parameter_tensors": 168,
+    "warm_start_parameters_frozen": true,
+    "control_branch_graph_serialization_enabled": true,
+    "protected_mechanics_authorized": false,
+    "protected_causal_authorized": false,
+    "native_benchmark_authorized": false
+  },
+  "heldout_causal_endpoint": {
+    "selection": "The open source-and-donor-disjoint endpoint retained by the prior identity protocol; no protected or publisher rows are opened.",
+    "source_ordinals": [1002, 1431, 1161, 1128, 1189, 1232, 1437, 1220, 718, 805, 1331, 546, 472, 973, 101, 1154],
+    "source_donor_payload_sha256": "94a7ce9e5c1ee6d649daa3d377e5433956ac891fc1ec13625f7e89b34f06d75b",
+    "rows": 16,
+    "required_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "required_identity_metrics": {
+      "mean_correct_minus_donor_score": 0.0,
+      "minimum_positive_row_fraction": 0.75,
+      "minimum_positive_element_fraction": 0.75
+    },
+    "all_condition_logits_finite": true
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_eight_updates_complete": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "projected_carrier_fixed_for_every_intervention": true,
+    "heldout_identity_endpoint_passed": true,
+    "heldout_zero_minus_correct_mean_ce_positive": true,
+    "heldout_donor_minus_correct_mean_ce_positive": true,
+    "heldout_layer_permuted_minus_correct_mean_ce_positive": true
+  },
+  "stopping_rule": {
+    "training_failure": "Archive the signed failure and do not interpret the heldout endpoint.",
+    "endpoint_pass": "Authorize a separately locked native benchmark against the strongest projected/base model.",
+    "endpoint_failure": "Block native generation and revise the identity binding or PLE value path, not merely its gain.",
+    "always": "Do not open publisher validation/test, Hard32, or unused strength holdout."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "675fc968ff0ec258b2e2352cd2535a9a34f0c2f6deae086dc35f88b2dd55934c"
+  }
+}

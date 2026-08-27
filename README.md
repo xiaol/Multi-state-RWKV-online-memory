@@ -85,14 +85,25 @@ Gemma's `embed_tokens_per_layer`, `per_layer_model_projection`, or native
 per-layer residual injection, so it must not be described as implementing
 Gemma PLE.
 
-The clean next architecture is an isolated RWKV-augmented PLE branch. Keep the
-native PLE signal unchanged, project each addressed RWKV read into Gemma's
-per-layer PLE width, and add that memory term at the existing PLE residual site.
-The low-rank adapter is zero-effect at initialization by subtracting its fixed
-identity baseline; an identity binder can gate that delta separately. Train
-only this memory-to-PLE adapter first, with projected carriers held fixed and
-the same zero/donor/layer-permutation causal controls. DeepEmbed remains a
-separate MLP-channel ablation rather than a PLE implementation.
+The isolated RWKV-augmented PLE branch now implements that proposal. It keeps
+the native PLE signal unchanged, maps each addressed RWKV recurrent read into
+Gemma's per-layer PLE width, and adds the bounded low-rank delta immediately
+before `per_layer_projection`. This is the PLE analogue of DeepEmbed's
+pre-`down_proj` activation intervention: the controller and identity binder
+are shared, but the native insertion point is different. The adapter subtracts
+its fixed identity-shaped baseline, so its effect is exactly zero at
+initialization; projected carriers remain byte-identical in every intervention.
+
+The locked four-A100 PLE run completed all eight updates with 252 trainable
+tensors (84 PLE plus 168 binder), finite nonzero gradients, and all causal
+carrier controls passing. Its 16-row open endpoint passed zero, donor, and
+layer-permuted CE margins, but the identity binder failed: mean correct-minus-
+donor score was `-0.002084`, positive on `43.75%` of rows, and positive on
+`49.99%` of answer elements. The signed status is
+`rwkv_ple_heldout_failed_generation_blocked`; result SHA-256 is
+`7eaaf497569d5d1d8d17cddccd7ebc0e89b6f1c67238e9e06be6d96f2d0b6576` and
+receipt is `a197dc5927be75e9b88a393bb041aed8941e964d7f2a7f0af78a30f2781abb2d`.
+Native benchmark generation remains blocked. See the [PLE causal protocol](experiments/rethinking_rwkv_ms_gemma/natural_memory_native_rwkv_ple_causal_train_protocol_v1.json), [runner](experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_ple_causal_train.py), and [signed result](experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_ple_causal_train_v4/result.json).
 
 Reproducibility evidence:
 

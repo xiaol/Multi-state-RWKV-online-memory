@@ -24,7 +24,11 @@ for import_root in (SCRIPT_DIR, PROJECT_ROOT):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
-from deltamem.core.delta import reset_delta_mem_states, save_delta_mem_adapter  # noqa: E402
+from deltamem.core.delta import (  # noqa: E402
+    iter_delta_mem_modules,
+    reset_delta_mem_states,
+    save_delta_mem_adapter,
+)
 from experiments.rethinking_rwkv_ms_gemma import (  # noqa: E402
     natural_memory_distributed as distributed,
 )
@@ -533,10 +537,13 @@ def run(
     if context.is_primary:
         try:
             adapter_dir = resolved_output / "adapter"
+            attached_modules = tuple(iter_delta_mem_modules(model))
+            if not attached_modules:
+                raise RuntimeError("Cannot save an adapter without attached Delta-Mem modules")
             save_delta_mem_adapter(
                 model,
                 adapter_dir,
-                screen.build_config(SELECTED_CANDIDATE),
+                attached_modules[0][1].delta_config,
             )
             adapter_files = contrast.gate.snapshot_directory_files(adapter_dir)
             result = {
