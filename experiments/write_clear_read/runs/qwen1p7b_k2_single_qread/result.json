@@ -1,0 +1,1812 @@
+{
+  "config": {
+    "model": "/root/x/models/Qwen3-1.7B",
+    "out": "runs/qwen1p7b_k2_single_qread",
+    "dataset": "synthetic",
+    "squad_root": "/root/x/data/squad",
+    "facts": 2,
+    "entities": 2,
+    "eval_facts": "4,8",
+    "layers": "auto",
+    "mem_dim": 128,
+    "n_states": 1,
+    "slots_per_state": 1,
+    "routing": "single",
+    "route_temperature": 0.1,
+    "decay_bias": 4.0,
+    "beta_bias": 0.0,
+    "slot_bias": -6.0,
+    "chunk_size": 0,
+    "read_mode": "query",
+    "memory": "delta",
+    "steps": 3000,
+    "batch_size": 16,
+    "lr": 0.001,
+    "warmup": 100,
+    "weight_decay": 0.01,
+    "grad_clip": 1.0,
+    "eval_every": 500,
+    "eval_rows": 256,
+    "eval_batch_size": 32,
+    "train_pool": 50000,
+    "max_passage_tokens": 512,
+    "max_new_tokens": 12,
+    "seed": 1,
+    "dtype": "bfloat16",
+    "equivalence_check": false,
+    "skip_initial_eval": false,
+    "save_adapter": true,
+    "layer_ids": [
+      4,
+      8,
+      12,
+      15,
+      19,
+      23
+    ],
+    "adapter_params": 55456896,
+    "model_type": "qwen3"
+  },
+  "final": {
+    "synthetic_k2": {
+      "memory_correct": {
+        "ce": 0.22222086815617104,
+        "em": 0.79296875,
+        "f1": 0.79296875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.706031703113695,
+        "em": 0.0390625,
+        "f1": 0.041015625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.0897538337449078,
+        "em": 0.0390625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.000422931597441778,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      }
+    },
+    "synthetic_k4": {
+      "memory_correct": {
+        "ce": 0.3895764123431036,
+        "em": 0.71484375,
+        "f1": 0.71484375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.985082404804416,
+        "em": 0.04296875,
+        "f1": 0.04296875,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.3090436941238295,
+        "em": 0.07421875,
+        "f1": 0.07421875,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0005860368372809788,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      }
+    },
+    "synthetic_k8": {
+      "memory_correct": {
+        "ce": 0.8951879570980736,
+        "em": 0.41796875,
+        "f1": 0.41796875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.66528957348055,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.1935704994539265,
+        "em": 0.07421875,
+        "f1": 0.07421875,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0014003334854320038,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      }
+    }
+  },
+  "history": [
+    {
+      "memory_correct": {
+        "ce": 4.714751200925093,
+        "em": 0.0390625,
+        "f1": 0.041015625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.706031703113695,
+        "em": 0.0390625,
+        "f1": 0.041015625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 4.724703282539849,
+        "em": 0.02734375,
+        "f1": 0.02734375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.000422931597441778,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.08306616870686412,
+        "8": 0.09670356195420027,
+        "12": 0.09963282570242882,
+        "15": 0.09760321397334337,
+        "19": 0.08058207063004375,
+        "23": 0.07733496697619557
+      },
+      "samples": [
+        {
+          "question": "What is Aiko Bira's favorite drink?",
+          "gold": "cider",
+          "pred": "1"
+        },
+        {
+          "question": "What is Ivo Kini's car?",
+          "gold": "Peugeot",
+          "pred": "1999 Ford Mustang"
+        },
+        {
+          "question": "What is Hamza Nimu's favorite fruit?",
+          "gold": "kiwi",
+          "pred": "apple"
+        },
+        {
+          "question": "What is Gwen Kiralu's instrument?",
+          "gold": "trumpet",
+          "pred": "violin"
+        },
+        {
+          "question": "What is Cosima Nerobo's favorite fruit?",
+          "gold": "fig",
+          "pred": "Apple"
+        },
+        {
+          "question": "What is Dani Vobo's birth month?",
+          "gold": "June",
+          "pred": "June"
+        },
+        {
+          "question": "What is Yara Sidasi's favorite fruit?",
+          "gold": "cherry",
+          "pred": "Apple"
+        },
+        {
+          "question": "What is Yara Kalovi's hometown?",
+          "gold": "Kyoto",
+          "pred": "Budapest"
+        }
+      ],
+      "event": "eval",
+      "step": 0,
+      "set": "synthetic_k2",
+      "time": 1788463082.759549
+    },
+    {
+      "memory_correct": {
+        "ce": 5.0152748508844525,
+        "em": 0.04296875,
+        "f1": 0.04296875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.985082404804416,
+        "em": 0.04296875,
+        "f1": 0.04296875,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 5.006636675447226,
+        "em": 0.046875,
+        "f1": 0.046875,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0005860368372809788,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.07871287362650037,
+        "8": 0.09238978289067745,
+        "12": 0.09533167351037264,
+        "15": 0.09329335112124681,
+        "19": 0.07622063811868429,
+        "23": 0.07296317955479026
+      },
+      "samples": [
+        {
+          "question": "What is Esme Doru's instrument?",
+          "gold": "drums",
+          "pred": "violin"
+        },
+        {
+          "question": "What is Tomas Rimabo's birth month?",
+          "gold": "March",
+          "pred": "September"
+        },
+        {
+          "question": "What is Aiko Lali's pet?",
+          "gold": "canary",
+          "pred": "1"
+        },
+        {
+          "question": "What is Cosima Dikulu's car?",
+          "gold": "Subaru",
+          "pred": "2018 Toyota Corolla"
+        },
+        {
+          "question": "What is Chiara Surelo's sport?",
+          "gold": "golf",
+          "pred": "Gymnast"
+        },
+        {
+          "question": "What is Ivo Rutedo's lucky number?",
+          "gold": "49",
+          "pred": "12"
+        },
+        {
+          "question": "What is Eyal Tete's door code?",
+          "gold": "1555",
+          "pred": "1234"
+        },
+        {
+          "question": "What is Aiko Viti's sport?",
+          "gold": "judo",
+          "pred": "Golf"
+        }
+      ],
+      "event": "eval",
+      "step": 0,
+      "set": "synthetic_k4",
+      "time": 1788463117.7409146
+    },
+    {
+      "memory_correct": {
+        "ce": 4.686018518652418,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.66528957348055,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 4.671114658667648,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0014003334854320038,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.08888455759733915,
+        "8": 0.10238056536763906,
+        "12": 0.10528154578059912,
+        "15": 0.1032686298713088,
+        "19": 0.08642452768981457,
+        "23": 0.0832097977399826
+      },
+      "samples": [
+        {
+          "question": "What is Viktor Resu's pet?",
+          "gold": "ferret",
+          "pred": "1"
+        },
+        {
+          "question": "What is Olive Turoko's birth month?",
+          "gold": "April",
+          "pred": "September"
+        },
+        {
+          "question": "What is Gwen Todile's instrument?",
+          "gold": "harp",
+          "pred": "violin"
+        },
+        {
+          "question": "What is Benedikt Siluro's favorite color?",
+          "gold": "teal",
+          "pred": "1"
+        },
+        {
+          "question": "What is Sana Manu's car?",
+          "gold": "Honda",
+          "pred": "2018 Toyota Corolla"
+        },
+        {
+          "question": "What is Noor Laki's hometown?",
+          "gold": "Lisbon",
+          "pred": "Mumbai"
+        },
+        {
+          "question": "What is Gwen Marede's favorite drink?",
+          "gold": "lemonade",
+          "pred": "1"
+        },
+        {
+          "question": "What is Cosima Kavete's car?",
+          "gold": "Mazda",
+          "pred": "1999 Ford Mustang"
+        }
+      ],
+      "event": "eval",
+      "step": 0,
+      "set": "synthetic_k8",
+      "time": 1788463154.0366004
+    },
+    {
+      "memory_correct": {
+        "ce": 0.7974845544740674,
+        "em": 0.4375,
+        "f1": 0.4375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.706031703113695,
+        "em": 0.0390625,
+        "f1": 0.041015625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.4003476264188066,
+        "em": 0.0703125,
+        "f1": 0.0703125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.000422931597441778,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10046627465635538,
+        "8": 0.1048223739489913,
+        "12": 0.13725276943296194,
+        "15": 0.2542909123003483,
+        "19": 0.0887838932685554,
+        "23": 0.09210297092795372
+      },
+      "samples": [
+        {
+          "question": "What is Aiko Bira's favorite drink?",
+          "gold": "cider",
+          "pred": "cider"
+        },
+        {
+          "question": "What is Ivo Kini's car?",
+          "gold": "Peugeot",
+          "pred": "Peugeot"
+        },
+        {
+          "question": "What is Hamza Nimu's favorite fruit?",
+          "gold": "kiwi",
+          "pred": "kiwi"
+        },
+        {
+          "question": "What is Gwen Kiralu's instrument?",
+          "gold": "trumpet",
+          "pred": "flute"
+        },
+        {
+          "question": "What is Cosima Nerobo's favorite fruit?",
+          "gold": "fig",
+          "pred": "peach"
+        },
+        {
+          "question": "What is Dani Vobo's birth month?",
+          "gold": "June",
+          "pred": "April"
+        },
+        {
+          "question": "What is Yara Sidasi's favorite fruit?",
+          "gold": "cherry",
+          "pred": "peach"
+        },
+        {
+          "question": "What is Yara Kalovi's hometown?",
+          "gold": "Kyoto",
+          "pred": "Lisbon"
+        }
+      ],
+      "event": "eval",
+      "step": 500,
+      "set": "synthetic_k2",
+      "time": 1788463516.837128
+    },
+    {
+      "memory_correct": {
+        "ce": 1.021330472547561,
+        "em": 0.30078125,
+        "f1": 0.30078125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.985082404804416,
+        "em": 0.04296875,
+        "f1": 0.04296875,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.4768006124068052,
+        "em": 0.1015625,
+        "f1": 0.1015625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0005860368372809788,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.0958147207275033,
+        "8": 0.09997539594769478,
+        "12": 0.13272856175899506,
+        "15": 0.24952379241585732,
+        "19": 0.0844509033486247,
+        "23": 0.08788808807730675
+      },
+      "samples": [
+        {
+          "question": "What is Esme Doru's instrument?",
+          "gold": "drums",
+          "pred": "drums"
+        },
+        {
+          "question": "What is Tomas Rimabo's birth month?",
+          "gold": "March",
+          "pred": "April"
+        },
+        {
+          "question": "What is Aiko Lali's pet?",
+          "gold": "canary",
+          "pred": "canary"
+        },
+        {
+          "question": "What is Cosima Dikulu's car?",
+          "gold": "Subaru",
+          "pred": "Mazda"
+        },
+        {
+          "question": "What is Chiara Surelo's sport?",
+          "gold": "golf",
+          "pred": "chess"
+        },
+        {
+          "question": "What is Ivo Rutedo's lucky number?",
+          "gold": "49",
+          "pred": "13"
+        },
+        {
+          "question": "What is Eyal Tete's door code?",
+          "gold": "1555",
+          "pred": "4313"
+        },
+        {
+          "question": "What is Aiko Viti's sport?",
+          "gold": "judo",
+          "pred": "judo"
+        }
+      ],
+      "event": "eval",
+      "step": 500,
+      "set": "synthetic_k4",
+      "time": 1788463550.0197692
+    },
+    {
+      "memory_correct": {
+        "ce": 1.1277072952216258,
+        "em": 0.24609375,
+        "f1": 0.24609375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.66528957348055,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.4108013723162003,
+        "em": 0.09375,
+        "f1": 0.09375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0014003334854320038,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10592330247163773,
+        "8": 0.10961039829999208,
+        "12": 0.14228294230997562,
+        "15": 0.25825113989412785,
+        "19": 0.09454469103366137,
+        "23": 0.09815135039389133
+      },
+      "samples": [
+        {
+          "question": "What is Viktor Resu's pet?",
+          "gold": "ferret",
+          "pred": "dog"
+        },
+        {
+          "question": "What is Olive Turoko's birth month?",
+          "gold": "April",
+          "pred": "November"
+        },
+        {
+          "question": "What is Gwen Todile's instrument?",
+          "gold": "harp",
+          "pred": "violin"
+        },
+        {
+          "question": "What is Benedikt Siluro's favorite color?",
+          "gold": "teal",
+          "pred": "orange"
+        },
+        {
+          "question": "What is Sana Manu's car?",
+          "gold": "Honda",
+          "pred": "Mazda"
+        },
+        {
+          "question": "What is Noor Laki's hometown?",
+          "gold": "Lisbon",
+          "pred": "Lisbon"
+        },
+        {
+          "question": "What is Gwen Marede's favorite drink?",
+          "gold": "lemonade",
+          "pred": "lemonade"
+        },
+        {
+          "question": "What is Cosima Kavete's car?",
+          "gold": "Mazda",
+          "pred": "Mazda"
+        }
+      ],
+      "event": "eval",
+      "step": 500,
+      "set": "synthetic_k8",
+      "time": 1788463587.7400537
+    },
+    {
+      "memory_correct": {
+        "ce": 0.387326110082995,
+        "em": 0.74609375,
+        "f1": 0.74609375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.706031703113695,
+        "em": 0.0390625,
+        "f1": 0.041015625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.663565168990317,
+        "em": 0.0703125,
+        "f1": 0.0703125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.000422931597441778,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10247721616178751,
+        "8": 0.10403637401759624,
+        "12": 0.1371729737147689,
+        "15": 0.24872256629168987,
+        "19": 0.11310286540538073,
+        "23": 0.10443660896271467
+      },
+      "samples": [
+        {
+          "question": "What is Aiko Bira's favorite drink?",
+          "gold": "cider",
+          "pred": "cider"
+        },
+        {
+          "question": "What is Ivo Kini's car?",
+          "gold": "Peugeot",
+          "pred": "Peugeot"
+        },
+        {
+          "question": "What is Hamza Nimu's favorite fruit?",
+          "gold": "kiwi",
+          "pred": "kiwi"
+        },
+        {
+          "question": "What is Gwen Kiralu's instrument?",
+          "gold": "trumpet",
+          "pred": "trumpet"
+        },
+        {
+          "question": "What is Cosima Nerobo's favorite fruit?",
+          "gold": "fig",
+          "pred": "fig"
+        },
+        {
+          "question": "What is Dani Vobo's birth month?",
+          "gold": "June",
+          "pred": "April"
+        },
+        {
+          "question": "What is Yara Sidasi's favorite fruit?",
+          "gold": "cherry",
+          "pred": "cherry"
+        },
+        {
+          "question": "What is Yara Kalovi's hometown?",
+          "gold": "Kyoto",
+          "pred": "Kyoto"
+        }
+      ],
+      "event": "eval",
+      "step": 1000,
+      "set": "synthetic_k2",
+      "time": 1788463972.2634869
+    },
+    {
+      "memory_correct": {
+        "ce": 0.6110209243206555,
+        "em": 0.59375,
+        "f1": 0.59375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.985082404804416,
+        "em": 0.04296875,
+        "f1": 0.04296875,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.854709967476083,
+        "em": 0.0625,
+        "f1": 0.0625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0005860368372809788,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09886749647557735,
+        "8": 0.09963598381727934,
+        "12": 0.13267597649246454,
+        "15": 0.24483845196664333,
+        "19": 0.10818125028163195,
+        "23": 0.10042233765125275
+      },
+      "samples": [
+        {
+          "question": "What is Esme Doru's instrument?",
+          "gold": "drums",
+          "pred": "drums"
+        },
+        {
+          "question": "What is Tomas Rimabo's birth month?",
+          "gold": "March",
+          "pred": "July"
+        },
+        {
+          "question": "What is Aiko Lali's pet?",
+          "gold": "canary",
+          "pred": "canary"
+        },
+        {
+          "question": "What is Cosima Dikulu's car?",
+          "gold": "Subaru",
+          "pred": "Subaru"
+        },
+        {
+          "question": "What is Chiara Surelo's sport?",
+          "gold": "golf",
+          "pred": "golf"
+        },
+        {
+          "question": "What is Ivo Rutedo's lucky number?",
+          "gold": "49",
+          "pred": "42"
+        },
+        {
+          "question": "What is Eyal Tete's door code?",
+          "gold": "1555",
+          "pred": "1234"
+        },
+        {
+          "question": "What is Aiko Viti's sport?",
+          "gold": "judo",
+          "pred": "judo"
+        }
+      ],
+      "event": "eval",
+      "step": 1000,
+      "set": "synthetic_k4",
+      "time": 1788464004.9487686
+    },
+    {
+      "memory_correct": {
+        "ce": 0.9967128334374138,
+        "em": 0.33203125,
+        "f1": 0.33203125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.66528957348055,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.8112123961909674,
+        "em": 0.05859375,
+        "f1": 0.05859375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0014003334854320038,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10940507054328918,
+        "8": 0.10975919477641582,
+        "12": 0.14271896332502365,
+        "15": 0.2526807673275471,
+        "19": 0.11828137189149857,
+        "23": 0.1105391439050436
+      },
+      "samples": [
+        {
+          "question": "What is Viktor Resu's pet?",
+          "gold": "ferret",
+          "pred": "turtle"
+        },
+        {
+          "question": "What is Olive Turoko's birth month?",
+          "gold": "April",
+          "pred": "July"
+        },
+        {
+          "question": "What is Gwen Todile's instrument?",
+          "gold": "harp",
+          "pred": "violin"
+        },
+        {
+          "question": "What is Benedikt Siluro's favorite color?",
+          "gold": "teal",
+          "pred": "green"
+        },
+        {
+          "question": "What is Sana Manu's car?",
+          "gold": "Honda",
+          "pred": "Mazda"
+        },
+        {
+          "question": "What is Noor Laki's hometown?",
+          "gold": "Lisbon",
+          "pred": "Dublin"
+        },
+        {
+          "question": "What is Gwen Marede's favorite drink?",
+          "gold": "lemonade",
+          "pred": "lemonade"
+        },
+        {
+          "question": "What is Cosima Kavete's car?",
+          "gold": "Mazda",
+          "pred": "Mazda"
+        }
+      ],
+      "event": "eval",
+      "step": 1000,
+      "set": "synthetic_k8",
+      "time": 1788464042.6930268
+    },
+    {
+      "memory_correct": {
+        "ce": 0.29849729952513826,
+        "em": 0.77734375,
+        "f1": 0.77734375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.706031703113695,
+        "em": 0.0390625,
+        "f1": 0.041015625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.8041432956742938,
+        "em": 0.0625,
+        "f1": 0.0625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.000422931597441778,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.1027764966711402,
+        "8": 0.10135396849364042,
+        "12": 0.13748112879693508,
+        "15": 0.248120391741395,
+        "19": 0.09345923271030188,
+        "23": 0.0945365009829402
+      },
+      "samples": [
+        {
+          "question": "What is Aiko Bira's favorite drink?",
+          "gold": "cider",
+          "pred": "cider"
+        },
+        {
+          "question": "What is Ivo Kini's car?",
+          "gold": "Peugeot",
+          "pred": "Peugeot"
+        },
+        {
+          "question": "What is Hamza Nimu's favorite fruit?",
+          "gold": "kiwi",
+          "pred": "kiwi"
+        },
+        {
+          "question": "What is Gwen Kiralu's instrument?",
+          "gold": "trumpet",
+          "pred": "trumpet"
+        },
+        {
+          "question": "What is Cosima Nerobo's favorite fruit?",
+          "gold": "fig",
+          "pred": "fig"
+        },
+        {
+          "question": "What is Dani Vobo's birth month?",
+          "gold": "June",
+          "pred": "June"
+        },
+        {
+          "question": "What is Yara Sidasi's favorite fruit?",
+          "gold": "cherry",
+          "pred": "cherry"
+        },
+        {
+          "question": "What is Yara Kalovi's hometown?",
+          "gold": "Kyoto",
+          "pred": "Kyoto"
+        }
+      ],
+      "event": "eval",
+      "step": 1500,
+      "set": "synthetic_k2",
+      "time": 1788464409.102823
+    },
+    {
+      "memory_correct": {
+        "ce": 0.5165964724074001,
+        "em": 0.6171875,
+        "f1": 0.6171875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.985082404804416,
+        "em": 0.04296875,
+        "f1": 0.04296875,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.0460549088093103,
+        "em": 0.08984375,
+        "f1": 0.08984375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0005860368372809788,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09888990595936775,
+        "8": 0.09734688140451908,
+        "12": 0.13381871208548546,
+        "15": 0.24246229231357574,
+        "19": 0.08941648807376623,
+        "23": 0.09037918131798506
+      },
+      "samples": [
+        {
+          "question": "What is Esme Doru's instrument?",
+          "gold": "drums",
+          "pred": "drums"
+        },
+        {
+          "question": "What is Tomas Rimabo's birth month?",
+          "gold": "March",
+          "pred": "June"
+        },
+        {
+          "question": "What is Aiko Lali's pet?",
+          "gold": "canary",
+          "pred": "canary"
+        },
+        {
+          "question": "What is Cosima Dikulu's car?",
+          "gold": "Subaru",
+          "pred": "Subaru"
+        },
+        {
+          "question": "What is Chiara Surelo's sport?",
+          "gold": "golf",
+          "pred": "golf"
+        },
+        {
+          "question": "What is Ivo Rutedo's lucky number?",
+          "gold": "49",
+          "pred": "42"
+        },
+        {
+          "question": "What is Eyal Tete's door code?",
+          "gold": "1555",
+          "pred": "1331"
+        },
+        {
+          "question": "What is Aiko Viti's sport?",
+          "gold": "judo",
+          "pred": "soccer"
+        }
+      ],
+      "event": "eval",
+      "step": 1500,
+      "set": "synthetic_k4",
+      "time": 1788464439.9087894
+    },
+    {
+      "memory_correct": {
+        "ce": 1.0096761422410054,
+        "em": 0.3515625,
+        "f1": 0.3515625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.66528957348055,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.9944091420038603,
+        "em": 0.05078125,
+        "f1": 0.05078125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0014003334854320038,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10941092763096094,
+        "8": 0.10777060221880674,
+        "12": 0.14371487498283386,
+        "15": 0.2500363886356354,
+        "19": 0.09838778991252184,
+        "23": 0.09999964758753777
+      },
+      "samples": [
+        {
+          "question": "What is Viktor Resu's pet?",
+          "gold": "ferret",
+          "pred": "ferret"
+        },
+        {
+          "question": "What is Olive Turoko's birth month?",
+          "gold": "April",
+          "pred": "June"
+        },
+        {
+          "question": "What is Gwen Todile's instrument?",
+          "gold": "harp",
+          "pred": "cello"
+        },
+        {
+          "question": "What is Benedikt Siluro's favorite color?",
+          "gold": "teal",
+          "pred": "teal"
+        },
+        {
+          "question": "What is Sana Manu's car?",
+          "gold": "Honda",
+          "pred": "Honda"
+        },
+        {
+          "question": "What is Noor Laki's hometown?",
+          "gold": "Lisbon",
+          "pred": "Tunis"
+        },
+        {
+          "question": "What is Gwen Marede's favorite drink?",
+          "gold": "lemonade",
+          "pred": "lemonade"
+        },
+        {
+          "question": "What is Cosima Kavete's car?",
+          "gold": "Mazda",
+          "pred": "Mazda"
+        }
+      ],
+      "event": "eval",
+      "step": 1500,
+      "set": "synthetic_k8",
+      "time": 1788464474.9287431
+    },
+    {
+      "memory_correct": {
+        "ce": 0.25721442014349805,
+        "em": 0.78125,
+        "f1": 0.78125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.706031703113695,
+        "em": 0.0390625,
+        "f1": 0.041015625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.889593158968637,
+        "em": 0.0625,
+        "f1": 0.0625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.000422931597441778,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10508889332413673,
+        "8": 0.10151230171322823,
+        "12": 0.13728974852710962,
+        "15": 0.25156204029917717,
+        "19": 0.09734749514609575,
+        "23": 0.09430151525884867
+      },
+      "samples": [
+        {
+          "question": "What is Aiko Bira's favorite drink?",
+          "gold": "cider",
+          "pred": "cider"
+        },
+        {
+          "question": "What is Ivo Kini's car?",
+          "gold": "Peugeot",
+          "pred": "Peugeot"
+        },
+        {
+          "question": "What is Hamza Nimu's favorite fruit?",
+          "gold": "kiwi",
+          "pred": "kiwi"
+        },
+        {
+          "question": "What is Gwen Kiralu's instrument?",
+          "gold": "trumpet",
+          "pred": "trumpet"
+        },
+        {
+          "question": "What is Cosima Nerobo's favorite fruit?",
+          "gold": "fig",
+          "pred": "fig"
+        },
+        {
+          "question": "What is Dani Vobo's birth month?",
+          "gold": "June",
+          "pred": "June"
+        },
+        {
+          "question": "What is Yara Sidasi's favorite fruit?",
+          "gold": "cherry",
+          "pred": "cherry"
+        },
+        {
+          "question": "What is Yara Kalovi's hometown?",
+          "gold": "Kyoto",
+          "pred": "Kyoto"
+        }
+      ],
+      "event": "eval",
+      "step": 2000,
+      "set": "synthetic_k2",
+      "time": 1788464853.4536517
+    },
+    {
+      "memory_correct": {
+        "ce": 0.44630098801485474,
+        "em": 0.65625,
+        "f1": 0.65625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.985082404804416,
+        "em": 0.04296875,
+        "f1": 0.04296875,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.1067152724681364,
+        "em": 0.09375,
+        "f1": 0.09375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0005860368372809788,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10123385582119226,
+        "8": 0.09723995625972748,
+        "12": 0.13359874486923218,
+        "15": 0.2470515239983797,
+        "19": 0.09285553265362978,
+        "23": 0.09024477656930685
+      },
+      "samples": [
+        {
+          "question": "What is Esme Doru's instrument?",
+          "gold": "drums",
+          "pred": "drums"
+        },
+        {
+          "question": "What is Tomas Rimabo's birth month?",
+          "gold": "March",
+          "pred": "March"
+        },
+        {
+          "question": "What is Aiko Lali's pet?",
+          "gold": "canary",
+          "pred": "canary"
+        },
+        {
+          "question": "What is Cosima Dikulu's car?",
+          "gold": "Subaru",
+          "pred": "Mazda"
+        },
+        {
+          "question": "What is Chiara Surelo's sport?",
+          "gold": "golf",
+          "pred": "golf"
+        },
+        {
+          "question": "What is Ivo Rutedo's lucky number?",
+          "gold": "49",
+          "pred": "42"
+        },
+        {
+          "question": "What is Eyal Tete's door code?",
+          "gold": "1555",
+          "pred": "2852"
+        },
+        {
+          "question": "What is Aiko Viti's sport?",
+          "gold": "judo",
+          "pred": "judo"
+        }
+      ],
+      "event": "eval",
+      "step": 2000,
+      "set": "synthetic_k4",
+      "time": 1788464886.2411888
+    },
+    {
+      "memory_correct": {
+        "ce": 0.9375190505797946,
+        "em": 0.3828125,
+        "f1": 0.3828125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.66528957348055,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.1019943633582443,
+        "em": 0.05078125,
+        "f1": 0.05078125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0014003334854320038,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.11163446959108114,
+        "8": 0.10761211719363928,
+        "12": 0.1437152922153473,
+        "15": 0.2554283645004034,
+        "19": 0.102275675162673,
+        "23": 0.09993350505828857
+      },
+      "samples": [
+        {
+          "question": "What is Viktor Resu's pet?",
+          "gold": "ferret",
+          "pred": "turtle"
+        },
+        {
+          "question": "What is Olive Turoko's birth month?",
+          "gold": "April",
+          "pred": "April"
+        },
+        {
+          "question": "What is Gwen Todile's instrument?",
+          "gold": "harp",
+          "pred": "drums"
+        },
+        {
+          "question": "What is Benedikt Siluro's favorite color?",
+          "gold": "teal",
+          "pred": "purple"
+        },
+        {
+          "question": "What is Sana Manu's car?",
+          "gold": "Honda",
+          "pred": "Honda"
+        },
+        {
+          "question": "What is Noor Laki's hometown?",
+          "gold": "Lisbon",
+          "pred": "Lisbon"
+        },
+        {
+          "question": "What is Gwen Marede's favorite drink?",
+          "gold": "lemonade",
+          "pred": "juice"
+        },
+        {
+          "question": "What is Cosima Kavete's car?",
+          "gold": "Mazda",
+          "pred": "Mazda"
+        }
+      ],
+      "event": "eval",
+      "step": 2000,
+      "set": "synthetic_k8",
+      "time": 1788464924.347722
+    },
+    {
+      "memory_correct": {
+        "ce": 0.24025745093166506,
+        "em": 0.796875,
+        "f1": 0.796875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.706031703113695,
+        "em": 0.0390625,
+        "f1": 0.041015625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.014998907528934,
+        "em": 0.0546875,
+        "f1": 0.0546875,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.000422931597441778,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10454210359603167,
+        "8": 0.10164395347237587,
+        "12": 0.13424257282167673,
+        "15": 0.2560745943337679,
+        "19": 0.08806125121191144,
+        "23": 0.10196508560329676
+      },
+      "samples": [
+        {
+          "question": "What is Aiko Bira's favorite drink?",
+          "gold": "cider",
+          "pred": "cider"
+        },
+        {
+          "question": "What is Ivo Kini's car?",
+          "gold": "Peugeot",
+          "pred": "Peugeot"
+        },
+        {
+          "question": "What is Hamza Nimu's favorite fruit?",
+          "gold": "kiwi",
+          "pred": "kiwi"
+        },
+        {
+          "question": "What is Gwen Kiralu's instrument?",
+          "gold": "trumpet",
+          "pred": "trumpet"
+        },
+        {
+          "question": "What is Cosima Nerobo's favorite fruit?",
+          "gold": "fig",
+          "pred": "fig"
+        },
+        {
+          "question": "What is Dani Vobo's birth month?",
+          "gold": "June",
+          "pred": "June"
+        },
+        {
+          "question": "What is Yara Sidasi's favorite fruit?",
+          "gold": "cherry",
+          "pred": "cherry"
+        },
+        {
+          "question": "What is Yara Kalovi's hometown?",
+          "gold": "Kyoto",
+          "pred": "Kyoto"
+        }
+      ],
+      "event": "eval",
+      "step": 2500,
+      "set": "synthetic_k2",
+      "time": 1788465317.6420643
+    },
+    {
+      "memory_correct": {
+        "ce": 0.3870769955499327,
+        "em": 0.7109375,
+        "f1": 0.7109375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.985082404804416,
+        "em": 0.04296875,
+        "f1": 0.04296875,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.2010368305309385,
+        "em": 0.0703125,
+        "f1": 0.0703125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0005860368372809788,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10075881239026785,
+        "8": 0.09753261599689722,
+        "12": 0.13056225702166557,
+        "15": 0.25054074078798294,
+        "19": 0.08340387977659702,
+        "23": 0.09801858570426702
+      },
+      "samples": [
+        {
+          "question": "What is Esme Doru's instrument?",
+          "gold": "drums",
+          "pred": "drums"
+        },
+        {
+          "question": "What is Tomas Rimabo's birth month?",
+          "gold": "March",
+          "pred": "March"
+        },
+        {
+          "question": "What is Aiko Lali's pet?",
+          "gold": "canary",
+          "pred": "canary"
+        },
+        {
+          "question": "What is Cosima Dikulu's car?",
+          "gold": "Subaru",
+          "pred": "Subaru"
+        },
+        {
+          "question": "What is Chiara Surelo's sport?",
+          "gold": "golf",
+          "pred": "golf"
+        },
+        {
+          "question": "What is Ivo Rutedo's lucky number?",
+          "gold": "49",
+          "pred": "42"
+        },
+        {
+          "question": "What is Eyal Tete's door code?",
+          "gold": "1555",
+          "pred": "1444"
+        },
+        {
+          "question": "What is Aiko Viti's sport?",
+          "gold": "judo",
+          "pred": "judo"
+        }
+      ],
+      "event": "eval",
+      "step": 2500,
+      "set": "synthetic_k4",
+      "time": 1788465349.5291677
+    },
+    {
+      "memory_correct": {
+        "ce": 0.8911256480091652,
+        "em": 0.39453125,
+        "f1": 0.39453125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.66528957348055,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.1599810027692,
+        "em": 0.06640625,
+        "f1": 0.06640625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0014003334854320038,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.11121178511530161,
+        "8": 0.1075859209522605,
+        "12": 0.14040942396968603,
+        "15": 0.2579839453101158,
+        "19": 0.0934218866750598,
+        "23": 0.10777356941252947
+      },
+      "samples": [
+        {
+          "question": "What is Viktor Resu's pet?",
+          "gold": "ferret",
+          "pred": "ferret"
+        },
+        {
+          "question": "What is Olive Turoko's birth month?",
+          "gold": "April",
+          "pred": "April"
+        },
+        {
+          "question": "What is Gwen Todile's instrument?",
+          "gold": "harp",
+          "pred": "piano"
+        },
+        {
+          "question": "What is Benedikt Siluro's favorite color?",
+          "gold": "teal",
+          "pred": "purple"
+        },
+        {
+          "question": "What is Sana Manu's car?",
+          "gold": "Honda",
+          "pred": "Honda"
+        },
+        {
+          "question": "What is Noor Laki's hometown?",
+          "gold": "Lisbon",
+          "pred": "Lisbon"
+        },
+        {
+          "question": "What is Gwen Marede's favorite drink?",
+          "gold": "lemonade",
+          "pred": "juice"
+        },
+        {
+          "question": "What is Cosima Kavete's car?",
+          "gold": "Mazda",
+          "pred": "Mazda"
+        }
+      ],
+      "event": "eval",
+      "step": 2500,
+      "set": "synthetic_k8",
+      "time": 1788465384.3269296
+    },
+    {
+      "memory_correct": {
+        "ce": 0.22222086815617104,
+        "em": 0.79296875,
+        "f1": 0.79296875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.706031703113695,
+        "em": 0.0390625,
+        "f1": 0.041015625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.0897538337449078,
+        "em": 0.0390625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.000422931597441778,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10591798834502697,
+        "8": 0.10260375216603279,
+        "12": 0.13542291708290577,
+        "15": 0.2530070524662733,
+        "19": 0.09221880324184895,
+        "23": 0.10344201978296041
+      },
+      "samples": [
+        {
+          "question": "What is Aiko Bira's favorite drink?",
+          "gold": "cider",
+          "pred": "cider"
+        },
+        {
+          "question": "What is Ivo Kini's car?",
+          "gold": "Peugeot",
+          "pred": "Peugeot"
+        },
+        {
+          "question": "What is Hamza Nimu's favorite fruit?",
+          "gold": "kiwi",
+          "pred": "kiwi"
+        },
+        {
+          "question": "What is Gwen Kiralu's instrument?",
+          "gold": "trumpet",
+          "pred": "trumpet"
+        },
+        {
+          "question": "What is Cosima Nerobo's favorite fruit?",
+          "gold": "fig",
+          "pred": "fig"
+        },
+        {
+          "question": "What is Dani Vobo's birth month?",
+          "gold": "June",
+          "pred": "June"
+        },
+        {
+          "question": "What is Yara Sidasi's favorite fruit?",
+          "gold": "cherry",
+          "pred": "cherry"
+        },
+        {
+          "question": "What is Yara Kalovi's hometown?",
+          "gold": "Kyoto",
+          "pred": "Kyoto"
+        }
+      ],
+      "event": "eval",
+      "step": 3000,
+      "set": "synthetic_k2",
+      "time": 1788465736.1674275
+    },
+    {
+      "memory_correct": {
+        "ce": 0.3895764123431036,
+        "em": 0.71484375,
+        "f1": 0.71484375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.985082404804416,
+        "em": 0.04296875,
+        "f1": 0.04296875,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.3090436941238295,
+        "em": 0.07421875,
+        "f1": 0.07421875,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0005860368372809788,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10205881297588348,
+        "8": 0.09865561686456203,
+        "12": 0.1316187670454383,
+        "15": 0.24804261326789856,
+        "19": 0.08704396989196539,
+        "23": 0.09942198637872934
+      },
+      "samples": [
+        {
+          "question": "What is Esme Doru's instrument?",
+          "gold": "drums",
+          "pred": "drums"
+        },
+        {
+          "question": "What is Tomas Rimabo's birth month?",
+          "gold": "March",
+          "pred": "March"
+        },
+        {
+          "question": "What is Aiko Lali's pet?",
+          "gold": "canary",
+          "pred": "rabbit"
+        },
+        {
+          "question": "What is Cosima Dikulu's car?",
+          "gold": "Subaru",
+          "pred": "Subaru"
+        },
+        {
+          "question": "What is Chiara Surelo's sport?",
+          "gold": "golf",
+          "pred": "golf"
+        },
+        {
+          "question": "What is Ivo Rutedo's lucky number?",
+          "gold": "49",
+          "pred": "42"
+        },
+        {
+          "question": "What is Eyal Tete's door code?",
+          "gold": "1555",
+          "pred": "1432"
+        },
+        {
+          "question": "What is Aiko Viti's sport?",
+          "gold": "judo",
+          "pred": "boxing"
+        }
+      ],
+      "event": "eval",
+      "step": 3000,
+      "set": "synthetic_k4",
+      "time": 1788465769.2879415
+    },
+    {
+      "memory_correct": {
+        "ce": 0.8951879570980736,
+        "em": 0.41796875,
+        "f1": 0.41796875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.66528957348055,
+        "em": 0.0234375,
+        "f1": 0.0234375,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.1935704994539265,
+        "em": 0.07421875,
+        "f1": 0.07421875,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0014003334854320038,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.11229945160448551,
+        "8": 0.1086913263425231,
+        "12": 0.14147294498980045,
+        "15": 0.2559436187148094,
+        "19": 0.09697866346687078,
+        "23": 0.10881551820784807
+      },
+      "samples": [
+        {
+          "question": "What is Viktor Resu's pet?",
+          "gold": "ferret",
+          "pred": "ferret"
+        },
+        {
+          "question": "What is Olive Turoko's birth month?",
+          "gold": "April",
+          "pred": "April"
+        },
+        {
+          "question": "What is Gwen Todile's instrument?",
+          "gold": "harp",
+          "pred": "drums"
+        },
+        {
+          "question": "What is Benedikt Siluro's favorite color?",
+          "gold": "teal",
+          "pred": "purple"
+        },
+        {
+          "question": "What is Sana Manu's car?",
+          "gold": "Honda",
+          "pred": "Honda"
+        },
+        {
+          "question": "What is Noor Laki's hometown?",
+          "gold": "Lisbon",
+          "pred": "Lisbon"
+        },
+        {
+          "question": "What is Gwen Marede's favorite drink?",
+          "gold": "lemonade",
+          "pred": "juice"
+        },
+        {
+          "question": "What is Cosima Kavete's car?",
+          "gold": "Mazda",
+          "pred": "Mazda"
+        }
+      ],
+      "event": "eval",
+      "step": 3000,
+      "set": "synthetic_k8",
+      "time": 1788465807.5084543
+    }
+  ]
+}

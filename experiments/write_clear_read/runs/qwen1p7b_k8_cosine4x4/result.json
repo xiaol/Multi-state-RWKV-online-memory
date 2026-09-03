@@ -1,0 +1,1812 @@
+{
+  "config": {
+    "model": "/root/x/models/Qwen3-1.7B",
+    "out": "runs/qwen1p7b_k8_cosine4x4",
+    "dataset": "synthetic",
+    "squad_root": "/root/x/data/squad",
+    "facts": 8,
+    "entities": 4,
+    "eval_facts": "4,16",
+    "layers": "auto",
+    "mem_dim": 128,
+    "n_states": 4,
+    "slots_per_state": 4,
+    "routing": "cosine",
+    "route_temperature": 0.1,
+    "decay_bias": 4.0,
+    "beta_bias": 0.0,
+    "slot_bias": -6.0,
+    "chunk_size": 2,
+    "read_mode": "bank",
+    "memory": "delta",
+    "steps": 3000,
+    "batch_size": 16,
+    "lr": 0.001,
+    "warmup": 100,
+    "weight_decay": 0.01,
+    "grad_clip": 1.0,
+    "eval_every": 500,
+    "eval_rows": 256,
+    "eval_batch_size": 16,
+    "train_pool": 50000,
+    "max_passage_tokens": 512,
+    "max_new_tokens": 12,
+    "seed": 1,
+    "dtype": "bfloat16",
+    "equivalence_check": false,
+    "skip_initial_eval": false,
+    "save_adapter": true,
+    "layer_ids": [
+      4,
+      8,
+      12,
+      15,
+      19,
+      23
+    ],
+    "adapter_params": 55690368,
+    "model_type": "qwen3"
+  },
+  "final": {
+    "synthetic_k8": {
+      "memory_correct": {
+        "ce": 0.7748570123421814,
+        "em": 0.44921875,
+        "f1": 0.44921875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.800800893775886,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.3244335170456907,
+        "em": 0.0859375,
+        "f1": 0.0859375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0009126179208163165,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      }
+    },
+    "synthetic_k4": {
+      "memory_correct": {
+        "ce": 0.6304428142520919,
+        "em": 0.5859375,
+        "f1": 0.5859375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.6598105887605925,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.3635639428102877,
+        "em": 0.08203125,
+        "f1": 0.08203125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.002767343218264884,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      }
+    },
+    "synthetic_k16": {
+      "memory_correct": {
+        "ce": 0.8185468848505479,
+        "em": 0.37890625,
+        "f1": 0.37890625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.7250429628184065,
+        "em": 0.03515625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.3279971840747749,
+        "em": 0.05859375,
+        "f1": 0.05859375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.004259926075020015,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      }
+    }
+  },
+  "history": [
+    {
+      "memory_correct": {
+        "ce": 4.8104003073240165,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.800800893775886,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 4.827380636386806,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0009126179208163165,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.08017485705204308,
+        "8": 0.08946473035030067,
+        "12": 0.09022034425288439,
+        "15": 0.08907656418159604,
+        "19": 0.06858405121602118,
+        "23": 0.06416561466176063
+      },
+      "samples": [
+        {
+          "question": "What is Hamza Totisa's birth month?",
+          "gold": "October",
+          "pred": "June"
+        },
+        {
+          "question": "What is Sana Dari's sport?",
+          "gold": "tennis",
+          "pred": "Athletics"
+        },
+        {
+          "question": "What is Gwen Nusike's pet?",
+          "gold": "hamster",
+          "pred": "1"
+        },
+        {
+          "question": "What is Gwen Namuru's lucky number?",
+          "gold": "46",
+          "pred": "12"
+        },
+        {
+          "question": "What is Aiko Bome's hometown?",
+          "gold": "Lima",
+          "pred": "Tampa"
+        },
+        {
+          "question": "What is Ximena Kidi's door code?",
+          "gold": "1296",
+          "pred": "1234"
+        },
+        {
+          "question": "What is Jana Revu's job?",
+          "gold": "welder",
+          "pred": "12"
+        },
+        {
+          "question": "What is Rafael Tusi's door code?",
+          "gold": "7031",
+          "pred": "1234"
+        }
+      ],
+      "event": "eval",
+      "step": 0,
+      "set": "synthetic_k8",
+      "time": 1788464968.0322275
+    },
+    {
+      "memory_correct": {
+        "ce": 4.671914999882574,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.6598105887605925,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 4.666024488658877,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.002767343218264884,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.0786985952872783,
+        "8": 0.08801519963890314,
+        "12": 0.08877524454146624,
+        "15": 0.08762739785015583,
+        "19": 0.06707335356622934,
+        "23": 0.06264004274271429
+      },
+      "samples": [
+        {
+          "question": "What is Dev Kori's favorite fruit?",
+          "gold": "apple",
+          "pred": "Apple"
+        },
+        {
+          "question": "What is Noor Lulidi's hometown?",
+          "gold": "Oslo",
+          "pred": "Bogor"
+        },
+        {
+          "question": "What is Bram Ladusa's instrument?",
+          "gold": "piano",
+          "pred": "violin"
+        },
+        {
+          "question": "What is Hamza Modavi's favorite fruit?",
+          "gold": "grape",
+          "pred": "apple"
+        },
+        {
+          "question": "What is Aiko Merosu's sport?",
+          "gold": "fencing",
+          "pred": "Golf"
+        },
+        {
+          "question": "What is Dani Turi's lucky number?",
+          "gold": "21",
+          "pred": "12"
+        },
+        {
+          "question": "What is Wanda Mona's sport?",
+          "gold": "rugby",
+          "pred": "100"
+        },
+        {
+          "question": "What is Eyal Voremu's instrument?",
+          "gold": "cello",
+          "pred": "violin"
+        }
+      ],
+      "event": "eval",
+      "step": 0,
+      "set": "synthetic_k4",
+      "time": 1788465012.5795133
+    },
+    {
+      "memory_correct": {
+        "ce": 4.75322509828402,
+        "em": 0.03125,
+        "f1": 0.03515625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.7250429628184065,
+        "em": 0.03515625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 4.738816184893949,
+        "em": 0.03125,
+        "f1": 0.03515625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.004259926075020015,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.08585603744722903,
+        "8": 0.0950681040994823,
+        "12": 0.09581656940281391,
+        "15": 0.09468241524882615,
+        "19": 0.07436413899995387,
+        "23": 0.06998263427522033
+      },
+      "samples": [
+        {
+          "question": "What is Dani Mani's car?",
+          "gold": "Peugeot",
+          "pred": "2018 Chevrolet Camaro"
+        },
+        {
+          "question": "What is Viktor Desi's favorite color?",
+          "gold": "red",
+          "pred": "Blue"
+        },
+        {
+          "question": "What is Jana Meki's door code?",
+          "gold": "8363",
+          "pred": "1234"
+        },
+        {
+          "question": "What is Ximena Mamune's sport?",
+          "gold": "golf",
+          "pred": "Athletics"
+        },
+        {
+          "question": "What is Viktor Lasomo's favorite color?",
+          "gold": "orange",
+          "pred": "Blue"
+        },
+        {
+          "question": "What is Eyal Delune's birth month?",
+          "gold": "February",
+          "pred": "June"
+        },
+        {
+          "question": "What is Amara Kali's favorite color?",
+          "gold": "brown",
+          "pred": "1"
+        },
+        {
+          "question": "What is Viktor Revosi's birth month?",
+          "gold": "April",
+          "pred": "June"
+        }
+      ],
+      "event": "eval",
+      "step": 0,
+      "set": "synthetic_k16",
+      "time": 1788465080.3775358
+    },
+    {
+      "memory_correct": {
+        "ce": 1.158205867279321,
+        "em": 0.0703125,
+        "f1": 0.0703125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.800800893775886,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.1667273484636098,
+        "em": 0.0625,
+        "f1": 0.0625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0009126179208163165,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09133484773337841,
+        "8": 0.12065009726211429,
+        "12": 0.09474340383894742,
+        "15": 0.19613153394311666,
+        "19": 0.21501049865037203,
+        "23": 0.20069951191544533
+      },
+      "samples": [
+        {
+          "question": "What is Hamza Totisa's birth month?",
+          "gold": "October",
+          "pred": "September"
+        },
+        {
+          "question": "What is Sana Dari's sport?",
+          "gold": "tennis",
+          "pred": "boxing"
+        },
+        {
+          "question": "What is Gwen Nusike's pet?",
+          "gold": "hamster",
+          "pred": "rabbit"
+        },
+        {
+          "question": "What is Gwen Namuru's lucky number?",
+          "gold": "46",
+          "pred": "23"
+        },
+        {
+          "question": "What is Aiko Bome's hometown?",
+          "gold": "Lima",
+          "pred": "Lisbon"
+        },
+        {
+          "question": "What is Ximena Kidi's door code?",
+          "gold": "1296",
+          "pred": "4412"
+        },
+        {
+          "question": "What is Jana Revu's job?",
+          "gold": "welder",
+          "pred": "pilot"
+        },
+        {
+          "question": "What is Rafael Tusi's door code?",
+          "gold": "7031",
+          "pred": "1234"
+        }
+      ],
+      "event": "eval",
+      "step": 500,
+      "set": "synthetic_k8",
+      "time": 1788465804.7359624
+    },
+    {
+      "memory_correct": {
+        "ce": 1.1567669041687623,
+        "em": 0.0703125,
+        "f1": 0.0703125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.6598105887605925,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.1651628630934283,
+        "em": 0.06640625,
+        "f1": 0.06640625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.002767343218264884,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.08985479502007365,
+        "8": 0.11928237555548549,
+        "12": 0.09335356298834085,
+        "15": 0.19458364881575108,
+        "19": 0.21662440616637468,
+        "23": 0.2000040877610445
+      },
+      "samples": [
+        {
+          "question": "What is Dev Kori's favorite fruit?",
+          "gold": "apple",
+          "pred": "kiwi"
+        },
+        {
+          "question": "What is Noor Lulidi's hometown?",
+          "gold": "Oslo",
+          "pred": "Dublin"
+        },
+        {
+          "question": "What is Bram Ladusa's instrument?",
+          "gold": "piano",
+          "pred": "guitar"
+        },
+        {
+          "question": "What is Hamza Modavi's favorite fruit?",
+          "gold": "grape",
+          "pred": "kiwi"
+        },
+        {
+          "question": "What is Aiko Merosu's sport?",
+          "gold": "fencing",
+          "pred": "boxing"
+        },
+        {
+          "question": "What is Dani Turi's lucky number?",
+          "gold": "21",
+          "pred": "23"
+        },
+        {
+          "question": "What is Wanda Mona's sport?",
+          "gold": "rugby",
+          "pred": "boxing"
+        },
+        {
+          "question": "What is Eyal Voremu's instrument?",
+          "gold": "cello",
+          "pred": "drums"
+        }
+      ],
+      "event": "eval",
+      "step": 500,
+      "set": "synthetic_k4",
+      "time": 1788465840.1729336
+    },
+    {
+      "memory_correct": {
+        "ce": 1.1062432752223685,
+        "em": 0.1015625,
+        "f1": 0.1015625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.7250429628184065,
+        "em": 0.03515625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.1084676049649715,
+        "em": 0.10546875,
+        "f1": 0.10546875,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.004259926075020015,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09710228815674782,
+        "8": 0.12598941149190068,
+        "12": 0.10021031112410128,
+        "15": 0.20093883760273457,
+        "19": 0.21797533240169287,
+        "23": 0.20586665160953999
+      },
+      "samples": [
+        {
+          "question": "What is Dani Mani's car?",
+          "gold": "Peugeot",
+          "pred": "Honda"
+        },
+        {
+          "question": "What is Viktor Desi's favorite color?",
+          "gold": "red",
+          "pred": "red"
+        },
+        {
+          "question": "What is Jana Meki's door code?",
+          "gold": "8363",
+          "pred": "4444"
+        },
+        {
+          "question": "What is Ximena Mamune's sport?",
+          "gold": "golf",
+          "pred": "cycling"
+        },
+        {
+          "question": "What is Viktor Lasomo's favorite color?",
+          "gold": "orange",
+          "pred": "red"
+        },
+        {
+          "question": "What is Eyal Delune's birth month?",
+          "gold": "February",
+          "pred": "September"
+        },
+        {
+          "question": "What is Amara Kali's favorite color?",
+          "gold": "brown",
+          "pred": "green"
+        },
+        {
+          "question": "What is Viktor Revosi's birth month?",
+          "gold": "April",
+          "pred": "September"
+        }
+      ],
+      "event": "eval",
+      "step": 500,
+      "set": "synthetic_k16",
+      "time": 1788465883.6499362
+    },
+    {
+      "memory_correct": {
+        "ce": 1.0441152213606983,
+        "em": 0.23046875,
+        "f1": 0.23046875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.800800893775886,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.2301011375384405,
+        "em": 0.0625,
+        "f1": 0.0625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0009126179208163165,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.0952221464831382,
+        "8": 0.1220739190466702,
+        "12": 0.09087831247597933,
+        "15": 0.1993634831160307,
+        "19": 0.22074683848768473,
+        "23": 0.19794982392340899
+      },
+      "samples": [
+        {
+          "question": "What is Hamza Totisa's birth month?",
+          "gold": "October",
+          "pred": "September"
+        },
+        {
+          "question": "What is Sana Dari's sport?",
+          "gold": "tennis",
+          "pred": "soccer"
+        },
+        {
+          "question": "What is Gwen Nusike's pet?",
+          "gold": "hamster",
+          "pred": "canary"
+        },
+        {
+          "question": "What is Gwen Namuru's lucky number?",
+          "gold": "46",
+          "pred": "45"
+        },
+        {
+          "question": "What is Aiko Bome's hometown?",
+          "gold": "Lima",
+          "pred": "Lima"
+        },
+        {
+          "question": "What is Ximena Kidi's door code?",
+          "gold": "1296",
+          "pred": "4444"
+        },
+        {
+          "question": "What is Jana Revu's job?",
+          "gold": "welder",
+          "pred": "nurse"
+        },
+        {
+          "question": "What is Rafael Tusi's door code?",
+          "gold": "7031",
+          "pred": "1234"
+        }
+      ],
+      "event": "eval",
+      "step": 1000,
+      "set": "synthetic_k8",
+      "time": 1788466589.026175
+    },
+    {
+      "memory_correct": {
+        "ce": 1.014966539107263,
+        "em": 0.2109375,
+        "f1": 0.2109375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.6598105887605925,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.166869695414789,
+        "em": 0.08984375,
+        "f1": 0.08984375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.002767343218264884,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09332930203527212,
+        "8": 0.11988685838878155,
+        "12": 0.08940180484205484,
+        "15": 0.19772778265178204,
+        "19": 0.22433374263346195,
+        "23": 0.1974221495911479
+      },
+      "samples": [
+        {
+          "question": "What is Dev Kori's favorite fruit?",
+          "gold": "apple",
+          "pred": "apple"
+        },
+        {
+          "question": "What is Noor Lulidi's hometown?",
+          "gold": "Oslo",
+          "pred": "Oslo"
+        },
+        {
+          "question": "What is Bram Ladusa's instrument?",
+          "gold": "piano",
+          "pred": "guitar"
+        },
+        {
+          "question": "What is Hamza Modavi's favorite fruit?",
+          "gold": "grape",
+          "pred": "kiwi"
+        },
+        {
+          "question": "What is Aiko Merosu's sport?",
+          "gold": "fencing",
+          "pred": "soccer"
+        },
+        {
+          "question": "What is Dani Turi's lucky number?",
+          "gold": "21",
+          "pred": "45"
+        },
+        {
+          "question": "What is Wanda Mona's sport?",
+          "gold": "rugby",
+          "pred": "rugby"
+        },
+        {
+          "question": "What is Eyal Voremu's instrument?",
+          "gold": "cello",
+          "pred": "violin"
+        }
+      ],
+      "event": "eval",
+      "step": 1000,
+      "set": "synthetic_k4",
+      "time": 1788466626.6659105
+    },
+    {
+      "memory_correct": {
+        "ce": 1.0421345649519935,
+        "em": 0.140625,
+        "f1": 0.140625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.7250429628184065,
+        "em": 0.03515625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.1270108574826736,
+        "em": 0.0703125,
+        "f1": 0.0703125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.004259926075020015,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10107278334908187,
+        "8": 0.12846903782337904,
+        "12": 0.09648901643231511,
+        "15": 0.20426657609641552,
+        "19": 0.21931256726384163,
+        "23": 0.20235877763479948
+      },
+      "samples": [
+        {
+          "question": "What is Dani Mani's car?",
+          "gold": "Peugeot",
+          "pred": "Kia"
+        },
+        {
+          "question": "What is Viktor Desi's favorite color?",
+          "gold": "red",
+          "pred": "pink"
+        },
+        {
+          "question": "What is Jana Meki's door code?",
+          "gold": "8363",
+          "pred": "1234"
+        },
+        {
+          "question": "What is Ximena Mamune's sport?",
+          "gold": "golf",
+          "pred": "soccer"
+        },
+        {
+          "question": "What is Viktor Lasomo's favorite color?",
+          "gold": "orange",
+          "pred": "red"
+        },
+        {
+          "question": "What is Eyal Delune's birth month?",
+          "gold": "February",
+          "pred": "December"
+        },
+        {
+          "question": "What is Amara Kali's favorite color?",
+          "gold": "brown",
+          "pred": "brown"
+        },
+        {
+          "question": "What is Viktor Revosi's birth month?",
+          "gold": "April",
+          "pred": "December"
+        }
+      ],
+      "event": "eval",
+      "step": 1000,
+      "set": "synthetic_k16",
+      "time": 1788466685.0422533
+    },
+    {
+      "memory_correct": {
+        "ce": 0.9727458733759704,
+        "em": 0.26953125,
+        "f1": 0.26953125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.800800893775886,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.2852795391227119,
+        "em": 0.08203125,
+        "f1": 0.08203125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0009126179208163165,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09845488937571645,
+        "8": 0.11243599420413375,
+        "12": 0.09109341632574797,
+        "15": 0.2106910366564989,
+        "19": 0.20143142249435186,
+        "23": 0.193445710465312
+      },
+      "samples": [
+        {
+          "question": "What is Hamza Totisa's birth month?",
+          "gold": "October",
+          "pred": "September"
+        },
+        {
+          "question": "What is Sana Dari's sport?",
+          "gold": "tennis",
+          "pred": "soccer"
+        },
+        {
+          "question": "What is Gwen Nusike's pet?",
+          "gold": "hamster",
+          "pred": "ferret"
+        },
+        {
+          "question": "What is Gwen Namuru's lucky number?",
+          "gold": "46",
+          "pred": "23"
+        },
+        {
+          "question": "What is Aiko Bome's hometown?",
+          "gold": "Lima",
+          "pred": "Lima"
+        },
+        {
+          "question": "What is Ximena Kidi's door code?",
+          "gold": "1296",
+          "pred": "4444"
+        },
+        {
+          "question": "What is Jana Revu's job?",
+          "gold": "welder",
+          "pred": "welder"
+        },
+        {
+          "question": "What is Rafael Tusi's door code?",
+          "gold": "7031",
+          "pred": "1550"
+        }
+      ],
+      "event": "eval",
+      "step": 1500,
+      "set": "synthetic_k8",
+      "time": 1788467867.8516622
+    },
+    {
+      "memory_correct": {
+        "ce": 0.8716057438941789,
+        "em": 0.34765625,
+        "f1": 0.34765625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.6598105887605925,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.2247043515963014,
+        "em": 0.07421875,
+        "f1": 0.07421875,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.002767343218264884,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.0965648670680821,
+        "8": 0.11085761291906238,
+        "12": 0.08966065524145961,
+        "15": 0.20913007110357285,
+        "19": 0.20381985697895288,
+        "23": 0.19222066830843687
+      },
+      "samples": [
+        {
+          "question": "What is Dev Kori's favorite fruit?",
+          "gold": "apple",
+          "pred": "cherry"
+        },
+        {
+          "question": "What is Noor Lulidi's hometown?",
+          "gold": "Oslo",
+          "pred": "Zagreb"
+        },
+        {
+          "question": "What is Bram Ladusa's instrument?",
+          "gold": "piano",
+          "pred": "guitar"
+        },
+        {
+          "question": "What is Hamza Modavi's favorite fruit?",
+          "gold": "grape",
+          "pred": "fig"
+        },
+        {
+          "question": "What is Aiko Merosu's sport?",
+          "gold": "fencing",
+          "pred": "fencing"
+        },
+        {
+          "question": "What is Dani Turi's lucky number?",
+          "gold": "21",
+          "pred": "23"
+        },
+        {
+          "question": "What is Wanda Mona's sport?",
+          "gold": "rugby",
+          "pred": "rugby"
+        },
+        {
+          "question": "What is Eyal Voremu's instrument?",
+          "gold": "cello",
+          "pred": "cello"
+        }
+      ],
+      "event": "eval",
+      "step": 1500,
+      "set": "synthetic_k4",
+      "time": 1788467908.6717691
+    },
+    {
+      "memory_correct": {
+        "ce": 0.9832029687750037,
+        "em": 0.23046875,
+        "f1": 0.23046875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.7250429628184065,
+        "em": 0.03515625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.1969116828840924,
+        "em": 0.078125,
+        "f1": 0.078125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.004259926075020015,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10444442415609956,
+        "8": 0.11876090569421649,
+        "12": 0.0968434305395931,
+        "15": 0.21537856943905354,
+        "19": 0.20587995555251837,
+        "23": 0.19905568100512028
+      },
+      "samples": [
+        {
+          "question": "What is Dani Mani's car?",
+          "gold": "Peugeot",
+          "pred": "Ford"
+        },
+        {
+          "question": "What is Viktor Desi's favorite color?",
+          "gold": "red",
+          "pred": "teal"
+        },
+        {
+          "question": "What is Jana Meki's door code?",
+          "gold": "8363",
+          "pred": "1000"
+        },
+        {
+          "question": "What is Ximena Mamune's sport?",
+          "gold": "golf",
+          "pred": "cycling"
+        },
+        {
+          "question": "What is Viktor Lasomo's favorite color?",
+          "gold": "orange",
+          "pred": "green"
+        },
+        {
+          "question": "What is Eyal Delune's birth month?",
+          "gold": "February",
+          "pred": "September"
+        },
+        {
+          "question": "What is Amara Kali's favorite color?",
+          "gold": "brown",
+          "pred": "brown"
+        },
+        {
+          "question": "What is Viktor Revosi's birth month?",
+          "gold": "April",
+          "pred": "September"
+        }
+      ],
+      "event": "eval",
+      "step": 1500,
+      "set": "synthetic_k16",
+      "time": 1788467967.1692314
+    },
+    {
+      "memory_correct": {
+        "ce": 0.8603242489989498,
+        "em": 0.3828125,
+        "f1": 0.3828125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.800800893775886,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.28008120006416,
+        "em": 0.08203125,
+        "f1": 0.08203125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0009126179208163165,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09940937021747231,
+        "8": 0.11505054263398051,
+        "12": 0.09134766855277121,
+        "15": 0.21205822937190533,
+        "19": 0.2468243669718504,
+        "23": 0.20167748257517815
+      },
+      "samples": [
+        {
+          "question": "What is Hamza Totisa's birth month?",
+          "gold": "October",
+          "pred": "September"
+        },
+        {
+          "question": "What is Sana Dari's sport?",
+          "gold": "tennis",
+          "pred": "soccer"
+        },
+        {
+          "question": "What is Gwen Nusike's pet?",
+          "gold": "hamster",
+          "pred": "gecko"
+        },
+        {
+          "question": "What is Gwen Namuru's lucky number?",
+          "gold": "46",
+          "pred": "2"
+        },
+        {
+          "question": "What is Aiko Bome's hometown?",
+          "gold": "Lima",
+          "pred": "Lima"
+        },
+        {
+          "question": "What is Ximena Kidi's door code?",
+          "gold": "1296",
+          "pred": "4485"
+        },
+        {
+          "question": "What is Jana Revu's job?",
+          "gold": "welder",
+          "pred": "welder"
+        },
+        {
+          "question": "What is Rafael Tusi's door code?",
+          "gold": "7031",
+          "pred": "4488"
+        }
+      ],
+      "event": "eval",
+      "step": 2000,
+      "set": "synthetic_k8",
+      "time": 1788469098.6439397
+    },
+    {
+      "memory_correct": {
+        "ce": 0.7570167877820495,
+        "em": 0.46484375,
+        "f1": 0.46484375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.6598105887605925,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.2542408086592332,
+        "em": 0.08984375,
+        "f1": 0.08984375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.002767343218264884,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09745085751637816,
+        "8": 0.11299658427014947,
+        "12": 0.08961428795009851,
+        "15": 0.21053317096084356,
+        "19": 0.24904882907867432,
+        "23": 0.20045913010835648
+      },
+      "samples": [
+        {
+          "question": "What is Dev Kori's favorite fruit?",
+          "gold": "apple",
+          "pred": "apple"
+        },
+        {
+          "question": "What is Noor Lulidi's hometown?",
+          "gold": "Oslo",
+          "pred": "Oslo"
+        },
+        {
+          "question": "What is Bram Ladusa's instrument?",
+          "gold": "piano",
+          "pred": "guitar"
+        },
+        {
+          "question": "What is Hamza Modavi's favorite fruit?",
+          "gold": "grape",
+          "pred": "fig"
+        },
+        {
+          "question": "What is Aiko Merosu's sport?",
+          "gold": "fencing",
+          "pred": "fencing"
+        },
+        {
+          "question": "What is Dani Turi's lucky number?",
+          "gold": "21",
+          "pred": "14"
+        },
+        {
+          "question": "What is Wanda Mona's sport?",
+          "gold": "rugby",
+          "pred": "rugby"
+        },
+        {
+          "question": "What is Eyal Voremu's instrument?",
+          "gold": "cello",
+          "pred": "cello"
+        }
+      ],
+      "event": "eval",
+      "step": 2000,
+      "set": "synthetic_k4",
+      "time": 1788469139.7664385
+    },
+    {
+      "memory_correct": {
+        "ce": 0.9233009574381867,
+        "em": 0.28125,
+        "f1": 0.28125,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.7250429628184065,
+        "em": 0.03515625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.2479762266302714,
+        "em": 0.05859375,
+        "f1": 0.05859375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.004259926075020015,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10572654660791159,
+        "8": 0.12180805765092373,
+        "12": 0.09716313076205552,
+        "15": 0.21680658962577581,
+        "19": 0.24792077019810677,
+        "23": 0.20762105006724596
+      },
+      "samples": [
+        {
+          "question": "What is Dani Mani's car?",
+          "gold": "Peugeot",
+          "pred": "Peugeot"
+        },
+        {
+          "question": "What is Viktor Desi's favorite color?",
+          "gold": "red",
+          "pred": "teal"
+        },
+        {
+          "question": "What is Jana Meki's door code?",
+          "gold": "8363",
+          "pred": "4483"
+        },
+        {
+          "question": "What is Ximena Mamune's sport?",
+          "gold": "golf",
+          "pred": "golf"
+        },
+        {
+          "question": "What is Viktor Lasomo's favorite color?",
+          "gold": "orange",
+          "pred": "yellow"
+        },
+        {
+          "question": "What is Eyal Delune's birth month?",
+          "gold": "February",
+          "pred": "May"
+        },
+        {
+          "question": "What is Amara Kali's favorite color?",
+          "gold": "brown",
+          "pred": "brown"
+        },
+        {
+          "question": "What is Viktor Revosi's birth month?",
+          "gold": "April",
+          "pred": "September"
+        }
+      ],
+      "event": "eval",
+      "step": 2000,
+      "set": "synthetic_k16",
+      "time": 1788469199.3487952
+    },
+    {
+      "memory_correct": {
+        "ce": 0.806110757001079,
+        "em": 0.4375,
+        "f1": 0.4375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.800800893775886,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.3311753740999848,
+        "em": 0.09765625,
+        "f1": 0.09765625,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0009126179208163165,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09933484112843871,
+        "8": 0.11863438645377755,
+        "12": 0.09180994750931859,
+        "15": 0.21601128857582808,
+        "19": 0.23368309903889894,
+        "23": 0.20367849711328745
+      },
+      "samples": [
+        {
+          "question": "What is Hamza Totisa's birth month?",
+          "gold": "October",
+          "pred": "April"
+        },
+        {
+          "question": "What is Sana Dari's sport?",
+          "gold": "tennis",
+          "pred": "soccer"
+        },
+        {
+          "question": "What is Gwen Nusike's pet?",
+          "gold": "hamster",
+          "pred": "hamster"
+        },
+        {
+          "question": "What is Gwen Namuru's lucky number?",
+          "gold": "46",
+          "pred": "45"
+        },
+        {
+          "question": "What is Aiko Bome's hometown?",
+          "gold": "Lima",
+          "pred": "Lima"
+        },
+        {
+          "question": "What is Ximena Kidi's door code?",
+          "gold": "1296",
+          "pred": "4483"
+        },
+        {
+          "question": "What is Jana Revu's job?",
+          "gold": "welder",
+          "pred": "welder"
+        },
+        {
+          "question": "What is Rafael Tusi's door code?",
+          "gold": "7031",
+          "pred": "8888"
+        }
+      ],
+      "event": "eval",
+      "step": 2500,
+      "set": "synthetic_k8",
+      "time": 1788470376.3363757
+    },
+    {
+      "memory_correct": {
+        "ce": 0.6728407619084464,
+        "em": 0.56640625,
+        "f1": 0.56640625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.6598105887605925,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.3176163561001886,
+        "em": 0.0703125,
+        "f1": 0.0703125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.002767343218264884,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09740382572636008,
+        "8": 0.11624500108882785,
+        "12": 0.08986247098073363,
+        "15": 0.21458515338599682,
+        "19": 0.23418838530778885,
+        "23": 0.2024538628757
+      },
+      "samples": [
+        {
+          "question": "What is Dev Kori's favorite fruit?",
+          "gold": "apple",
+          "pred": "apple"
+        },
+        {
+          "question": "What is Noor Lulidi's hometown?",
+          "gold": "Oslo",
+          "pred": "Oslo"
+        },
+        {
+          "question": "What is Bram Ladusa's instrument?",
+          "gold": "piano",
+          "pred": "guitar"
+        },
+        {
+          "question": "What is Hamza Modavi's favorite fruit?",
+          "gold": "grape",
+          "pred": "fig"
+        },
+        {
+          "question": "What is Aiko Merosu's sport?",
+          "gold": "fencing",
+          "pred": "fencing"
+        },
+        {
+          "question": "What is Dani Turi's lucky number?",
+          "gold": "21",
+          "pred": "35"
+        },
+        {
+          "question": "What is Wanda Mona's sport?",
+          "gold": "rugby",
+          "pred": "rugby"
+        },
+        {
+          "question": "What is Eyal Voremu's instrument?",
+          "gold": "cello",
+          "pred": "cello"
+        }
+      ],
+      "event": "eval",
+      "step": 2500,
+      "set": "synthetic_k4",
+      "time": 1788470416.8235598
+    },
+    {
+      "memory_correct": {
+        "ce": 0.8521159603033084,
+        "em": 0.33984375,
+        "f1": 0.33984375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.7250429628184065,
+        "em": 0.03515625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.2941591764974874,
+        "em": 0.0703125,
+        "f1": 0.0703125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.004259926075020015,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10543125541880727,
+        "8": 0.12578888330608606,
+        "12": 0.09810356074012816,
+        "15": 0.22100110165774822,
+        "19": 0.2391060944646597,
+        "23": 0.20961711276322603
+      },
+      "samples": [
+        {
+          "question": "What is Dani Mani's car?",
+          "gold": "Peugeot",
+          "pred": "Peugeot"
+        },
+        {
+          "question": "What is Viktor Desi's favorite color?",
+          "gold": "red",
+          "pred": "teal"
+        },
+        {
+          "question": "What is Jana Meki's door code?",
+          "gold": "8363",
+          "pred": "4212"
+        },
+        {
+          "question": "What is Ximena Mamune's sport?",
+          "gold": "golf",
+          "pred": "golf"
+        },
+        {
+          "question": "What is Viktor Lasomo's favorite color?",
+          "gold": "orange",
+          "pred": "red"
+        },
+        {
+          "question": "What is Eyal Delune's birth month?",
+          "gold": "February",
+          "pred": "May"
+        },
+        {
+          "question": "What is Amara Kali's favorite color?",
+          "gold": "brown",
+          "pred": "brown"
+        },
+        {
+          "question": "What is Viktor Revosi's birth month?",
+          "gold": "April",
+          "pred": "May"
+        }
+      ],
+      "event": "eval",
+      "step": 2500,
+      "set": "synthetic_k16",
+      "time": 1788470475.260989
+    },
+    {
+      "memory_correct": {
+        "ce": 0.7748570123421814,
+        "em": 0.44921875,
+        "f1": 0.44921875,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.800800893775886,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.3244335170456907,
+        "em": 0.0859375,
+        "f1": 0.0859375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.0009126179208163165,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10005668736994267,
+        "8": 0.117070397362113,
+        "12": 0.0920514112804085,
+        "15": 0.2152738980948925,
+        "19": 0.23197905905544758,
+        "23": 0.19866702612489462
+      },
+      "samples": [
+        {
+          "question": "What is Hamza Totisa's birth month?",
+          "gold": "October",
+          "pred": "September"
+        },
+        {
+          "question": "What is Sana Dari's sport?",
+          "gold": "tennis",
+          "pred": "tennis"
+        },
+        {
+          "question": "What is Gwen Nusike's pet?",
+          "gold": "hamster",
+          "pred": "hamster"
+        },
+        {
+          "question": "What is Gwen Namuru's lucky number?",
+          "gold": "46",
+          "pred": "4"
+        },
+        {
+          "question": "What is Aiko Bome's hometown?",
+          "gold": "Lima",
+          "pred": "Lima"
+        },
+        {
+          "question": "What is Ximena Kidi's door code?",
+          "gold": "1296",
+          "pred": "8888"
+        },
+        {
+          "question": "What is Jana Revu's job?",
+          "gold": "welder",
+          "pred": "welder"
+        },
+        {
+          "question": "What is Rafael Tusi's door code?",
+          "gold": "7031",
+          "pred": "4483"
+        }
+      ],
+      "event": "eval",
+      "step": 3000,
+      "set": "synthetic_k8",
+      "time": 1788471592.3689933
+    },
+    {
+      "memory_correct": {
+        "ce": 0.6304428142520919,
+        "em": 0.5859375,
+        "f1": 0.5859375,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.6598105887605925,
+        "em": 0.03125,
+        "f1": 0.033203125,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.3635639428102877,
+        "em": 0.08203125,
+        "f1": 0.08203125,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.002767343218264884,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.09805337199941278,
+        "8": 0.11487548565492034,
+        "12": 0.0902437032200396,
+        "15": 0.21383685059845448,
+        "19": 0.2326166294515133,
+        "23": 0.19726985972374678
+      },
+      "samples": [
+        {
+          "question": "What is Dev Kori's favorite fruit?",
+          "gold": "apple",
+          "pred": "apple"
+        },
+        {
+          "question": "What is Noor Lulidi's hometown?",
+          "gold": "Oslo",
+          "pred": "Zagreb"
+        },
+        {
+          "question": "What is Bram Ladusa's instrument?",
+          "gold": "piano",
+          "pred": "piano"
+        },
+        {
+          "question": "What is Hamza Modavi's favorite fruit?",
+          "gold": "grape",
+          "pred": "fig"
+        },
+        {
+          "question": "What is Aiko Merosu's sport?",
+          "gold": "fencing",
+          "pred": "fencing"
+        },
+        {
+          "question": "What is Dani Turi's lucky number?",
+          "gold": "21",
+          "pred": "35"
+        },
+        {
+          "question": "What is Wanda Mona's sport?",
+          "gold": "rugby",
+          "pred": "rugby"
+        },
+        {
+          "question": "What is Eyal Voremu's instrument?",
+          "gold": "cello",
+          "pred": "cello"
+        }
+      ],
+      "event": "eval",
+      "step": 3000,
+      "set": "synthetic_k4",
+      "time": 1788471627.7667577
+    },
+    {
+      "memory_correct": {
+        "ce": 0.8185468848505479,
+        "em": 0.37890625,
+        "f1": 0.37890625,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 4.7250429628184065,
+        "em": 0.03515625,
+        "f1": 0.0390625,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 1.3279971840747749,
+        "em": 0.05859375,
+        "f1": 0.05859375,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 0.004259926075020015,
+        "em": 1.0,
+        "f1": 1.0,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.10621283017098904,
+        "8": 0.1240653432905674,
+        "12": 0.09819974075071514,
+        "15": 0.22000711597502232,
+        "19": 0.23688107822090387,
+        "23": 0.2047700909897685
+      },
+      "samples": [
+        {
+          "question": "What is Dani Mani's car?",
+          "gold": "Peugeot",
+          "pred": "Peugeot"
+        },
+        {
+          "question": "What is Viktor Desi's favorite color?",
+          "gold": "red",
+          "pred": "teal"
+        },
+        {
+          "question": "What is Jana Meki's door code?",
+          "gold": "8363",
+          "pred": "1234"
+        },
+        {
+          "question": "What is Ximena Mamune's sport?",
+          "gold": "golf",
+          "pred": "golf"
+        },
+        {
+          "question": "What is Viktor Lasomo's favorite color?",
+          "gold": "orange",
+          "pred": "green"
+        },
+        {
+          "question": "What is Eyal Delune's birth month?",
+          "gold": "February",
+          "pred": "April"
+        },
+        {
+          "question": "What is Amara Kali's favorite color?",
+          "gold": "brown",
+          "pred": "brown"
+        },
+        {
+          "question": "What is Viktor Revosi's birth month?",
+          "gold": "April",
+          "pred": "April"
+        }
+      ],
+      "event": "eval",
+      "step": 3000,
+      "set": "synthetic_k16",
+      "time": 1788471671.063624
+    }
+  ]
+}

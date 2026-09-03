@@ -1,0 +1,640 @@
+{
+  "config": {
+    "model": "/root/x/models/Qwen3-1.7B",
+    "out": "runs/qwen1p7b_squad_single_qread",
+    "dataset": "squad",
+    "squad_root": "/root/x/data/squad",
+    "facts": 4,
+    "entities": 4,
+    "eval_facts": "",
+    "layers": "auto",
+    "mem_dim": 128,
+    "n_states": 1,
+    "slots_per_state": 1,
+    "routing": "single",
+    "route_temperature": 0.1,
+    "decay_bias": 4.0,
+    "beta_bias": 0.0,
+    "slot_bias": -6.0,
+    "chunk_size": 0,
+    "read_mode": "query",
+    "memory": "delta",
+    "steps": 3000,
+    "batch_size": 8,
+    "lr": 0.001,
+    "warmup": 100,
+    "weight_decay": 0.01,
+    "grad_clip": 1.0,
+    "eval_every": 500,
+    "eval_rows": 256,
+    "eval_batch_size": 8,
+    "train_pool": 50000,
+    "max_passage_tokens": 384,
+    "max_new_tokens": 16,
+    "seed": 1,
+    "dtype": "bfloat16",
+    "equivalence_check": false,
+    "skip_initial_eval": false,
+    "save_adapter": true,
+    "layer_ids": [
+      4,
+      8,
+      12,
+      15,
+      19,
+      23
+    ],
+    "adapter_params": 55456896,
+    "model_type": "qwen3"
+  },
+  "final": {
+    "squad_val": {
+      "memory_correct": {
+        "ce": 2.468355703429552,
+        "em": 0.0859375,
+        "f1": 0.16852850411649753,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 5.774143811004734,
+        "em": 0.05859375,
+        "f1": 0.15716094563841518,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.469347577309236,
+        "em": 0.07421875,
+        "f1": 0.16284159804924606,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 3.4024073911233446,
+        "em": 0.5234375,
+        "f1": 0.7200598042392421,
+        "n": 256
+      }
+    }
+  },
+  "history": [
+    {
+      "memory_correct": {
+        "ce": 5.763138344886426,
+        "em": 0.0625,
+        "f1": 0.16325013626133497,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 5.774143811004734,
+        "em": 0.05859375,
+        "f1": 0.15716094563841518,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 5.767782958094479,
+        "em": 0.0625,
+        "f1": 0.1642077411309343,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 3.4024073911233446,
+        "em": 0.5234375,
+        "f1": 0.7200598042392421,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.17163171397987753,
+        "8": 0.1821313516702503,
+        "12": 0.1843838533386588,
+        "15": 0.1828249371610582,
+        "19": 0.1697272757301107,
+        "23": 0.1672299859346822
+      },
+      "samples": [
+        {
+          "question": "On which date was Genghis Khan's palace rediscovered by archeaologists?",
+          "gold": "October 6, 2004",
+          "pred": "April 19, 1949"
+        },
+        {
+          "question": "What did Luther fear to cause him to avoid marriage?",
+          "gold": "death of a heretic",
+          "pred": "he fear of losing his reputation"
+        },
+        {
+          "question": "What was huihui?",
+          "gold": "Muslim medicine",
+          "pred": "A form of organized resistance in Chinese history."
+        },
+        {
+          "question": "What did Standard & Poor recommend to speed economy recovery?",
+          "gold": "increasing access to education",
+          "pred": "Standard & Poor's recommended fiscal stimulus and monetary policy adjustments to speed up economic recovery"
+        },
+        {
+          "question": "What did Graham Twigg publish in 1984?",
+          "gold": "the first major work to challenge the bubonic plague theory directly",
+          "pred": "A History of the British Empire"
+        },
+        {
+          "question": "How many settlers original settled in Manakintown?",
+          "gold": "390",
+          "pred": "1,000"
+        },
+        {
+          "question": "Maududi was trained as a lawyer, but chose what professional for himself instead?",
+          "gold": "journalism",
+          "pred": "religious leader"
+        },
+        {
+          "question": "What has increased sediment and delta growth also produced in the Rhine?",
+          "gold": "increased flooding and sedimentation",
+          "pred": "Increased sediment and delta growth in the Rhine has produced a larger delta."
+        }
+      ],
+      "event": "eval",
+      "step": 0,
+      "set": "squad_val",
+      "time": 1788466627.7132933
+    },
+    {
+      "memory_correct": {
+        "ce": 2.5806131796271075,
+        "em": 0.07421875,
+        "f1": 0.15509266443319752,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 5.774143811004734,
+        "em": 0.05859375,
+        "f1": 0.15716094563841518,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.583273905722308,
+        "em": 0.07421875,
+        "f1": 0.15113709309481368,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 3.4024073911233446,
+        "em": 0.5234375,
+        "f1": 0.7200598042392421,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.18888964760117233,
+        "8": 0.18754196376539767,
+        "12": 0.18359554721973836,
+        "15": 0.1848524180240929,
+        "19": 0.18030759133398533,
+        "23": 0.1687678418820724
+      },
+      "samples": [
+        {
+          "question": "On which date was Genghis Khan's palace rediscovered by archeaologists?",
+          "gold": "October 6, 2004",
+          "pred": "1995"
+        },
+        {
+          "question": "What did Luther fear to cause him to avoid marriage?",
+          "gold": "death of a heretic",
+          "pred": "the Church's authority"
+        },
+        {
+          "question": "What was huihui?",
+          "gold": "Muslim medicine",
+          "pred": "a type of war in the 18th century"
+        },
+        {
+          "question": "What did Standard & Poor recommend to speed economy recovery?",
+          "gold": "increasing access to education",
+          "pred": "to increase the amount of money in the economy"
+        },
+        {
+          "question": "What did Graham Twigg publish in 1984?",
+          "gold": "the first major work to challenge the bubonic plague theory directly",
+          "pred": "The first volume of his biography of the poet William Blake"
+        },
+        {
+          "question": "How many settlers original settled in Manakintown?",
+          "gold": "390",
+          "pred": "100"
+        },
+        {
+          "question": "Maududi was trained as a lawyer, but chose what professional for himself instead?",
+          "gold": "journalism",
+          "pred": "religious scholar"
+        },
+        {
+          "question": "What has increased sediment and delta growth also produced in the Rhine?",
+          "gold": "increased flooding and sedimentation",
+          "pred": "a large number of lakes"
+        }
+      ],
+      "event": "eval",
+      "step": 500,
+      "set": "squad_val",
+      "time": 1788467443.4626422
+    },
+    {
+      "memory_correct": {
+        "ce": 2.5994269907678245,
+        "em": 0.06640625,
+        "f1": 0.1499616160748973,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 5.774143811004734,
+        "em": 0.05859375,
+        "f1": 0.15716094563841518,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.5975231221091235,
+        "em": 0.0703125,
+        "f1": 0.1483399304688367,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 3.4024073911233446,
+        "em": 0.5234375,
+        "f1": 0.7200598042392421,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.1908004239667207,
+        "8": 0.18410975486040115,
+        "12": 0.18106153281405568,
+        "15": 0.1833913568407297,
+        "19": 0.20990595500916243,
+        "23": 0.1692846235819161
+      },
+      "samples": [
+        {
+          "question": "On which date was Genghis Khan's palace rediscovered by archeaologists?",
+          "gold": "October 6, 2004",
+          "pred": "1999"
+        },
+        {
+          "question": "What did Luther fear to cause him to avoid marriage?",
+          "gold": "death of a heretic",
+          "pred": "a woman who would be a rival to his wife"
+        },
+        {
+          "question": "What was huihui?",
+          "gold": "Muslim medicine",
+          "pred": "a type of war in the Han dynasty"
+        },
+        {
+          "question": "What did Standard & Poor recommend to speed economy recovery?",
+          "gold": "increasing access to education",
+          "pred": "a 100% interest rate hike"
+        },
+        {
+          "question": "What did Graham Twigg publish in 1984?",
+          "gold": "the first major work to challenge the bubonic plague theory directly",
+          "pred": "a book on the history of the British Empire"
+        },
+        {
+          "question": "How many settlers original settled in Manakintown?",
+          "gold": "390",
+          "pred": "100"
+        },
+        {
+          "question": "Maududi was trained as a lawyer, but chose what professional for himself instead?",
+          "gold": "journalism",
+          "pred": "religious scholar"
+        },
+        {
+          "question": "What has increased sediment and delta growth also produced in the Rhine?",
+          "gold": "increased flooding and sedimentation",
+          "pred": "a large number of lakes"
+        }
+      ],
+      "event": "eval",
+      "step": 1000,
+      "set": "squad_val",
+      "time": 1788468254.088693
+    },
+    {
+      "memory_correct": {
+        "ce": 2.5323473667012877,
+        "em": 0.05859375,
+        "f1": 0.15510189086100945,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 5.774143811004734,
+        "em": 0.05859375,
+        "f1": 0.15716094563841518,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.532245331000013,
+        "em": 0.0625,
+        "f1": 0.1584307744977975,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 3.4024073911233446,
+        "em": 0.5234375,
+        "f1": 0.7200598042392421,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.1939125747885555,
+        "8": 0.1774031154345721,
+        "12": 0.17840620200149715,
+        "15": 0.17739163374062628,
+        "19": 0.20246641989797354,
+        "23": 0.16973762784618884
+      },
+      "samples": [
+        {
+          "question": "On which date was Genghis Khan's palace rediscovered by archeaologists?",
+          "gold": "October 6, 2004",
+          "pred": "1999"
+        },
+        {
+          "question": "What did Luther fear to cause him to avoid marriage?",
+          "gold": "death of a heretic",
+          "pred": "a wife who would be a burden"
+        },
+        {
+          "question": "What was huihui?",
+          "gold": "Muslim medicine",
+          "pred": "a type of military unit formed by the combination of several groups of people who were"
+        },
+        {
+          "question": "What did Standard & Poor recommend to speed economy recovery?",
+          "gold": "increasing access to education",
+          "pred": "that the economy would recover in the next 12 months"
+        },
+        {
+          "question": "What did Graham Twigg publish in 1984?",
+          "gold": "the first major work to challenge the bubonic plague theory directly",
+          "pred": "The first volume of his trilogy"
+        },
+        {
+          "question": "How many settlers original settled in Manakintown?",
+          "gold": "390",
+          "pred": "100"
+        },
+        {
+          "question": "Maududi was trained as a lawyer, but chose what professional for himself instead?",
+          "gold": "journalism",
+          "pred": "teacher"
+        },
+        {
+          "question": "What has increased sediment and delta growth also produced in the Rhine?",
+          "gold": "increased flooding and sedimentation",
+          "pred": "a large delta"
+        }
+      ],
+      "event": "eval",
+      "step": 1500,
+      "set": "squad_val",
+      "time": 1788469094.612066
+    },
+    {
+      "memory_correct": {
+        "ce": 2.47490604298946,
+        "em": 0.05859375,
+        "f1": 0.1492151528798321,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 5.774143811004734,
+        "em": 0.05859375,
+        "f1": 0.15716094563841518,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.4776599783217534,
+        "em": 0.06640625,
+        "f1": 0.1588815715306258,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 3.4024073911233446,
+        "em": 0.5234375,
+        "f1": 0.7200598042392421,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.19151361263357103,
+        "8": 0.17764926585368812,
+        "12": 0.1797460273373872,
+        "15": 0.1800004174001515,
+        "19": 0.21016737865284085,
+        "23": 0.1697630659909919
+      },
+      "samples": [
+        {
+          "question": "On which date was Genghis Khan's palace rediscovered by archeaologists?",
+          "gold": "October 6, 2004",
+          "pred": "1998"
+        },
+        {
+          "question": "What did Luther fear to cause him to avoid marriage?",
+          "gold": "death of a heretic",
+          "pred": "a wife who would be a \"sister\" to him"
+        },
+        {
+          "question": "What was huihui?",
+          "gold": "Muslim medicine",
+          "pred": "a type of military unit"
+        },
+        {
+          "question": "What did Standard & Poor recommend to speed economy recovery?",
+          "gold": "increasing access to education",
+          "pred": "a 100 basis point cut in the interest rate"
+        },
+        {
+          "question": "What did Graham Twigg publish in 1984?",
+          "gold": "the first major work to challenge the bubonic plague theory directly",
+          "pred": "The first volume of his biography of the poet"
+        },
+        {
+          "question": "How many settlers original settled in Manakintown?",
+          "gold": "390",
+          "pred": "100"
+        },
+        {
+          "question": "Maududi was trained as a lawyer, but chose what professional for himself instead?",
+          "gold": "journalism",
+          "pred": "Islamic scholar"
+        },
+        {
+          "question": "What has increased sediment and delta growth also produced in the Rhine?",
+          "gold": "increased flooding and sedimentation",
+          "pred": "a large delta"
+        }
+      ],
+      "event": "eval",
+      "step": 2000,
+      "set": "squad_val",
+      "time": 1788469917.8479195
+    },
+    {
+      "memory_correct": {
+        "ce": 2.47478256605973,
+        "em": 0.0625,
+        "f1": 0.15063921709686512,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 5.774143811004734,
+        "em": 0.05859375,
+        "f1": 0.15716094563841518,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.480343548639212,
+        "em": 0.06640625,
+        "f1": 0.16043477093538772,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 3.4024073911233446,
+        "em": 0.5234375,
+        "f1": 0.7200598042392421,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.19365324918180704,
+        "8": 0.1791067896410823,
+        "12": 0.18149954406544566,
+        "15": 0.17935714381746948,
+        "19": 0.2061748062260449,
+        "23": 0.16938871936872602
+      },
+      "samples": [
+        {
+          "question": "On which date was Genghis Khan's palace rediscovered by archeaologists?",
+          "gold": "October 6, 2004",
+          "pred": "1999"
+        },
+        {
+          "question": "What did Luther fear to cause him to avoid marriage?",
+          "gold": "death of a heretic",
+          "pred": "a wife who would be a burden"
+        },
+        {
+          "question": "What was huihui?",
+          "gold": "Muslim medicine",
+          "pred": "a type of military unit"
+        },
+        {
+          "question": "What did Standard & Poor recommend to speed economy recovery?",
+          "gold": "increasing access to education",
+          "pred": "a stimulus package"
+        },
+        {
+          "question": "What did Graham Twigg publish in 1984?",
+          "gold": "the first major work to challenge the bubonic plague theory directly",
+          "pred": "The New York Times"
+        },
+        {
+          "question": "How many settlers original settled in Manakintown?",
+          "gold": "390",
+          "pred": "100"
+        },
+        {
+          "question": "Maududi was trained as a lawyer, but chose what professional for himself instead?",
+          "gold": "journalism",
+          "pred": "Islamic scholar"
+        },
+        {
+          "question": "What has increased sediment and delta growth also produced in the Rhine?",
+          "gold": "increased flooding and sedimentation",
+          "pred": "a large delta"
+        }
+      ],
+      "event": "eval",
+      "step": 2500,
+      "set": "squad_val",
+      "time": 1788470735.9722173
+    },
+    {
+      "memory_correct": {
+        "ce": 2.468355703429552,
+        "em": 0.0859375,
+        "f1": 0.16852850411649753,
+        "n": 256
+      },
+      "memory_zero": {
+        "ce": 5.774143811004734,
+        "em": 0.05859375,
+        "f1": 0.15716094563841518,
+        "n": 256
+      },
+      "memory_donor": {
+        "ce": 2.469347577309236,
+        "em": 0.07421875,
+        "f1": 0.16284159804924606,
+        "n": 256
+      },
+      "base_in_context": {
+        "ce": 3.4024073911233446,
+        "em": 0.5234375,
+        "f1": 0.7200598042392421,
+        "n": 256
+      },
+      "mem_mass": {
+        "4": 0.19760880782268941,
+        "8": 0.18004772113636136,
+        "12": 0.18062420398928225,
+        "15": 0.1844893090892583,
+        "19": 0.2116310391575098,
+        "23": 0.16963808448053896
+      },
+      "samples": [
+        {
+          "question": "On which date was Genghis Khan's palace rediscovered by archeaologists?",
+          "gold": "October 6, 2004",
+          "pred": "1999"
+        },
+        {
+          "question": "What did Luther fear to cause him to avoid marriage?",
+          "gold": "death of a heretic",
+          "pred": "a wife who would be a burden"
+        },
+        {
+          "question": "What was huihui?",
+          "gold": "Muslim medicine",
+          "pred": "a type of military unit"
+        },
+        {
+          "question": "What did Standard & Poor recommend to speed economy recovery?",
+          "gold": "increasing access to education",
+          "pred": "a stimulus package"
+        },
+        {
+          "question": "What did Graham Twigg publish in 1984?",
+          "gold": "the first major work to challenge the bubonic plague theory directly",
+          "pred": "The New York Times"
+        },
+        {
+          "question": "How many settlers original settled in Manakintown?",
+          "gold": "390",
+          "pred": "100"
+        },
+        {
+          "question": "Maududi was trained as a lawyer, but chose what professional for himself instead?",
+          "gold": "journalism",
+          "pred": "Islamic scholar"
+        },
+        {
+          "question": "What has increased sediment and delta growth also produced in the Rhine?",
+          "gold": "increased flooding and sedimentation",
+          "pred": "a large delta"
+        }
+      ],
+      "event": "eval",
+      "step": 3000,
+      "set": "squad_val",
+      "time": 1788471566.4727108
+    }
+  ]
+}

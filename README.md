@@ -1656,6 +1656,28 @@ integrations/delta_mem_rwkv_ms/    # launchers, docs, GGUF tools, optional upstr
 integrations/delta_mem_rwkv_ms/gguf/ # GGUF sidecar, fixture, and parity helpers
 ```
 
+## Write / Clear / Read: The Deciding Frozen-Base Experiment
+
+The native benchmark rows above write the memory from the system/user prefix and then run the
+read pass on the full row that still contains that prefix
+(`run_natural_memory_native_evolution.py:315-348`). The recurrent state therefore never carries
+information the read context lacks, which is why every readout family reported zero matched-donor
+margin. `experiments/write_clear_read/` replaces that setup: the passage is written into a
+delta-rule / RWKV-style multi-state memory, the context is cleared, and the question is asked alone.
+The state is read through extra key/value slots inside the frozen model's attention (no base
+weight, projection, rotary, or KV-cache code is modified).
+
+On frozen Qwen3-1.7B with 8-fact passages, 3000 adapter updates give 0.586 exact match with the
+correct state versus 0.074 with a donor state (no memory 0.031, passage in context 1.000). An
+uncompressed KV bank reaches 0.602, so the delta-state compression is nearly free. On frozen
+Gemma4 E4B the same memory binds only when the write reads the post-layernorm attention input
+instead of the raw residual (one residual dimension carries about 80 percent of the energy):
+0.230 versus 0.066 on the full-attention layers, and an uncompressed KV bank on sliding-window
+layers reaches 0.508 versus 0.059. Binding appears only after roughly 1000 to 2000 updates; before that every variant learns
+just the answer format, the exact signature the native experiments chased. See
+[FINDINGS.md](experiments/write_clear_read/FINDINGS.md) and
+[RESULTS.md](experiments/write_clear_read/RESULTS.md).
+
 ## HOLA Hippocampus on RWKV-7 Multi-State
 
 `experiments/hola_hippocampus/` replaces the neocortex of HOLA (arXiv 2607.02303,
