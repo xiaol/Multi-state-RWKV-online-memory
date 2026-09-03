@@ -85,8 +85,29 @@ VALID_RWKV_MS_HYBRID_MODES = (
     "addressed_value",
     "chunk_addressed_value",
     "recurrent_value",
+    "recurrent_routed_projected_value",
+    "recurrent_routed_query_value",
+    "recurrent_routed_residual_query_value",
+    "recurrent_routed_gated_query_value",
     "joint_pair_crossglu",
 )
+RWKV_MS_RECURRENT_ROUTED_MODES = frozenset(
+    {
+        "recurrent_routed_projected_value",
+        "recurrent_routed_query_value",
+        "recurrent_routed_residual_query_value",
+        "recurrent_routed_gated_query_value",
+    }
+)
+RWKV_MS_RECURRENT_ROUTED_CARRIER_MODES = frozenset(
+    {
+        "recurrent_routed_projected_value",
+        "recurrent_routed_query_value",
+        "recurrent_routed_gated_query_value",
+    }
+)
+RWKV_QUERY_VALUE_PAIR_SCALE = 1.0
+RWKV_QUERY_VALUE_GATE_INIT = 0.01
 RWKV_MS_DEEPEMBED_FFN_MODES = frozenset(
     {"addressed_moe_deepembed_ffn", "address_keyed_moe_deepembed_ffn"}
 )
@@ -468,6 +489,7 @@ class HFDeltaMemConfig:
     rwkv_ms_outer_ffn_layers: tuple[int, ...] = ()
     rwkv_ms_ple_rank: int = 4
     rwkv_ms_ple_gain: float = 0.125
+    rwkv_ms_ple_input_gain: float = 0.0
     rwkv_ms_ple_fusion: str = "additive"
 
     def __post_init__(self) -> None:
@@ -540,6 +562,11 @@ class HFDeltaMemConfig:
             raise ValueError(
                 "rwkv_ms_ple_gain must be finite and satisfy 0 <= gain <= 1"
             )
+        ple_input_gain = float(self.rwkv_ms_ple_input_gain)
+        if not math.isfinite(ple_input_gain) or not (0.0 <= ple_input_gain <= 1.0):
+            raise ValueError(
+                "rwkv_ms_ple_input_gain must be finite and satisfy 0 <= gain <= 1"
+            )
         ple_fusion = normalize_rwkv_ms_ple_fusion(self.rwkv_ms_ple_fusion)
         object.__setattr__(
             self,
@@ -553,6 +580,7 @@ class HFDeltaMemConfig:
         object.__setattr__(self, "rwkv_ms_outer_ffn_gain", outer_ffn_gain)
         object.__setattr__(self, "rwkv_ms_ple_rank", ple_rank)
         object.__setattr__(self, "rwkv_ms_ple_gain", ple_gain)
+        object.__setattr__(self, "rwkv_ms_ple_input_gain", ple_input_gain)
         object.__setattr__(self, "rwkv_ms_ple_fusion", ple_fusion)
         if (
             write_address_gain != 0.0
@@ -1092,6 +1120,7 @@ class DeltaMemAttention(nn.Module):
         self.rwkv_ms_outer_ffn_layers = config.rwkv_ms_outer_ffn_layers
         self.rwkv_ms_ple_rank = config.rwkv_ms_ple_rank
         self.rwkv_ms_ple_gain = config.rwkv_ms_ple_gain
+        self.rwkv_ms_ple_input_gain = config.rwkv_ms_ple_input_gain
         self.rwkv_ms_ple_fusion = config.rwkv_ms_ple_fusion
         self.rwkv_ms_ple_enabled = self.rwkv_ms_hybrid_mode in RWKV_MS_PLE_MODES
         self.rwkv_ms_outer_ffn_enabled = (
@@ -1201,6 +1230,28 @@ class DeltaMemAttention(nn.Module):
             self.projected_kv_key_proj = nn.Parameter(
                 torch.empty(self.projected_kv_key_dim, hidden_size)
             )
+        if self.rwkv_ms_hybrid_mode in RWKV_MS_RECURRENT_ROUTED_MODES:
+            self.rwkv_route_query_proj = nn.Parameter(
+                torch.empty(self.rank, self.rank)
+            )
+            self.rwkv_route_state_proj = nn.Parameter(
+                torch.empty(self.rank, self.rank)
+            )
+        if self.rwkv_ms_hybrid_mode in {
+            "recurrent_routed_query_value",
+            "recurrent_routed_residual_query_value",
+            "recurrent_routed_gated_query_value",
+        }:
+            self.rwkv_pair_value_proj = nn.Parameter(
+                torch.empty(self.rank, self.rank)
+            )
+        if self.rwkv_ms_hybrid_mode == "recurrent_routed_residual_query_value":
+            self.rwkv_recurrent_value_proj = nn.Parameter(
+                torch.empty(self.rank, self.rank)
+            )
+        if self.rwkv_ms_hybrid_mode == "recurrent_routed_gated_query_value":
+            self.rwkv_pair_gate_weight = nn.Parameter(torch.empty(1, self.rank))
+            self.rwkv_pair_gate_bias = nn.Parameter(torch.empty(1))
 
         self.delta_q_proj = nn.Parameter(torch.empty(self.query_out_features, self.state_read_dim))
         self.delta_k_proj = nn.Parameter(torch.empty(self.key_out_features, self.state_read_dim))
@@ -1336,6 +1387,8 @@ class DeltaMemAttention(nn.Module):
         self.last_read_routes: torch.Tensor | None = None
         self.last_anchor_routes: torch.Tensor | None = None
         self.last_read_route_logits: torch.Tensor | None = None
+        self.last_read_query_features: torch.Tensor | None = None
+        self.last_recurrent_pair_gate: torch.Tensor | None = None
         self.last_base_o_norm: torch.Tensor | None = None
         self.last_delta_o_norm: torch.Tensor | None = None
         self.last_delta_o_ratio: torch.Tensor | None = None
@@ -1757,6 +1810,26 @@ class DeltaMemAttention(nn.Module):
         nn.init.kaiming_uniform_(self.memory_v_proj, a=math.sqrt(5))
         if self.memory_readout_mode in PROJECTED_KV_MEMORY_READOUT_MODES:
             nn.init.kaiming_uniform_(self.projected_kv_key_proj, a=math.sqrt(5))
+        if self.rwkv_ms_hybrid_mode in RWKV_MS_RECURRENT_ROUTED_MODES:
+            nn.init.eye_(self.rwkv_route_query_proj)
+            nn.init.eye_(self.rwkv_route_state_proj)
+        if self.rwkv_ms_hybrid_mode in {
+            "recurrent_routed_query_value",
+            "recurrent_routed_residual_query_value",
+            "recurrent_routed_gated_query_value",
+        }:
+            nn.init.zeros_(self.rwkv_pair_value_proj)
+        if self.rwkv_ms_hybrid_mode == "recurrent_routed_residual_query_value":
+            nn.init.zeros_(self.rwkv_recurrent_value_proj)
+        if self.rwkv_ms_hybrid_mode == "recurrent_routed_gated_query_value":
+            nn.init.zeros_(self.rwkv_pair_gate_weight)
+            nn.init.constant_(
+                self.rwkv_pair_gate_bias,
+                math.log(
+                    RWKV_QUERY_VALUE_GATE_INIT
+                    / (1.0 - RWKV_QUERY_VALUE_GATE_INIT)
+                ),
+            )
         self._init_delta_head(self.delta_q_proj, self._query_projection_weight())
         if self.is_gemma4_attention and self.is_kv_shared_layer:
             nn.init.zeros_(self.delta_k_proj)
@@ -1854,6 +1927,7 @@ class DeltaMemAttention(nn.Module):
         self.last_read_routes = None
         self.last_anchor_routes = None
         self.last_read_route_logits = None
+        self.last_recurrent_pair_gate = None
         self.last_base_o_norm = None
         self.last_delta_o_norm = None
         self.last_delta_o_ratio = None
@@ -1944,7 +2018,11 @@ class DeltaMemAttention(nn.Module):
 
     def is_trainable_parameter(self, sub_name: str) -> bool:
         if sub_name == "projected_kv_key_proj":
-            return self.memory_readout_mode in PROJECTED_KV_MEMORY_READOUT_MODES
+            return (
+                self.memory_readout_mode in PROJECTED_KV_MEMORY_READOUT_MODES
+                and self.rwkv_ms_hybrid_mode
+                not in RWKV_MS_RECURRENT_ROUTED_MODES
+            )
         if sub_name in {"memory_q_proj", "memory_k_proj"}:
             return self.memory_backend != "rwkv_ms"
         if sub_name == "memory_v_proj":
@@ -4184,7 +4262,24 @@ class DeltaMemAttention(nn.Module):
         token_mask: Optional[torch.Tensor],
     ) -> torch.Tensor:
         batch_size, seq_len = r_seq.shape[:2]
-        if self.rwkv_ms_semantics_version >= 2:
+        if self.rwkv_ms_hybrid_mode in RWKV_MS_RECURRENT_ROUTED_MODES:
+            route_query = F.linear(r_seq.float(), self.rwkv_route_query_proj.float())
+            self.last_read_query_features = route_query.reshape(
+                batch_size,
+                seq_len,
+                self.state_read_dim,
+            )
+            route_states = F.linear(
+                slot_reads.float(),
+                self.rwkv_route_state_proj.float(),
+            )
+            scores = F.cosine_similarity(
+                route_states,
+                route_query.unsqueeze(3),
+                dim=-1,
+                eps=1e-6,
+            )
+        elif self.rwkv_ms_semantics_version >= 2:
             scores = F.cosine_similarity(
                 slot_reads.float(),
                 r_seq.float().unsqueeze(3),
@@ -5017,7 +5112,7 @@ class DeltaMemAttention(nn.Module):
             self.hidden_size,
         )
         chunk_hidden = hidden_states.gather(dim=1, index=gather_indices)
-        chunk_keys, _ = self._projected_kv_project_hidden(chunk_hidden)
+        chunk_keys, chunk_values = self._projected_kv_project_hidden(chunk_hidden)
         keys, values, occupied, surprise = self._ensure_projected_kv_slot_state(
             batch_size,
             hidden_states.device,
@@ -5029,7 +5124,11 @@ class DeltaMemAttention(nn.Module):
         )
         values = torch.where(
             written_slots.unsqueeze(-1),
-            torch.zeros_like(values),
+            (
+                chunk_values
+                if self.rwkv_ms_hybrid_mode in RWKV_MS_RECURRENT_ROUTED_MODES
+                else torch.zeros_like(chunk_values)
+            ),
             values,
         )
         self.projected_kv_keys = keys
@@ -5186,6 +5285,92 @@ class DeltaMemAttention(nn.Module):
             routes,
             values.float(),
         ).to(dtype=self.memory_v_proj.dtype)
+
+    def _rwkv_ms_routed_projected_token_reads(
+        self,
+        state: torch.Tensor,
+        memory_source_seq: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        batch_size, seq_len, _ = memory_source_seq.shape
+        projected_values = self.projected_kv_values
+        projected_occupied = self.projected_kv_occupied
+        if projected_values is None or projected_occupied is None:
+            self.last_read_routes = memory_source_seq.new_zeros(
+                batch_size,
+                seq_len,
+                self.rwkv_ms_num_states,
+            )
+            self.last_read_route_logits = None
+            self.last_read_query_features = memory_source_seq.new_zeros(
+                batch_size,
+                seq_len,
+                self.state_read_dim,
+            )
+            zeros = memory_source_seq.new_zeros(
+                batch_size,
+                seq_len,
+                self.state_read_dim,
+                dtype=self.memory_v_proj.dtype,
+            )
+            return zeros, zeros
+
+        _, values, occupied, _ = self._ensure_projected_kv_slot_state(
+            batch_size,
+            memory_source_seq.device,
+        )
+        r_seq, slot_reads, readout_gate = self._rwkv_ms_token_state_read_basis(
+            state,
+            memory_source_seq,
+            token_mask,
+        )
+        recurrent_head_routes = self._rwkv_ms_token_state_routes(
+            state,
+            r_seq,
+            slot_reads,
+            token_mask,
+        )
+        route_query = F.linear(r_seq.float(), self.rwkv_route_query_proj.float())
+        self.last_read_query_features = route_query.reshape(
+            batch_size,
+            seq_len,
+            self.state_read_dim,
+        )
+        recurrent_routes = recurrent_head_routes.mean(dim=2)
+        recurrent_occupied = state.float().ne(0).any(dim=(-1, -2)).any(dim=1)
+        routable = occupied & recurrent_occupied
+        routed = recurrent_routes * routable.unsqueeze(1).to(
+            dtype=recurrent_routes.dtype
+        )
+        route_mass = routed.sum(dim=-1, keepdim=True)
+        routed = torch.where(
+            route_mass.gt(0.0),
+            routed / route_mass.clamp_min(1e-12),
+            torch.zeros_like(routed),
+        )
+        if token_mask is not None:
+            routed = routed * token_mask.to(
+                device=routed.device,
+                dtype=routed.dtype,
+            ).unsqueeze(-1)
+
+        projected_reads = torch.einsum(
+            "bts,bsd->btd",
+            routed,
+            values.float(),
+        ).to(dtype=self.memory_v_proj.dtype)
+        recurrent_read_inputs = torch.einsum(
+            "bts,bthsi->bthi",
+            routed,
+            slot_reads,
+        ).reshape(batch_size, seq_len, self.state_read_dim)
+        recurrent_reads = self.hrm_rwkv7_core.readout(
+            recurrent_read_inputs.to(dtype=readout_gate.dtype),
+            readout_gate,
+        )
+        self.last_read_routes = routed
+        self.last_read_route_logits = None
+        return projected_reads, recurrent_reads
 
     def _fuse_projected_rwkv_reads(
         self,
@@ -5405,6 +5590,66 @@ class DeltaMemAttention(nn.Module):
                 * F.normalize(recurrent, dim=-1, eps=1e-6)
             ).sum(dim=-1, keepdim=True)
             fused = projected * (1.0 + gain * alignment.clamp(-1.0, 1.0))
+        elif self.rwkv_ms_hybrid_mode == "recurrent_routed_projected_value":
+            fused = projected * (1.0 + gain * recurrent_direction)
+        elif self.rwkv_ms_hybrid_mode in {
+            "recurrent_routed_query_value",
+            "recurrent_routed_gated_query_value",
+        }:
+            query = self.last_read_query_features
+            if query is None or tuple(query.shape) != tuple(recurrent.shape):
+                raise RuntimeError(
+                    f"{self.rwkv_ms_hybrid_mode} requires query features"
+                )
+            query_rms = stable_exact_rms(query.float())
+            query_direction = torch.tanh(query.float() / query_rms.clamp_min(1e-6))
+            pair_features = (recurrent_direction * query_direction).float()
+            pair_direction = torch.tanh(
+                F.linear(
+                    pair_features,
+                    self.rwkv_pair_value_proj.float(),
+                )
+            )
+            pair_gate = 1.0
+            if self.rwkv_ms_hybrid_mode == "recurrent_routed_gated_query_value":
+                pair_gate = torch.sigmoid(
+                    F.linear(
+                        pair_features,
+                        self.rwkv_pair_gate_weight.float(),
+                        self.rwkv_pair_gate_bias.float(),
+                    )
+                )
+                self.last_recurrent_pair_gate = pair_gate
+            fused = (
+                projected * (1.0 + gain * pair_gate * recurrent_direction)
+                + gain
+                * RWKV_QUERY_VALUE_PAIR_SCALE
+                * carrier_rms
+                * pair_gate
+                * pair_direction
+            )
+        elif self.rwkv_ms_hybrid_mode == "recurrent_routed_residual_query_value":
+            query = self.last_read_query_features
+            if query is None or tuple(query.shape) != tuple(recurrent.shape):
+                raise RuntimeError(
+                    "recurrent_routed_residual_query_value requires query features"
+                )
+            query_rms = stable_exact_rms(query.float())
+            query_direction = torch.tanh(
+                query.float() / query_rms.clamp_min(1e-6)
+            )
+            pair_features = (recurrent_direction * query_direction).float()
+            correction_direction = torch.tanh(
+                F.linear(
+                    recurrent_direction,
+                    self.rwkv_recurrent_value_proj.float(),
+                )
+                + F.linear(
+                    pair_features,
+                    self.rwkv_pair_value_proj.float(),
+                )
+            )
+            fused = projected + gain * carrier_rms * correction_direction
         elif self.rwkv_ms_hybrid_mode in RWKV_MS_VALUE_BOTTLENECK_MODES:
             fused = gain * recurrent_direction
         elif self.rwkv_ms_hybrid_mode == "joint_pair_crossglu":
@@ -5463,7 +5708,10 @@ class DeltaMemAttention(nn.Module):
         if self.write_enabled:
             rwkv_write_route_seq = None
             rwkv_write_address_seq = None
-            if self.rwkv_ms_hybrid_mode == "chunk_addressed_value":
+            if self.rwkv_ms_hybrid_mode in {
+                "chunk_addressed_value",
+                *RWKV_MS_RECURRENT_ROUTED_CARRIER_MODES,
+            }:
                 self._write_chunk_addressed_kv_slots(hidden_states, token_mask)
             else:
                 self._write_projected_kv_slots(hidden_states, token_mask)
@@ -5524,7 +5772,20 @@ class DeltaMemAttention(nn.Module):
             self.last_read_routes = None
             self.last_read_route_logits = None
         else:
-            if self.rwkv_ms_hybrid_mode == "recurrent_value":
+            if (
+                self.rwkv_ms_hybrid_mode
+                in RWKV_MS_RECURRENT_ROUTED_CARRIER_MODES
+            ):
+                projected_reads, recurrent_reads = (
+                    self._rwkv_ms_routed_projected_token_reads(
+                        state,
+                        token_memory_v_seq,
+                        token_mask,
+                    )
+                )
+                projected_routes = self.last_read_routes
+                recurrent_routes = self.last_read_routes
+            elif self.rwkv_ms_hybrid_mode == "recurrent_value":
                 projected_reads = torch.zeros(
                     hidden_states.size(0),
                     hidden_states.size(1),
@@ -5538,7 +5799,12 @@ class DeltaMemAttention(nn.Module):
                 projected_routes = self.last_read_routes
             route_agreement = None
             query_state_gate = None
-            if self.rwkv_ms_hybrid_mode == "addressed_route_agreement":
+            if (
+                self.rwkv_ms_hybrid_mode
+                in RWKV_MS_RECURRENT_ROUTED_CARRIER_MODES
+            ):
+                pass
+            elif self.rwkv_ms_hybrid_mode == "addressed_route_agreement":
                 if projected_routes is None:
                     recurrent_reads = torch.zeros_like(projected_reads)
                     recurrent_routes = None
@@ -6250,6 +6516,8 @@ class DeltaMemAttention(nn.Module):
             )
         )
         delta = self.rwkv_ms_ple_gain * (output - baseline_output)
+        if self.rwkv_ms_ple_input_gain:
+            delta = delta + self.rwkv_ms_ple_input_gain * baseline_output
         active = recurrent_control.float().square().sum(dim=-1, keepdim=True).gt(0.0)
         delta = torch.where(active, delta, torch.zeros_like(delta))
         return delta.to(dtype=compute_dtype)
@@ -7816,6 +8084,9 @@ def load_delta_mem_state_dict(
     initialize_missing_residual_hybrid_gain: bool = False,
     initialize_missing_content_gate: bool = False,
     initialize_missing_write_address_value_adapter: bool = False,
+    initialize_missing_rwkv_pair_value: bool = False,
+    initialize_missing_rwkv_recurrent_value: bool = False,
+    initialize_missing_rwkv_pair_gate: bool = False,
 ) -> None:
     expected_state = get_delta_mem_state_dict(model)
     expected_keys = list(expected_state)
@@ -7826,6 +8097,9 @@ def load_delta_mem_state_dict(
     residual_hybrid_gain_missing = []
     content_gate_missing = []
     write_address_value_adapter_missing = []
+    rwkv_pair_value_missing = []
+    rwkv_recurrent_value_missing = []
+    rwkv_pair_gate_missing = []
     for key in missing:
         module_name, param_name = key.rsplit(".", 1)
         module = module_map.get(module_name)
@@ -7856,6 +8130,12 @@ def load_delta_mem_state_dict(
             and module.rwkv_ms_write_address_value_adapter
         ):
             write_address_value_adapter_missing.append(key)
+        if param_name == "rwkv_pair_value_proj":
+            rwkv_pair_value_missing.append(key)
+        if param_name == "rwkv_recurrent_value_proj":
+            rwkv_recurrent_value_missing.append(key)
+        if param_name in {"rwkv_pair_gate_weight", "rwkv_pair_gate_bias"}:
+            rwkv_pair_gate_missing.append(key)
     allowed_missing: set[str] = set()
     if initialize_missing_residual_hybrid_gain:
         allowed_missing.update(residual_hybrid_gain_missing)
@@ -7863,6 +8143,12 @@ def load_delta_mem_state_dict(
         allowed_missing.update(content_gate_missing)
     if initialize_missing_write_address_value_adapter:
         allowed_missing.update(write_address_value_adapter_missing)
+    if initialize_missing_rwkv_pair_value:
+        allowed_missing.update(rwkv_pair_value_missing)
+    if initialize_missing_rwkv_recurrent_value:
+        allowed_missing.update(rwkv_recurrent_value_missing)
+    if initialize_missing_rwkv_pair_gate:
+        allowed_missing.update(rwkv_pair_gate_missing)
     disallowed_missing = [key for key in missing if key not in allowed_missing]
     if disallowed_missing or extra:
         warm_start_hint = ""
@@ -7895,6 +8181,36 @@ def load_delta_mem_state_dict(
             warm_start_hint = (
                 " To warm-start these weights into a value-adapted address write, "
                 "pass initialize_missing_write_address_value_adapter=True."
+            )
+        elif (
+            not initialize_missing_rwkv_pair_value
+            and missing
+            and len(rwkv_pair_value_missing) == len(missing)
+            and not extra
+        ):
+            warm_start_hint = (
+                " To warm-start these weights into recurrent query-value coupling, "
+                "pass initialize_missing_rwkv_pair_value=True."
+            )
+        elif (
+            not initialize_missing_rwkv_recurrent_value
+            and missing
+            and len(rwkv_recurrent_value_missing) == len(missing)
+            and not extra
+        ):
+            warm_start_hint = (
+                " To warm-start into zero-initialized recurrent residual value "
+                "coupling, pass initialize_missing_rwkv_recurrent_value=True."
+            )
+        elif (
+            not initialize_missing_rwkv_pair_gate
+            and missing
+            and len(rwkv_pair_gate_missing) == len(missing)
+            and not extra
+        ):
+            warm_start_hint = (
+                " To warm-start into gated recurrent query-value coupling, "
+                "pass initialize_missing_rwkv_pair_gate=True."
             )
         raise ValueError(
             "Delta-Mem adapter parameter topology does not match the attached model; "
@@ -7993,6 +8309,9 @@ def load_delta_mem_adapter(
     initialize_missing_residual_hybrid_gain: bool = False,
     initialize_missing_content_gate: bool = False,
     initialize_missing_write_address_value_adapter: bool = False,
+    initialize_missing_rwkv_pair_value: bool = False,
+    initialize_missing_rwkv_recurrent_value: bool = False,
+    initialize_missing_rwkv_pair_gate: bool = False,
 ) -> HFDeltaMemConfig:
     input_path = Path(input_dir)
     config = HFDeltaMemConfig.from_pretrained(input_path)
@@ -8084,5 +8403,10 @@ def load_delta_mem_adapter(
         initialize_missing_write_address_value_adapter=(
             initialize_missing_write_address_value_adapter
         ),
+        initialize_missing_rwkv_pair_value=initialize_missing_rwkv_pair_value,
+        initialize_missing_rwkv_recurrent_value=(
+            initialize_missing_rwkv_recurrent_value
+        ),
+        initialize_missing_rwkv_pair_gate=initialize_missing_rwkv_pair_gate,
     )
     return config

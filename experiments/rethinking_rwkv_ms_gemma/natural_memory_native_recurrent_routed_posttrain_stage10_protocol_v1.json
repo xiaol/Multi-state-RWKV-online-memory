@@ -1,0 +1,56 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_posttrain_stage10_protocol.v1",
+  "created_at": "2026-08-29T08:20:00+08:00",
+  "objective": "Repair the persistent narrative donor-state failure with a model-only continuation that oversamples unseen narrative examples while retaining generic causal donor contrast and the same recurrent routing architecture.",
+  "predecessor": {
+    "training_result_receipt": "01ada5458eca9c1f53987862585bba71c3fc7c2832dd737bf77cb095f479e712",
+    "adapter_config_sha256": "dc20cbe794479c9f802b45bedef83ff65543445dd85bfdb36419396cadd95d37"
+  },
+  "development_v2_manifest_receipt": "2236d1e3e980ce92787e34500a40a38634ea7017835e629759d9564ba99036d6",
+  "architecture": {
+    "rwkv_ms_hybrid_mode": "recurrent_routed_projected_value",
+    "task_router": false,
+    "template_matcher": false,
+    "dual_pass_selector": false,
+    "benchmark_specific_decoder": false,
+    "trainable_suffixes": [
+      ".rwkv_route_query_proj",
+      ".rwkv_route_state_proj",
+      ".hrm_rwkv7_core.output.weight"
+    ]
+  },
+  "training": {
+    "updates": 20,
+    "global_batch_rows": 8,
+    "learning_rate": 0.000005,
+    "max_gradient_norm": 0.05,
+    "contrast_margin": 0.02,
+    "control_weights": {
+      "zero_recurrent_state": 0.125,
+      "matched_donor_recurrent_state": 1.0,
+      "slot_shuffled_recurrent_state": 0.125,
+      "layer_permuted_recurrent_state": 0.25
+    },
+    "always_active_controls": ["matched_donor_recurrent_state"],
+    "task_target_counts": {"attribution": 4, "narrative": 32, "scene": 4},
+    "donor_selection": "highest generic user-content SequenceMatcher similarity with different answer",
+    "final_rows_opened": false
+  },
+  "development_v2": {
+    "rows_per_task": {"attribution": 8, "narrative": 32, "scene": 32},
+    "prompt_variants": 4,
+    "conditions": [
+      "correct_recurrent_state",
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "slot_shuffled_recurrent_state",
+      "layer_permuted_recurrent_state"
+    ],
+    "final_rows_opened": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "91995256ba280bb90b6f26cc5fd747c87180331d45b4172ab0dac19127a70d99"
+  }
+}

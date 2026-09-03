@@ -1,0 +1,96 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_posttrain_stage3_protocol.v1",
+  "created_at": "2026-08-29T02:00:00+08:00",
+  "objective": "Resolve the remaining near-zero donor-state prompt-subgroup margins with a short model-only continuation on untouched, prompt-balanced training rows while preserving the stage-2 recurrent causality gains.",
+  "diagnosis": {
+    "stage2_training_result_receipt": "01ada5458eca9c1f53987862585bba71c3fc7c2832dd737bf77cb095f479e712",
+    "stage2_development_result_receipt": "88129262892d28795b23752d44289133c2f5416245847d944af17c9b4853a47a",
+    "overall_correct_over_all_controls": true,
+    "per_task_correct_over_all_controls": true,
+    "projected_carriers_fixed": true,
+    "failed_task_prompt_donor_margins": {
+      "attribution:2": -0.00002584167216956,
+      "narrative:0": -0.00025798647038582136,
+      "narrative:3": -0.0005114372311442868
+    },
+    "final_evaluation_authorized": false
+  },
+  "frozen_inputs": {
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "stage2_adapter_weights_sha256": "7af3769fa34631329a54fb8caf44797a3a5598344e104680b6aa2cb108339248",
+    "stage2_adapter_config_sha256": "dc20cbe794479c9f802b45bedef83ff65543445dd85bfdb36419396cadd95d37",
+    "stage2_adapter_files_sha256": "170aaf650f7807b077ab77a70c72f83ec0e06a26ff3c1f34b94bd335288147cd",
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "final_commitment_receipt": "c8c106a00e1379e26bbae5b774f0fe831de2c2527c3195a1e42881a33b2b2fae",
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "final_rows_opened": false,
+    "publisher_validation_opened": false,
+    "publisher_test_opened": false
+  },
+  "architecture": {
+    "rwkv_ms_hybrid_mode": "recurrent_routed_projected_value",
+    "trainable_parameter_families": [
+      "rwkv_route_query_proj",
+      "rwkv_route_state_proj",
+      "hrm_rwkv7_core.output.weight"
+    ],
+    "trainable_tensors": 126,
+    "task_router": false,
+    "template_matcher": false,
+    "dual_pass_selector": false,
+    "benchmark_specific_decoder": false
+  },
+  "training": {
+    "initial_checkpoint": "stage2 trained candidate",
+    "preflight_optimizer_updates": 1,
+    "optimizer_updates": 10,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "untouched_target_rows": 80,
+    "task_rows": {
+      "attribution": 20,
+      "narrative": 30,
+      "scene": 30
+    },
+    "prompt_variant_rows": {
+      "0": 20,
+      "1": 20,
+      "2": 20,
+      "3": 20
+    },
+    "optimizer": "fused AdamW with fresh moments",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "contrast_margin": 0.05,
+    "control_weights": {
+      "zero_recurrent_state": 0.125,
+      "matched_donor_recurrent_state": 0.75,
+      "slot_shuffled_recurrent_state": 0.125,
+      "layer_permuted_recurrent_state": 0.25
+    },
+    "final_rows_opened_during_training": false
+  },
+  "development_gate": {
+    "identical_to_stage2_gate": true,
+    "required_overall_correct_over_all_controls": true,
+    "required_per_task_correct_over_all_controls": true,
+    "required_all_task_prompt_variants_correct_over_donor": true,
+    "required_projected_carriers_fixed": true,
+    "final_evaluation_authorized_only_on_pass": true
+  },
+  "final_gate": {
+    "unchanged_from_stage2": true,
+    "final_rows_per_task": 64,
+    "single_pass_raw_generation_only": true,
+    "candidate_non_regressive_against_stronger_baseline_on_every_task": true,
+    "candidate_strictly_better_than_both_baselines_on_at_least_one_task": true,
+    "final_rows_opened": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "df4a7fdf814f29d69f65e8f7437766623e2cf526107a552e78aa33f21d2bb4ca"
+  }
+}

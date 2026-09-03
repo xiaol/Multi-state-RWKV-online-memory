@@ -1,0 +1,50 @@
+{
+  "adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 60083976,
+      "sha256": "cffdb73e4ac0f86265b82cceecae211b5f62bd52bad875209794b93357c3dfbd"
+    },
+    "delta_mem_config.json": {
+      "bytes": 3372,
+      "sha256": "4484ad76ff6523626a9ee11bb04d40723e35d90443d0b58c41c4f8a4e652c84b"
+    }
+  },
+  "adapter_files_sha256": "f4731582090552d3d7a2d7dc85dda686d7e07463cc0f80ac76bc42ad6759f20e",
+  "final_rows_opened": false,
+  "input_binding": {
+    "final_rows_opened": false,
+    "first_adapter": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_train20_v1/adapter",
+    "first_adapter_files": {
+      "delta_mem_adapter.pt": {
+        "bytes": 60083976,
+        "sha256": "a593d778d0587319464bc9a6520d9c0b08c52be98cdab7fda39f48946825dd04"
+      },
+      "delta_mem_config.json": {
+        "bytes": 3372,
+        "sha256": "4484ad76ff6523626a9ee11bb04d40723e35d90443d0b58c41c4f8a4e652c84b"
+      }
+    },
+    "schema": "rwkv_ms_natural_memory_native_recurrent_routed_adapter_blend.v1_input",
+    "second_adapter": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_distill_train20_v1/adapter",
+    "second_adapter_files": {
+      "delta_mem_adapter.pt": {
+        "bytes": 60083976,
+        "sha256": "850fcb6d357efee3ee83063503abb5407c60c04fac72e4d1e2189c2c3daf7d3a"
+      },
+      "delta_mem_config.json": {
+        "bytes": 3372,
+        "sha256": "4484ad76ff6523626a9ee11bb04d40723e35d90443d0b58c41c4f8a4e652c84b"
+      }
+    },
+    "second_weight": 0.5
+  },
+  "open_development_evaluation_authorized": true,
+  "passed": true,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "75fc307f2c5db320c0cbca4f7bc92c0829db5a842cf0f052a6b536d3b0016206"
+  },
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_adapter_blend.v1",
+  "status": "adapter_blend_complete_development_v2_evaluation_authorized"
+}

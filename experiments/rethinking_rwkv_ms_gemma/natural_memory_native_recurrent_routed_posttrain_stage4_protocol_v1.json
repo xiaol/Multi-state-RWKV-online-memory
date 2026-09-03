@@ -1,0 +1,78 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_posttrain_stage4_protocol.v1",
+  "created_at": "2026-08-29T02:40:00+08:00",
+  "objective": "Recover the stage-2 recurrent-routing candidate from the rejected stage-3 optimization direction with a single preregistered model-weight extrapolation, then require the unchanged sealed-development causal gate before opening final rows.",
+  "diagnosis": {
+    "stage2_training_result_receipt": "01ada5458eca9c1f53987862585bba71c3fc7c2832dd737bf77cb095f479e712",
+    "stage2_development_result_receipt": "88129262892d28795b23752d44289133c2f5416245847d944af17c9b4853a47a",
+    "stage3_training_result_receipt": "75fe0d877c3748f13629bcb0796076fcec4c63c97ebca89638acbc52bea9cb38",
+    "stage3_development_result_receipt": "8abc7c1954f85352b1bdd763d6c794938cef423768a37df785ed661c917a62c4",
+    "stage2_failed_donor_margins": {
+      "attribution:2": -0.00002584167216956,
+      "narrative:0": -0.00025798647038582136,
+      "narrative:3": -0.0005114372311442868
+    },
+    "stage3_corresponding_donor_margins": {
+      "attribution:2": -0.0034232367810450096,
+      "narrative:0": -0.0008762029951255842,
+      "narrative:3": -0.002081238487992417
+    },
+    "stage3_narrative_task_donor_margin": -0.0007921604146588395,
+    "stage3_overall_correct_over_all_controls": true,
+    "stage3_projected_carriers_fixed": true,
+    "final_evaluation_authorized": false
+  },
+  "frozen_inputs": {
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "stage2_adapter_weights_sha256": "7af3769fa34631329a54fb8caf44797a3a5598344e104680b6aa2cb108339248",
+    "stage3_adapter_weights_sha256": "25d487e8c2b2e5a14a98df65e9f29fd565448e50dc9d44b44d2fef6c55c6ee44",
+    "adapter_config_sha256": "dc20cbe794479c9f802b45bedef83ff65543445dd85bfdb36419396cadd95d37",
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "final_commitment_receipt": "c8c106a00e1379e26bbae5b774f0fe831de2c2527c3195a1e42881a33b2b2fae",
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "final_rows_opened": false,
+    "publisher_validation_opened": false,
+    "publisher_test_opened": false
+  },
+  "method": {
+    "initial_checkpoint": "stage2 trained candidate",
+    "rejected_direction_endpoint": "stage3 trained candidate",
+    "formula": "stage4 = stage2 + alpha * (stage3 - stage2)",
+    "alpha": -1.0,
+    "equivalent_formula": "stage4 = 2 * stage2 - stage3",
+    "modified_parameter_families": [
+      "rwkv_route_query_proj",
+      "rwkv_route_state_proj",
+      "hrm_rwkv7_core.output.weight"
+    ],
+    "modified_tensors": 126,
+    "nontrained_adapter_tensors_must_equal_stage2_and_stage3": true,
+    "task_router": false,
+    "template_matcher": false,
+    "dual_pass_selector": false,
+    "benchmark_specific_decoder": false,
+    "candidate_sweep": false
+  },
+  "development_gate": {
+    "identical_to_stage2_and_stage3_gate": true,
+    "required_overall_correct_over_all_controls": true,
+    "required_per_task_correct_over_all_controls": true,
+    "required_all_task_prompt_variants_correct_over_donor": true,
+    "required_projected_carriers_fixed": true,
+    "final_evaluation_authorized_only_on_pass": true
+  },
+  "final_gate": {
+    "unchanged": true,
+    "final_rows_per_task": 64,
+    "single_pass_raw_generation_only": true,
+    "candidate_non_regressive_against_stronger_baseline_on_every_task": true,
+    "candidate_strictly_better_than_both_baselines_on_at_least_one_task": true,
+    "final_rows_opened": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "854e466f3e683925d5079ce78a45444b9920c665a6b7aeae293a056854fb935d"
+  }
+}

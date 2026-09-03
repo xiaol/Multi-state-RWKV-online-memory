@@ -1,0 +1,1475 @@
+{
+  "adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 60083976,
+      "sha256": "a05db7b2672d2def927fafb4fd3d93e33141329e484b40f546c09bcbf832edec"
+    },
+    "delta_mem_config.json": {
+      "bytes": 3372,
+      "sha256": "4484ad76ff6523626a9ee11bb04d40723e35d90443d0b58c41c4f8a4e652c84b"
+    }
+  },
+  "adapter_files_sha256": "faa5ec29d7d1f3840497d0b502461cd31d7bb2bff7bf19b7d01cd6099b0c3206",
+  "final_rows_opened": false,
+  "input_binding": {
+    "base_model": "/root/x/models/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "common_helper_sha256": "1967ac53977202cf68f55ee9ec05b4d5f3f1d83cf6a4fdddd959a5d1942f3050",
+    "contrast_margin": 0.05,
+    "control_weights": {
+      "layer_permuted_recurrent_state": 0.125,
+      "matched_donor_recurrent_state": 1.0,
+      "slot_shuffled_recurrent_state": 0.125,
+      "zero_recurrent_state": 0.125
+    },
+    "development_failure_receipt": "2236d1e3e980ce92787e34500a40a38634ea7017835e629759d9564ba99036d6",
+    "distillation": {
+      "cache_files_sha256": "34e8f81c089ae2a118a0b412dc0877c54b7a1e44c2b680d3262a28eb36a63094",
+      "cache_root": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_distill_teacher_cache_v1",
+      "teacher_adapter": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+      "teacher_adapter_files_sha256": "1ceda7e288e832df14ace3fb9b4c5db0edc4395945ecbd34c76363f0d0f9e6fb",
+      "teacher_mode": "projected_kv_slots",
+      "temperature": 1.0,
+      "top_k": 64,
+      "weight": 0.5
+    },
+    "final_rows_opened": false,
+    "full_96_step_schedule_sha256": "289abf96a02c9806c59e50eb3b8c5c42c277fdb411c5318357616c21cef95820",
+    "global_batch_size": 8,
+    "learning_rate": 1e-06,
+    "local_rows": 2,
+    "max_gradient_norm": 0.1,
+    "model_audit": {
+      "checkpointed_frozen_mlps": 42,
+      "configured": true,
+      "gradient_checkpointing": false,
+      "replaced_layers": 42,
+      "trainables": {
+        "all_trainable_fp32": true,
+        "parameter_elements": 172032,
+        "parameter_names_sha256": "9b35ff94f060f8e946d11e7ba590f3c3dd2ad5ab4364eb42f3d943c0b86ef7f9",
+        "parameter_tensors": 168,
+        "passed": true,
+        "projected_key_router_trainable_tensors": 0,
+        "route_query_tensors": 42,
+        "route_state_tensors": 42,
+        "rwkv_pair_value_tensors": 42,
+        "rwkv_readout_tensors": 42,
+        "trainable_parameter_suffixes": [
+          ".rwkv_route_query_proj",
+          ".rwkv_route_state_proj",
+          ".hrm_rwkv7_core.output.weight",
+          ".rwkv_pair_value_proj"
+        ]
+      },
+      "warmstart": {
+        "identity_route_parameter_tensors": 84,
+        "source_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+        "source_parameter_tensors": 1512,
+        "source_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9"
+      },
+      "wrapped_layers": 42
+    },
+    "open_split_files": {
+      "open/attribution/development.jsonl": {
+        "bytes": 38096,
+        "row_payload_sha256": "1974f0e10b3fe490803251f0936592905cb8f89a0abb9610137bdeeb50b16dd5",
+        "rows": 32,
+        "sha256": "b4177d7a107633c3b29162324720e7c7d845b8b16ce8f62a3db90c403f3f6081"
+      },
+      "open/attribution/train.jsonl": {
+        "bytes": 342317,
+        "row_payload_sha256": "207eb487ee1efa6bb96b41b4aeea350e87cc54ab2f048acbe014533c754e2310",
+        "rows": 276,
+        "sha256": "dd22680c3f4fa91d6ab26c3e95aecf8656078dad51675d36c3bb45d6a1abd43a"
+      },
+      "open/narrative/development.jsonl": {
+        "bytes": 206638,
+        "row_payload_sha256": "580dc0a90d471200ab2afb03ef556a65f9dc25b7d6f5054a06b60f877cb7bbc9",
+        "rows": 32,
+        "sha256": "9e37461948a9a620b7bb46ad348bbaec8f9cbe787ece36770ae2e14b5d2db3aa"
+      },
+      "open/narrative/train.jsonl": {
+        "bytes": 2237288,
+        "row_payload_sha256": "33fafb88ed63ba826ab589570707eccae230f5154be7709647889e1d5153c0bc",
+        "rows": 363,
+        "sha256": "88664d156545bb6219dc899b064b90f8a5bf74bf87e3dc3d0069171a2e0bac2a"
+      },
+      "open/scene/development.jsonl": {
+        "bytes": 59689,
+        "row_payload_sha256": "47891af39eca75108dd640b56b23ea8d65c2eaf57f81690ad037d3c377fcd195",
+        "rows": 32,
+        "sha256": "a3619302c8136d0693d85354d5e0b6a7a4318ab450b3a3f008c287997aa94ddc"
+      },
+      "open/scene/train.jsonl": {
+        "bytes": 2666476,
+        "row_payload_sha256": "3f1eca140511691d8d02ed5b7ff24c9b97dc7d4bbd2240a130d4821b511e387b",
+        "rows": 1347,
+        "sha256": "1e976f16765a7e845bba039754228d3f052729ff0b58fb85bdb8d176be31f095"
+      }
+    },
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "protocol_objective": "Continue the learned single-pass recurrent online-memory model from gain-one on untouched train rows while distilling the matched projected-slot model's answer distribution to preserve semantic behavior and retaining causal recurrent-state controls.",
+    "protocol_payload_sha256": "345fbea5325d1eef8cd4c071a64500972a31e2c0bd9346f248a178a0fcba8d75",
+    "publisher_test_opened": false,
+    "publisher_validation_opened": false,
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "ea61a4c0-419e-e40f-f98d-e9f13d1b1095",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 0,
+        "pid": 447595,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "3892ac74-d4a8-0bf4-59c7-d8a14d5dc7bc",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 1,
+        "pid": 447596,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "6327bb5c-91c6-fca7-f6bf-b7f1de5a2f05",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 2,
+        "pid": 447597,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "437b5974-0b61-9ab6-d9a7-b84ac3fc3874",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 3,
+        "pid": 447598,
+        "process_rank": 3
+      }
+    ],
+    "runner_sha256": "84cfbc1df22319c3400c54e704d332e94cce535d6262ec5866960e6f8cea1923",
+    "schedule_prefix_sha256": "4ed2a9dc30bd21941c472a4cc78b1c9b8fafc69732e84c8d8a6f280955e0e0b1",
+    "schema": "rwkv_ms_natural_memory_native_recurrent_routed_query_value_distill_input.v1",
+    "seed": 20260828,
+    "source_steps": [
+      137,
+      156
+    ],
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "stage1_adapter_files_sha256": "194844330f3c60c77cc94d57b10268e692eb187486ae4ae825269764f8b25392",
+    "stage1_result_receipt": "74939af17b1296e04cd37a67f17d73b8865de69e6e29cded5d3a77a05259e858",
+    "stage1_runner_sha256": "5e25b90ce4faf2a50849e5cf9febcf5ac1dcc9d2a6f8aa9a2e171b0881a3830a",
+    "training_rows_reused_from_stage1": 0,
+    "updates": 1
+  },
+  "open_development_evaluation_authorized": false,
+  "passed": true,
+  "protocol_payload_sha256": "345fbea5325d1eef8cd4c071a64500972a31e2c0bd9346f248a178a0fcba8d75",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "rank_runtime": [
+    {
+      "peak_cuda_memory_bytes": 27550942720,
+      "rank": 0
+    },
+    {
+      "peak_cuda_memory_bytes": 18260930560,
+      "rank": 1
+    },
+    {
+      "peak_cuda_memory_bytes": 27748231168,
+      "rank": 2
+    },
+    {
+      "peak_cuda_memory_bytes": 27576144896,
+      "rank": 3
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "00b6909ff03ee4709bfb85f364a0334a60dd5a981c2ab824835ae4a9e2745589"
+  },
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_query_value_distill.v1",
+  "status": "query_value_distill_preflight_passed",
+  "training": {
+    "active_control_fraction": {
+      "layer_permuted_recurrent_state": 0.5,
+      "matched_donor_recurrent_state": 1.0,
+      "slot_shuffled_recurrent_state": 1.0,
+      "zero_recurrent_state": 0.0
+    },
+    "always_active_controls": [
+      "matched_donor_recurrent_state"
+    ],
+    "elapsed_seconds": 66.59782791137695,
+    "final_adapter_sha256": "399f6205f53276b63a6f9a9f8ffff0b6845b9f1eb1bab2737cd47814127058ed",
+    "final_route_subset_sha256": "2112d7af936744c1f847adf32a43f10f7ae55782c7cec0b3c10230101186567c",
+    "final_trainable_subset_sha256": "29749216b5dac09148a4f9f36afc9e1e03f1e08695f7838d7e30dee6a777e94c",
+    "first_update_joint_routing_gradient_audit": {
+      "families": {
+        "pair_value": {
+          "layers": [
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0008651167736388743,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.0.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0001533458271296695,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.1.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0007820663158781826,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.10.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0006533071864396334,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.11.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0019592868629842997,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.12.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.001977731939405203,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.13.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00081166549352929,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.14.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0007032539579086006,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.15.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00035004690289497375,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.16.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0008209075895138085,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.17.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.001758586149662733,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.18.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0007823863415978849,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.19.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0013529342832043767,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.2.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0018037887057289481,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.20.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.006898751948028803,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.21.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.01654152013361454,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.22.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.005122064147144556,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.23.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.020557114854454994,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.24.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.003155568614602089,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.25.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0007683704025112092,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.26.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0016935081221163273,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.27.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004214555025100708,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.28.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0077738105319440365,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.29.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00020893695182166994,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.3.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.014338345266878605,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.30.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.018884995952248573,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.31.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0009130822727456689,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.32.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0010191021719947457,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.33.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.000283553235931322,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.34.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0753161683678627,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.35.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0012061847373843193,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.36.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.005978781264275312,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.37.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.01319126132875681,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.38.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.009075011126697063,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.39.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00012159900506958365,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.4.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0012059625005349517,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.40.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0004426510713528842,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.41.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 9.612237045075744e-05,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.5.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.001218522316776216,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.6.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0006552073755301535,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.7.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00019224881543777883,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.8.self_attn.rwkv_pair_value_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00030147822690196335,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.9.self_attn.rwkv_pair_value_proj"
+            }
+          ],
+          "maximum_l2_norm": 0.0753161683678627,
+          "minimum_l2_norm": 9.612237045075744e-05,
+          "parameter_names_sha256": "ffdc84ad8d992a3dd6ab312f31b5c18972ecb5511280c3a97e935b97a4192d4b",
+          "parameter_tensors": 42,
+          "passed": true,
+          "suffix": ".rwkv_pair_value_proj"
+        },
+        "route_query": {
+          "layers": [
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0012580703478306532,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.0.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00031089031836017966,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.1.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.005535961128771305,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.10.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0021870669443160295,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.11.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.009891985915601254,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.12.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.001892082509584725,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.13.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0013040528865531087,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.14.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.001780724967829883,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.15.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0008603018941357732,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.16.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0026576381642371416,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.17.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004385130014270544,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.18.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004101434722542763,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.19.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0026992782950401306,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.2.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004265736322849989,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.20.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.010047310031950474,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.21.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.028071539476513863,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.22.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.007962973788380623,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.23.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.005868096835911274,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.24.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0003572801360860467,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.25.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0004377545556053519,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.26.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0001668208569753915,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.27.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0009098523878492415,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.28.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.011853528209030628,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.29.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00022755967802368104,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.3.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.01436565537005663,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.30.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.012626415118575096,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.31.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0007468280382454395,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.32.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0012335913488641381,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.33.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0013189981691539288,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.34.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.008692460134625435,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.35.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0038305262569338083,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.36.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004306324757635593,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.37.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.003798963502049446,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.38.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.003433515317738056,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.39.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00022038083989173174,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.4.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0010234502842649817,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.40.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 6.772423512302339e-05,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.41.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00019563808746170253,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.5.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0010826099896803498,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.6.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0013364168116822839,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.7.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0006832072976976633,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.8.self_attn.rwkv_route_query_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0007180322427302599,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.9.self_attn.rwkv_route_query_proj"
+            }
+          ],
+          "maximum_l2_norm": 0.028071539476513863,
+          "minimum_l2_norm": 6.772423512302339e-05,
+          "parameter_names_sha256": "bb96d717a09e7d30091d95a38eed3ac7b36c99d91cdbda6aabcbb5c6eede1ab3",
+          "parameter_tensors": 42,
+          "passed": true,
+          "suffix": ".rwkv_route_query_proj"
+        },
+        "route_state": {
+          "layers": [
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0012599314795807004,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.0.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0003123980714008212,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.1.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0055136485025286674,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.10.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0021624048240482807,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.11.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.01014085952192545,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.12.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0018867050530388951,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.13.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0013437652960419655,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.14.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0017683495534583926,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.15.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0008748626569285989,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.16.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.002665908308699727,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.17.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004379641730338335,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.18.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004053402226418257,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.19.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0028107441030442715,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.2.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004436558578163385,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.20.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.01009336207062006,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.21.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.028086908161640167,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.22.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.008177916519343853,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.23.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.006005075294524431,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.24.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0003595220041461289,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.25.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0004429915570653975,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.26.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00016764417523518205,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.27.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0009062737808562815,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.28.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.012225998565554619,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.29.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00023457258066628128,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.3.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.014366361312568188,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.30.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.012851559557020664,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.31.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.000735096400603652,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.32.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0012778110103681684,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.33.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0013355325208976865,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.34.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.008821585215628147,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.35.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0038523399271070957,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.36.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004365870263427496,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.37.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0038108229637145996,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.38.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0033882097341120243,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.39.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00022400968009606004,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.4.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0011508603347465396,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.40.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 7.031123823253438e-05,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.41.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00019490688282530755,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.5.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0010856784647330642,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.6.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0013444873038679361,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.7.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0006919043371453881,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.8.self_attn.rwkv_route_state_proj"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0007235411903820932,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.9.self_attn.rwkv_route_state_proj"
+            }
+          ],
+          "maximum_l2_norm": 0.028086908161640167,
+          "minimum_l2_norm": 7.031123823253438e-05,
+          "parameter_names_sha256": "33231941f05c9a52c21c26d3854a5a3e2743c917f9542cc74ea6cb9af3eca3ff",
+          "parameter_tensors": 42,
+          "passed": true,
+          "suffix": ".rwkv_route_state_proj"
+        },
+        "rwkv_readout": {
+          "layers": [
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.01867339015007019,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.0.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.002424327889457345,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.1.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.011448301374912262,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.10.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.01981114223599434,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.11.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.031142007559537888,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.12.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.026081057265400887,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.13.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.007360592484474182,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.14.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.011741566471755505,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.15.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.006260230205953121,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.16.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.010381677187979221,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.17.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.02424485608935356,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.18.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.012252702377736568,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.19.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.025521844625473022,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.2.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.02592352405190468,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.20.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.07774953544139862,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.21.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.24444706737995148,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.22.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.04020657762885094,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.23.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.030914800241589546,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.24.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.016627442091703415,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.25.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004171800334006548,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.26.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00807422399520874,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.27.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.01565544679760933,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.28.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.15005984902381897,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.29.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0035265907645225525,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.3.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.07908465713262558,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.30.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.07532350718975067,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.31.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.009133596904575825,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.32.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.010345791466534138,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.33.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.002376129385083914,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.34.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.24927932024002075,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.35.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.00864872895181179,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.36.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.037194427102804184,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.37.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.058735113590955734,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.38.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0386912003159523,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.39.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0019051596755161881,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.4.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.006934531033039093,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.40.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.008539351634681225,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.41.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.0018518930301070213,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.5.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.015130866318941116,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.6.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.015497902408242226,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.7.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.004233654588460922,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.8.self_attn.hrm_rwkv7_core.output.weight"
+            },
+            {
+              "gradient_finite": true,
+              "gradient_l2_norm": 0.008347258903086185,
+              "gradient_nonzero": true,
+              "gradient_present": true,
+              "name": "model.language_model.layers.9.self_attn.hrm_rwkv7_core.output.weight"
+            }
+          ],
+          "maximum_l2_norm": 0.24927932024002075,
+          "minimum_l2_norm": 0.0018518930301070213,
+          "parameter_names_sha256": "99921f2ff0782fc2be7b3462aa9d2a48ddf1808d94bbe85beb3291f3fc2c4aef",
+          "parameter_tensors": 42,
+          "passed": true,
+          "suffix": ".hrm_rwkv7_core.output.weight"
+        }
+      },
+      "passed": true
+    },
+    "initial_adapter_sha256": "7264178510b10680ba1e8bfc28ce0d534fd4e2e7fb6629c3a7de691b24439c2e",
+    "initial_route_subset_sha256": "7c6ac64adf99eec5f74c557746463fea09807d123a67c031ac4623071eafbd8e",
+    "initial_trainable_subset_sha256": "acc1a322499aa9caadf26f31d1825863054463cc05cf7669e7a38db0802bd8e9",
+    "maximum_global_inactive_parameter_tensors": 0,
+    "mean_control_minus_correct_ce": {
+      "layer_permuted_recurrent_state": 0.3341371972808477,
+      "matched_donor_recurrent_state": 0.2190973239203676,
+      "slot_shuffled_recurrent_state": -0.004256019312653546,
+      "zero_recurrent_state": 2.01729322488073
+    },
+    "mean_correct_ce": 0.15983183187171174,
+    "minimum_gradient_norm_before_clip": 0.43467000126838684,
+    "optimizer_state_cpu_offload": {
+      "enabled": true,
+      "maximum_bytes_per_rank": 0,
+      "maximum_tensors_per_rank": 0,
+      "steps": 0
+    },
+    "peak_cuda_memory_bytes": 27550942720,
+    "progress_sha256": "34066f5c8ea1be09aac1a4bb037ae068f00214a243af3b9cfad37b48fa921c20",
+    "projected_carrier_fixed_every_row": true,
+    "prompt_variant_rows": {
+      "0": 2,
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "route_subset_changed": true,
+    "rows": 8,
+    "task_rows": {
+      "attribution": 0,
+      "narrative": 4,
+      "scene": 4
+    },
+    "trainable_subset_changed": true,
+    "updates": 1
+  }
+}

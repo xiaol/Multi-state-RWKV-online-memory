@@ -1,0 +1,380 @@
+{
+  "adapter_files": {
+    "delta_mem_adapter.pt": {
+      "bytes": 89197192,
+      "sha256": "584115f042d827f86625be9d3248da745c5f3b52b934cdc5f5a4acb469dc2c25"
+    },
+    "delta_mem_config.json": {
+      "bytes": 3363,
+      "sha256": "1a8783188c4ee919635da7a35d30d9ccf2429973c81e5031e8c090545439c640"
+    }
+  },
+  "adapter_files_sha256": "4b9d5fbfdf4c1a2e2ef504298310ea8ff7e28d777d744c18dfb28e0b292d4234",
+  "code_bindings": {
+    "common_helper_sha256": "188a8b2f30b0cbe462387cd6a0020bede09763cf00fc8acaeb27844f1c7de899",
+    "continuation_protocol_sha256": "e32fd9334a7bb07c4e680dca0af37c5ffbdd5eed226b7dfa5016138556ad967a",
+    "continuation_runner_sha256": "74cd84d04546e2bd78be68c27fb0cd18402fe3ba17b70e4c49651f93b8a2c313",
+    "delta_impl_sha256": "9547570aa78b296bc83b5d4d5286a44b5253a929db7512df665617bd5244923a",
+    "open_split_receipt_sha256": "974e3331f0c38a2b9d8f2da1023cfb98bdf91e1fd27c3fe2fa52974feddb9851",
+    "protocol_file_sha256": "e32fd9334a7bb07c4e680dca0af37c5ffbdd5eed226b7dfa5016138556ad967a",
+    "runner_sha256": "56af7ae2711e9126185e0f4ac4c1df5d87891c53e7f338b97c0f2b65557acc27",
+    "rwkv_core_sha256": "b7a07054c150af53f7293a3844e08e00d77d5451676c414e58e225045e4121a1",
+    "split_manifest_sha256": "c95765a54c2092260e0b52a1d6e503dafb7a1344fb82eba19ccc1a5e26d16e15"
+  },
+  "final_rows_opened": false,
+  "input_binding": {
+    "base_model": "/root/x/models/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "common_helper_sha256": "188a8b2f30b0cbe462387cd6a0020bede09763cf00fc8acaeb27844f1c7de899",
+    "continuation": {
+      "control_weights": {
+        "layer_permuted_recurrent_state": 0.125,
+        "matched_donor_recurrent_state": 1.0,
+        "slot_shuffled_recurrent_state": 0.125,
+        "zero_recurrent_state": 0.25
+      },
+      "ple_gain": 1.0,
+      "ple_input_gain": 0.125,
+      "predecessor_result": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_direct_ple_train_v10/result.json",
+      "predecessor_result_receipt": "1d1e29197421cc932949c958d48fd63202e034bbc08aa02cfad3a7817ad99bec",
+      "predecessor_result_sha256": "982f15eb55a0cbb68e4dc69d3f4d9afd3c2f8e02eaec7baace32aa199edbbb45",
+      "runner_sha256": "74cd84d04546e2bd78be68c27fb0cd18402fe3ba17b70e4c49651f93b8a2c313",
+      "schedule_audit": {
+        "continuation_schedule_sha256": "261d9937a67f7b67507ec89e0ab2b6488d8bf3d5f067290bf29402572baadda9",
+        "excluded_rows": {
+          "attribution": 121,
+          "narrative": 120,
+          "scene": 158
+        },
+        "overlap_rows": [],
+        "policy": "exclude_every_v10_target_and_donor",
+        "predecessor_schedule_sha256": "a686dbd4716140b7c1638f27f82986b8ce5f32d372e04c83b599487c8e0d5ee6",
+        "remaining_rows": {
+          "attribution": 155,
+          "narrative": 243,
+          "scene": 1189
+        }
+      }
+    },
+    "contrast_weight": 0.125,
+    "final_rows_opened": false,
+    "global_batch_size": 8,
+    "hf_endpoint": "https://hf-mirror.com",
+    "learning_rate": 2.5e-05,
+    "local_rows": 2,
+    "margin": 0.05,
+    "max_gradient_norm": 0.1,
+    "model_audit": {
+      "checkpointed_frozen_mlps": 42,
+      "configured": true,
+      "gradient_checkpointing": false,
+      "native_gemma_ple": true,
+      "native_ple_width": 256,
+      "replaced_layers": 42,
+      "rwkv_low_rank_bootstrap": {
+        "parameter_tensors": 126,
+        "rule": "preserve_predecessor_without_rebootstrap",
+        "state_sha256": "f5df7107ecbfee300667322c6d9ae1e4eb3ed79e201a178673dcc4894cc5fa0a"
+      },
+      "trainables": {
+        "architecture": "direct_ungated_rwkv_online_memory_to_native_gemma_ple",
+        "family_counts": {
+          ".beta_bias": 42,
+          ".beta_proj": 42,
+          ".memory_v_proj": 42,
+          ".projected_kv_key_proj": 42,
+          ".rwkv_moe_addressed_weight": 42,
+          ".rwkv_moe_bias": 42,
+          ".rwkv_moe_global_weight": 42,
+          ".rwkv_moe_hidden_weight": 42,
+          ".rwkv_ple_down_weight": 42,
+          ".rwkv_ple_up_weight": 42
+        },
+        "native_ple_parameter_tensors": 84,
+        "parameter_elements": 14587902,
+        "parameter_names_sha256": "72919254c4a13a7955256babda4a5436cc09730e6045aff9ee6ec9c0a48d1684",
+        "parameter_tensors": 1302,
+        "passed": true,
+        "projected_key_router_trainable_tensors": 42,
+        "rwkv_core_parameter_tensors": 882,
+        "trainable_suffixes": [
+          ".memory_v_proj",
+          ".projected_kv_key_proj",
+          ".beta_proj",
+          ".beta_bias",
+          ".rwkv_moe_hidden_weight",
+          ".rwkv_moe_addressed_weight",
+          ".rwkv_moe_global_weight",
+          ".rwkv_moe_bias",
+          ".rwkv_ple_down_weight",
+          ".rwkv_ple_up_weight"
+        ]
+      },
+      "warmstart": {
+        "all_predecessor_parameters_loaded_exactly": true,
+        "copied_parameter_tensors": 1638,
+        "source": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_direct_ple_train_v10/adapter",
+        "source_adapter_sha256": "86c4566326c65a2bbb881e0cd18d7ce84cad3c9de0b1d76ac0e347f0351c6161",
+        "source_result": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_direct_ple_train_v10/result.json",
+        "source_result_receipt": "1d1e29197421cc932949c958d48fd63202e034bbc08aa02cfad3a7817ad99bec",
+        "source_result_sha256": "982f15eb55a0cbb68e4dc69d3f4d9afd3c2f8e02eaec7baace32aa199edbbb45"
+      },
+      "wrapped_layers": 42
+    },
+    "open_split_files": {
+      "open/attribution/development.jsonl": {
+        "bytes": 38096,
+        "row_payload_sha256": "1974f0e10b3fe490803251f0936592905cb8f89a0abb9610137bdeeb50b16dd5",
+        "rows": 32,
+        "sha256": "b4177d7a107633c3b29162324720e7c7d845b8b16ce8f62a3db90c403f3f6081"
+      },
+      "open/attribution/train.jsonl": {
+        "bytes": 342317,
+        "row_payload_sha256": "207eb487ee1efa6bb96b41b4aeea350e87cc54ab2f048acbe014533c754e2310",
+        "rows": 276,
+        "sha256": "dd22680c3f4fa91d6ab26c3e95aecf8656078dad51675d36c3bb45d6a1abd43a"
+      },
+      "open/narrative/development.jsonl": {
+        "bytes": 206638,
+        "row_payload_sha256": "580dc0a90d471200ab2afb03ef556a65f9dc25b7d6f5054a06b60f877cb7bbc9",
+        "rows": 32,
+        "sha256": "9e37461948a9a620b7bb46ad348bbaec8f9cbe787ece36770ae2e14b5d2db3aa"
+      },
+      "open/narrative/train.jsonl": {
+        "bytes": 2237288,
+        "row_payload_sha256": "33fafb88ed63ba826ab589570707eccae230f5154be7709647889e1d5153c0bc",
+        "rows": 363,
+        "sha256": "88664d156545bb6219dc899b064b90f8a5bf74bf87e3dc3d0069171a2e0bac2a"
+      },
+      "open/scene/development.jsonl": {
+        "bytes": 59689,
+        "row_payload_sha256": "47891af39eca75108dd640b56b23ea8d65c2eaf57f81690ad037d3c377fcd195",
+        "rows": 32,
+        "sha256": "a3619302c8136d0693d85354d5e0b6a7a4318ab450b3a3f008c287997aa94ddc"
+      },
+      "open/scene/train.jsonl": {
+        "bytes": 2666476,
+        "row_payload_sha256": "3f1eca140511691d8d02ed5b7ff24c9b97dc7d4bbd2240a130d4821b511e387b",
+        "rows": 1347,
+        "sha256": "1e976f16765a7e845bba039754228d3f052729ff0b58fb85bdb8d176be31f095"
+      }
+    },
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "prompt_variants_sha256": "36b966b58c9ea8d6b5b08d085430716556642c2c072b0bec1f17b5ba93416643",
+    "protocol_objective": "Continue the single-pass native Gemma PLE recurrent adapter from v10 on untouched training rows, using stronger matched-donor contrast and a larger globally fixed PLE residual so recurrent state changes cross autoregressive decoding decisions without an inference router.",
+    "protocol_payload_sha256": "1652f9ba87e91bdbca8b73418b740060902ccc3a34874a6001bbbc8c8fef115b",
+    "publisher_test_opened": false,
+    "publisher_validation_opened": false,
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "ea61a4c0-419e-e40f-f98d-e9f13d1b1095",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 0,
+        "pid": 815398,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "3892ac74-d4a8-0bf4-59c7-d8a14d5dc7bc",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 1,
+        "pid": 815399,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "6327bb5c-91c6-fca7-f6bf-b7f1de5a2f05",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 2,
+        "pid": 815400,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "437b5974-0b61-9ab6-d9a7-b84ac3fc3874",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 3,
+        "pid": 815401,
+        "process_rank": 3
+      }
+    ],
+    "runner_sha256": "56af7ae2711e9126185e0f4ac4c1df5d87891c53e7f338b97c0f2b65557acc27",
+    "schedule_prefix_sha256": "388df0068caa9e30da5066034d6f9b557f69ddb8019974a4abdd262d28cdcd8c",
+    "schema": "rwkv_ms_natural_memory_native_rwkv_direct_ple_continuation_input.v2",
+    "seed": 20260903,
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "training_read_max_tokens": 1536,
+    "training_schedule_sha256": "261d9937a67f7b67507ec89e0ab2b6488d8bf3d5f067290bf29402572baadda9",
+    "updates": 1,
+    "world_size": 4
+  },
+  "open_development_evaluation_authorized": false,
+  "passed": true,
+  "protocol_payload_sha256": "1652f9ba87e91bdbca8b73418b740060902ccc3a34874a6001bbbc8c8fef115b",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "rank_runtime": [
+    {
+      "peak_cuda_memory_bytes": 20495047168,
+      "rank": 0
+    },
+    {
+      "peak_cuda_memory_bytes": 36161502720,
+      "rank": 1
+    },
+    {
+      "peak_cuda_memory_bytes": 36347502592,
+      "rank": 2
+    },
+    {
+      "peak_cuda_memory_bytes": 21495411200,
+      "rank": 3
+    }
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "6a259e773e48259a05468b140c181b348f8f9a5bd2af85cd0c1f8288dc72e7e6"
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_direct_ple_continuation.v2",
+  "seed": 20260903,
+  "status": "preflight_passed",
+  "training": {
+    "active_control_fraction": {
+      "layer_permuted_recurrent_state": 1.0,
+      "matched_donor_recurrent_state": 1.0,
+      "slot_shuffled_recurrent_state": 1.0,
+      "zero_recurrent_state": 1.0
+    },
+    "always_active_controls": [
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "slot_shuffled_recurrent_state",
+      "layer_permuted_recurrent_state"
+    ],
+    "backward_control_names": [
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state"
+    ],
+    "baseline_anchor": {
+      "rows": 0,
+      "teacher_condition": "zero_recurrent_state",
+      "temperature": 1.0,
+      "tokens": 0,
+      "top_k": 64,
+      "weight": 0.0
+    },
+    "elapsed_seconds": 772.6082897186279,
+    "final_adapter_sha256": "858796cf1a4f41c904c18acbcf7b66cad0b53b6f6d2e2b85eeb5f750aadad756",
+    "final_route_subset_sha256": "cb30c54fac0fea22960d0644fff5e68583dd05c04036990615d57052ecfb1acd",
+    "final_trainable_subset_sha256": "71c52bcb158534a0d48731d542f3ae80a30cad65aacc9f2c2925023b9810b08b",
+    "first_update_joint_routing_gradient_audit": {
+      "continuation_criterion": {
+        "all_gradients_finite_fp32": true,
+        "all_non_core_tensors_have_nonzero_gradient": true,
+        "every_parameter_family_has_nonzero_gradient": true,
+        "minimum_nonzero_rwkv_core_tensors": 672,
+        "nonzero_rwkv_core_tensors": 672,
+        "total_rwkv_core_tensors": 882
+      },
+      "families": {
+        "beta_bias": {
+          "active": 42,
+          "tensors": 42
+        },
+        "beta_proj": {
+          "active": 42,
+          "tensors": 42
+        },
+        "memory_v_proj": {
+          "active": 42,
+          "tensors": 42
+        },
+        "projected_kv_key_proj": {
+          "active": 42,
+          "tensors": 42
+        },
+        "rwkv_core": {
+          "active": 672,
+          "tensors": 882
+        },
+        "rwkv_moe_addressed_weight": {
+          "active": 42,
+          "tensors": 42
+        },
+        "rwkv_moe_bias": {
+          "active": 42,
+          "tensors": 42
+        },
+        "rwkv_moe_global_weight": {
+          "active": 42,
+          "tensors": 42
+        },
+        "rwkv_moe_hidden_weight": {
+          "active": 42,
+          "tensors": 42
+        },
+        "rwkv_ple_down_weight": {
+          "active": 42,
+          "tensors": 42
+        },
+        "rwkv_ple_up_weight": {
+          "active": 42,
+          "tensors": 42
+        }
+      },
+      "global_finite_fp32_tensors": 1302,
+      "global_finite_nonzero_tensors": 1092,
+      "passed": true,
+      "trainable_tensors": 1302
+    },
+    "initial_adapter_sha256": "df0cd3bf2e4163f8369b6f0ba2cd76167aa2be0afaa3a6b36923fde9cb5bc1e3",
+    "initial_route_subset_sha256": "77fcdf12170d7e8dabe39ae6d639d0dc4ffa1c4d2c8cd154153495c418678280",
+    "initial_trainable_subset_sha256": "d7c6b188dad0329dd3a52567cd91092f4d34d4ae7343edf21f540e2774c99475",
+    "learning_rate_multipliers": {},
+    "maximum_global_inactive_parameter_tensors": 0,
+    "mean_control_minus_correct_ce": {
+      "layer_permuted_recurrent_state": 0.01979034712277474,
+      "matched_donor_recurrent_state": 0.007069578726034451,
+      "slot_shuffled_recurrent_state": 0.001003520646661895,
+      "zero_recurrent_state": 0.010101855817007174
+    },
+    "mean_correct_ce": 2.2525437940631474,
+    "minimum_gradient_norm_before_clip": 14.594825744628906,
+    "optimizer_state_cpu_offload": {
+      "enabled": true,
+      "maximum_bytes_per_rank": 0,
+      "maximum_tensors_per_rank": 0,
+      "steps": 0
+    },
+    "peak_cuda_memory_bytes": 20495047168,
+    "progress_sha256": "52ced1c82772509840acd4ee60e1b951fcf11b228e3eaf2e22b5aa8416db0161",
+    "projected_carrier_fixed_every_row": true,
+    "prompt_variant_rows": {
+      "0": 2,
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "route_subset_changed": true,
+    "rows": 8,
+    "task_rows": {
+      "attribution": 3,
+      "narrative": 3,
+      "scene": 2
+    },
+    "trainable_subset_changed": true,
+    "updates": 1
+  },
+  "updates": 1
+}

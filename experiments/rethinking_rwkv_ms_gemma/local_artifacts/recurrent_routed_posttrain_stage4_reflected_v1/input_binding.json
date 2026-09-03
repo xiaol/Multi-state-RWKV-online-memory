@@ -1,0 +1,23 @@
+{
+  "alpha": -1.0,
+  "final_commitment_receipt": "c8c106a00e1379e26bbae5b774f0fe831de2c2527c3195a1e42881a33b2b2fae",
+  "final_rows_opened": false,
+  "formula": "stage4 = stage2 + alpha * (stage3 - stage2)",
+  "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+  "protocol_objective": "Recover the stage-2 recurrent-routing candidate from the rejected stage-3 optimization direction with a single preregistered model-weight extrapolation, then require the unchanged sealed-development causal gate before opening final rows.",
+  "protocol_payload_sha256": "854e466f3e683925d5079ce78a45444b9920c665a6b7aeae293a056854fb935d",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+  "stage2_adapter_files_sha256": "170aaf650f7807b077ab77a70c72f83ec0e06a26ff3c1f34b94bd335288147cd",
+  "stage2_development_result_receipt": "88129262892d28795b23752d44289133c2f5416245847d944af17c9b4853a47a",
+  "stage2_training_result_receipt": "01ada5458eca9c1f53987862585bba71c3fc7c2832dd737bf77cb095f479e712",
+  "stage3_adapter_files_sha256": "007a8837882313c53d5cb65350f656e659006a5cb20c4f836cf0bbdbdc12f4c7",
+  "stage3_development_result_receipt": "8abc7c1954f85352b1bdd763d6c794938cef423768a37df785ed661c917a62c4",
+  "stage3_training_result_receipt": "75fe0d877c3748f13629bcb0796076fcec4c63c97ebca89638acbc52bea9cb38",
+  "trained_parameter_suffixes": [
+    ".rwkv_route_query_proj",
+    ".rwkv_route_state_proj",
+    ".hrm_rwkv7_core.output.weight"
+  ]
+}

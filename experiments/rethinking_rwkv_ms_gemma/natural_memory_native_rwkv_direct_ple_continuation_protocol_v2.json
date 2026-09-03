@@ -1,0 +1,97 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_direct_ple_continuation.v2",
+  "objective": "Continue the single-pass native Gemma PLE recurrent adapter from v10 on untouched training rows, using stronger matched-donor contrast and a larger globally fixed PLE residual so recurrent state changes cross autoregressive decoding decisions without an inference router.",
+  "frozen_inputs": {
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "predecessor_result_sha256": "982f15eb55a0cbb68e4dc69d3f4d9afd3c2f8e02eaec7baace32aa199edbbb45",
+    "predecessor_result_receipt": "1d1e29197421cc932949c958d48fd63202e034bbc08aa02cfad3a7817ad99bec",
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "v1_protocol_receipt": "a78f692aeef57f3e066a014a9d173ff45d45654f4eb3af921bda52d0621da2d9",
+    "v1_preflight_failure_log_sha256": "b9c27b26480728427e1487e1d6dd438f80fc2f34a2448ee2388e44eb3fe398c4",
+    "protected_splits_opened": []
+  },
+  "diagnosis": {
+    "native_generation_receipt": "010eb117e9b140e41a86e864f6223addba99b91f368d9efa2d6727670bc7a6d3",
+    "gain_2x_receipt": "0a94e507b6486f6558022382a58de3a91c6a321f9822c1c07d0807671449ed95",
+    "gain_4x_receipt": "52b1bb785f417b03f7cc2f762c1188ef12606f220aaea885260901001ae76712",
+    "gain_8x_receipt": "7c539c45778fcf58f96026584384ea59697d7bc2d2e5eaa976cc75080605816d",
+    "generation_finding": "Correct, zero, donor, shuffled, layer-permuted, and projected-only controls produced identical parsed predictions and scores on one fixed development row per task through an eightfold PLE gain; v10 has teacher-forced CE separation but insufficient learned sequence-level direction.",
+    "v1_preflight_finding": "Every non-core trainable tensor and every trainable parameter family received a finite nonzero gradient, while 672 of 882 inherited RWKV-core tensors were nonzero on the first continuation batch. The v1 all-tensors-nonzero audit rejected the run before optimizer.step."
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "address_keyed_moe_ple",
+    "native_target": "gemma_per_layer_projection_input",
+    "native_gemma_ple": true,
+    "ple_layers": 42,
+    "ple_rank": 4,
+    "ple_gain": 1.0,
+    "ple_input_gain": 0.125,
+    "ple_fusion": "additive",
+    "joint_rwkv_core_training": true,
+    "joint_online_memory_training": true,
+    "projected_carrier_fixed_in_controls": true,
+    "task_router": false,
+    "template_matcher": false,
+    "dual_pass_selector": false,
+    "benchmark_specific_decoder": false
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "preflight_optimizer_updates": 1,
+    "optimizer_updates": 32,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "learning_rate": 0.000025,
+    "max_gradient_norm": 0.1,
+    "contrast_margin": 0.05,
+    "control_weights": {
+      "zero_recurrent_state": 0.25,
+      "matched_donor_recurrent_state": 1.0,
+      "slot_shuffled_recurrent_state": 0.125,
+      "layer_permuted_recurrent_state": 0.125
+    },
+    "always_active_controls": [
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "slot_shuffled_recurrent_state",
+      "layer_permuted_recurrent_state"
+    ],
+    "backward_control_names": [
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state"
+    ],
+    "schedule": "Exclude every v10 target and donor row, then apply the locked balanced schedule to remaining training rows.",
+    "first_update_gradient_audit": {
+      "all_gradients_finite_fp32": true,
+      "every_parameter_family_has_nonzero_gradient": true,
+      "all_non_core_tensors_have_nonzero_gradient": true,
+      "minimum_nonzero_rwkv_core_tensors": 672,
+      "total_rwkv_core_tensors": 882
+    },
+    "final_rows_opened_during_training": false
+  },
+  "required_gates": {
+    "all_predecessor_parameters_loaded_exactly": true,
+    "new_targets_and_donors_disjoint_from_v10": true,
+    "first_update_gradient_audit_passes": true,
+    "projected_carriers_fixed_for_causal_controls": true,
+    "raw_single_checkpoint_generation_required": true,
+    "correct_state_must_beat_every_control": true
+  },
+  "stopping_rule": {
+    "development_failure": "Do not open final rows; revise the model-side recurrent objective or architecture.",
+    "development_pass": "Run the signed expanded paraphrase audit before preregistering a fresh final split.",
+    "final": "No final benchmark claim until the preregistered frozen-base and projected-slot comparisons pass without task regression."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "1652f9ba87e91bdbca8b73418b740060902ccc3a34874a6001bbbc8c8fef115b"
+  }
+}

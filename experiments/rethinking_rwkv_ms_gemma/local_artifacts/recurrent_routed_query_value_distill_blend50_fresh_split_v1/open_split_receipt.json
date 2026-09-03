@@ -1,0 +1,52 @@
+{
+  "files": {
+    "open/attribution/development.jsonl": {
+      "bytes": 39950,
+      "row_payload_sha256": "26e0817eab9d283b60fbed2aadd920d86d3b2fd4e41a3b7adec25cf6a7d1bc23",
+      "rows": 32,
+      "sha256": "ee58b7be725e0593285ad3ab8efdf9bfc673c511a23954256753fa53a3d747e4"
+    },
+    "open/attribution/train.jsonl": {
+      "bytes": 355760,
+      "row_payload_sha256": "e519fa6fc24fb9ea87cf720c702777b195ae3d7f265e3dad00965eeddf5847a1",
+      "rows": 276,
+      "sha256": "556af2fbebd0c79f0d218b25cdbed3a5a56173ee463a53358a66bef442885394"
+    },
+    "open/narrative/development.jsonl": {
+      "bytes": 196996,
+      "row_payload_sha256": "c68abfb8a89d78292745f452247c9c75ba8b19e17ed96438df55e1bb937b1faa",
+      "rows": 32,
+      "sha256": "5b0d2a1de9e4239c5e376bee175ff4443ee89869f10793d4484598476d42475d"
+    },
+    "open/narrative/train.jsonl": {
+      "bytes": 2255424,
+      "row_payload_sha256": "c8c1fdb2ff63b1c87a61c2fe349cf8a191c0c4986681618200c22ca41b5ae3bc",
+      "rows": 363,
+      "sha256": "05020f30f663c655ae39485ed177ebbc2e979b85e0d14f877ae5a6cd4abb96ba"
+    },
+    "open/scene/development.jsonl": {
+      "bytes": 66936,
+      "row_payload_sha256": "b27e21f4a67d2ca578dbf9ddc055c472d2e1b959b9e5c4fdee4c4f210cf4cde4",
+      "rows": 32,
+      "sha256": "d7bf5c3e71d698615c825ce455bd8d7d57b75daf5ef8026d328971fe68dafa6f"
+    },
+    "open/scene/train.jsonl": {
+      "bytes": 2669985,
+      "row_payload_sha256": "653099fd6b53e1d7ea32a11f8cf2e81128a1fc510b2f66eadc3f47740c19104a",
+      "rows": 1347,
+      "sha256": "1883dc885090d23ce31d8cd4dc9a85208430cd0cccd96992448f08a971b657ae"
+    }
+  },
+  "final_files_written": [],
+  "manifest_receipt": "ca0c5a6653dd17b2ba861e3d54718a11840f490974220d4834be8b807ffe5861",
+  "materialized_splits": [
+    "train",
+    "development"
+  ],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_json_without_receipt",
+    "payload_sha256": "bb92eeb62e2bedce2fe5e695b73d9697fd913ee7ac0205ce98d859121a51ef7c"
+  },
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_posttrain_open_splits.v1"
+}

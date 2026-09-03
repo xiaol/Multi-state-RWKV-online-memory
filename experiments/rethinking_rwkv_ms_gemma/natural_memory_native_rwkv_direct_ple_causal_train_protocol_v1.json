@@ -1,0 +1,70 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_rwkv_direct_ple_causal_train.v1",
+  "objective": "Jointly train RWKV online-memory write/read dynamics and a direct additive low-rank delta into Gemma 4 native Per-Layer Embeddings (PLE), then require causal state controls before any generation benchmark.",
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "memory_warmstart": "natural_memory_native_shared_qo_gate_stage1_v9",
+    "protected_splits_opened": []
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "hybrid_mode": "address_keyed_moe_ple",
+    "memory_fusion_mode": "add",
+    "identity_binder": false,
+    "benchmark_time_selector": false,
+    "native_target": "gemma_per_layer_projection_input",
+    "native_gemma_ple": true,
+    "ple_layers": 42,
+    "ple_rank": 4,
+    "ple_gain": 0.125,
+    "ple_input_gain": 0.015625,
+    "joint_rwkv_core_training": true,
+    "joint_online_memory_training": true,
+    "rwkv_low_rank_bootstrap": {
+      "families": ["w1", "a1", "g1"],
+      "rule": "sign_transpose_of_second_factor",
+      "scale": 0.001
+    },
+    "projected_carrier_fixed_in_controls": true,
+    "training_read_max_tokens": 1536,
+    "zero_effect_ple_initialization": false,
+    "zero_state_ple_identity": true
+  },
+  "training": {
+    "hardware": "exactly four distinct A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "preflight_optimizer_updates": 1,
+    "optimizer_updates": 32,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "learning_rate": 0.0001,
+    "max_gradient_norm": 0.1,
+    "contrast_weight_per_active_control": 0.125,
+    "contrast_margin": 0.05,
+    "backward_control_names": [
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state"
+    ],
+    "final_rows_opened_during_training": false
+  },
+  "required_gates": {
+    "four_distinct_a100_ranks": true,
+    "all_updates_complete": true,
+    "zero_global_inactive_parameter_tensors": true,
+    "all_trainable_families_receive_nonzero_gradients": true,
+    "correct_state_beats_zero_donor_and_layer_permutation": true,
+    "raw_free_generation_required_before_final": true
+  },
+  "stopping_rule": {
+    "causal_failure": "Block generation and revise the trainable memory/PLE path.",
+    "causal_pass": "Permit a separate raw single-checkpoint development generation gate.",
+    "final": "Do not open final benchmark rows until raw development generation is promoted."
+  },
+  "protected_splits_opened_by_this_protocol": [],
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "5fa2e1dbfc4513ff36722cbccfe5c3dfee94117fc696bd981c0e775e6054e381"
+  }
+}

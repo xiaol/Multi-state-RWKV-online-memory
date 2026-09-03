@@ -1,0 +1,459 @@
+W0902 23:38:42.149000 725657 site-packages/torch/distributed/run.py:792] 
+W0902 23:38:42.149000 725657 site-packages/torch/distributed/run.py:792] *****************************************
+W0902 23:38:42.149000 725657 site-packages/torch/distributed/run.py:792] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0902 23:38:42.149000 725657 site-packages/torch/distributed/run.py:792] *****************************************
+[rank0]:[W902 23:38:54.882756721 ProcessGroupGloo.cpp:727] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[rank2]:[W902 23:38:54.159855820 ProcessGroupGloo.cpp:727] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[rank1]:[W902 23:38:54.163164565 ProcessGroupGloo.cpp:727] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[rank3]:[W902 23:38:54.181259240 ProcessGroupGloo.cpp:727] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  14%|█▍        | 288/2076 [00:00<00:00, 2876.36it/s]Loading weights:  12%|█▏        | 249/2076 [00:00<00:00, 2488.43it/s]Loading weights:  28%|██▊       | 576/2076 [00:00<00:00, 2772.08it/s]Loading weights:  24%|██▍       | 498/2076 [00:00<00:00, 2331.93it/s]Loading weights:  35%|███▌      | 732/2076 [00:00<00:00, 2243.43it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  14%|█▎        | 282/2076 [00:00<00:00, 2795.63it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  27%|██▋       | 562/2076 [00:00<00:00, 2401.11it/s]Loading weights:  13%|█▎        | 263/2076 [00:00<00:00, 2629.39it/s]Loading weights:  25%|██▌       | 526/2076 [00:00<00:00, 2244.11it/s]Loading weights:  36%|███▋      | 754/2076 [00:00<00:01, 762.81it/s] Loading weights:  41%|████      | 854/2076 [00:02<00:04, 293.75it/s] Loading weights:  49%|████▊     | 1012/2076 [00:02<00:03, 295.06it/s]Loading weights:  54%|█████▍    | 1119/2076 [00:03<00:03, 295.66it/s]Loading weights:  39%|███▉      | 806/2076 [00:02<00:06, 211.28it/s] Loading weights:  46%|████▌     | 957/2076 [00:04<00:08, 131.29it/s] Loading weights:  43%|████▎     | 897/2076 [00:04<00:08, 134.92it/s]Loading weights:  58%|█████▊    | 1199/2076 [00:04<00:05, 154.77it/s]Loading weights:  45%|████▌     | 943/2076 [00:04<00:07, 149.84it/s]Loading weights:  60%|██████    | 1253/2076 [00:04<00:05, 161.23it/s]Loading weights:  47%|████▋     | 985/2076 [00:04<00:07, 151.83it/s]Loading weights:  62%|██████▏   | 1297/2076 [00:05<00:04, 175.72it/s]Loading weights:  50%|████▉     | 1029/2076 [00:04<00:06, 166.50it/s]Loading weights:  53%|█████▎    | 1096/2076 [00:05<00:06, 152.37it/s]Loading weights:  51%|█████     | 1053/2076 [00:04<00:06, 166.65it/s]Loading weights:  64%|██████▍   | 1339/2076 [00:05<00:03, 189.05it/s]Loading weights:  66%|██████▋   | 1377/2076 [00:05<00:03, 205.56it/s]Loading weights:  53%|█████▎    | 1108/2076 [00:04<00:05, 177.41it/s]Loading weights:  68%|██████▊   | 1414/2076 [00:05<00:02, 223.64it/s]Loading weights:  53%|█████▎    | 1096/2076 [00:05<00:05, 173.16it/s]Loading weights:  58%|█████▊    | 1195/2076 [00:05<00:05, 170.07it/s]Loading weights:  56%|█████▌    | 1154/2076 [00:04<00:04, 195.27it/s]Loading weights:  80%|████████  | 1668/2076 [00:05<00:00, 560.76it/s]Loading weights:  55%|█████▌    | 1148/2076 [00:05<00:04, 186.40it/s]Loading weights:  96%|█████████▌| 1987/2076 [00:05<00:00, 1013.60it/s]Loading weights:  58%|█████▊    | 1198/2076 [00:05<00:04, 209.47it/s]Loading weights: 100%|██████████| 2076/2076 [00:05<00:00, 364.24it/s] 
+Loading weights:  61%|██████    | 1271/2076 [00:05<00:04, 183.53it/s]Loading weights:  57%|█████▋    | 1193/2076 [00:06<00:08, 101.76it/s]Loading weights:  60%|█████▉    | 1238/2076 [00:06<00:09, 92.85it/s] Loading weights:  59%|█████▉    | 1225/2076 [00:06<00:07, 111.88it/s]Loading weights:  61%|██████    | 1267/2076 [00:06<00:07, 103.73it/s][transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+Loading weights:  61%|██████    | 1256/2076 [00:06<00:06, 124.54it/s]Loading weights:  64%|██████▍   | 1332/2076 [00:07<00:06, 111.60it/s]Loading weights:  62%|██████▏   | 1295/2076 [00:06<00:06, 115.57it/s]Loading weights:  62%|██████▏   | 1286/2076 [00:07<00:05, 136.08it/s]Loading weights:  64%|██████▎   | 1322/2076 [00:06<00:05, 129.16it/s]Loading weights:  66%|██████▌   | 1375/2076 [00:07<00:05, 120.92it/s]Loading weights:  65%|██████▍   | 1349/2076 [00:07<00:05, 144.94it/s]Loading weights:  63%|██████▎   | 1314/2076 [00:07<00:05, 146.98it/s]Loading weights:  66%|██████▋   | 1376/2076 [00:07<00:04, 158.35it/s]Loading weights:  68%|██████▊   | 1412/2076 [00:07<00:05, 128.74it/s]Loading weights:  65%|██████▍   | 1340/2076 [00:07<00:04, 153.70it/s]Loading weights:  68%|██████▊   | 1404/2076 [00:07<00:03, 178.09it/s]Loading weights:  77%|███████▋  | 1595/2076 [00:07<00:01, 249.52it/s]Loading weights:  66%|██████▌   | 1364/2076 [00:07<00:04, 157.04it/s]Loading weights:  72%|███████▏  | 1504/2076 [00:07<00:01, 337.21it/s]Loading weights:  91%|█████████ | 1892/2076 [00:07<00:00, 499.95it/s]Loading weights: 100%|██████████| 2076/2076 [00:07<00:00, 260.62it/s]
+Loading weights:  67%|██████▋   | 1390/2076 [00:07<00:04, 169.29it/s]Loading weights:  87%|████████▋ | 1796/2076 [00:07<00:00, 898.01it/s]Loading weights:  68%|██████▊   | 1417/2076 [00:07<00:03, 186.80it/s]Loading weights: 100%|█████████▉| 2075/2076 [00:07<00:00, 1343.29it/s]Loading weights: 100%|██████████| 2076/2076 [00:07<00:00, 274.81it/s] 
+Loading weights:  79%|███████▉  | 1650/2076 [00:08<00:01, 370.40it/s]Loading weights:  83%|████████▎ | 1713/2076 [00:08<00:01, 218.39it/s]Loading weights:  85%|████████▍ | 1760/2076 [00:09<00:01, 192.92it/s]Loading weights:  98%|█████████▊| 2042/2076 [00:09<00:00, 463.99it/s]Loading weights: 100%|██████████| 2076/2076 [00:09<00:00, 222.70it/s]
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+[transformers] The following generation flags are not valid and may be ignored: ['top_p', 'top_k']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  14%|█▍        | 289/2076 [00:00<00:00, 2886.76it/s]Loading weights:  13%|█▎        | 266/2076 [00:00<00:00, 2658.46it/s]Loading weights:  13%|█▎        | 267/2076 [00:00<00:00, 2639.14it/s]Loading weights:  13%|█▎        | 268/2076 [00:00<00:00, 2604.80it/s]Loading weights:  28%|██▊       | 578/2076 [00:00<00:00, 2712.26it/s]Loading weights:  26%|██▌       | 532/2076 [00:00<00:00, 2358.62it/s]Loading weights:  26%|██▌       | 531/2076 [00:00<00:00, 2378.72it/s]Loading weights:  25%|██▌       | 529/2076 [00:00<00:00, 2392.68it/s]Loading weights:  41%|████      | 850/2076 [00:02<00:04, 304.68it/s] Loading weights:  37%|███▋      | 770/2076 [00:02<00:04, 264.12it/s] Loading weights:  37%|███▋      | 771/2076 [00:02<00:05, 218.43it/s] Loading weights:  48%|████▊     | 1005/2076 [00:02<00:03, 302.07it/s]Loading weights:  44%|████▎     | 907/2076 [00:02<00:04, 260.65it/s]Loading weights:  54%|█████▎    | 1111/2076 [00:02<00:03, 313.52it/s]Loading weights:  37%|███▋      | 771/2076 [00:03<00:07, 184.33it/s] Loading weights:  48%|████▊     | 1000/2076 [00:03<00:06, 172.55it/s]Loading weights:  44%|████▎     | 905/2076 [00:04<00:07, 152.42it/s]Loading weights:  44%|████▎     | 905/2076 [00:04<00:08, 146.16it/s]Loading weights:  51%|█████     | 1062/2076 [00:04<00:06, 160.84it/s]Loading weights:  57%|█████▋    | 1192/2076 [00:04<00:05, 159.41it/s]Loading weights:  48%|████▊     | 989/2076 [00:04<00:06, 161.45it/s]Loading weights:  53%|█████▎    | 1107/2076 [00:04<00:05, 169.38it/s]Loading weights:  48%|████▊     | 991/2076 [00:04<00:06, 166.63it/s]Loading weights:  55%|█████▌    | 1150/2076 [00:04<00:04, 187.18it/s]Loading weights:  60%|██████    | 1247/2076 [00:04<00:05, 163.72it/s]Loading weights:  57%|█████▋    | 1189/2076 [00:04<00:04, 201.72it/s]Loading weights:  62%|██████▏   | 1291/2076 [00:04<00:04, 178.17it/s]Loading weights:  51%|█████     | 1054/2076 [00:04<00:05, 173.66it/s]Loading weights:  51%|█████     | 1056/2076 [00:04<00:05, 176.43it/s]Loading weights:  59%|█████▉    | 1226/2076 [00:05<00:03, 217.30it/s]Loading weights:  64%|██████▍   | 1333/2076 [00:05<00:03, 192.11it/s]Loading weights:  53%|█████▎    | 1106/2076 [00:05<00:05, 181.49it/s]Loading weights:  61%|██████    | 1262/2076 [00:05<00:03, 231.68it/s]Loading weights:  66%|██████▌   | 1372/2076 [00:05<00:03, 207.77it/s]Loading weights:  53%|█████▎    | 1107/2076 [00:05<00:05, 181.13it/s]Loading weights:  55%|█████▌    | 1149/2076 [00:05<00:04, 196.93it/s]Loading weights:  68%|██████▊   | 1409/2076 [00:05<00:03, 219.93it/s]Loading weights:  55%|█████▌    | 1149/2076 [00:05<00:04, 197.00it/s]Loading weights:  62%|██████▏   | 1296/2076 [00:05<00:03, 219.85it/s]Loading weights:  80%|████████  | 1664/2076 [00:05<00:00, 554.24it/s]Loading weights:  57%|█████▋    | 1190/2076 [00:06<00:08, 108.81it/s]Loading weights:  85%|████████▌ | 1766/2076 [00:06<00:01, 247.34it/s]Loading weights:  64%|██████▍   | 1326/2076 [00:06<00:08, 86.41it/s] Loading weights:  89%|████████▊ | 1840/2076 [00:06<00:00, 238.15it/s]Loading weights:  57%|█████▋    | 1189/2076 [00:06<00:09, 93.56it/s] Loading weights:  65%|██████▍   | 1348/2076 [00:06<00:09, 78.06it/s]Loading weights:  59%|█████▊    | 1219/2076 [00:06<00:08, 98.92it/s] Loading weights: 100%|██████████| 2076/2076 [00:06<00:00, 301.83it/s]
+Loading weights:  59%|█████▉    | 1222/2076 [00:06<00:08, 106.66it/s]Loading weights:  66%|██████▌   | 1370/2076 [00:06<00:07, 90.00it/s]Loading weights:  60%|██████    | 1250/2076 [00:06<00:07, 112.57it/s]Loading weights:  60%|██████    | 1252/2076 [00:07<00:07, 117.26it/s]Loading weights:  67%|██████▋   | 1392/2076 [00:07<00:06, 103.11it/s]Loading weights:  62%|██████▏   | 1278/2076 [00:07<00:06, 126.49it/s]Loading weights:  69%|██████▉   | 1437/2076 [00:07<00:04, 149.50it/s]Loading weights:  62%|██████▏   | 1279/2076 [00:07<00:06, 129.40it/s]Loading weights:  63%|██████▎   | 1303/2076 [00:07<00:05, 139.27it/s]Loading weights:  83%|████████▎ | 1717/2076 [00:07<00:00, 573.39it/s]Loading weights:  63%|██████▎   | 1306/2076 [00:07<00:05, 142.80it/s]Loading weights:  64%|██████▍   | 1327/2076 [00:07<00:04, 152.59it/s]Loading weights:  96%|█████████▌| 1994/2076 [00:07<00:00, 979.38it/s]Loading weights: 100%|██████████| 2076/2076 [00:07<00:00, 280.84it/s]
+Loading weights:  65%|██████▌   | 1351/2076 [00:07<00:04, 162.75it/s]Loading weights:  64%|██████▍   | 1331/2076 [00:07<00:04, 152.52it/s]Loading weights:  66%|██████▋   | 1377/2076 [00:07<00:03, 180.15it/s]Loading weights:  65%|██████▌   | 1355/2076 [00:07<00:04, 158.93it/s]Loading weights:  68%|██████▊   | 1404/2076 [00:07<00:03, 197.70it/s]Loading weights:  66%|██████▋   | 1377/2076 [00:07<00:04, 163.56it/s]Loading weights:  74%|███████▎  | 1529/2076 [00:07<00:01, 438.69it/s]Loading weights:  68%|██████▊   | 1404/2076 [00:07<00:03, 179.98it/s]Loading weights:  86%|████████▌ | 1789/2076 [00:07<00:00, 970.37it/s]Loading weights:  92%|█████████▏| 1914/2076 [00:08<00:00, 593.54it/s]Loading weights:  69%|██████▊   | 1427/2076 [00:08<00:08, 79.55it/s] Loading weights:  71%|███████   | 1473/2076 [00:08<00:06, 94.52it/s]Loading weights:  73%|███████▎  | 1514/2076 [00:09<00:05, 103.89it/s]Loading weights:  97%|█████████▋| 2005/2076 [00:09<00:00, 248.84it/s]Loading weights: 100%|██████████| 2076/2076 [00:09<00:00, 223.93it/s]
+Loading weights:  87%|████████▋ | 1808/2076 [00:09<00:00, 424.66it/s]Loading weights: 100%|█████████▉| 2073/2076 [00:09<00:00, 731.43it/s]Loading weights: 100%|██████████| 2076/2076 [00:09<00:00, 220.26it/s]
+W0903 00:53:57.283000 725657 site-packages/torch/distributed/elastic/agent/server/api.py:719] Received 2 death signal, shutting down workers
+W0903 00:53:57.283000 725657 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 725885 closing signal SIGINT
+W0903 00:53:57.284000 725657 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 725886 closing signal SIGINT
+W0903 00:53:57.285000 725657 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 725887 closing signal SIGINT
+W0903 00:53:57.285000 725657 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 725888 closing signal SIGINT
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 804, in <module>
+[rank1]:     raise SystemExit(main())
+[rank1]:                      ^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank1]:     return f(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 800, in main
+[rank1]:     return main_run(parse_args(argv))
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 646, in main_run
+[rank1]:     final.evaluate_row(
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_recurrent_routed_final.py", line 232, in evaluate_row
+[rank1]:     result = generation.generate_one(
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 1013, in generate_one
+[rank1]:     output_ids = model.generate(
+[rank1]:                  ^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank1]:     return func(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/generation/utils.py", line 2668, in generate
+[rank1]:     result = decoding_method(
+[rank1]:              ^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/generation/utils.py", line 2882, in _sample
+[rank1]:     outputs = model_forward(**model_inputs, return_dict=True)
+[rank1]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2563, in forward
+[rank1]:     outputs = self.model(
+[rank1]:               ^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2411, in forward
+[rank1]:     outputs = self.language_model(
+[rank1]:               ^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+[rank1]:     outputs = func(self, *args, **kwargs)
+[rank1]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1705, in forward
+[rank1]:     hidden_states = decoder_layer(
+[rank1]:                     ^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/modeling_layers.py", line 114, in __call__
+[rank1]:     return super().__call__(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1402, in forward
+[rank1]:     hidden_states, _ = self.self_attn(
+[rank1]:                        ^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 6806, in forward
+[rank1]:     reads = self._projected_kv_slot_token_reads(hidden_states)
+[rank1]:             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 5258, in _projected_kv_slot_token_reads
+[rank1]:     query_keys, _ = self._projected_kv_project_hidden(query_hidden)
+[rank1]:                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 4824, in _projected_kv_project_hidden
+[rank1]:     keys = F.linear(normalized_hidden, self.projected_kv_key_proj.float())
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]: KeyboardInterrupt
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 804, in <module>
+[rank2]:     raise SystemExit(main())
+[rank2]:                      ^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank2]:     return f(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 800, in main
+[rank2]:     return main_run(parse_args(argv))
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 646, in main_run
+[rank2]:     final.evaluate_row(
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_recurrent_routed_final.py", line 232, in evaluate_row
+[rank2]:     result = generation.generate_one(
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 1013, in generate_one
+[rank2]:     output_ids = model.generate(
+[rank2]:                  ^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank2]:     return func(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/generation/utils.py", line 2668, in generate
+[rank2]:     result = decoding_method(
+[rank2]:              ^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/generation/utils.py", line 2882, in _sample
+[rank2]:     outputs = model_forward(**model_inputs, return_dict=True)
+[rank2]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank2]:     return forward_call(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank2]:     output = func(self, *args, **kwargs)
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2563, in forward
+[rank2]:     outputs = self.model(
+[rank2]:               ^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank2]:     return forward_call(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank2]:     output = func(self, *args, **kwargs)
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank2]:     output = func(self, *args, **kwargs)
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2411, in forward
+[rank2]:     outputs = self.language_model(
+[rank2]:               ^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank2]:     return forward_call(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank2]:     output = func(self, *args, **kwargs)
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+[rank2]:     outputs = func(self, *args, **kwargs)
+[rank2]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1705, in forward
+[rank2]:     hidden_states = decoder_layer(
+[rank2]:                     ^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/modeling_layers.py", line 114, in __call__
+[rank2]:     return super().__call__(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank2]:     return forward_call(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1402, in forward
+[rank2]:     hidden_states, _ = self.self_attn(
+[rank2]:                        ^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank2]:     return forward_call(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 6984, in forward
+[rank2]:     key_states = self._normalize_key_states(key_states).transpose(1, 2)
+[rank2]:                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 1745, in _normalize_key_states
+[rank2]:     return k_norm(states)
+[rank2]:            ^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank2]:     return self._call_impl(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank2]:     return forward_call(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 214, in forward
+[rank2]:     normed_output = normed_output * self.weight.float()
+[rank2]:                                     ^^^^^^^^^^^^^^^^^^^
+[rank2]: KeyboardInterrupt
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 804, in <module>
+[rank3]:     raise SystemExit(main())
+[rank3]:                      ^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank3]:     return f(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 800, in main
+[rank3]:     return main_run(parse_args(argv))
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 646, in main_run
+[rank3]:     final.evaluate_row(
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_recurrent_routed_final.py", line 232, in evaluate_row
+[rank3]:     result = generation.generate_one(
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 1013, in generate_one
+[rank3]:     output_ids = model.generate(
+[rank3]:                  ^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank3]:     return func(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/generation/utils.py", line 2668, in generate
+[rank3]:     result = decoding_method(
+[rank3]:              ^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/generation/utils.py", line 2882, in _sample
+[rank3]:     outputs = model_forward(**model_inputs, return_dict=True)
+[rank3]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank3]:     output = func(self, *args, **kwargs)
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2563, in forward
+[rank3]:     outputs = self.model(
+[rank3]:               ^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank3]:     output = func(self, *args, **kwargs)
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank3]:     output = func(self, *args, **kwargs)
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2411, in forward
+[rank3]:     outputs = self.language_model(
+[rank3]:               ^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank3]:     output = func(self, *args, **kwargs)
+[rank3]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+[rank3]:     outputs = func(self, *args, **kwargs)
+[rank3]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1705, in forward
+[rank3]:     hidden_states = decoder_layer(
+[rank3]:                     ^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/modeling_layers.py", line 114, in __call__
+[rank3]:     return super().__call__(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1402, in forward
+[rank3]:     hidden_states, _ = self.self_attn(
+[rank3]:                        ^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 6983, in forward
+[rank3]:     query_states = self._normalize_query_states(query_states).transpose(1, 2)
+[rank3]:                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 1739, in _normalize_query_states
+[rank3]:     return q_norm(states)
+[rank3]:            ^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 214, in forward
+[rank3]:     normed_output = normed_output * self.weight.float()
+[rank3]:                                     ^^^^^^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1915, in __getattr__
+[rank3]:     def __getattr__(self, name: str) -> Union[Tensor, "Module"]:
+
+[rank3]: KeyboardInterrupt
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 804, in <module>
+[rank0]:     raise SystemExit(main())
+[rank0]:                      ^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank0]:     return f(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 800, in main
+[rank0]:     return main_run(parse_args(argv))
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 646, in main_run
+[rank0]:     final.evaluate_row(
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_recurrent_routed_final.py", line 232, in evaluate_row
+[rank0]:     result = generation.generate_one(
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_novel_agent_eval.py", line 1013, in generate_one
+[rank0]:     output_ids = model.generate(
+[rank0]:                  ^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank0]:     return func(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/generation/utils.py", line 2668, in generate
+[rank0]:     result = decoding_method(
+[rank0]:              ^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/generation/utils.py", line 2882, in _sample
+[rank0]:     outputs = model_forward(**model_inputs, return_dict=True)
+[rank0]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank0]:     output = func(self, *args, **kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2563, in forward
+[rank0]:     outputs = self.model(
+[rank0]:               ^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank0]:     output = func(self, *args, **kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank0]:     output = func(self, *args, **kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2411, in forward
+[rank0]:     outputs = self.language_model(
+[rank0]:               ^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank0]:     output = func(self, *args, **kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+[rank0]:     outputs = func(self, *args, **kwargs)
+[rank0]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1705, in forward
+[rank0]:     hidden_states = decoder_layer(
+[rank0]:                     ^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/modeling_layers.py", line 114, in __call__
+[rank0]:     return super().__call__(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1402, in forward
+[rank0]:     hidden_states, _ = self.self_attn(
+[rank0]:                        ^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 7052, in forward
+[rank0]:     self._fuse_delta_o_output(
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 6094, in _fuse_delta_o_output
+[rank0]:     return self._add_delta_o_to_reference(
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 6101, in _add_delta_o_to_reference
+[rank0]:     def _add_delta_o_to_reference(
+
+[rank0]: KeyboardInterrupt
+Traceback (most recent call last):
+  File "/root/anaconda3/envs/rwkv_py312/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 260, in launch_agent
+    result = agent.run()
+             ^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/metrics/api.py", line 137, in wrapper
+    result = f(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/agent/server/api.py", line 711, in run
+    result = self._invoke_run(role)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/agent/server/api.py", line 870, in _invoke_run
+    time.sleep(monitor_interval)
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 84, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 725657 got signal: 2

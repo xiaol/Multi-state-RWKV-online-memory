@@ -1,0 +1,112 @@
+{
+  "base_model": "/root/x/models/gemma-4-E4B-it",
+  "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+  "common_helper_sha256": "56c3ef1b6059c2bb7c76a43438fd19ae2c733a9c1472fa32b0a3f20a484e32d9",
+  "conditions": [
+    "correct_recurrent_state",
+    "zero_recurrent_state",
+    "matched_donor_recurrent_state",
+    "slot_shuffled_recurrent_state",
+    "layer_permuted_recurrent_state"
+  ],
+  "development_files": {
+    "open/attribution/development.jsonl": {
+      "bytes": 38096,
+      "row_payload_sha256": "1974f0e10b3fe490803251f0936592905cb8f89a0abb9610137bdeeb50b16dd5",
+      "rows": 32,
+      "sha256": "b4177d7a107633c3b29162324720e7c7d845b8b16ce8f62a3db90c403f3f6081"
+    },
+    "open/narrative/development.jsonl": {
+      "bytes": 206638,
+      "row_payload_sha256": "580dc0a90d471200ab2afb03ef556a65f9dc25b7d6f5054a06b60f877cb7bbc9",
+      "rows": 32,
+      "sha256": "9e37461948a9a620b7bb46ad348bbaec8f9cbe787ece36770ae2e14b5d2db3aa"
+    },
+    "open/scene/development.jsonl": {
+      "bytes": 59689,
+      "row_payload_sha256": "47891af39eca75108dd640b56b23ea8d65c2eaf57f81690ad037d3c377fcd195",
+      "rows": 32,
+      "sha256": "a3619302c8136d0693d85354d5e0b6a7a4318ab450b3a3f008c287997aa94ddc"
+    }
+  },
+  "evaluator_sha256": "ff547d720d00d80d1be9f574226531009a3de5c0f44a0c075d115f726fd7d2bb",
+  "final_rows_opened": false,
+  "model_audit": {
+    "checkpointed_frozen_mlps": 42,
+    "configured": true,
+    "gradient_checkpointing": false,
+    "named_trainable": [],
+    "replaced_layers": 42,
+    "trainables": {
+      "parameter_tensors": 0,
+      "passed": true
+    },
+    "warmstart": {
+      "identity_route_parameter_tensors": 84,
+      "source_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+      "source_parameter_tensors": 1512,
+      "source_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9"
+    },
+    "wrapped_layers": 42
+  },
+  "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+  "prompt_variants": 4,
+  "protocol_objective": "Post-train a single-pass recurrent online-memory model whose own RWKV state causally selects chunk-aligned projected values and improves a fresh three-task benchmark without task-specific routers or decoding rules.",
+  "protocol_payload_sha256": "576537822ca7079d15fc6d0ce618a94b8631286c47008f136ef1b6ed725d191d",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "rank_devices": [
+    {
+      "device_index": 0,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "ea61a4c0-419e-e40f-f98d-e9f13d1b1095",
+      "hostname": "bms-rwkv-0001",
+      "local_rank": 0,
+      "pid": 55855,
+      "process_rank": 0
+    },
+    {
+      "device_index": 1,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "3892ac74-d4a8-0bf4-59c7-d8a14d5dc7bc",
+      "hostname": "bms-rwkv-0001",
+      "local_rank": 1,
+      "pid": 55856,
+      "process_rank": 1
+    },
+    {
+      "device_index": 2,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "6327bb5c-91c6-fca7-f6bf-b7f1de5a2f05",
+      "hostname": "bms-rwkv-0001",
+      "local_rank": 2,
+      "pid": 55857,
+      "process_rank": 2
+    },
+    {
+      "device_index": 3,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "437b5974-0b61-9ab6-d9a7-b84ac3fc3874",
+      "hostname": "bms-rwkv-0001",
+      "local_rank": 3,
+      "pid": 55858,
+      "process_rank": 3
+    }
+  ],
+  "rows": 384,
+  "schedule_sha256": "d435d5933b6e39838c4cf326017e35cb8989fdedba761be9df6d081bc5aa0d68",
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_development_input.v1",
+  "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+  "trained_parameter_suffixes": [
+    ".rwkv_route_query_proj",
+    ".rwkv_route_state_proj",
+    ".hrm_rwkv7_core.output.weight"
+  ],
+  "training_adapter_files_sha256": "af6e889aaaa1ab595b6b47ca5257f6883a17feab4928b1c20241cdd4acfd6486",
+  "training_result_receipt": "2c83c06a323b08d150e8b91263fffe3c9fb9a69f28bbf398085a352c353bf85f",
+  "world_size": 4
+}

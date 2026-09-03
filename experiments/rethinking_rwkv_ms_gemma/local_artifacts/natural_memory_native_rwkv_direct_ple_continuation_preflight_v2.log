@@ -1,0 +1,13 @@
+W0903 07:06:13.070000 815202 site-packages/torch/distributed/run.py:792] 
+W0903 07:06:13.070000 815202 site-packages/torch/distributed/run.py:792] *****************************************
+W0903 07:06:13.070000 815202 site-packages/torch/distributed/run.py:792] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0903 07:06:13.070000 815202 site-packages/torch/distributed/run.py:792] *****************************************
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  28%|██▊       | 571/2076 [00:00<00:00, 5687.19it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  20%|█▉        | 407/2076 [00:00<00:00, 3983.90it/s]Loading weights:  55%|█████▍    | 1140/2076 [00:00<00:00, 3793.71it/s]Loading weights:  99%|█████████▉| 2053/2076 [00:00<00:00, 5707.16it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5343.41it/s]
+Loading weights:  39%|███▉      | 806/2076 [00:00<00:00, 3606.47it/s]Loading weights:  76%|███████▌  | 1571/2076 [00:00<00:00, 5341.36it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5476.17it/s]
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  25%|██▍       | 509/2076 [00:00<00:00, 5086.48it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  49%|████▉     | 1018/2076 [00:00<00:00, 3667.81it/s]Loading weights:  25%|██▌       | 524/2076 [00:00<00:00, 5232.03it/s]Loading weights:  94%|█████████▍| 1955/2076 [00:00<00:00, 5817.71it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5453.00it/s]
+Loading weights:  50%|█████     | 1048/2076 [00:00<00:00, 3559.94it/s]Loading weights:  97%|█████████▋| 2010/2076 [00:00<00:00, 5761.00it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5344.96it/s]
+{"active": {"layer_permuted_recurrent_state": 8, "matched_donor_recurrent_state": 8, "slot_shuffled_recurrent_state": 8, "zero_recurrent_state": 8}, "correct_ce": 2.252544, "margins": {"layer_permuted_recurrent_state": 0.01979, "matched_donor_recurrent_state": 0.00707, "slot_shuffled_recurrent_state": 0.001004, "zero_recurrent_state": 0.010102}, "step": 1}
+{"passed": true, "rank": 0, "result_receipt": "6a259e773e48259a05468b140c181b348f8f9a5bd2af85cd0c1f8288dc72e7e6", "status": "preflight_passed"}
+{"passed": true, "rank": 2, "result_receipt": null, "status": "worker_complete"}
+{"passed": true, "rank": 3, "result_receipt": null, "status": "worker_complete"}
+{"passed": true, "rank": 1, "result_receipt": null, "status": "worker_complete"}

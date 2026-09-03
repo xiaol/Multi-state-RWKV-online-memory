@@ -1,0 +1,92 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_posttrain_stage2_protocol.v1",
+  "created_at": "2026-08-29T00:10:00+08:00",
+  "objective": "Continue model-only recurrent routing post-training on untouched training rows to resolve the sealed-development layer-permutation and narrative underfit without opening final benchmark rows.",
+  "diagnosis": {
+    "stage1_training_result_receipt": "2c83c06a323b08d150e8b91263fffe3c9fb9a69f28bbf398085a352c353bf85f",
+    "stage1_development_result_receipt": "76617f9bc77261d7fbfecacc1dd8685f5a07f74b6d20f81dd9d384f528caf10a",
+    "development_projected_carriers_fixed": true,
+    "development_zero_state_margin": 2.1186860353608243,
+    "development_donor_margin": 0.08454405254515235,
+    "development_slot_shuffled_margin": 0.3524232368465639,
+    "development_layer_permuted_margin": -0.026968556647486513,
+    "development_narrative_donor_margin": -0.0012983922504551854,
+    "development_final_evaluation_authorized": false
+  },
+  "frozen_inputs": {
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "stage1_adapter_weights_sha256": "6a424d3c8dde13ca68f269d6b2fd09e27b22a177c4d71aa9177ce31044fc3449",
+    "stage1_adapter_config_sha256": "dc20cbe794479c9f802b45bedef83ff65543445dd85bfdb36419396cadd95d37",
+    "stage1_adapter_files_sha256": "af6e889aaaa1ab595b6b47ca5257f6883a17feab4928b1c20241cdd4acfd6486",
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "final_commitment_receipt": "c8c106a00e1379e26bbae5b774f0fe831de2c2527c3195a1e42881a33b2b2fae",
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "final_rows_opened": false,
+    "publisher_validation_opened": false,
+    "publisher_test_opened": false
+  },
+  "architecture": {
+    "rwkv_ms_hybrid_mode": "recurrent_routed_projected_value",
+    "trainable_parameter_families": [
+      "rwkv_route_query_proj",
+      "rwkv_route_state_proj",
+      "hrm_rwkv7_core.output.weight"
+    ],
+    "trainable_tensors": 126,
+    "task_router": false,
+    "template_matcher": false,
+    "dual_pass_selector": false,
+    "benchmark_specific_decoder": false
+  },
+  "training": {
+    "initial_checkpoint": "stage1 trained candidate",
+    "schedule_source_steps": [33, 96],
+    "training_rows_reused_from_stage1": 0,
+    "preflight_optimizer_updates": 1,
+    "optimizer_updates": 64,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "optimizer": "fused AdamW with fresh moments",
+    "learning_rate": 0.0002,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.2,
+    "contrast_margin": 0.1,
+    "control_weights": {
+      "zero_recurrent_state": 0.125,
+      "matched_donor_recurrent_state": 0.25,
+      "slot_shuffled_recurrent_state": 0.25,
+      "layer_permuted_recurrent_state": 0.5
+    },
+    "prompt_variants": 4,
+    "final_rows_opened_during_training": false
+  },
+  "development_gate": {
+    "same_committed_development_rows": true,
+    "conditions": [
+      "correct_recurrent_state",
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "slot_shuffled_recurrent_state",
+      "layer_permuted_recurrent_state"
+    ],
+    "required_overall_correct_over_all_controls": true,
+    "required_per_task_correct_over_all_controls": true,
+    "required_all_task_prompt_variants_correct_over_donor": true,
+    "required_projected_carriers_fixed": true,
+    "final_evaluation_authorized_only_on_pass": true
+  },
+  "final_gate": {
+    "unchanged_from_stage1": true,
+    "final_rows_per_task": 64,
+    "single_pass_raw_generation_only": true,
+    "candidate_non_regressive_against_stronger_baseline_on_every_task": true,
+    "candidate_strictly_better_than_both_baselines_on_at_least_one_task": true,
+    "final_rows_opened": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "1b7a7f2c5d6fe7641131f175dfa16d42dcc9237dacec708f3c89854fe540137e"
+  }
+}

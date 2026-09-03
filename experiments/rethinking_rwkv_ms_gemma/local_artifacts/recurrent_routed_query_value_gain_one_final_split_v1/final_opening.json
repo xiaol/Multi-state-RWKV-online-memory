@@ -1,0 +1,41 @@
+{
+  "development_result": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_development_v2/result.json",
+  "development_result_receipt": "e6e7c9a58e12f497cc2ab09fc2a5ee68382e6a028ac91e8f910953d144b021ef",
+  "files": {
+    "final/attribution/final.jsonl": {
+      "bytes": 91307,
+      "row_payload_sha256": "8cee2c10d1c96c49d4e76958023091516117f707023a17cc7958759841e749cb",
+      "rows": 64,
+      "sha256": "265f2f0eaf843431c96739708eca4a95afb544702e7ad90773a26c9dd5e94b73",
+      "source_file": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v3.2-attribution-best-candidate/train_derived_fit.jsonl"
+    },
+    "final/narrative/final.jsonl": {
+      "bytes": 398320,
+      "row_payload_sha256": "de7adbe2e3126a98a2c9f2abfceb2082d067593d539acc2e9d2cef7339af1c02",
+      "rows": 64,
+      "sha256": "71cad7707f7905a2b3b23084d03f1cfef07bf359cf7cef5a26359c71fcdf99c8",
+      "source_file": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v3.2-narrative-type-classification/train_derived_fit.jsonl"
+    },
+    "final/scene/final.jsonl": {
+      "bytes": 133866,
+      "row_payload_sha256": "1590d2d82dcf10ed1a8534f52ee002e5e44e1db80e2a705f4917c588aced4042",
+      "rows": 64,
+      "sha256": "ce95c84d03fd3de9f35c2182b6fbba8527ab00cfce73beab756ba76ce0d14a34",
+      "source_file": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_development_v1/v4-scene-boundary-detection/train_derived_fit.jsonl"
+    }
+  },
+  "final_commitment_receipt": "c8c106a00e1379e26bbae5b774f0fe831de2c2527c3195a1e42881a33b2b2fae",
+  "final_rows_opened": true,
+  "manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+  "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+  "protocol_payload_sha256": "c4a7653657ff6f26918d147575b1c221f2be4f5a0ea7c1a4a023a75ed4053861",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_opening_without_receipt",
+    "payload_sha256": "6098d203369f9d9d7851f48b19732923fb6aae46fc4a6b533ed41a10aa67c3a1"
+  },
+  "rows_per_task": 64,
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_final_opening.v1"
+}

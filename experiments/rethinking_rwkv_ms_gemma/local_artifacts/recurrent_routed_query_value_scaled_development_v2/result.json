@@ -1,0 +1,380 @@
+{
+  "final_evaluation_authorized": false,
+  "final_rows_opened": false,
+  "input_binding": {
+    "base_model": "/root/x/models/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "common_helper_sha256": "1967ac53977202cf68f55ee9ec05b4d5f3f1d83cf6a4fdddd959a5d1942f3050",
+    "conditions": [
+      "correct_recurrent_state",
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "slot_shuffled_recurrent_state",
+      "layer_permuted_recurrent_state"
+    ],
+    "development_files": {},
+    "evaluator_sha256": "dd50dea15b6352ab2e17338776af120daae5c99128735f9f8d807170e2c6e308",
+    "final_rows_opened": false,
+    "model_audit": {
+      "checkpointed_frozen_mlps": 42,
+      "configured": true,
+      "gradient_checkpointing": false,
+      "named_trainable": [],
+      "replaced_layers": 42,
+      "trainables": {
+        "parameter_tensors": 0,
+        "passed": true
+      },
+      "warmstart": {
+        "identity_route_parameter_tensors": 84,
+        "source_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+        "source_parameter_tensors": 1512,
+        "source_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9"
+      },
+      "wrapped_layers": 42
+    },
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "prompt_variants": 4,
+    "protocol_objective": "Continue model-only recurrent online-memory post-training with an eightfold fixed scale on a zero-initialized query-conditioned value coupling term, a narrative-focused 4/32/4 attribution/narrative/scene continuation, hard text-similar donor pairs, and an always-on matched-donor contrast at a low learning rate, using only target rows after the stage-2 schedule and keeping the final benchmark sealed.",
+    "protocol_payload_sha256": "3b4eec2efb9b70d47c20756eb944a713d289595da6c02b95fbd4010426618a09",
+    "publisher_test_opened": false,
+    "publisher_validation_opened": false,
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "ea61a4c0-419e-e40f-f98d-e9f13d1b1095",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 0,
+        "pid": 410952,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "3892ac74-d4a8-0bf4-59c7-d8a14d5dc7bc",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 1,
+        "pid": 410953,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "6327bb5c-91c6-fca7-f6bf-b7f1de5a2f05",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 2,
+        "pid": 410954,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "437b5974-0b61-9ab6-d9a7-b84ac3fc3874",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 3,
+        "pid": 410955,
+        "process_rank": 3
+      }
+    ],
+    "rows": 288,
+    "schedule_sha256": "242fea393361cd76f39ad3ef7fdee96ee47c7a55b86d914f385829a90ce3b896",
+    "schema": "rwkv_ms_natural_memory_native_recurrent_routed_development_input.v1",
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "trained_parameter_suffixes": [
+      ".rwkv_route_query_proj",
+      ".rwkv_route_state_proj",
+      ".hrm_rwkv7_core.output.weight"
+    ],
+    "training_adapter_files_sha256": "c99423211fbcc8a6c73759d275e249b0f1c61480cb32a81ecea1f82bdaa09904",
+    "training_result_receipt": "1c7bbfdf373f264bd7e540eb4b3e2c02627f2be1144c932542589647afafae4f",
+    "world_size": 4
+  },
+  "passed": false,
+  "protocol_payload_sha256": "3b4eec2efb9b70d47c20756eb944a713d289595da6c02b95fbd4010426618a09",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "459c24edf66e21ac46736c061c62aa3e160f898d0a07943ded36a62bc9dd5ce5"
+  },
+  "records_sha256": "5eda01658962e7bd6c0f42566b9650fce680ff0108dc04f48f2ef04893e48687",
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_development.v1",
+  "status": "development_failed_final_evaluation_blocked",
+  "summary": {
+    "by_task": {
+      "attribution": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.5226391908761702,
+          "layer_permuted_recurrent_state": 0.7279314826193609,
+          "matched_donor_recurrent_state": 0.6941040737456398,
+          "slot_shuffled_recurrent_state": 1.582200247206186,
+          "zero_recurrent_state": 3.2465028348721954
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.20529229174319066,
+          "matched_donor_recurrent_state": 0.1714648828694695,
+          "slot_shuffled_recurrent_state": 1.0595610563300157,
+          "zero_recurrent_state": 2.723863643996025
+        },
+        "rows": 32
+      },
+      "narrative": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.052629512229085705,
+          "layer_permuted_recurrent_state": 0.05891184605212611,
+          "matched_donor_recurrent_state": 0.05231409850606181,
+          "slot_shuffled_recurrent_state": 0.05408670351616078,
+          "zero_recurrent_state": 0.18912329055925822
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.006282333823040405,
+          "matched_donor_recurrent_state": -0.00031541372302389895,
+          "slot_shuffled_recurrent_state": 0.001457191287075073,
+          "zero_recurrent_state": 0.1364937783301725
+        },
+        "rows": 128
+      },
+      "scene": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.3448752156675163,
+          "layer_permuted_recurrent_state": 0.4797527497173334,
+          "matched_donor_recurrent_state": 0.5745441424051262,
+          "slot_shuffled_recurrent_state": 0.604458955384678,
+          "zero_recurrent_state": 4.094459183792575
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.13487753404981712,
+          "matched_donor_recurrent_state": 0.2296689267376099,
+          "slot_shuffled_recurrent_state": 0.2595837397171617,
+          "zero_recurrent_state": 3.749583968125058
+        },
+        "rows": 128
+      }
+    },
+    "by_task_prompt_variant": {
+      "attribution:0": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.24027726007135292,
+          "layer_permuted_recurrent_state": 0.3815843817434813,
+          "matched_donor_recurrent_state": 0.3565290667508778,
+          "slot_shuffled_recurrent_state": 1.2940902647219206,
+          "zero_recurrent_state": 2.876930973404332
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.1413071216721284,
+          "matched_donor_recurrent_state": 0.1162518066795249,
+          "slot_shuffled_recurrent_state": 1.0538130046505676,
+          "zero_recurrent_state": 2.6366537133329793
+        },
+        "rows": 8
+      },
+      "attribution:1": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.6134141918859984,
+          "layer_permuted_recurrent_state": 0.8077487506364521,
+          "matched_donor_recurrent_state": 0.74842695342867,
+          "slot_shuffled_recurrent_state": 1.9151676918330947,
+          "zero_recurrent_state": 3.609002821069015
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.19433455875045375,
+          "matched_donor_recurrent_state": 0.1350127615426716,
+          "slot_shuffled_recurrent_state": 1.301753499947096,
+          "zero_recurrent_state": 2.995588629183016
+        },
+        "rows": 8
+      },
+      "attribution:2": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.8963701163467608,
+          "layer_permuted_recurrent_state": 1.072762123534554,
+          "matched_donor_recurrent_state": 1.1699250704363773,
+          "slot_shuffled_recurrent_state": 1.9417111961465132,
+          "zero_recurrent_state": 3.658868388125771
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.17639200718779313,
+          "matched_donor_recurrent_state": 0.2735549540896165,
+          "slot_shuffled_recurrent_state": 1.0453410797997524,
+          "zero_recurrent_state": 2.7624982717790103
+        },
+        "rows": 8
+      },
+      "attribution:3": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.34049519520056876,
+          "layer_permuted_recurrent_state": 0.6496306745629562,
+          "matched_donor_recurrent_state": 0.5015352043666338,
+          "slot_shuffled_recurrent_state": 1.1778318361232156,
+          "zero_recurrent_state": 2.8412091568896645
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.3091354793623874,
+          "matched_donor_recurrent_state": 0.161040009166065,
+          "slot_shuffled_recurrent_state": 0.8373366409226468,
+          "zero_recurrent_state": 2.5007139616890957
+        },
+        "rows": 8
+      },
+      "narrative:0": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.04917277503321806,
+          "layer_permuted_recurrent_state": 0.054015705578397716,
+          "matched_donor_recurrent_state": 0.04801875361532909,
+          "slot_shuffled_recurrent_state": 0.049453140550681986,
+          "zero_recurrent_state": 0.19560426535985906
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.0048429305451796485,
+          "matched_donor_recurrent_state": -0.001154021417888976,
+          "slot_shuffled_recurrent_state": 0.00028036551746391696,
+          "zero_recurrent_state": 0.146431490326641
+        },
+        "rows": 32
+      },
+      "narrative:1": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.05767637248435083,
+          "layer_permuted_recurrent_state": 0.06394812668744873,
+          "matched_donor_recurrent_state": 0.05695357867192633,
+          "slot_shuffled_recurrent_state": 0.05704736830721741,
+          "zero_recurrent_state": 0.19041107992219108
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.006271754203097909,
+          "matched_donor_recurrent_state": -0.0007227938124244928,
+          "slot_shuffled_recurrent_state": -0.0006290041771334104,
+          "zero_recurrent_state": 0.13273470743784027
+        },
+        "rows": 32
+      },
+      "narrative:2": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.05042615217740825,
+          "layer_permuted_recurrent_state": 0.05763602708060124,
+          "matched_donor_recurrent_state": 0.05126731814460119,
+          "slot_shuffled_recurrent_state": 0.05444033474498529,
+          "zero_recurrent_state": 0.178915832662709
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.00720987490319299,
+          "matched_donor_recurrent_state": 0.0008411659671929442,
+          "slot_shuffled_recurrent_state": 0.004014182567577039,
+          "zero_recurrent_state": 0.12848968048530074
+        },
+        "rows": 32
+      },
+      "narrative:3": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.053242749221365696,
+          "layer_permuted_recurrent_state": 0.060047524862056764,
+          "matched_donor_recurrent_state": 0.05301674359239062,
+          "slot_shuffled_recurrent_state": 0.055405970461758436,
+          "zero_recurrent_state": 0.19156198429227372
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.006804775640691073,
+          "matched_donor_recurrent_state": -0.0002260056289750715,
+          "slot_shuffled_recurrent_state": 0.002163221240392746,
+          "zero_recurrent_state": 0.13831923507090804
+        },
+        "rows": 32
+      },
+      "scene:0": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.24500905257565053,
+          "layer_permuted_recurrent_state": 0.33147431364320595,
+          "matched_donor_recurrent_state": 0.35164476467409367,
+          "slot_shuffled_recurrent_state": 0.38405111048445856,
+          "zero_recurrent_state": 4.05150409811976
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.08646526106755541,
+          "matched_donor_recurrent_state": 0.10663571209844315,
+          "slot_shuffled_recurrent_state": 0.13904205790880803,
+          "zero_recurrent_state": 3.8064950455441093
+        },
+        "rows": 32
+      },
+      "scene:1": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.5021968487527861,
+          "layer_permuted_recurrent_state": 0.6487992354809786,
+          "matched_donor_recurrent_state": 0.7943228624610588,
+          "slot_shuffled_recurrent_state": 0.7812658255186045,
+          "zero_recurrent_state": 4.072267963759827
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.14660238672819254,
+          "matched_donor_recurrent_state": 0.2921260137082727,
+          "slot_shuffled_recurrent_state": 0.2790689767658184,
+          "zero_recurrent_state": 3.5700711150070408
+        },
+        "rows": 32
+      },
+      "scene:2": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.351285616808919,
+          "layer_permuted_recurrent_state": 0.4647153570006291,
+          "matched_donor_recurrent_state": 0.5895052324547762,
+          "slot_shuffled_recurrent_state": 0.6326854900118302,
+          "zero_recurrent_state": 3.951626090419413
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.11342974019171011,
+          "matched_donor_recurrent_state": 0.23821961564585717,
+          "slot_shuffled_recurrent_state": 0.2813998732029112,
+          "zero_recurrent_state": 3.6003404736104936
+        },
+        "rows": 32
+      },
+      "scene:3": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.28100934453270954,
+          "layer_permuted_recurrent_state": 0.4740220927445199,
+          "matched_donor_recurrent_state": 0.5627037100305762,
+          "slot_shuffled_recurrent_state": 0.6198333955238188,
+          "zero_recurrent_state": 4.302438582871297
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.1930127482118104,
+          "matched_donor_recurrent_state": 0.28169436549786664,
+          "slot_shuffled_recurrent_state": 0.33882405099110924,
+          "zero_recurrent_state": 4.0214292383385875
+        },
+        "rows": 32
+      }
+    },
+    "gates": {
+      "all_task_prompt_variants_correct_over_donor": false,
+      "overall_correct_over_all_controls": true,
+      "per_task_correct_over_all_controls": false,
+      "projected_carriers_fixed": true,
+      "row_counts_exact": true
+    },
+    "overall": {
+      "mean_condition_ce": {
+        "correct_recurrent_state": 0.23473978916250868,
+        "layer_permuted_recurrent_state": 0.32028776285524435,
+        "matched_donor_recurrent_state": 0.3557263374878213,
+        "slot_shuffled_recurrent_state": 0.46848698697883795,
+        "zero_recurrent_state": 2.2645369702532805
+      },
+      "mean_control_minus_correct_ce": {
+        "layer_permuted_recurrent_state": 0.08554797369273565,
+        "matched_donor_recurrent_state": 0.12098654832531262,
+        "slot_shuffled_recurrent_state": 0.2337471978163292,
+        "zero_recurrent_state": 2.029797181090772
+      },
+      "rows": 288
+    },
+    "passed": false,
+    "rows": 288
+  }
+}

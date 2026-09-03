@@ -1,0 +1,129 @@
+{
+  "causal_control_file": null,
+  "final_rows_opened": true,
+  "input_binding": {
+    "base_model": "/root/x/models/gemma-4-E4B-it",
+    "benchmark_specific_decoder": false,
+    "candidate_adapter": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_train20_v1/adapter",
+    "development_result": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_development_v2/result.json",
+    "development_result_receipt": "e6e7c9a58e12f497cc2ab09fc2a5ee68382e6a028ac91e8f910953d144b021ef",
+    "dual_pass_selector": false,
+    "final_opening": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_final_split_v1/final_opening.json",
+    "final_opening_receipt": "6098d203369f9d9d7851f48b19732923fb6aae46fc4a6b533ed41a10aa67c3a1",
+    "final_rows_opened": true,
+    "generation": "single-pass greedy batch-one with one write then one read for memory systems",
+    "protocol_file": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_routed_posttrain_protocol_v1.json",
+    "protocol_receipt": "576537822ca7079d15fc6d0ce618a94b8631286c47008f136ef1b6ed725d191d",
+    "publisher_test_opened": false,
+    "publisher_validation_opened": false,
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "ea61a4c0-419e-e40f-f98d-e9f13d1b1095",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 0,
+        "pid": 429000,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "3892ac74-d4a8-0bf4-59c7-d8a14d5dc7bc",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 1,
+        "pid": 429001,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "6327bb5c-91c6-fca7-f6bf-b7f1de5a2f05",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 2,
+        "pid": 429002,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "437b5974-0b61-9ab6-d9a7-b84ac3fc3874",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 3,
+        "pid": 429003,
+        "process_rank": 3
+      }
+    ],
+    "rows_per_task": {
+      "attribution": 1,
+      "narrative": 1,
+      "scene": 1
+    },
+    "schema": "rwkv_ms_natural_memory_native_recurrent_routed_final_input.v1",
+    "systems": [
+      "frozen_gemma_base"
+    ],
+    "task_router": false,
+    "template_matcher": false,
+    "training_result_receipt": "74939af17b1296e04cd37a67f17d73b8865de69e6e29cded5d3a77a05259e858",
+    "training_root": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_train20_v1",
+    "v9_adapter": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "world_size": 4
+  },
+  "passed": false,
+  "protocol_receipt": "576537822ca7079d15fc6d0ce618a94b8631286c47008f136ef1b6ed725d191d",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "raw_prediction_files": {
+    "frozen_gemma_base": {
+      "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_final_smoke_base_v2/frozen_gemma_base.jsonl",
+      "rows": 3,
+      "sha256": "156e8e5803baf69798affb8e500b12d88483b7672b2b454bc89c91e4e96ce8c2"
+    }
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "477a4aa12c64430a2d50b026725635c519aa96fa482a8d4a17dc9666293b5100"
+  },
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_final.v1",
+  "status": "final_failure",
+  "summary": {
+    "controls": {
+      "status": "not_run"
+    },
+    "passed": false,
+    "systems": {
+      "frozen_gemma_base": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "rows": 1,
+            "schema_valid": 0
+          },
+          "narrative": {
+            "correct_units": 0,
+            "gold_units": 31,
+            "rows": 1,
+            "schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 2,
+            "micro_f1": 0.0,
+            "rows": 1,
+            "schema_valid": 1,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      }
+    }
+  }
+}

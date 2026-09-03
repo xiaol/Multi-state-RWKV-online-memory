@@ -1,0 +1,129 @@
+bash: /root/anaconda3/envs/rwkv_py312/lib/libtinfo.so.6: no version information available (required by bash)
+bash: /root/anaconda3/envs/rwkv_py312/lib/libtinfo.so.6: no version information available (required by bash)
+W0902 23:15:53.082000 695415 site-packages/torch/distributed/run.py:792] 
+W0902 23:15:53.082000 695415 site-packages/torch/distributed/run.py:792] *****************************************
+W0902 23:15:53.082000 695415 site-packages/torch/distributed/run.py:792] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0902 23:15:53.082000 695415 site-packages/torch/distributed/run.py:792] *****************************************
+[rank0]:[W902 23:16:02.176797562 ProcessGroupGloo.cpp:727] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[rank2]:[W902 23:16:02.435689664 ProcessGroupGloo.cpp:727] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[rank3]:[W902 23:16:02.439306475 ProcessGroupGloo.cpp:727] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[rank1]:[W902 23:16:02.452651605 ProcessGroupGloo.cpp:727] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 804, in <module>
+[rank1]:     raise SystemExit(main())
+[rank1]:                      ^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank1]:     return f(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 800, in main
+[rank1]:     return main_run(parse_args(argv))
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 586, in main_run
+[rank1]:     task: tuple(
+[rank1]:           ^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 587, in <genexpr>
+[rank1]:     development.as_source_row(task, row)
+[rank1]:     ^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]: AttributeError: module 'experiments.rethinking_rwkv_ms_gemma.run_recurrent_routed_development_generation' has no attribute 'as_source_row'
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 804, in <module>
+[rank3]:     raise SystemExit(main())
+[rank3]:                      ^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank3]:     return f(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 800, in main
+[rank3]:     return main_run(parse_args(argv))
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 586, in main_run
+[rank3]:     task: tuple(
+[rank3]:           ^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 587, in <genexpr>
+[rank3]:     development.as_source_row(task, row)
+[rank3]:     ^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]: AttributeError: module 'experiments.rethinking_rwkv_ms_gemma.run_recurrent_routed_development_generation' has no attribute 'as_source_row'
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 804, in <module>
+[rank2]:     raise SystemExit(main())
+[rank2]:                      ^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank2]:     return f(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 800, in main
+[rank2]:     return main_run(parse_args(argv))
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 586, in main_run
+[rank2]:     task: tuple(
+[rank2]:           ^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 587, in <genexpr>
+[rank2]:     development.as_source_row(task, row)
+[rank2]:     ^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]: AttributeError: module 'experiments.rethinking_rwkv_ms_gemma.run_recurrent_routed_development_generation' has no attribute 'as_source_row'
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 804, in <module>
+[rank0]:     raise SystemExit(main())
+[rank0]:                      ^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank0]:     return f(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 800, in main
+[rank0]:     return main_run(parse_args(argv))
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 586, in main_run
+[rank0]:     task: tuple(
+[rank0]:           ^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 587, in <genexpr>
+[rank0]:     development.as_source_row(task, row)
+[rank0]:     ^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]: AttributeError: module 'experiments.rethinking_rwkv_ms_gemma.run_recurrent_routed_development_generation' has no attribute 'as_source_row'
+W0902 23:16:05.005000 695415 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 718778 closing signal SIGTERM
+W0902 23:16:05.006000 695415 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 718779 closing signal SIGTERM
+W0902 23:16:05.007000 695415 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 718780 closing signal SIGTERM
+E0902 23:16:10.256000 695415 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 718777) of binary: /root/anaconda3/envs/rwkv_py312/bin/python3.12
+E0902 23:16:10.261000 695415 site-packages/torch/distributed/elastic/multiprocessing/errors/error_handler.py:141] no error file defined for parent, to copy child error file (/tmp/torchelastic_ewrrty59/none_s4j8s67t/attempt_0/0/error.json)
+Traceback (most recent call last):
+  File "/root/anaconda3/envs/rwkv_py312/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-09-02_23:16:03
+  host      : bms-rwkv-0001
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 718777)
+  error_file: /tmp/torchelastic_ewrrty59/none_s4j8s67t/attempt_0/0/error.json
+  traceback : Traceback (most recent call last):
+    File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+      return f(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^
+    File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 800, in main
+      return main_run(parse_args(argv))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 586, in main_run
+      task: tuple(
+            ^^^^^^
+    File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/evaluate_natural_memory_native_rwkv_direct_ple_development.py", line 587, in <genexpr>
+      development.as_source_row(task, row)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  AttributeError: module 'experiments.rethinking_rwkv_ms_gemma.run_recurrent_routed_development_generation' has no attribute 'as_source_row'
+  
+============================================================

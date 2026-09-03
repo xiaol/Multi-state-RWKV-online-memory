@@ -845,6 +845,35 @@ def test_no_write_condition_freezes_writes_around_generation(
     ]
 
 
+def test_inference_autocast_matches_model_embedding_dtype(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[tuple[str, object]] = []
+
+    class FakeModel:
+        def get_input_embeddings(self):
+            return SimpleNamespace(
+                weight=torch.empty(1, dtype=torch.bfloat16),
+            )
+
+    @contextmanager
+    def fake_autocast(*, device_type: str, dtype: torch.dtype):
+        events.append(("enter", (device_type, dtype)))
+        yield
+        events.append(("exit", (device_type, dtype)))
+
+    monkeypatch.setattr(torch, "autocast", fake_autocast)
+
+    with evaluator.inference_autocast_context(FakeModel(), "cuda:0"):
+        events.append(("body", None))
+
+    assert events == [
+        ("enter", ("cuda", torch.bfloat16)),
+        ("body", None),
+        ("exit", ("cuda", torch.bfloat16)),
+    ]
+
+
 def test_write_then_read_primes_prompt_before_read_only_generation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

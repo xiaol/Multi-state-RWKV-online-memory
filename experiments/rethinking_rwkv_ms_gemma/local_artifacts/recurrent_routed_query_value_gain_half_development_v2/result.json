@@ -1,0 +1,380 @@
+{
+  "final_evaluation_authorized": false,
+  "final_rows_opened": false,
+  "input_binding": {
+    "base_model": "/root/x/models/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "common_helper_sha256": "1967ac53977202cf68f55ee9ec05b4d5f3f1d83cf6a4fdddd959a5d1942f3050",
+    "conditions": [
+      "correct_recurrent_state",
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "slot_shuffled_recurrent_state",
+      "layer_permuted_recurrent_state"
+    ],
+    "development_files": {},
+    "evaluator_sha256": "dd50dea15b6352ab2e17338776af120daae5c99128735f9f8d807170e2c6e308",
+    "final_rows_opened": false,
+    "model_audit": {
+      "checkpointed_frozen_mlps": 42,
+      "configured": true,
+      "gradient_checkpointing": false,
+      "named_trainable": [],
+      "replaced_layers": 42,
+      "trainables": {
+        "parameter_tensors": 0,
+        "passed": true
+      },
+      "warmstart": {
+        "identity_route_parameter_tensors": 84,
+        "source_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+        "source_parameter_tensors": 1512,
+        "source_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9"
+      },
+      "wrapped_layers": 42
+    },
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "prompt_variants": 4,
+    "protocol_objective": "Continue model-only recurrent online-memory post-training with a fixed 0.5 recurrent-routed hybrid gain and a zero-initialized query-conditioned value coupling term, using a narrative-focused 4/32/4 attribution/narrative/scene continuation, hard text-similar donor pairs, and an always-on matched-donor contrast at a low learning rate, while keeping the final benchmark sealed.",
+    "protocol_payload_sha256": "4828a4d24fbe7350cf57baadd0934b1d3def4ef45eea5aa92bf14e9af3a2e272",
+    "publisher_test_opened": false,
+    "publisher_validation_opened": false,
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "ea61a4c0-419e-e40f-f98d-e9f13d1b1095",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 0,
+        "pid": 414606,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "3892ac74-d4a8-0bf4-59c7-d8a14d5dc7bc",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 1,
+        "pid": 414607,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "6327bb5c-91c6-fca7-f6bf-b7f1de5a2f05",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 2,
+        "pid": 414608,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "437b5974-0b61-9ab6-d9a7-b84ac3fc3874",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 3,
+        "pid": 414609,
+        "process_rank": 3
+      }
+    ],
+    "rows": 288,
+    "schedule_sha256": "242fea393361cd76f39ad3ef7fdee96ee47c7a55b86d914f385829a90ce3b896",
+    "schema": "rwkv_ms_natural_memory_native_recurrent_routed_development_input.v1",
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "trained_parameter_suffixes": [
+      ".rwkv_route_query_proj",
+      ".rwkv_route_state_proj",
+      ".hrm_rwkv7_core.output.weight"
+    ],
+    "training_adapter_files_sha256": "028e0d4ec238329626c90d6679387b685459a7ac9e9054dc5af2a5b66ab58bb3",
+    "training_result_receipt": "3336b3ee3df5bb18f7cf8d41dd97c79b0b513914312b3313d1661a14eec439ae",
+    "world_size": 4
+  },
+  "passed": false,
+  "protocol_payload_sha256": "4828a4d24fbe7350cf57baadd0934b1d3def4ef45eea5aa92bf14e9af3a2e272",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "7f94b255d0280eb53a48e0767b0eccae4b5197ad9be54b69b4099e833b7a1981"
+  },
+  "records_sha256": "e330185b315189a61e5992162229dc756314ec5ff62f087a1f31b4cd67d89224",
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_development.v1",
+  "status": "development_failed_final_evaluation_blocked",
+  "summary": {
+    "by_task": {
+      "attribution": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.39278170727193357,
+          "layer_permuted_recurrent_state": 0.9563924271025156,
+          "matched_donor_recurrent_state": 0.5394246719875618,
+          "slot_shuffled_recurrent_state": 1.388811872742678,
+          "zero_recurrent_state": 3.2465028348721954
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.563610719830582,
+          "matched_donor_recurrent_state": 0.14664296471562827,
+          "slot_shuffled_recurrent_state": 0.9960301654707444,
+          "zero_recurrent_state": 2.853721127600262
+        },
+        "rows": 32
+      },
+      "narrative": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.046819908942666355,
+          "layer_permuted_recurrent_state": 0.07075541696632703,
+          "matched_donor_recurrent_state": 0.04684494987444767,
+          "slot_shuffled_recurrent_state": 0.048369626348610174,
+          "zero_recurrent_state": 0.18912329055925822
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.023935508023660672,
+          "matched_donor_recurrent_state": 2.5040931781317635e-05,
+          "slot_shuffled_recurrent_state": 0.0015497174059438186,
+          "zero_recurrent_state": 0.14230338161659187
+        },
+        "rows": 128
+      },
+      "scene": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.2946894871395533,
+          "layer_permuted_recurrent_state": 0.6557046723066396,
+          "matched_donor_recurrent_state": 0.45616663288056963,
+          "slot_shuffled_recurrent_state": 0.5112824022785215,
+          "zero_recurrent_state": 4.094459183792575
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.36101518516708636,
+          "matched_donor_recurrent_state": 0.16147714574101635,
+          "slot_shuffled_recurrent_state": 0.2165929151389682,
+          "zero_recurrent_state": 3.799769696653021
+        },
+        "rows": 128
+      }
+    },
+    "by_task_prompt_variant": {
+      "attribution:0": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.15220443825972707,
+          "layer_permuted_recurrent_state": 0.5813643066506636,
+          "matched_donor_recurrent_state": 0.25202068462967875,
+          "slot_shuffled_recurrent_state": 1.0823993755014318,
+          "zero_recurrent_state": 2.876930973404332
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.4291598683909366,
+          "matched_donor_recurrent_state": 0.09981624636995165,
+          "slot_shuffled_recurrent_state": 0.9301949372417049,
+          "zero_recurrent_state": 2.724726535144605
+        },
+        "rows": 8
+      },
+      "attribution:1": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.4464097237900684,
+          "layer_permuted_recurrent_state": 1.0859376210915415,
+          "matched_donor_recurrent_state": 0.5656209713534305,
+          "slot_shuffled_recurrent_state": 1.7045895720783033,
+          "zero_recurrent_state": 3.609002821069015
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.6395278973014731,
+          "matched_donor_recurrent_state": 0.11921124756336211,
+          "slot_shuffled_recurrent_state": 1.258179848288235,
+          "zero_recurrent_state": 3.1625930972789464
+        },
+        "rows": 8
+      },
+      "attribution:2": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.7664335075177644,
+          "layer_permuted_recurrent_state": 1.307729058516653,
+          "matched_donor_recurrent_state": 0.9759762402819959,
+          "slot_shuffled_recurrent_state": 1.7330193626253227,
+          "zero_recurrent_state": 3.658868388125771
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.5412955509988886,
+          "matched_donor_recurrent_state": 0.20954273276423158,
+          "slot_shuffled_recurrent_state": 0.9665858551075583,
+          "zero_recurrent_state": 2.8924348806080067
+        },
+        "rows": 8
+      },
+      "attribution:3": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.20607915952017433,
+          "layer_permuted_recurrent_state": 0.8505387221512042,
+          "matched_donor_recurrent_state": 0.364080791685142,
+          "slot_shuffled_recurrent_state": 1.0352391807656538,
+          "zero_recurrent_state": 2.8412091568896645
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.6444595626310298,
+          "matched_donor_recurrent_state": 0.15800163216496768,
+          "slot_shuffled_recurrent_state": 0.8291600212454795,
+          "zero_recurrent_state": 2.63512999736949
+        },
+        "rows": 8
+      },
+      "narrative:0": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.044607707928586586,
+          "layer_permuted_recurrent_state": 0.06505870995610781,
+          "matched_donor_recurrent_state": 0.04452522900087522,
+          "slot_shuffled_recurrent_state": 0.045189726305709055,
+          "zero_recurrent_state": 0.19560426535985906
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.02045100202752122,
+          "matched_donor_recurrent_state": -8.247892771136365e-05,
+          "slot_shuffled_recurrent_state": 0.0005820183771224725,
+          "zero_recurrent_state": 0.15099655743127247
+        },
+        "rows": 32
+      },
+      "narrative:1": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.04987994603880072,
+          "layer_permuted_recurrent_state": 0.07593145258333478,
+          "matched_donor_recurrent_state": 0.0493045972817756,
+          "slot_shuffled_recurrent_state": 0.05112116283041517,
+          "zero_recurrent_state": 0.19041107992219108
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.026051506544534055,
+          "matched_donor_recurrent_state": -0.0005753487570251197,
+          "slot_shuffled_recurrent_state": 0.0012412167916144466,
+          "zero_recurrent_state": 0.14053113388339036
+        },
+        "rows": 32
+      },
+      "narrative:2": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.04462584294512769,
+          "layer_permuted_recurrent_state": 0.07030248062752205,
+          "matched_donor_recurrent_state": 0.04519829935642575,
+          "slot_shuffled_recurrent_state": 0.04717571290090245,
+          "zero_recurrent_state": 0.178915832662709
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.02567663768239436,
+          "matched_donor_recurrent_state": 0.0005724564112980592,
+          "slot_shuffled_recurrent_state": 0.0025498699557747655,
+          "zero_recurrent_state": 0.1342899897175813
+        },
+        "rows": 32
+      },
+      "narrative:3": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.04816613885815042,
+          "layer_permuted_recurrent_state": 0.07172902469834348,
+          "matched_donor_recurrent_state": 0.04835167385871412,
+          "slot_shuffled_recurrent_state": 0.04999190335741402,
+          "zero_recurrent_state": 0.19156198429227372
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.023562885840193056,
+          "matched_donor_recurrent_state": 0.00018553500056369473,
+          "slot_shuffled_recurrent_state": 0.0018257644992635898,
+          "zero_recurrent_state": 0.14339584543412331
+        },
+        "rows": 32
+      },
+      "scene:0": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.2172084829628919,
+          "layer_permuted_recurrent_state": 0.44695200365215465,
+          "matched_donor_recurrent_state": 0.2923273729122799,
+          "slot_shuffled_recurrent_state": 0.31215669483303876,
+          "zero_recurrent_state": 4.05150409811976
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.22974352068926274,
+          "matched_donor_recurrent_state": 0.07511888994938797,
+          "slot_shuffled_recurrent_state": 0.09494821187014682,
+          "zero_recurrent_state": 3.8342956151568677
+        },
+        "rows": 32
+      },
+      "scene:1": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.41326169826165593,
+          "layer_permuted_recurrent_state": 0.8701654528822712,
+          "matched_donor_recurrent_state": 0.6278247787005673,
+          "slot_shuffled_recurrent_state": 0.6674252152226564,
+          "zero_recurrent_state": 4.072267963759827
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.4569037546206153,
+          "matched_donor_recurrent_state": 0.2145630804389113,
+          "slot_shuffled_recurrent_state": 0.2541635169610005,
+          "zero_recurrent_state": 3.6590062654981708
+        },
+        "rows": 32
+      },
+      "scene:2": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.3035650056927945,
+          "layer_permuted_recurrent_state": 0.6301921969844085,
+          "matched_donor_recurrent_state": 0.4774969733743505,
+          "slot_shuffled_recurrent_state": 0.539120893870866,
+          "zero_recurrent_state": 3.951626090419413
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.326627191291614,
+          "matched_donor_recurrent_state": 0.17393196768155603,
+          "slot_shuffled_recurrent_state": 0.23555588817807158,
+          "zero_recurrent_state": 3.6480610847266184
+        },
+        "rows": 32
+      },
+      "scene:3": {
+        "mean_condition_ce": {
+          "correct_recurrent_state": 0.2447227616408708,
+          "layer_permuted_recurrent_state": 0.6755090357077242,
+          "matched_donor_recurrent_state": 0.4270174065350809,
+          "slot_shuffled_recurrent_state": 0.5264268051875247,
+          "zero_recurrent_state": 4.302438582871297
+        },
+        "mean_control_minus_correct_ce": {
+          "layer_permuted_recurrent_state": 0.43078627406685344,
+          "matched_donor_recurrent_state": 0.18229464489421007,
+          "slot_shuffled_recurrent_state": 0.2817040435466539,
+          "zero_recurrent_state": 4.057715821230427
+        },
+        "rows": 32
+      }
+    },
+    "gates": {
+      "all_task_prompt_variants_correct_over_donor": false,
+      "overall_correct_over_all_controls": true,
+      "per_task_correct_over_all_controls": true,
+      "projected_carriers_fixed": true,
+      "row_counts_exact": true
+    },
+    "overall": {
+      "mean_condition_ce": {
+        "correct_recurrent_state": 0.19542436573342356,
+        "layer_permuted_recurrent_state": 0.42913697602159806,
+        "matched_donor_recurrent_state": 0.283496778111959,
+        "slot_shuffled_recurrent_state": 0.40304666525013383,
+        "zero_recurrent_state": 2.2645369702532805
+      },
+      "mean_control_minus_correct_ce": {
+        "layer_permuted_recurrent_state": 0.23371261028817447,
+        "matched_donor_recurrent_state": 0.08807241237853543,
+        "slot_shuffled_recurrent_state": 0.20762229951671027,
+        "zero_recurrent_state": 2.069112604519857
+      },
+      "rows": 288
+    },
+    "passed": false,
+    "rows": 288
+  }
+}

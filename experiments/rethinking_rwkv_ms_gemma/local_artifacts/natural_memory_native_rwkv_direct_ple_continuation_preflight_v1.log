@@ -1,0 +1,167 @@
+W0903 06:39:32.546000 808464 site-packages/torch/distributed/run.py:792] 
+W0903 06:39:32.546000 808464 site-packages/torch/distributed/run.py:792] *****************************************
+W0903 06:39:32.546000 808464 site-packages/torch/distributed/run.py:792] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0903 06:39:32.546000 808464 site-packages/torch/distributed/run.py:792] *****************************************
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  22%|██▏       | 460/2076 [00:00<00:00, 4583.34it/s]Loading weights:  44%|████▍     | 919/2076 [00:00<00:00, 3577.24it/s]Loading weights:  89%|████████▊ | 1840/2076 [00:00<00:00, 5802.37it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5528.11it/s]
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  21%|██        | 430/2076 [00:00<00:00, 4243.61it/s]Loading weights:  41%|████      | 855/2076 [00:00<00:00, 3314.67it/s]Loading weights:  84%|████████▍ | 1751/2076 [00:00<00:00, 5541.83it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5346.86it/s]
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  23%|██▎       | 474/2076 [00:00<00:00, 4738.51it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  46%|████▌     | 948/2076 [00:00<00:00, 4121.80it/s]Loading weights:  25%|██▍       | 510/2076 [00:00<00:00, 5099.25it/s]Loading weights:  66%|██████▌   | 1366/2076 [00:00<00:00, 3829.27it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 4857.92it/s]
+Loading weights:  49%|████▉     | 1020/2076 [00:00<00:00, 3485.40it/s]Loading weights:  94%|█████████▍| 1953/2076 [00:00<00:00, 5615.97it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5277.22it/s]
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 505, in <module>
+[rank0]:     raise SystemExit(main())
+[rank0]:                      ^^^^^^
+[rank0]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank0]:     return f(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 477, in main
+[rank0]:     result = run(
+[rank0]:              ^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 435, in run
+[rank0]:     result = direct.trainer.run(
+[rank0]:              ^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 1104, in run
+[rank0]:     training = train(
+[rank0]:                ^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 376, in strengthened_train
+[rank0]:     return previous_train(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 773, in train_with_audit
+[rank0]:     return previous_train(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 803, in train
+[rank0]:     raise RuntimeError(
+[rank0]: RuntimeError: Recurrent-routed first update did not activate all required families: {'beta_bias': {'tensors': 42, 'active': 42}, 'beta_proj': {'tensors': 42, 'active': 42}, 'rwkv_core': {'tensors': 882, 'active': 672}, 'memory_v_proj': {'tensors': 42, 'active': 42}, 'projected_kv_key_proj': {'tensors': 42, 'active': 42}, 'rwkv_moe_addressed_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_bias': {'tensors': 42, 'active': 42}, 'rwkv_moe_global_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_hidden_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_down_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_up_weight': {'tensors': 42, 'active': 42}}
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 505, in <module>
+[rank2]:     raise SystemExit(main())
+[rank2]:                      ^^^^^^
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank2]:     return f(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 477, in main
+[rank2]:     result = run(
+[rank2]:              ^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 435, in run
+[rank2]:     result = direct.trainer.run(
+[rank2]:              ^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 1104, in run
+[rank2]:     training = train(
+[rank2]:                ^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 376, in strengthened_train
+[rank2]:     return previous_train(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 773, in train_with_audit
+[rank2]:     return previous_train(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 803, in train
+[rank2]:     raise RuntimeError(
+[rank2]: RuntimeError: Recurrent-routed first update did not activate all required families: {'beta_bias': {'tensors': 42, 'active': 42}, 'beta_proj': {'tensors': 42, 'active': 42}, 'rwkv_core': {'tensors': 882, 'active': 672}, 'memory_v_proj': {'tensors': 42, 'active': 42}, 'projected_kv_key_proj': {'tensors': 42, 'active': 42}, 'rwkv_moe_addressed_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_bias': {'tensors': 42, 'active': 42}, 'rwkv_moe_global_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_hidden_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_down_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_up_weight': {'tensors': 42, 'active': 42}}
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 505, in <module>
+[rank3]:     raise SystemExit(main())
+[rank3]:                      ^^^^^^
+[rank3]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank3]:     return f(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 477, in main
+[rank3]:     result = run(
+[rank3]:              ^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 435, in run
+[rank3]:     result = direct.trainer.run(
+[rank3]:              ^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 1104, in run
+[rank3]:     training = train(
+[rank3]:                ^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 376, in strengthened_train
+[rank3]:     return previous_train(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 773, in train_with_audit
+[rank3]:     return previous_train(*args, **kwargs)
+[rank3]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank3]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 803, in train
+[rank3]:     raise RuntimeError(
+[rank3]: RuntimeError: Recurrent-routed first update did not activate all required families: {'beta_bias': {'tensors': 42, 'active': 42}, 'beta_proj': {'tensors': 42, 'active': 42}, 'rwkv_core': {'tensors': 882, 'active': 672}, 'memory_v_proj': {'tensors': 42, 'active': 42}, 'projected_kv_key_proj': {'tensors': 42, 'active': 42}, 'rwkv_moe_addressed_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_bias': {'tensors': 42, 'active': 42}, 'rwkv_moe_global_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_hidden_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_down_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_up_weight': {'tensors': 42, 'active': 42}}
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 505, in <module>
+[rank1]:     raise SystemExit(main())
+[rank1]:                      ^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+[rank1]:     return f(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 477, in main
+[rank1]:     result = run(
+[rank1]:              ^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 435, in run
+[rank1]:     result = direct.trainer.run(
+[rank1]:              ^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 1104, in run
+[rank1]:     training = train(
+[rank1]:                ^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 376, in strengthened_train
+[rank1]:     return previous_train(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 773, in train_with_audit
+[rank1]:     return previous_train(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 803, in train
+[rank1]:     raise RuntimeError(
+[rank1]: RuntimeError: Recurrent-routed first update did not activate all required families: {'beta_bias': {'tensors': 42, 'active': 42}, 'beta_proj': {'tensors': 42, 'active': 42}, 'rwkv_core': {'tensors': 882, 'active': 672}, 'memory_v_proj': {'tensors': 42, 'active': 42}, 'projected_kv_key_proj': {'tensors': 42, 'active': 42}, 'rwkv_moe_addressed_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_bias': {'tensors': 42, 'active': 42}, 'rwkv_moe_global_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_hidden_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_down_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_up_weight': {'tensors': 42, 'active': 42}}
+W0903 06:53:12.015000 808464 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 808697 closing signal SIGTERM
+W0903 06:53:12.016000 808464 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 808698 closing signal SIGTERM
+W0903 06:53:12.017000 808464 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 808699 closing signal SIGTERM
+E0903 06:53:15.550000 808464 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 808696) of binary: /root/anaconda3/envs/rwkv_py312/bin/python3.12
+E0903 06:53:15.555000 808464 site-packages/torch/distributed/elastic/multiprocessing/errors/error_handler.py:141] no error file defined for parent, to copy child error file (/tmp/torchelastic_6ekf3xku/none_41wkuykn/attempt_0/0/error.json)
+Traceback (most recent call last):
+  File "/root/anaconda3/envs/rwkv_py312/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-09-03_06:53:09
+  host      : bms-rwkv-0001
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 808696)
+  error_file: /tmp/torchelastic_6ekf3xku/none_41wkuykn/attempt_0/0/error.json
+  traceback : Traceback (most recent call last):
+    File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+      return f(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^
+    File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 477, in main
+      result = run(
+               ^^^^
+    File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 435, in run
+      result = direct.trainer.run(
+               ^^^^^^^^^^^^^^^^^^^
+    File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 1104, in run
+      training = train(
+                 ^^^^^^
+    File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_continuation.py", line 376, in strengthened_train
+      return previous_train(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 773, in train_with_audit
+      return previous_train(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 803, in train
+      raise RuntimeError(
+  RuntimeError: Recurrent-routed first update did not activate all required families: {'beta_bias': {'tensors': 42, 'active': 42}, 'beta_proj': {'tensors': 42, 'active': 42}, 'rwkv_core': {'tensors': 882, 'active': 672}, 'memory_v_proj': {'tensors': 42, 'active': 42}, 'projected_kv_key_proj': {'tensors': 42, 'active': 42}, 'rwkv_moe_addressed_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_bias': {'tensors': 42, 'active': 42}, 'rwkv_moe_global_weight': {'tensors': 42, 'active': 42}, 'rwkv_moe_hidden_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_down_weight': {'tensors': 42, 'active': 42}, 'rwkv_ple_up_weight': {'tensors': 42, 'active': 42}}
+  
+============================================================

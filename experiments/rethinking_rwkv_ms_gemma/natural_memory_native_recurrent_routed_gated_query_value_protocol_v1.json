@@ -1,0 +1,84 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_gated_query_value_protocol.v1",
+  "created_at": "2026-08-31T12:00:00+08:00",
+  "objective": "Post-train a single-pass recurrent-routed Gemma with a learned per-token semantic abstention gate so uncertain RWKV corrections preserve the projected carrier while correct recurrent state remains causally useful.",
+  "frozen_inputs": {
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "predecessor_result_receipt": "75fc307f2c5db320c0cbca4f7bc92c0829db5a842cf0f052a6b536d3b0016206",
+    "predecessor_adapter_weights_sha256": "cffdb73e4ac0f86265b82cceecae211b5f62bd52bad875209794b93357c3dfbd",
+    "predecessor_adapter_config_sha256": "4484ad76ff6523626a9ee11bb04d40723e35d90443d0b58c41c4f8a4e652c84b",
+    "predecessor_development_receipt": "224e7e86ecdf9d3673542e182e6420600a7cbec3daed1c4308fc6dcca33af015",
+    "teacher_cache_manifest_receipt": "51981f2e8b306c0cab853ade99f201e2ff879246dd4a6add5b3b4de1d28e4dc4",
+    "publisher_test_opened": false
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "rwkv_ms_hybrid_mode": "recurrent_routed_gated_query_value",
+    "rwkv_ms_hybrid_gain": 1.0,
+    "gate_features": "normalized token query multiplied elementwise by normalized recurrent state read",
+    "gate_output": "one learned sigmoid scalar per token and layer",
+    "gate_initial_probability": 0.01,
+    "gate_scope": "scales both recurrent multiplicative and query-state pair corrections",
+    "task_router": false,
+    "template_matcher": false,
+    "dual_pass_selector": false,
+    "benchmark_specific_decoder": false
+  },
+  "training": {
+    "hardware": "exactly four distinct NVIDIA A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 20260828,
+    "optimizer": "fused AdamW with fresh moments",
+    "base_learning_rate": 0.000001,
+    "gate_learning_rate_multiplier": 10000.0,
+    "max_gradient_norm": 0.1,
+    "optimizer_updates": 20,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "schedule": "reuse the signed stage-14 open-fit schedule and projected-slot teacher cache",
+    "supervised_ce": true,
+    "projected_slot_distillation_weight": 0.5,
+    "contrast_margin": 0.05,
+    "control_weights": {
+      "zero_recurrent_state": 0.125,
+      "matched_donor_recurrent_state": 1.0,
+      "slot_shuffled_recurrent_state": 0.125,
+      "layer_permuted_recurrent_state": 0.125
+    },
+    "all_controls_active_every_row": true,
+    "jointly_trained": [
+      "route_query",
+      "route_state",
+      "rwkv_readout",
+      "pair_value",
+      "pair_gate_weight",
+      "pair_gate_bias"
+    ]
+  },
+  "development_gate": {
+    "source": "existing train_derived_development.jsonl files only",
+    "selection": "32 deterministic committed rows per task, four paraphrased prompt variants",
+    "required_correct_over_all_controls": true,
+    "required_all_prompt_variants_correct_over_donor": true,
+    "required_projected_carriers_fixed": true,
+    "publisher_test_opened": false
+  },
+  "final_gate": {
+    "source": "publisher test only",
+    "download_policy": "download through https://hf-mirror.com and commit file hashes before parsing",
+    "single_open": true,
+    "comparators": [
+      "frozen Gemma",
+      "matched projected-slot baseline"
+    ],
+    "required_no_task_regression": true,
+    "required_strict_improvement_tasks": 1,
+    "required_correct_over_all_causal_controls": true
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "1cffaf898a3c4c77ea87bc3ec92b8d1095d7d397a354ed9633f5b4f6d041fb7b"
+  }
+}

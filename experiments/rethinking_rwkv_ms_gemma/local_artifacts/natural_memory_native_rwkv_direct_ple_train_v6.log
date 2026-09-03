@@ -1,0 +1,176 @@
+W0902 11:27:17.580000 622718 site-packages/torch/distributed/run.py:792] 
+W0902 11:27:17.580000 622718 site-packages/torch/distributed/run.py:792] *****************************************
+W0902 11:27:17.580000 622718 site-packages/torch/distributed/run.py:792] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0902 11:27:17.580000 622718 site-packages/torch/distributed/run.py:792] *****************************************
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  23%|██▎       | 475/2076 [00:00<00:00, 4618.87it/s]Loading weights:  45%|████▌     | 937/2076 [00:00<00:00, 3425.10it/s]Loading weights:  94%|█████████▍| 1958/2076 [00:00<00:00, 6010.74it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5514.62it/s]
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  24%|██▎       | 493/2076 [00:00<00:00, 4927.53it/s]Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  47%|████▋     | 986/2076 [00:00<00:00, 3406.72it/s]Loading weights:  23%|██▎       | 479/2076 [00:00<00:00, 4785.02it/s]Loading weights:  96%|█████████▌| 1995/2076 [00:00<00:00, 5859.68it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5386.81it/s]
+Loading weights:  46%|████▌     | 958/2076 [00:00<00:00, 3465.84it/s]Loading weights:  95%|█████████▍| 1965/2076 [00:00<00:00, 5961.58it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5490.50it/s]
+Loading weights:   0%|          | 0/2076 [00:00<?, ?it/s]Loading weights:  22%|██▏       | 458/2076 [00:00<00:00, 4577.07it/s]Loading weights:  44%|████▍     | 916/2076 [00:00<00:00, 3637.24it/s]Loading weights:  78%|███████▊  | 1623/2076 [00:00<00:00, 5008.74it/s]Loading weights: 100%|██████████| 2076/2076 [00:00<00:00, 5228.38it/s]
+/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py:2059: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py:2059: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+{"active": {"layer_permuted_recurrent_state": 8, "matched_donor_recurrent_state": 8, "slot_shuffled_recurrent_state": 8, "zero_recurrent_state": 8}, "correct_ce": 2.348658, "margins": {"layer_permuted_recurrent_state": -0.004285, "matched_donor_recurrent_state": 0.023551, "slot_shuffled_recurrent_state": 0.011974, "zero_recurrent_state": 0.013094}, "step": 1}
+{"active": {"layer_permuted_recurrent_state": 8, "matched_donor_recurrent_state": 8, "slot_shuffled_recurrent_state": 8, "zero_recurrent_state": 8}, "correct_ce": 2.055931, "margins": {"layer_permuted_recurrent_state": 0.00025, "matched_donor_recurrent_state": 0.008769, "slot_shuffled_recurrent_state": -0.001937, "zero_recurrent_state": 0.020481}, "step": 2}
+W0902 12:07:07.133000 622718 site-packages/torch/distributed/elastic/agent/server/api.py:719] Received 2 death signal, shutting down workers
+W0902 12:07:07.134000 622718 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 622913 closing signal SIGINT
+W0902 12:07:07.135000 622718 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 622914 closing signal SIGINT
+W0902 12:07:07.136000 622718 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 622915 closing signal SIGINT
+W0902 12:07:07.136000 622718 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 622916 closing signal SIGINT
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 806, in <module>
+[rank1]:     raise SystemExit(main())
+[rank1]:                      ^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 781, in main
+[rank1]:     result = trainer.run(
+[rank1]:              ^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 1083, in run
+[rank1]:     training = train(
+[rank1]:                ^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 734, in train_with_audit
+[rank1]:     return previous_train(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 552, in train
+[rank1]:     evaluate_conditions_fn(
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 466, in _evaluate_conditions
+[rank1]:     logits = evolution._native_read(model, read_batch, dtype=torch.bfloat16)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_evolution.py", line 662, in _native_read
+[rank1]:     outputs = model(
+[rank1]:               ^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2563, in forward
+[rank1]:     outputs = self.model(
+[rank1]:               ^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 939, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 2411, in forward
+[rank1]:     outputs = self.language_model(
+[rank1]:               ^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+[rank1]:     outputs = func(self, *args, **kwargs)
+[rank1]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1705, in forward
+[rank1]:     hidden_states = decoder_layer(
+[rank1]:                     ^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/modeling_layers.py", line 114, in __call__
+[rank1]:     return super().__call__(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/transformers/models/gemma4/modeling_gemma4.py", line 1402, in forward
+[rank1]:     hidden_states, _ = self.self_attn(
+[rank1]:                        ^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 6774, in forward
+[rank1]:     self._projected_rwkv_hybrid_step(
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 5838, in _projected_rwkv_hybrid_step
+[rank1]:     else self._rwkv_ms_addressed_token_state_reads(
+[rank1]:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 4411, in _rwkv_ms_addressed_token_state_reads
+[rank1]:     historical_read_inputs = self._rwkv_ms_historical_read_inputs(
+[rank1]:                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 4254, in _rwkv_ms_historical_read_inputs
+[rank1]:     self.last_anchor_routes = self._pad_rwkv_ms_anchor_routes(anchor_route_steps)
+[rank1]:                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/root/x/Multi-state-RWKV-online-memory/deltamem/core/delta_impl.py", line 3764, in _pad_rwkv_ms_anchor_routes
+[rank1]:     route.new_zeros(route.size(0), target_anchors - anchor_count),
+[rank1]:                     ^^^^^^^^^^^^^
+[rank1]: KeyboardInterrupt
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 806, in <module>
+[rank2]:     raise SystemExit(main())
+[rank2]:                      ^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 781, in main
+[rank2]:     result = trainer.run(
+[rank2]:              ^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 1083, in run
+[rank2]:     training = train(
+[rank2]:                ^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_rwkv_direct_ple_causal_train.py", line 734, in train_with_audit
+[rank2]:     return previous_train(*args, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 640, in train
+[rank2]:     control_tokens, control_chunks, backward_audit = backward_condition(
+[rank2]:                                                      ^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 207, in backward_condition
+[rank2]:     tokens, chunks = backward_logits(
+[rank2]:                      ^^^^^^^^^^^^^^^^
+[rank2]:   File "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/run_natural_memory_native_recurrent_routed_posttrain.py", line 140, in backward_logits
+[rank2]:     scaled.backward()
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/_tensor.py", line 626, in backward
+[rank2]:     torch.autograd.backward(
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/autograd/__init__.py", line 347, in backward
+[rank2]:     _engine_run_backward(
+[rank2]:   File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/autograd/graph.py", line 823, in _engine_run_backward
+[rank2]:     return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]: KeyboardInterrupt
+W0902 12:07:37.137000 622718 site-packages/torch/distributed/elastic/multiprocessing/api.py:916] Unable to shutdown process 622913 via 2, forcefully exiting via 9
+W0902 12:07:37.582000 622718 site-packages/torch/distributed/elastic/multiprocessing/api.py:916] Unable to shutdown process 622916 via 2, forcefully exiting via 9
+Traceback (most recent call last):
+  File "/root/anaconda3/envs/rwkv_py312/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 260, in launch_agent
+    result = agent.run()
+             ^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/metrics/api.py", line 137, in wrapper
+    result = f(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/agent/server/api.py", line 711, in run
+    result = self._invoke_run(role)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/agent/server/api.py", line 870, in _invoke_run
+    time.sleep(monitor_interval)
+  File "/root/anaconda3/envs/rwkv_py312/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 84, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 622718 got signal: 2

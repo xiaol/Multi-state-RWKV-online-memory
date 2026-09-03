@@ -1,0 +1,101 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_posttrain_stage8_protocol.v1",
+  "created_at": "2026-08-29T05:15:00+08:00",
+  "objective": "Use the open development corpus as an additional supervised post-training source for prompt-invariant recurrent routing, then require the unchanged causal gate and keep the committed final benchmark sealed for the independent test.",
+  "diagnosis": {
+    "stage7_training_result_receipt": "6d0df10e19d97400f985c2ba1e8764fde879942c1ff32d7d304a045e564bf7ac",
+    "stage7_development_result_receipt": "fcc598031a148ccc865dde36a13b2b83b491605420f9df64858d90f39650a6f0",
+    "stage7_per_task_correct_over_all_controls": true,
+    "stage7_failed_prompt_variants": [
+      "attribution:2",
+      "narrative:0",
+      "narrative:3"
+    ],
+    "rationale": "Stage-7 same-example paraphrase training improved task-level margins but residual prompt-subgroup donor gaps remain; the open development rows are eligible post-training data and final rows remain unopened.",
+    "final_evaluation_authorized": false
+  },
+  "frozen_inputs": {
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "stage7_adapter_weights_sha256": "7af3769fa34631329a54fb8caf44797a3a5598344e104680b6aa2cb108339248",
+    "stage7_adapter_config_sha256": "dc20cbe794479c9f802b45bedef83ff65543445dd85bfdb36419396cadd95d37",
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "final_commitment_receipt": "c8c106a00e1379e26bbae5b774f0fe831de2c2527c3195a1e42881a33b2b2fae",
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "final_rows_opened": false,
+    "publisher_validation_opened": false,
+    "publisher_test_opened": false
+  },
+  "architecture": {
+    "rwkv_ms_hybrid_mode": "recurrent_routed_projected_value",
+    "trainable_parameter_families": [
+      "rwkv_route_query_proj",
+      "rwkv_route_state_proj",
+      "hrm_rwkv7_core.output.weight"
+    ],
+    "trainable_tensors": 126,
+    "task_router": false,
+    "template_matcher": false,
+    "dual_pass_selector": false,
+    "benchmark_specific_decoder": false
+  },
+  "training": {
+    "initial_checkpoint": "stage2 trained candidate",
+    "training_source_split": "open development plus two fixed open-train warm-up targets",
+    "preflight_optimizer_updates": 1,
+    "optimizer_updates": 32,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "unique_semantic_targets": 64,
+    "rows_including_paraphrases": 256,
+    "unique_targets_by_task": {
+      "attribution": 32,
+      "narrative": 32,
+      "scene": 0
+    },
+    "rows_by_task": {
+      "attribution": 128,
+      "narrative": 128,
+      "scene": 0
+    },
+    "each_target_prompt_variants": [0, 1, 2, 3],
+    "optimizer": "fused AdamW with fresh moments",
+    "learning_rate": 0.000002,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "contrast_margin": 0.02,
+    "preflight_contrast_margin": 0.02,
+    "control_weights": {
+      "zero_recurrent_state": 0.125,
+      "matched_donor_recurrent_state": 0.75,
+      "slot_shuffled_recurrent_state": 0.125,
+      "layer_permuted_recurrent_state": 0.25
+    },
+    "full_answer_cross_entropy": true,
+    "candidate_sweep": false,
+    "final_rows_opened_during_training": false
+  },
+  "development_gate": {
+    "identical_to_prior_gates": true,
+    "training_rows_are_open_development_with_fixed_train_warmup": true,
+    "required_overall_correct_over_all_controls": true,
+    "required_per_task_correct_over_all_controls": true,
+    "required_all_task_prompt_variants_correct_over_donor": true,
+    "required_projected_carriers_fixed": true,
+    "joint_gradient_audit": "record_strict_result_but_require_global_finite_nonzero_gradients",
+    "final_evaluation_authorized_only_on_pass": true
+  },
+  "final_gate": {
+    "unchanged": true,
+    "final_rows_per_task": 64,
+    "single_pass_raw_generation_only": true,
+    "candidate_non_regressive_against_stronger_baseline_on_every_task": true,
+    "candidate_strictly_better_than_both_baselines_on_at_least_one_task": true,
+    "final_rows_opened": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "f7c0e59905d679b7e776e44110c9a51a4d37a496acc9db9379c91ed1e030ed99"
+  }
+}

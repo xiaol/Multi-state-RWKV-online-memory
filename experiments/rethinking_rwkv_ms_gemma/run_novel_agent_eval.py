@@ -8,6 +8,7 @@ novel-writing data, not on the structured agent-task train splits.
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import copy
 import gc
 import hashlib
@@ -926,6 +927,22 @@ def model_generation_config(model, tokenizer, max_new_tokens: int):
     return generation_config
 
 
+def inference_autocast_context(model, device: str):
+    import torch
+
+    if torch.device(device).type != "cuda":
+        return nullcontext()
+    get_input_embeddings = getattr(model, "get_input_embeddings", None)
+    if not callable(get_input_embeddings):
+        return nullcontext()
+    embeddings = get_input_embeddings()
+    weight = getattr(embeddings, "weight", None)
+    compute_dtype = getattr(weight, "dtype", None)
+    if compute_dtype not in {torch.bfloat16, torch.float16}:
+        return nullcontext()
+    return torch.autocast(device_type="cuda", dtype=compute_dtype)
+
+
 def generate_one(
     *,
     model,
@@ -959,7 +976,7 @@ def generate_one(
         if device.startswith("cuda"):
             torch.cuda.reset_peak_memory_stats(device)
         started_at = time.perf_counter()
-        with torch.inference_mode():
+        with torch.inference_mode(), inference_autocast_context(model, device):
             if online_memory_protocol == "write_then_read":
                 write_rendered = apply_chat_template(
                     tokenizer,

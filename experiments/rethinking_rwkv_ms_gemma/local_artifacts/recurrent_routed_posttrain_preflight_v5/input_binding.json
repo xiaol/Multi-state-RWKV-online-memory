@@ -1,0 +1,132 @@
+{
+  "base_model": "/root/x/models/gemma-4-E4B-it",
+  "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+  "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+  "common_helper_sha256": "16998a81d254d229995577a479cb03899f8f3e388548277d90218e92c75786fc",
+  "contrast_weight": 0.125,
+  "final_rows_opened": false,
+  "global_batch_size": 8,
+  "hf_endpoint": "https://hf-mirror.com",
+  "learning_rate": 0.0001,
+  "local_rows": 2,
+  "margin": 0.05,
+  "max_gradient_norm": 0.1,
+  "model_audit": {
+    "checkpointed_frozen_mlps": 42,
+    "configured": true,
+    "gradient_checkpointing": false,
+    "replaced_layers": 42,
+    "trainables": {
+      "all_trainable_fp32": true,
+      "parameter_elements": 14174482,
+      "parameter_names_sha256": "23b6fb7e4e48d68c1b9830f56bda43c245b892ec24be2969da3c4b2bd8c3ccbc",
+      "parameter_tensors": 1344,
+      "passed": true,
+      "projected_key_router_trainable_tensors": 0,
+      "route_query_tensors": 42,
+      "route_state_tensors": 42,
+      "rwkv_readout_tensors": 42
+    },
+    "warmstart": {
+      "identity_route_parameter_tensors": 84,
+      "source_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+      "source_parameter_tensors": 1512,
+      "source_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9"
+    },
+    "wrapped_layers": 42
+  },
+  "open_split_files": {
+    "open/attribution/development.jsonl": {
+      "bytes": 38096,
+      "row_payload_sha256": "1974f0e10b3fe490803251f0936592905cb8f89a0abb9610137bdeeb50b16dd5",
+      "rows": 32,
+      "sha256": "b4177d7a107633c3b29162324720e7c7d845b8b16ce8f62a3db90c403f3f6081"
+    },
+    "open/attribution/train.jsonl": {
+      "bytes": 342317,
+      "row_payload_sha256": "207eb487ee1efa6bb96b41b4aeea350e87cc54ab2f048acbe014533c754e2310",
+      "rows": 276,
+      "sha256": "dd22680c3f4fa91d6ab26c3e95aecf8656078dad51675d36c3bb45d6a1abd43a"
+    },
+    "open/narrative/development.jsonl": {
+      "bytes": 206638,
+      "row_payload_sha256": "580dc0a90d471200ab2afb03ef556a65f9dc25b7d6f5054a06b60f877cb7bbc9",
+      "rows": 32,
+      "sha256": "9e37461948a9a620b7bb46ad348bbaec8f9cbe787ece36770ae2e14b5d2db3aa"
+    },
+    "open/narrative/train.jsonl": {
+      "bytes": 2237288,
+      "row_payload_sha256": "33fafb88ed63ba826ab589570707eccae230f5154be7709647889e1d5153c0bc",
+      "rows": 363,
+      "sha256": "88664d156545bb6219dc899b064b90f8a5bf74bf87e3dc3d0069171a2e0bac2a"
+    },
+    "open/scene/development.jsonl": {
+      "bytes": 59689,
+      "row_payload_sha256": "47891af39eca75108dd640b56b23ea8d65c2eaf57f81690ad037d3c377fcd195",
+      "rows": 32,
+      "sha256": "a3619302c8136d0693d85354d5e0b6a7a4318ab450b3a3f008c287997aa94ddc"
+    },
+    "open/scene/train.jsonl": {
+      "bytes": 2666476,
+      "row_payload_sha256": "3f1eca140511691d8d02ed5b7ff24c9b97dc7d4bbd2240a130d4821b511e387b",
+      "rows": 1347,
+      "sha256": "1e976f16765a7e845bba039754228d3f052729ff0b58fb85bdb8d176be31f095"
+    }
+  },
+  "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+  "prompt_variants_sha256": "36b966b58c9ea8d6b5b08d085430716556642c2c072b0bec1f17b5ba93416643",
+  "protocol_objective": "Post-train a single-pass recurrent online-memory model whose own RWKV state causally selects chunk-aligned projected values and improves a fresh three-task benchmark without task-specific routers or decoding rules.",
+  "protocol_payload_sha256": "576537822ca7079d15fc6d0ce618a94b8631286c47008f136ef1b6ed725d191d",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "rank_devices": [
+    {
+      "device_index": 0,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "ea61a4c0-419e-e40f-f98d-e9f13d1b1095",
+      "hostname": "bms-rwkv-0001",
+      "local_rank": 0,
+      "pid": 47084,
+      "process_rank": 0
+    },
+    {
+      "device_index": 1,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "3892ac74-d4a8-0bf4-59c7-d8a14d5dc7bc",
+      "hostname": "bms-rwkv-0001",
+      "local_rank": 1,
+      "pid": 47085,
+      "process_rank": 1
+    },
+    {
+      "device_index": 2,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "6327bb5c-91c6-fca7-f6bf-b7f1de5a2f05",
+      "hostname": "bms-rwkv-0001",
+      "local_rank": 2,
+      "pid": 47086,
+      "process_rank": 2
+    },
+    {
+      "device_index": 3,
+      "device_name": "NVIDIA A100-PCIE-40GB",
+      "device_total_memory_bytes": 42406903808,
+      "device_uuid": "437b5974-0b61-9ab6-d9a7-b84ac3fc3874",
+      "hostname": "bms-rwkv-0001",
+      "local_rank": 3,
+      "pid": 47087,
+      "process_rank": 3
+    }
+  ],
+  "runner_sha256": "0107fe59fdd1f45c40f16c2bf3159d2895103bb87f8d1e8d3c67a41cfd1215ef",
+  "schedule_prefix_sha256": "ccf3afb198d05ff9a585922f6d4bf1cbdf4cabf678493fa18005607e1cfad5d4",
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_posttrain_input.v1",
+  "seed": 20260828,
+  "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+  "training_schedule_sha256": "a686dbd4716140b7c1638f27f82986b8ce5f32d372e04c83b599487c8e0d5ee6",
+  "updates": 1,
+  "world_size": 4
+}

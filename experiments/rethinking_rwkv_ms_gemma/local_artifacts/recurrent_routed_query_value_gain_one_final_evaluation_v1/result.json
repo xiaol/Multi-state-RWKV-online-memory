@@ -1,0 +1,288 @@
+{
+  "causal_control_file": {
+    "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_final_evaluation_v1/recurrent_controls.jsonl",
+    "rows": 192,
+    "sha256": "9264ce384483fbf34e59275d2a3cafc67e02848e66518d51ded029adbc70c142"
+  },
+  "final_rows_opened": true,
+  "input_binding": {
+    "base_model": "/root/x/models/gemma-4-E4B-it",
+    "benchmark_specific_decoder": false,
+    "candidate_adapter": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_train20_v1/adapter",
+    "development_result": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_development_v2/result.json",
+    "development_result_receipt": "e6e7c9a58e12f497cc2ab09fc2a5ee68382e6a028ac91e8f910953d144b021ef",
+    "dual_pass_selector": false,
+    "final_opening": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_final_split_v1/final_opening.json",
+    "final_opening_receipt": "6098d203369f9d9d7851f48b19732923fb6aae46fc4a6b533ed41a10aa67c3a1",
+    "final_rows_opened": true,
+    "generation": "single-pass greedy batch-one with one write then one read for memory systems",
+    "protocol_file": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/natural_memory_native_recurrent_routed_posttrain_protocol_v1.json",
+    "protocol_receipt": "576537822ca7079d15fc6d0ce618a94b8631286c47008f136ef1b6ed725d191d",
+    "publisher_test_opened": false,
+    "publisher_validation_opened": false,
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "ea61a4c0-419e-e40f-f98d-e9f13d1b1095",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 0,
+        "pid": 434228,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "3892ac74-d4a8-0bf4-59c7-d8a14d5dc7bc",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 1,
+        "pid": 434229,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "6327bb5c-91c6-fca7-f6bf-b7f1de5a2f05",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 2,
+        "pid": 434230,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "437b5974-0b61-9ab6-d9a7-b84ac3fc3874",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 3,
+        "pid": 434231,
+        "process_rank": 3
+      }
+    ],
+    "rows_per_task": {
+      "attribution": 64,
+      "narrative": 64,
+      "scene": 64
+    },
+    "schema": "rwkv_ms_natural_memory_native_recurrent_routed_final_input.v1",
+    "systems": [
+      "frozen_gemma_base",
+      "v9_projected_slot_baseline",
+      "recurrent_routed_candidate"
+    ],
+    "task_router": false,
+    "template_matcher": false,
+    "training_result_receipt": "74939af17b1296e04cd37a67f17d73b8865de69e6e29cded5d3a77a05259e858",
+    "training_root": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_train20_v1",
+    "v9_adapter": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "world_size": 4
+  },
+  "passed": false,
+  "protocol_receipt": "576537822ca7079d15fc6d0ce618a94b8631286c47008f136ef1b6ed725d191d",
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "raw_prediction_files": {
+    "frozen_gemma_base": {
+      "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_final_evaluation_v1/frozen_gemma_base.jsonl",
+      "rows": 192,
+      "sha256": "29faa0f9ffd2eb67837e51514767b3a50e66a098aeab30d911fbd18c954c4ae4"
+    },
+    "recurrent_routed_candidate": {
+      "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_final_evaluation_v1/recurrent_routed_candidate.jsonl",
+      "rows": 192,
+      "sha256": "de5f5350003307adc1e1b30538c49c126b515c2bb3d7ca5fda55978b55995234"
+    },
+    "v9_projected_slot_baseline": {
+      "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_gain_one_final_evaluation_v1/v9_projected_slot_baseline.jsonl",
+      "rows": 192,
+      "sha256": "65a86b3018bafe3e43469f88030bd4c4438af864d28a5a57e6d0d4cdd85d02b4"
+    }
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "15ac21a91688736a2bcf5517c96d8e4c2ba01701cdbf6178e21aff9d6797ae9c"
+  },
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_final.v1",
+  "status": "final_failure",
+  "summary": {
+    "controls": {
+      "by_task": {
+        "attribution": {
+          "mean_condition_ce": {
+            "correct_recurrent_state": 0.1024670399623756,
+            "layer_permuted_recurrent_state": 0.9382867991730552,
+            "matched_donor_recurrent_state": 0.14900804032496628,
+            "slot_shuffled_recurrent_state": 0.5257502867791505,
+            "zero_recurrent_state": 2.818587534013846
+          },
+          "mean_control_minus_correct_ce": {
+            "layer_permuted_recurrent_state": 0.8358197592106796,
+            "matched_donor_recurrent_state": 0.046541000362590686,
+            "slot_shuffled_recurrent_state": 0.4232832468167749,
+            "zero_recurrent_state": 2.7161204940514705
+          },
+          "projected_carrier_fixed": true,
+          "rows": 64
+        },
+        "narrative": {
+          "mean_condition_ce": {
+            "correct_recurrent_state": 0.05015787148736676,
+            "layer_permuted_recurrent_state": 0.10109081681383074,
+            "matched_donor_recurrent_state": 0.05060670469333807,
+            "slot_shuffled_recurrent_state": 0.051869349433331956,
+            "zero_recurrent_state": 0.21896735452197374
+          },
+          "mean_control_minus_correct_ce": {
+            "layer_permuted_recurrent_state": 0.050932945326463974,
+            "matched_donor_recurrent_state": 0.0004488332059713098,
+            "slot_shuffled_recurrent_state": 0.0017114779459651962,
+            "zero_recurrent_state": 0.168809483034607
+          },
+          "projected_carrier_fixed": true,
+          "rows": 64
+        },
+        "scene": {
+          "mean_condition_ce": {
+            "correct_recurrent_state": 0.23455706824461675,
+            "layer_permuted_recurrent_state": 0.9278250695029184,
+            "matched_donor_recurrent_state": 0.25896778820540256,
+            "slot_shuffled_recurrent_state": 0.3572017562526505,
+            "zero_recurrent_state": 3.8225656524294984
+          },
+          "mean_control_minus_correct_ce": {
+            "layer_permuted_recurrent_state": 0.6932680012583017,
+            "matched_donor_recurrent_state": 0.024410719960785813,
+            "slot_shuffled_recurrent_state": 0.12264468800803376,
+            "zero_recurrent_state": 3.5880085841848817
+          },
+          "projected_carrier_fixed": true,
+          "rows": 64
+        }
+      },
+      "overall_mean_control_minus_correct_ce": {
+        "layer_permuted_recurrent_state": 0.5266735685984817,
+        "matched_donor_recurrent_state": 0.023800184509782604,
+        "slot_shuffled_recurrent_state": 0.1825464709235913,
+        "zero_recurrent_state": 2.1576461870903194
+      },
+      "passed": true,
+      "rows": 192
+    },
+    "gates": {
+      "candidate_at_least_stronger_baseline_every_task": false,
+      "candidate_correct_state_beats_controls": true,
+      "candidate_strictly_better_than_both_one_task": false
+    },
+    "metrics": {
+      "frozen_gemma_base": {
+        "attribution": 0.65625,
+        "narrative": 0.636399217221135,
+        "scene": 0.25
+      },
+      "recurrent_routed_candidate": {
+        "attribution": 0.78125,
+        "narrative": 0.6125244618395304,
+        "scene": 0.3352601156069364
+      },
+      "v9_projected_slot_baseline": {
+        "attribution": 0.796875,
+        "narrative": 0.637573385518591,
+        "scene": 0.3625
+      }
+    },
+    "passed": false,
+    "systems": {
+      "frozen_gemma_base": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.65625,
+            "correct": 42,
+            "covered": 64,
+            "rows": 64,
+            "strict_schema_valid": 0
+          },
+          "narrative": {
+            "correct_units": 1626,
+            "covered": 64,
+            "gold_units": 2555,
+            "rows": 64,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.636399217221135
+          },
+          "scene": {
+            "covered": 64,
+            "fn": 28,
+            "fp": 236,
+            "micro_f1": 0.25,
+            "rows": 64,
+            "strict_schema_valid": 12,
+            "tp": 44
+          }
+        },
+        "rows": 192
+      },
+      "recurrent_routed_candidate": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.78125,
+            "correct": 50,
+            "covered": 64,
+            "rows": 64,
+            "strict_schema_valid": 64
+          },
+          "narrative": {
+            "correct_units": 1565,
+            "covered": 64,
+            "gold_units": 2555,
+            "rows": 64,
+            "strict_schema_valid": 64,
+            "unit_label_accuracy": 0.6125244618395304
+          },
+          "scene": {
+            "covered": 63,
+            "fn": 43,
+            "fp": 72,
+            "micro_f1": 0.3352601156069364,
+            "rows": 64,
+            "strict_schema_valid": 63,
+            "tp": 29
+          }
+        },
+        "rows": 192
+      },
+      "v9_projected_slot_baseline": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.796875,
+            "correct": 51,
+            "covered": 64,
+            "rows": 64,
+            "strict_schema_valid": 64
+          },
+          "narrative": {
+            "correct_units": 1629,
+            "covered": 64,
+            "gold_units": 2555,
+            "rows": 64,
+            "strict_schema_valid": 64,
+            "unit_label_accuracy": 0.637573385518591
+          },
+          "scene": {
+            "covered": 64,
+            "fn": 43,
+            "fp": 59,
+            "micro_f1": 0.3625,
+            "rows": 64,
+            "strict_schema_valid": 64,
+            "tp": 29
+          }
+        },
+        "rows": 192
+      }
+    }
+  }
+}

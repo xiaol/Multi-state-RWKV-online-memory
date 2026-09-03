@@ -1,0 +1,127 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_posttrain_protocol.v1",
+  "created_at": "2026-08-28T17:30:00+08:00",
+  "objective": "Post-train a single-pass recurrent online-memory model whose own RWKV state causally selects chunk-aligned projected values and improves a fresh three-task benchmark without task-specific routers or decoding rules.",
+  "frozen_inputs": {
+    "base_model": "google/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "base_config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
+    "tokenizer_sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+    "warm_start_adapter": "local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+    "warm_start_weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9",
+    "warm_start_config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "final_commitment_receipt": "c8c106a00e1379e26bbae5b774f0fe831de2c2527c3195a1e42881a33b2b2fae",
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "publisher_validation_opened": false,
+    "publisher_test_opened": false
+  },
+  "architecture": {
+    "memory_backend": "rwkv_ms",
+    "memory_readout_mode": "projected_kv_rwkv_hybrid",
+    "rwkv_ms_hybrid_mode": "recurrent_routed_projected_value",
+    "rwkv_ms_num_states": 4,
+    "rwkv_ms_chunk_size": 128,
+    "rwkv_ms_read_temperature": 16.0,
+    "rwkv_ms_read_top_k": 1,
+    "rwkv_ms_detach_read_scores": false,
+    "rwkv_ms_hybrid_gain": 0.125,
+    "projected_values": "one learned projected value per fixed RWKV chunk",
+    "routing": "learned recurrent query/state compatibility selects the projected-value slot",
+    "new_trainable_parameters": [
+      "rwkv_route_query_proj",
+      "rwkv_route_state_proj"
+    ],
+    "route_initialization": "identity",
+    "projected_key_router_trainable": false,
+    "task_router": false,
+    "template_matcher": false,
+    "dual_pass_selector": false,
+    "benchmark_specific_decoder": false
+  },
+  "prompt_robustness": {
+    "languages": ["zh"],
+    "variants_per_task": 4,
+    "original_variant_fraction": 0.25,
+    "paraphrase_assignment": "deterministic from locked schedule position",
+    "donor_prompt_variant": "same as target to prevent format leakage",
+    "development_checks_all_variants": true
+  },
+  "training": {
+    "hardware": "exactly four distinct NVIDIA A100 GPUs",
+    "hf_endpoint": "https://hf-mirror.com",
+    "seed": 20260828,
+    "optimizer": "fused AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.1,
+    "preflight_optimizer_updates": 1,
+    "optimizer_updates": 32,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "task_balance": "deterministic near-equal attribution/narrative/scene rotation",
+    "contrast_weight_per_active_control": 0.125,
+    "contrast_margin": 0.05,
+    "final_rows_opened_during_training": false
+  },
+  "causal_controls": {
+    "correct_recurrent_state": "target recurrent state with target projected carrier",
+    "zero_recurrent_state": "all recurrent tensors zero with target projected carrier fixed",
+    "matched_donor_recurrent_state": "different-answer same-task donor recurrent tensors with target projected carrier fixed",
+    "slot_shuffled_recurrent_state": "target recurrent matrix slots cyclically shifted within every layer with target projected carrier fixed",
+    "layer_permuted_recurrent_state": "all recurrent tensors cyclically shifted across layers with target projected carrier fixed",
+    "projected_carrier_audit": "same tensor references during training and byte-identical hashes during evaluation"
+  },
+  "development_gate": {
+    "split": "fresh committed development rows only",
+    "rows_per_task": 32,
+    "teacher_forced_conditions": [
+      "correct_recurrent_state",
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "slot_shuffled_recurrent_state",
+      "layer_permuted_recurrent_state"
+    ],
+    "required_mean_ce_margins": {
+      "zero_minus_correct": 0.0,
+      "donor_minus_correct": 0.0,
+      "slot_shuffled_minus_correct": 0.0,
+      "layer_permuted_minus_correct": 0.0
+    },
+    "required_per_task_correct_over_all_controls": true,
+    "required_all_prompt_variants_correct_over_donor": true,
+    "final_evaluation_authorized_only_on_pass": true
+  },
+  "final_gate": {
+    "split": "fresh committed final rows opened only after development pass",
+    "rows_per_task": 64,
+    "models": [
+      "frozen_gemma_base",
+      "v9_projected_slot_baseline",
+      "recurrent_routed_candidate"
+    ],
+    "generation": "single-pass greedy batch-one with one write then one read",
+    "task_specific_router": false,
+    "task_specific_decoder": false,
+    "primary_metrics": {
+      "attribution": "JSON best_candidate accuracy",
+      "narrative": "JSON unit-label accuracy",
+      "scene": "JSON boundary micro-F1"
+    },
+    "success_rule": "candidate is at least the stronger of base and projected-slot baseline on every task, is strictly better than both on at least one task, and correct recurrent state beats every causal control with fixed projected carriers",
+    "publisher_validation_opened": false,
+    "publisher_test_opened": false
+  },
+  "stopping_rule": {
+    "preflight_failure": "archive signed failure and do not run full training",
+    "development_failure": "archive signed failure and keep final rows unopened",
+    "final_failure": "archive signed failure and do not claim model improvement",
+    "final_pass": "archive model, hashes, raw predictions, metrics, causal controls, and signed pass receipt"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "576537822ca7079d15fc6d0ce618a94b8631286c47008f136ef1b6ed725d191d"
+  }
+}

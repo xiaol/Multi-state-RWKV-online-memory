@@ -1,0 +1,34 @@
+{
+  "controls": {
+    "status": "not_run"
+  },
+  "passed": false,
+  "systems": {
+    "frozen_gemma_base": {
+      "by_task": {
+        "attribution": {
+          "accuracy": 0.0,
+          "correct": 0,
+          "rows": 1,
+          "schema_valid": 0
+        },
+        "narrative": {
+          "correct_units": 0,
+          "gold_units": 31,
+          "rows": 1,
+          "schema_valid": 0,
+          "unit_label_accuracy": 0.0
+        },
+        "scene": {
+          "fn": 1,
+          "fp": 2,
+          "micro_f1": 0.0,
+          "rows": 1,
+          "schema_valid": 1,
+          "tp": 0
+        }
+      },
+      "rows": 3
+    }
+  }
+}

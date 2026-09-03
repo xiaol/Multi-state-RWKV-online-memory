@@ -56,7 +56,9 @@ def _module(
     )
 
 
-def _ple_module() -> tuple[DeltaMemAttention, Gemma4TextDecoderLayer]:
+def _ple_module(
+    *, ple_input_gain: float = 0.0,
+) -> tuple[DeltaMemAttention, Gemma4TextDecoderLayer]:
     torch.manual_seed(11)
     backbone_config = Gemma4TextConfig(
         hidden_size=16,
@@ -90,6 +92,7 @@ def _ple_module() -> tuple[DeltaMemAttention, Gemma4TextDecoderLayer]:
             rwkv_ms_hybrid_gain=0.125,
             rwkv_ms_ple_rank=2,
             rwkv_ms_ple_gain=0.125,
+            rwkv_ms_ple_input_gain=ple_input_gain,
             delta_heads="none",
         ),
     )
@@ -175,6 +178,7 @@ def test_addressed_value_requires_recurrent_state() -> None:
         "addressed_value",
         "chunk_addressed_value",
         "recurrent_value",
+        "recurrent_routed_projected_value",
     ),
 )
 def test_hybrid_modes_are_sensitive_to_nonzero_rwkv_read(mode: str) -> None:
@@ -193,6 +197,413 @@ def test_hybrid_modes_are_sensitive_to_nonzero_rwkv_read(mode: str) -> None:
 
     assert torch.isfinite(fused).all()
     assert not torch.equal(fused, projected)
+
+
+def test_recurrent_routed_projected_value_requires_joint_slot_occupancy() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_projected_value",
+        hybrid_gain=0.25,
+    )
+    memory_source = torch.randn(1, 3, module.state_read_dim)
+    module.projected_kv_keys = torch.randn(1, 2, module.projected_kv_key_dim)
+    module.projected_kv_values = torch.tensor([[[1.0, 2.0], [3.0, 4.0]]])
+    module.projected_kv_occupied = torch.tensor([[True, True]])
+    module.projected_kv_surprise = torch.zeros(1, 2)
+    projected_before = module.projected_kv_values.clone()
+    empty_state = torch.zeros(1, 1, 2, 2, 2)
+
+    empty_projected, empty_recurrent = (
+        module._rwkv_ms_routed_projected_token_reads(
+            empty_state,
+            memory_source,
+            None,
+        )
+    )
+
+    assert torch.equal(empty_projected, torch.zeros_like(empty_projected))
+    assert torch.equal(empty_recurrent, torch.zeros_like(empty_recurrent))
+    assert torch.equal(module.last_read_routes, torch.zeros_like(module.last_read_routes))
+
+    occupied_state = empty_state.clone()
+    occupied_state[:, :, 1] = torch.eye(2)
+    routed_projected, routed_recurrent = (
+        module._rwkv_ms_routed_projected_token_reads(
+            occupied_state,
+            memory_source,
+            None,
+        )
+    )
+
+    assert torch.equal(module.projected_kv_values, projected_before)
+    assert torch.equal(module.last_read_routes[..., 0], torch.zeros_like(module.last_read_routes[..., 0]))
+    assert torch.allclose(module.last_read_routes[..., 1], torch.ones_like(module.last_read_routes[..., 1]))
+    assert torch.allclose(
+        routed_projected,
+        module.projected_kv_values[:, 1].unsqueeze(1).expand_as(routed_projected),
+    )
+    assert torch.isfinite(routed_recurrent).all()
+
+
+def test_recurrent_routed_projected_value_route_projection_starts_as_identity() -> None:
+    module = _module(hybrid_mode="recurrent_routed_projected_value")
+
+    assert torch.equal(module.rwkv_route_query_proj, torch.eye(module.rank))
+    assert torch.equal(module.rwkv_route_state_proj, torch.eye(module.rank))
+    assert module.is_trainable_parameter("rwkv_route_query_proj")
+    assert module.is_trainable_parameter("rwkv_route_state_proj")
+    assert not module.is_trainable_parameter("projected_kv_key_proj")
+
+
+def test_recurrent_routed_projected_value_state_swap_changes_fixed_carrier_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_projected_value",
+        hybrid_gain=0.25,
+    )
+    module.rwkv_ms_read_top_k = 1
+    module.projected_kv_keys = torch.tensor([[[1.0, 0.0], [0.0, 1.0]]])
+    module.projected_kv_values = torch.tensor([[[1.0, 2.0], [3.0, 4.0]]])
+    module.projected_kv_occupied = torch.tensor([[True, True]])
+    module.projected_kv_surprise = torch.tensor([[0.25, 0.75]])
+    carrier_before = {
+        name: getattr(module, name).clone().view(torch.uint8)
+        for name in (
+            "projected_kv_keys",
+            "projected_kv_values",
+            "projected_kv_occupied",
+            "projected_kv_surprise",
+        )
+    }
+    memory_source = torch.zeros(1, 2, module.state_read_dim)
+
+    def deterministic_read_basis(
+        state: torch.Tensor,
+        source: torch.Tensor,
+        token_mask: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        del token_mask
+        route_query = source.new_zeros(1, source.size(1), 1, module.rank)
+        route_query[..., 0] = 1.0
+        slot_reads = torch.einsum(
+            "bhsij,bthj->bthsi",
+            state.float(),
+            route_query,
+        )
+        readout_gate = source.new_ones(1, source.size(1), module.state_read_dim)
+        return route_query, slot_reads, readout_gate
+
+    monkeypatch.setattr(
+        module,
+        "_rwkv_ms_token_state_read_basis",
+        deterministic_read_basis,
+    )
+    correct_state = torch.zeros(1, 1, 2, 2, 2)
+    correct_state[:, :, 0] = torch.eye(2)
+    correct_state[:, :, 1] = -torch.eye(2)
+    permuted_state = correct_state.flip(dims=(2,))
+
+    correct_projected, _ = module._rwkv_ms_routed_projected_token_reads(
+        correct_state,
+        memory_source,
+        None,
+    )
+    correct_routes = module.last_read_routes.clone()
+    permuted_projected, _ = module._rwkv_ms_routed_projected_token_reads(
+        permuted_state,
+        memory_source,
+        None,
+    )
+    permuted_routes = module.last_read_routes.clone()
+
+    assert torch.equal(correct_routes[..., 0], torch.ones_like(correct_routes[..., 0]))
+    assert torch.equal(correct_routes[..., 1], torch.zeros_like(correct_routes[..., 1]))
+    assert torch.equal(permuted_routes[..., 0], torch.zeros_like(permuted_routes[..., 0]))
+    assert torch.equal(permuted_routes[..., 1], torch.ones_like(permuted_routes[..., 1]))
+    assert torch.equal(
+        correct_projected,
+        module.projected_kv_values[:, 0].unsqueeze(1).expand_as(correct_projected),
+    )
+    assert torch.equal(
+        permuted_projected,
+        module.projected_kv_values[:, 1].unsqueeze(1).expand_as(permuted_projected),
+    )
+    assert not torch.equal(correct_projected, permuted_projected)
+    for name, expected_bytes in carrier_before.items():
+        assert torch.equal(getattr(module, name).view(torch.uint8), expected_bytes)
+
+
+def test_recurrent_routed_query_value_starts_as_projected_value_path() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_query_value",
+        hybrid_gain=0.25,
+    )
+    assert torch.equal(module.rwkv_route_query_proj, torch.eye(module.rank))
+    assert torch.equal(module.rwkv_route_state_proj, torch.eye(module.rank))
+    assert torch.equal(
+        module.rwkv_pair_value_proj,
+        torch.zeros_like(module.rwkv_pair_value_proj),
+    )
+    assert module.is_trainable_parameter("rwkv_pair_value_proj")
+
+
+def test_recurrent_routed_query_value_pair_projection_changes_fusion() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_query_value",
+        hybrid_gain=0.25,
+    )
+    projected = torch.ones(1, 2, module.state_read_dim)
+    recurrent = torch.full_like(projected, 0.5)
+    module.last_read_query_features = torch.full_like(projected, 0.75)
+    baseline = module._fuse_projected_rwkv_reads(projected, recurrent)
+    with torch.no_grad():
+        module.rwkv_pair_value_proj.copy_(torch.eye(module.rank))
+    coupled = module._fuse_projected_rwkv_reads(projected, recurrent)
+    assert torch.isfinite(coupled).all()
+    assert not torch.equal(coupled, baseline)
+
+
+def test_recurrent_routed_residual_query_value_starts_exactly_projected() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_residual_query_value",
+        hybrid_gain=1.0,
+    )
+    projected = torch.randn(1, 2, module.state_read_dim)
+    recurrent = torch.randn_like(projected)
+    module.last_read_query_features = torch.randn_like(projected)
+
+    fused = module._fuse_projected_rwkv_reads(projected, recurrent)
+
+    assert torch.equal(
+        module.rwkv_recurrent_value_proj,
+        torch.zeros_like(module.rwkv_recurrent_value_proj),
+    )
+    assert torch.equal(
+        module.rwkv_pair_value_proj,
+        torch.zeros_like(module.rwkv_pair_value_proj),
+    )
+    assert torch.equal(fused, projected)
+
+
+def test_recurrent_routed_residual_query_value_learns_additive_correction() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_residual_query_value",
+        hybrid_gain=0.25,
+    )
+    projected = torch.ones(1, 2, module.state_read_dim)
+    recurrent = torch.full_like(projected, 0.5)
+    module.last_read_query_features = torch.full_like(projected, 0.75)
+    with torch.no_grad():
+        module.rwkv_recurrent_value_proj.copy_(torch.eye(module.rank))
+        module.rwkv_pair_value_proj.copy_(torch.eye(module.rank))
+
+    fused = module._fuse_projected_rwkv_reads(projected, recurrent)
+
+    assert torch.isfinite(fused).all()
+    assert not torch.equal(fused, projected)
+
+
+def test_recurrent_routed_residual_projections_have_first_step_gradients() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_residual_query_value",
+        hybrid_gain=0.25,
+    )
+    projected = torch.randn(1, 2, module.state_read_dim)
+    recurrent = torch.randn_like(projected)
+    module.last_read_query_features = torch.randn_like(projected)
+
+    module._fuse_projected_rwkv_reads(projected, recurrent).sum().backward()
+
+    for name in ("rwkv_recurrent_value_proj", "rwkv_pair_value_proj"):
+        gradient = getattr(module, name).grad
+        assert gradient is not None
+        assert torch.isfinite(gradient).all()
+        assert torch.count_nonzero(gradient).item() > 0
+
+
+def test_recurrent_routed_residual_preserves_projected_carrier_routing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_residual_query_value",
+        hybrid_gain=1.0,
+    )
+    module.set_write_enabled(False)
+    hidden = torch.randn(1, 2, module.hidden_size)
+    token_mask = torch.ones(1, 2, dtype=torch.bool)
+    state = torch.randn(
+        1,
+        module.num_state_heads,
+        module.rwkv_ms_num_states,
+        module.rank,
+        module.rank,
+    )
+    projected = torch.randn(1, 2, module.state_read_dim)
+    projected_routes = torch.tensor([[[1.0, 0.0], [0.0, 1.0]]])
+    recurrent = torch.randn_like(projected)
+
+    def projected_read(_: torch.Tensor) -> torch.Tensor:
+        module.last_read_routes = projected_routes
+        return projected
+
+    def recurrent_read(*_args) -> torch.Tensor:
+        module.last_read_query_features = torch.randn_like(recurrent)
+        module.last_read_routes = torch.full_like(projected_routes, 0.5)
+        return recurrent
+
+    monkeypatch.setattr(module, "_projected_kv_slot_token_reads", projected_read)
+    monkeypatch.setattr(module, "_memory_backend_token_reads", recurrent_read)
+
+    _, reads, _, _ = module._projected_rwkv_hybrid_step(
+        state,
+        hidden,
+        token_mask,
+    )
+
+    assert torch.equal(reads, projected)
+    assert torch.equal(module.last_read_routes, projected_routes)
+
+
+def test_recurrent_routed_residual_retains_learned_query_features() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_residual_query_value",
+        hybrid_gain=1.0,
+    )
+    state = torch.randn(
+        1,
+        module.num_state_heads,
+        module.rwkv_ms_num_states,
+        module.rank,
+        module.rank,
+    )
+    source = torch.randn(1, 3, module.state_read_dim)
+    r_seq, slot_reads, _ = module._rwkv_ms_token_state_read_basis(
+        state,
+        source,
+        None,
+    )
+
+    module._rwkv_ms_token_state_routes(
+        state,
+        r_seq,
+        slot_reads,
+        None,
+    )
+
+    expected = torch.nn.functional.linear(
+        r_seq.float(),
+        module.rwkv_route_query_proj.float(),
+    ).reshape(1, 3, module.state_read_dim)
+    assert torch.equal(module.last_read_query_features, expected)
+
+
+def test_recurrent_routed_residual_preserves_projected_carrier_writes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_residual_query_value",
+        hybrid_gain=1.0,
+    )
+    module.set_write_enabled(True)
+    hidden = torch.randn(1, 2, module.hidden_size)
+    token_mask = torch.ones(1, 2, dtype=torch.bool)
+    state = torch.zeros(
+        1,
+        module.num_state_heads,
+        module.rwkv_ms_num_states,
+        module.rank,
+        module.rank,
+    )
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        module,
+        "_write_projected_kv_slots",
+        lambda *_args: calls.append("projected"),
+    )
+    monkeypatch.setattr(
+        module,
+        "_write_chunk_addressed_kv_slots",
+        lambda *_args: calls.append("chunk"),
+    )
+    monkeypatch.setattr(
+        module,
+        "_memory_backend_scan",
+        lambda *args, **_kwargs: (
+            args[0],
+            hidden.new_zeros(1, 2, module.state_read_dim),
+        ),
+    )
+
+    module._projected_rwkv_hybrid_step(state, hidden, token_mask)
+
+    assert calls == ["projected"]
+
+
+def test_recurrent_routed_gated_query_value_starts_near_projected_path() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_gated_query_value",
+        hybrid_gain=1.0,
+    )
+    projected = torch.ones(1, 2, module.state_read_dim)
+    recurrent = torch.full_like(projected, 0.5)
+    module.last_read_query_features = torch.full_like(projected, 0.75)
+
+    fused = module._fuse_projected_rwkv_reads(projected, recurrent)
+
+    assert torch.equal(
+        module.rwkv_pair_gate_weight,
+        torch.zeros_like(module.rwkv_pair_gate_weight),
+    )
+    torch.testing.assert_close(
+        torch.sigmoid(module.rwkv_pair_gate_bias),
+        torch.full_like(module.rwkv_pair_gate_bias, 0.01),
+    )
+    assert module.last_recurrent_pair_gate is not None
+    torch.testing.assert_close(
+        module.last_recurrent_pair_gate,
+        torch.full_like(module.last_recurrent_pair_gate, 0.01),
+    )
+    assert (fused - projected).abs().max().item() < 0.01
+
+
+def test_recurrent_routed_gated_query_value_gate_scales_both_corrections() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_gated_query_value",
+        hybrid_gain=0.25,
+    )
+    projected = torch.ones(1, 2, module.state_read_dim)
+    recurrent = torch.full_like(projected, 0.5)
+    module.last_read_query_features = torch.full_like(projected, 0.75)
+    with torch.no_grad():
+        module.rwkv_pair_value_proj.copy_(torch.eye(module.rank))
+        module.rwkv_pair_gate_weight.zero_()
+        module.rwkv_pair_gate_bias.fill_(-20.0)
+    closed = module._fuse_projected_rwkv_reads(projected, recurrent)
+    with torch.no_grad():
+        module.rwkv_pair_gate_bias.fill_(20.0)
+    opened = module._fuse_projected_rwkv_reads(projected, recurrent)
+
+    torch.testing.assert_close(closed, projected, atol=1e-7, rtol=0.0)
+    assert not torch.allclose(opened, projected)
+
+
+def test_recurrent_routed_gated_query_value_gate_has_finite_gradients() -> None:
+    module = _module(
+        hybrid_mode="recurrent_routed_gated_query_value",
+        hybrid_gain=0.25,
+    )
+    projected = torch.randn(1, 2, module.state_read_dim)
+    recurrent = torch.randn_like(projected)
+    module.last_read_query_features = torch.randn_like(projected)
+
+    module._fuse_projected_rwkv_reads(projected, recurrent).sum().backward()
+
+    for name in ("rwkv_pair_gate_weight", "rwkv_pair_gate_bias"):
+        gradient = getattr(module, name).grad
+        assert gradient is not None
+        assert torch.isfinite(gradient).all()
+        assert torch.count_nonzero(gradient).item() > 0
 
 
 def test_addressed_value_is_bounded_and_ignores_projected_values() -> None:
@@ -606,6 +1017,24 @@ def test_rwkv_ple_projection_has_live_low_rank_gradients() -> None:
         assert parameter.grad is not None
         assert torch.isfinite(parameter.grad).all()
         assert parameter.grad.abs().gt(0).any()
+
+
+def test_rwkv_ple_input_gain_restores_recurrent_input_gradient() -> None:
+    module = _ple_module(ple_input_gain=0.25)[0]
+    control = torch.tensor(
+        [[[0.25, -0.75], [1.0, 0.5]]],
+        requires_grad=True,
+    )
+
+    zero_delta = module._rwkv_ple_memory_delta(torch.zeros_like(control))
+    delta = module._rwkv_ple_memory_delta(control)
+    delta.square().mean().backward()
+
+    assert torch.equal(zero_delta, torch.zeros_like(zero_delta))
+    assert torch.isfinite(delta).all()
+    assert control.grad is not None
+    assert torch.isfinite(control.grad).all()
+    assert control.grad.abs().gt(0).any()
 
 
 def test_rwkv_ple_hook_injects_before_native_per_layer_projection() -> None:
@@ -1041,6 +1470,38 @@ def test_chunk_addressed_write_aligns_keys_with_rwkv_slots() -> None:
     assert torch.count_nonzero(next_state).item() > 0
     assert module.rwkv_ms_positions is not None
     assert torch.equal(module.rwkv_ms_positions, torch.tensor([6]))
+    assert torch.count_nonzero(reads).item() == 0
+
+
+def test_recurrent_routed_projected_write_aligns_payloads_with_rwkv_slots() -> None:
+    module = _module(hybrid_mode="recurrent_routed_projected_value")
+    hidden = torch.randn(1, 5, module.hidden_size)
+    token_mask = torch.ones(1, 5, dtype=torch.bool)
+    state = module._ensure_state(1, hidden.device, hidden.dtype)
+    module.rwkv_ms_positions = torch.tensor([1])
+    expected_hidden = hidden[:, [4, 2]]
+    expected_keys, expected_values = module._projected_kv_project_hidden(
+        expected_hidden
+    )
+
+    next_state, reads, _, _ = module._projected_rwkv_hybrid_step(
+        state,
+        hidden,
+        token_mask,
+    )
+
+    assert module.projected_kv_keys is not None
+    assert torch.equal(module.projected_kv_keys, expected_keys)
+    assert module.projected_kv_values is not None
+    assert torch.equal(module.projected_kv_values, expected_values)
+    assert module.projected_kv_occupied is not None
+    assert torch.equal(module.projected_kv_occupied, torch.ones(1, 2, dtype=torch.bool))
+    assert module.last_write_routes is not None
+    assert torch.equal(
+        module.last_write_routes.argmax(dim=-1),
+        torch.tensor([[0, 1, 1, 0, 0]]),
+    )
+    assert torch.count_nonzero(next_state).item() > 0
     assert torch.count_nonzero(reads).item() == 0
 
 

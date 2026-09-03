@@ -1,0 +1,1581 @@
+{
+  "final_rows_opened": false,
+  "input_binding": {
+    "baseline_commit": {
+      "files": {
+        "frozen_gemma_base": {
+          "rows": 288,
+          "sha256": "3d8c30a07cf6715391b0bfd7959b01d3899b79e5fbee9a010da4014ae5662f6b"
+        },
+        "v9_projected_slot_baseline": {
+          "rows": 288,
+          "sha256": "8c4b1c68d81d8ac6345e000ec5de7388b7e61b8321cf31ae8e88b5f3a4029180"
+        }
+      },
+      "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_direct_ple_development_baselines_v1.json",
+      "receipt": "e73055b23c7fd85f5481a2e7a2342f6920f1cdb18e92119d0e2030ffe5783f0d",
+      "sha256": "fa3d8fde9e19ccaac627a7885e07484fcdde374e7302b754e8ac594f358107f7"
+    },
+    "benchmark_specific_decoder": false,
+    "candidate_adapter": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_direct_ple_train_v10/adapter",
+    "candidate_precision": {
+      "dtype": "float32",
+      "parameter_families": [
+        ".hrm_rwkv7_core."
+      ],
+      "parameter_names_sha256": "4f36757cb83450406548fd317a59760ed47fde15d2b3e3bc701a959db77dd0c2",
+      "parameter_suffixes": [
+        ".memory_v_proj",
+        ".projected_kv_key_proj",
+        ".beta_proj",
+        ".beta_bias",
+        ".rwkv_moe_hidden_weight",
+        ".rwkv_moe_addressed_weight",
+        ".rwkv_moe_global_weight",
+        ".rwkv_moe_bias",
+        ".rwkv_ple_down_weight",
+        ".rwkv_ple_up_weight"
+      ],
+      "parameter_tensors": 1302
+    },
+    "conditions": [
+      "correct_recurrent_state",
+      "zero_recurrent_state",
+      "matched_donor_recurrent_state",
+      "slot_shuffled_recurrent_state",
+      "layer_permuted_recurrent_state",
+      "projected_only_bypass"
+    ],
+    "dual_pass_selector": false,
+    "evaluator_sha256": "3b9076f12135cdef91e118d5bdff09d0d4204f80bde1d0c6b405f901ebd6d226",
+    "final_rows_opened": false,
+    "publisher_test_opened": false,
+    "publisher_validation_opened": false,
+    "rows": {
+      "attribution": {
+        "line_index": 0,
+        "prompt_variant": 0,
+        "row_sha256": "2ad26df0cc2ed5846a31c450af00aa298af5725b211561b7ff6c8fee53016276",
+        "source_ordinal": 23
+      },
+      "narrative": {
+        "line_index": 0,
+        "prompt_variant": 0,
+        "row_sha256": "353f9b84e319f67fdf7c97204f57cfc25593bb652c921eca8f1d8eb4407c387b",
+        "source_ordinal": 0
+      },
+      "scene": {
+        "line_index": 0,
+        "prompt_variant": 0,
+        "row_sha256": "2a6a85c5112da82ea9f7994957c50e8e3c3b419c031da386e08997961bb83b33",
+        "source_ordinal": 40
+      }
+    },
+    "runner_sha256": "f293f59e23a45ce7b40dfd71b85606e5374521df7a07b77b02b5f1baf421794a",
+    "task_router": false,
+    "template_matcher": false,
+    "training_result": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_direct_ple_train_v10/result.json",
+    "training_result_receipt": "1d1e29197421cc932949c958d48fd63202e034bbc08aa02cfad3a7817ad99bec",
+    "training_result_sha256": "982f15eb55a0cbb68e4dc69d3f4d9afd3c2f8e02eaec7baace32aa199edbbb45"
+  },
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "raw_records": {
+    "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_rwkv_direct_ple_generation_diagnostic_v1/records.jsonl",
+    "rows": 18,
+    "sha256": "cabbab926b45fa8bf77b04f597e0269cda02f3859b072ce6e7ec0e5d03769cde"
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "010eb117e9b140e41a86e864f6223addba99b91f368d9efa2d6727670bc7a6d3"
+  },
+  "schema": "rwkv_ms_natural_memory_native_rwkv_direct_ple_generation_diagnostic.v1",
+  "status": "diagnostic_complete_not_final_evaluation",
+  "summary": {
+    "conditions": {
+      "correct_recurrent_state": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:2": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative:0": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:1": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:2": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:3": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene:0": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:1": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:2": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:3": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      },
+      "layer_permuted_recurrent_state": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:2": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative:0": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:1": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:2": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:3": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene:0": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:1": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:2": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:3": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      },
+      "matched_donor_recurrent_state": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:2": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative:0": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:1": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:2": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:3": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene:0": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:1": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:2": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:3": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      },
+      "projected_only_bypass": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:2": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative:0": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:1": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:2": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:3": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene:0": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:1": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:2": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:3": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      },
+      "slot_shuffled_recurrent_state": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:2": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative:0": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:1": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:2": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:3": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene:0": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:1": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:2": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:3": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      },
+      "zero_recurrent_state": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:2": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative:0": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:1": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:2": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:3": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene:0": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:1": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:2": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:3": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      }
+    },
+    "sensitivity": {
+      "layer_permuted_recurrent_state": {
+        "prediction_changed_rows": 0,
+        "raw_generation_changed_rows": 0,
+        "score_changed_rows": 0,
+        "tasks": {
+          "attribution": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "narrative": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "scene": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          }
+        }
+      },
+      "matched_donor_recurrent_state": {
+        "prediction_changed_rows": 0,
+        "raw_generation_changed_rows": 0,
+        "score_changed_rows": 0,
+        "tasks": {
+          "attribution": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "narrative": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "scene": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          }
+        }
+      },
+      "projected_only_bypass": {
+        "prediction_changed_rows": 0,
+        "raw_generation_changed_rows": 0,
+        "score_changed_rows": 0,
+        "tasks": {
+          "attribution": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "narrative": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "scene": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          }
+        }
+      },
+      "slot_shuffled_recurrent_state": {
+        "prediction_changed_rows": 0,
+        "raw_generation_changed_rows": 0,
+        "score_changed_rows": 0,
+        "tasks": {
+          "attribution": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "narrative": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "scene": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          }
+        }
+      },
+      "zero_recurrent_state": {
+        "prediction_changed_rows": 0,
+        "raw_generation_changed_rows": 0,
+        "score_changed_rows": 0,
+        "tasks": {
+          "attribution": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "narrative": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          },
+          "scene": {
+            "prediction_changed": false,
+            "raw_generation_changed": false,
+            "score_changed": false
+          }
+        }
+      }
+    },
+    "systems": {
+      "direct_ple_candidate": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:2": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative:0": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:1": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:2": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:3": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene:0": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:1": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:2": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:3": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      },
+      "frozen_gemma_base": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 1.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:2": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative:0": {
+            "correct_units": 0,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.6333333333333333,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:1": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:2": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:3": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene:0": {
+            "fn": 1,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.6666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:1": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:2": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:3": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      },
+      "v9_projected_slot_baseline": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 1,
+            "uncertain_accuracy": 1.0
+          },
+          "narrative": {
+            "correct_units": 8,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.26666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 1,
+            "unit_label_accuracy": 0.26666666666666666
+          },
+          "scene": {
+            "fn": 1,
+            "fp": 1,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 1,
+            "tp": 0
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 1,
+            "uncertain_accuracy": 1.0
+          },
+          "attribution:1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:2": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "attribution:3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "joint_accuracy": 0.0,
+            "recovered_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "uncertain_accuracy": 0.0
+          },
+          "narrative:0": {
+            "correct_units": 8,
+            "gold_units": 30,
+            "recovered_unit_label_accuracy_diagnostic": 0.26666666666666666,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 1,
+            "unit_label_accuracy": 0.26666666666666666
+          },
+          "narrative:1": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:2": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "narrative:3": {
+            "correct_units": 0,
+            "gold_units": 0,
+            "recovered_unit_label_accuracy_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "unit_label_accuracy": 0.0
+          },
+          "scene:0": {
+            "fn": 1,
+            "fp": 1,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 1,
+            "rows": 1,
+            "strict_schema_valid": 1,
+            "tp": 0
+          },
+          "scene:1": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:2": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          },
+          "scene:3": {
+            "fn": 0,
+            "fp": 0,
+            "micro_f1": 0.0,
+            "recovered_micro_f1_diagnostic": 0.0,
+            "recovery_covered_diagnostic": 0,
+            "rows": 0,
+            "strict_schema_valid": 0,
+            "tp": 0
+          }
+        },
+        "rows": 3
+      }
+    }
+  }
+}

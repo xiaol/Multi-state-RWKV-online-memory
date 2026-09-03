@@ -1,0 +1,283 @@
+{
+  "final_rows_opened": false,
+  "input_binding": {
+    "base_model": "/root/x/models/gemma-4-E4B-it",
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "benchmark_specific_decoder": false,
+    "candidate_adapter": {
+      "config_sha256": "8f29587f5012568c23be2745a3ed2667d51e8b3074685fa1ade93e1d0532961a",
+      "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_broad_capped_train32_v2/adapter",
+      "weights_sha256": "efe30814361e9d3873a360cd157fc7ea834bae2a566b441e2ef31f3a4379e161"
+    },
+    "candidate_configuration_source": "signed_adapter_checkpoint",
+    "candidate_precision_audit": {
+      "adapter_config_sha256": "8f29587f5012568c23be2745a3ed2667d51e8b3074685fa1ade93e1d0532961a",
+      "dtype": "float32",
+      "loaded_hybrid_gain": 0.125,
+      "loaded_hybrid_mode": "recurrent_routed_query_value",
+      "parameter_names_sha256": "b114bd581ba26604a39adfbe493a14c1293701ab484e56b5e61b6d670e913420",
+      "parameter_suffixes": [
+        ".hrm_rwkv7_core.x_r",
+        ".hrm_rwkv7_core.x_w",
+        ".hrm_rwkv7_core.x_k",
+        ".hrm_rwkv7_core.x_v",
+        ".hrm_rwkv7_core.x_a",
+        ".hrm_rwkv7_core.x_g",
+        ".hrm_rwkv7_core.w1",
+        ".hrm_rwkv7_core.w2",
+        ".hrm_rwkv7_core.w0",
+        ".hrm_rwkv7_core.a1",
+        ".hrm_rwkv7_core.a2",
+        ".hrm_rwkv7_core.a0",
+        ".hrm_rwkv7_core.g1",
+        ".hrm_rwkv7_core.g2",
+        ".hrm_rwkv7_core.k_k",
+        ".hrm_rwkv7_core.k_a",
+        ".hrm_rwkv7_core.receptance.weight",
+        ".hrm_rwkv7_core.key.weight",
+        ".hrm_rwkv7_core.value.weight",
+        ".hrm_rwkv7_core.output.weight",
+        ".hrm_rwkv7_core.ln_x.weight",
+        ".memory_v_proj",
+        ".beta_proj",
+        ".beta_bias",
+        ".rwkv_route_query_proj",
+        ".rwkv_route_state_proj",
+        ".rwkv_pair_value_proj",
+        ".delta_q_proj",
+        ".delta_o_proj",
+        ".memory_fusion_hidden_weight",
+        ".memory_fusion_read_weight",
+        ".memory_fusion_bias",
+        ".delta_scale_raw"
+      ],
+      "parameter_tensors": 1386,
+      "weights_reloaded_after_promotion": true
+    },
+    "candidate_protocol_receipt": "4a5d47643ba5958dbfc16cfcd21e7d5ff4cf0e84eaf0dc85bb02f2bcb61c6d76",
+    "candidate_training_receipt": "220456a389675ed42d63cd825490f99459cdc8be2af0771e979f40554ff63f08",
+    "development_manifest": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_posttrain_development_v2/manifest.json",
+    "development_manifest_receipt": "2236d1e3e980ce92787e34500a40a38634ea7017835e629759d9564ba99036d6",
+    "dual_pass_selector": false,
+    "final_rows_opened": false,
+    "generation": "single-pass greedy batch-one with one write then one read for memory systems",
+    "hf_endpoint": "https://hf-mirror.com",
+    "prompt_variants_sha256": "36b966b58c9ea8d6b5b08d085430716556642c2c072b0bec1f17b5ba93416643",
+    "publisher_test_opened": false,
+    "publisher_validation_opened": false,
+    "rank_devices": [
+      {
+        "device_index": 0,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "ea61a4c0-419e-e40f-f98d-e9f13d1b1095",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 0,
+        "pid": 510155,
+        "process_rank": 0
+      },
+      {
+        "device_index": 1,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "3892ac74-d4a8-0bf4-59c7-d8a14d5dc7bc",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 1,
+        "pid": 510156,
+        "process_rank": 1
+      },
+      {
+        "device_index": 2,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "6327bb5c-91c6-fca7-f6bf-b7f1de5a2f05",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 2,
+        "pid": 510157,
+        "process_rank": 2
+      },
+      {
+        "device_index": 3,
+        "device_name": "NVIDIA A100-PCIE-40GB",
+        "device_total_memory_bytes": 42406903808,
+        "device_uuid": "437b5974-0b61-9ab6-d9a7-b84ac3fc3874",
+        "hostname": "bms-rwkv-0001",
+        "local_rank": 3,
+        "pid": 510158,
+        "process_rank": 3
+      }
+    ],
+    "rows_per_task": {
+      "attribution": 32,
+      "narrative": 128,
+      "scene": 128
+    },
+    "runner_sha256": "f41b3d2723425b1dcb772fceef48d45289e080364603a6ae54d917d420695a71",
+    "schema": "rwkv_ms_recurrent_routed_development_generation_input.v2",
+    "systems": [
+      "recurrent_routed_candidate"
+    ],
+    "task_router": false,
+    "template_matcher": false,
+    "v9_adapter": {
+      "config_sha256": "94b4649a2b14f178dfd2b2de18bcc77894a5606f8b67426bf753f033690273f4",
+      "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/natural_memory_native_shared_qo_gate_stage1_v9/adapter",
+      "weights_sha256": "b063940a9be0712f830a992e9114055e4488297b0842245e6e26563b303545a9"
+    },
+    "world_size": 4
+  },
+  "passed": false,
+  "publisher_test_opened": false,
+  "publisher_validation_opened": false,
+  "raw_prediction_files": {
+    "recurrent_routed_candidate": {
+      "path": "/root/x/Multi-state-RWKV-online-memory/experiments/rethinking_rwkv_ms_gemma/local_artifacts/recurrent_routed_query_value_broad_capped_development_generation_v1/recurrent_routed_candidate.jsonl",
+      "rows": 288,
+      "sha256": "f901e195778e617dbc8eafb997e2437ea996bbc06b5a311a7b7a25ed86b9f20a"
+    }
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_result_without_receipt",
+    "payload_sha256": "a28fec78dbeec21d4c99dd0e58b6ab8f9d17e8a07fb2be1f0641872b6579e6ef"
+  },
+  "schema": "rwkv_ms_recurrent_routed_development_generation.v2",
+  "status": "development_generation_failed",
+  "summary": {
+    "passed": false,
+    "promotion_criteria": {
+      "passed": false,
+      "status": "all_three_systems_required"
+    },
+    "systems": {
+      "recurrent_routed_candidate": {
+        "by_task": {
+          "attribution": {
+            "accuracy": 0.5625,
+            "correct": 18,
+            "covered": 31,
+            "rows": 32,
+            "strict_schema_valid": 31
+          },
+          "narrative": {
+            "correct_units": 2388,
+            "covered": 91,
+            "gold_units": 5200,
+            "rows": 128,
+            "strict_schema_valid": 113,
+            "unit_label_accuracy": 0.4592307692307692
+          },
+          "scene": {
+            "covered": 126,
+            "fn": 58,
+            "fp": 301,
+            "micro_f1": 0.18961625282167044,
+            "rows": 128,
+            "strict_schema_valid": 124,
+            "tp": 42
+          }
+        },
+        "by_task_prompt_variant": {
+          "attribution:0": {
+            "accuracy": 0.75,
+            "correct": 6,
+            "covered": 8,
+            "rows": 8,
+            "strict_schema_valid": 8
+          },
+          "attribution:1": {
+            "accuracy": 0.375,
+            "correct": 3,
+            "covered": 8,
+            "rows": 8,
+            "strict_schema_valid": 8
+          },
+          "attribution:2": {
+            "accuracy": 0.5,
+            "correct": 4,
+            "covered": 8,
+            "rows": 8,
+            "strict_schema_valid": 8
+          },
+          "attribution:3": {
+            "accuracy": 0.625,
+            "correct": 5,
+            "covered": 7,
+            "rows": 8,
+            "strict_schema_valid": 7
+          },
+          "narrative:0": {
+            "correct_units": 828,
+            "covered": 31,
+            "gold_units": 1300,
+            "rows": 32,
+            "strict_schema_valid": 28,
+            "unit_label_accuracy": 0.6369230769230769
+          },
+          "narrative:1": {
+            "correct_units": 557,
+            "covered": 22,
+            "gold_units": 1300,
+            "rows": 32,
+            "strict_schema_valid": 28,
+            "unit_label_accuracy": 0.42846153846153845
+          },
+          "narrative:2": {
+            "correct_units": 727,
+            "covered": 27,
+            "gold_units": 1300,
+            "rows": 32,
+            "strict_schema_valid": 27,
+            "unit_label_accuracy": 0.5592307692307692
+          },
+          "narrative:3": {
+            "correct_units": 276,
+            "covered": 11,
+            "gold_units": 1300,
+            "rows": 32,
+            "strict_schema_valid": 30,
+            "unit_label_accuracy": 0.2123076923076923
+          },
+          "scene:0": {
+            "covered": 32,
+            "fn": 18,
+            "fp": 35,
+            "micro_f1": 0.208955223880597,
+            "rows": 32,
+            "strict_schema_valid": 32,
+            "tp": 7
+          },
+          "scene:1": {
+            "covered": 32,
+            "fn": 11,
+            "fp": 131,
+            "micro_f1": 0.16470588235294117,
+            "rows": 32,
+            "strict_schema_valid": 31,
+            "tp": 14
+          },
+          "scene:2": {
+            "covered": 32,
+            "fn": 11,
+            "fp": 97,
+            "micro_f1": 0.20588235294117646,
+            "rows": 32,
+            "strict_schema_valid": 31,
+            "tp": 14
+          },
+          "scene:3": {
+            "covered": 30,
+            "fn": 18,
+            "fp": 38,
+            "micro_f1": 0.2,
+            "rows": 32,
+            "strict_schema_valid": 30,
+            "tp": 7
+          }
+        },
+        "rows": 288
+      }
+    }
+  }
+}

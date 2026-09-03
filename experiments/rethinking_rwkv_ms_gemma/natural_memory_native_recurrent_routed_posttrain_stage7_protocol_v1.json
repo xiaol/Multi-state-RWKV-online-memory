@@ -1,0 +1,98 @@
+{
+  "schema": "rwkv_ms_natural_memory_native_recurrent_routed_posttrain_stage7_protocol.v1",
+  "created_at": "2026-08-29T04:30:00+08:00",
+  "objective": "Make semantic recurrent routing invariant to the four preregistered prompt paraphrases by presenting every selected target under all four formats within one optimizer batch, starting from the near-passing stage-2 checkpoint.",
+  "diagnosis": {
+    "stage2_training_result_receipt": "01ada5458eca9c1f53987862585bba71c3fc7c2832dd737bf77cb095f479e712",
+    "stage2_development_result_receipt": "88129262892d28795b23752d44289133c2f5416245847d944af17c9b4853a47a",
+    "stage5_development_result_receipt": "a4117c333c64ccbc0b91c19d8c2f7ecf58f6dfb0b0b28a8cc573dac45fe00508",
+    "stage6_development_result_receipt": "07f17fe62b69312783d997102b7edeb146bac7eddddb36fccba023e88c88080f",
+    "persistent_prompt_specific_failures": [
+      "attribution:2",
+      "narrative:0",
+      "narrative:3"
+    ],
+    "prior_schedule_limitation": "Every semantic target was shown under only one paraphrase, so global variant balance did not enforce same-example prompt invariance.",
+    "final_evaluation_authorized": false
+  },
+  "frozen_inputs": {
+    "base_model_revision": "a4c2d58be94dda072b918d9db64ee85c8ed34e3f",
+    "base_model_weights_sha256": "cfbd3d2f1cd71bd471c37fe2bf8546d5028d41e5736f64e1ca6c6b8893125503",
+    "stage2_adapter_weights_sha256": "7af3769fa34631329a54fb8caf44797a3a5598344e104680b6aa2cb108339248",
+    "stage2_adapter_config_sha256": "dc20cbe794479c9f802b45bedef83ff65543445dd85bfdb36419396cadd95d37",
+    "split_manifest_receipt": "05314bfcaa3f4c6febe860f33bf7867af8d57a80e9e1b9020b1cc318bceebc96",
+    "final_commitment_receipt": "c8c106a00e1379e26bbae5b774f0fe831de2c2527c3195a1e42881a33b2b2fae",
+    "open_split_receipt": "159cf93c913715f0c90e03ca659bf3bd4f1deb9d3e12c64f923d7b5b71340ad8",
+    "final_rows_opened": false,
+    "publisher_validation_opened": false,
+    "publisher_test_opened": false
+  },
+  "architecture": {
+    "rwkv_ms_hybrid_mode": "recurrent_routed_projected_value",
+    "trainable_parameter_families": [
+      "rwkv_route_query_proj",
+      "rwkv_route_state_proj",
+      "hrm_rwkv7_core.output.weight"
+    ],
+    "trainable_tensors": 126,
+    "task_router": false,
+    "template_matcher": false,
+    "dual_pass_selector": false,
+    "benchmark_specific_decoder": false
+  },
+  "training": {
+    "initial_checkpoint": "stage2 trained candidate",
+    "preflight_optimizer_updates": 1,
+    "optimizer_updates": 20,
+    "global_batch_rows": 8,
+    "local_rows_per_rank": 2,
+    "unique_semantic_targets": 40,
+    "rows_including_paraphrases": 160,
+    "unique_targets_by_task": {
+      "attribution": 10,
+      "narrative": 20,
+      "scene": 10
+    },
+    "rows_by_task": {
+      "attribution": 40,
+      "narrative": 80,
+      "scene": 40
+    },
+    "each_target_prompt_variants": [0, 1, 2, 3],
+    "optimizer": "fused AdamW with fresh moments",
+    "learning_rate": 0.000005,
+    "weight_decay": 0.0,
+    "max_gradient_norm": 0.05,
+    "contrast_margin": 0.02,
+    "control_weights": {
+      "zero_recurrent_state": 0.125,
+      "matched_donor_recurrent_state": 1.0,
+      "slot_shuffled_recurrent_state": 0.125,
+      "layer_permuted_recurrent_state": 0.25
+    },
+    "full_answer_cross_entropy": true,
+    "candidate_sweep": false,
+    "final_rows_opened_during_training": false
+  },
+  "development_gate": {
+    "identical_to_prior_gates": true,
+    "required_overall_correct_over_all_controls": true,
+    "required_per_task_correct_over_all_controls": true,
+    "required_all_task_prompt_variants_correct_over_donor": true,
+    "required_projected_carriers_fixed": true,
+    "final_evaluation_authorized_only_on_pass": true
+  },
+  "final_gate": {
+    "unchanged": true,
+    "final_rows_per_task": 64,
+    "single_pass_raw_generation_only": true,
+    "candidate_non_regressive_against_stronger_baseline_on_every_task": true,
+    "candidate_strictly_better_than_both_baselines_on_at_least_one_task": true,
+    "final_rows_opened": false
+  },
+  "receipt": {
+    "algorithm": "sha256",
+    "payload_scope": "canonical_protocol_without_receipt",
+    "payload_sha256": "f7b4833c3b5442fb31568f255e88a6cdda80b319fb11db66255017d3231bbdec"
+  }
+}
