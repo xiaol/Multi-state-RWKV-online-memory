@@ -38,6 +38,41 @@ Because the passage is never in the read context, `memory_correct` above `memory
 only possible if the state carries row-specific content. On the native rows in the rest of
 this repository that separation cannot occur by construction.
 
+## Reading the results
+
+Every evaluation row in `RESULTS.md` and `log.jsonl` reports the same frozen model under four
+read conditions. The adapter is the same trained object in the three memory conditions; the
+fourth uses no adapter at all.
+
+| column | what the read pass sees | what it measures |
+| --- | --- | --- |
+| `correct` (`memory_correct`) | question only + memory slots computed from the state written from **this row's** passage | the actual memory: can the state carry the fact into the answer? |
+| `donor` (`memory_donor`) | question only + slots from the state written from **another row's** passage (the previous row in the eval batch, same task and format, different names and values) | the control: anything `correct` gains over `donor` is row-specific content; anything they share is just format or prior learned by the adapter |
+| `zero` (`memory_zero`) | question only, no slots | the frozen base with no information at all (chance level for the task) |
+| `in context` (`base_in_context`) | passage **and** question in the prompt, no slots, frozen base only | the upper bound: what the frozen model does when it can read the passage with its own attention |
+
+So the ordering to look for is `zero` <= `donor` < `correct` <= `in context`. A memory that only
+teaches the answer format shows `correct == donor` far above `zero`; a memory that stores content
+shows `correct` clearly above `donor`.
+
+Metrics per condition:
+
+* **EM** (exact match): the model generates greedily (up to `--max-new-tokens`), the first line of
+  the output is lower-cased, punctuation and articles are stripped, and it must equal the gold
+  value (any of the gold aliases for SQuAD). Fraction of rows, 0 to 1. This is the primary metric.
+* **CE** (answer cross-entropy): teacher-forced mean per-token negative log-likelihood of the gold
+  answer tokens (including the end-of-turn token) given the prompt; lower is better. Comparable
+  across the three memory conditions because they share the trained adapter. It is **not** directly
+  comparable between the memory conditions and `in context`: the trained adapter has learned the
+  answer style, so its CE can be lower than the frozen base's even when its EM is far worse (see the
+  SQuAD row, where `in context` has CE 3.40 but EM 0.52).
+* **F1** (in `log.jsonl` only): SQuAD-style token F1 between prediction and gold.
+* **mem mass**: mean attention probability that the wrapped layers put on the memory slots during
+  the `correct` read pass, averaged over heads, query positions and layers. Diagnostic only; it
+  shows the frozen model is using the slots, not that the slots are useful.
+* **step**: optimizer updates completed when the evaluation ran. **eval set**: `synthetic_kN`
+  means N facts per passage (training used K=8 unless noted), `squad_val` is SQuAD v1.1 validation.
+
 ## Multi-state
 
 `--n-states S --slots-per-state M --routing {single,chunk,cosine}` keeps the total slot count

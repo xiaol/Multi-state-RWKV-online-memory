@@ -1667,8 +1667,15 @@ delta-rule / RWKV-style multi-state memory, the context is cleared, and the ques
 The state is read through extra key/value slots inside the frozen model's attention (no base
 weight, projection, rotary, or KV-cache code is modified).
 
-On frozen Qwen3-1.7B with 8-fact passages, 3000 adapter updates give 0.586 exact match with the
-correct state versus 0.074 with a donor state (no memory 0.031, passage in context 1.000). An
+Every run is scored under four read conditions on the same held-out rows: **correct** (question
+plus memory slots from this row's passage), **donor** (question plus slots from another row's
+passage: same task and format, different names and values, so any gap over it is row-specific
+content), **no memory** (question only, chance level), and **in context** (passage and question in
+the prompt with no adapter at all: the frozen model reading the passage with its own attention,
+the upper bound). The metric is exact match of the greedy answer after normalisation; answer
+cross-entropy and attention mass on the slots are also logged. On frozen Qwen3-1.7B with 8-fact
+passages, 3000 adapter updates give 0.586 exact match with the correct state versus 0.074 with a
+donor state (no memory 0.031, in context 1.000). An
 uncompressed KV bank reaches 0.602, so the delta-state compression is nearly free. On frozen
 Gemma4 E4B the same memory binds only when the write reads the post-layernorm attention input
 instead of the raw residual (one residual dimension carries about 80 percent of the energy):

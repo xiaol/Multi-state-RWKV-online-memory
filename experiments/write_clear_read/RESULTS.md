@@ -1,9 +1,27 @@
 # Write / clear / read results
 
-Exact match (EM) and answer cross-entropy (CE) of the frozen base under four read conditions.
-`correct` = state written from this row's passage; `donor` = state from another row's passage;
-`zero` = no memory; `in_context` = passage in the prompt (upper bound). Passage is never in the
-read context for the three memory conditions. Regenerate with `python report.py`.
+One frozen base model, evaluated under four read conditions on the same rows. The passage is
+never in the read context for the three memory conditions; only the state survives.
+
+* `correct`: question + memory slots from the state written from **this row's** passage.
+* `donor`: question + slots from the state written from **another row's** passage (previous row
+  in the eval batch). Same task and format, different names and values. The control: the gap
+  `correct - donor` is the row-specific content the state carries; what they share is format.
+* `zero`: question only, no slots. The frozen base with no information (chance level).
+* `in-context`: passage **and** question in the prompt, no slots, no adapter. The upper bound:
+  the frozen model reading the passage with its own attention.
+
+Expected ordering for a working memory: `zero <= donor < correct <= in-context`.
+
+**EM**: greedy generation, first line normalised (lower-case, no punctuation or articles),
+must equal the gold value (any alias for SQuAD); fraction of rows. Primary metric.
+**CE**: teacher-forced mean per-token cross-entropy of the gold answer tokens; lower is better.
+Comparable across the three memory conditions (same adapter), not against `in-context`,
+because the trained adapter learns the answer style (SQuAD: in-context CE 3.40 but EM 0.52).
+**mem mass**: mean attention probability on the memory slots in the wrapped layers during the
+`correct` read; diagnostic only. **step**: optimizer updates. **eval set**: `synthetic_kN` = N
+facts per passage (training used K=8 unless the setup says otherwise); `squad_val` = SQuAD v1.1
+validation. Regenerate with `python report.py`.
 
 | run | setup | step | eval set | correct EM | donor EM | zero EM | in-context EM | correct CE | donor CE | zero CE | mem mass |
 |---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|

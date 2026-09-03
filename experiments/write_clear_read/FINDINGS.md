@@ -1,9 +1,20 @@
 # Findings: does a delta-rule / RWKV-style memory work on a frozen base?
 
-Date: 2026-09-04. Numbers are exact match (EM) on 256 held-out synthetic passages with 8 facts about
-invented people (fresh names and values, disjoint name pools from training), question asked with the
-passage **absent** from the context. `correct` / `donor` = state written from this row's / another
-row's passage. Full tables: `RESULTS.md` (regenerate with `python report.py`).
+Date: 2026-09-04. Numbers are exact match (EM) of the greedy answer on 256 held-out synthetic
+passages with 8 facts about invented people (fresh names and values, disjoint name pools from
+training). The same frozen model is scored under four read conditions:
+
+* `correct`: question only in the prompt, plus memory slots from the state written from this row's
+  passage. The memory being tested.
+* `donor`: question only, plus slots from the state written from another row's passage (same task
+  and format, different names and values). The control: `correct - donor` is row-specific content;
+  what both share is answer format the adapter learned.
+* `zero` / no memory: question only, no slots. Chance level for the frozen base.
+* `in context`: passage and question both in the prompt, no adapter. The upper bound: the frozen
+  model reading the passage with its own attention.
+
+A working memory shows `zero <= donor < correct <= in context`. Metric definitions (EM, CE,
+mem mass) are in `README.md`; full tables in `RESULTS.md` (regenerate with `python report.py`).
 
 ## Short answer
 
